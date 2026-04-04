@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\AuditLog;
 use Illuminate\Support\Facades\Auth;
+use App\Jobs\LogAuditEntry;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 
@@ -28,33 +29,40 @@ class AuditLogger
         ?string $transactionId = null
     ): void
     {
+        $user = Auth::user();
+        $request = request();
+
+        $resolvedLabel = $actionLabel ?: self::humanizeAction($action);
+        $resolvedTransaction = $transactionId
+            ?: (self::$requestTransaction ??= (string) Str::uuid());
+
+        $payload = [
+            'actor_id' => $user?->id,
+            'actor_role' => $user?->role,
+            'action' => $action,
+            'action_label' => $resolvedLabel,
+            'action_type' => $actionType,
+            'entity_type' => $entityType,
+            'entity_id' => $entityId,
+            'branch_id' => $branchId,
+            'target_branch_id' => $targetBranchId ?? $branchId,
+            'ip_address' => $request?->ip(),
+            'user_agent' => $request?->userAgent(),
+            'status' => $status,
+            'remarks' => $remarks,
+            'transaction_id' => $resolvedTransaction,
+            'metadata' => $metadata,
+        ];
+
         try {
-            $user = Auth::user();
-            $request = request();
-
-            $resolvedLabel = $actionLabel ?: self::humanizeAction($action);
-            $resolvedTransaction = $transactionId
-                ?: (self::$requestTransaction ??= (string) Str::uuid());
-
-            AuditLog::create([
-                'actor_id' => $user?->id,
-                'actor_role' => $user?->role,
-                'action' => $action,
-                'action_label' => $resolvedLabel,
-                'action_type' => $actionType,
-                'entity_type' => $entityType,
-                'entity_id' => $entityId,
-                'branch_id' => $branchId,
-                'target_branch_id' => $targetBranchId ?? $branchId,
-                'ip_address' => $request?->ip(),
-                'user_agent' => $request?->userAgent(),
-                'status' => $status,
-                'remarks' => $remarks,
-                'transaction_id' => $resolvedTransaction,
-                'metadata' => $metadata,
-            ]);
+            LogAuditEntry::dispatch($payload);
         } catch (\Throwable $e) {
-            // Do not block user flow if logging fails.
+            // Fallback to synchronous write if queue dispatch fails.
+            try {
+                AuditLog::create($payload);
+            } catch (\Throwable $inner) {
+                // swallow to avoid blocking user flow
+            }
         }
     }
 

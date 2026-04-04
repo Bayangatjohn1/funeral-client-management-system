@@ -290,6 +290,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin'])->prefix('admin')->gro
     Route::patch('/cases/{funeral_case}/verification', [ReportController::class, 'updateVerification'])->name('admin.cases.verification');
     Route::get('/reports/sales', [ReportController::class, 'sales'])->name('admin.reports.sales');
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('admin.audit-logs.index');
+    Route::get('/audit-logs/{audit_log}', [AuditLogController::class, 'show'])->name('admin.audit-logs.show');
 });
 
 Route::middleware(['auth', 'no_cache', 'active'])->group(function () {

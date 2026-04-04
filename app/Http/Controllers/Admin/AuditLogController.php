@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\Branch;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class AuditLogController extends Controller
 {
@@ -25,7 +26,10 @@ class AuditLogController extends Controller
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
         ]);
 
-        $query = AuditLog::with(['actor', 'branch'])
+        $query = AuditLog::with([
+                'actor:id,name,role',
+                'branch:id,branch_code,branch_name',
+            ])
             ->latest();
 
         if ($request->filled('user_id')) {
@@ -52,13 +56,32 @@ class AuditLogController extends Controller
 
         $logs = $query->paginate(25)->withQueryString();
 
+        $users = Cache::remember('audit:users:list', 600, fn () => User::orderBy('name')->get(['id', 'name']));
+        $branches = Cache::remember('audit:branches:list', 600, fn () => Branch::orderBy('branch_code')->get(['id', 'branch_code', 'branch_name']));
+
         return view('admin.reports.audit_logs', [
             'logs' => $logs,
-            'users' => User::orderBy('name')->get(['id', 'name']),
-            'branches' => Branch::orderBy('branch_code')->get(['id', 'branch_code', 'branch_name']),
+            'users' => $users,
+            'branches' => $branches,
             'actionTypes' => ['create', 'update', 'delete', 'status_change', 'financial', 'security'],
             'entityTypes' => AuditLog::query()->select('entity_type')->distinct()->pluck('entity_type')->filter()->values(),
             'filters' => $validated,
+        ]);
+    }
+
+    public function show(AuditLog $audit_log)
+    {
+        $this->authorize('view', $audit_log);
+
+        return response()->json([
+            'remarks' => $audit_log->remarks,
+            'status' => $audit_log->status,
+            'metadata' => $audit_log->metadata,
+            'ip_address' => $audit_log->ip_address,
+            'user_agent' => $audit_log->user_agent,
+            'transaction_id' => $audit_log->transaction_id,
+            'created_at' => $audit_log->created_at,
+            'action_label' => $audit_log->action_label,
         ]);
     }
 }

@@ -150,6 +150,10 @@
                                 Details
                                 <svg class="w-3 h-3 ml-1 group-open/details:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                             </summary>
+                            @php
+                                $metadataJson = json_encode($log->metadata ?? []);
+                                $isHeavy = strlen($metadataJson) > 2000;
+                            @endphp
                             <div class="absolute right-0 top-full mt-2 w-80 z-10 bg-slate-900 text-slate-200 text-[11px] p-4 rounded-lg shadow-xl text-left font-mono space-y-3">
                                 @if($log->remarks)
                                     <div>
@@ -199,7 +203,7 @@
                                         });
                                 @endphp
 
-                                @if($snapshot->isNotEmpty())
+                                @if($snapshot->isNotEmpty() && !$isHeavy)
                                     <div>
                                         <div class="text-indigo-400 font-bold mb-1 border-b border-slate-700 pb-1">RECORD SNAPSHOT</div>
                                         @foreach($snapshot as $label => $value)
@@ -212,6 +216,12 @@
                                                 @endif
                                             </div>
                                         @endforeach
+                                    </div>
+                                @elseif($isHeavy)
+                                    <div>
+                                        <div class="text-indigo-400 font-bold mb-1 border-b border-slate-700 pb-1">RECORD SNAPSHOT</div>
+                                        <button class="text-indigo-300 underline hover:text-indigo-100 load-audit-details" data-log-id="{{ $log->id }}">Load details</button>
+                                        <div class="text-slate-500 text-[10px]">Large payload deferred to keep page fast.</div>
                                     </div>
                                 @endif
 
@@ -236,3 +246,33 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.load-audit-details').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const id = btn.getAttribute('data-log-id');
+            const container = btn.parentElement;
+            btn.textContent = 'Loading...';
+            try {
+                const res = await fetch(`{{ route('admin.audit-logs.index') }}/${id}`, { headers: { 'Accept': 'application/json' }});
+                if (!res.ok) throw new Error('Failed to load');
+                const data = await res.json();
+                const entries = [];
+                const snapshot = data.metadata || {};
+                delete snapshot.changes;
+                Object.entries(snapshot).forEach(([k,v]) => {
+                    entries.push(`<div class="mb-1"><span class="text-slate-500">${k.replace(/_/g,' ')}:</span> ${typeof v === 'object' ? JSON.stringify(v) : v}</div>`);
+                });
+                container.innerHTML = `<div class="text-indigo-400 font-bold mb-1 border-b border-slate-700 pb-1">RECORD SNAPSHOT</div>${entries.join('')}`;
+            } catch (err) {
+                btn.textContent = 'Retry';
+                alert('Could not load details.');
+            }
+        });
+    });
+});
+</script>
+@endpush

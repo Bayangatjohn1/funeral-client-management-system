@@ -63,6 +63,25 @@ class User extends Authenticatable
         ];
     }
 
+    public function temporaryPermissions()
+    {
+        return $this->hasMany(\App\Models\TemporaryCrossBranchPermission::class);
+    }
+
+    public function latestTemporaryPermission()
+    {
+        return $this->hasOne(\App\Models\TemporaryCrossBranchPermission::class, 'user_id')
+            ->latestOfMany('granted_at');
+    }
+
+    public function activeTemporaryPermission(): ?\App\Models\TemporaryCrossBranchPermission
+    {
+        return $this->temporaryPermissions()
+            ->active()
+            ->orderByDesc('granted_at')
+            ->first();
+    }
+
     public function canEncodeAnyBranch(): bool
     {
         if ($this->role === 'admin') {
@@ -73,28 +92,30 @@ class User extends Authenticatable
             return false;
         }
 
-        if ($this->can_encode_any_branch) {
-            return true;
-        }
-
-        $this->loadMissing('branch');
-
-        return $this->branch?->branch_code === 'BR001';
+        return (bool) $this->activeTemporaryPermission();
     }
 
     public function branchScopeIds(): array
     {
-        if ($this->role === 'admin' || $this->canEncodeAnyBranch()) {
+        if ($this->role === 'admin') {
             return \App\Models\Branch::where('is_active', true)->pluck('id')->all();
         }
 
-        $branchIds = $this->branches()
-            ->where('is_active', true)
-            ->pluck('branches.id')
-            ->all();
+        $branchIds = [];
 
-        if ($this->branch_id) {
-            $branchIds[] = (int) $this->branch_id;
+        if ($this->role === 'staff') {
+            $branchIds = $this->branches()
+                ->where('is_active', true)
+                ->pluck('branches.id')
+                ->all();
+
+            if ($this->branch_id) {
+                $branchIds[] = (int) $this->branch_id;
+            }
+
+            if ($permission = $this->activeTemporaryPermission()) {
+                $branchIds[] = (int) $permission->allowed_branch_id;
+            }
         }
 
         return array_values(array_unique(array_map('intval', $branchIds)));

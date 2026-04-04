@@ -85,6 +85,10 @@ class ClientController extends Controller
 
     public function edit(Client $client)
     {
+        if (auth()->user()?->role === 'staff') {
+            return redirect()->route('clients.index')->with('warning', 'Need permission from the admin.');
+        }
+
         if ((int) $client->branch_id !== $this->mainBranchIdForDirectory()) {
             abort(403);
         }
@@ -109,6 +113,10 @@ class ClientController extends Controller
 
     public function update(Request $request, Client $client)
     {
+        if (auth()->user()?->role === 'staff') {
+            return redirect()->route('clients.index')->with('warning', 'Need permission from the admin.');
+        }
+
         if ((int) $client->branch_id !== $this->mainBranchIdForDirectory()) {
             abort(403);
         }
@@ -160,18 +168,10 @@ class ClientController extends Controller
     private function mainBranchIdForDirectory(): int
     {
         $user = auth()->user();
-        if (!$user || !$user->canEncodeAnyBranch()) {
+        if (!$user || !$user->branch_id) {
             abort(403);
         }
 
-        $mainBranchId = (int) Branch::where('is_active', true)
-            ->where('branch_code', 'BR001')
-            ->value('id');
-
-        if ($mainBranchId <= 0) {
-            abort(500, 'Main branch (BR001) is not configured.');
-        }
-
-        return $mainBranchId;
+        return (int) $user->branch_id;
     }
 }

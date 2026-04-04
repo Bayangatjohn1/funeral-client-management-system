@@ -70,7 +70,7 @@
             <div class="list-card-copy">
                 {{ $isOtherView
                     ? 'Review completed external reports and their verification status.'
-                    : 'Browse fully completed and paid main-branch cases.' }}
+                    : 'Browse completed main-branch cases, including those with outstanding balances.' }}
             </div>
         </div>
     </div>
@@ -132,6 +132,9 @@
                         }}">
                             {{ $case->payment_status }}
                         </span>
+                        @if($case->payment_status === 'PARTIAL')
+                            <div class="text-[11px] font-semibold text-amber-600 mt-1">With Balance</div>
+                        @endif
                     </td>
                     <td>
                         <a href="{{ route('funeral-cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}" class="table-action-link">View</a>

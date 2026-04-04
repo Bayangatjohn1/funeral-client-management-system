@@ -130,7 +130,6 @@ class FuneralCaseController extends Controller
         $query = FuneralCase::with(['client', 'deceased', 'branch'])
             ->where('branch_id', $mainBranchId)
             ->where('case_status', 'COMPLETED')
-            ->where('payment_status', 'PAID')
             ->where(function ($scopeQuery) {
                 $scopeQuery->where('entry_source', 'MAIN')
                     ->orWhereNull('entry_source');
@@ -183,7 +182,9 @@ class FuneralCaseController extends Controller
         $canEncodeAnyBranch = $user->canEncodeAnyBranch();
 
         if (!$canEncodeAnyBranch) {
-            abort(403);
+            return redirect()
+                ->back()
+                ->with('warning', 'You need permission from the admin to view other-branch reports.');
         }
 
         $scopeBranches = Branch::whereIn('id', $scopeBranchIds)->orderBy('branch_code')->get();

@@ -53,9 +53,11 @@
                         <a href="{{ route('clients.show', $client) }}" data-url="{{ route('clients.show', $client) }}" class="action-chip open-client-modal">
                             <i class="bi bi-eye"></i><span>View</span>
                         </a>
+                        @if(auth()->user()?->role !== 'staff')
                         <a href="{{ route('clients.edit', $client) }}" data-url="{{ route('clients.edit', $client) }}" class="action-chip action-chip-primary open-client-modal">
                             <i class="bi bi-pencil-square"></i><span>Edit</span>
                         </a>
+                        @endif
                         <a href="{{ route('payments.index', ['q' => $client->full_name]) }}" class="action-chip">
                             <i class="bi bi-cash-stack"></i><span>Payments</span>
                         </a>

@@ -7,12 +7,21 @@ use App\Models\Branch;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
+use Carbon\Carbon;
+use App\Support\AuditLogger;
 
 class UserController extends Controller
 {
     public function index()
     {
-        $users = User::with('branch')->latest()->get();
+        $users = User::with([
+                'branch',
+                'latestTemporaryPermission',
+                'latestTemporaryPermission.branch',
+            ])
+            ->latest()
+            ->get();
         return view('admin.users.index', compact('users'));
     }
 
@@ -34,6 +43,9 @@ class UserController extends Controller
             'position' => 'nullable|string|max:100',
             'address' => 'nullable|string|max:255',
             'can_encode_any_branch' => 'nullable|boolean',
+            'grant_temp_access' => 'nullable|boolean',
+            'temp_allowed_branch_id' => 'nullable|exists:branches,id',
+            'temp_expires_at' => 'nullable|date|after_or_equal:today',
         ]);
 
         if ($validated['role'] === 'staff' && empty($validated['branch_id'])) {
@@ -41,8 +53,7 @@ class UserController extends Controller
         }
 
         $canEncodeAnyBranch = $validated['role'] === 'staff' ? $request->boolean('can_encode_any_branch') : false;
-
-        User::create([
+        $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
@@ -55,6 +66,8 @@ class UserController extends Controller
             'is_active' => true,
         ]);
 
+        $this->maybeGrantTemporaryPermission($request, $user);
+
         $returnTo = $request->input('return_to');
         if ($returnTo) {
             return redirect()->to($returnTo)->with('success', 'User created successfully.');
@@ -65,8 +78,20 @@ class UserController extends Controller
 
     public function edit(User $user)
     {
+        $user->load([
+            'branch',
+            'latestTemporaryPermission',
+            'latestTemporaryPermission.branch',
+        ]);
+
+        $activeTempPermission = $user->temporaryPermissions()
+            ->active()
+            ->latest('granted_at')
+            ->first();
+        $latestTempPermission = $user->latestTemporaryPermission;
+
         $branches = Branch::orderBy('branch_name')->get();
-        return view('admin.users.edit', compact('user', 'branches'));
+        return view('admin.users.edit', compact('user', 'branches', 'activeTempPermission', 'latestTempPermission'));
     }
 
     public function update(Request $request, User $user)
@@ -80,6 +105,9 @@ class UserController extends Controller
             'position' => 'nullable|string|max:100',
             'address' => 'nullable|string|max:255',
             'can_encode_any_branch' => 'nullable|boolean',
+            'grant_temp_access' => 'nullable|boolean',
+            'temp_allowed_branch_id' => 'nullable|exists:branches,id',
+            'temp_expires_at' => 'nullable|date|after_or_equal:today',
         ]);
 
         if ($validated['role'] === 'staff' && empty($validated['branch_id'])) {
@@ -98,6 +126,8 @@ class UserController extends Controller
                 ? $request->boolean('can_encode_any_branch')
                 : false,
         ]);
+
+        $this->maybeGrantTemporaryPermission($request, $user);
 
         $returnTo = $request->input('return_to');
         if ($returnTo) {
@@ -129,5 +159,67 @@ class UserController extends Controller
         $user->save();
 
         return back()->with('success', 'Password reset successfully.');
+    }
+
+    private function maybeGrantTemporaryPermission(Request $request, User $user): void
+    {
+        if ($user->role !== 'staff') {
+            return;
+        }
+
+        $grant = $request->boolean('grant_temp_access');
+        $allowedBranchId = $request->input('temp_allowed_branch_id');
+
+        if (!$grant || !$allowedBranchId) {
+            // If admin unchecks while an active permission exists, deactivate it.
+            $user->temporaryPermissions()->active()->update(['is_active' => false]);
+            return;
+        }
+
+        $branch = Branch::where('id', $allowedBranchId)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$branch) {
+            throw ValidationException::withMessages([
+                'temp_allowed_branch_id' => 'Selected branch is unavailable.',
+            ]);
+        }
+
+        if (strtoupper((string) $branch->branch_code) === 'BR001') {
+            throw ValidationException::withMessages([
+                'temp_allowed_branch_id' => 'Temporary cross-branch access must target a non-main branch.',
+            ]);
+        }
+
+        $expiresAt = $request->filled('temp_expires_at')
+            ? Carbon::parse($request->input('temp_expires_at'))->endOfDay()
+            : null;
+
+        // Ensure only one active permission at a time.
+        $user->temporaryPermissions()->active()->update(['is_active' => false]);
+
+        $permission = $user->temporaryPermissions()->create([
+            'allowed_branch_id' => $branch->id,
+            'granted_by' => auth()->id(),
+            'is_active' => true,
+            'is_used' => false,
+            'granted_at' => now(),
+            'expires_at' => $expiresAt,
+        ]);
+
+        AuditLogger::log(
+            action: 'permission.cross_branch.granted',
+            actionType: 'permission',
+            entityType: 'temporary_cross_branch_permission',
+            entityId: $permission->id,
+            metadata: [
+                'granted_to' => $user->id,
+                'allowed_branch_id' => $branch->id,
+                'expires_at' => $expiresAt?->toIso8601String(),
+            ],
+            branchId: $user->branch_id,
+            targetBranchId: $branch->id
+        );
     }
 }

@@ -368,18 +368,10 @@ class PaymentController extends Controller
 
     private function mainBranchIdForPayment($user): int
     {
-        if (!$user->canEncodeAnyBranch()) {
+        if (!$user || !$user->branch_id) {
             abort(403);
         }
 
-        $mainBranchId = (int) Branch::where('is_active', true)
-            ->where('branch_code', 'BR001')
-            ->value('id');
-
-        if ($mainBranchId <= 0) {
-            abort(500, 'Main branch (BR001) is not configured.');
-        }
-
-        return $mainBranchId;
+        return (int) $user->branch_id;
     }
 }

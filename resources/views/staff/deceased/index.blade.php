@@ -64,9 +64,11 @@
                         <a href="{{ route('deceased.show', $deceased) }}" data-url="{{ route('deceased.show', $deceased) }}" class="action-chip open-deceased-modal">
                             <i class="bi bi-eye"></i><span>View</span>
                         </a>
+                        @if(auth()->user()?->role !== 'staff')
                         <a href="{{ route('deceased.edit', $deceased) }}" data-url="{{ route('deceased.edit', $deceased) }}" class="action-chip action-chip-primary open-deceased-modal">
                             <i class="bi bi-pencil-square"></i><span>Edit</span>
                         </a>
+                        @endif
                         @if($deceased->funeralCase)
                             <a href="{{ route('payments.history', ['q' => $deceased->funeralCase->case_code]) }}" class="action-chip">
                                 <i class="bi bi-cash-stack"></i><span>View Payment</span>

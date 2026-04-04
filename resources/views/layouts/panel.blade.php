@@ -16,8 +16,39 @@
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800&display=swap" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="icon" href="{{ asset('images/login-logo.png') }}" type="image/png">
+    <link rel="shortcut icon" href="{{ asset('images/login-logo.png') }}" type="image/png">
 
     <title>@yield('page_title', 'Dashboard') - Sabangan Caguioa</title>
+
+    <style>
+        .flash-toast-warning {
+            position: fixed;
+            left: 50%;
+            top: 18px;
+            transform: translateX(-50%);
+            z-index: 1100;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 18px;
+            border-radius: 16px;
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            color: #92400e;
+            font-weight: 700;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+            opacity: 0;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+        .flash-toast-warning.show {
+            opacity: 1;
+            transform: translate(-50%, 0);
+        }
+        .flash-toast-warning i {
+            font-size: 1.05rem;
+        }
+    </style>
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
@@ -112,6 +143,21 @@
             </main>
         </div>
     </div>
+
+    @if(session('warning'))
+        <div id="flashWarningToast" class="flash-toast-warning">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <span>{{ session('warning') }}</span>
+        </div>
+        <script>
+            (function () {
+                const toast = document.getElementById('flashWarningToast');
+                if (!toast) return;
+                requestAnimationFrame(() => toast.classList.add('show'));
+                setTimeout(() => toast.classList.remove('show'), 4500);
+            })();
+        </script>
+    @endif
 
     <script>
         (function () {

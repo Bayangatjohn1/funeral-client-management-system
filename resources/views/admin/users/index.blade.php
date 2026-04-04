@@ -29,7 +29,7 @@
                 <th class="p-2 border text-left">Branch</th>
                 <th class="p-2 border text-left">Position</th>
                 <th class="p-2 border text-left">Contact</th>
-                <th class="p-2 border text-left">Cross-Branch</th>
+                <th class="p-2 border text-left">Temp Cross-Branch</th>
                 <th class="p-2 border text-left">Status</th>
                 <th class="p-2 border text-left">Actions</th>
             </tr>
@@ -44,7 +44,7 @@
                     <td class="p-2 border">{{ $user->position ?? '-' }}</td>
                     <td class="p-2 border">{{ $user->contact_number ?? '-' }}</td>
                     <td class="p-2 border">
-                        {{ $user->can_encode_any_branch ? 'Yes' : 'No' }}
+                        {{ $user->latestTemporaryPermission?->status_label ?? 'None' }}
                     </td>
                     <td class="p-2 border">
                         @if($user->is_active)

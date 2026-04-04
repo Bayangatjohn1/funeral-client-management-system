@@ -68,8 +68,7 @@
                         'bg' => 'bg-white hover:border-[#9C5A1A] border-slate-200 shadow-sm group',
                         'text' => 'text-slate-800',
                         'desc_text' => 'text-slate-400',
-                        'icon_bg' => 'bg-slate-50 text-slate-400 group-hover:bg-[#9C5A1A] group-hover:text-white',
-                        'cond' => !empty($canEncodeAnyBranch)
+                        'icon_bg' => 'bg-slate-50 text-slate-400 group-hover:bg-[#9C5A1A] group-hover:text-white'
                     ],
                     [
                         'route' => 'payments.index', 
@@ -79,8 +78,7 @@
                         'bg' => 'bg-white hover:border-[#9C5A1A] border-slate-200 shadow-sm group',
                         'text' => 'text-slate-800',
                         'desc_text' => 'text-slate-400',
-                        'icon_bg' => 'bg-slate-50 text-slate-400 group-hover:bg-[#9C5A1A] group-hover:text-white',
-                        'cond' => !empty($canEncodeAnyBranch)
+                        'icon_bg' => 'bg-slate-50 text-slate-400 group-hover:bg-[#9C5A1A] group-hover:text-white'
                     ],
                     // 2. HIGHLIGHTED BUTTON: New Case (Brand Color) - moved near end
                     [
@@ -103,13 +101,11 @@
                         'text' => 'text-white',
                         'desc_text' => 'text-white/80',
                         'icon_bg' => 'bg-white/20 text-white',
-                        'cond' => !empty($canEncodeAnyBranch)
                     ],
                 ];
             @endphp
 
             @foreach($actions as $action)
-                @if(!isset($action['cond']) || $action['cond'])
                 <a href="{{ route($action['route'], $action['params'] ?? []) }}" 
                    class="flex flex-col items-center text-center p-5 {{ $action['bg'] }} border rounded-2xl hover:-translate-y-1 transition-all duration-300">
                     
@@ -128,7 +124,6 @@
                         {{ $action['desc'] }}
                     </p>
                 </a>
-                @endif
             @endforeach
         </div>
     </section>
@@ -276,26 +271,7 @@
     
 
         {{-- Population & Workload Stats --}}
-        <div class="xl:col-span-3 grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
-            @php
-                $stats = [
-                    ['label' => 'Total Clients', 'val' => $clientCount ?? 0, 'icon' => 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 005.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z'],
-                    ['label' => 'Case Load', 'val' => $caseCount ?? 0, 'icon' => 'M9 12h6m-3-3v6m-9 1h18a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z'],
-                    ['label' => 'Ongoing Services', 'val' => $ongoingCount ?? 0, 'icon' => 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', 'color' => 'text-[#9C5A1A]', 'border' => 'border-b-[#9C5A1A]'],
-                    ['label' => 'Attention Required', 'val' => $unpaidCount ?? 0, 'icon' => 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z', 'color' => 'text-red-600', 'border' => 'border-b-red-500'],
-                ];
-            @endphp
-
-            @foreach($stats as $s)
-                <div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all border-b-4 {{ $s['border'] ?? 'border-b-slate-300' }} flex flex-col justify-center">
-                    <div class="flex items-center justify-between mb-4">
-                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">{{ $s['label'] }}</span>
-                        <svg class="h-5 w-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $s['icon'] }}"/></svg>
-                    </div>
-                    <h4 class="text-4xl font-black font-heading {{ $s['color'] ?? 'text-slate-900' }} tracking-tight">{{ $s['val'] }}</h4>
-                </div>
-            @endforeach
-        </div>
+        
     </div>
 
     

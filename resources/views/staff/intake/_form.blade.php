@@ -88,6 +88,217 @@
             border-color: #059669;
         }
 
+        /* Professional Flatpickr Theme */
+        /* ===== Flatpickr UI Fix ===== */
+        /* ===== Professional Flatpickr Header ===== */
+.flatpickr-calendar {
+    margin-top: 10px !important;
+    border-radius: 22px !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14) !important;
+    padding: 12px 12px 10px !important;
+    width: 340px !important;
+    background: #ffffff !important;
+    overflow: hidden !important;
+}
+
+.flatpickr-calendar.arrowTop::before,
+.flatpickr-calendar.arrowTop::after,
+.flatpickr-calendar.arrowBottom::before,
+.flatpickr-calendar.arrowBottom::after {
+    display: none !important;
+}
+
+/* top header area */
+.flatpickr-months {
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 6px 34px 12px !important;
+    margin-bottom: 2px !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+}
+
+.flatpickr-month {
+    height: auto !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+}
+
+.flatpickr-current-month {
+    position: static !important;
+    left: auto !important;
+    width: auto !important;
+    height: auto !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    line-height: 1.2 !important;
+    color: #0f172a !important;
+    font-weight: 800 !important;
+    white-space: nowrap !important;
+}
+
+/* month dropdown */
+.flatpickr-current-month .flatpickr-monthDropdown-months {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    border: 1px solid #e2e8f0 !important;
+    background: #f8fafc !important;
+    border-radius: 10px !important;
+    padding: 4px 28px 4px 10px !important;
+    margin: 0 !important;
+    font-size: 15px !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    line-height: 1.2 !important;
+    cursor: pointer !important;
+    box-shadow: none !important;
+    min-width: 110px !important;
+}
+
+/* year input */
+.flatpickr-current-month input.cur-year {
+    border: 1px solid #e2e8f0 !important;
+    background: #f8fafc !important;
+    border-radius: 10px !important;
+    box-shadow: none !important;
+    padding: 4px 8px !important;
+    margin: 0 !important;
+    font-size: 15px !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    line-height: 1.2 !important;
+    width: 74px !important;
+    min-width: 74px !important;
+    text-align: center !important;
+}
+
+.flatpickr-current-month .flatpickr-monthDropdown-months:focus,
+.flatpickr-current-month input.cur-year:focus {
+    outline: none !important;
+    border-color: #9c5a1a !important;
+    box-shadow: 0 0 0 3px rgba(156, 90, 26, 0.10) !important;
+}
+
+.numInputWrapper {
+    width: auto !important;
+    min-width: 74px !important;
+}
+
+.numInputWrapper span {
+    display: none !important;
+}
+
+/* arrows */
+.flatpickr-prev-month,
+.flatpickr-next-month {
+    top: 12px !important;
+    width: 30px !important;
+    height: 30px !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #64748b !important;
+    border-radius: 999px !important;
+    background: #ffffff !important;
+    transition: all 0.15s ease !important;
+}
+
+.flatpickr-prev-month:hover,
+.flatpickr-next-month:hover {
+    color: #0f172a !important;
+    background: #f1f5f9 !important;
+}
+
+.flatpickr-prev-month svg,
+.flatpickr-next-month svg {
+    display: none !important;
+}
+
+.flatpickr-prev-month::before {
+    content: "‹";
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.flatpickr-next-month::before {
+    content: "›";
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+/* weekdays */
+.flatpickr-weekdays {
+    margin: 8px 0 10px !important;
+}
+
+.flatpickr-weekday {
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    color: #64748b !important;
+}
+
+/* days */
+.flatpickr-day {
+    border-radius: 14px !important;
+    max-width: 42px !important;
+    height: 42px !important;
+    line-height: 42px !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+}
+
+.flatpickr-day:hover {
+    background: #f1f5f9 !important;
+    border-color: #f1f5f9 !important;
+}
+
+.flatpickr-day.today {
+    border: 1px solid #b45309 !important;
+}
+
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange {
+    background: #0f172a !important;
+    border-color: #0f172a !important;
+    color: #ffffff !important;
+}
+
+.flatpickr-day.disabled,
+.flatpickr-day.prevMonthDay,
+.flatpickr-day.nextMonthDay {
+    color: #cbd5e1 !important;
+}
+
+/* time section */
+.flatpickr-time {
+    border-top: 1px solid #e2e8f0 !important;
+    margin-top: 8px !important;
+    padding-top: 10px !important;
+}
+
+        .flatpickr-time input,
+        .flatpickr-time .flatpickr-am-pm {
+            border-radius: 10px !important;
+            font-weight: 700 !important;
+        }
+        .flatpickr-calendar.open {
+            margin-top: 12px !important;
+        }
+        .flatpickr-calendar.open {
+            margin-top: 12px !important;
+        }
         .intake-locked {
             opacity: 0.55;
             pointer-events: none;
@@ -350,7 +561,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                         <div class="md:col-span-2 lg:col-span-1">
                             <label class="field-label">Full Name <span class="text-rose-500">*</span></label>
-                            <input type="text" name="client_name" value="{{ old('client_name') }}" data-validate="letters-spaces" data-label="client name" class="form-input" placeholder="First Name / MI / Last Name" required>
+                            <input type="text" name="client_name" value="{{ old('client_name') }}" data-validate="letters-spaces" data-label="client name" class="form-input" placeholder="e.g., Maria Santos" required>
                         </div>
 
                         <div class="grid grid-cols-2 gap-4 md:col-span-2 lg:col-span-1">
@@ -402,18 +613,27 @@
 
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-x-6 gap-y-5">
                         <div class="md:col-span-8">
-                            <label class="field-label">Full Legal Name <span class="text-rose-500">*</span></label>
-                            <input type="text" name="deceased_name" value="{{ old('deceased_name') }}" data-validate="letters-spaces" data-label="deceased name" class="form-input" required>
+                            <label class="field-label">Deceased Name <span class="text-rose-500">*</span></label>
+                            <input type="text" name="deceased_name" value="{{ old('deceased_name') }}" data-validate="letters-spaces" data-label="deceased name" class="form-input" placeholder="e.g., Juan Dela Cruz" required>
                         </div>
 
                         <div class="md:col-span-4">
                             <label class="field-label">Date of Birth <span class="text-rose-500">*</span></label>
-                            <input type="date" name="born" id="born" value="{{ old('born') }}" data-label="birthdate" class="form-input" required>
+                            <div class="relative">
+                                <input type="text" name="born" id="born" value="{{ old('born') }}" data-label="birthdate" class="form-input pr-10 cursor-pointer" placeholder="e.g., January 2, 1990" autocomplete="off" required>
+                                <span id="born_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
+                                    <i class="bi bi-calendar-event text-lg"></i>
+                                </span>
+                            </div>
+                            @error('born')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                            <p id="born_error" class="mt-1 text-sm text-red-600 hidden"></p>
                         </div>
 
                         <div class="md:col-span-12">
-                            <label class="field-label">Last Known Address <span class="text-rose-500">*</span></label>
-                            <input type="text" name="deceased_address" id="deceased_address" value="{{ old('deceased_address', old('client_address')) }}" data-label="deceased address" class="form-input" required>
+                            <label class="field-label">Complete Address <span class="text-rose-500">*</span></label>
+                            <input type="text" name="deceased_address" id="deceased_address" value="{{ old('deceased_address', old('client_address')) }}" data-label="deceased address" class="form-input" placeholder="House No, Street, Barangay, City" required>
                         </div>
 
                         <div class="md:col-span-3">
@@ -423,7 +643,16 @@
 
                         <div class="md:col-span-5">
                             <label class="field-label">Date of Death <span class="text-rose-500">*</span></label>
-                            <input type="date" name="died" id="died" value="{{ old('died') }}" data-label="date of death" max="{{ now()->toDateString() }}" class="form-input" required>
+                            <div class="relative">
+                                <input type="text" name="died" id="died" value="{{ old('died') }}" data-label="date of death" class="form-input pr-10 cursor-pointer" placeholder="e.g., January 27, 2026" autocomplete="off" required>
+                                <span id="died_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
+                                    <i class="bi bi-calendar-event text-lg"></i>
+                                </span>
+                            </div>
+                            @error('died')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                            <p id="died_error" class="mt-1 text-sm text-red-600 hidden"></p>
                         </div>
                     </div>
 
@@ -604,13 +833,27 @@
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                         <div>
-                            <label class="field-label">Funeral Service Date <span class="text-rose-500">*</span></label>
-                            <input type="date" name="funeral_service_at" id="funeral_service_at" value="{{ old('funeral_service_at') }}" data-label="funeral service date" class="form-input" required>
+                            <label class="field-label">Wake Start Date <span class="text-rose-500">*</span></label>
+                            <div class="relative">
+                                <input type="text" name="funeral_service_at" id="funeral_service_at" value="{{ old('funeral_service_at') }}" data-label="wake start date" class="form-input pr-10 cursor-pointer" placeholder="e.g., January 2, 2026" autocomplete="off" required>
+                                <span id="wake_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
+                                    <i class="bi bi-calendar-event text-lg"></i>
+                                </span>
+                            </div>
+                            @error('funeral_service_at')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                            <p id="funeral_service_at_error" class="mt-1 text-sm text-red-600 hidden"></p>
+                            <p class="text-xs text-slate-500 mt-1">Click to pick the first day of the wake.</p>
                         </div>
 
                         <div>
-                            <label class="field-label">Service Type <span class="text-rose-500">*</span></label>
-                            <input type="text" name="service_type" id="service_type" value="{{ old('service_type') }}" data-label="service type" class="form-input" placeholder="e.g., Burial, Cremation" required>
+                            <label class="field-label">Service Type</label>
+                            <input type="hidden" name="service_type" id="service_type" value="Burial">
+                            <div class="form-input bg-slate-50 border-slate-200 text-slate-700 font-semibold flex items-center gap-2 pointer-events-none">
+                                <i class="bi bi-check-circle-fill text-emerald-600"></i>
+                                Burial (fixed)
+                            </div>
                         </div>
 
                         <div class="md:col-span-1">
@@ -620,13 +863,23 @@
 
                         <div>
                             <label class="field-label">Wake Days</label>
-                            <input type="number" name="wake_days" id="wake_days" value="{{ old('wake_days') }}" data-label="wake days" class="form-input" placeholder="e.g. 5">
+                            <input type="number" name="wake_days" id="wake_days" value="{{ old('wake_days') }}" data-label="wake days" class="form-input bg-slate-50" placeholder="Auto-calculated" readonly>
+                            <p id="wake_days_helper" class="text-xs text-slate-500 mt-1">Auto-calculated once dates are selected.</p>
                         </div>
 
                         <div>
                             <label class="field-label">Interment / Burial Schedule <span class="text-rose-500">*</span></label>
-                            <input type="datetime-local" name="interment_at" id="interment_at" value="{{ old('interment_at') }}" data-label="interment or burial date" class="form-input" required>
-                            <div id="interment_at_error" class="hidden text-xs font-bold text-rose-500 mt-1">Must be after funeral date.</div>
+                            <div class="relative">
+                                <input type="text" name="interment_at" id="interment_at" value="{{ old('interment_at') }}" data-label="interment or burial date" class="form-input pr-10 cursor-pointer" placeholder="e.g., January 5, 2026 9:00 AM" autocomplete="off" required>
+                                <span id="inter_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
+                                    <i class="bi bi-calendar-event text-lg"></i>
+                                </span>
+                            </div>
+                            @error('interment_at')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                            <div id="interment_at_error" class="hidden text-xs font-bold text-rose-500 mt-1">Interment date cannot be earlier than the wake start date.</div>
+                            <p class="text-xs text-slate-500 mt-1">Select burial date and time. Calendar opens on click.</p>
                         </div>
 
                         <div>
@@ -932,6 +1185,8 @@
     </div>
 </div>
 
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
 (() => {
     const f = document.getElementById('intakeWizardForm');
@@ -963,6 +1218,8 @@
 
     const born = document.getElementById('born');
     const died = document.getElementById('died');
+    let bornPicker = null;
+    let diedPicker = null;
     const age = document.getElementById('age');
 
     const clientAddr = document.getElementById('client_address');
@@ -972,6 +1229,11 @@
     const funeral = document.getElementById('funeral_service_at');
     const interment = document.getElementById('interment_at');
     const intermentErr = document.getElementById('interment_at_error');
+    const bornErr = document.getElementById('born_error');
+    const diedErr = document.getElementById('died_error');
+    const wakeErr = document.getElementById('funeral_service_at_error');
+    let wakePicker = null;
+    let interPicker = null;
 
     const senior = document.getElementById('senior_citizen_status');
     const seniorIdWrap = document.getElementById('senior_id_wrap');
@@ -1071,13 +1333,23 @@
     const formatDateOnly = (value) => {
         if (!value) return '-';
         const parsed = new Date(`${value}T00:00:00`);
-        return Number.isNaN(parsed.getTime()) ? '-' : parsed.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+        return Number.isNaN(parsed.getTime()) ? '-' : parsed.toLocaleDateString(undefined, {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
     };
 
     const formatDateTime = (value) => {
         if (!value) return '-';
         const parsed = new Date(value);
-        return Number.isNaN(parsed.getTime()) ? '-' : parsed.toLocaleString(undefined, { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+        return Number.isNaN(parsed.getTime()) ? '-' : parsed.toLocaleString(undefined, {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit'
+        });
     };
 
     const detailRow = (label, value) => `
@@ -1111,9 +1383,7 @@
         return branchCode() !== '-';
     };
 
-    const shouldLockOtherBranchIntake = () => {
-        return isOtherEntryMode && !isBranchSelectedForOtherMode();
-    };
+    const shouldLockOtherBranchIntake = () => isOtherEntryMode && !isBranchSelectedForOtherMode();
 
     const showToast = (element, message = null, duration = 2400, type = 'branch') => {
         if (!element) return;
@@ -1123,11 +1393,8 @@
 
         if (message) {
             const textNode = element.querySelector('.package-toast-text');
-            if (textNode) {
-                textNode.textContent = message;
-            } else {
-                element.textContent = message;
-            }
+            if (textNode) textNode.textContent = message;
+            else element.textContent = message;
         }
 
         element.classList.remove('hidden', 'opacity-0');
@@ -1252,22 +1519,38 @@
         requestDateDisplay.textContent = formatDateOnly(requestDate.value);
     };
 
+    const getRawDateString = (input, picker) => {
+        const typed = (input?.dataset?.lastTypedValue || '').trim();
+        const visible = (picker?.altInput?.value || '').trim();
+        const actual = (input?.value || '').trim();
+        return typed || visible || actual;
+    };
+
+    const getDateValue = (input, picker) => {
+        const picked = picker?.selectedDates?.[0];
+        if (picked instanceof Date && !Number.isNaN(picked.getTime())) return picked;
+
+        const raw = getRawDateString(input, picker);
+        if (!raw) return null;
+
+        const parsed = Date.parse(raw);
+        return Number.isNaN(parsed) ? null : new Date(parsed);
+    };
+
     const syncAge = () => {
-        if (!born?.value || !died?.value) {
+        const birth = getDateValue(born, bornPicker);
+        const death = getDateValue(died, diedPicker);
+
+        if (!birth || !death || death < birth) {
             if (age) age.value = '';
             return;
         }
 
-        const birth = new Date(`${born.value}T00:00:00`);
-        const death = new Date(`${died.value}T00:00:00`);
-
-        if (Number.isNaN(birth.getTime()) || Number.isNaN(death.getTime()) || death < birth) {
-            age.value = '';
-            return;
-        }
-
         let years = death.getFullYear() - birth.getFullYear();
-        if (death.getMonth() < birth.getMonth() || (death.getMonth() === birth.getMonth() && death.getDate() < birth.getDate())) {
+        if (
+            death.getMonth() < birth.getMonth() ||
+            (death.getMonth() === birth.getMonth() && death.getDate() < birth.getDate())
+        ) {
             years -= 1;
         }
 
@@ -1276,8 +1559,19 @@
 
     const syncDateConstraints = () => {
         if (died) died.max = today;
-        if (funeral) funeral.min = died?.value || '';
-        if (paidAt && died?.value) paidAt.min = `${died.value}T00:00`;
+
+        if (funeral) {
+            funeral.min = died?.value || '';
+            if (wakePicker) wakePicker.set('minDate', died?.value || null);
+        }
+
+        if (interPicker) {
+            interPicker.set('minDate', funeral?.value || died?.value || 'today');
+        }
+
+        if (paidAt && died?.value) {
+            paidAt.min = `${died.value}T00:00`;
+        }
     };
 
     const syncPreferredPackage = () => {
@@ -1390,9 +1684,9 @@
 
         if (reviewService) {
             reviewService.innerHTML = [
-                detailRow('Service Type', textOrDash(f.elements.service_type?.value)),
+                detailRow('Service Type', 'Burial (fixed)'),
                 detailRow('Wake Location', textOrDash(f.elements.wake_location?.value)),
-                detailRow('Funeral Service Date', formatDateOnly(f.elements.funeral_service_at?.value)),
+                detailRow('Wake Start Date', formatDateOnly(f.elements.funeral_service_at?.value)),
                 detailRow('Interment Date', formatDateTime(f.elements.interment_at?.value)),
                 detailRow('Place of Interment', textOrDash(f.elements.place_of_cemetery?.value)),
                 detailRow('Case Status', textOrDash(f.elements.case_status?.value)),
@@ -1432,7 +1726,157 @@
         }
     };
 
+    const computeWakeDays = () => {
+        if (!wakeDays) return;
+
+        const wakeDate = getDateValue(funeral, wakePicker);
+        const interDate = getDateValue(interment, interPicker);
+
+        if (!wakeDate || !interDate || interDate < wakeDate) {
+            wakeDays.value = '';
+            const helper = document.getElementById('wake_days_helper');
+            if (helper) helper.textContent = 'Auto-calculated once dates are selected.';
+            return;
+        }
+
+        const wakeOnly = new Date(wakeDate.getFullYear(), wakeDate.getMonth(), wakeDate.getDate());
+        const interOnly = new Date(interDate.getFullYear(), interDate.getMonth(), interDate.getDate());
+        const diffDays = Math.floor((interOnly - wakeOnly) / 86400000) + 1;
+
+        wakeDays.value = diffDays > 0 ? String(diffDays) : '';
+
+        const helper = document.getElementById('wake_days_helper');
+        if (helper) helper.textContent = diffDays === 1 ? '1 day' : `${diffDays} days`;
+    };
+
+    const setFieldError = (el, errEl, message, altEl = null) => {
+        if (!el || !errEl) return;
+
+        const targets = [el];
+        if (altEl) targets.push(altEl);
+
+        if (message) {
+            targets.forEach(t => t && t.classList.add('field-error'));
+            targets.forEach(t => t && t.setAttribute('aria-invalid', 'true'));
+            errEl.textContent = message;
+            errEl.classList.remove('hidden');
+        } else {
+            targets.forEach(t => t && t.classList.remove('field-error'));
+            targets.forEach(t => t && t.removeAttribute('aria-invalid'));
+            errEl.textContent = '';
+            errEl.classList.add('hidden');
+        }
+    };
+
+    const validateDobDod = (mode = 'full') => {
+        const todayEnd = new Date();
+        todayEnd.setHours(23, 59, 59, 999);
+
+        const birthRaw = getRawDateString(born, bornPicker);
+        const deathRaw = getRawDateString(died, diedPicker);
+        const birthDate = getDateValue(born, bornPicker);
+        const deathDate = getDateValue(died, diedPicker);
+
+        born?.setCustomValidity('');
+        died?.setCustomValidity('');
+
+        if (mode === 'full') {
+            setFieldError(born, bornErr, '', bornPicker?.altInput);
+            setFieldError(died, diedErr, '', diedPicker?.altInput);
+        }
+
+        if (born) {
+            if (!birthRaw) {
+                if (mode === 'full') born.setCustomValidity('Date of birth is required.');
+            } else if (!birthDate) {
+                born.setCustomValidity('Please enter a valid date of birth.');
+            } else if (birthDate > todayEnd) {
+                born.setCustomValidity('Date of birth cannot be in the future.');
+            }
+        }
+
+        if (died) {
+            if (!deathRaw) {
+                if (mode === 'full') died.setCustomValidity('Date of death is required.');
+            } else if (!deathDate) {
+                died.setCustomValidity('Please enter a valid date of death.');
+            } else if (deathDate > todayEnd) {
+                died.setCustomValidity('Date of death cannot be in the future.');
+            }
+        }
+
+        if (birthDate && deathDate && deathDate < birthDate) {
+            died.setCustomValidity('Date of death cannot be earlier than date of birth.');
+            if (!born.validationMessage) {
+                born.setCustomValidity('Date of birth cannot be later than date of death.');
+            }
+        }
+
+        if (birthRaw || mode === 'full') {
+            setFieldError(born, bornErr, born?.validationMessage || '', bornPicker?.altInput);
+        }
+        if (deathRaw || mode === 'full') {
+            setFieldError(died, diedErr, died?.validationMessage || '', diedPicker?.altInput);
+        }
+    };
+
+    const validateWakeInterment = (mode = 'full') => {
+        const wakeRaw = getRawDateString(funeral, wakePicker);
+        const interRaw = getRawDateString(interment, interPicker);
+        const wakeDate = getDateValue(funeral, wakePicker);
+        const interDate = getDateValue(interment, interPicker);
+        const deathDate = getDateValue(died, diedPicker);
+
+        funeral?.setCustomValidity('');
+        interment?.setCustomValidity('');
+
+        if (mode === 'full') {
+            setFieldError(funeral, wakeErr, '', wakePicker?.altInput);
+            setFieldError(interment, intermentErr, '', interPicker?.altInput);
+        }
+
+        if (funeral) {
+            if (!wakeRaw) {
+                if (mode === 'full') funeral.setCustomValidity('Wake start date is required.');
+            } else if (!wakeDate) {
+                funeral.setCustomValidity('Please enter a valid wake start date.');
+            }
+        }
+
+        if (interment) {
+            if (!interRaw) {
+                if (mode === 'full') interment.setCustomValidity('Interment date is required.');
+            } else if (!interDate) {
+                interment.setCustomValidity('Please enter a valid interment date and time.');
+            }
+        }
+
+        if (deathDate && wakeDate) {
+            const deathOnly = new Date(deathDate.getFullYear(), deathDate.getMonth(), deathDate.getDate());
+            const wakeOnly = new Date(wakeDate.getFullYear(), wakeDate.getMonth(), wakeDate.getDate());
+            if (wakeOnly < deathOnly) {
+                funeral.setCustomValidity('Wake start date must be on or after the date of death.');
+            }
+        }
+
+        if (wakeDate && interDate && interDate < wakeDate) {
+            interment.setCustomValidity('Interment date cannot be earlier than the wake start date.');
+        }
+
+        if (wakeRaw || mode === 'full') {
+            setFieldError(funeral, wakeErr, funeral?.validationMessage || '', wakePicker?.altInput);
+        }
+        if (interRaw || mode === 'full') {
+            setFieldError(interment, intermentErr, interment?.validationMessage || '', interPicker?.altInput);
+        }
+    };
+
     const render = () => {
+        computeWakeDays();
+        validateDobDod('light');
+        validateWakeInterment('light');
+        syncAge();
+
         const t = totals();
 
         if (summaryPackage) summaryPackage.textContent = fmt(t.packagePrice);
@@ -1477,12 +1921,23 @@
     };
 
     const validatePanelFields = (panel) => {
+        const flatpickrDateFields = ['born', 'died', 'funeral_service_at', 'interment_at'];
+
         for (const field of [...panel.querySelectorAll('input, select, textarea')].filter((element) => element.type !== 'hidden' && !element.disabled)) {
-            clearFieldMessage(field);
+            const isFlatpickrDate = flatpickrDateFields.includes(field.id);
+
+            // Do NOT clear date custom validity here
+            if (!isFlatpickrDate) {
+                clearFieldMessage(field);
+            }
 
             const value = typeof field.value === 'string' ? field.value.trim() : field.value;
 
             if (field.required && !value && field.type !== 'checkbox' && field.type !== 'radio') {
+                if (isFlatpickrDate) {
+                    continue;
+                }
+
                 const message = field.tagName === 'SELECT' || field.type === 'date' || field.type === 'datetime-local'
                     ? `Please select ${labelFor(field).toLowerCase()}.`
                     : `Please enter ${labelFor(field).toLowerCase()}.`;
@@ -1490,6 +1945,10 @@
                 field.setCustomValidity(message);
                 field.reportValidity();
                 return false;
+            }
+
+            if (isFlatpickrDate) {
+                continue;
             }
 
             if (!field.checkValidity()) {
@@ -1514,6 +1973,9 @@
         const panel = panels.find((element) => Number(element.dataset.step) === targetStep);
         if (!panel) return true;
 
+        if (targetStep === 2) validateDobDod('full');
+        if (targetStep === 4) validateWakeInterment('full');
+
         if (!validatePanelFields(panel)) return false;
 
         if (targetStep === 1 && (!branch.value || (isOtherEntryMode && !isBranchSelectedForOtherMode()))) {
@@ -1522,29 +1984,132 @@
             return false;
         }
 
-        if (targetStep === 2 && died?.value) {
-            if (new Date(`${died.value}T00:00:00`) > new Date(`${today}T23:59:59`)) {
+        if (targetStep === 2) {
+            const birthRaw = getRawDateString(born, bornPicker);
+            const deathRaw = getRawDateString(died, diedPicker);
+            const birthDate = getDateValue(born, bornPicker);
+            const deathDate = getDateValue(died, diedPicker);
+            const todayEnd = new Date();
+            todayEnd.setHours(23, 59, 59, 999);
+
+            // Clear old inline messages first
+            setFieldError(born, bornErr, '', bornPicker?.altInput);
+            setFieldError(died, diedErr, '', diedPicker?.altInput);
+            born?.setCustomValidity('');
+            died?.setCustomValidity('');
+
+            if (!birthRaw) {
+                born.setCustomValidity('Date of birth is required.');
+                setFieldError(born, bornErr, 'Date of birth is required.', bornPicker?.altInput);
+                bornPicker?.altInput?.focus();
+                return false;
+            }
+
+            if (!deathRaw) {
+                died.setCustomValidity('Date of death is required.');
+                setFieldError(died, diedErr, 'Date of death is required.', diedPicker?.altInput);
+                diedPicker?.altInput?.focus();
+                return false;
+            }
+
+            if (!birthDate) {
+                born.setCustomValidity('Please enter a valid date of birth.');
+                setFieldError(born, bornErr, 'Please enter a valid date of birth.', bornPicker?.altInput);
+                bornPicker?.altInput?.focus();
+                return false;
+            }
+
+            if (!deathDate) {
+                died.setCustomValidity('Please enter a valid date of death.');
+                setFieldError(died, diedErr, 'Please enter a valid date of death.', diedPicker?.altInput);
+                diedPicker?.altInput?.focus();
+                return false;
+            }
+
+            if (birthDate > todayEnd) {
+                born.setCustomValidity('Date of birth cannot be in the future.');
+                setFieldError(born, bornErr, 'Date of birth cannot be in the future.', bornPicker?.altInput);
+                bornPicker?.altInput?.focus();
+                return false;
+            }
+
+            if (deathDate > todayEnd) {
                 died.setCustomValidity('Date of death cannot be in the future.');
-                died.reportValidity();
+                setFieldError(died, diedErr, 'Date of death cannot be in the future.', diedPicker?.altInput);
+                diedPicker?.altInput?.focus();
+                return false;
+            }
+
+            if (deathDate < birthDate) {
+                died.setCustomValidity('Date of death cannot be earlier than date of birth.');
+                setFieldError(died, diedErr, 'Date of death cannot be earlier than date of birth.', diedPicker?.altInput);
+                diedPicker?.altInput?.focus();
                 return false;
             }
         }
-
         if (targetStep === 3 && !pkg()) {
             packageError?.classList.remove('hidden');
             return false;
         }
 
-        if (targetStep === 4 && funeral?.value && interment?.value && new Date(interment.value) <= new Date(`${funeral.value}T00:00:00`)) {
-            intermentErr?.classList.remove('hidden');
-            if (intermentErr) intermentErr.textContent = 'Interment date must be after the funeral service date.';
-            return false;
-        }
+        if (targetStep === 4) {
+            const wakeRaw = getRawDateString(funeral, wakePicker);
+            const interRaw = getRawDateString(interment, interPicker);
+            const wakeDate = getDateValue(funeral, wakePicker);
+            const interDate = getDateValue(interment, interPicker);
+            const deathDate = getDateValue(died, diedPicker);
 
-        if (targetStep === 4 && died?.value && funeral?.value && new Date(`${funeral.value}T00:00:00`) < new Date(`${died.value}T00:00:00`)) {
-            funeral.setCustomValidity('Funeral service date must be on or after the date of death.');
-            funeral.reportValidity();
-            return false;
+            setFieldError(funeral, wakeErr, '', wakePicker?.altInput);
+            setFieldError(interment, intermentErr, '', interPicker?.altInput);
+            funeral?.setCustomValidity('');
+            interment?.setCustomValidity('');
+
+            if (!wakeRaw) {
+                funeral.setCustomValidity('Wake start date is required.');
+                setFieldError(funeral, wakeErr, 'Wake start date is required.', wakePicker?.altInput);
+                wakePicker?.altInput?.focus();
+                return false;
+            }
+
+            if (!interRaw) {
+                interment.setCustomValidity('Interment date is required.');
+                setFieldError(interment, intermentErr, 'Interment date is required.', interPicker?.altInput);
+                interPicker?.altInput?.focus();
+                return false;
+            }
+
+            if (!wakeDate) {
+                funeral.setCustomValidity('Please enter a valid wake start date.');
+                setFieldError(funeral, wakeErr, 'Please enter a valid wake start date.', wakePicker?.altInput);
+                wakePicker?.altInput?.focus();
+                return false;
+            }
+
+            if (!interDate) {
+                interment.setCustomValidity('Please enter a valid interment date and time.');
+                setFieldError(interment, intermentErr, 'Please enter a valid interment date and time.', interPicker?.altInput);
+                interPicker?.altInput?.focus();
+                return false;
+            }
+
+            if (deathDate) {
+                const deathOnly = new Date(deathDate.getFullYear(), deathDate.getMonth(), deathDate.getDate());
+                const wakeOnly = new Date(wakeDate.getFullYear(), wakeDate.getMonth(), wakeDate.getDate());
+
+                if (wakeOnly < deathOnly) {
+                    funeral.setCustomValidity('Wake start date must be on or after the date of death.');
+                    setFieldError(funeral, wakeErr, 'Wake start date must be on or after the date of death.', wakePicker?.altInput);
+                    wakePicker?.altInput?.focus();
+                    return false;
+                }
+            }
+
+            if (interDate < wakeDate) {
+                interment.setCustomValidity('Interment date cannot be earlier than the wake start date.');
+                setFieldError(interment, intermentErr, 'Interment date cannot be earlier than the wake start date.', interPicker?.altInput);
+                interPicker?.altInput?.focus();
+                return false;
+            }
         }
 
         if (targetStep === 6 && payNow()) {
@@ -1704,18 +2269,471 @@
     });
 
     born?.addEventListener('change', () => {
+        validateDobDod('full');
         syncAge();
         syncDateConstraints();
         render();
     });
 
     died?.addEventListener('change', () => {
+        validateDobDod('full');
+        validateWakeInterment('full');
         syncAge();
         syncDateConstraints();
         render();
     });
 
-    interment?.addEventListener('change', render);
+    funeral?.addEventListener('change', () => {
+        computeWakeDays();
+        validateWakeInterment('full');
+        render();
+    });
+
+    interment?.addEventListener('change', () => {
+        computeWakeDays();
+        validateWakeInterment('full');
+        render();
+    });
+
+    born?.addEventListener('input', () => {
+        const raw = getRawDateString(born, bornPicker);
+        if (!raw) {
+            born.setCustomValidity('');
+            setFieldError(born, bornErr, '', bornPicker?.altInput);
+            return;
+        }
+        validateDobDod('light');
+    });
+
+    died?.addEventListener('input', () => {
+        const raw = getRawDateString(died, diedPicker);
+        if (!raw) {
+            died.setCustomValidity('');
+            setFieldError(died, diedErr, '', diedPicker?.altInput);
+            return;
+        }
+        validateDobDod('light');
+    });
+
+    funeral?.addEventListener('input', () => {
+        const raw = getRawDateString(funeral, wakePicker);
+        if (!raw) {
+            funeral.setCustomValidity('');
+            setFieldError(funeral, wakeErr, '', wakePicker?.altInput);
+            return;
+        }
+        computeWakeDays();
+        validateWakeInterment('light');
+    });
+
+    interment?.addEventListener('input', () => {
+        const raw = getRawDateString(interment, interPicker);
+        if (!raw) {
+            interment.setCustomValidity('');
+            setFieldError(interment, intermentErr, '', interPicker?.altInput);
+            return;
+        }
+        computeWakeDays();
+        validateWakeInterment('light');
+    });
+
+    born?.addEventListener('blur', () => {
+        const raw = getRawDateString(born, bornPicker);
+        if (!raw) return;
+        validateDobDod('full');
+    });
+
+    died?.addEventListener('blur', () => {
+        const raw = getRawDateString(died, diedPicker);
+        if (!raw) return;
+        validateDobDod('full');
+    });
+
+    funeral?.addEventListener('blur', () => {
+        const raw = getRawDateString(funeral, wakePicker);
+        if (!raw) return;
+        computeWakeDays();
+        validateWakeInterment('full');
+    });
+
+    interment?.addEventListener('blur', () => {
+        const raw = getRawDateString(interment, interPicker);
+        if (!raw) return;
+        computeWakeDays();
+        validateWakeInterment('full');
+    });
+
+    if (typeof flatpickr !== 'undefined') {
+        const pickerBaseOpts = {
+            position: 'auto left',
+            appendTo: document.body,
+            animate: true,
+            monthSelectorType: 'dropdown',
+            prevArrow: '<span>&lsaquo;</span>',
+            nextArrow: '<span>&rsaquo;</span>',
+            onOpen: (selectedDates, dateStr, instance) => {
+                const cal = instance.calendarContainer;
+                if (cal) {
+                    cal.classList.add('shadow-2xl', 'border', 'border-slate-200');
+                }
+            }
+        };
+
+        const rememberTypedValue = (picker, input, errorEl, type) => {
+            const visible = picker?.altInput;
+            if (!visible) return;
+
+            input.dataset.userTyped = input.dataset.userTyped || '0';
+            input.dataset.lastTypedValue = input.dataset.lastTypedValue || '';
+            input.dataset.invalidTypedValue = input.dataset.invalidTypedValue || '';
+
+            const invalidMessage = () => {
+                if (type === 'born') return 'Please enter a valid birthdate.';
+                if (type === 'died') return 'Please enter a valid date of death.';
+                if (type === 'wake') return 'Please enter a valid wake start date.';
+                return 'Please enter a valid interment date and time.';
+            };
+
+            visible.addEventListener('input', () => {
+                const raw = visible.value.trim();
+                input.dataset.userTyped = '1';
+                input.dataset.lastTypedValue = raw;
+
+                // While typing: no error on empty, only show if obviously invalid after some input
+                if (!raw) {
+                    input.dataset.invalidTypedValue = '';
+                    input.setCustomValidity('');
+                    setFieldError(input, errorEl, '', visible);
+                    return;
+                }
+
+                const parsed = Date.parse(raw);
+                if (Number.isNaN(parsed)) {
+                    input.dataset.invalidTypedValue = raw;
+                    input.setCustomValidity(invalidMessage());
+                    setFieldError(input, errorEl, invalidMessage(), visible);
+                    return;
+                }
+
+                input.dataset.invalidTypedValue = '';
+                input.setCustomValidity('');
+                setFieldError(input, errorEl, '', visible);
+            });
+
+            visible.addEventListener('blur', () => {
+                const raw = (input.dataset.lastTypedValue || visible.value || '').trim();
+                const invalidTyped = (input.dataset.invalidTypedValue || '').trim();
+                const hasSelectedDate = !!picker.selectedDates.length;
+
+                // untouched empty
+                if (!raw && input.dataset.userTyped !== '1') {
+                    input.setCustomValidity('');
+                    setFieldError(input, errorEl, '', visible);
+                    return;
+                }
+
+                // empty after typing
+                if (!raw) {
+                    input.setCustomValidity('');
+                    setFieldError(input, errorEl, '', visible);
+                    return;
+                }
+
+                // invalid typed text should stay as error even if flatpickr clears the field
+                if (invalidTyped || (raw && !hasSelectedDate && Number.isNaN(Date.parse(raw)))) {
+                    input.dataset.invalidTypedValue = raw || invalidTyped;
+                    input.setCustomValidity(invalidMessage());
+                    setFieldError(input, errorEl, invalidMessage(), visible);
+                    return;
+                }
+
+                input.dataset.invalidTypedValue = '';
+                input.setCustomValidity('');
+                setFieldError(input, errorEl, '', visible);
+
+                if (type === 'born' || type === 'died') {
+                    validateDobDod('full');
+                    setFieldError(input, errorEl, input.validationMessage, visible);
+                } else {
+                    validateWakeInterment('full');
+                    setFieldError(input, errorEl, input.validationMessage, visible);
+                }
+            });
+        };
+
+        wakePicker = flatpickr(funeral, {
+            altInput: true,
+            altFormat: 'F j, Y',
+            dateFormat: 'Y-m-d',
+            allowInput: true,
+            clickOpens: false,
+            defaultDate: funeral?.value || null,
+            ...pickerBaseOpts,
+            onChange: (selectedDates) => {
+                funeral.dataset.userTyped = '0';
+                funeral.dataset.lastTypedValue = '';
+                funeral.setCustomValidity('');
+                setFieldError(funeral, wakeErr, '', wakePicker?.altInput);
+
+                if (interPicker && selectedDates[0]) {
+                    interPicker.set('minDate', selectedDates[0]);
+                }
+
+                computeWakeDays();
+                validateWakeInterment('full');
+                render();
+            },
+            onClose: (selectedDates, dateStr, instance) => {
+                const raw = (funeral.dataset.lastTypedValue || instance.altInput?.value || '').trim();
+                const invalidTyped = (funeral.dataset.invalidTypedValue || '').trim();
+
+                if (invalidTyped || (raw && !selectedDates.length && Number.isNaN(Date.parse(raw)))) {
+                    funeral.setCustomValidity('Please enter a valid wake start date.');
+                    setFieldError(funeral, wakeErr, 'Please enter a valid wake start date.', instance.altInput);
+                    return;
+                }
+
+                if (!raw) {
+                    funeral.setCustomValidity('');
+                    setFieldError(funeral, wakeErr, '', instance.altInput);
+                    return;
+                }
+
+                validateWakeInterment('full');
+                setFieldError(funeral, wakeErr, funeral.validationMessage || '', instance.altInput);
+            },
+            onValueUpdate: () => {
+                const raw = (wakePicker?.altInput?.value || '').trim();
+
+                if (!raw) {
+                    funeral.setCustomValidity('');
+                    setFieldError(funeral, wakeErr, '', wakePicker?.altInput);
+                    return;
+                }
+
+                validateWakeInterment('light');
+                setFieldError(funeral, wakeErr, funeral.validationMessage, wakePicker?.altInput);
+            }
+        });
+
+        interPicker = flatpickr(interment, {
+            altInput: true,
+            altFormat: 'F j, Y h:i K',
+            dateFormat: 'Y-m-d H:i',
+            allowInput: true,
+            clickOpens: false,
+            enableTime: true,
+            defaultDate: interment?.value || null,
+            minDate: funeral?.value || died?.value || 'today',
+            ...pickerBaseOpts,
+            onChange: () => {
+                interment.dataset.userTyped = '0';
+                interment.dataset.lastTypedValue = '';
+                interment.setCustomValidity('');
+                setFieldError(interment, intermentErr, '', interPicker?.altInput);
+
+                computeWakeDays();
+                validateWakeInterment('full');
+                render();
+            },
+            onClose: (selectedDates, dateStr, instance) => {
+            const raw = (interment.dataset.lastTypedValue || instance.altInput?.value || '').trim();
+            const invalidTyped = (interment.dataset.invalidTypedValue || '').trim();
+
+            if (invalidTyped || (raw && !selectedDates.length && Number.isNaN(Date.parse(raw)))) {
+                interment.setCustomValidity('Please enter a valid interment date and time.');
+                setFieldError(interment, intermentErr, 'Please enter a valid interment date and time.', instance.altInput);
+                return;
+            }
+
+            if (!raw) {
+                interment.setCustomValidity('');
+                setFieldError(interment, intermentErr, '', instance.altInput);
+                return;
+            }
+
+            validateWakeInterment('full');
+            setFieldError(interment, intermentErr, interment.validationMessage || '', instance.altInput);
+        },
+            onValueUpdate: () => {
+                const raw = (interPicker?.altInput?.value || '').trim();
+
+                if (!raw) {
+                    interment.setCustomValidity('');
+                    setFieldError(interment, intermentErr, '', interPicker?.altInput);
+                    return;
+                }
+
+                validateWakeInterment('light');
+                setFieldError(interment, intermentErr, interment.validationMessage, interPicker?.altInput);
+            }
+        });
+
+        const wakeTrigger = document.getElementById('wake_picker_trigger');
+        if (wakeTrigger) wakeTrigger.addEventListener('click', () => wakePicker && wakePicker.open());
+
+        const interTrigger = document.getElementById('inter_picker_trigger');
+        if (interTrigger) interTrigger.addEventListener('click', () => interPicker && interPicker.open());
+
+        bornPicker = flatpickr(born, {
+            altInput: true,
+            altFormat: 'F j, Y',
+            dateFormat: 'Y-m-d',
+            allowInput: true,
+            clickOpens: false,
+            maxDate: 'today',
+            defaultDate: born?.value || null,
+            ...pickerBaseOpts,
+            onClose: (selectedDates, dateStr, instance) => {
+                const raw = (born.dataset.lastTypedValue || instance.altInput?.value || '').trim();
+                const invalidTyped = (born.dataset.invalidTypedValue || '').trim();
+                const parsed = raw ? Date.parse(raw) : NaN;
+                const future = !Number.isNaN(parsed) && new Date(parsed) > (() => {
+                    const d = new Date();
+                    d.setHours(23, 59, 59, 999);
+                    return d;
+                })();
+
+                if (invalidTyped || (raw && !selectedDates.length && Number.isNaN(parsed))) {
+                    born.setCustomValidity('Please enter a valid date of birth.');
+                    setFieldError(born, bornErr, 'Please enter a valid date of birth.', instance.altInput);
+                    return;
+                }
+
+                if (future) {
+                    born.setCustomValidity('Date of birth cannot be in the future.');
+                    setFieldError(born, bornErr, 'Date of birth cannot be in the future.', instance.altInput);
+                    return;
+                }
+
+                if (!raw) {
+                    born.setCustomValidity('');
+                    setFieldError(born, bornErr, '', instance.altInput);
+                    return;
+                }
+
+                validateDobDod('full');
+                setFieldError(born, bornErr, born.validationMessage || '', instance.altInput);
+            },
+            onChange: () => {
+                born.dataset.userTyped = '0';
+                born.dataset.lastTypedValue = '';
+                born.setCustomValidity('');
+                setFieldError(born, bornErr, '', bornPicker?.altInput);
+
+                syncAge();
+                validateDobDod('full');
+                render();
+            },
+            onValueUpdate: () => {
+                const raw = (bornPicker?.altInput?.value || '').trim();
+
+                if (!raw) {
+                    born.setCustomValidity('');
+                    setFieldError(born, bornErr, '', bornPicker?.altInput);
+                    return;
+                }
+
+                validateDobDod('light');
+                setFieldError(born, bornErr, born.validationMessage, bornPicker?.altInput);
+            }
+        });
+
+        const bornTrigger = document.getElementById('born_picker_trigger');
+        if (bornTrigger) bornTrigger.addEventListener('click', () => bornPicker && bornPicker.open());
+
+        diedPicker = flatpickr(died, {
+            altInput: true,
+            altFormat: 'F j, Y',
+            dateFormat: 'Y-m-d',
+            allowInput: true,
+            clickOpens: false,
+            maxDate: 'today',
+            defaultDate: died?.value || null,
+            ...pickerBaseOpts,
+            onClose: (selectedDates, dateStr, instance) => {
+            const raw = (died.dataset.lastTypedValue || instance.altInput?.value || '').trim();
+            const invalidTyped = (died.dataset.invalidTypedValue || '').trim();
+            const parsed = raw ? Date.parse(raw) : NaN;
+            const future = !Number.isNaN(parsed) && new Date(parsed) > (() => {
+                const d = new Date();
+                d.setHours(23, 59, 59, 999);
+                return d;
+            })();
+
+            if (invalidTyped || (raw && !selectedDates.length && Number.isNaN(parsed))) {
+                died.setCustomValidity('Please enter a valid date of death.');
+                setFieldError(died, diedErr, 'Please enter a valid date of death.', instance.altInput);
+                return;
+            }
+
+            if (future) {
+                died.setCustomValidity('Date of death cannot be in the future.');
+                setFieldError(died, diedErr, 'Date of death cannot be in the future.', instance.altInput);
+                return;
+            }
+
+            if (!raw) {
+                died.setCustomValidity('');
+                setFieldError(died, diedErr, '', instance.altInput);
+                return;
+            }
+
+            validateDobDod('full');
+            setFieldError(died, diedErr, died.validationMessage || '', instance.altInput);
+        },
+            onChange: () => {
+                died.dataset.userTyped = '0';
+                died.dataset.lastTypedValue = '';
+                died.setCustomValidity('');
+                setFieldError(died, diedErr, '', diedPicker?.altInput);
+
+                if (funeral && died.value) {
+                    funeral.min = died.value;
+                    if (wakePicker) wakePicker.set('minDate', died.value);
+
+                    const currentWake = getDateValue(funeral, wakePicker);
+                    const deathDate = getDateValue(died, diedPicker);
+                    if (currentWake && deathDate && currentWake < deathDate) {
+                        funeral.value = died.value;
+                        wakePicker?.setDate(died.value, true);
+                    }
+                }
+
+                if (paidAt && died?.value) {
+                    paidAt.min = `${died.value}T00:00`;
+                }
+
+                syncAge();
+                validateDobDod('full');
+                validateWakeInterment('full');
+                syncDateConstraints();
+                render();
+            },
+            onValueUpdate: () => {
+                const raw = (diedPicker?.altInput?.value || '').trim();
+
+                if (!raw) {
+                    died.setCustomValidity('');
+                    setFieldError(died, diedErr, '', diedPicker?.altInput);
+                    return;
+                }
+
+                validateDobDod('light');
+                setFieldError(died, diedErr, died.validationMessage, diedPicker?.altInput);
+            }
+        });
+
+        const diedTrigger = document.getElementById('died_picker_trigger');
+        if (diedTrigger) diedTrigger.addEventListener('click', () => diedPicker && diedPicker.open());
+
+        rememberTypedValue(bornPicker, born, bornErr, 'born');
+        rememberTypedValue(diedPicker, died, diedErr, 'died');
+        rememberTypedValue(wakePicker, funeral, wakeErr, 'wake');
+        rememberTypedValue(interPicker, interment, intermentErr, 'interment');
+    }
+
+    computeWakeDays();
 
     wakeDays?.addEventListener('input', () => {
         wakeDays.dataset.manual = wakeDays.value ? '1' : '';
@@ -1749,6 +2767,7 @@
 
     payTypeRadios.forEach((radio) => {
         radio.addEventListener('change', () => {
+            clearFieldMessage(amountPaid);
             syncControls();
             render();
         });
@@ -1818,6 +2837,40 @@
                 element.value = element.value.replace(/\D/g, '');
             }
         });
+    });
+
+    const autoCapitalizeFirst = (field) => {
+        if (!field || typeof field.value !== 'string' || field.value.length === 0) return;
+        const first = field.value.charAt(0);
+        if (first >= 'a' && first <= 'z') {
+            const newValue = first.toUpperCase() + field.value.slice(1);
+            const start = field.selectionStart;
+            const end = field.selectionEnd;
+            field.value = newValue;
+            if (start !== null && end !== null) {
+                field.setSelectionRange(start, end);
+            }
+        }
+    };
+
+    const setupAutoCapitalize = () => {
+        const fields = document.querySelectorAll('input[type="text"]:not([data-skip-autocap]) , textarea:not([data-skip-autocap])');
+        fields.forEach((field) => {
+            const handler = () => autoCapitalizeFirst(field);
+            field.addEventListener('input', handler);
+            field.addEventListener('blur', handler);
+        });
+    };
+
+    setupAutoCapitalize();
+
+    f.addEventListener('input', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+
+        if (target.matches('input, textarea, select')) {
+            clearFieldMessage(target);
+        }
     });
 
     f.addEventListener('submit', (event) => {

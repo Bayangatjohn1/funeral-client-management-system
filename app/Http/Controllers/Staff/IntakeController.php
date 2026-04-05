@@ -45,7 +45,9 @@ class IntakeController extends Controller
 
     public function createOther()
     {
-        $permission = $this->requireActiveTemporaryPermission();
+        $permission = auth()->user()?->role === 'admin'
+            ? null
+            : $this->requireActiveTemporaryPermission();
 
         return $this->renderForm('other', $permission);
     }
@@ -62,7 +64,9 @@ class IntakeController extends Controller
 
     public function storeOther(Request $request)
     {
-        $permission = $this->requireActiveTemporaryPermission();
+        $permission = auth()->user()?->role === 'admin'
+            ? null
+            : $this->requireActiveTemporaryPermission();
 
         return $this->storeByMode($request, 'other', $permission);
     }
@@ -80,17 +84,22 @@ class IntakeController extends Controller
 
         $branchQuery = Branch::where('is_active', true)->orderBy('branch_code');
         if ($mode === 'other') {
-            $activePermission = $activePermission ?: $this->requireActiveTemporaryPermission();
-            $branchQuery->where('id', $activePermission->allowed_branch_id);
+            if ($user->role === 'admin') {
+                // Admins can encode for any non-main active branch without temp permission.
+                $branchQuery->whereRaw('UPPER(branch_code) <> ?', ['BR001']);
+            } else {
+                $activePermission = $activePermission ?: $this->requireActiveTemporaryPermission();
+                $branchQuery->where('id', $activePermission->allowed_branch_id);
 
-            // Let the staff know the permission is active
-            $expiresLabel = $activePermission->expires_at
-                ? $activePermission->expires_at->format('M d, Y h:i A')
-                : 'until revoked';
-            session()->flash(
-                'success',
-                "Temporary permission granted: you can record other-branch reports {$expiresLabel}."
-            );
+                // Let the staff know the permission is active
+                $expiresLabel = $activePermission->expires_at
+                    ? $activePermission->expires_at->format('M d, Y h:i A')
+                    : 'until revoked';
+                session()->flash(
+                    'success',
+                    "Temporary permission granted: you can record other-branch reports {$expiresLabel}."
+                );
+            }
         } elseif ($canEncodeAnyBranch) {
             $branchQuery->where('branch_code', 'BR001');
         } else {
@@ -158,17 +167,16 @@ class IntakeController extends Controller
 
             'deceased_name' => FieldRules::personName(),
             'deceased_address' => 'required|string|max:255',
-            'born' => 'required|date|before_or_equal:today',
-            'died' => 'required|date|after_or_equal:born|before_or_equal:today',
+            'born' => 'required|date_format:Y-m-d|before_or_equal:today',
+            'died' => 'required|date_format:Y-m-d|after_or_equal:born|before_or_equal:today',
             'senior_citizen_status' => 'required|boolean',
             'senior_citizen_id_number' => 'nullable|string|max:100|required_if:senior_citizen_status,1',
             'senior_proof' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120|required_if:senior_citizen_status,1',
             'wake_location' => 'required|string|max:255',
             'funeral_service_at' => 'required|date|after_or_equal:died|before_or_equal:today',
-            'interment_at' => 'required|date|after:funeral_service_at|before_or_equal:today',
+            'interment_at' => 'required|date|after_or_equal:funeral_service_at|before_or_equal:today',
             'wake_days' => 'nullable|integer|min:1|max:30',
             'place_of_cemetery' => 'required|string|max:255',
-            'service_type' => 'required|string|max:100',
             'case_status' => 'required|in:DRAFT,ACTIVE,COMPLETED',
             'deceased_photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:3072',
 
@@ -215,17 +223,23 @@ class IntakeController extends Controller
             'client_relationship.in' => 'Please select a valid relationship to the deceased.',
             'client_contact_number.regex' => 'Contact number must be 7 to 15 digits (numbers only).',
             'reporter_contact.regex' => 'Reporter contact number must contain numbers only.',
-            'died.after_or_equal' => 'Died date must be on or after born date.',
+            'born.required' => 'Date of birth is required.',
+            'born.date_format' => 'Please enter a valid date of birth.',
+            'born.before_or_equal' => 'Date of birth cannot be in the future.',
+            'died.required' => 'Date of death is required.',
+            'died.date_format' => 'Please enter a valid date of death.',
+            'died.after_or_equal' => 'Date of death cannot be earlier than date of birth.',
             'died.before_or_equal' => 'Date of death cannot be in the future.',
             'funeral_service_at.after_or_equal' => 'Funeral service date must be on or after the date of death.',
             'funeral_service_at.before_or_equal' => 'Funeral service date cannot be in the future.',
-            'interment_at.after' => 'Interment date/time must be after the funeral service date/time.',
+            'interment_at.after' => 'Interment date cannot be earlier than the wake start date.',
             'interment_at.before_or_equal' => 'Interment date/time cannot be in the future.',
             'senior_citizen_id_number.required_if' => 'Senior Citizen ID number is required when senior status is Yes.',
             'paid_at.after_or_equal' => 'Paid date/time must be on or after date of death.',
             'reported_at.before_or_equal' => 'Reported date/time cannot be in the future.',
             'confirm_review' => 'You must confirm that the information is correct before saving.',
         ]);
+        $validated['service_type'] = 'Burial';
 
         if (!$this->isIntermentAfterDeathDate($validated['died'] ?? null, $validated['interment_at'] ?? null)) {
             return back()->withErrors([
@@ -233,20 +247,36 @@ class IntakeController extends Controller
             ])->withInput();
         }
 
+        // Always compute wake days from wake start (funeral_service_at) to interment (inclusive).
+        $computedWakeDays = $this->resolveWakeDays(
+            null,
+            $validated['funeral_service_at'] ?? null,
+            $validated['interment_at'] ?? null
+        );
+        if ($computedWakeDays === null) {
+            return back()->withErrors([
+                'wake_days' => 'Wake days could not be calculated. Please check wake start and interment dates.',
+            ])->withInput();
+        }
+        $validated['wake_days'] = $computedWakeDays;
+
         $user = auth()->user();
         $staffBranchId = (int) $user->branch_id;
         $canEncodeAnyBranch = $user->canEncodeAnyBranch();
+        $isAdmin = $user->role === 'admin';
 
         if ($mode === 'other') {
-            $permission = $permission ?: $this->requireActiveTemporaryPermission();
-            if (
-                !$permission
-                || !$permission->is_active
-                || $permission->is_used
-                || ($permission->expires_at && $permission->expires_at->isPast())
-            ) {
-                return redirect()->back()
-                    ->with('warning', 'You need permission from the admin to record other branch reports.');
+            if (!$isAdmin) {
+                $permission = $permission ?: $this->requireActiveTemporaryPermission();
+                if (
+                    !$permission
+                    || !$permission->is_active
+                    || $permission->is_used
+                    || ($permission->expires_at && $permission->expires_at->isPast())
+                ) {
+                    return redirect()->back()
+                        ->with('warning', 'You need permission from the admin to record other branch reports.');
+                }
             }
         }
 
@@ -268,14 +298,22 @@ class IntakeController extends Controller
                 ->where('is_active', true)
                 ->first();
 
-            if (
-                !$branch
-                || strtoupper((string) $branch->branch_code) === 'BR001'
-                || $branchId !== (int) $permission->allowed_branch_id
-            ) {
-                return back()->withErrors([
-                    'branch_id' => 'Please select the authorized branch for this temporary permission.',
-                ])->withInput();
+            if (!$isAdmin) {
+                if (
+                    !$branch
+                    || strtoupper((string) $branch->branch_code) === 'BR001'
+                    || $branchId !== (int) $permission->allowed_branch_id
+                ) {
+                    return back()->withErrors([
+                        'branch_id' => 'Please select the authorized branch for this temporary permission.',
+                    ])->withInput();
+                }
+            } else {
+                if (!$branch || strtoupper((string) $branch->branch_code) === 'BR001') {
+                    return back()->withErrors([
+                        'branch_id' => 'Please select a non-main active branch.',
+                    ])->withInput();
+                }
             }
 
             if (empty($validated['reporter_name'])) {
@@ -735,24 +773,20 @@ class IntakeController extends Controller
         }
     }
 
-    private function resolveWakeDays(?int $wakeDays, ?string $died, ?string $intermentAt): ?int
+    private function resolveWakeDays(?int $wakeDays, ?string $wakeStart, ?string $intermentAt): ?int
     {
-        if ($wakeDays !== null) {
-            return max(1, min(30, (int) $wakeDays));
-        }
-
-        if (!$died || !$intermentAt) {
+        if (!$wakeStart || !$intermentAt) {
             return null;
         }
 
         try {
-            $diedDate = Carbon::parse($died)->startOfDay();
             $intermentDate = Carbon::parse($intermentAt)->startOfDay();
-            if ($intermentDate->lessThanOrEqualTo($diedDate)) {
-                return null;
+            $startDate = Carbon::parse($wakeStart)->startOfDay();
+            if ($intermentDate->lessThan($startDate)) {
+                return null; // invalid sequence
             }
 
-            return max(1, min(30, $diedDate->diffInDays($intermentDate)));
+            return max(1, min(30, $startDate->diffInDays($intermentDate) + 1)); // inclusive counting
         } catch (\Throwable $e) {
             return null;
         }

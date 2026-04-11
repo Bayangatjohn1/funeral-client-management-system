@@ -1,6 +1,7 @@
 @extends('layouts.panel')
 
 @section('page_title','Add Client')
+@section('page_desc', 'Register a new client profile and contact information.')
 
 @section('content')
 <form method="POST" action="{{ route('clients.store') }}" class="space-y-4 max-w-xl">

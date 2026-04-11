@@ -13,8 +13,9 @@
         })();
     </script>
 
-    <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800&display=swap" rel="stylesheet" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Syne:wght@700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link rel="icon" href="{{ asset('images/login-logo.png') }}" type="image/png">
     <link rel="shortcut icon" href="{{ asset('images/login-logo.png') }}" type="image/png">
@@ -73,6 +74,17 @@
                 </div>
             </div>
 
+            <button
+                type="button"
+                id="desktopSidebarToggle"
+                class="sidebar-collapse-btn"
+                aria-label="Collapse sidebar"
+                aria-expanded="true"
+                aria-controls="appSidebar"
+            >
+                <i class="bi bi-caret-left-fill sidebar-collapse-glyph" aria-hidden="true"></i>
+            </button>
+
             <div class="sidebar-scroll">
                 <nav class="sidebar-nav">
                     @include('partials.sidebar')
@@ -80,20 +92,242 @@
             </div>
 
             <div class="sidebar-footer">
-                <div class="profile-pill">
-                    <div class="profile-avatar">
-                        {{ strtoupper(substr(auth()->user()->name ?? 'U', 0, 1)) }}
+                <div class="sidebar-account-row">
+                    <button
+                        type="button"
+                        class="profile-pill profile-pill-toggle"
+                        data-account-toggle
+                        aria-expanded="false"
+                        aria-haspopup="true"
+                        aria-label="Open account menu"
+                    >
+                        <div class="profile-avatar">
+                            {{ strtoupper(substr(auth()->user()->name ?? 'U', 0, 1)) }}
+                        </div>
+
+                        <div class="profile-copy">
+                            <div class="profile-name">{{ auth()->user()->name ?? 'System User' }}</div>
+                            <div class="profile-role">{{ ucfirst(auth()->user()->role ?? 'User') }} Account</div>
+                        </div>
+                        <i class="bi bi-chevron-up profile-pill-caret" aria-hidden="true"></i>
+                    </button>
+                </div>
+
+                <div class="sidebar-account-dropdown" data-account-dropdown hidden>
+                    <div class="sidebar-account-dropdown__section">
+                        <p class="sidebar-account-dropdown__label">Appearance</p>
+                        <button type="button" class="theme-toggle theme-toggle--sidebar" data-theme-toggle aria-label="Toggle color theme">
+                            <span class="theme-toggle__meta">
+                                <span class="theme-toggle__eyebrow">Theme</span>
+                                <span class="theme-toggle__value" data-theme-label>Light</span>
+                            </span>
+
+                            <span class="theme-toggle__switch" aria-hidden="true">
+                                <span class="theme-toggle__sun"><i class="bi bi-brightness-high-fill"></i></span>
+                                <span class="theme-toggle__moon"><i class="bi bi-moon-stars-fill"></i></span>
+                                <span class="theme-toggle__thumb"></span>
+                            </span>
+                        </button>
                     </div>
 
-                    <div class="profile-copy">
-                        <div class="profile-name">{{ auth()->user()->name ?? 'System User' }}</div>
-                        <div class="profile-role">{{ ucfirst(auth()->user()->role ?? 'User') }} Account</div>
+                    <div class="sidebar-account-dropdown__section">
+                        <form method="POST" action="{{ route('logout') }}" class="sidebar-account-dropdown__logout-form">
+                            @csrf
+                            <button type="submit" class="sidebar-account-dropdown__logout" aria-label="Logout">
+                                <i class="bi bi-box-arrow-right"></i>
+                                <span>Logout</span>
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
         </aside>
 
         <div class="main-area">
+            @php
+                $hideLayoutTopbar = trim($__env->yieldContent('hide_layout_topbar')) === '1';
+                $pageDesc = trim($__env->yieldContent('page_desc'));
+                $topbarActions = trim($__env->yieldContent('topbar_actions'));
+                $legacyHeaderActions = trim($__env->yieldContent('header_actions'));
+                $filterBar = trim($__env->yieldContent('filter_bar'));
+                $authRole = auth()->user()->role ?? null;
+                $notificationRouteName = match ($authRole) {
+                    'staff' => 'staff.reminders.index',
+                    'admin' => 'admin.reminders.index',
+                    default => null,
+                };
+                $notificationHref = $notificationRouteName ? route($notificationRouteName) : null;
+                $isReminderPage = request()->routeIs('staff.reminders.index') || request()->routeIs('admin.reminders.index');
+                $topbarNotifications = collect();
+                $notificationCounts = ['all' => 0, 'due' => 0, 'today' => 0, 'upcoming' => 0];
+
+                if (auth()->check()) {
+                    $authUser = auth()->user();
+                    $scopeBranchIds = [];
+
+                    if ($authRole === 'staff') {
+                        $scopeBranchIds = method_exists($authUser, 'branchScopeIds')
+                            ? $authUser->branchScopeIds()
+                            : [];
+
+                        $mainBranchId = (int) \App\Models\Branch::query()
+                            ->whereIn('id', $scopeBranchIds)
+                            ->where('branch_code', 'BR001')
+                            ->value('id');
+
+                        if ($mainBranchId > 0) {
+                            $scopeBranchIds = [$mainBranchId];
+                        } elseif (!empty($authUser->branch_id)) {
+                            $scopeBranchIds = [(int) $authUser->branch_id];
+                        }
+                    } elseif (in_array($authRole, ['admin', 'owner'], true)) {
+                        $scopeBranchIds = \App\Models\Branch::query()
+                            ->where('is_active', true)
+                            ->pluck('id')
+                            ->map(fn ($id) => (int) $id)
+                            ->all();
+                    }
+
+                    if (!empty($scopeBranchIds)) {
+                        $today = now()->startOfDay();
+                        $upcomingEnd = $today->copy()->addDays(7)->endOfDay();
+
+                        $notificationCases = \App\Models\FuneralCase::with(['client', 'deceased'])
+                            ->whereIn('branch_id', $scopeBranchIds)
+                            ->where(function ($q) {
+                                $q->where('entry_source', 'MAIN')->orWhereNull('entry_source');
+                            })
+                            ->where(function ($status) {
+                                $status->whereIn('case_status', ['DRAFT', 'ACTIVE'])
+                                    ->orWhere(function ($c) {
+                                        $c->where('case_status', 'COMPLETED')
+                                            ->where(function ($b) {
+                                                $b->whereIn('payment_status', ['UNPAID', 'PARTIAL'])
+                                                    ->orWhere('balance_amount', '>', 0);
+                                            });
+                                    });
+                            })
+                            ->get();
+
+                        $items = collect();
+
+                        foreach ($notificationCases as $case) {
+                            $deceasedName = $case->deceased?->full_name ?: 'Unknown';
+                            $caseCode = $case->case_code ?: 'N/A';
+
+                            if (
+                                in_array($case->payment_status, ['UNPAID', 'PARTIAL'], true) ||
+                                ((float) ($case->balance_amount ?? 0) > 0)
+                            ) {
+                                $isIntermentDueToday = $case->interment_at && $case->interment_at->isSameDay($today);
+                                $items->push([
+                                    'bucket' => 'due',
+                                    'priority' => 4,
+                                    'title' => $isIntermentDueToday ? 'Payment due today (Interment)' : 'Balance pending',
+                                    'subtitle' => "{$caseCode} - {$deceasedName}",
+                                    'date' => $case->interment_at?->copy() ?? $case->funeral_service_at?->copy() ?? now(),
+                                    'tab' => 'unpaid',
+                                    'alert_type' => 'balance',
+                                    'case_code' => $caseCode,
+                                    'deceased_name' => $deceasedName,
+                                    'client_name' => $case->client?->full_name ?? 'N/A',
+                                ]);
+                            }
+
+                            if ($case->case_status === 'COMPLETED') {
+                                continue;
+                            }
+
+                            if ($case->funeral_service_at && $case->funeral_service_at->isSameDay($today)) {
+                                $items->push([
+                                    'bucket' => 'today',
+                                    'priority' => 3,
+                                    'title' => 'Funeral service today',
+                                    'subtitle' => "{$caseCode} - {$deceasedName}",
+                                    'date' => $case->funeral_service_at->copy(),
+                                    'tab' => 'today',
+                                    'alert_type' => 'service_today',
+                                    'case_code' => $caseCode,
+                                    'deceased_name' => $deceasedName,
+                                    'client_name' => $case->client?->full_name ?? 'N/A',
+                                ]);
+                            }
+
+                            if ($case->interment_at && $case->interment_at->isSameDay($today)) {
+                                $items->push([
+                                    'bucket' => 'today',
+                                    'priority' => 3,
+                                    'title' => 'Interment today',
+                                    'subtitle' => "{$caseCode} - {$deceasedName}",
+                                    'date' => $case->interment_at->copy(),
+                                    'tab' => 'today',
+                                    'alert_type' => 'interment_today',
+                                    'case_code' => $caseCode,
+                                    'deceased_name' => $deceasedName,
+                                    'client_name' => $case->client?->full_name ?? 'N/A',
+                                ]);
+                            }
+
+                            if (
+                                $case->funeral_service_at &&
+                                $case->funeral_service_at->greaterThan($today) &&
+                                $case->funeral_service_at->lessThanOrEqualTo($upcomingEnd)
+                            ) {
+                                $items->push([
+                                    'bucket' => 'upcoming',
+                                    'priority' => 2,
+                                    'title' => 'Upcoming funeral service',
+                                    'subtitle' => "{$caseCode} - {$deceasedName}",
+                                    'date' => $case->funeral_service_at->copy(),
+                                    'tab' => 'upcoming',
+                                    'alert_type' => 'upcoming_service',
+                                    'case_code' => $caseCode,
+                                    'deceased_name' => $deceasedName,
+                                    'client_name' => $case->client?->full_name ?? 'N/A',
+                                ]);
+                            }
+
+                            if (
+                                $case->interment_at &&
+                                $case->interment_at->greaterThan($today) &&
+                                $case->interment_at->lessThanOrEqualTo($upcomingEnd)
+                            ) {
+                                $items->push([
+                                    'bucket' => 'upcoming',
+                                    'priority' => 2,
+                                    'title' => 'Upcoming interment',
+                                    'subtitle' => "{$caseCode} - {$deceasedName}",
+                                    'date' => $case->interment_at->copy(),
+                                    'tab' => 'upcoming',
+                                    'alert_type' => 'upcoming_interment',
+                                    'case_code' => $caseCode,
+                                    'deceased_name' => $deceasedName,
+                                    'client_name' => $case->client?->full_name ?? 'N/A',
+                                ]);
+                            }
+                        }
+
+                        $topbarNotifications = $items
+                            ->sortBy([
+                                ['priority', 'desc'],
+                                ['date', 'asc'],
+                            ])
+                            ->take(8)
+                            ->values();
+
+                        $notificationCounts = [
+                            'all' => $items->count(),
+                            'due' => $items->where('bucket', 'due')->count(),
+                            'today' => $items->where('bucket', 'today')->count(),
+                            'upcoming' => $items->where('bucket', 'upcoming')->count(),
+                        ];
+                    }
+                }
+
+                $notificationTotal = $notificationCounts['all'] ?? 0;
+            @endphp
+
+            @unless($hideLayoutTopbar)
             <header class="topbar">
                 <div class="topbar-leading">
                     <button
@@ -109,34 +343,168 @@
 
                     <div class="topbar-heading">
                         <h1 class="topbar-title">@yield('page_title', 'Dashboard')</h1>
+                        @if($pageDesc !== '')
+                            <div class="topbar-desc">@yield('page_desc')</div>
+                        @endif
                     </div>
                 </div>
 
                 <div class="topbar-actions">
-                    @yield('header_actions')
+                    @if($topbarActions !== '')
+                        @yield('topbar_actions')
+                    @elseif($legacyHeaderActions !== '')
+                        @yield('header_actions')
+                    @endif
 
-                    <button type="button" class="theme-toggle" data-theme-toggle aria-label="Toggle color theme">
-                        <span class="theme-toggle__meta">
-                            <span class="theme-toggle__eyebrow">Theme</span>
-                            <span class="theme-toggle__value" data-theme-label>Light</span>
-                        </span>
-
-                        <span class="theme-toggle__switch" aria-hidden="true">
-                            <span class="theme-toggle__sun"><i class="bi bi-brightness-high-fill"></i></span>
-                            <span class="theme-toggle__moon"><i class="bi bi-moon-stars-fill"></i></span>
-                            <span class="theme-toggle__thumb"></span>
-                        </span>
-                    </button>
-
-                    <form method="POST" action="{{ route('logout') }}">
-                        @csrf
-                        <button type="submit" class="logout-btn">
-                            <i class="bi bi-box-arrow-right"></i>
-                            <span>Logout</span>
+                    <div class="topbar-notification-wrap" data-notification>
+                        <button
+                            type="button"
+                            class="topbar-notification {{ $isReminderPage ? 'is-active' : '' }}"
+                            aria-label="Open reminders and schedule"
+                            aria-expanded="false"
+                            data-notification-toggle
+                        >
+                            <i class="bi bi-bell"></i>
+                            @if($notificationTotal > 0)
+                                <span class="topbar-notification__count" aria-hidden="true">{{ min($notificationTotal, 99) }}</span>
+                            @endif
                         </button>
-                    </form>
+
+                        <div class="topbar-notification-menu" data-notification-menu hidden>
+                            <div class="topbar-notification-menu__head">
+                                <div>
+                                    <strong>Reminders & Alerts</strong>
+                                    <small data-notification-summary>{{ $notificationTotal }} active alert{{ $notificationTotal === 1 ? '' : 's' }} need your attention</small>
+                                </div>
+                                @if($notificationHref)
+                                    <a href="{{ $notificationHref }}">View all <i class="bi bi-arrow-up-right"></i></a>
+                                @endif
+                            </div>
+
+                            <div class="topbar-notification-menu__chips">
+                                <button type="button" class="topbar-notification-chip is-active" data-notification-filter="all">
+                                    <span class="topbar-notification-chip__dot"></span>
+                                    <span>All</span>
+                                    <strong data-notification-count="all">{{ $notificationCounts['all'] }}</strong>
+                                </button>
+                                <button type="button" class="topbar-notification-chip" data-notification-filter="due">
+                                    <span class="topbar-notification-chip__dot"></span>
+                                    <span>Due</span>
+                                    <strong data-notification-count="due">{{ $notificationCounts['due'] }}</strong>
+                                </button>
+                                <button type="button" class="topbar-notification-chip" data-notification-filter="today">
+                                    <span class="topbar-notification-chip__dot"></span>
+                                    <span>Today</span>
+                                    <strong data-notification-count="today">{{ $notificationCounts['today'] }}</strong>
+                                </button>
+                                <button type="button" class="topbar-notification-chip" data-notification-filter="upcoming">
+                                    <span class="topbar-notification-chip__dot"></span>
+                                    <span>Upcoming</span>
+                                    <strong data-notification-count="upcoming">{{ $notificationCounts['upcoming'] }}</strong>
+                                </button>
+                            </div>
+
+                            <div class="topbar-notification-menu__list" data-notification-list>
+                                @forelse($topbarNotifications as $item)
+                                    @php
+                                        $itemClass = match ($item['bucket']) {
+                                            'due' => 'is-due',
+                                            'today' => 'is-today',
+                                            default => 'is-upcoming',
+                                        };
+                                        $itemIcon = match ($item['bucket']) {
+                                            'due' => 'bi-credit-card-2-front',
+                                            'today' => 'bi-calendar-day',
+                                            default => 'bi-calendar-event',
+                                        };
+                                        $itemDate = $item['date']?->format('M d, Y h:i A') ?? 'No date';
+                                        $daysAway = $item['date']
+                                            ? now()->startOfDay()->diffInDays($item['date']->copy()->startOfDay(), false)
+                                            : null;
+                                        $rightTag = match ($item['bucket']) {
+                                            'due' => 'Urgent',
+                                            'today' => 'Today',
+                                            default => ($daysAway === null ? 'Upcoming' : ($daysAway <= 0 ? 'Today' : $daysAway . ' day' . ($daysAway > 1 ? 's' : ''))),
+                                        };
+                                        $pillLabel = $item['bucket'] === 'due' ? 'Payment' : 'Schedule';
+                                        $detail = match ($item['bucket']) {
+                                            'due' => ($item['deceased_name'] ?? 'Client') . ' - ' . ($item['client_name'] ?? 'N/A') . ' has unsettled balance. Immediate follow-up required.',
+                                            'today' => ($item['deceased_name'] ?? 'Client') . ' - ' . ($item['client_name'] ?? 'N/A') . ' schedule is set today.',
+                                            default => ($item['deceased_name'] ?? 'Client') . ' - ' . ($item['client_name'] ?? 'N/A') . ' has upcoming schedule.',
+                                        };
+                                        $title = $item['bucket'] === 'due'
+                                            ? 'Balance Pending - ' . ($item['case_code'] ?? 'N/A')
+                                            : ($item['title'] . ' - ' . ($item['case_code'] ?? 'N/A'));
+                                    @endphp
+
+                                    @if($notificationHref)
+                                        <a
+                                            href="{{ route($notificationRouteName, ['tab' => $item['tab'], 'alert_type' => $item['alert_type']]) }}"
+                                            class="topbar-notification-card {{ $itemClass }}"
+                                            data-notification-item
+                                            data-bucket="{{ $item['bucket'] }}"
+                                        >
+                                            <div class="topbar-notification-card__icon"><i class="bi {{ $itemIcon }}"></i></div>
+                                            <div class="topbar-notification-card__content">
+                                                <div class="topbar-notification-card__head">
+                                                    <div class="topbar-notification-card__title">{{ $title }}</div>
+                                                    <span class="topbar-notification-card__tag">{{ $rightTag }}</span>
+                                                </div>
+                                                <div class="topbar-notification-card__text">{{ $detail }}</div>
+                                                <div class="topbar-notification-card__meta">
+                                                    <span class="topbar-notification-card__pill">{{ $pillLabel }}</span>
+                                                    <span>{{ $itemDate }}</span>
+                                                </div>
+                                            </div>
+                                        </a>
+                                    @else
+                                        <div class="topbar-notification-card {{ $itemClass }}" data-notification-item data-bucket="{{ $item['bucket'] }}">
+                                            <div class="topbar-notification-card__icon"><i class="bi {{ $itemIcon }}"></i></div>
+                                            <div class="topbar-notification-card__content">
+                                                <div class="topbar-notification-card__head">
+                                                    <div class="topbar-notification-card__title">{{ $title }}</div>
+                                                    <span class="topbar-notification-card__tag">{{ $rightTag }}</span>
+                                                </div>
+                                                <div class="topbar-notification-card__text">{{ $detail }}</div>
+                                                <div class="topbar-notification-card__meta">
+                                                    <span class="topbar-notification-card__pill">{{ $pillLabel }}</span>
+                                                    <span>{{ $itemDate }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endif
+                                @empty
+                                    <div class="topbar-notification-empty" data-notification-empty>
+                                        No alerts right now.
+                                    </div>
+                                @endforelse
+                                @if($topbarNotifications->isNotEmpty())
+                                    <div class="topbar-notification-empty" data-notification-empty hidden>
+                                        No alerts match this filter.
+                                    </div>
+                                @endif
+                            </div>
+
+                            <div class="topbar-notification-menu__footer">
+                                <button type="button" class="topbar-notification-footer-btn" data-notification-mark-read>Mark all as read</button>
+                                @if($notificationHref)
+                                    <a href="{{ $notificationHref }}" class="topbar-notification-footer-btn is-primary">Open Reminders <i class="bi bi-arrow-up-right"></i></a>
+                                @else
+                                    <button type="button" class="topbar-notification-footer-btn is-primary" disabled>Open Reminders</button>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </header>
+
+            @if($filterBar !== '')
+                <div class="topbar-filter-bar">
+                    @yield('filter_bar')
+                </div>
+            @endif
+            @endunless
 
             <main class="page-content">
                 @yield('content')
@@ -164,7 +532,26 @@
             const toggle = document.getElementById('mobileSidebarToggle');
             const backdrop = document.getElementById('sidebarBackdrop');
             const sidebar = document.getElementById('appSidebar');
+            const desktopToggle = document.getElementById('desktopSidebarToggle');
+            const desktopMedia = window.matchMedia('(min-width: 1024px)');
+            const collapseStorageKey = 'sidebar-collapsed';
             if (!toggle || !backdrop || !sidebar) return;
+
+            const navLinks = sidebar.querySelectorAll('.nav-link');
+            navLinks.forEach((link) => {
+                const label = link.querySelector('span')?.textContent?.trim();
+                if (!label) return;
+                link.setAttribute('data-nav-label', label);
+                link.setAttribute('title', label);
+                link.setAttribute('aria-label', label);
+            });
+
+            const brandName = sidebar.querySelector('.sidebar-brand-name')?.textContent?.trim();
+            const brand = sidebar.querySelector('.sidebar-brand');
+            if (brand && brandName) {
+                brand.setAttribute('title', brandName);
+                brand.setAttribute('aria-label', brandName);
+            }
 
             const closeSidebar = () => {
                 document.body.removeAttribute('data-sidebar-open');
@@ -176,7 +563,49 @@
                 toggle.setAttribute('aria-expanded', 'true');
             };
 
+            const syncDesktopToggle = (collapsed) => {
+                if (!desktopToggle) return;
+                desktopToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+                desktopToggle.setAttribute('aria-label', collapsed ? 'Open sidebar' : 'Collapse sidebar');
+
+                const glyph = desktopToggle.querySelector('.sidebar-collapse-glyph');
+                if (!glyph) return;
+                glyph.classList.toggle('bi-caret-right-fill', collapsed);
+                glyph.classList.toggle('bi-caret-left-fill', !collapsed);
+            };
+
+            const setDesktopCollapsed = (collapsed, persist = true) => {
+                if (!desktopMedia.matches) {
+                    document.body.removeAttribute('data-sidebar-collapsed');
+                    syncDesktopToggle(false);
+                    return;
+                }
+
+                if (collapsed) {
+                    document.body.setAttribute('data-sidebar-collapsed', 'true');
+                } else {
+                    document.body.removeAttribute('data-sidebar-collapsed');
+                }
+
+                syncDesktopToggle(collapsed);
+                if (persist) {
+                    localStorage.setItem(collapseStorageKey, collapsed ? 'true' : 'false');
+                }
+            };
+
+            const restoreDesktopCollapsed = () => {
+                const stored = localStorage.getItem(collapseStorageKey);
+                const initialCollapsed = stored === null ? true : stored === 'true';
+                setDesktopCollapsed(initialCollapsed, false);
+            };
+
             toggle.addEventListener('click', () => {
+                if (desktopMedia.matches) {
+                    const isCollapsed = document.body.getAttribute('data-sidebar-collapsed') === 'true';
+                    setDesktopCollapsed(!isCollapsed);
+                    return;
+                }
+
                 if (document.body.getAttribute('data-sidebar-open') === 'true') {
                     closeSidebar();
                     return;
@@ -184,10 +613,27 @@
                 openSidebar();
             });
 
+            if (desktopToggle) {
+                desktopToggle.addEventListener('click', () => {
+                    if (!desktopMedia.matches) return;
+                    const isCollapsed = document.body.getAttribute('data-sidebar-collapsed') === 'true';
+                    setDesktopCollapsed(!isCollapsed);
+                });
+            }
+
+            restoreDesktopCollapsed();
+
             backdrop.addEventListener('click', closeSidebar);
 
             window.addEventListener('resize', () => {
-                if (window.innerWidth >= 1024) closeSidebar();
+                if (desktopMedia.matches) {
+                    closeSidebar();
+                    restoreDesktopCollapsed();
+                    return;
+                }
+
+                document.body.removeAttribute('data-sidebar-collapsed');
+                syncDesktopToggle(false);
             });
 
             document.addEventListener('keydown', (event) => {
@@ -258,39 +704,138 @@
         })();
 
         (function () {
-            const root = document.documentElement;
-            const toggle = document.querySelector('[data-theme-toggle]');
-            const label = document.querySelector('[data-theme-label]');
-            if (!toggle || !label) return;
+            const toggle = document.querySelector('[data-account-toggle]');
+            const menu = document.querySelector('[data-account-dropdown]');
+            if (!toggle || !menu) return;
 
-            const applyTheme = (theme, animate = false) => {
-                if (animate) root.classList.add('theme-changing');
+            const closeMenu = () => {
+                toggle.setAttribute('aria-expanded', 'false');
+                menu.hidden = true;
+            };
 
-                root.setAttribute('data-theme', theme);
-                localStorage.setItem('app-theme', theme);
-                toggle.setAttribute('data-theme-state', theme);
-                label.textContent = theme === 'dark' ? 'Dark' : 'Light';
+            const openMenu = () => {
+                toggle.setAttribute('aria-expanded', 'true');
+                menu.hidden = false;
+            };
 
-                if (animate) {
-                    window.setTimeout(() => {
-                        root.classList.remove('theme-changing');
-                    }, 260);
+            toggle.addEventListener('click', (event) => {
+                event.preventDefault();
+                if (menu.hidden) {
+                    openMenu();
+                } else {
+                    closeMenu();
+                }
+            });
+
+            document.addEventListener('click', (event) => {
+                if (!toggle.contains(event.target) && !menu.contains(event.target)) {
+                    closeMenu();
+                }
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    closeMenu();
+                }
+            });
+        })();
+
+        (function () {
+            const wrap = document.querySelector('[data-notification]');
+            const toggle = document.querySelector('[data-notification-toggle]');
+            const menu = document.querySelector('[data-notification-menu]');
+            if (!wrap || !toggle || !menu) return;
+            const filterButtons = [...menu.querySelectorAll('[data-notification-filter]')];
+            const cards = [...menu.querySelectorAll('[data-notification-item]')];
+            const emptyState = menu.querySelector('[data-notification-empty]') || menu.querySelector('.topbar-notification-empty');
+            const markReadBtn = menu.querySelector('[data-notification-mark-read]');
+            const countBadge = toggle.querySelector('.topbar-notification__count');
+            const countEls = [...menu.querySelectorAll('[data-notification-count]')];
+            const summary = menu.querySelector('[data-notification-summary]');
+
+            const updateVisibleState = (bucket = 'all') => {
+                cards.forEach((card) => {
+                    const cardBucket = card.getAttribute('data-bucket');
+                    const show = bucket === 'all' || bucket === cardBucket;
+                    card.hidden = !show;
+                });
+
+                const visibleCount = cards.filter((card) => !card.hidden).length;
+                if (emptyState) {
+                    emptyState.hidden = visibleCount > 0;
                 }
             };
 
-            const initialTheme = root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-            applyTheme(initialTheme);
-
-            toggle.addEventListener('click', () => {
-                const current = root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-                const next = current === 'dark' ? 'light' : 'dark';
-                toggle.classList.add('is-switching');
-                applyTheme(next, true);
-
-                window.setTimeout(() => {
-                    toggle.classList.remove('is-switching');
-                }, 260);
+            filterButtons.forEach((button) => {
+                button.addEventListener('click', () => {
+                    const bucket = button.getAttribute('data-notification-filter') || 'all';
+                    filterButtons.forEach((btn) => btn.classList.remove('is-active'));
+                    button.classList.add('is-active');
+                    updateVisibleState(bucket);
+                });
             });
+
+            if (markReadBtn) {
+                markReadBtn.addEventListener('click', () => {
+                    cards.forEach((card) => {
+                        card.hidden = true;
+                    });
+
+                    countEls.forEach((el) => {
+                        el.textContent = '0';
+                    });
+
+                    if (summary) {
+                        summary.textContent = '0 active alerts. All caught up.';
+                    }
+
+                    if (countBadge) {
+                        countBadge.remove();
+                    }
+
+                    filterButtons.forEach((btn) => btn.classList.remove('is-active'));
+                    const allBtn = filterButtons.find((btn) => btn.getAttribute('data-notification-filter') === 'all');
+                    if (allBtn) allBtn.classList.add('is-active');
+
+                    if (emptyState) {
+                        emptyState.textContent = 'All reminders are marked as read.';
+                        emptyState.hidden = false;
+                    }
+                });
+            }
+
+            const closeMenu = () => {
+                toggle.setAttribute('aria-expanded', 'false');
+                menu.hidden = true;
+            };
+
+            const openMenu = () => {
+                toggle.setAttribute('aria-expanded', 'true');
+                menu.hidden = false;
+            };
+
+            toggle.addEventListener('click', (event) => {
+                event.preventDefault();
+                if (menu.hidden) {
+                    openMenu();
+                } else {
+                    closeMenu();
+                }
+            });
+
+            document.addEventListener('click', (event) => {
+                if (!wrap.contains(event.target)) {
+                    closeMenu();
+                }
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    closeMenu();
+                }
+            });
+
+            updateVisibleState('all');
         })();
 
         (function () {
@@ -306,3 +851,4 @@
     </script>
 </body>
 </html>
+

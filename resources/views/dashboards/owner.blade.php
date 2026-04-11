@@ -1,6 +1,7 @@
-﻿@extends('layouts.panel')
+@extends('layouts.panel')
 
 @section('page_title', 'Executive Board')
+@section('page_desc', 'Track business performance and branch-level financial health.')
 
 @section('header_actions')
     <div class="hidden md:flex items-center gap-2">
@@ -12,7 +13,7 @@
 @endsection
 
 @section('content')
-<div class="w-full mx-auto space-y-8 pb-16 antialiased text-slate-900 animate-float-up">
+<div class="owner-page-shell gap-8 pb-16 antialiased text-slate-900 animate-float-up">
 
     {{-- 1. PREMIUM BRANCH TABS (Segmented Control) --}}
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

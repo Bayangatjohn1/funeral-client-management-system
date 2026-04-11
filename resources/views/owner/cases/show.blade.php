@@ -1,9 +1,10 @@
 @extends('layouts.panel')
 
 @section('page_title', 'Owner Case Details')
+@section('page_desc', 'View detailed case information across branches.')
 
 @section('content')
-<div class="space-y-6">
+<div class="owner-page-shell space-y-6">
     <section class="detail-hero">
         <div class="detail-overline">Read-only Case Details</div>
         <h2 class="detail-title">Case {{ $funeral_case->case_code }}</h2>

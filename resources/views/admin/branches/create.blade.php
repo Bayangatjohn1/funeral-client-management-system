@@ -1,6 +1,7 @@
 @extends('layouts.panel')
 
 @section('page_title','Create Branch')
+@section('page_desc', 'Register a new branch and configure branch information.')
 
 @section('content')
 @php($returnTo = old('return_to', request('return_to', route('admin.branches.index'))))

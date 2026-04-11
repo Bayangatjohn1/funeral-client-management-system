@@ -1,6 +1,7 @@
 @extends('layouts.panel')
 
 @section('page_title','Edit Deceased')
+@section('page_desc', 'Update deceased profile and service details.')
 
 @section('content')
 <form id="deceasedEditForm" method="POST" action="{{ route('deceased.update', $deceased) }}" enctype="multipart/form-data" class="max-w-3xl w-full mx-auto space-y-6">

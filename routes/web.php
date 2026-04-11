@@ -209,15 +209,18 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->get(
     $attentionReminders = $dashboardReminders['attention'];
     $todaySchedule = $dashboardReminders['today'];
 
+    $recentCasesCutoff = now()->subDays(2);
+
     $recentCases = FuneralCase::with(['client', 'deceased'])
         ->where('branch_id', $dashboardBranchId)
         ->where(function ($query) {
             $query->where('entry_source', 'MAIN')
                 ->orWhereNull('entry_source');
         })
+        ->where('created_at', '>=', $recentCasesCutoff)
         ->latest()
-        ->take(5)
-        ->get();
+        ->paginate(5, ['*'], 'recent_cases_page')
+        ->withQueryString();
 
     return view('dashboards.staff', compact(
         'clientCount',
@@ -289,6 +292,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin'])->prefix('admin')->gro
     Route::get('/cases', [ReportController::class, 'masterCases'])->name('admin.cases.index');
     Route::patch('/cases/{funeral_case}/verification', [ReportController::class, 'updateVerification'])->name('admin.cases.verification');
     Route::get('/reports/sales', [ReportController::class, 'sales'])->name('admin.reports.sales');
+    Route::get('/reminders', [ReminderController::class, 'index'])->name('admin.reminders.index');
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('admin.audit-logs.index');
     Route::get('/audit-logs/{audit_log}', [AuditLogController::class, 'show'])->name('admin.audit-logs.show');
 });

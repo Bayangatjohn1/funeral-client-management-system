@@ -1,6 +1,7 @@
 @extends('layouts.panel')
 
 @section('page_title','Edit Package')
+@section('page_desc', 'Update package details, pricing, and included services.')
 
 @section('content')
 @php($returnTo = old('return_to', request('return_to', route('admin.packages.index'))))

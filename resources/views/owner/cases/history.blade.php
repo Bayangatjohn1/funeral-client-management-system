@@ -1,8 +1,10 @@
 @extends('layouts.panel')
 
 @section('page_title', 'Global Case History')
+@section('page_desc', 'Review completed case records across all branches.')
 
 @section('content')
+<div class="owner-page-shell">
 @if($errors->any())
     <div class="flash-error">
         {{ $errors->first() }}
@@ -36,7 +38,7 @@
 
             <div>
                 <label class="form-label">Search</label>
-                <input name="q" value="{{ $q }}" class="form-input w-full md:w-72" placeholder="Case, client, or deceased..." onchange="this.form.submit()">
+                <input name="q" value="{{ $q }}" class="form-input w-full md:w-72" placeholder="Search case, client, or deceased..." onchange="this.form.submit()">
             </div>
         </div>
 
@@ -108,6 +110,7 @@
 
 <div class="mt-4">
     {{ $cases->links() }}
+</div>
 </div>
 @endsection
 

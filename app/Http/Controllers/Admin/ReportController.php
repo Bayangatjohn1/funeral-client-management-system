@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\FuneralCase;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class ReportController extends Controller
@@ -17,6 +18,8 @@ class ReportController extends Controller
             'payment_status' => ['nullable', 'in:PAID,PARTIAL,UNPAID'],
             'case_status' => ['nullable', 'in:DRAFT,ACTIVE,COMPLETED'],
             'verification_status' => ['nullable', 'in:PENDING,VERIFIED,DISPUTED'],
+            'sort' => ['nullable', 'in:newest,oldest'],
+            'date_preset' => ['nullable', 'in:ANY,TODAY,LAST_7_DAYS,LAST_30_DAYS,THIS_MONTH,CUSTOM'],
             'interment_from' => ['nullable', 'date'],
             'interment_to' => ['nullable', 'date', 'after_or_equal:interment_from'],
         ], [
@@ -28,8 +31,23 @@ class ReportController extends Controller
         $paymentStatus = $validated['payment_status'] ?? null;
         $caseStatus = $validated['case_status'] ?? null;
         $verificationStatus = $validated['verification_status'] ?? null;
+        $sort = $validated['sort'] ?? 'newest';
         $intermentFrom = $validated['interment_from'] ?? null;
         $intermentTo = $validated['interment_to'] ?? null;
+        $datePreset = $validated['date_preset'] ?? (($intermentFrom || $intermentTo) ? 'CUSTOM' : 'ANY');
+        if ($datePreset === 'ANY' && ($intermentFrom || $intermentTo)) {
+            $datePreset = 'CUSTOM';
+        }
+
+        if ($datePreset !== 'CUSTOM') {
+            [$intermentFrom, $intermentTo] = match ($datePreset) {
+                'TODAY' => [Carbon::today()->toDateString(), Carbon::today()->toDateString()],
+                'LAST_7_DAYS' => [Carbon::today()->subDays(6)->toDateString(), Carbon::today()->toDateString()],
+                'LAST_30_DAYS' => [Carbon::today()->subDays(29)->toDateString(), Carbon::today()->toDateString()],
+                'THIS_MONTH' => [Carbon::today()->startOfMonth()->toDateString(), Carbon::today()->toDateString()],
+                default => [null, null], // ANY
+            };
+        }
 
         $cases = FuneralCase::with(['branch', 'client', 'deceased'])
             ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
@@ -53,7 +71,8 @@ class ReportController extends Controller
                         ->orWhereHas('deceased', fn ($q3) => $q3->where('full_name', 'like', "%{$q}%"));
                 });
             })
-            ->latest()
+            ->when($sort === 'oldest', fn ($query) => $query->oldest())
+            ->when($sort !== 'oldest', fn ($query) => $query->latest())
             ->paginate(20)
             ->withQueryString();
 
@@ -67,6 +86,8 @@ class ReportController extends Controller
             'paymentStatus',
             'caseStatus',
             'verificationStatus',
+            'sort',
+            'datePreset',
             'intermentFrom',
             'intermentTo'
         ));
@@ -122,6 +143,7 @@ class ReportController extends Controller
     {
         $validated = $request->validate([
             'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
+            'date_preset' => ['nullable', 'in:ANY,TODAY,LAST_7_DAYS,LAST_30_DAYS,THIS_MONTH,CUSTOM'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
             'interment_from' => ['nullable', 'date'],
@@ -129,15 +151,31 @@ class ReportController extends Controller
         ]);
 
         $branchId = $validated['branch_id'] ?? null;
-        $dateFrom = $validated['date_from'] ?? now()->startOfMonth()->toDateString();
-        $dateTo = $validated['date_to'] ?? now()->toDateString();
+        $dateFromInput = $validated['date_from'] ?? null;
+        $dateToInput = $validated['date_to'] ?? null;
+        $dateFrom = null;
+        $dateTo = null;
         $intermentFrom = $validated['interment_from'] ?? null;
         $intermentTo = $validated['interment_to'] ?? null;
+        $datePreset = $validated['date_preset'] ?? (($dateFromInput || $dateToInput) ? 'CUSTOM' : 'THIS_MONTH');
+
+        if ($datePreset === 'CUSTOM') {
+            $dateFrom = $dateFromInput;
+            $dateTo = $dateToInput;
+        } elseif ($datePreset !== 'ANY') {
+            [$dateFrom, $dateTo] = match ($datePreset) {
+                'TODAY' => [Carbon::today()->toDateString(), Carbon::today()->toDateString()],
+                'LAST_7_DAYS' => [Carbon::today()->subDays(6)->toDateString(), Carbon::today()->toDateString()],
+                'LAST_30_DAYS' => [Carbon::today()->subDays(29)->toDateString(), Carbon::today()->toDateString()],
+                'THIS_MONTH' => [Carbon::today()->startOfMonth()->toDateString(), Carbon::today()->toDateString()],
+                default => [null, null],
+            };
+        }
 
         $base = FuneralCase::query()
             ->where('verification_status', 'VERIFIED')
-            ->whereDate('created_at', '>=', $dateFrom)
-            ->whereDate('created_at', '<=', $dateTo)
+            ->when($dateFrom, fn ($query) => $query->whereDate('created_at', '>=', $dateFrom))
+            ->when($dateTo, fn ($query) => $query->whereDate('created_at', '<=', $dateTo))
             ->when($intermentFrom || $intermentTo, function ($query) use ($intermentFrom, $intermentTo) {
                 $query->whereHas('deceased', function ($dq) use ($intermentFrom, $intermentTo) {
                     if ($intermentFrom) {
@@ -162,8 +200,8 @@ class ReportController extends Controller
         $branchSales = $branches->map(function ($branch) use ($dateFrom, $dateTo, $intermentFrom, $intermentTo) {
             $query = FuneralCase::where('branch_id', $branch->id)
                 ->where('verification_status', 'VERIFIED')
-                ->whereDate('created_at', '>=', $dateFrom)
-                ->whereDate('created_at', '<=', $dateTo)
+                ->when($dateFrom, fn ($q) => $q->whereDate('created_at', '>=', $dateFrom))
+                ->when($dateTo, fn ($q) => $q->whereDate('created_at', '<=', $dateTo))
                 ->when($intermentFrom || $intermentTo, function ($q) use ($intermentFrom, $intermentTo) {
                     $q->whereHas('deceased', function ($dq) use ($intermentFrom, $intermentTo) {
                         if ($intermentFrom) {
@@ -190,8 +228,11 @@ class ReportController extends Controller
         return view('admin.reports.sales', compact(
             'branches',
             'branchId',
+            'datePreset',
             'dateFrom',
             'dateTo',
+            'dateFromInput',
+            'dateToInput',
             'intermentFrom',
             'intermentTo',
             'totalCases',

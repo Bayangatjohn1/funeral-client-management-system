@@ -1,6 +1,7 @@
 @extends('layouts.panel')
 
 @section('page_title', 'Client Record')
+@section('page_desc', 'Review client profile, linked cases, and contact details.')
 
 @section('content')
 @php
@@ -37,15 +38,15 @@
         <div class="grid grid-cols-2 gap-x-12 gap-y-3">
             <div class="py-1 flex justify-between">
                 <span class="text-sm text-gray-600">Contact Number:</span>
-                <span class="text-sm font-bold">{{ $client->contact_number ?? '—' }}</span>
+                <span class="text-sm font-bold">{{ $client->contact_number ?? 'â€”' }}</span>
             </div>
             <div class="py-1 flex justify-between">
                 <span class="text-sm text-gray-600">Date Added:</span>
-                <span class="text-sm font-bold">{{ $client->created_at?->format('M d, Y') ?? '—' }}</span>
+                <span class="text-sm font-bold">{{ $client->created_at?->format('M d, Y') ?? 'â€”' }}</span>
             </div>
             <div class="col-span-2 py-1">
                 <span class="text-sm text-gray-600 block mb-1">Address:</span>
-                <span class="text-sm font-bold italic">{{ $client->address ?? '—' }}</span>
+                <span class="text-sm font-bold italic">{{ $client->address ?? 'â€”' }}</span>
             </div>
         </div>
     </section>
@@ -69,12 +70,12 @@
                 @forelse($client->deceaseds as $deceased)
                     <tr class="border-t border-slate-100">
                         <td class="p-2">{{ $deceased->full_name }}</td>
-                        <td class="p-2">{{ $deceased->address ?? '—' }}</td>
-                        <td class="p-2">{{ $deceased->born?->format('Y-m-d') ?? '—' }}</td>
-                        <td class="p-2">{{ $deceased->age ?? '—' }}</td>
-                        <td class="p-2">{{ ($deceased->died ?? $deceased->date_of_death)?->format('Y-m-d') ?? '—' }}</td>
-                        <td class="p-2">{{ $deceased->interment?->format('Y-m-d') ?? '—' }}</td>
-                        <td class="p-2">{{ $deceased->place_of_cemetery ?? '—' }}</td>
+                        <td class="p-2">{{ $deceased->address ?? 'â€”' }}</td>
+                        <td class="p-2">{{ $deceased->born?->format('Y-m-d') ?? 'â€”' }}</td>
+                        <td class="p-2">{{ $deceased->age ?? 'â€”' }}</td>
+                        <td class="p-2">{{ ($deceased->died ?? $deceased->date_of_death)?->format('Y-m-d') ?? 'â€”' }}</td>
+                        <td class="p-2">{{ $deceased->interment?->format('Y-m-d') ?? 'â€”' }}</td>
+                        <td class="p-2">{{ $deceased->place_of_cemetery ?? 'â€”' }}</td>
                     </tr>
                 @empty
                     <tr>
@@ -105,12 +106,12 @@
                 @forelse($client->funeralCases as $case)
                     <tr class="border-t border-slate-100">
                         <td class="p-2">{{ $case->case_code }}</td>
-                        <td class="p-2">{{ $case->deceased?->full_name ?? '—' }}</td>
-                        <td class="p-2">{{ $case->service_package ?? '—' }}</td>
+                        <td class="p-2">{{ $case->deceased?->full_name ?? 'â€”' }}</td>
+                        <td class="p-2">{{ $case->service_package ?? 'â€”' }}</td>
                         <td class="p-2">{{ number_format($case->total_amount, 2) }}</td>
-                        <td class="p-2">{{ $case->payment_status ?? '—' }}</td>
-                        <td class="p-2">{{ $case->paid_at?->format('Y-m-d H:i') ?? '—' }}</td>
-                        <td class="p-2">{{ $case->case_status ?? '—' }}</td>
+                        <td class="p-2">{{ $case->payment_status ?? 'â€”' }}</td>
+                        <td class="p-2">{{ $case->paid_at?->format('Y-m-d H:i') ?? 'â€”' }}</td>
+                        <td class="p-2">{{ $case->case_status ?? 'â€”' }}</td>
                     </tr>
                 @empty
                     <tr>
@@ -140,7 +141,7 @@
                         <td class="p-2">{{ $payment->case_code }}</td>
                         <td class="p-2">{{ $payment->method }}</td>
                         <td class="p-2">{{ number_format($payment->amount, 2) }}</td>
-                        <td class="p-2">{{ $payment->paid_at?->format('Y-m-d H:i') ?? $payment->paid_date?->format('Y-m-d') ?? '—' }}</td>
+                        <td class="p-2">{{ $payment->paid_at?->format('Y-m-d H:i') ?? $payment->paid_date?->format('Y-m-d') ?? 'â€”' }}</td>
                     </tr>
                 @empty
                     <tr>

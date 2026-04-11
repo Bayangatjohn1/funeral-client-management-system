@@ -1,8 +1,10 @@
 @extends('layouts.panel')
 
 @section('page_title', 'Branch Analytics')
+@section('page_desc', 'Analyze branch trends, revenue, and operational metrics.')
 
 @section('content')
+<div class="owner-page-shell">
 @if($errors->any())
     <div class="mb-4 bg-red-50 border p-3 text-red-700 rounded">
         {{ $errors->first() }}
@@ -192,5 +194,6 @@
         });
     })();
 </script>
+</div>
 @endsection
 

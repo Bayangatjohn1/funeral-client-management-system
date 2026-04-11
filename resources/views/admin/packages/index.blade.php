@@ -1,89 +1,121 @@
 @extends('layouts.panel')
 
 @section('page_title', 'Package Management')
+@section('page_desc', 'Manage funeral service packages, pricing, and availability.')
 
 @section('content')
-@if(session('success'))
-    <div class="mb-4 bg-green-50 border p-3 text-green-700 rounded">
-        {{ session('success') }}
-    </div>
-@endif
+<div class="admin-table-page">
+    @if(session('success'))
+        <div class="flash-success">
+            {{ session('success') }}
+        </div>
+    @endif
 
-<div class="flex items-center justify-between">
-    <h2 class="text-lg font-semibold">Service Packages</h2>
-    <a href="{{ route('admin.packages.create') }}" class="inline-flex items-center gap-2 bg-[var(--brand-mid)] text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm">
-        <i class="bi bi-plus-circle"></i>
-        Add Package
-    </a>
-</div>
+    <section class="table-system-card admin-table-card">
+        <div class="table-system-head">
+            <div class="admin-table-head-row">
+                <div>
+                    <h2 class="table-system-title">Service Packages</h2>
+                    <p class="admin-table-head-copy">Keep package pricing and promo details aligned in one clean table workflow.</p>
+                </div>
+                <div class="admin-table-head-actions">
+                    <a href="{{ route('admin.packages.create') }}" class="btn btn-primary-custom btn-sm bg-[var(--brand-mid)] border-[var(--brand-mid)] hover:bg-[var(--brand-hover)] hover:border-[var(--brand-hover)] text-white inline-flex items-center gap-2">
+                        <i class="bi bi-plus-circle"></i>
+                        <span>Add Package</span>
+                    </a>
+                </div>
+            </div>
+        </div>
 
-<div class="mt-4 bg-white border rounded overflow-x-auto">
-    <table class="w-full text-sm">
-        <thead class="bg-gray-100">
-            <tr>
-                <th class="p-2 border text-left">Name</th>
-                <th class="p-2 border text-left">Coffin Type</th>
-                <th class="p-2 border text-left">Price</th>
-                <th class="p-2 border text-left">Inclusions</th>
-                <th class="p-2 border text-left">Freebies</th>
-                <th class="p-2 border text-left">Promo</th>
-                <th class="p-2 border text-left">Status</th>
-                <th class="p-2 border text-left">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-        @forelse($packages as $package)
-            <tr class="hover:bg-gray-50">
-                <td class="p-2 border">{{ $package->name }}</td>
-                <td class="p-2 border">{{ $package->coffin_type ?? '-' }}</td>
-                <td class="p-2 border">
-                    <form method="POST" action="{{ route('admin.packages.quickPrice', $package) }}" class="flex items-center gap-2">
-                        @csrf
-                        @method('PATCH')
-                        <input type="number" step="0.01" min="0.01" name="price" value="{{ number_format($package->price, 2, '.', '') }}" class="w-28 border rounded px-2 py-1 text-sm">
-                        <button class="border rounded px-2 py-1 text-xs">Save</button>
-                    </form>
-                </td>
-                <td class="p-2 border">{{ \Illuminate\Support\Str::limit($package->inclusions ?? '-', 80) }}</td>
-                <td class="p-2 border">{{ \Illuminate\Support\Str::limit($package->freebies ?? '-', 80) }}</td>
-                <td class="p-2 border">
-                    @if($package->promo_is_active && $package->promo_value_type && $package->promo_value)
-                        <div class="text-xs font-semibold text-emerald-700">{{ $package->promo_label ?: 'Promo' }}</div>
-                        <div class="text-xs text-gray-600">
-                            {{ $package->promo_value_type === 'PERCENT'
-                                ? number_format((float) $package->promo_value, 2) . '%'
-                                : number_format((float) $package->promo_value, 2) }}
-                        </div>
-                        <div class="text-[11px] text-gray-500">
-                            {{ $package->promo_starts_at?->format('Y-m-d H:i') ?? 'No start' }} -
-                            {{ $package->promo_ends_at?->format('Y-m-d H:i') ?? 'No end' }}
-                        </div>
-                    @else
-                        <span class="text-xs text-gray-500">No active promo</span>
-                    @endif
-                </td>
-                <td class="p-2 border">
-                    @if($package->is_active)
-                        <span class="px-2 py-1 rounded text-xs bg-emerald-100 text-emerald-700">Active</span>
-                    @else
-                        <span class="px-2 py-1 rounded text-xs bg-gray-200 text-gray-700">Inactive</span>
-                    @endif
-                </td>
-                <td class="p-2 border">
-                    <div class="flex flex-wrap gap-2">
-                        <a href="{{ route('admin.packages.edit', $package) }}" data-url="{{ route('admin.packages.edit', $package) }}" class="action-chip action-chip-primary open-package-modal">
-                            <i class="bi bi-pencil-square"></i><span>Edit</span>
-                        </a>
-                    </div>
-                </td>
-            </tr>
-        @empty
-            <tr>
-                <td colspan="8" class="p-3 text-center text-gray-500">No packages yet.</td>
-            </tr>
-        @endforelse
-        </tbody>
-    </table>
+        <div class="table-system-list">
+            <div class="table-wrapper table-system-wrap">
+                <table class="table-base table-system-table">
+                    <thead>
+                        <tr>
+                            <th class="text-left">Name</th>
+                            <th class="text-left">Coffin Type</th>
+                            <th class="text-left">Price</th>
+                            <th class="text-left">Inclusions</th>
+                            <th class="text-left">Freebies</th>
+                            <th class="text-left">Promo</th>
+                            <th class="text-left">Status</th>
+                            <th class="table-col-actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @forelse($packages as $package)
+                        <tr>
+                            <td class="table-primary">{{ $package->name }}</td>
+                            <td>{{ $package->coffin_type ?? '-' }}</td>
+                            <td>
+                                <form method="POST" action="{{ route('admin.packages.quickPrice', $package) }}" class="flex items-center gap-2">
+                                    @csrf
+                                    @method('PATCH')
+                                    <input type="number" step="0.01" min="0.01" name="price" value="{{ number_format($package->price, 2, '.', '') }}" class="admin-table-input-inline">
+                                    <button class="admin-table-save-btn" type="submit">Save</button>
+                                </form>
+                            </td>
+                            <td class="table-secondary">{{ \Illuminate\Support\Str::limit($package->inclusions ?? '-', 80) }}</td>
+                            <td class="table-secondary">{{ \Illuminate\Support\Str::limit($package->freebies ?? '-', 80) }}</td>
+                            <td>
+                                @if($package->promo_is_active && $package->promo_value_type && $package->promo_value)
+                                    <div class="text-xs font-semibold text-emerald-700">{{ $package->promo_label ?: 'Promo' }}</div>
+                                    <div class="table-secondary">
+                                        {{ $package->promo_value_type === 'PERCENT'
+                                            ? number_format((float) $package->promo_value, 2) . '%'
+                                            : number_format((float) $package->promo_value, 2) }}
+                                    </div>
+                                    <div class="text-[11px] text-slate-500">
+                                        {{ $package->promo_starts_at?->format('Y-m-d H:i') ?? 'No start' }} -
+                                        {{ $package->promo_ends_at?->format('Y-m-d H:i') ?? 'No end' }}
+                                    </div>
+                                @else
+                                    <span class="table-secondary">No active promo</span>
+                                @endif
+                            </td>
+                            <td>
+                                @if($package->is_active)
+                                    <span class="status-badge status-badge-success">Active</span>
+                                @else
+                                    <span class="status-badge status-badge-neutral">Inactive</span>
+                                @endif
+                            </td>
+                            <td class="table-col-actions">
+                                <div class="row-action-menu" data-row-menu>
+                                    <button
+                                        type="button"
+                                        class="row-action-trigger"
+                                        data-row-menu-trigger
+                                        aria-haspopup="menu"
+                                        aria-expanded="false"
+                                        aria-label="Open row actions"
+                                    >
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+
+                                    <div class="row-action-dropdown" role="menu">
+                                        <a href="{{ route('admin.packages.edit', $package) }}" data-url="{{ route('admin.packages.edit', $package) }}" class="row-action-item open-package-modal" data-row-menu-item>
+                                            <i class="bi bi-pencil-square"></i>
+                                            <span>Edit package</span>
+                                        </a>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="8" class="table-system-empty">No packages yet.</td>
+                        </tr>
+                    @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="table-system-pagination">
+                {{ $packages->links() }}
+            </div>
+        </div>
+    </section>
 </div>
 
 <!-- Package modal -->

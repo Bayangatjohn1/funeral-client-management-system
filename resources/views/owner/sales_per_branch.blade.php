@@ -1,6 +1,7 @@
 @extends('layouts.panel')
 
 @section('page_title', 'Reporting & Export')
+@section('page_desc', 'Compare sales, collections, and balances across branches.')
 
 @section('content')
 <style>
@@ -79,6 +80,7 @@
     }
 </style>
 
+<div class="owner-page-shell">
 <div class="print-report-header">
     <div style="font-weight:700; font-size:18px;">Sabangan Caguioa Funeral Home</div>
     <div style="font-size:13px; margin-top:2px;">Reporting and Export</div>
@@ -249,6 +251,7 @@
 
 <div class="mt-4 no-print">
     {{ $cases->links() }}
+</div>
 </div>
 
 @endsection

@@ -1,68 +1,109 @@
 @extends('layouts.panel')
 
 @section('page_title','Branch Management')
+@section('page_desc', 'Manage branch details, status, and branch-wide settings.')
 
 @section('content')
-@if (session('success'))
-    <div class="mb-4 rounded bg-green-50 border border-green-200 p-3 text-green-800">
-        {{ session('success') }}
-    </div>
-@endif
+<div class="admin-table-page">
+    @if (session('success'))
+        <div class="flash-success">
+            {{ session('success') }}
+        </div>
+    @endif
 
-<a href="{{ route('admin.branches.create', ['return_to' => request()->fullUrl()]) }}" class="inline-flex items-center gap-2 bg-[var(--brand-mid)] text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm">
-    <i class="bi bi-plus-circle"></i>
-    Add Branch
-</a>
+    <section class="table-system-card admin-table-card">
+        <div class="table-system-head">
+            <div class="admin-table-head-row">
+                <div>
+                    <h2 class="table-system-title">Branch Management</h2>
+                    <p class="admin-table-head-copy">Manage branch profile, status, and encoded record count in one aligned table view.</p>
+                </div>
+                <div class="admin-table-head-actions">
+                    <a href="{{ route('admin.branches.create', ['return_to' => request()->fullUrl()]) }}" class="btn btn-primary-custom btn-sm bg-[var(--brand-mid)] border-[var(--brand-mid)] hover:bg-[var(--brand-hover)] hover:border-[var(--brand-hover)] text-white inline-flex items-center gap-2">
+                        <i class="bi bi-plus-circle"></i>
+                        <span>Add Branch</span>
+                    </a>
+                </div>
+            </div>
+        </div>
 
-<div class="mt-4 overflow-x-auto bg-white border rounded">
-    <table class="w-full text-sm">
-        <thead class="bg-gray-100">
-            <tr>
-                <th class="p-2 border text-left">Branch ID</th>
-                <th class="p-2 border text-left">Branch Name</th>
-                <th class="p-2 border text-left">Address</th>
-                <th class="p-2 border text-left">Total Records Encoded</th>
-                <th class="p-2 border text-left">Status</th>
-                <th class="p-2 border text-left">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($branches as $branch)
-                <tr class="hover:bg-gray-50">
-                    <td class="p-2 border">{{ $branch->branch_code }}</td>
-                    <td class="p-2 border">{{ $branch->branch_name }}</td>
-                    <td class="p-2 border">{{ $branch->address ?? '-' }}</td>
-                    <td class="p-2 border">{{ $branch->funeral_cases_count }}</td>
-                    <td class="p-2 border">
-                        @if($branch->is_active)
-                            <span class="text-green-700 font-medium">Active</span>
-                        @else
-                            <span class="text-red-700 font-medium">Inactive</span>
-                        @endif
-                    </td>
-                    <td class="p-2 border">
-                        <div class="flex flex-wrap gap-2">
-                            <a class="action-chip action-chip-primary open-branch-modal" data-url="{{ route('admin.branches.edit', ['branch' => $branch, 'return_to' => request()->fullUrl()]) }}" href="{{ route('admin.branches.edit', ['branch' => $branch, 'return_to' => request()->fullUrl()]) }}">
-                                <i class="bi bi-pencil-square"></i><span>Edit</span>
-                            </a>
-                            <form method="POST" action="{{ route('admin.branches.toggleStatus', $branch) }}" class="inline">
-                                @csrf
-                                @method('PATCH')
-                                <button class="action-chip" type="submit">
-                                    <i class="bi bi-toggle-{{ $branch->is_active ? 'off' : 'on' }}"></i>
-                                    <span>{{ $branch->is_active ? 'Disable' : 'Enable' }}</span>
-                                </button>
-                            </form>
-                        </div>
-                    </td>
-                </tr>
-            @empty
-                <tr>
-                    <td colspan="6" class="p-3 text-center text-gray-500">No branches found.</td>
-                </tr>
-            @endforelse
-        </tbody>
-    </table>
+        <div class="table-system-list">
+            <div class="table-wrapper table-system-wrap">
+                <table class="table-base table-system-table">
+                    <thead>
+                        <tr>
+                            <th class="text-left">Branch ID</th>
+                            <th class="text-left">Branch Name</th>
+                            <th class="text-left">Address</th>
+                            <th class="text-left table-col-number">Total Records Encoded</th>
+                            <th class="text-left">Status</th>
+                            <th class="table-col-actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($branches as $branch)
+                            <tr>
+                                <td class="table-primary">{{ $branch->branch_code }}</td>
+                                <td>{{ $branch->branch_name }}</td>
+                                <td class="table-secondary">{{ $branch->address ?? '-' }}</td>
+                                <td class="table-col-number">{{ $branch->funeral_cases_count }}</td>
+                                <td>
+                                    @if($branch->is_active)
+                                        <span class="status-badge status-badge-success">Active</span>
+                                    @else
+                                        <span class="status-badge status-badge-danger">Inactive</span>
+                                    @endif
+                                </td>
+                                <td class="table-col-actions">
+                                    <div class="row-action-menu" data-row-menu>
+                                        <button
+                                            type="button"
+                                            class="row-action-trigger"
+                                            data-row-menu-trigger
+                                            aria-haspopup="menu"
+                                            aria-expanded="false"
+                                            aria-label="Open row actions"
+                                        >
+                                            <i class="bi bi-three-dots-vertical"></i>
+                                        </button>
+
+                                        <div class="row-action-dropdown" role="menu">
+                                            <a
+                                                class="row-action-item open-branch-modal"
+                                                data-row-menu-item
+                                                data-url="{{ route('admin.branches.edit', ['branch' => $branch, 'return_to' => request()->fullUrl()]) }}"
+                                                href="{{ route('admin.branches.edit', ['branch' => $branch, 'return_to' => request()->fullUrl()]) }}"
+                                            >
+                                                <i class="bi bi-pencil-square"></i>
+                                                <span>Edit branch</span>
+                                            </a>
+
+                                            <form method="POST" action="{{ route('admin.branches.toggleStatus', $branch) }}">
+                                                @csrf
+                                                @method('PATCH')
+                                                <button class="row-action-item" type="submit" data-row-menu-item>
+                                                    <i class="bi bi-toggle-{{ $branch->is_active ? 'off' : 'on' }}"></i>
+                                                    <span>{{ $branch->is_active ? 'Disable branch' : 'Enable branch' }}</span>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6" class="table-system-empty">No branches found.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="table-system-pagination">
+                {{ $branches->links() }}
+            </div>
+        </div>
+    </section>
 </div>
 
 <!-- Branch edit modal -->

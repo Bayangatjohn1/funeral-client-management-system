@@ -12,7 +12,8 @@ class BranchController extends Controller
     {
         $branches = Branch::withCount('funeralCases')
             ->orderBy('branch_code')
-            ->get();
+            ->paginate(20)
+            ->withQueryString();
 
         return view('admin.branches.index', compact('branches'));
     }

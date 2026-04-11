@@ -1,6 +1,7 @@
-﻿@extends('layouts.panel')
+@extends('layouts.panel')
 
 @section('page_title', 'Deceased Information')
+@section('page_desc', 'Review complete deceased profile and case linkage.')
 
 @section('content')
 @php use Illuminate\Support\Facades\Storage; @endphp

@@ -1,21 +1,54 @@
 @extends('layouts.panel')
 
-@section('page_title', !empty($entryMode) && $entryMode === 'other' ? 'Other Branch Intake Form' : 'Main Branch Intake Form')
+@section('page_title', ($entryMode ?? null) === 'other' ? 'Case Intake - Other Branch' : 'Case Intake - Main Branch')
+
+@push('styles')
+<style>
+    body, .panel-shell-body, .app-shell, .main-area, .page-content {
+        background: transparent !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .main-area { padding: 0 !important; }
+    .topbar { padding: 0 18px !important; margin: 0 !important; }
+    @media (max-width: 1023px) {
+        .topbar { padding: 0 16px !important; }
+    }
+    .page-content {
+        overflow: visible !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        background: transparent !important;
+    }
+    .page-content > * { width: 100% !important; max-width: 100% !important; }
+    .intake-root {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        background: transparent !important;
+        min-height: calc(100vh - var(--topbar-h));
+    }
+</style>
+@endpush
 
 @section('content')
 @if(session('success'))
-    <div class="mb-4 bg-green-50 border p-3 text-green-700 rounded">
+    <div class="flash-success mb-4">
         {{ session('success') }}
     </div>
 @endif
 @if(session('warning'))
-    <div class="mb-4 bg-amber-50 border p-3 text-amber-700 rounded">
+    <div class="flash-warning mb-4">
         {{ session('warning') }}
     </div>
 @endif
 
 @if(session('summary'))
-    <div class="mb-4 bg-white border rounded p-4 text-sm">
+    <div class="mb-4 rounded border border-slate-200 bg-white p-4 text-sm text-slate-700">
         <div class="font-semibold mb-2">Last Saved Summary</div>
         <div>Package: {{ session('summary.package') }}</div>
         <div>Subtotal: {{ number_format(session('summary.subtotal'), 2) }}</div>
@@ -27,7 +60,7 @@
 @endif
 
 @if($errors->any())
-    <div class="mb-4 bg-red-50 border p-3 text-red-700 rounded">
+    <div class="flash-error mb-4">
         {{ $errors->first() }}
     </div>
 @endif
@@ -54,4 +87,3 @@
 @php($initialStep = $intakeErrorStep ?? 1)
 @include('staff.intake._form')
 @endsection
-

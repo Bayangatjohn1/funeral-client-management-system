@@ -1,14 +1,15 @@
 @extends('layouts.panel')
 
 @section('page_title', 'Case Full Information')
+@section('page_desc', 'View full case details, services, and payment progress.')
 
 @section('content')
 @php
     $defaultReturnUrl = ($funeral_case->entry_source ?? 'MAIN') === 'OTHER_BRANCH'
         ? route('funeral-cases.other-reports')
         : ($funeral_case->case_status === 'COMPLETED'
-            ? route('funeral-cases.completed')
-            : route('funeral-cases.index'));
+            ? route('funeral-cases.index', ['tab' => 'completed'])
+            : route('funeral-cases.index', ['tab' => 'active']));
     $returnUrl = request()->query('return_to');
     if (!is_string($returnUrl) || $returnUrl === '' || !\Illuminate\Support\Str::startsWith($returnUrl, [url('/'), '/'])) {
         $returnUrl = $defaultReturnUrl;

@@ -1,6 +1,7 @@
-﻿@extends('layouts.panel')
+@extends('layouts.panel')
 
 @section('page_title','Edit User')
+@section('page_desc', 'Update user profile details, roles, and credentials.')
 
 @section('content')
 

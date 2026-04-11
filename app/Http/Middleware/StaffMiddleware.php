@@ -9,7 +9,7 @@ class StaffMiddleware
 {
     public function handle(Request $request, Closure $next)
     {
-        if (!auth()->check() || !in_array(auth()->user()->role, ['staff', 'admin'], true)) {
+        if (!auth()->check() || auth()->user()->role !== 'staff') {
             abort(403, 'Unauthorized');
         }
 

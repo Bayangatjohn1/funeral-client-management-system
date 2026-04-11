@@ -1,31 +1,289 @@
-﻿@extends('layouts.panel')
+@extends('layouts.panel')
 
 @section('page_title', 'Reminders & Schedule')
+@section('page_desc', 'View upcoming schedules, follow-ups, and reminder alerts.')
 
 @section('content')
-<div class="w-full mx-auto space-y-6 pb-10">
-    <a href="{{ url('/staff') }}"
-           class=" px-4 py-2 text-[11px] font-black uppercase tracking-widest bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 text-slate-700">
+@php
+    $remindersRoute = request()->routeIs('admin.*') ? 'admin.reminders.index' : 'staff.reminders.index';
+    $dashboardUrl = request()->routeIs('admin.*') ? url('/admin') : url('/staff');
+@endphp
+<style>
+    .reminders-page {
+        width: 100%;
+        margin: 0 auto;
+        padding-bottom: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .reminders-toolbar {
+        border: 1px solid #e4ebf3;
+        border-radius: 16px;
+        background: #ffffff;
+        padding: 14px;
+        box-shadow: none;
+        display: grid;
+        gap: 12px;
+    }
+
+    .reminders-back-btn {
+        width: fit-content;
+        padding: 8px 12px;
+        border: 1px solid #d9e3ee;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #334155;
+        background: #f8fafc;
+    }
+
+    .reminders-back-btn:hover {
+        background: #f1f5f9;
+        border-color: #cfdbe8;
+    }
+
+    .reminders-filter-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(220px, 1fr));
+        gap: 12px;
+        align-items: end;
+    }
+
+    .reminders-filter-control input,
+    .reminders-filter-control select {
+        width: 100%;
+        min-height: 44px;
+        margin-top: 0 !important;
+    }
+
+    .reminders-filter-note {
+        font-size: 11px;
+        color: #94a3b8;
+        margin-top: 6px;
+    }
+
+    .reminders-tabs-card {
+        background: #ffffff;
+        border: 1px solid #e4ebf3;
+        border-radius: 16px;
+        padding: 14px;
+        box-shadow: none;
+    }
+
+    .reminders-tab {
+        padding: 9px 14px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        border-radius: 10px;
+        border: 1px solid #dbe4ee;
+        transition: color .15s ease, border-color .15s ease, background-color .15s ease;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .reminders-tab.is-active {
+        background: #0f172a;
+        border-color: #0f172a;
+        color: #ffffff;
+    }
+
+    .reminders-tab.is-idle {
+        background: #ffffff;
+        color: #475569;
+    }
+
+    .reminders-tab.is-idle:hover {
+        border-color: #c9d7e6;
+        color: #334155;
+        background: #f8fafc;
+    }
+
+    .reminders-empty {
+        padding: 30px 16px;
+        background: #f8fbff;
+        border: 1px dashed #d9e3ee;
+        border-radius: 14px;
+        text-align: center;
+    }
+
+    .reminders-list {
+        display: grid;
+        gap: 10px;
+    }
+
+    .reminders-item {
+        padding: 16px 18px;
+        background: #ffffff;
+        border: 1px solid #e4ebf3;
+        border-radius: 14px;
+        box-shadow: none !important;
+        transition: border-color .16s ease, background-color .16s ease;
+    }
+
+    .reminders-item:hover {
+        border-color: #d2deeb;
+        background: #fcfdff;
+    }
+
+    .reminders-item-main {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+    }
+
+    .reminders-side-actions {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 8px;
+        flex-shrink: 0;
+    }
+
+    .reminders-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 8px;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        line-height: 1;
+    }
+
+    html[data-theme='dark'] .reminders-toolbar,
+    html[data-theme='dark'] .reminders-tabs-card {
+        background: linear-gradient(180deg, #0f2038 0%, #112741 100%);
+        border-color: #2f4668;
+    }
+
+    html[data-theme='dark'] .reminders-back-btn {
+        background: #162b47;
+        border-color: #335074;
+        color: #d9e7fb;
+    }
+
+    html[data-theme='dark'] .reminders-back-btn:hover {
+        background: #1a3251;
+        border-color: #44658f;
+        color: #ffffff;
+    }
+
+    html[data-theme='dark'] .reminders-filter-note {
+        color: #8ea8c7;
+    }
+
+    html[data-theme='dark'] .reminders-tab {
+        border-color: #35557b;
+    }
+
+    html[data-theme='dark'] .reminders-tab.is-active {
+        background: #0d1a2f;
+        border-color: #5578a8;
+        color: #f8fbff;
+    }
+
+    html[data-theme='dark'] .reminders-tab.is-idle {
+        background: #16304e;
+        color: #c7d7ef;
+    }
+
+    html[data-theme='dark'] .reminders-tab.is-idle:hover {
+        background: #1c3a5d;
+        border-color: #4d6f98;
+        color: #ffffff;
+    }
+
+    html[data-theme='dark'] .reminders-empty {
+        background: #12243c;
+        border-color: #355074;
+    }
+
+    html[data-theme='dark'] .reminders-item {
+        background: #132844;
+        border-color: #2f4a6b;
+    }
+
+    html[data-theme='dark'] .reminders-item:hover {
+        background: #17304e;
+        border-color: #466890;
+    }
+
+    html[data-theme='dark'] .reminders-page .bg-red-100 {
+        background: #4d2230;
+        border-color: #7a3448;
+    }
+
+    html[data-theme='dark'] .reminders-page .bg-blue-100 {
+        background: #1f3656;
+        border-color: #32547f;
+    }
+
+    html[data-theme='dark'] .reminders-page .bg-indigo-50 {
+        background: #243456;
+        border-color: #37507d;
+    }
+
+    html[data-theme='dark'] .reminders-page .bg-orange-100 {
+        background: #4a321f;
+        border-color: #7c5732;
+    }
+
+    html[data-theme='dark'] .reminders-page .bg-emerald-50 {
+        background: #1d3f37;
+        border-color: #2f6155;
+    }
+
+    html[data-theme='dark'] .reminders-page .bg-slate-50 {
+        background: #263a56;
+        border-color: #3f5677;
+    }
+
+    @media (max-width: 1024px) {
+        .reminders-filter-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .reminders-item-main {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .reminders-side-actions {
+            align-items: flex-start;
+        }
+    }
+</style>
+
+<div class="reminders-page">
+    <section class="reminders-toolbar">
+        <a href="{{ $dashboardUrl }}" class="reminders-back-btn">
             Back to Dashboard
         </a>
-    {{-- Summary counters --}}
-    
-    {{-- Filters --}}
-    <form method="GET" action="{{ route('staff.reminders.index') }}" class="grid md:grid-cols-4 gap-4">
+
+        <form method="GET" action="{{ route($remindersRoute) }}" class="reminders-filter-grid">
             <input type="hidden" name="tab" value="{{ $activeTab ?? 'today' }}">
 
-            <div class="col-span-2 md:col-span-1">
-                
-                <input type="date"
-                       name="date"
-                       value="{{ $filters['date'] ?? '' }}"
-                       class="form-input mt-2"
-                       onchange="this.form.submit()">
+            <div class="reminders-filter-control">
+                <input
+                    type="date"
+                    name="date"
+                    value="{{ $filters['date'] ?? '' }}"
+                    class="form-input"
+                    onchange="this.form.submit()"
+                >
             </div>
 
-            <div class="col-span-2 md:col-span-1">
-                
-                <select name="case_status" class="form-select mt-2" onchange="this.form.submit()">
+            <div class="reminders-filter-control">
+                <select name="case_status" class="form-select" onchange="this.form.submit()">
                     <option value="">All</option>
                     <option value="DRAFT" {{ ($filters['case_status'] ?? '') === 'DRAFT' ? 'selected' : '' }}>Draft</option>
                     <option value="ACTIVE" {{ ($filters['case_status'] ?? '') === 'ACTIVE' ? 'selected' : '' }}>Active</option>
@@ -33,20 +291,20 @@
                 </select>
             </div>
 
-            <div class="col-span-2 md:col-span-1">
-                
-                <select name="branch_id" class="form-select mt-2" onchange="this.form.submit()">
+            <div class="reminders-filter-control">
+                <select name="branch_id" class="form-select" onchange="this.form.submit()">
                     @forelse($branchChoices as $branch)
                         <option value="{{ $branch->id }}" {{ ($selectedBranchId ?? null) === $branch->id ? 'selected' : '' }}>
-                            {{ $branch->branch_code }} — {{ $branch->branch_name }}
+                            {{ $branch->branch_code }} - {{ $branch->branch_name }}
                         </option>
                     @empty
                         <option value="{{ $selectedBranchId ?? '' }}">Main branch (operational)</option>
                     @endforelse
                 </select>
-                <p class="text-[11px] text-slate-400 mt-1">Operational reminders limited to main branch.</p>
+                <p class="reminders-filter-note">Operational reminders limited to main branch.</p>
             </div>
         </form>
+    </section>
 
     @php
         $tabMap = [
@@ -86,8 +344,7 @@
         ];
     @endphp
 
-    {{-- Tabs --}}
-    <div class="bg-white border border-slate-200 rounded-3xl p-4 md:p-6 shadow-sm">
+    <section class="reminders-tabs-card">
         <div class="flex flex-wrap gap-2 mb-4">
             @foreach([
                 'today' => 'Today',
@@ -96,9 +353,12 @@
                 'warnings' => 'Warnings',
                 'all' => 'All Alerts',
             ] as $key => $label)
-                <a href="{{ route('staff.reminders.index', array_merge(request()->except('page'), ['tab' => $key])) }}"
-                   class="px-4 py-2 text-[11px] font-black uppercase tracking-widest rounded-lg border transition-colors {{ $activeTab === $key ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300' }}">
-                    <i class="bi {{ $tabIcons[$key] ?? 'bi-dot' }} mr-2"></i>{{ $label }}
+                <a
+                    href="{{ route($remindersRoute, array_merge(request()->except('page'), ['tab' => $key])) }}"
+                    class="reminders-tab {{ $activeTab === $key ? 'is-active' : 'is-idle' }}"
+                >
+                    <i class="bi {{ $tabIcons[$key] ?? 'bi-dot' }} mr-2"></i>
+                    {{ $label }}
 
                     @if(array_key_exists($key, $counts))
                         <span class="ml-2 inline-flex items-center justify-center px-2 py-0.5 text-[10px] rounded-full {{ $activeTab === $key ? 'bg-white text-slate-900' : 'bg-slate-100 text-slate-600' }}">
@@ -114,7 +374,7 @@
         @endphp
 
         @if($items->isEmpty())
-            <div class="p-8 bg-slate-50 border border-dashed border-slate-200 rounded-2xl text-center">
+            <div class="reminders-empty">
                 <i class="bi bi-emoji-smile text-slate-300 text-3xl mb-2 block"></i>
 
                 <p class="text-sm font-semibold text-slate-500">
@@ -122,28 +382,24 @@
                         @case('today')
                             No schedules for today
                             @break
-
                         @case('unpaid')
                             No unpaid balances
                             @break
-
                         @case('upcoming')
                             No upcoming schedules
                             @break
-
                         @case('warnings')
                             No conflicting schedules
                             @break
-
                         @default
                             No items
                     @endswitch
                 </p>
 
-                <p class="text-[11px] text-slate-400">You’re all caught up 👍</p>
+                <p class="text-[11px] text-slate-400">You're all caught up.</p>
             </div>
         @else
-            <div class="space-y-3">
+            <div class="reminders-list">
                 @foreach($items as $item)
                     @php
                         $case = $item['case'] ?? null;
@@ -160,7 +416,7 @@
                             : 'bi-info-circle text-slate-500';
 
                         $amountLine = ($isUnpaid && $case)
-                            ? 'Outstanding Balance: ₱' . number_format((float) ($case->balance_amount ?? 0), 2)
+                            ? 'Outstanding Balance: PHP ' . number_format((float) ($case->balance_amount ?? 0), 2)
                             : null;
 
                         $supportLine = null;
@@ -174,14 +430,14 @@
                         }
                     @endphp
 
-                    <div class="p-4 md:p-5 bg-white border border-slate-200 rounded-2xl border-l-4 {{ $colors[$item['type']] ?? 'border-l-slate-200' }} shadow-sm hover:shadow-md transition-all">
-                        <div class="flex items-start justify-between gap-3">
+                    <div class="reminders-item border-l-4 {{ $colors[$item['type']] ?? 'border-l-slate-200' }}">
+                        <div class="reminders-item-main">
                             <div class="space-y-1">
-                                <p class="text-sm font-black text-slate-900 leading-none">
+                                <p class="text-sm font-bold text-slate-900 leading-none">
                                     {{ $case->client->full_name ?? 'Client N/A' }}
                                 </p>
 
-                                <p class="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+                                <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">
                                     {{ $item['case_code'] ?? 'N/A' }}
                                 </p>
 
@@ -200,17 +456,17 @@
                                     <p class="text-[11px] font-semibold text-slate-500">
                                         {{ $item['date']->format('M d, Y') }}
                                         @if(method_exists($item['date'], 'isStartOfDay') && !$item['date']->isStartOfDay())
-                                            · {{ $item['date']->format('h:i A') }}
+                                            - {{ $item['date']->format('h:i A') }}
                                         @endif
                                     </p>
                                 @endif
 
                                 <div class="inline-flex items-center gap-2 flex-wrap">
-                                    <span class="inline-flex items-center px-2 py-1 text-[10px] font-black uppercase tracking-widest rounded-md border {{ $badge[$item['type']] ?? 'bg-slate-50 text-slate-500 border-slate-200' }}">
+                                    <span class="reminders-chip {{ $badge[$item['type']] ?? 'bg-slate-50 text-slate-500 border-slate-200' }}">
                                         {{ $primaryLabel }}
                                     </span>
 
-                                    <span class="inline-flex items-center px-2 py-1 text-[10px] font-black uppercase tracking-widest rounded-md border
+                                    <span class="reminders-chip
                                         {{ $paymentStatus === 'UNPAID'
                                             ? 'bg-red-100 text-red-700 border-red-200'
                                             : ($paymentStatus === 'PARTIAL'
@@ -227,13 +483,15 @@
                                 @endif
                             </div>
 
-                            <div class="flex flex-col items-end gap-2">
+                            <div class="reminders-side-actions">
                                 <span class="text-[11px] font-semibold text-slate-500">
                                     {{ ucfirst(str_replace('_', ' ', $item['type'] ?? 'alert')) }}
                                 </span>
 
-                                <a href="{{ route('funeral-cases.show', $item['case_id']) }}"
-                                   class="px-3 py-2 text-[11px] font-black uppercase tracking-widest rounded-lg bg-slate-900 text-white hover:bg-[#9C5A1A] transition-colors">
+                                <a
+                                    href="{{ route('funeral-cases.show', $item['case_id']) }}"
+                                    class="px-3 py-2 text-[11px] font-bold uppercase tracking-widest rounded-lg bg-slate-900 text-white hover:bg-[#9C5A1A] transition-colors"
+                                >
                                     View Details
                                 </a>
                             </div>
@@ -242,6 +500,6 @@
                 @endforeach
             </div>
         @endif
-    </div>
+    </section>
 </div>
 @endsection

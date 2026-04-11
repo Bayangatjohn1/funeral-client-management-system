@@ -1,6 +1,7 @@
 @extends('layouts.panel')
 
 @section('page_title','Edit Branch')
+@section('page_desc', 'Update branch profile and operational details.')
 
 @section('content')
 @php($returnTo = old('return_to', request('return_to', route('admin.branches.index'))))

@@ -1,12 +1,14 @@
-﻿@extends('layouts.panel')
+@extends('layouts.panel')
 
 @section('page_title', 'Administration Overview')
+@section('page_desc', 'Monitor operations, branch performance, and system status.')
 
 @section('header_actions')
 @endsection
 
 @section('content')
-<div class="w-full mx-auto space-y-8 pb-12 antialiased text-slate-900 animate-float-up">
+<div class="dashboard-fit-page">
+<div class="admin-dashboard-shell w-full space-y-6 antialiased text-slate-900 animate-float-up">
 
     @if($errors->any())
         <div class="bg-red-50 border border-red-100 p-4 text-red-700 rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center gap-3 shadow-sm">
@@ -16,8 +18,8 @@
     @endif
 
     {{-- Filters + Quick Actions --}}
-    <div class="card-custom top-controls flex-wrap">
-        <form method="GET" action="{{ url('/admin') }}" class="flex flex-wrap gap-3 items-center flex-1">
+    <div class="card-custom admin-top-controls">
+        <form method="GET" action="{{ url('/admin') }}" class="admin-top-controls-form">
             <select name="branch_id" onchange="this.form.submit()" class="input-custom w-48">
                 <option value="">HQ &amp; All Branches</option>
                 @foreach($branches ?? [] as $branch)
@@ -40,7 +42,7 @@
             </div>
         </form>
 
-        <div class="flex items-center gap-2">
+        <div class="admin-top-controls-actions">
             <a href="{{ route('admin.users.create', ['return_to' => request()->fullUrl()]) }}" class="btn-secondary-custom btn-sm flex items-center gap-2">
                 <i class="bi bi-person-plus-fill text-sm"></i> Add User
             </a>
@@ -51,7 +53,7 @@
     </div>
 
     {{-- 2. FINANCIAL HERO CARDS (Premium Fintech Look) --}}
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6 admin-section-block">
         {{-- Collected Amount (Dark Premium) --}}
         <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-slate-800 rounded-[2.5rem] p-8 lg:p-10 shadow-2xl relative overflow-hidden group flex flex-col justify-between min-h-[220px]">
             {{-- Abstract Background Elements --}}
@@ -100,8 +102,8 @@
     </div>
 
     {{-- 3. CASE METRICS --}}
-    <section class="space-y-3 section">
-        <h3 class="px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Operational Health Metrics</h3>
+    <section class="space-y-3 section admin-section-block">
+        <h3 class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Operational Health Metrics</h3>
         <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             @php
                 $caseStats = [
@@ -131,7 +133,7 @@
     </section>
 
     {{-- 4. BRANCH PERFORMANCE BOARD --}}
-    <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-8 section">
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-5 lg:gap-6 section admin-section-block">
         
         {{-- Left: Elegant Service Amount List --}}
         <div class="xl:col-span-7 card-custom flex flex-col">
@@ -270,7 +272,7 @@
     </div>
 
     {{-- 6. SYSTEM STATUS FOOTER --}}
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 pt-0 admin-section-block">
         @php
             $configStats = [
                 ['label' => 'Network Branches', 'val' => $branchCount ?? 0, 'icon' => 'bi-building'],
@@ -293,6 +295,5 @@
     </div>
 
 </div>
+</div>
 @endsection
-
-

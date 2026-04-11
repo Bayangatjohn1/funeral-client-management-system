@@ -1,6 +1,7 @@
 @extends('layouts.panel')
 
 @section('page_title','Edit Client')
+@section('page_desc', 'Update client details and contact information.')
 
 @section('content')
 <form id="clientEditForm" method="POST" action="{{ route('clients.update', $client) }}" class="max-w-3xl w-full mx-auto space-y-6">

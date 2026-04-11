@@ -1,6 +1,7 @@
 @extends('layouts.panel')
 
 @section('page_title', 'Add Package')
+@section('page_desc', 'Create a new service package with pricing and inclusions.')
 
 @section('content')
 <form method="POST" action="{{ route('admin.packages.store') }}" class="max-w-2xl space-y-4">

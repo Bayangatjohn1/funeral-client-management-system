@@ -11,86 +11,112 @@
     $initialSelectedBranchId = old('branch_id', $defaultBranchId ?? auth()->user()->branch_id);
 @endphp
 
-<div class="w-full max-w-[1480px] px-4 sm:px-6 lg:px-8 xl:px-10 mx-auto pb-20 text-slate-800 font-sans">
+<div class="intake-root w-full p-0 m-0 text-slate-800 font-sans border-0 shadow-none rounded-none">
     <style>
-        html { scrollbar-gutter: stable; }
+       /* Force intake to fill the viewport like the dashboard */
+       html, body { margin: 0 !important; padding: 0 !important; }
+       .app-shell { width: 100% !important; }
+       .main-area { padding: 0 !important; }
+       .topbar { padding: 0 18px !important; margin: 0 !important; }
+       @media (max-width: 1023px) {
+           .topbar { padding: 0 16px !important; }
+       }
+       .page-content { padding: 0 !important; margin: 0 !important; width: 100% !important; background: transparent !important; }
+       .page-content > * { padding: 0 !important; margin: 0 !important; width: 100% !important; }
+       .intake-root { width: 100% !important; padding: 0 !important; margin: 0 !important; }
 
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+       html { scrollbar-gutter: auto; }
 
-        .form-input,
-        .form-textarea {
-            width: 100%;
-            border-radius: 0.75rem;
-            border: 1px solid #cfd8e3;
-            background-color: #ffffff;
-            padding: 0.75rem 1rem;
-            font-size: 0.875rem;
-            font-weight: 500;
-            color: #0f172a;
-            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-            transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
-        }
-        .form-textarea {
-            resize: vertical;
-            min-height: 100px;
-        }
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        .form-input:focus,
-        .form-textarea:focus {
-            border-color: #9c5a1a;
-            box-shadow: 0 0 0 3px rgba(156, 90, 26, 0.10);
-            outline: none;
-        }
-        .field-label {
-            display: block;
-            font-size: 0.74rem;
-            font-weight: 800;
-            color: #334155;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            margin-bottom: 0.5rem;
-            padding-left: 2px;
-        }
+.form-input,
+.form-textarea {
+    width: 100%;
+    border-radius: 0.9rem;
+    border: 1px solid #646e82;
+    background-color: #ffffff;
+    padding: 0.82rem 1rem;
+    font-size: 0.92rem;
+    font-weight: 400;
+    color: #0f172a;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
+}
 
-        .package-card-item { position: relative; }
+.form-textarea {
+    resize: vertical;
+    min-height: 100px;
+}
 
-        .package-card-item .package-radio {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            opacity: 0.001;
-            cursor: pointer;
-            z-index: 5;
-        }
+.form-input:focus,
+.form-textarea:focus {
+    border-color: #9c5a1a;
+    box-shadow: 0 0 0 4px rgba(156, 90, 26, 0.10);
+    outline: none;
+}
 
-        .package-card {
-            transition: all 0.2s ease;
-        }
+.form-input::placeholder,
+.form-textarea::placeholder {
+    color: #9aa9bd;
+    font-weight: 400 !important;
+    opacity: 1;
+}
 
-        .package-card .check-dot {
-            opacity: 0;
-            transform: scale(0.6);
-            border-color: #cbd5e1;
-            transition: all 0.18s ease;
-        }
+.intake-root input::placeholder,
+.intake-root textarea::placeholder {
+    color: #9aa9bd !important;
+    font-weight: 400 !important;
+    opacity: 1;
+}
 
-        .package-card.selected {
-            border-color: #0f172a;
-            background-color: #f8fafc;
-            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-        }
+.field-label {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: #334155;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.55rem;
+    padding-left: 2px;
+}
 
-        .package-card.selected .check-dot {
-            opacity: 1;
-            transform: scale(1);
-            border-color: #059669;
-        }
+.package-card-item { position: relative; }
 
-        /* Professional Flatpickr Theme */
-        /* ===== Flatpickr UI Fix ===== */
-        /* ===== Professional Flatpickr Header ===== */
+.package-card-item .package-radio {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.001;
+    cursor: pointer;
+    z-index: 5;
+}
+
+.package-card {
+    transition: all 0.22s ease;
+}
+
+.package-card .check-dot {
+    opacity: 0;
+    transform: scale(0.6);
+    border-color: #cbd5e1;
+    transition: all 0.18s ease;
+}
+
+.package-card.selected {
+    border-color: #0f172a;
+    background-color: #f8fafc;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+}
+
+.package-card.selected .check-dot {
+    opacity: 1;
+    transform: scale(1);
+    border-color: #059669;
+}
+
+/* ===== Professional Flatpickr Header ===== */
 .flatpickr-calendar {
     margin-top: 10px !important;
     border-radius: 22px !important;
@@ -98,8 +124,10 @@
     box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14) !important;
     padding: 12px 12px 10px !important;
     width: 340px !important;
+    max-height: calc(100vh - 24px) !important;
     background: #ffffff !important;
-    overflow: hidden !important;
+    overflow: auto !important;
+    z-index: 2400 !important;
 }
 
 .flatpickr-calendar.arrowTop::before,
@@ -109,7 +137,6 @@
     display: none !important;
 }
 
-/* top header area */
 .flatpickr-months {
     position: relative !important;
     display: flex !important;
@@ -143,7 +170,6 @@
     white-space: nowrap !important;
 }
 
-/* month dropdown */
 .flatpickr-current-month .flatpickr-monthDropdown-months {
     appearance: none !important;
     -webkit-appearance: none !important;
@@ -162,7 +188,6 @@
     min-width: 110px !important;
 }
 
-/* year input */
 .flatpickr-current-month input.cur-year {
     border: 1px solid #e2e8f0 !important;
     background: #f8fafc !important;
@@ -195,7 +220,6 @@
     display: none !important;
 }
 
-/* arrows */
 .flatpickr-prev-month,
 .flatpickr-next-month {
     top: 12px !important;
@@ -236,7 +260,6 @@
     line-height: 1;
 }
 
-/* weekdays */
 .flatpickr-weekdays {
     margin: 8px 0 10px !important;
 }
@@ -247,7 +270,6 @@
     color: #64748b !important;
 }
 
-/* days */
 .flatpickr-day {
     border-radius: 14px !important;
     max-width: 42px !important;
@@ -281,183 +303,525 @@
     color: #cbd5e1 !important;
 }
 
-/* time section */
 .flatpickr-time {
     border-top: 1px solid #e2e8f0 !important;
     margin-top: 8px !important;
     padding-top: 10px !important;
 }
 
-        .flatpickr-time input,
-        .flatpickr-time .flatpickr-am-pm {
-            border-radius: 10px !important;
-            font-weight: 700 !important;
-        }
-        .flatpickr-calendar.open {
-            margin-top: 12px !important;
-        }
-        .flatpickr-calendar.open {
-            margin-top: 12px !important;
-        }
-        .intake-locked {
-            opacity: 0.55;
-            pointer-events: none;
-            user-select: none;
-            filter: grayscale(0.06);
-        }
+.flatpickr-time input,
+.flatpickr-time .flatpickr-am-pm {
+    border-radius: 10px !important;
+    font-weight: 700 !important;
+}
 
-        .lock-overlay {
-            position: absolute;
-            inset: 0;
-            z-index: 20;
-            background: rgba(255,255,255,0.72);
-            backdrop-filter: blur(1px);
-            display: flex;
-            align-items: flex-start;
-            justify-content: center;
-            padding-top: 3.5rem;
-            border-radius: 0 0 1rem 1rem;
-        }
+.flatpickr-calendar.open {
+    margin-top: 12px !important;
+}
 
-        .lock-overlay.hidden {
-            display: none;
-        }
+.intake-locked {
+    opacity: 0.55;
+    pointer-events: none;
+    user-select: none;
+    filter: grayscale(0.06);
+}
 
-        .toast-pop {
-            left: 50% !important;
-            top: 1.5rem !important;
-            transform: translate(-50%, -8px) scale(0.96);
-            min-width: 280px;
-            text-align: center;
-            pointer-events: none;
-            filter: drop-shadow(0 10px 25px rgba(0, 0, 0, 0.25));
-            transition: opacity 0.25s ease, transform 0.25s ease;
-        }
+.lock-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    background: rgba(255,255,255,0.72);
+    backdrop-filter: blur(1px);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 3.5rem;
+    border-radius: 0 0 1rem 1rem;
+}
 
-        .toast-pop.toast-visible {
-            opacity: 1 !important;
-            transform: translate(-50%, 0) scale(1);
-        }
-                .intake-section-shell {
-            border: 1px solid #e5e7eb;
-            border-radius: 1rem;
-            background: linear-gradient(180deg, #ffffff 0%, #fcfcfd 100%);
-            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
-        }
+.lock-overlay.hidden {
+    display: none;
+}
 
-        .subsection-soft {
-            border: 1px solid #e9edf3;
-            border-radius: 0.95rem;
-            background: #f8fafc;
-        }
+.toast-pop {
+    left: 50% !important;
+    top: calc(var(--topbar-h, 72px) + 10px) !important;
+    transform: translate(-50%, -8px) scale(0.96);
+    min-width: 280px;
+    text-align: center;
+    pointer-events: none;
+    filter: none;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 40 !important;
+}
 
-        .wizard-tab {
-            position: relative;
-            white-space: nowrap;
-        }
+.toast-pop.toast-visible {
+    opacity: 1 !important;
+    transform: translate(-50%, 0) scale(1);
+}
 
-        .wizard-tab.active-step {
-            background: #ffffff;
-            color: #9c5a1a;
-        }
+.intake-toast-branch {
+    top: calc(var(--topbar-h, 72px) + 10px) !important;
+}
 
-        .wizard-tab.active-step::after {
-            content: "";
-            position: absolute;
-            left: 1rem;
-            right: 1rem;
-            bottom: -1px;
-            height: 2px;
-            border-radius: 999px;
-            background: #9c5a1a;
-        }
+.intake-toast-package {
+    top: calc(var(--topbar-h, 72px) + 58px) !important;
+}
 
-        .section-heading-icon {
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
-        }
+html[data-theme='dark'] .intake-toast-branch {
+    background: #1a2b41 !important;
+    color: #e8f0fc !important;
+    border-color: #3f5b7f !important;
+}
 
-        .sticky-review-card {
-            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
-        }
+html[data-theme='dark'] .intake-toast-package {
+    background: #1f5d46 !important;
+    color: #e8fff4 !important;
+    border-color: #2e8666 !important;
+}
 
-        .footer-action-bar {
-            backdrop-filter: blur(8px);
-        }
-        .package-card,
-        .payment-type-card,
-        .branch-toggle {
-            will-change: transform, box-shadow;
-        }
+.intake-section-shell {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+}
 
-        .package-card:hover,
-        .payment-type-card:hover,
-        .branch-toggle:hover {
-            transform: translateY(-1px);
-        }
+.subsection-soft {
+    border: 1px solid #e7edf4;
+    border-radius: 1.1rem;
+    background: linear-gradient(180deg, #fbfcfe 0%, #f8fafc 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.75);
+}
+
+.wizard-tab {
+    --wizard-step-size: 34px;
+    --wizard-step-offset-y: 0.35rem;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.28rem;
+    min-width: 110px;
+    padding: 0.35rem 0.5rem 0.55rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    color: #475569;
+    background: transparent;
+    border: none;
+}
+
+.wizard-tab .wizard-step-number {
+    width: var(--wizard-step-size);
+    height: var(--wizard-step-size);
+    border-radius: 50%;
+    border: 1px solid #cbd5e1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 2;
+    font-weight: 700;
+    color: #475569;
+    background: #fff;
+    transition: all 0.18s ease;
+}
+
+.wizard-tab .wizard-step-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #475569;
+}
+
+.wizard-tab:hover {
+    color: #9c5a1a;
+}
+
+.wizard-tab::after {
+    content: "";
+    position: absolute;
+    left: calc(50% + (var(--wizard-step-size) / 2));
+    top: calc(var(--wizard-step-offset-y) + (var(--wizard-step-size) / 2));
+    width: calc(100% - (var(--wizard-step-size) / 2));
+    height: 2.5px;
+    border-radius: 999px;
+    background: #dbe3ec;
+    transform: translateY(-50%);
+    z-index: 1;
+}
+
+.wizard-tab:last-child::after {
+    display: none;
+}
+
+.wizard-tab.completed-step::after {
+    background: #9c5a1a;
+}
+
+.wizard-tab.active-step {
+    color: #9c5a1a;
+}
+
+.wizard-tab:hover .wizard-step-number {
+    border-color: #9c5a1a;
+    color: #9c5a1a;
+}
+
+.wizard-tab.active-step .wizard-step-number {
+    background: #9c5a1a;
+    color: #fff;
+    border-color: #9c5a1a;
+}
+
+.wizard-tab.completed-step .wizard-step-number {
+    background: #9c5a1a;
+    color: #ffffff;
+    border-color: #9c5a1a;
+}
+
+.wizard-tab.completed-step .wizard-step-label {
+    color: #475569;
+    font-weight: 600;
+}
+
+.wizard-tab.active-step .wizard-step-label {
+    color: #9c5a1a;
+    font-weight: 700;
+}
+
+.section-heading-icon {
+    width: 2.8rem;
+    height: 2.8rem;
+    border-radius: 1rem;
+    background: #f6f8fb;
+    border: 1px solid #dbe3ec;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: none;
+}
+
+.sticky-review-card {
+    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.16);
+}
+
+.footer-action-bar {
+    backdrop-filter: none;
+}
+
+.package-card,
+.payment-type-card {
+    will-change: transform, box-shadow;
+}
+
+.package-card:hover,
+.payment-type-card:hover {
+    transform: translateY(-1px);
+}
+
+/* ===== New shared visual helpers ===== */
+.intake-top-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-left: 36px;
+    padding-right: 36px;
+    padding-bottom: 0.4rem;
+    margin-bottom: 0.9rem;
+    border-bottom: 1px solid #e5eaf1;
+}
+
+@media (min-width: 1024px) {
+    .intake-top-shell {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+    }
+}
+
+.intake-mode-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 0.85rem;
+    border-radius: 0.9rem;
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05);
+}
+
+.intake-meta-shell {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    padding: 0.2rem 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.intake-meta-divider {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    padding-right: 0;
+    border-right: 0;
+}
+
+@media (max-width: 1023px) {
+    .intake-meta-divider {
+        border-right: 0;
+        padding-right: 0;
+    }
+}
+
+@media (max-width: 768px) {
+    .wizard-steps-shell {
+        display: flex !important;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        gap: 0.35rem;
+        padding: 0.45rem 16px 0.25rem;
+    }
+
+    .wizard-tab {
+        --wizard-step-size: 30px;
+        --wizard-step-offset-y: 0.28rem;
+        flex: 0 0 auto !important;
+        min-width: 94px;
+        padding: 0.28rem 0.4rem 0.45rem;
+        gap: 0.2rem;
+    }
+
+    .wizard-tab .wizard-step-number {
+        font-size: 0.78rem;
+    }
+
+    .wizard-tab .wizard-step-label {
+        font-size: 0.78rem;
+        text-align: center;
+    }
+
+    .intake-meta-shell {
+        display: block;
+        padding: 0;
+    }
+
+    .intake-meta-divider {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        column-gap: 1rem;
+        row-gap: 0.75rem;
+        align-items: start;
+    }
+
+    .intake-meta-item {
+        min-width: 0;
+    }
+}
+
+.intake-meta-item {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    gap: 0.18rem;
+    min-width: 92px;
+}
+
+.intake-meta-label {
+    font-size: 0.63rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 800;
+    color: #64748b;
+}
+
+.intake-meta-value {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #475569;
+}
+
+.branch-toggle {
+    padding: 0.08rem 0.2rem;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #475569;
+    box-shadow: none;
+    transition: color 0.15s ease, text-decoration-color 0.15s ease;
+}
+
+.wizard-steps-shell {
+    position: relative;
+    background: transparent;
+    border-bottom: 1px solid #e6ebf2;
+    gap: 1rem;
+    padding-left: 18px;
+    padding-right: 18px;
+}
+
+.section-title-block {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    margin-bottom: 2rem;
+}
+
+.section-title-text h3 {
+    margin: 0;
+    font-size: 1.12rem;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.01em;
+}
+
+.section-title-text p {
+    margin: 0.2rem 0 0;
+    font-size: 0.8rem;
+    color: #64748b;
+    font-weight: 500;
+}
+
+#intakeWizardForm {
+    background-color: transparent;
+}
+
+#intakeFormContent {
+    padding-left: 36px !important;
+    padding-right: 36px !important;
+}
+
+.footer-action-bar {
+    padding-left: 36px !important;
+    padding-right: 36px !important;
+}
+
+html[data-theme='dark'] .panel-shell-body,
+html[data-theme='dark'] .main-area,
+html[data-theme='dark'] .page-content,
+html[data-theme='dark'] .intake-root,
+html[data-theme='dark'] .intake-section-shell {
+    background: #223148 !important;
+    color: #e5edf6;
+}
+
+html[data-theme='dark'] .intake-top-shell,
+html[data-theme='dark'] .wizard-steps-shell {
+    border-color: #3f536b;
+}
+
+html[data-theme='dark'] .section-title-text h3 {
+    color: #f8fbff;
+}
+
+html[data-theme='dark'] .section-title-text p,
+html[data-theme='dark'] .field-label,
+html[data-theme='dark'] .intake-meta-label,
+html[data-theme='dark'] .intake-meta-value {
+    color: #a9bbd2;
+}
+
+html[data-theme='dark'] .lock-overlay {
+    background: rgba(15, 23, 42, 0.72);
+}
+
+html[data-theme='dark'] #intake_lock_overlay .bg-white {
+    background: #1b2a3d !important;
+    border-color: #3f536b !important;
+    color: #e5edf6 !important;
+}
+
+html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
+    background: #273a52 !important;
+    border-color: #3f536b !important;
+    color: #d7e6fa !important;
+}
+
+@media (max-width: 1023px) {
+    .intake-top-shell,
+    .wizard-steps-shell,
+    #intakeFormContent,
+    .footer-action-bar {
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+    }
+}
+
+@media (max-width: 640px) {
+    .footer-action-bar {
+        align-items: stretch;
+        gap: 0.75rem;
+    }
+
+    #wizardPrev {
+        min-width: 104px;
+        text-align: center;
+    }
+}
     </style>
 
-    <div id="branch_toast" class="hidden fixed left-1/2 top-16 -translate-x-1/2 z-50 px-5 py-3 rounded-xl bg-slate-900 text-white text-sm font-semibold shadow-2xl transition-all duration-300 opacity-0 translate-y-[-8px] toast-pop">
+    <div id="branch_toast" class="hidden fixed left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl bg-slate-900 text-white text-sm font-semibold transition-all duration-300 opacity-0 translate-y-[-8px] toast-pop intake-toast-branch">
         You're now recording for this branch.
     </div>
 
-    <div id="package_toast" class="hidden fixed left-1/2 top-28 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-emerald-600 text-white text-sm font-bold shadow-2xl transition-all duration-200 opacity-0 translate-y-[-8px] flex items-center gap-2 toast-pop">
+    <div id="package_toast" class="hidden fixed left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-emerald-600 text-white text-sm font-bold transition-all duration-200 opacity-0 translate-y-[-8px] flex items-center gap-2 toast-pop intake-toast-package">
         <i class="bi bi-check2-circle text-lg"></i>
         <span class="package-toast-text">You selected a package.</span>
     </div>
 
-    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200 pb-5 mb-7">
-        <div class="flex items-center gap-3">
+    <div class="intake-top-shell">
+    @php
+        $intakeModeLabel = $isOtherEntryMode ? 'Other Branch' : 'Main Branch';
+    @endphp
 
-            <h2 class="text-2xl md:text-[1.7rem] font-extrabold text-slate-900 tracking-tight">Case Intake</h2>
-
-            <div class="ml-2 px-3 py-1.5 rounded-lg text-[10px] font-extrabold uppercase tracking-[0.12em] shadow-sm {{ $isOtherEntryMode ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200' }}">
-                {{ $isOtherEntryMode ? 'External Branch' : 'Main Branch' }}
-            </div>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-4 bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)] text-sm">
-            <div class="flex items-center gap-4 border-r border-slate-200 pr-4">
-                <div class="flex items-center gap-1.5 text-slate-500">
-                    <span class="text-[10px] uppercase font-bold tracking-wider">Case ID</span>
-                    <span id="next_case_code" class="font-black text-slate-900">{{ $nextCode }}</span>
-                </div>
-
-                <div class="hidden sm:flex items-center gap-1.5 text-slate-500">
-                    <span class="text-[10px] uppercase font-bold tracking-wider">{{ $isOtherEntryMode ? 'Encoded' : 'Request' }}</span>
-                    <span id="service_requested_display" class="font-bold text-slate-900">{{ \Illuminate\Support\Carbon::parse(old('service_requested_at', now()->toDateString()))->format('M d, Y') }}</span>
-                </div>
-
-                <div class="hidden lg:flex items-center gap-1.5 text-slate-500">
-                    <span class="text-[10px] uppercase font-bold tracking-wider">Encoder</span>
-                    <span class="font-bold text-slate-900">{{ auth()->user()->name }}</span>
-                </div>
+    <div class="intake-meta-shell text-sm">
+        <div class="intake-meta-divider place-items-start">
+            <div class="intake-meta-item">
+                <span class="intake-meta-label">Case ID</span>
+                <span id="next_case_code" class="intake-meta-value">{{ $nextCode }}</span>
             </div>
 
-            <div class="flex items-center gap-2">
-                <span class="text-[10px] uppercase font-bold tracking-wider text-slate-500">
-                    Branch <span class="text-rose-500">*</span>
+            <div class="intake-meta-item hidden sm:flex">
+                <span class="intake-meta-label">{{ $isOtherEntryMode ? 'Encoded' : 'Request' }}</span>
+                <span id="service_requested_display" class="intake-meta-value">
+                    {{ \Illuminate\Support\Carbon::parse(old('service_requested_at', now()->toDateString()))->format('M d, Y') }}
                 </span>
-
-                <div class="flex items-center gap-1">
-                    @foreach($branches as $branch)
-                        @php
-                            $isActive = (string) $initialSelectedBranchId === (string) $branch->id;
-                        @endphp
-                        <button
-                            type="button"
-                            class="branch-toggle px-3 py-1.5 rounded-lg text-xs font-extrabold tracking-wide transition-all {{ $isActive ? 'bg-slate-900 text-white shadow-[0_8px_20px_rgba(15,23,42,0.12)]' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300' }}"
-                            data-branch-id="{{ $branch->id }}"
-                            data-branch-code="{{ $branch->branch_code }}"
-                        >
-                            {{ $branch->branch_code }}
-                        </button>
-                    @endforeach
-                </div>
             </div>
 
-            <div id="branch_error" class="hidden text-xs font-bold text-rose-500"></div>
+            <div class="intake-meta-item hidden lg:flex">
+                <span class="intake-meta-label">Encoder</span>
+                <span class="intake-meta-value">{{ auth()->user()->name }}</span>
+            </div>
+
+            <div class="intake-meta-item">
+                <span class="intake-meta-label">Branch <span class="text-rose-500">*</span></span>
+                <span class="intake-meta-value" id="selected_branch_code">{{ $branches->firstWhere('id', $initialSelectedBranchId)?->branch_code }}</span>
+            </div>
         </div>
+
+        <div id="branch_error" class="hidden text-xs font-bold text-rose-500 w-full"></div>
     </div>
+</div>
 
     @if($isOtherEntryMode)
         <div class="mb-6 rounded-2xl border px-5 py-4 text-sm {{ $otherBranchWindowClosed ? 'border-rose-200 bg-rose-50 text-rose-900' : 'border-amber-200 bg-amber-50 text-amber-900' }} shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
@@ -488,29 +852,30 @@
             </div>
         </div>
 
-        <div class="flex overflow-x-auto hide-scrollbar border-b border-slate-200 bg-slate-50/50" id="wizardSteps">
-            @php
-                $steps = [
-                    1 => 'Client',
-                    2 => 'Deceased',
-                    3 => 'Package',
-                    4 => 'Service Details',
-                    5 => 'Billing',
-                    6 => $isOtherEntryMode ? 'Payment Confirmation' : 'Payment',
-                    7 => 'Review'
-                ];
-            @endphp
+        <div class="wizard-steps-shell flex overflow-x-auto hide-scrollbar" id="wizardSteps">
+    @php
+        $steps = [
+            1 => 'Client',
+            2 => 'Deceased',
+            3 => 'Package',
+            4 => 'Service Details',
+            5 => 'Billing',
+            6 => $isOtherEntryMode ? 'Payment Confirmation' : 'Payment',
+            7 => 'Review'
+        ];
+    @endphp
 
-            @foreach($steps as $num => $label)
-                <button
-                    type="button"
-                    data-step="{{ $num }}"
-                    class="wizard-tab flex-1 min-w-[118px] px-5 py-4 text-xs font-extrabold uppercase tracking-[0.12em] transition-all border-b-2 {{ $num === 1 ? 'active-step border-[#9c5a1a] text-[#9c5a1a]' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-white/70' }}"
-                >
-                    <span class="mr-1 opacity-50">{{ $num }}.</span> {{ $label }}
-                </button>
-            @endforeach
-        </div>
+    @foreach($steps as $num => $label)
+        <button
+            type="button"
+            data-step="{{ $num }}"
+            class="wizard-tab flex-1 {{ $num === 1 ? 'active-step' : '' }}"
+        >
+            <span class="wizard-step-number">{{ $num }}</span>
+            <span class="wizard-step-label">{{ $label }}</span>
+        </button>
+    @endforeach
+</div>
 
         <form method="POST" action="{{ $formAction ?? route('intake.main.store') }}" enctype="multipart/form-data" id="intakeWizardForm">
             @csrf
@@ -521,11 +886,14 @@
 
             <div id="intakeFormContent" class="p-6 md:p-8 lg:p-10 xl:p-12">
                 <section class="wizard-panel" data-step="1">
-                    <div class="mb-8 flex items-center gap-3">
-                        <div class="section-heading-icon w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-600 border border-slate-200">
+                    <div class="section-title-block">
+                        <div class="section-heading-icon">
                             <i class="bi bi-person-fill"></i>
                         </div>
-                        <h3 class="text-lg font-bold text-slate-900">Client Information</h3>
+                        <div class="section-title-text">
+                            <h3>Client Information</h3>
+                            <p>Enter the client’s basic details before continuing.</p>
+                        </div>
                     </div>
 
                     @if($isOtherEntryMode)
@@ -564,7 +932,7 @@
                             <input type="text" name="client_name" value="{{ old('client_name') }}" data-validate="letters-spaces" data-label="client name" class="form-input" placeholder="e.g., Maria Santos" required>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-4 md:col-span-2 lg:col-span-1">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:col-span-2 lg:col-span-1">
                             <div>
                                 <label class="field-label">Relationship <span class="text-rose-500">*</span></label>
                                 <select name="client_relationship" data-label="relationship to the deceased" class="form-input" required>
@@ -596,7 +964,7 @@
                             </div>
                         </div>
 
-                        <div class="md:col-span-2 border-t border-slate-100 pt-5 mt-2">
+                        <div class="md:col-span-2">
                             <label class="field-label">Complete Address <span class="text-rose-500">*</span></label>
                             <input type="text" name="client_address" id="client_address" value="{{ old('client_address') }}" data-label="client address" class="form-input" placeholder="House No, Street, Barangay, City" required>
                         </div>
@@ -604,11 +972,14 @@
                 </section>
 
                 <section class="wizard-panel hidden" data-step="2">
-                    <div class="mb-8 flex items-center gap-3">
-                        <div class="section-heading-icon w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-600 border border-slate-200">
+                    <div class="section-title-block">
+                        <div class="section-heading-icon">
                             <i class="bi bi-person-vcard-fill"></i>
                         </div>
-                        <h3 class="text-lg font-bold text-slate-900">Deceased Information</h3>
+                        <div class="section-title-text">
+                            <h3>Deceased Information</h3>
+                            <p>Record the deceased details and supporting verification.</p>
+                        </div>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-x-6 gap-y-5">
@@ -631,17 +1002,12 @@
                             <p id="born_error" class="mt-1 text-sm text-red-600 hidden"></p>
                         </div>
 
-                        <div class="md:col-span-12">
+                        <div class="md:col-span-8">
                             <label class="field-label">Complete Address <span class="text-rose-500">*</span></label>
                             <input type="text" name="deceased_address" id="deceased_address" value="{{ old('deceased_address', old('client_address')) }}" data-label="deceased address" class="form-input" placeholder="House No, Street, Barangay, City" required>
                         </div>
 
-                        <div class="md:col-span-3">
-                            <label class="field-label">Age</label>
-                            <input type="number" name="age" id="age" value="{{ old('age') }}" class="form-input bg-slate-50 text-slate-500 cursor-not-allowed" readonly>
-                        </div>
-
-                        <div class="md:col-span-5">
+                        <div class="md:col-span-4">
                             <label class="field-label">Date of Death <span class="text-rose-500">*</span></label>
                             <div class="relative">
                                 <input type="text" name="died" id="died" value="{{ old('died') }}" data-label="date of death" class="form-input pr-10 cursor-pointer" placeholder="e.g., January 27, 2026" autocomplete="off" required>
@@ -654,46 +1020,49 @@
                             @enderror
                             <p id="died_error" class="mt-1 text-sm text-red-600 hidden"></p>
                         </div>
-                    </div>
 
-                    <div class="mt-8 rounded-xl border border-slate-200 bg-slate-50 p-5">
-                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <div>
-                                <h4 class="text-sm font-bold text-slate-800 flex items-center gap-2">
-                                    <i class="bi bi-shield-check text-emerald-600"></i>
-                                    Senior Citizen Verification
-                                </h4>
-                                <p class="text-[11px] text-slate-500 mt-0.5">Applies automatic discounts if enabled.</p>
-                            </div>
+                        <div class="md:col-span-3">
+                            <label class="field-label">Age</label>
+                            <input type="number" name="age" id="age" value="{{ old('age') }}" class="form-input bg-slate-50 text-slate-500 cursor-not-allowed" readonly>
+                        </div>
 
-                            <select name="senior_citizen_status" id="senior_citizen_status" data-label="senior citizen status" class="form-input w-full sm:w-48 font-bold text-slate-800">
+                        <div class="md:col-span-9">
+                            <label class="field-label">Senior Citizen Verification</label>
+                            <select name="senior_citizen_status" id="senior_citizen_status" data-label="senior citizen status" class="form-input w-full">
                                 <option value="0" {{ old('senior_citizen_status', '0') === '0' ? 'selected' : '' }}>No / Standard</option>
                                 <option value="1" {{ old('senior_citizen_status') === '1' ? 'selected' : '' }}>Yes / Eligible</option>
                             </select>
-                        </div>
+                            <p class="text-[11px] text-slate-500 mt-1">Applies automatic discounts if enabled.</p>
 
-                        <div id="senior_id_wrap" class="mt-4 pt-4 border-t border-slate-200 hidden">
-                            <label class="field-label">Senior Citizen ID Number <span class="text-rose-500">*</span></label>
-                            <input type="text" name="senior_citizen_id_number" id="senior_citizen_id_number" value="{{ old('senior_citizen_id_number') }}" data-label="Senior Citizen ID number" class="form-input w-full md:w-1/2" placeholder="Enter Valid ID">
-                        </div>
+                            <div id="senior_id_wrap" class="mt-3 hidden">
+                                <label class="field-label">Senior Citizen ID Number <span class="text-slate-400 normal-case tracking-normal font-normal">(Optional)</span></label>
+                                <input type="text" name="senior_citizen_id_number" id="senior_citizen_id_number" value="{{ old('senior_citizen_id_number') }}" data-label="Senior Citizen ID number" class="form-input w-full md:w-1/2" placeholder="Enter Valid ID">
+                            </div>
 
-                        <div id="senior_proof_wrap" class="mt-4 hidden">
-                            <label class="field-label">Upload Senior ID / Certificate <span class="text-rose-500">*</span></label>
-                            <input type="file" name="senior_proof" id="senior_proof" accept=".jpg,.jpeg,.png,.webp,.pdf" class="form-input">
-                            <p class="text-[11px] text-slate-500 mt-1">Accepted: JPG, PNG, WEBP, PDF. Max 5MB.</p>
+                            <div id="senior_proof_wrap" class="mt-3 hidden">
+                                <label class="field-label">Upload Senior ID / Certificate <span class="text-slate-400 normal-case tracking-normal font-normal">(Optional)</span></label>
+                                <input type="file" name="senior_proof" id="senior_proof" accept=".jpg,.jpeg,.png,.webp,.pdf" class="form-input">
+                                <p class="text-[11px] text-slate-500 mt-1">Accepted: JPG, PNG, WEBP, PDF. Max 5MB.</p>
+                            </div>
                         </div>
                     </div>
                 </section>
 
                 <section class="wizard-panel hidden" data-step="3">
-                    <div class="mb-6 flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="section-title-block" style="margin-bottom:0;">
+                            <div class="section-heading-icon">
                                 <i class="bi bi-box-seam-fill"></i>
                             </div>
-                            <h3 class="text-lg font-bold text-slate-900">Service Package</h3>
+                            <div class="section-title-text">
+                                <h3>Service Package</h3>
+                                <p>Select the appropriate service package for this case.</p>
+                            </div>
                         </div>
-                        <div id="package_error" class="hidden text-xs font-bold text-rose-500 bg-rose-50 px-3 py-1 rounded-md">Selection Required</div>
+
+                        <div id="package_error" class="hidden text-xs font-bold text-rose-500 bg-rose-50 px-3 py-1 rounded-md">
+                            Selection Required
+                        </div>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="packageCardList">
@@ -824,13 +1193,15 @@
                 </section>
 
                 <section class="wizard-panel hidden" data-step="4">
-                    <div class="mb-8 flex items-center gap-3">
-                        <div class="section-heading-icon w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-600 border border-slate-200">
+                    <div class="section-title-block">
+                        <div class="section-heading-icon">
                             <i class="bi bi-geo-alt-fill"></i>
                         </div>
-                        <h3 class="text-lg font-bold text-slate-900">Service Details</h3>
+                        <div class="section-title-text">
+                            <h3>Service Details</h3>
+                            <p>Set the wake, interment, and case progress details.</p>
+                        </div>
                     </div>
-
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                         <div>
                             <label class="field-label">Wake Start Date <span class="text-rose-500">*</span></label>
@@ -912,11 +1283,14 @@
                 </section>
 
                 <section class="wizard-panel hidden" data-step="5">
-                    <div class="mb-8 flex items-center gap-3">
-                        <div class="section-heading-icon w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-600 border border-slate-200">
+                    <div class="section-title-block">
+                        <div class="section-heading-icon">
                             <i class="bi bi-receipt"></i>
                         </div>
-                        <h3 class="text-lg font-bold text-slate-900">Billing Statement</h3>
+                        <div class="section-title-text">
+                            <h3>Billing Statement</h3>
+                            <p>Review charges, discounts and total amount due.</p>
+                        </div>
                     </div>
 
                     <div class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8">
@@ -944,7 +1318,7 @@
                                 <textarea name="additional_services" id="additional_services" rows="2" data-label="additional services" class="form-textarea" placeholder="Detail any add-ons here...">{{ old('additional_services') }}</textarea>
                             </div>
 
-                            <div class="p-5 rounded-xl border border-slate-200 bg-slate-50 grid grid-cols-2 gap-4">
+                            <div class="p-5 rounded-xl border border-slate-200 bg-slate-50 grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div class="col-span-2">
                                     <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-500">Discounts & Tax</h4>
                                 </div>
@@ -1030,11 +1404,14 @@
                 </section>
 
                 <section class="wizard-panel hidden" data-step="6">
-                    <div class="mb-8 flex items-center gap-3">
-                        <div class="section-heading-icon w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-600 border border-slate-200">
+                    <div class="section-title-block">
+                        <div class="section-heading-icon">
                             <i class="bi bi-wallet2"></i>
                         </div>
-                        <h3 class="text-lg font-bold text-slate-900">{{ $isOtherEntryMode ? 'Payment Confirmation' : 'Process Payment' }}</h3>
+                        <div class="section-title-text">
+                            <h3>{{ $isOtherEntryMode ? 'Payment Confirmation' : 'Process Payment' }}</h3>
+                            <p>{{ $isOtherEntryMode ? 'Confirm the required payment condition for external branch intake.' : 'Record an initial payment, deposit, or full settlement.' }}</p>
+                        </div>
                     </div>
 
                     @if($isOtherEntryMode)
@@ -1129,14 +1506,13 @@
                 </section>
 
                 <section class="wizard-panel hidden" data-step="7">
-                    <div class="mb-6 flex items-center gap-3 border-b border-slate-100 pb-4">
-                        <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+                    <div class="section-title-block pb-4 border-b border-slate-100">
+                        <div class="section-heading-icon">
                             <i class="bi bi-clipboard-check"></i>
                         </div>
-
-                        <div>
-                            <h3 class="text-lg font-bold text-slate-900">Final Review</h3>
-                            <p class="text-xs text-slate-500">Ensure all encoded data is accurate.</p>
+                        <div class="section-title-text">
+                            <h3>Final Review</h3>
+                            <p>Check each section carefully before saving the record.</p>
                         </div>
                     </div>
 
@@ -1166,17 +1542,17 @@
                 </section>
             </div>
 
-            <div class="footer-action-bar border-t border-slate-200 bg-white/90 p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <button type="button" id="wizardPrev" class="w-full sm:w-auto px-6 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all disabled:opacity-30 disabled:hover:bg-white">
+            <div class="footer-action-bar p-3 sm:p-5 flex items-center gap-3 sm:justify-between bg-transparent border-t border-slate-200">
+                <button type="button" id="wizardPrev" class="w-auto shrink-0 px-6 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all disabled:opacity-30 disabled:hover:bg-white">
                     Back
                 </button>
 
-                <div class="flex gap-3 w-full sm:w-auto">
-                    <button type="button" id="wizardNext" class="w-full sm:w-auto flex-1 px-8 py-3 rounded-xl bg-slate-900 text-white text-sm font-bold transition-all shadow-[0_10px_24px_rgba(15,23,42,0.14)] hover:bg-[#9c5a1a] hover:-translate-y-0.5">
+                <div class="flex-1 sm:flex-none sm:ml-auto">
+                    <button type="button" id="wizardNext" class="w-full sm:w-auto sm:min-w-[190px] px-8 py-3 rounded-xl bg-slate-900 text-white text-sm font-bold transition-all hover:bg-[#9c5a1a] hover:-translate-y-0.5">
                         Continue
                     </button>
 
-                    <button type="submit" id="saveIntakeRecord" class="hidden w-full sm:w-auto flex-1 px-8 py-3 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-all shadow-[0_10px_24px_rgba(5,150,105,0.16)] disabled:opacity-50">
+                    <button type="submit" id="saveIntakeRecord" class="hidden w-full sm:w-auto sm:min-w-[190px] px-8 py-3 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-all disabled:opacity-50">
                         Save Record
                     </button>
                 </div>
@@ -1199,6 +1575,7 @@
     const save = document.getElementById('saveIntakeRecord');
 
     const formContent = document.getElementById('intakeFormContent');
+    const wizardSteps = document.getElementById('wizardSteps');
     const lockOverlay = document.getElementById('intake_lock_overlay');
 
     const branch = document.getElementById('branch_id');
@@ -1385,11 +1762,60 @@
 
     const shouldLockOtherBranchIntake = () => isOtherEntryMode && !isBranchSelectedForOtherMode();
 
+    const alignToastToMainCenter = (element) => {
+        if (!element) return;
+        const contentArea = document.querySelector('.page-content') || document.querySelector('.main-area');
+        if (!contentArea) return;
+        const rect = contentArea.getBoundingClientRect();
+        element.style.left = `${rect.left + (rect.width / 2)}px`;
+    };
+
+    const realignVisibleToasts = () => {
+        if (branchToast && !branchToast.classList.contains('hidden')) alignToastToMainCenter(branchToast);
+        if (pkgToast && !pkgToast.classList.contains('hidden')) alignToastToMainCenter(pkgToast);
+    };
+
+    const scheduleToastRealign = () => {
+        [0, 80, 160, 260, 380, 520].forEach((delay) => {
+            setTimeout(realignVisibleToasts, delay);
+        });
+    };
+
+    window.addEventListener('resize', scheduleToastRealign);
+    document.addEventListener('click', (event) => {
+        if (event.target.closest('#desktopSidebarToggle') || event.target.closest('#mobileSidebarToggle')) {
+            scheduleToastRealign();
+        }
+    });
+
+    const sidebar = document.getElementById('appSidebar');
+    if (sidebar) {
+        sidebar.addEventListener('transitionend', scheduleToastRealign);
+    }
+
+    const bodyObserver = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            if (mutation.type === 'attributes' && (mutation.attributeName === 'data-sidebar-collapsed' || mutation.attributeName === 'data-sidebar-open')) {
+                scheduleToastRealign();
+                break;
+            }
+        }
+    });
+    bodyObserver.observe(document.body, { attributes: true });
+
+    const resizeAnchor = document.querySelector('.page-content') || document.querySelector('.main-area');
+    if (resizeAnchor && typeof ResizeObserver !== 'undefined') {
+        const observer = new ResizeObserver(() => scheduleToastRealign());
+        observer.observe(resizeAnchor);
+    }
+
     const showToast = (element, message = null, duration = 2400, type = 'branch') => {
         if (!element) return;
 
         if (type === 'branch' && branchToastTimer) clearTimeout(branchToastTimer);
         if (type === 'package' && packageToastTimer) clearTimeout(packageToastTimer);
+        alignToastToMainCenter(element);
+        scheduleToastRealign();
 
         if (message) {
             const textNode = element.querySelector('.package-toast-text');
@@ -1446,11 +1872,12 @@
         }
     };
 
-    const hasSeniorDiscount = () => {
-        return senior?.value === '1'
-            && Boolean(String(seniorId?.value || '').trim())
-            && (proofInput?.files?.length > 0);
+    const computedAge = () => {
+        const years = Number.parseInt(age?.value ?? '', 10);
+        return Number.isFinite(years) ? years : null;
     };
+
+    const hasSeniorDiscount = () => senior?.value === '1' && (computedAge() ?? -1) >= 60;
 
     const autoDiscountMeta = () => {
         if (hasSeniorDiscount()) {
@@ -1462,21 +1889,12 @@
             };
         }
 
-        if (senior?.value === '1' && !String(seniorId?.value || '').trim()) {
+        if (senior?.value === '1' && (computedAge() ?? -1) < 60) {
             return {
                 type: 'Senior Citizen Discount',
-                source: 'Pending Senior ID',
+                source: 'Age Below 60',
                 amount: 0,
-                message: 'Senior Citizen ID is required to apply the discount.',
-            };
-        }
-
-        if (senior?.value === '1' && String(seniorId?.value || '').trim() && !(proofInput?.files?.length > 0)) {
-            return {
-                type: 'Senior Citizen Discount',
-                source: 'Pending Senior Proof',
-                amount: 0,
-                message: 'Senior Citizen proof is required to apply the discount.',
+                message: 'Senior Citizen discount applies only when computed age is at least 60.',
             };
         }
 
@@ -1540,9 +1958,12 @@
     const syncAge = () => {
         const birth = getDateValue(born, bornPicker);
         const death = getDateValue(died, diedPicker);
+        const prevSeniorValue = senior?.value;
 
         if (!birth || !death || death < birth) {
             if (age) age.value = '';
+            if (senior) senior.value = '0';
+            if (senior && senior.value !== prevSeniorValue) syncControls();
             return;
         }
 
@@ -1555,6 +1976,30 @@
         }
 
         age.value = String(years);
+
+        // Auto-mark senior citizen based on computed age.
+        if (senior) senior.value = years >= 60 ? '1' : '0';
+
+        if (senior && senior.value !== prevSeniorValue) {
+            syncControls();
+        }
+    };
+
+    const enforceSeniorEligibility = (notify = false) => {
+        if (!senior) return true;
+
+        const years = Number.parseInt(age?.value ?? '', 10);
+        const eligible = Number.isFinite(years) && years >= 60;
+
+        if (!eligible && senior.value === '1') {
+            senior.value = '0';
+            senior.setCustomValidity('Senior Citizen can only be set to Yes when computed age is at least 60.');
+            if (notify) senior.reportValidity();
+            return false;
+        }
+
+        senior.setCustomValidity('');
+        return true;
     };
 
     const syncDateConstraints = () => {
@@ -1626,13 +2071,15 @@
     };
 
     const syncControls = () => {
+        enforceSeniorEligibility(false);
+
         if (deceasedAddr && clientAddr && deceasedAddr.dataset.manual !== '1') deceasedAddr.value = clientAddr.value;
 
         setHidden(seniorIdWrap, seniorId, senior?.value !== '1');
-        if (seniorId) seniorId.required = senior?.value === '1';
+        if (seniorId) seniorId.required = false;
 
         setHidden(proofWrap, proofInput, senior?.value !== '1');
-        if (proofInput) proofInput.required = senior?.value === '1';
+        if (proofInput) proofInput.required = false;
 
         if (payWrap && mark?.type === 'checkbox') payWrap.classList.toggle('hidden', !payNow());
 
@@ -2046,6 +2493,13 @@
                 diedPicker?.altInput?.focus();
                 return false;
             }
+
+            const years = Number.parseInt(age?.value ?? '', 10);
+            if (senior?.value === '1' && Number.isFinite(years) && years < 60) {
+                senior.setCustomValidity('Senior Citizen can only be set to Yes when computed age is at least 60.');
+                senior.reportValidity();
+                return false;
+            }
         }
         if (targetStep === 3 && !pkg()) {
             packageError?.classList.remove('hidden');
@@ -2157,7 +2611,33 @@
         return true;
     };
 
-    const go = (targetStep) => {
+    const scrollToStepTop = (smooth = false) => {
+        const anchor = wizardSteps || formContent;
+        if (!anchor) return;
+
+        const scroller = anchor.closest('.page-content') || document.querySelector('.page-content');
+        if (scroller) {
+            const scrollerRect = scroller.getBoundingClientRect();
+            const anchorRect = anchor.getBoundingClientRect();
+            const scrollTop = Math.max(scroller.scrollTop + (anchorRect.top - scrollerRect.top) - 8, 0);
+
+            scroller.scrollTo({
+                top: scrollTop,
+                behavior: smooth ? 'smooth' : 'auto'
+            });
+            return;
+        }
+
+        const topbarHeight = document.querySelector('.topbar')?.getBoundingClientRect?.().height || 0;
+        const anchorTop = anchor.getBoundingClientRect().top + window.scrollY;
+        const scrollTop = Math.max(anchorTop - topbarHeight - 10, 0);
+        window.scrollTo({ top: scrollTop, behavior: smooth ? 'smooth' : 'auto' });
+    };
+
+    const go = (targetStep, options = {}) => {
+        const { scroll = true, smooth = true } = options;
+        const previousStep = step;
+
         if (shouldLockOtherBranchIntake() && targetStep > 1) {
             branchError?.classList.remove('hidden');
             if (branchError) branchError.textContent = 'Please select a branch first before encoding.';
@@ -2170,19 +2650,12 @@
         panels.forEach((panel) => panel.classList.toggle('hidden', Number(panel.dataset.step) !== step));
 
         tabs.forEach((tab) => {
-            const active = Number(tab.dataset.step) === step;
-            tab.classList.toggle('active-step', active);
-            tab.classList.toggle('border-[#9c5a1a]', active);
-            tab.classList.toggle('text-[#9c5a1a]', active);
-            tab.classList.toggle('border-transparent', !active);
-            tab.classList.toggle('text-slate-500', !active);
-            tab.classList.toggle('hover:bg-white/70', !active);
+            const tabStep = Number(tab.dataset.step);
+            const active = tabStep === step;
+            const completed = tabStep < step;
 
-            const span = tab.querySelector('span');
-            if (span) {
-                span.classList.toggle('opacity-50', !active);
-                span.classList.toggle('text-[#9c5a1a]', active);
-            }
+            tab.classList.toggle('active-step', active);
+            tab.classList.toggle('completed-step', completed);
         });
 
         if (prev) prev.disabled = step === 1;
@@ -2196,6 +2669,7 @@
         }
 
         if (step === totalSteps) renderReview();
+        if (scroll && step !== previousStep) scrollToStepTop(smooth);
     };
 
     const syncBranch = (showNotice = false) => {
@@ -2364,6 +2838,61 @@
     });
 
     if (typeof flatpickr !== 'undefined') {
+        const ensurePickerVisible = (instance) => {
+            if (!instance) return;
+
+            const anchor = instance.altInput || instance._positionElement || instance.input;
+            const cal = instance.calendarContainer;
+            if (!anchor || !cal) return;
+            const scroller = anchor.closest('.page-content') || document.querySelector('.page-content');
+
+            if (instance.config.positionElement !== anchor) {
+                instance.set('positionElement', anchor);
+            }
+
+            const anchorRect = anchor.getBoundingClientRect();
+            const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+            const estimatedHeight = instance.config.enableTime ? 520 : (cal.offsetHeight || 420);
+            const spaceBelow = Math.max(viewportHeight - anchorRect.bottom, 0);
+            const spaceAbove = Math.max(anchorRect.top, 0);
+            const shouldOpenAbove = spaceBelow < estimatedHeight && spaceAbove > spaceBelow;
+            const desiredPosition = shouldOpenAbove ? 'above left' : 'below left';
+
+            if (instance.config.position !== desiredPosition) {
+                instance.set('position', desiredPosition);
+            }
+
+            if (typeof instance._positionCalendar === 'function') {
+                instance._positionCalendar();
+            }
+
+            const nudgeViewport = () => {
+                const rect = cal.getBoundingClientRect();
+                const pad = 10;
+                let delta = 0;
+
+                if (rect.bottom > viewportHeight - pad) {
+                    delta = rect.bottom - (viewportHeight - pad);
+                } else if (rect.top < pad) {
+                    delta = rect.top - pad;
+                }
+
+                if (!delta) return;
+
+                if (scroller) {
+                    scroller.scrollTop += delta;
+                } else {
+                    window.scrollBy({ top: delta, left: 0, behavior: 'auto' });
+                }
+
+                if (typeof instance._positionCalendar === 'function') {
+                    instance._positionCalendar();
+                }
+            };
+
+            requestAnimationFrame(nudgeViewport);
+        };
+
         const pickerBaseOpts = {
             position: 'auto left',
             appendTo: document.body,
@@ -2371,11 +2900,21 @@
             monthSelectorType: 'dropdown',
             prevArrow: '<span>&lsaquo;</span>',
             nextArrow: '<span>&rsaquo;</span>',
+            onReady: (selectedDates, dateStr, instance) => {
+                ensurePickerVisible(instance);
+            },
             onOpen: (selectedDates, dateStr, instance) => {
                 const cal = instance.calendarContainer;
                 if (cal) {
                     cal.classList.add('shadow-2xl', 'border', 'border-slate-200');
                 }
+                ensurePickerVisible(instance);
+            },
+            onMonthChange: (selectedDates, dateStr, instance) => {
+                ensurePickerVisible(instance);
+            },
+            onYearChange: (selectedDates, dateStr, instance) => {
+                ensurePickerVisible(instance);
             }
         };
 
@@ -2739,7 +3278,7 @@
         wakeDays.dataset.manual = wakeDays.value ? '1' : '';
     });
 
-    [senior, seniorId, addAmt, taxRate, amountPaid, paidAt].forEach((element) => {
+    [seniorId, addAmt, taxRate, amountPaid, paidAt].forEach((element) => {
         element?.addEventListener('input', () => {
             clearFieldMessage(element);
             syncControls();
@@ -2751,6 +3290,17 @@
             syncControls();
             render();
         });
+    });
+
+    senior?.addEventListener('change', () => {
+        if (!enforceSeniorEligibility(true)) {
+            syncControls();
+            render();
+            return;
+        }
+        clearFieldMessage(senior);
+        syncControls();
+        render();
     });
 
     proofInput?.addEventListener('change', () => {
@@ -2853,12 +3403,22 @@
         }
     };
 
+    const normalizeMixedCaps = (value) => {
+        if (typeof value !== 'string' || value.length === 0) return value;
+        const lower = value.toLowerCase();
+        return lower.replace(/(^|[\s.'-])([a-zà-ÿ])/g, (match, prefix, letter) => `${prefix}${letter.toUpperCase()}`);
+    };
+
     const setupAutoCapitalize = () => {
-        const fields = document.querySelectorAll('input[type="text"]:not([data-skip-autocap]) , textarea:not([data-skip-autocap])');
+        const fields = document.querySelectorAll('input[type="text"]:not([data-skip-autocap]), textarea:not([data-skip-autocap])');
         fields.forEach((field) => {
-            const handler = () => autoCapitalizeFirst(field);
-            field.addEventListener('input', handler);
-            field.addEventListener('blur', handler);
+            field.addEventListener('input', () => autoCapitalizeFirst(field));
+            field.addEventListener('blur', () => {
+                const normalized = normalizeMixedCaps(field.value);
+                if (typeof normalized === 'string' && normalized !== field.value) {
+                    field.value = normalized;
+                }
+            });
         });
     };
 
@@ -2917,7 +3477,7 @@
     syncPreferredPackage();
     renderPkg(false);
     render();
-    go(initialStep);
+    go(initialStep, { scroll: false, smooth: false });
     showBranchToast(branchPromptMessage());
 })();
 </script>

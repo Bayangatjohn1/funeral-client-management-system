@@ -11,7 +11,9 @@ class PackageController extends Controller
 {
     public function index()
     {
-        $packages = Package::orderBy('name')->get();
+        $packages = Package::orderBy('name')
+            ->paginate(20)
+            ->withQueryString();
 
         return view('admin.packages.index', compact('packages'));
     }

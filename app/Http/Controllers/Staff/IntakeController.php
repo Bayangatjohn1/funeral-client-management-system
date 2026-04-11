@@ -170,8 +170,8 @@ class IntakeController extends Controller
             'born' => 'required|date_format:Y-m-d|before_or_equal:today',
             'died' => 'required|date_format:Y-m-d|after_or_equal:born|before_or_equal:today',
             'senior_citizen_status' => 'required|boolean',
-            'senior_citizen_id_number' => 'nullable|string|max:100|required_if:senior_citizen_status,1',
-            'senior_proof' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120|required_if:senior_citizen_status,1',
+            'senior_citizen_id_number' => 'nullable|string|max:100',
+            'senior_proof' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
             'wake_location' => 'required|string|max:255',
             'funeral_service_at' => 'required|date|after_or_equal:died|before_or_equal:today',
             'interment_at' => 'required|date|after_or_equal:funeral_service_at|before_or_equal:today',
@@ -234,7 +234,6 @@ class IntakeController extends Controller
             'funeral_service_at.before_or_equal' => 'Funeral service date cannot be in the future.',
             'interment_at.after' => 'Interment date cannot be earlier than the wake start date.',
             'interment_at.before_or_equal' => 'Interment date/time cannot be in the future.',
-            'senior_citizen_id_number.required_if' => 'Senior Citizen ID number is required when senior status is Yes.',
             'paid_at.after_or_equal' => 'Paid date/time must be on or after date of death.',
             'reported_at.before_or_equal' => 'Reported date/time cannot be in the future.',
             'confirm_review' => 'You must confirm that the information is correct before saving.',
@@ -431,6 +430,16 @@ class IntakeController extends Controller
             return back()->withErrors([
                 'age' => "Age must match the birthdate and date of death ({$age} years).",
             ])->withInput();
+        }
+
+        if ($age < 60 && (bool) ($validated['senior_citizen_status'] ?? false)) {
+            return back()->withErrors([
+                'senior_citizen_status' => 'Senior Citizen can only be set to Yes when computed age is at least 60.',
+            ])->withInput();
+        }
+
+        if ($age >= 60) {
+            $validated['senior_citizen_status'] = true;
         }
         $wakeDays = $this->resolveWakeDays(
             $validated['wake_days'] ?? null,
@@ -798,13 +807,6 @@ class IntakeController extends Controller
         float $packagePrice
     ): array {
         if ((bool) ($validated['senior_citizen_status'] ?? false)) {
-            if (empty($validated['senior_citizen_id_number'])) {
-                return [
-                    'error_field' => 'senior_citizen_id_number',
-                    'error_message' => 'Senior Citizen ID is required to apply the discount.',
-                ];
-            }
-
             return $discountResolver->resolveSelected(
                 new Package(['name' => 'Automatic Senior Discount']),
                 'SENIOR',

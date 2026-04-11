@@ -87,7 +87,154 @@ function initTheme() {
 
 }
 
+function initRowActionMenus() {
+    const menuSelector = '[data-row-menu]';
+    const triggerSelector = '[data-row-menu-trigger]';
+    const itemSelector = '[data-row-menu-item]';
+
+    const closeAllMenus = (except = null) => {
+        document.querySelectorAll(menuSelector).forEach((menu) => {
+            if (except && menu === except) return;
+            menu.classList.remove('is-open');
+            const trigger = menu.querySelector(triggerSelector);
+            if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        });
+    };
+
+    document.addEventListener('click', (event) => {
+        const trigger = event.target.closest(triggerSelector);
+        if (trigger) {
+            const menu = trigger.closest(menuSelector);
+            if (!menu) return;
+
+            const isOpen = menu.classList.contains('is-open');
+            closeAllMenus(menu);
+
+            if (isOpen) {
+                menu.classList.remove('is-open');
+                trigger.setAttribute('aria-expanded', 'false');
+            } else {
+                menu.classList.add('is-open');
+                trigger.setAttribute('aria-expanded', 'true');
+            }
+            return;
+        }
+
+        const item = event.target.closest(itemSelector);
+        if (item) {
+            closeAllMenus();
+            return;
+        }
+
+        if (!event.target.closest(menuSelector)) {
+            closeAllMenus();
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            closeAllMenus();
+        }
+    });
+}
+
+function initTableToolbarBehavior() {
+    const forms = document.querySelectorAll('form[data-table-toolbar]');
+    if (!forms.length) return;
+
+    forms.forEach((form) => {
+        const debounceMs = Number(form.dataset.searchDebounce || 400);
+        const searchInputs = form.querySelectorAll('[data-table-search]');
+        const sortInputs = form.querySelectorAll('[data-table-sort]');
+        const autoSubmitInputs = form.querySelectorAll('[data-table-auto-submit]');
+        let debounceTimer = null;
+        let navigationIntentAt = 0;
+
+        const clearDebounce = () => {
+            if (debounceTimer) {
+                window.clearTimeout(debounceTimer);
+                debounceTimer = null;
+            }
+        };
+
+        const submitForm = () => {
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit();
+            } else {
+                form.submit();
+            }
+        };
+
+        const markNavigationIntent = () => {
+            navigationIntentAt = Date.now();
+            clearDebounce();
+        };
+
+        const hasRecentNavigationIntent = () => {
+            if (!navigationIntentAt) return false;
+            return Date.now() - navigationIntentAt < debounceMs + 150;
+        };
+
+        document.addEventListener('pointerdown', (event) => {
+            if (!(event.target instanceof Element)) return;
+            if (form.contains(event.target)) return;
+            markNavigationIntent();
+        }, true);
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter') return;
+            if (!(event.target instanceof Element)) return;
+            if (form.contains(event.target)) return;
+            markNavigationIntent();
+        }, true);
+
+        window.addEventListener('pagehide', markNavigationIntent);
+
+        searchInputs.forEach((input) => {
+            input.addEventListener('input', () => {
+                clearDebounce();
+                navigationIntentAt = 0;
+
+                debounceTimer = window.setTimeout(() => {
+                    // Prevent accidental submits after navigation intent (e.g. sidebar click).
+                    if (hasRecentNavigationIntent()) return;
+                    if (!document.contains(input)) return;
+                    if (document.activeElement !== input) return;
+                    submitForm();
+                }, debounceMs);
+            });
+
+            input.addEventListener('blur', clearDebounce);
+            input.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    clearDebounce();
+                }
+            });
+        });
+
+        sortInputs.forEach((select) => {
+            select.addEventListener('change', () => {
+                navigationIntentAt = 0;
+                clearDebounce();
+                submitForm();
+            });
+        });
+
+        autoSubmitInputs.forEach((input) => {
+            input.addEventListener('change', () => {
+                navigationIntentAt = 0;
+                clearDebounce();
+                submitForm();
+            });
+        });
+
+        form.addEventListener('submit', markNavigationIntent);
+    });
+}
+
 initTheme();
+initRowActionMenus();
+initTableToolbarBehavior();
 
 window.Alpine = Alpine;
 

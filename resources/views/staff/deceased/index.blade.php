@@ -1,95 +1,203 @@
 @extends('layouts.panel')
 
-@section('page_title','Deceased Records')
+@section('page_title', 'Deceased Records')
+@section('page_desc', 'Browse deceased records linked to funeral cases.')
 
 @section('content')
+<div class="records-page">
 @if(session('success'))
-    <div class="mb-4 bg-green-50 border p-3 text-green-700 rounded">
+    <div class="flash-success">
         {{ session('success') }}
     </div>
 @endif
 
-<div class="flex items-center justify-between gap-3">
-    <form method="GET" action="{{ route('deceased.index') }}" class="flex flex-wrap items-center gap-2">
-        <input name="q" value="{{ request('q') }}" class="border rounded px-3 py-2 text-sm" placeholder="Search name..." pattern="[A-Za-z ]+" title="Letters and spaces only">
-        <button class="border px-3 py-2 rounded text-sm">Search</button>
-        <a href="{{ route('deceased.index') }}" class="border px-3 py-2 rounded text-sm">Reset</a>
-    </form>
-</div>
+<section class="table-system-card">
+    <div class="table-system-toolbar">
+        <form id="deceasedFilterForm" method="GET" action="{{ route('deceased.index') }}" class="table-toolbar" data-table-toolbar data-search-debounce="400">
+            <div class="table-toolbar-field">
+                <label for="deceased-filter-q" class="table-toolbar-label">Search</label>
+                <input id="deceased-filter-q" name="q" value="{{ request('q') }}" class="form-input table-toolbar-search" data-table-search placeholder="Search deceased name...">
+            </div>
 
-<div class="mt-4 bg-white border rounded overflow-x-auto">
-    <table class="w-full text-sm">
-        <thead class="bg-gray-100">
-            <tr>
-                <th class="p-2 border text-left">Deceased ID</th>
-                <th class="p-2 border text-left">Name</th>
-                <th class="p-2 border text-left">Age</th>
-                <th class="p-2 border text-left">Date of Death</th>
-                <th class="p-2 border text-left">Interment Date</th>
-                <th class="p-2 border text-left">Place of Interment</th>
-                <th class="p-2 border text-left">Linked Client</th>
-                <th class="p-2 border text-left">Case Status</th>
-                <th class="p-2 border text-left">Payment</th>
-                <th class="p-2 border text-left">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-        @forelse($deceaseds as $deceased)
-            <tr class="hover:bg-gray-50">
-                <td class="p-2 border font-semibold text-slate-700">{{ $deceased->deceased_code ?? 'DC-' . str_pad($deceased->id, 3, '0', STR_PAD_LEFT) }}</td>
-                <td class="p-2 border">{{ $deceased->full_name }}</td>
-                <td class="p-2 border">{{ $deceased->age ?? '-' }}</td>
-                <td class="p-2 border">{{ ($deceased->died ?? $deceased->date_of_death)?->format('Y-m-d') ?? '-' }}</td>
-                <td class="p-2 border">{{ $deceased->interment_at?->format('Y-m-d') ?? $deceased->interment?->format('Y-m-d') ?? '-' }}</td>
-                <td class="p-2 border">{{ $deceased->place_of_cemetery ?? '-' }}</td>
-                <td class="p-2 border">{{ $deceased->client?->full_name ?? '-' }}</td>
-                <td class="p-2 border">
-                    <span class="inline-flex px-2 py-1 rounded-full text-xs font-semibold uppercase tracking-wide
-                        {{ $deceased->funeralCase?->case_status === 'COMPLETED' ? 'bg-green-100 text-green-700' : ($deceased->funeralCase?->case_status === 'ACTIVE' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600') }}">
-                        {{ $deceased->funeralCase?->case_status ?? '—' }}
-                    </span>
-                </td>
-                <td class="p-2 border">
-                    @if($deceased->funeralCase)
-                        <span class="text-sm font-semibold
-                            {{ $deceased->funeralCase->payment_status === 'PAID' ? 'text-green-600' : ($deceased->funeralCase->payment_status === 'PARTIAL' ? 'text-amber-700' : 'text-red-600') }}">
-                            {{ $deceased->funeralCase->payment_status }}
-                        </span>
-                    @else
-                        —
-                    @endif
-                </td>
-                <td class="p-2 border">
-                    <div class="flex flex-wrap gap-2">
-                        <a href="{{ route('deceased.show', $deceased) }}" data-url="{{ route('deceased.show', $deceased) }}" class="action-chip open-deceased-modal">
-                            <i class="bi bi-eye"></i><span>View</span>
-                        </a>
-                        @if(auth()->user()?->role !== 'staff')
-                        <a href="{{ route('deceased.edit', $deceased) }}" data-url="{{ route('deceased.edit', $deceased) }}" class="action-chip action-chip-primary open-deceased-modal">
-                            <i class="bi bi-pencil-square"></i><span>Edit</span>
-                        </a>
-                        @endif
-                        @if($deceased->funeralCase)
-                            <a href="{{ route('payments.history', ['q' => $deceased->funeralCase->case_code]) }}" class="action-chip">
-                                <i class="bi bi-cash-stack"></i><span>View Payment</span>
-                            </a>
-                        @endif
-                    </div>
-                </td>
-            </tr>
-        @empty
-            <tr>
-                <td colspan="10" class="p-3 text-center text-gray-500">
-                    No records yet.
-                </td>
-            </tr>
-        @endforelse
-        </tbody>
-    </table>
-</div>
+            <div class="table-toolbar-field">
+                <label for="deceased-type-filter" class="table-toolbar-label">Status / Type</label>
+                <select id="deceased-type-filter" name="type_filter" class="form-select table-toolbar-select">
+                    <option value="all" @selected(request('type_filter','all') === 'all')>All</option>
+                    <option value="needs_attention" @selected(request('type_filter') === 'needs_attention')>Needs Attention</option>
+                    <option value="recent" @selected(request('type_filter') === 'recent')>Recent</option>
+                    <option value="active" @selected(request('type_filter') === 'active')>Active</option>
+                    <option value="completed" @selected(request('type_filter') === 'completed')>Completed</option>
+                    <option value="with_balance" @selected(request('type_filter') === 'with_balance')>With Balance</option>
+                </select>
+            </div>
 
-<!-- Deceased modal overlay -->
-<div id="deceasedModalOverlay" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-200">
+            <div class="table-toolbar-field">
+                <label for="deceased-date-range" class="table-toolbar-label">Date</label>
+                <select id="deceased-date-range" name="date_range" class="form-select table-toolbar-select">
+                    <option value="any" @selected(request('date_range','any') === 'any')>Any Time</option>
+                    <option value="today" @selected(request('date_range') === 'today')>Today</option>
+                    <option value="7d" @selected(request('date_range') === '7d')>Last 7 Days</option>
+                    <option value="30d" @selected(request('date_range') === '30d')>Last 30 Days</option>
+                    <option value="this_month" @selected(request('date_range') === 'this_month')>This Month</option>
+                    <option value="custom" @selected(request('date_range') === 'custom')>Custom Range</option>
+                </select>
+            </div>
+
+            <div class="table-toolbar-field" data-custom-date-field @if(request('date_range') !== 'custom') hidden @endif>
+                <label for="died-from" class="table-toolbar-label">Date From</label>
+                <input id="died-from" type="date" name="died_from" value="{{ request('died_from') }}" class="form-input table-toolbar-select" data-custom-date-input @if(request('date_range') !== 'custom') disabled @endif>
+            </div>
+
+            <div class="table-toolbar-field" data-custom-date-field @if(request('date_range') !== 'custom') hidden @endif>
+                <label for="died-to" class="table-toolbar-label">Date To</label>
+                <input id="died-to" type="date" name="died_to" value="{{ request('died_to') }}" class="form-input table-toolbar-select" data-custom-date-input @if(request('date_range') !== 'custom') disabled @endif>
+            </div>
+
+            <div class="table-toolbar-field">
+                <label for="deceased-sort" class="table-toolbar-label">Sort</label>
+                <select id="deceased-sort" name="sort" class="form-select table-toolbar-sort" data-table-sort>
+                    <option value="newest" @selected(request('sort','newest') === 'newest')>Newest</option>
+                    <option value="oldest" @selected(request('sort') === 'oldest')>Oldest</option>
+                    <option value="name_asc" @selected(request('sort') === 'name_asc')>Name A-Z</option>
+                    <option value="name_desc" @selected(request('sort') === 'name_desc')>Name Z-A</option>
+                    <option value="death_recent" @selected(request('sort') === 'death_recent')>Death Date (Latest)</option>
+                    <option value="death_oldest" @selected(request('sort') === 'death_oldest')>Death Date (Oldest)</option>
+                </select>
+            </div>
+
+            <div class="table-toolbar-reset-wrap">
+                <span class="table-toolbar-label opacity-0 select-none">Actions</span>
+                <div class="filter-actions">
+                    <a href="{{ route('deceased.index') }}" class="btn-outline btn-filter-reset">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                        <span>Reset</span>
+                    </a>
+                    <button type="submit" class="btn-secondary">
+                        <i class="bi bi-funnel"></i>
+                        <span>Apply</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <div class="table-quick-tabs table-system-quick-tabs">
+            <a href="{{ route('deceased.index', array_merge(request()->except('type_filter'), ['type_filter' => 'all'])) }}"
+               class="table-quick-tab {{ request('type_filter','all') === 'all' ? 'table-quick-tab-active' : '' }}">All</a>
+            <a href="{{ route('deceased.index', array_merge(request()->except('type_filter'), ['type_filter' => 'needs_attention'])) }}"
+               class="table-quick-tab {{ request('type_filter') === 'needs_attention' ? 'table-quick-tab-active' : '' }}">Needs Attention</a>
+            <a href="{{ route('deceased.index', array_merge(request()->except('type_filter'), ['type_filter' => 'recent'])) }}"
+               class="table-quick-tab {{ request('type_filter') === 'recent' ? 'table-quick-tab-active' : '' }}">Recent</a>
+            <a href="{{ route('deceased.index', array_merge(request()->except('type_filter'), ['type_filter' => 'with_balance'])) }}"
+               class="table-quick-tab {{ request('type_filter') === 'with_balance' ? 'table-quick-tab-active' : '' }}">With Balance</a>
+        </div>
+    </div>
+
+    <div class="table-system-list">
+        <div class="table-system-list-header">
+            <div>
+                <div class="table-system-list-title">Deceased Records</div>
+                <div class="table-system-list-copy">Track case linkages, service timeline, and status for each record.</div>
+            </div>
+        </div>
+
+        <div class="table-wrapper table-system-wrap">
+            <table class="table-base table-system-table">
+                <thead>
+                    <tr>
+                        <th class="text-left">Deceased Name</th>
+                        <th class="text-left">Case ID</th>
+                        <th class="table-col-center">Age</th>
+                        <th class="text-left">Date of Death</th>
+                        <th class="text-left">Service / Interment Date</th>
+                        <th class="text-left">Linked Client</th>
+                        <th class="text-left">Status</th>
+                        <th class="text-left">Payment</th>
+                        <th class="table-col-actions">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @forelse($deceaseds as $deceased)
+                    <tr>
+                        <td>
+                            <div class="table-primary">{{ $deceased->full_name }}</div>
+                            <div class="table-secondary">{{ $deceased->deceased_code ?? 'DC-' . str_pad($deceased->id, 3, '0', STR_PAD_LEFT) }}</div>
+                        </td>
+                        <td>{{ $deceased->funeralCase?->case_code ?? '-' }}</td>
+                        <td class="table-col-center">{{ $deceased->age ?? '-' }}</td>
+                        <td>{{ ($deceased->died ?? $deceased->date_of_death)?->format('Y-m-d') ?? '-' }}</td>
+                        <td>{{ $deceased->interment_at?->format('Y-m-d') ?? $deceased->interment?->format('Y-m-d') ?? '-' }}</td>
+                        <td>{{ $deceased->client?->full_name ?? '-' }}</td>
+                        <td>
+                            @if($deceased->funeralCase?->case_status)
+                                <x-status-badge :status="$deceased->funeralCase->case_status" />
+                            @else
+                                <span class="table-secondary">-</span>
+                            @endif
+                        </td>
+                        <td>
+                            @if($deceased->funeralCase?->payment_status)
+                                <x-status-badge :status="$deceased->funeralCase->payment_status" />
+                            @else
+                                <span class="table-secondary">-</span>
+                            @endif
+                        </td>
+                        <td class="table-col-actions">
+                            <div class="table-row-actions">
+                                <div class="row-action-menu" data-row-menu>
+                                    <button
+                                        type="button"
+                                        class="row-action-trigger"
+                                        data-row-menu-trigger
+                                        aria-label="Open row actions"
+                                        aria-haspopup="menu"
+                                        aria-expanded="false"
+                                    >
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <div class="row-action-dropdown" role="menu">
+                                        <a
+                                            href="{{ route('deceased.show', $deceased) }}"
+                                            data-url="{{ route('deceased.show', $deceased) }}"
+                                            class="row-action-item open-deceased-modal"
+                                            data-row-menu-item
+                                        >
+                                            <i class="bi bi-eye"></i>
+                                            <span>View</span>
+                                        </a>
+                                        @if(auth()->user()?->role !== 'staff')
+                                            <a
+                                                href="{{ route('deceased.edit', $deceased) }}"
+                                                data-url="{{ route('deceased.edit', $deceased) }}"
+                                                class="row-action-item open-deceased-modal"
+                                                data-row-menu-item
+                                            >
+                                                <i class="bi bi-pencil-square"></i>
+                                                <span>Edit</span>
+                                            </a>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="9" class="table-system-empty">
+                            No records yet.
+                        </td>
+                    </tr>
+                @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="table-system-pagination">
+        {{ $deceaseds->links() }}
+    </div>
+</section>
+
+<div id="deceasedModalOverlay" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-200 panel-overlay-content">
     <div id="deceasedModalSheet" class="relative w-[92vw] max-w-4xl max-h-[92vh] bg-white rounded-2xl shadow-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border border-slate-100">
         <button id="deceasedModalClose" type="button" class="absolute top-3 right-3 z-10 inline-flex items-center justify-center w-9 h-9 rounded-full bg-white shadow border text-slate-400 hover:text-black focus:outline-none">
             <i class="bi bi-x-lg"></i>
@@ -105,6 +213,32 @@
 
 <script>
     (() => {
+        const filterForm = document.getElementById('deceasedFilterForm');
+        if (filterForm) {
+            const dateRangeSelect = filterForm.querySelector('select[name="date_range"]');
+            const customDateFields = filterForm.querySelectorAll('[data-custom-date-field]');
+            const customDateInputs = filterForm.querySelectorAll('[data-custom-date-input]');
+
+            const updateCustomDateVisibility = () => {
+                const isCustom = dateRangeSelect && dateRangeSelect.value === 'custom';
+                customDateFields.forEach((field) => {
+                    field.hidden = !isCustom;
+                });
+                customDateInputs.forEach((input) => {
+                    input.disabled = !isCustom;
+                    if (!isCustom) {
+                        input.value = '';
+                    }
+                });
+            };
+
+            if (dateRangeSelect) {
+                dateRangeSelect.addEventListener('change', updateCustomDateVisibility);
+            }
+
+            updateCustomDateVisibility();
+        }
+
         const overlay = document.getElementById('deceasedModalOverlay');
         const sheet = document.getElementById('deceasedModalSheet');
         const content = document.getElementById('deceasedModalContent');
@@ -151,11 +285,9 @@
                 const doc = iframe.contentWindow.document;
                 doc.open();
                 doc.write('<!doctype html><html><head>');
-                // copy linked styles
                 document.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
                     if (link.href) doc.write(`<link rel="stylesheet" href="${link.href}">`);
                 });
-                // copy inline styles (from loaded view)
                 content.querySelectorAll('style').forEach((style) => {
                     doc.write('<style>' + style.innerHTML + '</style>');
                 });
@@ -181,13 +313,11 @@
                 const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                 const html = await res.text();
                 const doc = new DOMParser().parseFromString(html, 'text/html');
-                // Prefer the clean print-friendly view if present
                 const view = doc.querySelector('#deceasedViewContent');
                 const form = doc.querySelector('#deceasedEditForm');
                 const payload = view || form;
                 if (payload) {
                     content.innerHTML = payload.outerHTML;
-                    // copy inline styles that target print/show content
                     doc.querySelectorAll('style').forEach((style) => {
                         if (style.innerHTML.includes('deceased') || style.innerHTML.includes('print')) {
                             const s = document.createElement('style');
@@ -222,5 +352,5 @@
         });
     })();
 </script>
+</div>
 @endsection
-

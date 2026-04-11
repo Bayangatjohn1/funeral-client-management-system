@@ -21,7 +21,8 @@ class UserController extends Controller
                 'latestTemporaryPermission.branch',
             ])
             ->latest()
-            ->get();
+            ->paginate(20)
+            ->withQueryString();
         return view('admin.users.index', compact('users'));
     }
 

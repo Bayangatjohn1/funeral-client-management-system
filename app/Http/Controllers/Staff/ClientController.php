@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
-use App\Models\Branch;
 use App\Models\Client;
+use App\Models\FuneralCase;
 use App\Support\Validation\FieldRules;
 use Illuminate\Http\Request;
 
@@ -21,13 +21,41 @@ class ClientController extends Controller
 
         $request->validate([
             'q' => FieldRules::searchName(),
+            'added_from' => 'nullable|date',
+            'added_to' => 'nullable|date|after_or_equal:added_from',
+            'type_filter' => 'nullable|in:all,needs_attention,recent,with_balance',
+            'date_range' => 'nullable|in:any,today,7d,30d,this_month,custom',
+            'sort' => 'nullable|in:newest,oldest,name_asc,name_desc',
         ], [
             'q.regex' => 'Search may contain letters, spaces, apostrophes, periods, and hyphens only.',
+            'added_to.after_or_equal' => 'Date Added (to) must be on or after Date Added (from).',
         ]);
 
-        $query = Client::with(['branch', 'funeralCases.payments'])
+        $query = Client::query()
+            ->select([
+                'id',
+                'branch_id',
+                'full_name',
+                'relationship_to_deceased',
+                'contact_number',
+                'address',
+                'created_at',
+            ])
             ->where('branch_id', $mainBranchId)
-            ->latest();
+            ->withCount('funeralCases')
+            ->withSum('funeralCases as total_paid_sum', 'total_paid')
+            ->addSelect([
+                'latest_case_code' => FuneralCase::query()
+                    ->select('case_code')
+                    ->whereColumn('client_id', 'clients.id')
+                    ->orderByDesc('created_at')
+                    ->limit(1),
+                'latest_case_date' => FuneralCase::query()
+                    ->select('created_at')
+                    ->whereColumn('client_id', 'clients.id')
+                    ->orderByDesc('created_at')
+                    ->limit(1),
+            ]);
 
         // Optional search
         if ($request->filled('q')) {
@@ -35,7 +63,51 @@ class ClientController extends Controller
             $query->where('full_name', 'like', "%{$q}%");
         }
 
-        $clients = $query->get();
+        $dateRange = $request->string('date_range', 'any')->toString();
+        $usesCustomDate = $dateRange === 'custom'
+            || (!$request->filled('date_range') && ($request->filled('added_from') || $request->filled('added_to')));
+
+        if ($usesCustomDate) {
+            if ($request->filled('added_from')) {
+                $query->whereDate('created_at', '>=', $request->string('added_from')->toString());
+            }
+            if ($request->filled('added_to')) {
+                $query->whereDate('created_at', '<=', $request->string('added_to')->toString());
+            }
+        } elseif ($dateRange !== 'any') {
+            $today = now()->startOfDay();
+            if ($dateRange === 'today') {
+                $query->whereDate('created_at', $today->toDateString());
+            } elseif ($dateRange === '7d') {
+                $query->where('created_at', '>=', now()->subDays(7)->startOfDay());
+            } elseif ($dateRange === '30d') {
+                $query->where('created_at', '>=', now()->subDays(30)->startOfDay());
+            } elseif ($dateRange === 'this_month') {
+                $query->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()]);
+            }
+        }
+
+        $typeFilter = $request->string('type_filter', 'all')->toString();
+        if ($typeFilter === 'needs_attention' || $typeFilter === 'with_balance') {
+            $query->whereHas('funeralCases', function ($caseQuery) {
+                $caseQuery->whereIn('payment_status', ['UNPAID', 'PARTIAL']);
+            });
+        } elseif ($typeFilter === 'recent') {
+            $query->where('created_at', '>=', now()->subDays(30)->startOfDay());
+        }
+
+        $sort = $request->string('sort', 'newest')->toString();
+        if ($sort === 'oldest') {
+            $query->orderBy('created_at');
+        } elseif ($sort === 'name_asc') {
+            $query->orderBy('full_name');
+        } elseif ($sort === 'name_desc') {
+            $query->orderByDesc('full_name');
+        } else {
+            $query->orderByDesc('created_at');
+        }
+
+        $clients = $query->paginate(20)->withQueryString();
 
         return view('staff.clients.index', compact('clients'));
     }

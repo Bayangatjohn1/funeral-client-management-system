@@ -15,6 +15,9 @@
 
     {{-- Icons --}}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Syne:wght@700&display=swap" rel="stylesheet">
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
@@ -29,6 +32,153 @@
             opacity: 0;
             animation: floatUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
             animation-delay: 0.2s;
+        }
+
+        .login-page {
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        .login-page h1,
+        .login-page h2,
+        .login-page h3,
+        .login-page .font-heading {
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+        }
+
+        .login-page label,
+        .login-page input,
+        .login-page button,
+        .login-page p,
+        .login-page a,
+        .login-page span {
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        .login-form-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #64748b;
+            margin-bottom: 0.5rem;
+            line-height: 1;
+        }
+
+        .login-label-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 0.5rem;
+        }
+
+        .login-label-row .login-form-label {
+            margin-bottom: 0;
+        }
+
+        .login-field {
+            position: relative;
+        }
+
+        .login-field-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            font-size: 0.95rem;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            width: 20px;
+            height: 20px;
+        }
+
+        .login-field-icon i,
+        .login-field-icon svg {
+            display: block;
+            width: 15px;
+            height: 15px;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .login-field-input {
+            min-height: 46px;
+            height: 46px;
+            padding-left: 48px;
+            padding-right: 16px;
+            font-weight: 400;
+            line-height: 1.2;
+        }
+
+        .login-field-input.password-input {
+            padding-right: 82px;
+        }
+
+        .login-toggle-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #64748b;
+            background: #e2e8f0;
+            border-radius: 0.5rem;
+            width: 34px;
+            height: 30px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: color .15s ease, background-color .15s ease;
+        }
+
+        .login-toggle-btn:hover {
+            color: #1f2937;
+            background: #cbd5e1;
+        }
+
+        .login-toggle-btn i {
+            font-size: 15px;
+            line-height: 1;
+        }
+
+        .login-remember {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-top: 2px;
+        }
+
+        .login-remember input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            min-height: 16px;
+            margin: 0;
+            padding: 0;
+            border-radius: 4px;
+            border: 1px solid #cbd5e1;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+
+        .login-remember label {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 400;
+            color: #475569;
+            cursor: pointer;
+        }
+
+        .login-footer-note {
+            font-size: 11px;
+            font-weight: 400;
+            color: #94a3b8;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            line-height: 1.55;
         }
 
         .login-hero-slide {
@@ -95,8 +245,8 @@
                 <div class="absolute right-16 top-16 h-44 w-44 rounded-[2rem] border border-white/15 bg-white/5 backdrop-blur-sm shadow-2xl"></div>
                 <div class="absolute right-28 top-28 h-24 w-24 rounded-3xl border border-white/10 bg-[#d4a373]/20"></div>
                 <div class="absolute bottom-12 left-12 max-w-lg z-20">
-                    <span class="px-3 py-1 bg-[#9C5A1A] text-white text-[10px] font-black uppercase tracking-widest rounded-md mb-4 inline-block shadow-sm">Our Services</span>
-                    <h3 class="text-4xl font-black text-white font-heading leading-tight mb-3">Premium Viewing <br>Chapel Setup</h3>
+                    <span class="px-3 py-1 bg-[#9C5A1A] text-white text-[10px] font-medium uppercase tracking-widest rounded-md mb-4 inline-block shadow-sm">Our Services</span>
+                    <h3 class="text-4xl font-bold text-white font-heading leading-tight mb-3">Premium Viewing <br>Chapel Setup</h3>
                     <p class="text-white/80 font-medium text-sm leading-relaxed">Providing a peaceful and dignified environment for families to honor the lives of their loved ones.</p>
                 </div>
             </div>
@@ -110,8 +260,8 @@
                     <div class="h-24 w-16 rounded-2xl bg-white/10 border border-white/10"></div>
                 </div>
                 <div class="absolute bottom-12 left-12 max-w-lg z-20">
-                    <span class="px-3 py-1 bg-white text-[#9C5A1A] text-[10px] font-black uppercase tracking-widest rounded-md mb-4 inline-block shadow-sm">Transport</span>
-                    <h3 class="text-4xl font-black text-white font-heading leading-tight mb-3">State-of-the-art <br>Funeral Fleet</h3>
+                    <span class="px-3 py-1 bg-white text-[#9C5A1A] text-[10px] font-medium uppercase tracking-widest rounded-md mb-4 inline-block shadow-sm">Transport</span>
+                    <h3 class="text-4xl font-bold text-white font-heading leading-tight mb-3">State-of-the-art <br>Funeral Fleet</h3>
                     <p class="text-white/80 font-medium text-sm leading-relaxed">Ensuring a solemn and respectful journey with our well-maintained and elegant vehicles.</p>
                 </div>
             </div>
@@ -133,8 +283,8 @@
                     </div>
                 </div>
                 <div class="absolute bottom-12 left-12 max-w-lg z-20">
-                    <span class="px-3 py-1 bg-[#9C5A1A] text-white text-[10px] font-black uppercase tracking-widest rounded-md mb-4 inline-block shadow-sm">Commitment</span>
-                    <h3 class="text-4xl font-black text-white font-heading leading-tight mb-3">Compassionate & <br>Professional Care</h3>
+                    <span class="px-3 py-1 bg-[#9C5A1A] text-white text-[10px] font-medium uppercase tracking-widest rounded-md mb-4 inline-block shadow-sm">Commitment</span>
+                    <h3 class="text-4xl font-bold text-white font-heading leading-tight mb-3">Compassionate & <br>Professional Care</h3>
                     <p class="text-white/80 font-medium text-sm leading-relaxed">Our dedicated team is here to guide and support your family every step of the way.</p>
                 </div>
             </div>
@@ -149,10 +299,10 @@
                     <img src="{{ asset('images/login-logo.png') }}" alt="Logo" class="w-14 h-14 object-contain rounded-xl bg-white p-1">
                 </div>
                 <div>
-                    <h1 class="text-3xl font-black text-white font-heading tracking-tight drop-shadow-lg">Sabangan Caguioa</h1>
+                    <h1 class="text-3xl font-bold text-white font-heading tracking-tight drop-shadow-lg">Sabangan Caguioa</h1>
                     <div class="flex items-center gap-2 mt-1">
                         <div class="w-6 h-1 bg-[#9C5A1A] rounded-full shadow-sm"></div>
-                        <p class="text-[11px] font-bold text-white/80 uppercase tracking-widest drop-shadow-md">Funeral Home System</p>
+                        <p class="text-[11px] font-medium text-white/80 uppercase tracking-widest drop-shadow-md">Funeral Home System</p>
                     </div>
                 </div>
             </div>
@@ -168,10 +318,11 @@
         </div>
     </section>
 
-    <section class="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 sm:p-12 overflow-y-auto relative z-20">
+    <section class="w-full lg:w-1/2 relative z-20 overflow-y-auto">
+        <div class="w-full min-h-screen lg:min-h-full flex items-center justify-center px-6 py-8 sm:px-10 sm:py-10 lg:px-12">
 
-        {{-- Bordered form container --}}
-        <div class="w-full max-w-[500px] bg-white border border-slate-200 rounded-[2rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] hover:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.12)] p-8 sm:p-10 animate-float-up relative transition-shadow duration-300">
+            {{-- Bordered form container --}}
+            <div class="w-full max-w-[500px] bg-white border border-slate-200 rounded-[2rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] hover:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.12)] p-8 sm:p-10 animate-float-up relative transition-shadow duration-300">
 
             {{-- Decorative accent line --}}
             <div class="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1.5 bg-gradient-to-r from-[#9C5A1A] to-[#c76512] rounded-b-full"></div>
@@ -180,14 +331,14 @@
             <div class="flex lg:hidden items-center gap-4 mb-8 pt-4">
                 <img src="{{ asset('images/login-logo.png') }}" alt="Logo" class="w-12 h-12 rounded-lg border border-slate-200 p-1 shadow-sm">
                 <div>
-                    <h1 class="text-xl font-black text-slate-900 font-heading tracking-tight">Sabangan Caguioa</h1>
-                    <p class="text-[11px] font-bold text-[#9C5A1A] uppercase tracking-widest mt-0.5">System Portal</p>
+                    <h1 class="text-xl font-bold text-slate-900 font-heading tracking-tight">Sabangan Caguioa</h1>
+                    <p class="text-[11px] font-medium text-[#9C5A1A] uppercase tracking-widest mt-0.5">System Portal</p>
                 </div>
             </div>
 
             {{-- Welcome header --}}
             <div class="mb-9 text-center lg:text-left pt-2">
-                <h2 class="text-2xl sm:text-3xl font-black font-heading mb-2 tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-slate-800 to-[#9C5A1A]">
+                <h2 class="text-2xl sm:text-3xl font-bold font-heading mb-2 tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-slate-800 to-[#9C5A1A]">
                     Welcome Back
                 </h2>
                 <p class="text-sm font-medium text-slate-500">Enter your credentials to securely manage operations.</p>
@@ -206,12 +357,17 @@
 
                 {{-- Email input --}}
                 <div class="group">
-                    <label for="email" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2 transition-colors group-focus-within:text-[#9C5A1A]">
-                        Email Address
-                    </label>
-                    <div class="relative">
-                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg transition-colors group-focus-within:text-[#9C5A1A]">
-                            <i class="bi bi-person"></i>
+                    <div class="login-label-row">
+                        <label for="email" class="login-form-label transition-colors group-focus-within:text-[#9C5A1A]">
+                            Username
+                        </label>
+                    </div>
+                    <div class="login-field">
+                        <span class="login-field-icon transition-colors group-focus-within:text-[#9C5A1A]">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <circle cx="12" cy="8" r="4"></circle>
+                                <path d="M4 20c0-3.2 3.6-5.5 8-5.5s8 2.3 8 5.5"></path>
+                            </svg>
                         </span>
                         <input
                             id="email"
@@ -221,12 +377,12 @@
                             required
                             autofocus
                             autocomplete="username"
-                            class="w-full pl-12 pr-5 py-3 bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 placeholder:font-medium focus:bg-white focus:border-[#9C5A1A] focus:ring-4 focus:ring-[#9C5A1A]/10 transition-all outline-none shadow-sm"
-                            placeholder="staff@sabangancaguioa.com"
+                            class="login-field-input w-full bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-sm text-slate-900 focus:bg-white focus:border-[#9C5A1A] focus:ring-4 focus:ring-[#9C5A1A]/10 transition-all outline-none shadow-sm"
+                            placeholder="name@example.com"
                         >
                     </div>
                     @error('email')
-                        <p class="mt-2 text-[11px] font-bold text-red-500 flex items-center gap-1">
+                        <p class="mt-2 text-[11px] font-medium text-red-500 flex items-center gap-1">
                             <i class="bi bi-exclamation-circle"></i> {{ $message }}
                         </p>
                     @enderror
@@ -234,19 +390,17 @@
 
                 {{-- Password input --}}
                 <div class="group">
-                    <div class="flex items-center justify-between mb-2">
-                        <label for="password" class="block text-xs font-black uppercase tracking-widest text-slate-400 transition-colors group-focus-within:text-[#9C5A1A]">
+                    <div class="login-label-row">
+                        <label for="password" class="login-form-label transition-colors group-focus-within:text-[#9C5A1A]">
                             Password
                         </label>
-                        @if (Route::has('password.request'))
-                            <a href="{{ route('password.request') }}" class="text-[11px] font-bold text-[#9C5A1A] hover:text-[#5c2702] hover:underline uppercase tracking-widest transition-colors">
-                                Forgot password?
-                            </a>
-                        @endif
                     </div>
-                    <div class="relative">
-                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg transition-colors group-focus-within:text-[#9C5A1A]">
-                            <i class="bi bi-lock"></i>
+                    <div class="login-field">
+                        <span class="login-field-icon transition-colors group-focus-within:text-[#9C5A1A]">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <rect x="5" y="11" width="14" height="10" rx="2"></rect>
+                                <path d="M8 11V8a4 4 0 118 0v3"></path>
+                            </svg>
                         </span>
                         <input
                             id="password"
@@ -254,34 +408,35 @@
                             name="password"
                             required
                             autocomplete="current-password"
-                            class="w-full pl-12 pr-16 py-3 bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 placeholder:font-medium focus:bg-white focus:border-[#9C5A1A] focus:ring-4 focus:ring-[#9C5A1A]/10 transition-all outline-none shadow-sm"
-                            placeholder="••••••••••••"
+                            class="login-field-input password-input w-full bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-sm text-slate-900 focus:bg-white focus:border-[#9C5A1A] focus:ring-4 focus:ring-[#9C5A1A]/10 transition-all outline-none shadow-sm"
+                            placeholder="Enter your password"
                         >
                         <button
                             type="button"
                             id="togglePassword"
-                            class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-800 transition-colors focus:outline-none bg-slate-200 hover:bg-slate-300 px-3 py-1.5 rounded-lg"
+                            class="login-toggle-btn focus:outline-none"
+                            aria-label="Show password"
                         >
-                            Show
+                            <i id="togglePasswordIcon" class="bi bi-eye" aria-hidden="true"></i>
                         </button>
                     </div>
                     @error('password')
-                        <p class="mt-2 text-[11px] font-bold text-red-500 flex items-center gap-1">
+                        <p class="mt-2 text-[11px] font-medium text-red-500 flex items-center gap-1">
                             <i class="bi bi-exclamation-circle"></i> {{ $message }}
                         </p>
                     @enderror
                 </div>
 
                 {{-- Remember me --}}
-                <div class="flex items-center pt-1">
+                <div class="login-remember">
                     <input
                         id="remember"
                         type="checkbox"
                         name="remember"
                         {{ old('remember') ? 'checked' : '' }}
-                        class="w-4 h-4 mt-0.5 text-[#9C5A1A] bg-white border-slate-300 rounded focus:ring-[#9C5A1A] focus:ring-2 cursor-pointer transition-all"
+                        class="text-[#9C5A1A] bg-white focus:ring-[#9C5A1A] focus:ring-2 transition-all"
                     >
-                    <label for="remember" class="ml-3 text-sm font-medium text-slate-600 cursor-pointer">
+                    <label for="remember">
                         Keep me signed in
                     </label>
                 </div>
@@ -290,7 +445,7 @@
                 <div class="pt-3">
                     <button
                         type="submit"
-                        class="group w-full inline-flex items-center justify-center px-6 py-3.5 bg-[#9C5A1A] border border-transparent rounded-xl font-black text-sm text-white uppercase tracking-widest hover:bg-[#6a3003] hover:shadow-[0_10px_20px_-10px_rgba(140,64,4,0.6)] hover:-translate-y-0.5 focus:outline-none focus:ring-4 focus:ring-[#9C5A1A]/30 active:scale-95 transition-all duration-300"
+                        class="group w-full inline-flex items-center justify-center px-6 py-3.5 bg-[#9C5A1A] border border-transparent rounded-xl font-medium text-sm text-white uppercase tracking-widest hover:bg-[#6a3003] hover:shadow-[0_10px_20px_-10px_rgba(140,64,4,0.6)] hover:-translate-y-0.5 focus:outline-none focus:ring-4 focus:ring-[#9C5A1A]/30 active:scale-95 transition-all duration-300"
                     >
                         Sign In
                     </button>
@@ -299,10 +454,11 @@
 
             {{-- Inner footer --}}
             <div class="mt-10 text-center pt-8 border-t border-slate-100">
-                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+                <p class="login-footer-note">
                     &copy; {{ date('Y') }} Sabangan Caguioa <br>
                     Secure access monitored
                 </p>
+            </div>
             </div>
         </div>
     </section>
@@ -313,13 +469,16 @@
     // 1. Password toggle script
     (function () {
         const toggle = document.getElementById('togglePassword');
+        const icon = document.getElementById('togglePasswordIcon');
         const password = document.getElementById('password');
-        if (!toggle || !password) return;
+        if (!toggle || !password || !icon) return;
 
         toggle.addEventListener('click', function () {
             const show = password.type === 'password';
             password.type = show ? 'text' : 'password';
-            toggle.textContent = show ? 'Hide' : 'Show';
+            icon.classList.toggle('bi-eye', !show);
+            icon.classList.toggle('bi-eye-slash', show);
+            toggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
         });
     })();
 

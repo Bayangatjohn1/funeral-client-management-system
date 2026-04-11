@@ -32,10 +32,14 @@ class FuneralCaseController extends Controller
 
         $request->validate([
             'q' => ['nullable', 'string', 'max:100', "regex:/^[A-Za-z0-9\\s.'-]+$/"],
+            'tab' => ['nullable', 'in:active,completed'],
             'case_status' => ['nullable', 'in:DRAFT,ACTIVE'],
             'payment_status' => ['nullable', 'in:PAID,PARTIAL,UNPAID'],
+            'date_range' => ['nullable', 'in:any,today,7d,30d,this_month,custom'],
             'request_date_from' => ['nullable', 'date'],
             'request_date_to' => ['nullable', 'date', 'after_or_equal:request_date_from'],
+            'sort' => ['nullable', 'in:newest,oldest,service_date_asc,service_date_desc,total_desc,total_asc,paid_desc,paid_asc,balance_desc,balance_asc'],
+            'quick_filter' => ['nullable', 'in:all,needs_attention,with_balance,recent,paid,recently_completed'],
             'record_scope' => ['nullable', 'in:main,other'],
         ], [
             'q.regex' => 'Search may contain letters, numbers, spaces, apostrophes, periods, and hyphens only.',
@@ -48,20 +52,76 @@ class FuneralCaseController extends Controller
         if ($recordScope === 'other') {
             return redirect()
                 ->route('funeral-cases.other-reports')
-                ->with('success', 'Other-branch reports are completed-only and are shown in Completed Cases.');
+                ->with('success', 'Other-branch reports are completed-only and are shown under Branch Reports.');
         }
 
-        $query = FuneralCase::with(['client', 'deceased', 'branch'])
+        $currentTab = strtolower((string) $request->query('tab', 'active'));
+        if (!in_array($currentTab, ['active', 'completed'], true)) {
+            $currentTab = 'active';
+        }
+
+        $quickFilterOptions = $currentTab === 'active'
+            ? [
+                'all' => 'All',
+                'needs_attention' => 'Needs Attention',
+                'with_balance' => 'With Balance',
+                'recent' => 'Recent',
+            ]
+            : [
+                'all' => 'All',
+                'paid' => 'Paid',
+                'with_balance' => 'With Balance',
+                'recently_completed' => 'Recently Completed',
+            ];
+
+        $quickFilter = strtolower((string) $request->query('quick_filter', 'all'));
+        if (!array_key_exists($quickFilter, $quickFilterOptions)) {
+            $quickFilter = 'all';
+        }
+
+        $sortOptions = $this->caseRecordSortOptions($currentTab);
+        $sort = strtolower((string) $request->query('sort', 'newest'));
+        if (!array_key_exists($sort, $sortOptions)) {
+            $sort = 'newest';
+        }
+
+        $query = FuneralCase::query()
+            ->select([
+                'id',
+                'branch_id',
+                'client_id',
+                'deceased_id',
+                'case_code',
+                'service_requested_at',
+                'created_at',
+                'updated_at',
+                'funeral_service_at',
+                'service_package',
+                'total_amount',
+                'total_paid',
+                'balance_amount',
+                'payment_status',
+                'case_status',
+            ])
+            ->with([
+                'client:id,full_name,contact_number',
+                'deceased:id,full_name,interment_at,interment',
+                'branch:id,branch_code',
+            ])
             ->where('branch_id', $mainBranchId)
-            ->whereIn('case_status', ['DRAFT', 'ACTIVE'])
             ->where(function ($scopeQuery) {
                 $scopeQuery->where('entry_source', 'MAIN')
                     ->orWhereNull('entry_source');
-            })
-            ->latest();
+            });
 
         if ($mainBranchId <= 0) {
             $query->whereRaw('1 = 0');
+        }
+
+        if ($currentTab === 'active') {
+            $query->whereIn('case_status', ['DRAFT', 'ACTIVE']);
+        } else {
+            $query->where('case_status', 'COMPLETED');
         }
 
         if ($request->filled('q')) {
@@ -73,27 +133,61 @@ class FuneralCaseController extends Controller
             });
         }
 
-        if ($request->filled('case_status')) {
+        if ($currentTab === 'active' && $request->filled('case_status')) {
             $query->where('case_status', $request->case_status);
         }
         if ($request->filled('payment_status')) {
             $query->where('payment_status', $request->payment_status);
         }
-        if ($request->filled('request_date_from')) {
-            $query->whereDate('service_requested_at', '>=', $request->string('request_date_from')->toString());
-        }
-        if ($request->filled('request_date_to')) {
-            $query->whereDate('service_requested_at', '<=', $request->string('request_date_to')->toString());
+        $dateRange = $request->string('date_range', 'any')->toString();
+        $usesCustomDate = $dateRange === 'custom'
+            || (!$request->filled('date_range') && ($request->filled('request_date_from') || $request->filled('request_date_to')));
+
+        if ($usesCustomDate) {
+            if ($request->filled('request_date_from')) {
+                $query->whereDate('service_requested_at', '>=', $request->string('request_date_from')->toString());
+            }
+            if ($request->filled('request_date_to')) {
+                $query->whereDate('service_requested_at', '<=', $request->string('request_date_to')->toString());
+            }
+        } elseif ($dateRange !== 'any') {
+            $today = now()->startOfDay();
+            if ($dateRange === 'today') {
+                $query->whereDate('service_requested_at', $today->toDateString());
+            } elseif ($dateRange === '7d') {
+                $query->where('service_requested_at', '>=', now()->subDays(7)->startOfDay());
+            } elseif ($dateRange === '30d') {
+                $query->where('service_requested_at', '>=', now()->subDays(30)->startOfDay());
+            } elseif ($dateRange === 'this_month') {
+                $query->whereBetween('service_requested_at', [now()->startOfMonth(), now()->endOfMonth()]);
+            }
         }
 
+        $this->applyCaseRecordQuickFilter($query, $currentTab, $quickFilter);
+        $this->applyCaseRecordSort($query, $sort);
+
         $cases = $query->paginate(20)->withQueryString();
-        $packages = Package::where('is_active', true)->orderBy('name')->get();
+
+        $openWizard = $request->boolean('open_wizard') && $currentTab === 'active';
+        $packages = collect();
         $branches = $mainBranch ? collect([$mainBranch]) : collect();
         $defaultBranchId = $mainBranchId > 0 ? $mainBranchId : ((int) $user->branch_id);
-        $nextCode = $this->nextCaseCode($defaultBranchId);
-        $nextCodeMap = $branches->mapWithKeys(function ($branch) {
-            return [$branch->id => $this->nextCaseCode((int) $branch->id)];
-        });
+        $nextCode = null;
+        $nextCodeMap = collect();
+
+        // Intake resources are only needed when the wizard is actually open.
+        if ($openWizard) {
+            $packages = Package::query()
+                ->select(['id', 'name', 'coffin_type', 'price'])
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get();
+
+            $nextCode = $this->nextCaseCode($defaultBranchId);
+            $nextCodeMap = $branches->mapWithKeys(function ($branch) {
+                return [$branch->id => $this->nextCaseCode((int) $branch->id)];
+            });
+        }
 
         return view('staff.funeral_cases.index', compact(
             'cases',
@@ -102,77 +196,143 @@ class FuneralCaseController extends Controller
             'nextCode',
             'nextCodeMap',
             'canEncodeAnyBranch',
-            'recordScope'
+            'recordScope',
+            'currentTab',
+            'sortOptions',
+            'sort',
+            'quickFilterOptions',
+            'quickFilter'
         ));
     }
 
     public function completedIndex(Request $request)
     {
-        $user = auth()->user();
-        $scopeBranchIds = $user->branchScopeIds();
-        $scopeBranches = Branch::whereIn('id', $scopeBranchIds)->orderBy('branch_code')->get();
-        $mainBranchId = optional($scopeBranches->first(function ($branch) {
-            return strtoupper((string) $branch->branch_code) === 'BR001';
-        }))->id;
-
-        $request->validate([
-            'q' => ['nullable', 'string', 'max:100', "regex:/^[A-Za-z0-9\\s.'-]+$/"],
-            'request_date_from' => ['nullable', 'date'],
-            'request_date_to' => ['nullable', 'date', 'after_or_equal:request_date_from'],
-        ], [
-            'q.regex' => 'Search may contain letters, numbers, spaces, apostrophes, periods, and hyphens only.',
-        ]);
-
         if (strtolower((string) $request->query('record_scope')) === 'other') {
             return redirect()->route('funeral-cases.other-reports');
         }
 
-        $query = FuneralCase::with(['client', 'deceased', 'branch'])
-            ->where('branch_id', $mainBranchId)
-            ->where('case_status', 'COMPLETED')
-            ->where(function ($scopeQuery) {
-                $scopeQuery->where('entry_source', 'MAIN')
-                    ->orWhereNull('entry_source');
-            })
-            ->latest();
+        return redirect()->route('funeral-cases.index', array_filter([
+            'tab' => 'completed',
+            'q' => $request->query('q'),
+            'payment_status' => $request->query('payment_status'),
+            'date_range' => $request->query('date_range'),
+            'request_date_from' => $request->query('request_date_from'),
+            'request_date_to' => $request->query('request_date_to'),
+            'sort' => $request->query('sort'),
+            'quick_filter' => $request->query('quick_filter'),
+        ], fn ($value) => !is_null($value) && $value !== ''));
+    }
 
-        if ($mainBranchId) {
-            $query->where('branch_id', $mainBranchId);
-        } else {
-            $query->whereRaw('1 = 0');
+    private function caseRecordSortOptions(string $tab): array
+    {
+        if ($tab === 'completed') {
+            return [
+                'newest' => 'Newest First',
+                'oldest' => 'Oldest First',
+                'total_desc' => 'Total Amount: High to Low',
+                'total_asc' => 'Total Amount: Low to High',
+                'paid_desc' => 'Total Paid: High to Low',
+                'paid_asc' => 'Total Paid: Low to High',
+                'balance_desc' => 'Balance: High to Low',
+                'balance_asc' => 'Balance: Low to High',
+            ];
         }
 
-        if ($request->filled('q')) {
-            $q = trim((string) $request->q);
-            $query->where(function ($sub) use ($q) {
-                $sub->where('case_code', 'like', "%{$q}%")
-                    ->orWhereHas('client', fn ($q2) => $q2->where('full_name', 'like', "%{$q}%"))
-                    ->orWhereHas('deceased', fn ($q3) => $q3->where('full_name', 'like', "%{$q}%"));
-            });
-        }
-        if ($request->filled('request_date_from')) {
-            $query->whereDate('service_requested_at', '>=', $request->string('request_date_from')->toString());
-        }
-        if ($request->filled('request_date_to')) {
-            $query->whereDate('service_requested_at', '<=', $request->string('request_date_to')->toString());
+        return [
+            'newest' => 'Newest First',
+            'oldest' => 'Oldest First',
+            'service_date_asc' => 'Service Date: Earliest',
+            'service_date_desc' => 'Service Date: Latest',
+            'total_desc' => 'Total Amount: High to Low',
+            'total_asc' => 'Total Amount: Low to High',
+            'balance_desc' => 'Balance: High to Low',
+            'balance_asc' => 'Balance: Low to High',
+        ];
+    }
+
+    private function applyCaseRecordQuickFilter($query, string $tab, string $quickFilter): void
+    {
+        if ($quickFilter === 'all') {
+            return;
         }
 
-        $cases = $query->paginate(20)->withQueryString();
-        $branches = collect();
+        if ($tab === 'active') {
+            if ($quickFilter === 'needs_attention') {
+                $query->where(function ($sub) {
+                    $sub->where('case_status', 'DRAFT')
+                        ->orWhereIn('payment_status', ['UNPAID', 'PARTIAL']);
+                });
+                return;
+            }
 
-        return view('staff.funeral_cases.completed', compact(
-            'cases',
-            'branches',
-            'mainBranchId'
-        ))->with([
-            'selectedBranchId' => null,
-            'canEncodeAnyBranch' => $user->canEncodeAnyBranch(),
-            'recordScope' => 'main',
-            'viewType' => 'main',
-            'verificationStatus' => null,
-            'reportedFrom' => null,
-            'reportedTo' => null,
-        ]);
+            if ($quickFilter === 'with_balance') {
+                $query->where('balance_amount', '>', 0);
+                return;
+            }
+
+            if ($quickFilter === 'recent') {
+                $query->whereDate('created_at', '>=', now()->subDays(7)->toDateString());
+                return;
+            }
+
+            return;
+        }
+
+        if ($quickFilter === 'paid') {
+            $query->where('payment_status', 'PAID');
+            return;
+        }
+
+        if ($quickFilter === 'with_balance') {
+            $query->where('balance_amount', '>', 0);
+            return;
+        }
+
+        if ($quickFilter === 'recently_completed') {
+            $query->whereDate('updated_at', '>=', now()->subDays(30)->toDateString());
+        }
+    }
+
+    private function applyCaseRecordSort($query, string $sort): void
+    {
+        if ($sort === 'oldest') {
+            $query->oldest('created_at');
+            return;
+        }
+        if ($sort === 'service_date_asc') {
+            $query->orderBy('funeral_service_at');
+            return;
+        }
+        if ($sort === 'service_date_desc') {
+            $query->orderByDesc('funeral_service_at');
+            return;
+        }
+        if ($sort === 'total_desc') {
+            $query->orderByDesc('total_amount');
+            return;
+        }
+        if ($sort === 'total_asc') {
+            $query->orderBy('total_amount');
+            return;
+        }
+        if ($sort === 'paid_desc') {
+            $query->orderByDesc('total_paid');
+            return;
+        }
+        if ($sort === 'paid_asc') {
+            $query->orderBy('total_paid');
+            return;
+        }
+        if ($sort === 'balance_desc') {
+            $query->orderByDesc('balance_amount');
+            return;
+        }
+        if ($sort === 'balance_asc') {
+            $query->orderBy('balance_amount');
+            return;
+        }
+
+        $query->latest('created_at');
     }
 
     public function otherReportsIndex(Request $request)
@@ -219,7 +379,30 @@ class FuneralCaseController extends Controller
         $reportedFrom = $request->string('reported_from')->toString();
         $reportedTo = $request->string('reported_to')->toString();
 
-        $query = FuneralCase::with(['client', 'deceased', 'branch'])
+        $query = FuneralCase::query()
+            ->select([
+                'id',
+                'branch_id',
+                'client_id',
+                'deceased_id',
+                'case_code',
+                'service_requested_at',
+                'created_at',
+                'service_package',
+                'total_amount',
+                'total_paid',
+                'balance_amount',
+                'payment_status',
+                'case_status',
+                'reporter_name',
+                'reported_at',
+                'verification_status',
+            ])
+            ->with([
+                'client:id,full_name',
+                'deceased:id,full_name,interment_at,interment',
+                'branch:id,branch_code',
+            ])
             ->where('entry_source', 'OTHER_BRANCH')
             ->where('case_status', 'COMPLETED')
             ->where('payment_status', 'PAID')
@@ -700,12 +883,10 @@ class FuneralCaseController extends Controller
 
     private function nextCaseCode(int $branchId): string
     {
-        $max = FuneralCase::where('branch_id', $branchId)
-            ->pluck('case_code')
-            ->map(function ($code) {
-                return (int) preg_replace('/\D+/', '', (string) $code);
-            })
-            ->max();
+        $max = FuneralCase::query()
+            ->where('branch_id', $branchId)
+            ->selectRaw('MAX(CAST(SUBSTRING(case_code, 3) AS UNSIGNED)) as max_case_number')
+            ->value('max_case_number');
 
         $next = ($max ?? 0) + 1;
 

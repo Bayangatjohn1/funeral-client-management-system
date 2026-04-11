@@ -1,6 +1,7 @@
 @extends('layouts.panel')
 
 @section('page_title','Add Deceased')
+@section('page_desc', 'Register deceased information for a case record.')
 
 @section('content')
 <form method="POST" action="{{ route('deceased.store') }}" enctype="multipart/form-data" class="space-y-4 max-w-xl">

@@ -1,6 +1,7 @@
 @extends('layouts.panel')
 
 @section('page_title','Create User')
+@section('page_desc', 'Create a new system user and assign role access.')
 
 @section('content')
 @php($returnTo = old('return_to', request('return_to', route('admin.users.index'))))

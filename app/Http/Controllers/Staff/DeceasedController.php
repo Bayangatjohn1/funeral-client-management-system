@@ -9,6 +9,7 @@ use App\Models\Deceased;
 use App\Models\FuneralCase;
 use App\Support\Validation\FieldRules;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class DeceasedController extends Controller
@@ -24,20 +25,155 @@ class DeceasedController extends Controller
 
         $request->validate([
             'q' => FieldRules::searchName(),
+            'died_from' => 'nullable|date',
+            'died_to' => 'nullable|date|after_or_equal:died_from',
+            'interment_from' => 'nullable|date',
+            'interment_to' => 'nullable|date|after_or_equal:interment_from',
+            'type_filter' => 'nullable|in:all,active,completed,with_balance,needs_attention,recent',
+            'date_range' => 'nullable|in:any,today,7d,30d,this_month,custom',
+            'sort' => 'nullable|in:newest,oldest,name_asc,name_desc,death_recent,death_oldest',
         ], [
             'q.regex' => 'Search may contain letters, spaces, apostrophes, periods, and hyphens only.',
+            'died_to.after_or_equal' => 'Date of death (to) must be on or after date of death (from).',
+            'interment_to.after_or_equal' => 'Interment date (to) must be on or after interment date (from).',
         ]);
 
-        $query = Deceased::with(['client', 'branch', 'funeralCase'])
-            ->where('branch_id', $mainBranchId)
-            ->latest();
+        $query = Deceased::query()
+            ->select([
+                'id',
+                'branch_id',
+                'client_id',
+                'full_name',
+                'age',
+                'died',
+                'date_of_death',
+                'interment',
+                'interment_at',
+                'created_at',
+            ])
+            ->with([
+                'client:id,full_name',
+                'funeralCase:id,deceased_id,case_code,case_status,payment_status',
+            ])
+            ->where('branch_id', $mainBranchId);
 
         if ($request->filled('q')) {
             $q = $request->q;
             $query->where('full_name', 'like', "%{$q}%");
         }
 
-        $deceaseds = $query->get();
+        $dateRange = $request->string('date_range', 'any')->toString();
+        $usesCustomDate = $dateRange === 'custom'
+            || (!$request->filled('date_range') && ($request->filled('died_from') || $request->filled('died_to')));
+
+        if ($usesCustomDate && $request->filled('died_from')) {
+            $from = $request->string('died_from')->toString();
+            $query->where(function ($diedQuery) use ($from) {
+                $diedQuery->whereDate('died', '>=', $from)
+                    ->orWhere(function ($legacyQuery) use ($from) {
+                        $legacyQuery->whereNull('died')
+                            ->whereDate('date_of_death', '>=', $from);
+                    });
+            });
+        }
+
+        if ($usesCustomDate && $request->filled('died_to')) {
+            $to = $request->string('died_to')->toString();
+            $query->where(function ($diedQuery) use ($to) {
+                $diedQuery->whereDate('died', '<=', $to)
+                    ->orWhere(function ($legacyQuery) use ($to) {
+                        $legacyQuery->whereNull('died')
+                            ->whereDate('date_of_death', '<=', $to);
+                    });
+            });
+        }
+
+        if ($request->filled('interment_from')) {
+            $from = $request->string('interment_from')->toString();
+            $query->where(function ($intermentQuery) use ($from) {
+                $intermentQuery->whereDate('interment_at', '>=', $from)
+                    ->orWhere(function ($legacyQuery) use ($from) {
+                        $legacyQuery->whereNull('interment_at')
+                            ->whereDate('interment', '>=', $from);
+                    });
+            });
+        }
+
+        if ($request->filled('interment_to')) {
+            $to = $request->string('interment_to')->toString();
+            $query->where(function ($intermentQuery) use ($to) {
+                $intermentQuery->whereDate('interment_at', '<=', $to)
+                    ->orWhere(function ($legacyQuery) use ($to) {
+                        $legacyQuery->whereNull('interment_at')
+                            ->whereDate('interment', '<=', $to);
+                    });
+            });
+        }
+
+        if (!$usesCustomDate && $dateRange !== 'any') {
+            if ($dateRange === 'today') {
+                $date = now()->toDateString();
+                $query->where(function ($dateQuery) use ($date) {
+                    $dateQuery->whereDate('died', $date)
+                        ->orWhere(function ($legacyQuery) use ($date) {
+                            $legacyQuery->whereNull('died')->whereDate('date_of_death', $date);
+                        });
+                });
+            } elseif ($dateRange === '7d') {
+                $from = now()->subDays(7)->toDateString();
+                $query->where(function ($dateQuery) use ($from) {
+                    $dateQuery->whereDate('died', '>=', $from)
+                        ->orWhere(function ($legacyQuery) use ($from) {
+                            $legacyQuery->whereNull('died')->whereDate('date_of_death', '>=', $from);
+                        });
+                });
+            } elseif ($dateRange === '30d') {
+                $from = now()->subDays(30)->toDateString();
+                $query->where(function ($dateQuery) use ($from) {
+                    $dateQuery->whereDate('died', '>=', $from)
+                        ->orWhere(function ($legacyQuery) use ($from) {
+                            $legacyQuery->whereNull('died')->whereDate('date_of_death', '>=', $from);
+                        });
+                });
+            } elseif ($dateRange === 'this_month') {
+                $from = now()->startOfMonth()->toDateString();
+                $to = now()->endOfMonth()->toDateString();
+                $query->where(function ($dateQuery) use ($from, $to) {
+                    $dateQuery->whereBetween(DB::raw('DATE(died)'), [$from, $to])
+                        ->orWhere(function ($legacyQuery) use ($from, $to) {
+                            $legacyQuery->whereNull('died')->whereBetween(DB::raw('DATE(date_of_death)'), [$from, $to]);
+                        });
+                });
+            }
+        }
+
+        $typeFilter = $request->string('type_filter', 'all')->toString();
+        if ($typeFilter === 'active') {
+            $query->whereHas('funeralCase', fn($caseQuery) => $caseQuery->where('case_status', 'ACTIVE'));
+        } elseif ($typeFilter === 'completed') {
+            $query->whereHas('funeralCase', fn($caseQuery) => $caseQuery->where('case_status', 'COMPLETED'));
+        } elseif ($typeFilter === 'with_balance' || $typeFilter === 'needs_attention') {
+            $query->whereHas('funeralCase', fn($caseQuery) => $caseQuery->whereIn('payment_status', ['UNPAID', 'PARTIAL']));
+        } elseif ($typeFilter === 'recent') {
+            $query->where('created_at', '>=', now()->subDays(30)->startOfDay());
+        }
+
+        $sort = $request->string('sort', 'newest')->toString();
+        if ($sort === 'oldest') {
+            $query->orderBy('created_at');
+        } elseif ($sort === 'name_asc') {
+            $query->orderBy('full_name');
+        } elseif ($sort === 'name_desc') {
+            $query->orderByDesc('full_name');
+        } elseif ($sort === 'death_recent') {
+            $query->orderByRaw('COALESCE(died, date_of_death) DESC');
+        } elseif ($sort === 'death_oldest') {
+            $query->orderByRaw('COALESCE(died, date_of_death) ASC');
+        } else {
+            $query->orderByDesc('created_at');
+        }
+
+        $deceaseds = $query->paginate(20)->withQueryString();
 
         return view('staff.deceased.index', compact('deceaseds'));
     }

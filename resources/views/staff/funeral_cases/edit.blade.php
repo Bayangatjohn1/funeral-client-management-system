@@ -1,6 +1,7 @@
 @extends('layouts.panel')
 
 @section('page_title','Edit Funeral Case')
+@section('page_desc', 'Update case information, services, and payment terms.')
 
 @section('content')
 <form id="caseEditForm" method="POST" action="{{ route('funeral-cases.update', $funeral_case) }}" class="max-w-4xl w-full mx-auto space-y-6">
@@ -67,7 +68,7 @@
                         data-promo-label="{{ $pkg->promo_label }}"
                         {{ (string) old('package_id', $funeral_case->package_id) === (string) $pkg->id ? 'selected' : '' }}
                     >
-                        {{ $pkg->name }} — {{ number_format($pkg->price, 2) }}
+                        {{ $pkg->name }} â€” {{ number_format($pkg->price, 2) }}
                     </option>
                 @endforeach
             </select>

@@ -34,12 +34,32 @@ class PaymentController extends Controller
 
         $preselectCase = null;
         if ($request->filled('case_id')) {
-            $preselectCase = FuneralCase::with(['client'])
+            $preselectCase = FuneralCase::query()
+                ->select(['id', 'branch_id', 'client_id', 'case_code'])
+                ->with(['client:id,full_name'])
                 ->where('branch_id', $mainBranchId)
                 ->find($request->integer('case_id'));
         }
 
-        $openCasesQuery = FuneralCase::with(['branch', 'client', 'deceased'])
+        $openCasesQuery = FuneralCase::query()
+            ->select([
+                'id',
+                'branch_id',
+                'client_id',
+                'deceased_id',
+                'case_code',
+                'total_amount',
+                'total_paid',
+                'balance_amount',
+                'payment_status',
+                'case_status',
+                'created_at',
+            ])
+            ->with([
+                'branch:id,branch_code',
+                'client:id,full_name',
+                'deceased:id,full_name',
+            ])
             ->where('branch_id', $mainBranchId)
             ->where('payment_status', '!=', 'PAID')
             ->where(function ($scopeQuery) {
@@ -199,7 +219,26 @@ class PaymentController extends Controller
         $paidTo = $validated['paid_to'] ?? null;
         $statusAfterPayment = $validated['status_after_payment'] ?? null;
 
-        $payments = Payment::with(['funeralCase.branch', 'funeralCase.client', 'funeralCase.deceased', 'recordedBy'])
+        $payments = Payment::query()
+            ->select([
+                'id',
+                'funeral_case_id',
+                'branch_id',
+                'receipt_number',
+                'amount',
+                'balance_after_payment',
+                'payment_status_after_payment',
+                'paid_date',
+                'paid_at',
+                'recorded_by',
+            ])
+            ->with([
+                'funeralCase:id,branch_id,client_id,deceased_id,case_code',
+                'funeralCase.branch:id,branch_code',
+                'funeralCase.client:id,full_name',
+                'funeralCase.deceased:id,full_name',
+                'recordedBy:id,name',
+            ])
             ->where('branch_id', $mainBranchId)
             ->whereHas('funeralCase', function ($query) use ($mainBranchId) {
                 $query->where('branch_id', $mainBranchId)

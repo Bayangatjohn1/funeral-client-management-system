@@ -61,6 +61,8 @@
         background: linear-gradient(180deg, #fcfcfd 0%, #f6f7f9 100%);
         border: 1px solid #d6dbe3;
         border-radius: 1.2rem;
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
         padding: 1.1rem 1.2rem;
         display: grid;
         gap: 1rem;
@@ -161,11 +163,14 @@
         font-size: 1.04rem;
         line-height: 1.18;
         margin: 0;
+        color: inherit;
+        text-rendering: geometricPrecision;
     }
 
     .staff-action-card .desc {
         margin: .12rem 0 0;
         font-size: .9rem;
+        color: inherit;
     }
 
     .staff-action-card.is-dark {
@@ -183,6 +188,10 @@
         color: #d8e4f2;
     }
 
+    .staff-action-card.is-dark .title {
+        color: #f8fbff;
+    }
+
     .staff-action-card.is-green {
         background: linear-gradient(180deg, #1a8076 0%, #176f66 100%);
         border-color: #21766e;
@@ -198,6 +207,10 @@
         color: #d4f4ee;
     }
 
+    .staff-action-card.is-green .title {
+        color: #f0fffb;
+    }
+
     .staff-action-card.is-light {
         background: linear-gradient(180deg, #f7f9fc 0%, #f2f6fb 100%);
         border-color: #d3deea;
@@ -211,6 +224,10 @@
 
     .staff-action-card.is-light .desc {
         color: #5f748d;
+    }
+
+    .staff-action-card.is-light .title {
+        color: #1a2b41;
     }
 
     .staff-grid {
@@ -407,6 +424,12 @@
         background: #fef3c7;
         border-color: #fde68a;
         color: #92400e;
+    }
+
+    .status-pill.unpaid {
+        background: #fee2e2;
+        border-color: #fecaca;
+        color: #b91c1c;
     }
 
     .staff-money {
@@ -718,6 +741,10 @@
         color: #d6e4f4;
     }
 
+    html[data-theme='dark'] .staff-action-card.is-dark .title {
+        color: #f8fbff;
+    }
+
     html[data-theme='dark'] .staff-action-card.is-green {
         background: linear-gradient(180deg, #1e625d 0%, #1b5753 100%);
         border-color: #2d7a75;
@@ -733,6 +760,10 @@
         color: #c9efe8;
     }
 
+    html[data-theme='dark'] .staff-action-card.is-green .title {
+        color: #ecfffb;
+    }
+
     html[data-theme='dark'] .staff-action-card.is-light {
         background: linear-gradient(180deg, #223148 0%, #1b2a3f 100%);
         border-color: #3f536b;
@@ -746,6 +777,10 @@
     html[data-theme='dark'] .staff-action-card.is-light .icon {
         background: #2b3a50;
         color: #dbe6f3;
+    }
+
+    html[data-theme='dark'] .staff-action-card.is-light .title {
+        color: #f1f6fd;
     }
 
     html[data-theme='dark'] .staff-pill {
@@ -812,6 +847,12 @@
         background: rgba(245, 185, 66, .15);
         border-color: rgba(245, 185, 66, .3);
         color: #fcd34d;
+    }
+
+    html[data-theme='dark'] .status-pill.unpaid {
+        background: rgba(239, 68, 68, .15);
+        border-color: rgba(239, 68, 68, .3);
+        color: #fda4af;
     }
 
     html[data-theme='dark'] .staff-money,
@@ -947,9 +988,11 @@
                         <table class="staff-table">
                             <thead>
                                 <tr>
-                                    <th>Deceased - Client</th>
-                                    <th>Method - Date</th>
-                                    <th class="text-right">Amount</th>
+                                    <th class="text-center">Deceased - Client</th>
+                                    <th class="text-center">Method - Date</th>
+                                    <th class="text-center">Payment Status</th>
+                                    <th class="text-center">Amount</th>
+                                    <th class="text-center">Balance</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -960,21 +1003,39 @@
                                         $deceasedName = $payment->funeralCase?->deceased?->full_name ?? 'Unknown';
                                         $clientName = $payment->funeralCase?->client?->full_name ?? 'No client';
                                         $method = $payment->method ? \Illuminate\Support\Str::title(strtolower((string) $payment->method)) : 'Payment';
+                                        $rawStatus = strtoupper((string) ($payment->payment_status_after_payment ?: $payment->funeralCase?->payment_status ?: 'UNPAID'));
+                                        $statusLabel = match($rawStatus) {
+                                            'PAID' => 'Fully Paid',
+                                            'PARTIAL' => 'Partial',
+                                            default => 'Unpaid',
+                                        };
+                                        $statusClass = match($rawStatus) {
+                                            'PAID' => 'completed',
+                                            'PARTIAL' => 'draft',
+                                            default => 'unpaid',
+                                        };
+                                        $balanceValue = (float) ($payment->balance_after_payment ?? $payment->funeralCase?->balance_amount ?? 0);
                                     @endphp
                                     <tr>
-                                        <td>
+                                        <td class="text-center">
                                             <strong>{{ $deceasedName }}</strong>
                                             <div class="staff-muted">{{ $caseCode }} - {{ $clientName }}</div>
                                         </td>
-                                        <td>
+                                        <td class="text-center">
                                             <span class="status-pill completed">{{ $method }}</span>
                                             <div class="staff-muted">{{ optional($paidAt)->format('M d, Y') }}</div>
                                         </td>
-                                        <td class="text-right staff-money">&#8369; {{ number_format((float) $payment->amount, 2) }}</td>
+                                        <td class="text-center">
+                                            <span class="status-pill {{ $statusClass }}">{{ $statusLabel }}</span>
+                                        </td>
+                                        <td class="text-center staff-money">&#8369; {{ number_format((float) $payment->amount, 2) }}</td>
+                                        <td class="text-center {{ $balanceValue > 0 ? 'text-red-600' : 'staff-money' }}">
+                                            &#8369; {{ number_format($balanceValue, 2) }}
+                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="3" class="staff-empty">
+                                        <td colspan="5" class="staff-empty">
                                             <i class="bi bi-receipt"></i>
                                             No payment records yet.
                                         </td>
@@ -1064,14 +1125,14 @@
 
         <div class="staff-col">
             <article class="staff-card" data-schedules-card>
-                <div class="staff-card-head">
+                <div class="staff-card-head staff-card-head--fixed-actions">
                     <div>
                         <h3>Schedules</h3>
                         <p data-schedule-copy>Today's services and events</p>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <a href="{{ route('staff.reminders.index', ['alert_type' => 'service_today']) }}" class="staff-link" data-schedule-link="today">View Full <i class="bi bi-arrow-right"></i></a>
-                        <a href="{{ route('staff.reminders.index', ['tab' => 'upcoming']) }}" class="staff-link hidden" data-schedule-link="upcoming">View Full <i class="bi bi-arrow-right"></i></a>
+                    <div class="staff-head-actions flex items-center gap-2">
+                        <a href="{{ route('staff.reminders.index', ['alert_type' => 'service_today']) }}" class="staff-link" data-schedule-link="today">View all <i class="bi bi-arrow-right"></i></a>
+                        <a href="{{ route('staff.reminders.index', ['tab' => 'upcoming']) }}" class="staff-link hidden" data-schedule-link="upcoming">View all <i class="bi bi-arrow-right"></i></a>
                     </div>
                 </div>
 

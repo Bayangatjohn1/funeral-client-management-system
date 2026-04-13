@@ -1913,7 +1913,7 @@ html[data-theme='dark'] {
     box-shadow: none;
     border-radius: 0;
     overflow: visible;
-    z-index: 20;
+    z-index: 150;
 }
 .sidebar-user-card,
 .profile-pill {
@@ -2008,35 +2008,41 @@ html[data-theme='dark'] {
 
 .sidebar-collapse-btn {
     position: absolute;
-    top: calc(var(--topbar-h) / 2);
-    right: 0;
-    transform: translate(50%, -50%);
-    width: 24px;
-    height: 44px;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    color: #f8fafc;
+    top: calc(var(--topbar-h) + 32px);
+    right: -16px;
+    transform: translate(0, -50%);
+    width: 30px;
+    height: 34px;
+    padding: 0;
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    background: var(--topbar-bg);
+    color: #334155;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: color 0.18s ease;
+    transition: color 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
     flex-shrink: 0;
-    z-index: 220;
+    z-index: 260;
     outline: none;
-    box-shadow: none;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.22);
 }
 
 .sidebar-collapse-btn:hover {
-    background: transparent;
-    border: 0;
-    color: #f2cfaa;
-    box-shadow: none;
+    background: var(--topbar-bg);
+    border-color: #94a3b8;
+    color: #0f172a;
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.18);
+}
+
+.sidebar-collapse-btn:focus-visible {
+    border-color: #d4a373;
+    color: #ffffff;
 }
 
 .sidebar-collapse-glyph {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 700;
     line-height: 1;
     font-family: inherit;
@@ -2131,6 +2137,51 @@ html[data-theme='dark'] {
     padding: 0;
 }
 
+/* Sidebar typography refresh: keep icon fonts intact, update text only */
+.sidebar-brand-name,
+.sidebar-brand-sub,
+.nav-group-label,
+.nav-link span,
+.sidebar-footer .profile-name,
+.sidebar-footer .profile-role,
+.sidebar-account-dropdown__label,
+.sidebar-account-dropdown__logout,
+.sidebar-logout-btn span,
+.sidebar-user-card .name,
+.sidebar-user-card .role,
+body[data-sidebar-collapsed="true"] .nav-link::after {
+    font-family: var(--font-body);
+}
+
+.sidebar-brand-name {
+    font-size: 15px;
+    line-height: 1.2;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+
+.nav-link,
+.nav-link span {
+    font-weight: 500;
+}
+
+.nav-group-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+}
+
+.sidebar-footer .profile-name,
+.sidebar-user-card .name {
+    font-weight: 600;
+}
+
+.sidebar-footer .profile-role,
+.sidebar-user-card .role {
+    font-weight: 500;
+    letter-spacing: 0.07em;
+}
+
 .sidebar-footer {
     padding: 10px 10px;
     border-top: 1px solid rgba(255, 255, 255, 0.07);
@@ -2159,7 +2210,7 @@ html[data-theme='dark'] {
     font-size: 14px;
     font-weight: 600;
     flex-shrink: 0;
-    box-shadow: 0 6px 16px rgba(156, 90, 26, 0.24);
+    box-shadow: none;
 }
 
 .profile-pill {
@@ -2301,6 +2352,7 @@ html[data-theme='dark'] {
     font-size: 14px;
     font-weight: 600;
     flex-shrink: 0;
+    box-shadow: none;
 }
 
 .profile-copy {
@@ -2339,11 +2391,11 @@ body[data-sidebar-collapsed="true"] .sidebar-brand {
 }
 
 body[data-sidebar-collapsed="true"] .sidebar-collapse-btn {
-    right: 0;
-    width: 24px;
-    height: 44px;
-    top: calc(var(--topbar-h) / 2);
-    transform: translate(50%, -50%);
+    right: -16px;
+    width: 30px;
+    height: 34px;
+    top: calc(var(--topbar-h) + 32px);
+    transform: translate(0, -50%);
 }
 
 body[data-sidebar-collapsed="true"] .sidebar-brand-copy,

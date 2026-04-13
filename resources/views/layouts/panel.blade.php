@@ -82,7 +82,7 @@
                 aria-expanded="true"
                 aria-controls="appSidebar"
             >
-                <i class="bi bi-caret-left-fill sidebar-collapse-glyph" aria-hidden="true"></i>
+                <i class="bi bi-layout-sidebar sidebar-collapse-glyph" aria-hidden="true"></i>
             </button>
 
             <div class="sidebar-scroll">
@@ -609,8 +609,8 @@
 
                 const glyph = desktopToggle.querySelector('.sidebar-collapse-glyph');
                 if (!glyph) return;
-                glyph.classList.toggle('bi-caret-right-fill', collapsed);
-                glyph.classList.toggle('bi-caret-left-fill', !collapsed);
+                glyph.classList.toggle('bi-layout-sidebar-inset', collapsed);
+                glyph.classList.toggle('bi-layout-sidebar', !collapsed);
             };
 
             const setDesktopCollapsed = (collapsed, persist = true) => {

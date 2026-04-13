@@ -240,7 +240,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->get(
         ->withQueryString();
 
     $recentPayments = Payment::with([
-            'funeralCase:id,case_code,client_id,deceased_id',
+            'funeralCase:id,case_code,client_id,deceased_id,payment_status,balance_amount',
             'funeralCase.client:id,full_name',
             'funeralCase.deceased:id,full_name',
         ])

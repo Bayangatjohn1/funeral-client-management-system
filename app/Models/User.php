@@ -50,6 +50,12 @@ class User extends Authenticatable
     ];
 
     /**
+     * Per-request memoization to avoid duplicate branch scope queries.
+     */
+    protected ?array $cachedBranchScopeIds = null;
+    protected ?\App\Models\TemporaryCrossBranchPermission $cachedActiveTemporaryPermission = null;
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -76,10 +82,16 @@ class User extends Authenticatable
 
     public function activeTemporaryPermission(): ?\App\Models\TemporaryCrossBranchPermission
     {
-        return $this->temporaryPermissions()
+        if ($this->cachedActiveTemporaryPermission !== null) {
+            return $this->cachedActiveTemporaryPermission;
+        }
+
+        $this->cachedActiveTemporaryPermission = $this->temporaryPermissions()
             ->active()
             ->orderByDesc('granted_at')
             ->first();
+
+        return $this->cachedActiveTemporaryPermission;
     }
 
     public function canEncodeAnyBranch(): bool
@@ -97,8 +109,18 @@ class User extends Authenticatable
 
     public function branchScopeIds(): array
     {
+        if ($this->cachedBranchScopeIds !== null) {
+            return $this->cachedBranchScopeIds;
+        }
+
         if ($this->role === 'admin') {
-            return \App\Models\Branch::where('is_active', true)->pluck('id')->all();
+            $this->cachedBranchScopeIds = \Illuminate\Support\Facades\Cache::remember(
+                'active_branch_scope_ids:v1',
+                now()->addSeconds(30),
+                static fn () => \App\Models\Branch::where('is_active', true)->pluck('id')->all()
+            );
+
+            return $this->cachedBranchScopeIds;
         }
 
         $branchIds = [];
@@ -118,6 +140,8 @@ class User extends Authenticatable
             }
         }
 
-        return array_values(array_unique(array_map('intval', $branchIds)));
+        $this->cachedBranchScopeIds = array_values(array_unique(array_map('intval', $branchIds)));
+
+        return $this->cachedBranchScopeIds;
     }
 }

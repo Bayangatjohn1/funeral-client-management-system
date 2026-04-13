@@ -48,6 +48,8 @@ class PaymentController extends Controller
                 'client_id',
                 'deceased_id',
                 'case_code',
+                'service_package',
+                'custom_package_name',
                 'total_amount',
                 'total_paid',
                 'balance_amount',

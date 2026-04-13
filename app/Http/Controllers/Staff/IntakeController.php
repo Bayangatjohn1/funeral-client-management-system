@@ -158,6 +158,16 @@ class IntakeController extends Controller
             $request->merge(['client_contact_number' => $digitsOnly]);
         }
 
+        $wakeDateRules = ['required', 'date', 'after_or_equal:died'];
+        $intermentDateRules = ['required', 'date', 'after_or_equal:funeral_service_at'];
+
+        // Main intake can schedule upcoming wake/interment dates.
+        // Other-branch report intake remains strict (completed records only).
+        if ($mode === 'other') {
+            $wakeDateRules[] = 'before_or_equal:today';
+            $intermentDateRules[] = 'before_or_equal:today';
+        }
+
         $validated = $request->validate([
             'service_requested_at' => 'required|date|before_or_equal:today',
             'client_name' => FieldRules::personName(),
@@ -173,8 +183,8 @@ class IntakeController extends Controller
             'senior_citizen_id_number' => 'nullable|string|max:100',
             'senior_proof' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
             'wake_location' => 'required|string|max:255',
-            'funeral_service_at' => 'required|date|after_or_equal:died|before_or_equal:today',
-            'interment_at' => 'required|date|after_or_equal:funeral_service_at|before_or_equal:today',
+            'funeral_service_at' => $wakeDateRules,
+            'interment_at' => $intermentDateRules,
             'wake_days' => 'nullable|integer|min:1|max:30',
             'place_of_cemetery' => 'required|string|max:255',
             'case_status' => 'required|in:DRAFT,ACTIVE,COMPLETED',
@@ -231,9 +241,9 @@ class IntakeController extends Controller
             'died.after_or_equal' => 'Date of death cannot be earlier than date of birth.',
             'died.before_or_equal' => 'Date of death cannot be in the future.',
             'funeral_service_at.after_or_equal' => 'Funeral service date must be on or after the date of death.',
-            'funeral_service_at.before_or_equal' => 'Funeral service date cannot be in the future.',
-            'interment_at.after' => 'Interment date cannot be earlier than the wake start date.',
-            'interment_at.before_or_equal' => 'Interment date/time cannot be in the future.',
+            'funeral_service_at.before_or_equal' => 'Funeral service date cannot be in the future for other-branch reports.',
+            'interment_at.after_or_equal' => 'Interment date cannot be earlier than the wake start date.',
+            'interment_at.before_or_equal' => 'Interment date/time cannot be in the future for other-branch reports.',
             'paid_at.after_or_equal' => 'Paid date/time must be on or after date of death.',
             'reported_at.before_or_equal' => 'Reported date/time cannot be in the future.',
             'confirm_review' => 'You must confirm that the information is correct before saving.',

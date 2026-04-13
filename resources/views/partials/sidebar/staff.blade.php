@@ -20,27 +20,6 @@
             <span>New Case</span>
         </a>
 
-        <a href="{{ route('intake.other.create') }}"
-           class="{{ $isActive(request()->routeIs('intake.other.create')) }}">
-            <svg class="{{ $iconState(request()->routeIs('intake.other.create')) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h8m0 0l-3-3m3 3l-3 3M6 17h12m0 0l-3-3m3 3l-3 3"/>
-            </svg>
-            <span>Branch Report</span>
-        </a>
-
-        <a href="{{ route('funeral-cases.index', ['tab' => 'active', 'record_scope' => 'main']) }}"
-           class="{{ $isActive((request()->routeIs('funeral-cases.index') || request()->routeIs('funeral-cases.completed')) && !request()->boolean('open_wizard')) }}">
-            <svg class="{{ $iconState((request()->routeIs('funeral-cases.index') || request()->routeIs('funeral-cases.completed')) && !request()->boolean('open_wizard')) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-            </svg>
-            <span>Case Records</span>
-        </a>
-    </div>
-</div>
-
-<div class="nav-section">
-    <p class="nav-group-label">Payments</p>
-    <div class="nav-list">
         <a href="{{ route('payments.index') }}"
            class="{{ $isActive(request()->routeIs('payments.index')) }}">
             <svg class="{{ $iconState(request()->routeIs('payments.index')) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -62,6 +41,14 @@
 <div class="nav-section">
     <p class="nav-group-label">Records</p>
     <div class="nav-list">
+        <a href="{{ route('funeral-cases.index', ['tab' => 'active', 'record_scope' => 'main']) }}"
+           class="{{ $isActive((request()->routeIs('funeral-cases.index') || request()->routeIs('funeral-cases.completed')) && !request()->boolean('open_wizard')) }}">
+            <svg class="{{ $iconState((request()->routeIs('funeral-cases.index') || request()->routeIs('funeral-cases.completed')) && !request()->boolean('open_wizard')) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            <span>Case Records</span>
+        </a>
+
         <a href="{{ route('clients.index') }}"
            class="{{ $isActive(request()->is('clients*')) }}">
             <svg class="{{ $iconState(request()->is('clients*')) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -70,24 +57,5 @@
             <span>Client List</span>
         </a>
 
-        <a href="{{ route('deceased.index') }}"
-           class="{{ $isActive(request()->is('deceased*')) }}">
-            <svg class="{{ $iconState(request()->is('deceased*')) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-            </svg>
-            <span>Deceased List</span>
-        </a>
-    </div>
-</div>
-
-<div class="nav-section">
-    <div class="nav-list">
-        <a href="{{ route('funeral-cases.other-reports') }}"
-           class="{{ $isActive(request()->routeIs('funeral-cases.other-reports')) }}">
-            <svg class="{{ $iconState(request()->routeIs('funeral-cases.other-reports')) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
-            </svg>
-            <span>Branch Reports</span>
-        </a>
     </div>
 </div>

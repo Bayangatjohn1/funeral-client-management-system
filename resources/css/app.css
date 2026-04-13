@@ -219,6 +219,16 @@ html[data-theme='dark'] {
 }
 
 @layer components {
+    .font-ui-body {
+        font-family: var(--font-body);
+    }
+
+    .font-ui-heading {
+        font-family: var(--font-heading);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+    }
+
     .label-section {
         color: var(--ink-muted);
         font-size: 12px;

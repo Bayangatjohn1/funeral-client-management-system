@@ -196,6 +196,7 @@
                         <th class="text-left">Case Code</th>
                         <th class="text-left">Client</th>
                         <th class="text-left">Deceased</th>
+                        <th class="text-left">Service</th>
                         <th class="text-left">Total Due</th>
                         <th class="text-left">Total Paid</th>
                         <th class="text-left">Balance</th>
@@ -209,6 +210,7 @@
                         <td>{{ $case->case_code }}</td>
                         <td>{{ $case->client?->full_name ?? '-' }}</td>
                         <td>{{ $case->deceased?->full_name ?? '-' }}</td>
+                        <td>{{ $case->service_package ?: ($case->custom_package_name ?: '-') }}</td>
                         <td>{{ number_format($case->total_amount, 2) }}</td>
                         <td>{{ number_format((float) $case->total_paid, 2) }}</td>
                         <td>{{ number_format((float) $case->balance_amount, 2) }}</td>
@@ -225,7 +227,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" class="py-6 text-center text-slate-500">No open cases.</td>
+                        <td colspan="9" class="py-6 text-center text-slate-500">No open cases.</td>
                     </tr>
                 @endforelse
                 </tbody>

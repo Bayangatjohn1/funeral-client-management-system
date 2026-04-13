@@ -20,16 +20,6 @@
             </div>
 
             <div class="table-toolbar-field">
-                <label for="client-type-filter" class="table-toolbar-label">Status / Type</label>
-                <select id="client-type-filter" name="type_filter" class="form-select table-toolbar-select">
-                    <option value="all" @selected(request('type_filter','all') === 'all')>All</option>
-                    <option value="needs_attention" @selected(request('type_filter') === 'needs_attention')>Needs Attention</option>
-                    <option value="recent" @selected(request('type_filter') === 'recent')>Recent</option>
-                    <option value="with_balance" @selected(request('type_filter') === 'with_balance')>With Balance</option>
-                </select>
-            </div>
-
-            <div class="table-toolbar-field">
                 <label for="client-date-range" class="table-toolbar-label">Date</label>
                 <select id="client-date-range" name="date_range" class="form-select table-toolbar-select">
                     <option value="any" @selected(request('date_range','any') === 'any')>Any Time</option>
@@ -76,16 +66,6 @@
             </div>
         </form>
 
-        <div class="table-quick-tabs table-system-quick-tabs">
-            <a href="{{ route('clients.index', array_merge(request()->except('type_filter'), ['type_filter' => 'all'])) }}"
-               class="table-quick-tab {{ request('type_filter','all') === 'all' ? 'table-quick-tab-active' : '' }}">All</a>
-            <a href="{{ route('clients.index', array_merge(request()->except('type_filter'), ['type_filter' => 'needs_attention'])) }}"
-               class="table-quick-tab {{ request('type_filter') === 'needs_attention' ? 'table-quick-tab-active' : '' }}">Needs Attention</a>
-            <a href="{{ route('clients.index', array_merge(request()->except('type_filter'), ['type_filter' => 'recent'])) }}"
-               class="table-quick-tab {{ request('type_filter') === 'recent' ? 'table-quick-tab-active' : '' }}">Recent</a>
-            <a href="{{ route('clients.index', array_merge(request()->except('type_filter'), ['type_filter' => 'with_balance'])) }}"
-               class="table-quick-tab {{ request('type_filter') === 'with_balance' ? 'table-quick-tab-active' : '' }}">With Balance</a>
-        </div>
     </div>
 
     <div class="table-system-list">
@@ -97,16 +77,15 @@
         </div>
 
         <div class="table-wrapper table-system-wrap">
-            <table class="table-base table-system-table">
+                <table class="table-base table-system-table">
                 <thead>
                     <tr>
                         <th class="text-left">Client Name</th>
                         <th class="text-left">Relationship</th>
-                        <th class="text-left">Contact Number</th>
-                        <th class="text-left">Address</th>
-                        <th class="table-col-center">No. of Cases</th>
-                        <th class="text-left">Last Related Case / Date</th>
-                        <th class="table-col-number">Total Paid</th>
+                        <th class="text-left">Deceased Name</th>
+                        <th class="text-left">Service</th>
+                        <th class="text-left">Status</th>
+                        <th class="text-left">Payment</th>
                         <th class="table-col-actions">Actions</th>
                     </tr>
                 </thead>
@@ -118,18 +97,22 @@
                             <div class="table-secondary">{{ $client->client_code ?? 'CL-' . str_pad($client->id, 3, '0', STR_PAD_LEFT) }}</div>
                         </td>
                         <td>{{ $client->relationship_to_deceased ?? '-' }}</td>
-                        <td>{{ $client->contact_number ?? '-' }}</td>
-                        <td>{{ $client->address ?? '-' }}</td>
-                        <td class="table-col-center">{{ (int) ($client->funeral_cases_count ?? 0) }}</td>
+                        <td>{{ $client->latest_deceased_name ?: '-' }}</td>
+                        <td>{{ $client->latest_service_package ?: '-' }}</td>
                         <td>
-                            @if(!empty($client->latest_case_code))
-                                <div class="table-primary">{{ $client->latest_case_code }}</div>
-                                <div class="table-secondary">{{ \Illuminate\Support\Carbon::parse($client->latest_case_date)->format('Y-m-d') }}</div>
+                            @if($client->latest_case_status)
+                                <x-status-badge :status="$client->latest_case_status" />
                             @else
                                 <span class="table-secondary">-</span>
                             @endif
                         </td>
-                        <td class="table-col-number">{{ number_format((float) ($client->total_paid_sum ?? 0), 2) }}</td>
+                        <td>
+                            @if($client->latest_payment_status)
+                                <x-status-badge :status="$client->latest_payment_status" />
+                            @else
+                                <span class="table-secondary">-</span>
+                            @endif
+                        </td>
                         <td class="table-col-actions">
                             <div class="table-row-actions">
                                 <div class="row-action-menu" data-row-menu>
@@ -171,7 +154,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" class="table-system-empty">
+                        <td colspan="7" class="table-system-empty">
                             No clients yet.
                         </td>
                     </tr>

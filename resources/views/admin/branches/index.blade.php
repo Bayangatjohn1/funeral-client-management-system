@@ -19,10 +19,10 @@
                     <p class="admin-table-head-copy">Manage branch profile, status, and encoded record count in one aligned table view.</p>
                 </div>
                 <div class="admin-table-head-actions">
-                    <a href="{{ route('admin.branches.create', ['return_to' => request()->fullUrl()]) }}" class="btn btn-primary-custom btn-sm bg-[var(--brand-mid)] border-[var(--brand-mid)] hover:bg-[var(--brand-hover)] hover:border-[var(--brand-hover)] text-white inline-flex items-center gap-2">
+                    <button id="openBranchCreateModal" type="button" class="btn btn-primary-custom btn-sm bg-[var(--brand-mid)] border-[var(--brand-mid)] hover:bg-[var(--brand-hover)] hover:border-[var(--brand-hover)] text-white inline-flex items-center gap-2">
                         <i class="bi bi-plus-circle"></i>
                         <span>Add Branch</span>
-                    </a>
+                    </button>
                 </div>
             </div>
         </div>
@@ -106,12 +106,102 @@
     </section>
 </div>
 
+<!-- Branch create modal -->
+<div id="branchCreateModalOverlay" class="fixed inset-0 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-200 font-ui-body" style="z-index: 1300;">
+    <div id="branchCreateModalSheet" class="relative w-[92vw] max-w-3xl max-h-[92vh] bg-white rounded-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border border-slate-200 font-ui-body">
+        <div class="overflow-y-auto max-h-[84vh] bg-slate-50">
+            <form id="branchCreateForm" method="POST" action="{{ route('admin.branches.store') }}" class="max-w-3xl w-full mx-auto">
+                @csrf
+                <input type="hidden" name="return_to" value="{{ old('return_to', request()->fullUrl()) }}">
+                <input type="hidden" name="form_context" value="branch_create_modal">
+
+                <div class="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                    <div class="px-6 py-5 border-b border-slate-200">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <h2 class="text-[1.65rem] leading-tight text-slate-900 font-ui-heading">Create Branch</h2>
+                                <p class="text-base text-slate-500">Register a new branch and configure branch information</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="inline-flex items-center rounded-xl border border-slate-300 bg-slate-50 px-3 py-1 text-sm font-semibold tracking-wide text-slate-700">
+                                    {{ $nextCode }}
+                                </span>
+                                <button id="branchCreateModalClose" type="button" class="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-300 bg-white text-slate-400 hover:text-slate-700 focus:outline-none">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-6 space-y-5">
+                        <div>
+                            <label class="label-section">Branch Code</label>
+                            <input type="text" value="{{ $nextCode }}" class="form-input bg-slate-100 text-slate-700 font-semibold" readonly>
+                            <div class="text-sm text-slate-500 mt-2">Branch code is auto-assigned and cannot be changed.</div>
+                        </div>
+
+                        <div class="grid gap-4 md:grid-cols-2">
+                            <div>
+                                <label class="label-section">Branch Name <span class="text-rose-500">*</span></label>
+                                <input
+                                    type="text"
+                                    id="branch_create_name"
+                                    name="branch_name"
+                                    value="{{ old('branch_name') }}"
+                                    class="form-input"
+                                    autocomplete="off"
+                                    inputmode="text"
+                                    required
+                                >
+                                @error('branch_name') <div class="form-error">{{ $message }}</div> @enderror
+                                <div class="text-sm text-slate-500 mt-2">Letters only. Numbers are auto-removed.</div>
+                            </div>
+
+                            <div>
+                                <label class="label-section">Address</label>
+                                <input type="text" name="address" value="{{ old('address') }}" class="form-input" placeholder="Street, City, Province">
+                                @error('address') <div class="form-error">{{ $message }}</div> @enderror
+                            </div>
+                        </div>
+
+                        <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 flex items-center justify-between gap-4">
+                            <div>
+                                <div class="text-[1.1rem] leading-tight font-semibold text-slate-900">Branch Status</div>
+                                <p class="text-sm text-slate-500">Active branches can process new cases and payments</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span id="branch-create-status-pill" class="inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold {{ old('is_active', 1) ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700' }}">
+                                    {{ old('is_active', 1) ? 'Active' : 'Inactive' }}
+                                </span>
+                                <input type="hidden" name="is_active" value="0">
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input id="branch_create_is_active" type="checkbox" name="is_active" value="1" {{ old('is_active', 1) ? 'checked' : '' }} class="sr-only peer">
+                                    <div class="w-12 h-7 bg-slate-300 rounded-full peer peer-checked:bg-emerald-600 transition-colors"></div>
+                                    <div class="absolute left-[3px] top-[3px] h-5 w-5 rounded-full bg-white transition-transform peer-checked:translate-x-5"></div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="px-6 py-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                        <div class="text-sm text-slate-500">Ready to save new branch details.</div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button type="button" id="branchCreateModalCancel" class="btn btn-outline">Cancel</button>
+                            <button class="btn btn-primary-custom bg-[var(--brand-mid)] border-[var(--brand-mid)] hover:bg-[var(--brand-hover)] hover:border-[var(--brand-hover)] text-white px-5">
+                                <i class="bi bi-save2"></i>
+                                Save Branch
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Branch edit modal -->
-<div id="branchModalOverlay" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-200">
-    <div id="branchModalSheet" class="relative w-[92vw] max-w-4xl max-h-[92vh] bg-white rounded-2xl shadow-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border border-slate-100">
-        <button id="branchModalClose" type="button" class="absolute top-3 right-3 z-10 inline-flex items-center justify-center w-9 h-9 rounded-full bg-white shadow border text-slate-400 hover:text-black focus:outline-none">
-            <i class="bi bi-x-lg"></i>
-        </button>
+<div id="branchModalOverlay" class="fixed inset-0 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-200 font-ui-body" style="z-index: 1300;">
+    <div id="branchModalSheet" class="relative w-[92vw] max-w-4xl max-h-[92vh] bg-white rounded-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border border-slate-200 font-ui-body">
         <div id="branchModalContent" class="overflow-y-auto max-h-[84vh] p-5 bg-slate-50">
             <div class="flex items-center justify-center py-8 text-slate-500 gap-2 text-sm">
                 <i class="bi bi-arrow-repeat animate-spin"></i>
@@ -123,14 +213,66 @@
 
 <script>
     (() => {
-        const overlay = document.getElementById('branchModalOverlay');
-        const sheet = document.getElementById('branchModalSheet');
-        const content = document.getElementById('branchModalContent');
-        const closeBtn = document.getElementById('branchModalClose');
-        const links = [...document.querySelectorAll('.open-branch-modal')];
+        const editOverlay = document.getElementById('branchModalOverlay');
+        const editSheet = document.getElementById('branchModalSheet');
+        const editContent = document.getElementById('branchModalContent');
+        const editLinks = [...document.querySelectorAll('.open-branch-modal')];
 
-        const show = () => {
+        const createOverlay = document.getElementById('branchCreateModalOverlay');
+        const createSheet = document.getElementById('branchCreateModalSheet');
+        const createOpenBtn = document.getElementById('openBranchCreateModal');
+        const createCloseBtn = document.getElementById('branchCreateModalClose');
+        const createCancelBtn = document.getElementById('branchCreateModalCancel');
+        const createStatusToggle = document.getElementById('branch_create_is_active');
+        const createStatusPill = document.getElementById('branch-create-status-pill');
+        const shouldOpenCreateModal = @json(old('form_context') === 'branch_create_modal');
+        const branchNamePattern = /^[A-Za-z][A-Za-z\s'.&-]*$/;
+
+        const normalizeBranchNameInput = (value) => {
+            return String(value || '')
+                .replace(/\d+/g, '')
+                .replace(/[^A-Za-z\s'.&-]/g, '')
+                .replace(/\s{2,}/g, ' ')
+                .replace(/^\s+/, '');
+        };
+
+        const bindBranchNameValidation = (input) => {
+            if (!input || input.dataset.branchNameBound === '1') return;
+            input.dataset.branchNameBound = '1';
+
+            const sync = (trimEnd = false) => {
+                const normalized = normalizeBranchNameInput(input.value);
+                input.value = trimEnd ? normalized.trim() : normalized;
+
+                const finalValue = input.value.trim();
+                if (!finalValue) {
+                    input.setCustomValidity('Branch name is required.');
+                    return;
+                }
+                if (!branchNamePattern.test(finalValue)) {
+                    input.setCustomValidity('Branch name must contain letters only (no numbers).');
+                    return;
+                }
+                input.setCustomValidity('');
+            };
+
+            input.addEventListener('input', () => sync(false));
+            input.addEventListener('blur', () => sync(true));
+            sync(true);
+        };
+
+        const syncPageScrollLock = () => {
+            const createOpen = createOverlay && !createOverlay.classList.contains('hidden');
+            const editOpen = editOverlay && !editOverlay.classList.contains('hidden');
+            const shouldLock = createOpen || editOpen;
+            document.documentElement.classList.toggle('overflow-hidden', shouldLock);
+            document.body.classList.toggle('overflow-hidden', shouldLock);
+        };
+
+        const showModal = (overlay, sheet) => {
+            if (!overlay || !sheet) return;
             overlay.classList.remove('hidden');
+            syncPageScrollLock();
             requestAnimationFrame(() => {
                 sheet.classList.remove('scale-95', 'opacity-0');
                 sheet.classList.add('scale-100', 'opacity-100');
@@ -138,22 +280,26 @@
             });
         };
 
-        const hide = () => {
+        const hideModal = (overlay, sheet, content = null) => {
+            if (!overlay || !sheet) return;
             sheet.classList.add('scale-95', 'opacity-0');
             sheet.classList.remove('scale-100', 'opacity-100');
             overlay.classList.remove('opacity-100');
             setTimeout(() => {
                 overlay.classList.add('hidden');
-                content.innerHTML = `
-                    <div class="flex items-center justify-center py-8 text-slate-500 gap-2 text-sm">
-                        <i class="bi bi-arrow-repeat animate-spin"></i>
-                        <span>Loading...</span>
-                    </div>`;
+                syncPageScrollLock();
+                if (content) {
+                    content.innerHTML = `
+                        <div class="flex items-center justify-center py-8 text-slate-500 gap-2 text-sm">
+                            <i class="bi bi-arrow-repeat animate-spin"></i>
+                            <span>Loading...</span>
+                        </div>`;
+                }
             }, 180);
         };
 
-        const load = async (url) => {
-            content.innerHTML = `
+        const loadEditForm = async (url) => {
+            editContent.innerHTML = `
                 <div class="flex items-center justify-center py-8 text-slate-500 gap-2 text-sm">
                     <i class="bi bi-arrow-repeat animate-spin"></i>
                     <span>Loading...</span>
@@ -164,38 +310,94 @@
                 const doc = new DOMParser().parseFromString(html, 'text/html');
                 const form = doc.querySelector('#branchEditForm');
                 if (form) {
-                    content.innerHTML = form.outerHTML;
+                    editContent.innerHTML = form.outerHTML;
+                    bindBranchNameValidation(editContent.querySelector('input[name="branch_name"]'));
+                    const cancelLink = editContent.querySelector('.branch-modal-cancel');
+                    if (cancelLink) {
+                        cancelLink.addEventListener('click', (evt) => {
+                            evt.preventDefault();
+                            hideModal(editOverlay, editSheet, editContent);
+                        });
+                    }
+                    const closeBtn = editContent.querySelector('.branch-modal-close');
+                    if (closeBtn) {
+                        closeBtn.addEventListener('click', (evt) => {
+                            evt.preventDefault();
+                            hideModal(editOverlay, editSheet, editContent);
+                        });
+                    }
                     const scripts = [...doc.querySelectorAll('script')];
                     scripts.forEach((old) => {
                         const s = document.createElement('script');
                         if (old.src) s.src = old.src; else s.textContent = old.textContent;
-                        content.appendChild(s);
+                        editContent.appendChild(s);
                     });
                 } else {
-                    content.innerHTML = html;
+                    editContent.innerHTML = html;
                 }
             } catch (e) {
-                content.innerHTML = `<div class="p-4 text-sm text-rose-600">Unable to load content.</div>`;
+                editContent.innerHTML = `<div class="p-4 text-sm text-rose-600">Unable to load content.</div>`;
             }
         };
 
-        links.forEach((link) => {
+        if (createOpenBtn) {
+            createOpenBtn.addEventListener('click', () => showModal(createOverlay, createSheet));
+        }
+
+        bindBranchNameValidation(document.getElementById('branch_create_name'));
+
+        if (createStatusToggle && createStatusPill) {
+            const syncCreateStatus = () => {
+                const active = !!createStatusToggle.checked;
+                createStatusPill.textContent = active ? 'Active' : 'Inactive';
+                createStatusPill.className = `inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${active ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`;
+            };
+            createStatusToggle.addEventListener('change', syncCreateStatus);
+            syncCreateStatus();
+        }
+
+        if (createCloseBtn) {
+            createCloseBtn.addEventListener('click', () => hideModal(createOverlay, createSheet));
+        }
+        if (createCancelBtn) {
+            createCancelBtn.addEventListener('click', () => hideModal(createOverlay, createSheet));
+        }
+        if (createOverlay) {
+            createOverlay.addEventListener('click', (e) => {
+                if (e.target === createOverlay) hideModal(createOverlay, createSheet);
+            });
+        }
+
+        editLinks.forEach((link) => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
                 const url = link.dataset.url || link.href;
-                show();
-                load(url);
+                showModal(editOverlay, editSheet);
+                loadEditForm(url);
             });
         });
 
-        if (closeBtn) closeBtn.addEventListener('click', hide);
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) hide();
-        });
+        if (editOverlay) {
+            editOverlay.addEventListener('click', (e) => {
+                if (e.target === editOverlay) hideModal(editOverlay, editSheet, editContent);
+            });
+        }
+
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && !overlay.classList.contains('hidden')) hide();
+            if (e.key !== 'Escape') return;
+            if (createOverlay && !createOverlay.classList.contains('hidden')) {
+                hideModal(createOverlay, createSheet);
+                return;
+            }
+            if (editOverlay && !editOverlay.classList.contains('hidden')) {
+                hideModal(editOverlay, editSheet, editContent);
+            }
         });
+
+        if (shouldOpenCreateModal) {
+            showModal(createOverlay, createSheet);
+        }
+        syncPageScrollLock();
     })();
 </script>
 @endsection
-

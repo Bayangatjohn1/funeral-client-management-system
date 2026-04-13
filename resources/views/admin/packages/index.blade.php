@@ -19,7 +19,12 @@
                     <p class="admin-table-head-copy">Keep package pricing and promo details aligned in one clean table workflow.</p>
                 </div>
                 <div class="admin-table-head-actions">
-                    <a href="{{ route('admin.packages.create') }}" class="btn btn-primary-custom btn-sm bg-[var(--brand-mid)] border-[var(--brand-mid)] hover:bg-[var(--brand-hover)] hover:border-[var(--brand-hover)] text-white inline-flex items-center gap-2">
+                    <a
+                        href="{{ route('admin.packages.create') }}"
+                        data-package-modal-trigger
+                        data-url="{{ route('admin.packages.create') }}"
+                        class="btn btn-primary-custom btn-sm bg-[var(--brand-mid)] border-[var(--brand-mid)] hover:bg-[var(--brand-hover)] hover:border-[var(--brand-hover)] text-white inline-flex items-center gap-2"
+                    >
                         <i class="bi bi-plus-circle"></i>
                         <span>Add Package</span>
                     </a>
@@ -94,7 +99,13 @@
                                     </button>
 
                                     <div class="row-action-dropdown" role="menu">
-                                        <a href="{{ route('admin.packages.edit', $package) }}" data-url="{{ route('admin.packages.edit', $package) }}" class="row-action-item open-package-modal" data-row-menu-item>
+                                        <a
+                                            href="{{ route('admin.packages.edit', $package) }}"
+                                            data-url="{{ route('admin.packages.edit', $package) }}"
+                                            data-package-modal-trigger
+                                            class="row-action-item"
+                                            data-row-menu-item
+                                        >
                                             <i class="bi bi-pencil-square"></i>
                                             <span>Edit package</span>
                                         </a>
@@ -119,12 +130,12 @@
 </div>
 
 <!-- Package modal -->
-<div id="packageModalOverlay" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-200">
-    <div id="packageModalSheet" class="relative w-[92vw] max-w-5xl max-h-[92vh] bg-white rounded-2xl shadow-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border border-slate-100">
-        <button id="packageModalClose" type="button" class="absolute top-3 right-3 z-10 inline-flex items-center justify-center w-9 h-9 rounded-full bg-white shadow border text-slate-400 hover:text-black focus:outline-none">
+<div id="packageModalOverlay" class="fixed inset-0 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-200 font-ui-body" style="z-index: 1300;">
+    <div id="packageModalSheet" class="relative w-[92vw] max-w-4xl max-h-[92vh] bg-white rounded-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border border-slate-200 font-ui-body">
+        <button id="packageModalClose" type="button" class="absolute top-3 right-3 z-10 inline-flex items-center justify-center w-9 h-9 rounded-full bg-white border border-slate-300 text-slate-400 hover:text-black focus:outline-none">
             <i class="bi bi-x-lg"></i>
         </button>
-        <div id="packageModalContent" class="overflow-y-auto max-h-[84vh] p-5 bg-slate-50">
+        <div id="packageModalContent" class="overflow-y-auto max-h-[84vh] p-0 bg-white">
             <div class="flex items-center justify-center py-8 text-slate-500 gap-2 text-sm">
                 <i class="bi bi-arrow-repeat animate-spin"></i>
                 <span>Loading...</span>
@@ -139,10 +150,27 @@
         const sheet = document.getElementById('packageModalSheet');
         const content = document.getElementById('packageModalContent');
         const closeBtn = document.getElementById('packageModalClose');
-        const links = [...document.querySelectorAll('.open-package-modal')];
+        const links = [...document.querySelectorAll('[data-package-modal-trigger]')];
+        const normalizeEmbeddedForm = (form) => {
+            form.classList.remove('mx-auto', 'max-w-4xl', 'max-w-3xl');
+            form.classList.add('w-full');
+            form.querySelectorAll('.modal-shell-card').forEach((card) => {
+                card.classList.remove('rounded-2xl', 'border', 'border-slate-200', 'shadow-sm');
+                card.classList.add('rounded-none', 'border-0', 'shadow-none', 'bg-transparent');
+            });
+        };
+        const lockScroll = () => {
+            document.documentElement.classList.add('overflow-hidden');
+            document.body.classList.add('overflow-hidden');
+        };
+        const unlockScroll = () => {
+            document.documentElement.classList.remove('overflow-hidden');
+            document.body.classList.remove('overflow-hidden');
+        };
 
         const show = () => {
             overlay.classList.remove('hidden');
+            lockScroll();
             requestAnimationFrame(() => {
                 sheet.classList.remove('scale-95', 'opacity-0');
                 sheet.classList.add('scale-100', 'opacity-100');
@@ -156,6 +184,7 @@
             overlay.classList.remove('opacity-100');
             setTimeout(() => {
                 overlay.classList.add('hidden');
+                unlockScroll();
                 content.innerHTML = `
                     <div class="flex items-center justify-center py-8 text-slate-500 gap-2 text-sm">
                         <i class="bi bi-arrow-repeat animate-spin"></i>
@@ -174,9 +203,11 @@
                 const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                 const html = await res.text();
                 const doc = new DOMParser().parseFromString(html, 'text/html');
-                const form = doc.querySelector('#packageEditForm');
+                const form = doc.querySelector('#packageCreateForm, #packageEditForm');
                 if (form) {
                     content.innerHTML = form.outerHTML;
+                    const embeddedForm = content.querySelector('#packageCreateForm, #packageEditForm');
+                    if (embeddedForm) normalizeEmbeddedForm(embeddedForm);
                     const scripts = [...doc.querySelectorAll('script')];
                     scripts.forEach((old) => {
                         const s = document.createElement('script');

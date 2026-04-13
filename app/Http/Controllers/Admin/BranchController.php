@@ -15,7 +15,9 @@ class BranchController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        return view('admin.branches.index', compact('branches'));
+        $nextCode = $this->nextBranchCode();
+
+        return view('admin.branches.index', compact('branches', 'nextCode'));
     }
 
     public function create()
@@ -27,10 +29,16 @@ class BranchController extends Controller
 
     public function store(Request $request)
     {
+        $request->merge([
+            'branch_name' => $this->normalizeBranchName((string) $request->input('branch_name')),
+        ]);
+
         $validated = $request->validate([
-            'branch_name' => 'required|string|max:255',
+            'branch_name' => ['required', 'string', 'max:255', 'regex:/^[A-Za-z][A-Za-z\s\'.&-]*$/'],
             'address' => 'nullable|string|max:255',
             'is_active' => 'boolean',
+        ], [
+            'branch_name.regex' => 'Branch name must contain letters only (no numbers).',
         ]);
 
         Branch::create([
@@ -50,10 +58,16 @@ class BranchController extends Controller
 
     public function update(Request $request, Branch $branch)
     {
+        $request->merge([
+            'branch_name' => $this->normalizeBranchName((string) $request->input('branch_name')),
+        ]);
+
         $validated = $request->validate([
-            'branch_name' => 'required|string|max:255',
+            'branch_name' => ['required', 'string', 'max:255', 'regex:/^[A-Za-z][A-Za-z\s\'.&-]*$/'],
             'address' => 'nullable|string|max:255',
             'is_active' => 'boolean',
+        ], [
+            'branch_name.regex' => 'Branch name must contain letters only (no numbers).',
         ]);
 
         if ($this->isProtectedMainBranch($branch) && !$request->boolean('is_active')) {
@@ -102,5 +116,12 @@ class BranchController extends Controller
     private function isProtectedMainBranch(Branch $branch): bool
     {
         return strtoupper((string) $branch->branch_code) === 'BR001';
+    }
+
+    private function normalizeBranchName(string $name): string
+    {
+        $name = preg_replace('/\d+/', '', $name);
+        $name = preg_replace('/\s+/', ' ', (string) $name);
+        return trim((string) $name);
     }
 }

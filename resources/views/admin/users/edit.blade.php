@@ -28,22 +28,22 @@
     );
 @endphp
 
-<div id="userEditModalContent" class="space-y-8">
-    <form id="userEditForm" method="POST" action="{{ route('admin.users.update', $user) }}" class="max-w-3xl w-full mx-auto space-y-6">
+<div id="userEditModalContent" class="space-y-8 font-ui-body">
+    <form id="userEditForm" method="POST" action="{{ route('admin.users.update', $user) }}" class="max-w-3xl w-full mx-auto space-y-6 font-ui-body">
         @csrf
         @method('PUT')
 
         <input type="hidden" name="return_to" value="{{ old('return_to', request('return_to', route('admin.users.index'))) }}">
 
-        <div class="p-5 md:p-6 space-y-5 bg-white border rounded-xl shadow-sm">
+        <div class="modal-shell-card p-5 md:p-6 space-y-5 bg-white border border-slate-200 rounded-2xl">
             <div class="flex items-start justify-between gap-3">
-                <div>
-                    <h2 class="text-lg font-bold text-slate-900">Edit User</h2>
-                    <p class="text-sm text-slate-500">Update account details and access for {{ $user->name }}.</p>
+                <div class="space-y-2">
+                    <h2 class="text-[1.5rem] leading-tight text-slate-900 font-ui-heading">Edit User</h2>
+                    <p class="text-base text-slate-500">Update account details and access for {{ $user->name }}.</p>
+                    <span class="inline-flex items-center rounded-xl border border-slate-300 bg-slate-50 px-3 py-1 text-xs font-semibold tracking-wide text-slate-600 uppercase">
+                        User ID: {{ $user->id }}
+                    </span>
                 </div>
-                <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
-                    User ID: {{ $user->id }}
-                </span>
             </div>
 
             <div class="grid gap-4 md:grid-cols-2">
@@ -100,6 +100,7 @@
                     @error('branch_id')
                         <div class="form-error">{{ $message }}</div>
                     @enderror
+                    <div id="branch_hint" class="form-hint mt-1">Branch is required for staff accounts.</div>
                 </div>
 
                 <div id="cross_branch_wrap" class="md:col-span-2 space-y-3 border border-amber-200 rounded-xl p-4 bg-amber-50 hidden">
@@ -120,13 +121,13 @@
 
                     <div class="grid gap-3 md:grid-cols-2">
                         <div>
-                            <label class="block text-xs font-semibold text-slate-600 mb-1">Allowed Branch</label>
+                            <label class="label-section mb-1">Allowed Branch</label>
                             <select name="temp_allowed_branch_id" id="temp_allowed_branch_id" class="form-select">
                                 <option value="">Select branch</option>
                                 @foreach($branches as $branch)
                                     @if(strtoupper($branch->branch_code) !== 'BR001')
                                         <option value="{{ $branch->id }}" {{ (string) $selectedBranch === (string) $branch->id ? 'selected' : '' }}>
-                                            {{ $branch->branch_code }} — {{ $branch->branch_name }}
+                                            {{ $branch->branch_code }} - {{ $branch->branch_name }}
                                         </option>
                                     @endif
                                 @endforeach
@@ -137,7 +138,7 @@
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-slate-600 mb-1">Expires At (optional)</label>
+                            <label class="label-section mb-1">Expires At (optional)</label>
                             <input
                                 type="date"
                                 name="temp_expires_at"
@@ -157,7 +158,7 @@
                         @if($isActiveTemp && $activeTemp)
                             <p class="font-semibold text-emerald-700">
                                 Current: {{ $activeTemp->status_label }}
-                                {{ $activeTemp->expires_at ? ' · Expires '.$activeTemp->expires_at->toFormattedDateString() : '' }}
+                                {{ $activeTemp->expires_at ? ' - Expires '.$activeTemp->expires_at->toFormattedDateString() : '' }}
                             </p>
                         @elseif($latestTemp)
                             <p class="text-slate-600">
@@ -169,20 +170,22 @@
                     </div>
                 </div>
 
-                <div>
+                <div id="contact_wrap">
                     <label class="label-section">Contact Number</label>
                     <input
                         type="text"
                         name="contact_number"
                         value="{{ old('contact_number', $user->contact_number) }}"
                         class="form-input"
+                        inputmode="tel"
+                        placeholder="+63 9XX XXX XXXX"
                     >
                     @error('contact_number')
                         <div class="form-error">{{ $message }}</div>
                     @enderror
                 </div>
 
-                <div>
+                <div id="position_wrap">
                     <label class="label-section">Position</label>
                     <input
                         type="text"
@@ -196,7 +199,7 @@
                     @enderror
                 </div>
 
-                <div class="md:col-span-2">
+                <div id="address_wrap" class="md:col-span-2">
                     <label class="label-section">Address</label>
                     <input
                         type="text"
@@ -221,8 +224,8 @@
         </div>
     </form>
 
-    <div class="max-w-3xl w-full mx-auto border rounded-xl bg-white p-5 shadow-sm">
-        <div class="font-semibold mb-3 text-slate-900">Reset Password (Optional)</div>
+    <div class="modal-shell-card max-w-3xl w-full mx-auto border border-slate-200 rounded-2xl bg-white p-5">
+        <div class="text-[1.2rem] leading-tight text-slate-900 font-ui-heading mb-3">Reset Password (Optional)</div>
 
         <form method="POST" action="{{ route('admin.users.resetPassword', $user) }}" class="space-y-3">
             @csrf
@@ -231,20 +234,20 @@
             <input type="hidden" name="return_to" value="{{ old('return_to', request('return_to', route('admin.users.index'))) }}">
 
             <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">New Password</label>
-                <input type="password" name="password" class="w-full border border-slate-300 p-2 rounded-lg">
+                <label class="label-section mb-1">New Password</label>
+                <input type="password" name="password" class="form-input">
                 @error('password')
                     <div class="form-error">{{ $message }}</div>
                 @enderror
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Confirm Password</label>
-                <input type="password" name="password_confirmation" class="w-full border border-slate-300 p-2 rounded-lg">
+                <label class="label-section mb-1">Confirm Password</label>
+                <input type="password" name="password_confirmation" class="form-input">
             </div>
 
             <div class="flex justify-end">
-                <button type="submit" class="bg-gray-900 hover:bg-black text-white px-4 py-2 rounded-lg">
+                <button type="submit" class="btn btn-outline">
                     Reset
                 </button>
             </div>
@@ -259,9 +262,11 @@
             const grantCheckbox = document.getElementById('grant_temp_access');
             const tempBranchSelect = document.getElementById('temp_allowed_branch_id');
             const tempExpiresInput = document.getElementById('temp_expires_at');
+            const branchHint = document.getElementById('branch_hint');
 
             function syncCrossBranchState() {
                 const isStaff = roleSelect && roleSelect.value === 'staff';
+                const isOwner = roleSelect && roleSelect.value === 'owner';
 
                 if (crossWrap) {
                     crossWrap.classList.toggle('hidden', !isStaff);
@@ -269,6 +274,24 @@
 
                 if (branchSelect) {
                     branchSelect.required = isStaff;
+                    branchSelect.disabled = isOwner;
+                    if (isOwner) {
+                        branchSelect.value = '';
+                    }
+                }
+
+                if (branchHint) {
+                    if (isStaff) {
+                        branchHint.textContent = 'Branch is required for staff accounts.';
+                    } else if (isOwner) {
+                        branchHint.textContent = 'Owner accounts are global and not tied to a branch.';
+                    } else {
+                        branchHint.textContent = 'Branch assignment is optional for admin accounts.';
+                    }
+                }
+
+                if (!isStaff && grantCheckbox) {
+                    grantCheckbox.checked = false;
                 }
 
                 const grantEnabled = isStaff && grantCheckbox && grantCheckbox.checked;
@@ -276,10 +299,16 @@
                 if (tempBranchSelect) {
                     tempBranchSelect.disabled = !grantEnabled;
                     tempBranchSelect.required = grantEnabled;
+                    if (!grantEnabled) {
+                        tempBranchSelect.value = '';
+                    }
                 }
 
                 if (tempExpiresInput) {
                     tempExpiresInput.disabled = !grantEnabled;
+                    if (!grantEnabled) {
+                        tempExpiresInput.value = '';
+                    }
                 }
             }
 

@@ -167,6 +167,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->get(
         ->where('branch_code', 'BR001')
         ->value('id');
     $dashboardBranchId = $mainBranchId > 0 ? $mainBranchId : (int) $user->branch_id;
+    $dashboardBranch = Branch::select(['id', 'branch_code', 'branch_name'])->find($dashboardBranchId);
     $today = now()->startOfDay();
 
     $clientCount = Client::where('branch_id', $dashboardBranchId)->count();
@@ -193,6 +194,25 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->get(
         })
         ->sum('amount');
 
+    $currentMonthStart = now()->startOfMonth();
+    $currentMonthEnd = now()->endOfMonth();
+    $monthCasesEncoded = (clone $mainCasesBase)
+        ->whereBetween('created_at', [$currentMonthStart, $currentMonthEnd])
+        ->count();
+    $monthPaymentsCollected = Payment::where('branch_id', $dashboardBranchId)
+        ->whereBetween('paid_at', [$currentMonthStart, $currentMonthEnd])
+        ->whereHas('funeralCase', function ($query) use ($dashboardBranchId) {
+            $query->where('branch_id', $dashboardBranchId)
+                ->where(function ($scopeQuery) {
+                    $scopeQuery->where('entry_source', 'MAIN')
+                        ->orWhereNull('entry_source');
+                });
+        })
+        ->sum('amount');
+    $outstandingBalanceTotal = (clone $mainCasesBase)
+        ->whereIn('payment_status', ['UNPAID', 'PARTIAL'])
+        ->sum('balance_amount');
+
     $unpaidCases = FuneralCase::with(['client', 'deceased'])
         ->where('branch_id', $dashboardBranchId)
         ->where(function ($query) {
@@ -209,20 +229,43 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->get(
     $attentionReminders = $dashboardReminders['attention'];
     $todaySchedule = $dashboardReminders['today'];
 
-    $recentCasesCutoff = now()->subDays(2);
-
     $recentCases = FuneralCase::with(['client', 'deceased'])
         ->where('branch_id', $dashboardBranchId)
         ->where(function ($query) {
             $query->where('entry_source', 'MAIN')
                 ->orWhereNull('entry_source');
         })
-        ->where('created_at', '>=', $recentCasesCutoff)
         ->latest()
         ->paginate(5, ['*'], 'recent_cases_page')
         ->withQueryString();
 
+    $recentPayments = Payment::with([
+            'funeralCase:id,case_code,client_id,deceased_id',
+            'funeralCase.client:id,full_name',
+            'funeralCase.deceased:id,full_name',
+        ])
+        ->where('branch_id', $dashboardBranchId)
+        ->whereHas('funeralCase', function ($query) use ($dashboardBranchId) {
+            $query->where('branch_id', $dashboardBranchId)
+                ->where(function ($scopeQuery) {
+                    $scopeQuery->where('entry_source', 'MAIN')
+                        ->orWhereNull('entry_source');
+                });
+        })
+        ->orderByDesc('paid_at')
+        ->orderByDesc('id')
+        ->take(5)
+        ->get();
+
+    $upcomingSchedule = $reminderService
+        ->buildFullList($dashboardBranchId, [], $today)
+        ->whereIn('type', ['upcoming_service', 'upcoming_interment'])
+        ->sortBy('sort_date')
+        ->take(6)
+        ->values();
+
     return view('dashboards.staff', compact(
+        'dashboardBranch',
         'clientCount',
         'deceasedCount',
         'caseCount',
@@ -231,15 +274,20 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->get(
         'partialCount',
         'paidCount',
         'todayPaidTotal',
+        'monthCasesEncoded',
+        'monthPaymentsCollected',
+        'outstandingBalanceTotal',
         'unpaidCases',
         'todaySchedule',
+        'upcomingSchedule',
         'attentionReminders',
         'recentCases',
+        'recentPayments',
         'canEncodeAnyBranch'
     ));
 });
 
-Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->group(function () {
+Route::middleware(['auth', 'no_cache', 'active', 'staff_or_admin', 'branch.scope'])->group(function () {
     Route::get('intake', [IntakeController::class, 'create'])->name('intake.create');
     Route::post('intake', [IntakeController::class, 'store'])->name('intake.store');
     Route::get('intake/main', [IntakeController::class, 'createMain'])->name('intake.main.create');
@@ -247,7 +295,10 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->grou
     Route::get('intake/other', [IntakeController::class, 'createOther'])->name('intake.other.create');
     Route::post('intake/other', [IntakeController::class, 'storeOther'])->name('intake.other.store');
     Route::resource('clients', ClientController::class)->except(['create', 'store', 'destroy']);
-    Route::resource('deceased', DeceasedController::class)->only(['index', 'edit', 'update', 'show']);
+    Route::get('deceased', function () {
+        return redirect()->route('clients.index');
+    })->name('deceased.index');
+    Route::resource('deceased', DeceasedController::class)->only(['edit', 'update', 'show']);
     Route::resource('funeral-cases', FuneralCaseController::class);
     Route::get('completed-cases', [FuneralCaseController::class, 'completedIndex'])->name('funeral-cases.completed');
     Route::get('other-branch-reports', [FuneralCaseController::class, 'otherReportsIndex'])->name('funeral-cases.other-reports');

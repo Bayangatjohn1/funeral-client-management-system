@@ -344,6 +344,40 @@
                                             <span>Focus this case</span>
                                         </a>
 
+                                        @if(!$isOtherBranch)
+                                            <a
+                                                class="row-action-item"
+                                                data-row-menu-item
+                                                href="{{ route('funeral-cases.edit', $case) }}"
+                                            >
+                                                <i class="bi bi-pencil-square"></i>
+                                                <span>Edit case</span>
+                                            </a>
+
+                                            <form method="POST" action="{{ route('funeral-cases.destroy', $case) }}">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button
+                                                    type="submit"
+                                                    class="row-action-item text-red-600"
+                                                    data-row-menu-item
+                                                    onclick="return confirm('Delete this case? Cases with payment records cannot be deleted.')"
+                                                >
+                                                    <i class="bi bi-trash3"></i>
+                                                    <span>Delete case</span>
+                                                </button>
+                                            </form>
+                                        @else
+                                            <span class="row-action-item opacity-60 cursor-default">
+                                                <i class="bi bi-lock"></i>
+                                                <span>Edit locked (Other Branch)</span>
+                                            </span>
+                                            <span class="row-action-item opacity-60 cursor-default">
+                                                <i class="bi bi-lock"></i>
+                                                <span>Delete locked (Other Branch)</span>
+                                            </span>
+                                        @endif
+
                                         @if($isOtherBranch)
                                             <button
                                                 type="button"

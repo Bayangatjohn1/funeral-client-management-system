@@ -5,21 +5,23 @@
 
 @section('content')
 @php($returnTo = old('return_to', request('return_to', route('admin.packages.index'))))
-<form id="packageEditForm" method="POST" action="{{ route('admin.packages.update', $package) }}" enctype="multipart/form-data" class="max-w-4xl w-full mx-auto space-y-6">
+<form id="packageEditForm" method="POST" action="{{ route('admin.packages.update', $package) }}" enctype="multipart/form-data" class="max-w-4xl w-full mx-auto font-ui-body">
 @csrf
 @method('PUT')
 <input type="hidden" name="return_to" value="{{ $returnTo }}">
 
-<div class="p-5 md:p-6 space-y-5">
-    <div class="flex items-start justify-between gap-3">
-        <div>
-            <h2 class="text-lg font-bold text-slate-900">Edit Package</h2>
-            <p class="text-sm text-slate-500">Update service inclusions, pricing, and promo details.</p>
+<div class="modal-shell-card rounded-2xl border border-slate-200 bg-white overflow-hidden">
+    <div class="px-6 py-5 border-b border-slate-200">
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <h2 class="text-[1.65rem] leading-tight text-slate-900 font-ui-heading">Edit Package</h2>
+                <p class="text-base text-slate-500">Update service inclusions, pricing, and promo details.</p>
+            </div>
+            <span class="inline-flex items-center rounded-xl border border-slate-300 bg-slate-50 px-3 py-1 text-sm font-semibold tracking-wide text-slate-700">PKG-{{ $package->id }}</span>
         </div>
-        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Package ID: {{ $package->id }}</span>
     </div>
 
-    <div class="grid gap-4 md:grid-cols-2">
+    <div class="p-6 grid gap-4 md:grid-cols-2">
         <div class="md:col-span-2">
             <label class="label-section">Name</label>
             <input type="text" name="name" value="{{ old('name', $package->name) }}" class="form-input" required>
@@ -83,14 +85,15 @@
             </label>
         </div>
     </div>
-</div>
+    </div>
 
-<div class="flex flex-wrap gap-2 pt-3 justify-end">
-    <a href="{{ $returnTo }}" class="btn btn-outline">Cancel</a>
-    <button class="btn btn-primary-custom bg-[var(--brand-mid)] border-[var(--brand-mid)] hover:bg-[var(--brand-hover)] hover:border-[var(--brand-hover)] text-white px-5">
-        <i class="bi bi-save2"></i>
-        Save Changes
-    </button>
+    <div class="px-6 py-4 border-t border-slate-200 flex flex-wrap gap-2 justify-end">
+        <a href="{{ $returnTo }}" class="btn btn-outline">Cancel</a>
+        <button class="btn btn-primary-custom bg-[var(--brand-mid)] border-[var(--brand-mid)] hover:bg-[var(--brand-hover)] hover:border-[var(--brand-hover)] text-white px-5">
+            <i class="bi bi-save2"></i>
+            Save Changes
+        </button>
+    </div>
 </div>
 </form>
 @endsection

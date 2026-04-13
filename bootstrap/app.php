@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'owner' => \App\Http\Middleware\OwnerMiddleware::class,
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'staff' => \App\Http\Middleware\StaffMiddleware::class,
+            'staff_or_admin' => \App\Http\Middleware\StaffOrAdminMiddleware::class,
             'active' => \App\Http\Middleware\EnsureUserIsActive::class,
             'no_cache' => \App\Http\Middleware\NoCache::class,
             'branch.scope' => \App\Http\Middleware\BranchScopeMiddleware::class,

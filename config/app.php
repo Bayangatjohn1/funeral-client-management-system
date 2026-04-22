@@ -69,6 +69,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Audit Display Timezone
+    |--------------------------------------------------------------------------
+    |
+    | Audit logs are stored in UTC for consistency. This timezone is used
+    | when rendering audit timestamps in the admin interface.
+    |
+    */
+    'audit_timezone' => env('APP_AUDIT_TIMEZONE', 'Asia/Manila'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

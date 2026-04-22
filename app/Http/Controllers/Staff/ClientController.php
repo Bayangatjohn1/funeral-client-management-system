@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Staff;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\FuneralCase;
+use App\Support\AuditLogger;
 use App\Support\Validation\FieldRules;
 use Illuminate\Http\Request;
 
@@ -163,7 +164,7 @@ class ClientController extends Controller
             ])->withInput();
         }
 
-        Client::create([
+        $client = Client::create([
             'branch_id' => $mainBranchId,
             'full_name' => $validated['full_name'],
             'relationship_to_deceased' => 'Other',
@@ -172,6 +173,19 @@ class ClientController extends Controller
             'valid_id_number' => 'LEGACY-' . strtoupper((string) \Illuminate\Support\Str::ulid()),
             'address' => $validated['address'] ?? null,
         ]);
+
+        AuditLogger::log(
+            action: 'client.created',
+            actionType: 'create',
+            entityType: 'client',
+            entityId: $client->id,
+            metadata: [
+                'full_name' => $client->full_name,
+                'contact_number' => $client->contact_number,
+                'branch_id' => $client->branch_id,
+            ],
+            branchId: $client->branch_id
+        );
 
         return redirect()->route('clients.index')->with('success', 'Client added successfully.');
     }
@@ -236,7 +250,29 @@ class ClientController extends Controller
             ])->withInput();
         }
 
+        $before = [
+            'full_name' => $client->full_name,
+            'contact_number' => $client->contact_number,
+            'address' => $client->address,
+        ];
+
         $client->update($validated);
+
+        AuditLogger::log(
+            action: 'client.updated',
+            actionType: 'update',
+            entityType: 'client',
+            entityId: $client->id,
+            metadata: [
+                'before' => $before,
+                'after' => [
+                    'full_name' => $client->full_name,
+                    'contact_number' => $client->contact_number,
+                    'address' => $client->address,
+                ],
+            ],
+            branchId: $client->branch_id
+        );
 
         return redirect()->route('clients.index')->with('success', 'Client updated successfully.');
     }
@@ -253,7 +289,23 @@ class ClientController extends Controller
             ]);
         }
 
+        $clientId = $client->id;
+        $clientName = $client->full_name;
+        $clientBranchId = $client->branch_id;
+
         $client->delete();
+
+        AuditLogger::log(
+            action: 'client.deleted',
+            actionType: 'delete',
+            entityType: 'client',
+            entityId: $clientId,
+            metadata: [
+                'full_name' => $clientName,
+                'branch_id' => $clientBranchId,
+            ],
+            branchId: $clientBranchId
+        );
 
         return back()->with('success', 'Client deleted.');
     }

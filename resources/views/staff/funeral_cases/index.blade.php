@@ -357,15 +357,15 @@
         @endif
     </section>
 
-    <div id="caseEditOverlay" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-200 panel-overlay-content">
-        <div id="caseEditSheet" class="relative w-[90vw] max-w-4xl max-h-[94vh] bg-white rounded-3xl shadow-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border border-slate-100">
-            <button id="caseEditClose" type="button" class="absolute top-3 right-3 z-10 inline-flex items-center justify-center w-10 h-10 rounded-full bg-white shadow border text-slate-500 hover:text-black focus:outline-none">
-                <i class="bi bi-x-lg"></i>
+    <div id="caseEditOverlay" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-200 panel-overlay-content">
+        <div id="caseEditSheet" class="relative w-[90vw] max-w-4xl max-h-[94vh] bg-white rounded-2xl shadow-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border border-slate-200">
+            <button id="caseEditClose" type="button" class="absolute top-4 right-4 z-10 inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors focus:outline-none shadow-sm">
+                <i class="bi bi-x-lg" style="font-size:.8rem"></i>
             </button>
-            <div id="caseEditContent" class="overflow-y-auto max-h-[84vh] p-5 md:p-6 bg-slate-50">
-                <div class="flex items-center justify-center py-10 text-slate-500 gap-2 text-sm">
-                    <i class="bi bi-arrow-repeat animate-spin"></i>
-                    <span>Loading case...</span>
+            <div id="caseEditContent" class="overflow-y-auto max-h-[84vh] p-6 bg-slate-50">
+                <div class="flex flex-col items-center justify-center py-16 gap-3">
+                    <div class="w-7 h-7 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin"></div>
+                    <span class="text-sm text-slate-400">Loading...</span>
                 </div>
             </div>
         </div>
@@ -427,9 +427,9 @@
             setTimeout(() => {
                 overlay.classList.add('hidden');
                 content.innerHTML = `
-                    <div class="flex items-center justify-center py-10 text-slate-500 gap-2 text-sm">
-                        <i class="bi bi-arrow-repeat animate-spin"></i>
-                        <span>Loading case...</span>
+                    <div class="flex flex-col items-center justify-center py-16 gap-3">
+                        <div class="w-7 h-7 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin"></div>
+                        <span class="text-sm text-slate-400">Loading...</span>
                     </div>`;
             }, 180);
         };
@@ -437,9 +437,9 @@
         const loadContent = async (url) => {
             if (!content) return;
             content.innerHTML = `
-                <div class="flex items-center justify-center py-10 text-slate-500 gap-2 text-sm">
-                    <i class="bi bi-arrow-repeat animate-spin"></i>
-                    <span>Loading case...</span>
+                <div class="flex flex-col items-center justify-center py-16 gap-3">
+                    <div class="w-7 h-7 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin"></div>
+                    <span class="text-sm text-slate-400">Loading...</span>
                 </div>`;
             try {
                 const res = await fetch(url, {

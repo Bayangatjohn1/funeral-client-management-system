@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\FuneralCase;
+use App\Support\AuditLogger;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -120,6 +121,19 @@ class ReportController extends Controller
                 'verification_note' => $validated['verification_note'] ?: 'Verified by admin.',
             ]);
 
+            AuditLogger::log(
+                action: 'case.verified',
+                actionType: 'status_change',
+                entityType: 'funeral_case',
+                entityId: $funeral_case->id,
+                metadata: [
+                    'case_code' => $funeral_case->case_code,
+                    'verification_status' => 'VERIFIED',
+                    'note' => $funeral_case->verification_note,
+                ],
+                branchId: $funeral_case->branch_id
+            );
+
             return back()->with('success', 'Case verification marked as VERIFIED.');
         }
 
@@ -135,6 +149,19 @@ class ReportController extends Controller
             'verified_at' => null,
             'verification_note' => $validated['verification_note'],
         ]);
+
+        AuditLogger::log(
+            action: 'case.disputed',
+            actionType: 'status_change',
+            entityType: 'funeral_case',
+            entityId: $funeral_case->id,
+            metadata: [
+                'case_code' => $funeral_case->case_code,
+                'verification_status' => 'DISPUTED',
+                'note' => $validated['verification_note'],
+            ],
+            branchId: $funeral_case->branch_id
+        );
 
         return back()->with('success', 'Case verification marked as DISPUTED.');
     }

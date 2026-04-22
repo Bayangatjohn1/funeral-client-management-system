@@ -131,16 +131,20 @@
 @endif
 
 <div id="paymentFormModal" class="fixed inset-0 z-40 hidden panel-overlay-content">
-    <div class="absolute inset-0 bg-black/40" id="paymentFormBackdrop"></div>
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" id="paymentFormBackdrop"></div>
     <div class="payment-modal-viewport">
-        <div class="payment-modal-sheet border border-surface-muted bg-white p-5">
-            <div class="flex items-center justify-between mb-4">
-                <div class="text-base font-semibold text-slate-900">Record Payment</div>
-                <button type="button" id="closePaymentFormTop" class="btn-outline btn-sm">Close</button>
+        <div class="payment-modal-sheet border border-slate-200 bg-white shadow-2xl rounded-2xl overflow-hidden">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white">
+                <div>
+                    <div class="text-base font-semibold text-slate-900">Record Payment</div>
+                    <div class="text-xs text-slate-500 mt-0.5">Enter payment details for the selected case</div>
+                </div>
+                <button type="button" id="closePaymentFormTop" class="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors focus:outline-none shadow-sm">
+                    <i class="bi bi-x-lg" style="font-size:.8rem"></i>
+                </button>
             </div>
-            @include('staff.payments._form')
-            <div class="mt-4 text-right">
-                <button type="button" id="closePaymentFormBottom" class="btn-outline">Cancel</button>
+            <div class="p-6">
+                @include('staff.payments._form')
             </div>
         </div>
     </div>

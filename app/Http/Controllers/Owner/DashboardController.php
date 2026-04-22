@@ -278,43 +278,73 @@ class DashboardController extends Controller
             $validated['date_from'] ?? null,
             $validated['date_to'] ?? null
         );
+        $startAt = Carbon::parse($dateFrom)->startOfDay();
+        $endAt = Carbon::parse($dateTo)->endOfDay();
         $branchId = $validated['branch_id'] ?? null;
 
         $branches = Branch::orderBy('branch_code')->get();
         $branchColors = $this->branchColorMap($branches);
-        $base = FuneralCase::query()->whereDate('created_at', '>=', $dateFrom)
-            ->whereDate('created_at', '<=', $dateTo)
+        $base = FuneralCase::query()->whereBetween('created_at', [$startAt, $endAt])
             ->where('verification_status', 'VERIFIED')
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId));
+        $serviceAmountExpr = "
+            CASE
+                WHEN COALESCE(total_paid, 0) > 0 AND COALESCE(balance_amount, 0) = 0 THEN COALESCE(total_paid, 0)
+                WHEN COALESCE(total_paid, 0) > 0 AND COALESCE(balance_amount, 0) > 0 THEN COALESCE(total_paid, 0) + COALESCE(balance_amount, 0)
+                WHEN COALESCE(total_paid, 0) = 0 AND COALESCE(balance_amount, 0) > 0 THEN COALESCE(balance_amount, 0)
+                ELSE 0
+            END
+        ";
 
-        $totalCases = (clone $base)->count();
+        $summary = (clone $base)
+            ->selectRaw('COUNT(*) as total_cases')
+            ->selectRaw("SUM(CASE WHEN COALESCE(total_paid, 0) > 0 AND COALESCE(balance_amount, 0) = 0 THEN 1 ELSE 0 END) as paid_cases")
+            ->selectRaw("SUM(CASE WHEN COALESCE(total_paid, 0) > 0 AND COALESCE(balance_amount, 0) > 0 THEN 1 ELSE 0 END) as partial_cases")
+            ->selectRaw("SUM(CASE WHEN COALESCE(total_paid, 0) = 0 AND COALESCE(balance_amount, 0) > 0 THEN 1 ELSE 0 END) as unpaid_cases")
+            ->selectRaw("SUM(CASE WHEN case_status IN ('DRAFT', 'ACTIVE') THEN 1 ELSE 0 END) as ongoing_cases")
+            ->selectRaw("COALESCE(SUM({$serviceAmountExpr}), 0) as total_sales")
+            ->selectRaw('COALESCE(SUM(total_paid), 0) as total_collected')
+            ->selectRaw('COALESCE(SUM(balance_amount), 0) as total_outstanding')
+            ->first();
+
+        $totalCases = (int) ($summary->total_cases ?? 0);
         $statusCounts = [
-            'paid' => (clone $base)->where('payment_status', 'PAID')->count(),
-            'partial' => (clone $base)->where('payment_status', 'PARTIAL')->count(),
-            'unpaid' => (clone $base)->where('payment_status', 'UNPAID')->count(),
-            'ongoing' => (clone $base)->whereIn('case_status', ['DRAFT', 'ACTIVE'])->count(),
+            'paid' => (int) ($summary->paid_cases ?? 0),
+            'partial' => (int) ($summary->partial_cases ?? 0),
+            'unpaid' => (int) ($summary->unpaid_cases ?? 0),
+            'ongoing' => (int) ($summary->ongoing_cases ?? 0),
         ];
-        $totalSales = (clone $base)->where('payment_status', 'PAID')->sum('total_amount');
-        $totalCollected = (clone $base)->sum('total_paid');
-        $totalOutstanding = (clone $base)->sum('balance_amount');
+        $totalSales = (float) ($summary->total_sales ?? 0);
+        $totalCollected = (float) ($summary->total_collected ?? 0);
+        $totalOutstanding = (float) ($summary->total_outstanding ?? 0);
 
         $chart = [];
         $selectedBranch = $branchId ? $branches->firstWhere('id', (int) $branchId) : null;
+        $casesPerBranch = collect();
 
         if (!$branchId) {
-            $casesPerBranch = $branches->map(function ($branch) use ($dateFrom, $dateTo) {
-                $query = FuneralCase::where('branch_id', $branch->id)
-                    ->where('verification_status', 'VERIFIED')
-                    ->whereDate('created_at', '>=', $dateFrom)
-                    ->whereDate('created_at', '<=', $dateTo);
+            $branchStats = FuneralCase::query()
+                ->select('branch_id')
+                ->whereBetween('created_at', [$startAt, $endAt])
+                ->where('verification_status', 'VERIFIED')
+                ->selectRaw('COUNT(*) as cases')
+                ->selectRaw("SUM(CASE WHEN COALESCE(total_paid, 0) > 0 AND COALESCE(balance_amount, 0) = 0 THEN 1 ELSE 0 END) as paid")
+                ->selectRaw("SUM(CASE WHEN COALESCE(total_paid, 0) > 0 AND COALESCE(balance_amount, 0) > 0 THEN 1 ELSE 0 END) as partial")
+                ->selectRaw("SUM(CASE WHEN COALESCE(total_paid, 0) = 0 AND COALESCE(balance_amount, 0) > 0 THEN 1 ELSE 0 END) as unpaid")
+                ->selectRaw("COALESCE(SUM({$serviceAmountExpr}), 0) as sales")
+                ->groupBy('branch_id')
+                ->get()
+                ->keyBy('branch_id');
 
+            $casesPerBranch = $branches->map(function ($branch) use ($branchStats) {
+                $stats = $branchStats->get($branch->id);
                 return [
                     'branch' => $branch,
-                    'cases' => (clone $query)->count(),
-                    'paid' => (clone $query)->where('payment_status', 'PAID')->count(),
-                    'partial' => (clone $query)->where('payment_status', 'PARTIAL')->count(),
-                    'unpaid' => (clone $query)->where('payment_status', 'UNPAID')->count(),
-                    'sales' => (float) (clone $query)->where('payment_status', 'PAID')->sum('total_amount'),
+                    'cases' => (int) ($stats->cases ?? 0),
+                    'paid' => (int) ($stats->paid ?? 0),
+                    'partial' => (int) ($stats->partial ?? 0),
+                    'unpaid' => (int) ($stats->unpaid ?? 0),
+                    'sales' => (float) ($stats->sales ?? 0),
                 ];
             });
 
@@ -334,7 +364,6 @@ class DashboardController extends Controller
                 'line' => $this->buildRevenueTrendData(null, $dateFrom, $dateTo, $range),
             ];
         } else {
-            $casesPerBranch = collect();
             $color = $selectedBranch ? ($branchColors[$selectedBranch->id] ?? '#8c4004') : '#8c4004';
 
             $branchBar = $this->buildBranchFocusedBarData((int) $branchId, $dateFrom, $dateTo, $range);
@@ -349,11 +378,18 @@ class DashboardController extends Controller
                 'donut' => [
                     'labels' => ['Paid', 'Partial', 'Unpaid'],
                     'values' => [
-                        (clone $base)->where('payment_status', 'PAID')->count(),
-                        (clone $base)->where('payment_status', 'PARTIAL')->count(),
-                        (clone $base)->where('payment_status', 'UNPAID')->count(),
+                        $statusCounts['paid'],
+                        $statusCounts['partial'],
+                        $statusCounts['unpaid'],
                     ],
                     'colors' => ['#15803d', '#d97706', '#b91c1c'],
+                ],
+                'period' => [
+                    'labels' => $branchBar['labels'],
+                    'cases' => $branchBar['volume'],
+                    'service_amount' => $branchBar['revenue'],
+                    'collected_amount' => $branchBar['collected'],
+                    'outstanding_balance' => $branchBar['outstanding'],
                 ],
                 'line' => $this->buildRevenueTrendData((int) $branchId, $dateFrom, $dateTo, $range),
             ];
@@ -537,39 +573,57 @@ class DashboardController extends Controller
     {
         $start = Carbon::parse($dateFrom)->startOfDay();
         $end = Carbon::parse($dateTo)->endOfDay();
+        $serviceAmountExpr = "
+            CASE
+                WHEN COALESCE(total_paid, 0) > 0 AND COALESCE(balance_amount, 0) = 0 THEN COALESCE(total_paid, 0)
+                WHEN COALESCE(total_paid, 0) > 0 AND COALESCE(balance_amount, 0) > 0 THEN COALESCE(total_paid, 0) + COALESCE(balance_amount, 0)
+                WHEN COALESCE(total_paid, 0) = 0 AND COALESCE(balance_amount, 0) > 0 THEN COALESCE(balance_amount, 0)
+                ELSE 0
+            END
+        ";
 
         $labels = [];
         $data = [];
+        $base = FuneralCase::query()
+            ->whereBetween('created_at', [$start, $end])
+            ->where('verification_status', 'VERIFIED')
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId));
+
         if ($range === 'THIS_YEAR') {
+            $monthlyRows = (clone $base)
+                ->selectRaw("YEAR(created_at) as yr, MONTH(created_at) as mo, COALESCE(SUM({$serviceAmountExpr}), 0) as total")
+                ->groupByRaw('YEAR(created_at), MONTH(created_at)')
+                ->orderByRaw('YEAR(created_at), MONTH(created_at)')
+                ->get();
+
+            $monthlyLookup = $monthlyRows->mapWithKeys(function ($row) {
+                $key = sprintf('%04d-%02d', (int) $row->yr, (int) $row->mo);
+                return [$key => (float) $row->total];
+            });
+
             $cursor = $start->copy()->startOfMonth();
             while ($cursor->lte($end)) {
-                $from = $cursor->copy()->startOfMonth();
-                $to = $cursor->copy()->endOfMonth();
+                $key = $cursor->format('Y-m');
                 $labels[] = $cursor->format('M');
-                $query = FuneralCase::query()
-                    ->whereBetween('created_at', [$from, $to])
-                    ->where('verification_status', 'VERIFIED')
-                    ->where('payment_status', 'PAID');
-                if ($branchId) {
-                    $query->where('branch_id', $branchId);
-                }
-                $data[] = (float) $query->sum('total_amount');
+                $data[] = (float) ($monthlyLookup[$key] ?? 0);
                 $cursor->addMonth();
             }
         } else {
+            $dailyRows = (clone $base)
+                ->selectRaw("DATE(created_at) as bucket, COALESCE(SUM({$serviceAmountExpr}), 0) as total")
+                ->groupByRaw('DATE(created_at)')
+                ->orderByRaw('DATE(created_at)')
+                ->get();
+
+            $dailyLookup = $dailyRows->mapWithKeys(function ($row) {
+                return [(string) $row->bucket => (float) $row->total];
+            });
+
             $cursor = $start->copy();
             while ($cursor->lte($end)) {
-                $from = $cursor->copy()->startOfDay();
-                $to = $cursor->copy()->endOfDay();
+                $key = $cursor->toDateString();
                 $labels[] = $cursor->format('M d');
-                $query = FuneralCase::query()
-                    ->whereBetween('created_at', [$from, $to])
-                    ->where('verification_status', 'VERIFIED')
-                    ->where('payment_status', 'PAID');
-                if ($branchId) {
-                    $query->where('branch_id', $branchId);
-                }
-                $data[] = (float) $query->sum('total_amount');
+                $data[] = (float) ($dailyLookup[$key] ?? 0);
                 $cursor->addDay();
             }
         }
@@ -581,35 +635,100 @@ class DashboardController extends Controller
     {
         $start = Carbon::parse($dateFrom)->startOfDay();
         $end = Carbon::parse($dateTo)->endOfDay();
+        $serviceAmountExpr = "
+            CASE
+                WHEN COALESCE(total_paid, 0) > 0 AND COALESCE(balance_amount, 0) = 0 THEN COALESCE(total_paid, 0)
+                WHEN COALESCE(total_paid, 0) > 0 AND COALESCE(balance_amount, 0) > 0 THEN COALESCE(total_paid, 0) + COALESCE(balance_amount, 0)
+                WHEN COALESCE(total_paid, 0) = 0 AND COALESCE(balance_amount, 0) > 0 THEN COALESCE(balance_amount, 0)
+                ELSE 0
+            END
+        ";
         $labels = [];
         $revenue = [];
         $volume = [];
+        $collected = [];
+        $outstanding = [];
+        $base = FuneralCase::query()
+            ->where('branch_id', $branchId)
+            ->where('verification_status', 'VERIFIED')
+            ->whereBetween('created_at', [$start, $end]);
 
         if ($range === 'THIS_YEAR') {
+            $monthlyRows = (clone $base)
+                ->selectRaw('YEAR(created_at) as yr, MONTH(created_at) as mo')
+                ->selectRaw("COALESCE(SUM({$serviceAmountExpr}), 0) as revenue")
+                ->selectRaw('COUNT(*) as volume')
+                ->selectRaw('COALESCE(SUM(total_paid), 0) as collected')
+                ->selectRaw('COALESCE(SUM(balance_amount), 0) as outstanding')
+                ->groupByRaw('YEAR(created_at), MONTH(created_at)')
+                ->orderByRaw('YEAR(created_at), MONTH(created_at)')
+                ->get();
+
+            $monthlyLookup = $monthlyRows->mapWithKeys(function ($row) {
+                $key = sprintf('%04d-%02d', (int) $row->yr, (int) $row->mo);
+                return [$key => [
+                    'revenue' => (float) $row->revenue,
+                    'volume' => (int) $row->volume,
+                    'collected' => (float) $row->collected,
+                    'outstanding' => (float) $row->outstanding,
+                ]];
+            });
+
             $cursor = $start->copy()->startOfMonth();
             while ($cursor->lte($end)) {
-                $from = $cursor->copy()->startOfMonth();
-                $to = $cursor->copy()->endOfMonth();
+                $key = $cursor->format('Y-m');
+                $row = $monthlyLookup[$key] ?? null;
                 $labels[] = $cursor->format('M');
-                $query = FuneralCase::where('branch_id', $branchId)
-                    ->where('verification_status', 'VERIFIED')
-                    ->whereBetween('created_at', [$from, $to]);
-                $revenue[] = (float) (clone $query)->where('payment_status', 'PAID')->sum('total_amount');
-                $volume[] = (int) (clone $query)->count();
+                $revenue[] = (float) ($row['revenue'] ?? 0);
+                $volume[] = (int) ($row['volume'] ?? 0);
+                $collected[] = (float) ($row['collected'] ?? 0);
+                $outstanding[] = (float) ($row['outstanding'] ?? 0);
                 $cursor->addMonth();
             }
         } else {
+            $dailyRows = (clone $base)
+                ->selectRaw('DATE(created_at) as bucket')
+                ->selectRaw("COALESCE(SUM({$serviceAmountExpr}), 0) as revenue")
+                ->selectRaw('COUNT(*) as volume')
+                ->selectRaw('COALESCE(SUM(total_paid), 0) as collected')
+                ->selectRaw('COALESCE(SUM(balance_amount), 0) as outstanding')
+                ->groupByRaw('DATE(created_at)')
+                ->orderByRaw('DATE(created_at)')
+                ->get()
+                ->keyBy('bucket');
+
             $cursor = $start->copy()->startOfWeek();
             $limit = 0;
             while ($cursor->lte($end) && $limit < 12) {
-                $from = $cursor->copy()->startOfWeek()->startOfDay();
-                $to = $cursor->copy()->endOfWeek()->endOfDay();
-                $labels[] = $from->format('M d') . ' - ' . $to->format('M d');
-                $query = FuneralCase::where('branch_id', $branchId)
-                    ->where('verification_status', 'VERIFIED')
-                    ->whereBetween('created_at', [$from, $to]);
-                $revenue[] = (float) (clone $query)->where('payment_status', 'PAID')->sum('total_amount');
-                $volume[] = (int) (clone $query)->count();
+                $weekStart = $cursor->copy()->startOfWeek()->startOfDay();
+                $weekEnd = $cursor->copy()->endOfWeek()->endOfDay();
+                $labels[] = $weekStart->format('M d') . ' - ' . $weekEnd->format('M d');
+
+                $weekRevenue = 0.0;
+                $weekVolume = 0;
+                $weekCollected = 0.0;
+                $weekOutstanding = 0.0;
+                $day = $weekStart->copy();
+                while ($day->lte($weekEnd)) {
+                    if ($day->lt($start) || $day->gt($end)) {
+                        $day->addDay();
+                        continue;
+                    }
+
+                    $row = $dailyRows->get($day->toDateString());
+                    if ($row) {
+                        $weekRevenue += (float) $row->revenue;
+                        $weekVolume += (int) $row->volume;
+                        $weekCollected += (float) $row->collected;
+                        $weekOutstanding += (float) $row->outstanding;
+                    }
+                    $day->addDay();
+                }
+
+                $revenue[] = $weekRevenue;
+                $volume[] = $weekVolume;
+                $collected[] = $weekCollected;
+                $outstanding[] = $weekOutstanding;
                 $cursor->addWeek();
                 $limit++;
             }
@@ -619,6 +738,8 @@ class DashboardController extends Controller
             'labels' => $labels,
             'revenue' => $revenue,
             'volume' => $volume,
+            'collected' => $collected,
+            'outstanding' => $outstanding,
         ];
     }
 }

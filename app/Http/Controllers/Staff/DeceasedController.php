@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\Client;
 use App\Models\Deceased;
 use App\Models\FuneralCase;
+use App\Support\AuditLogger;
 use App\Support\Validation\FieldRules;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -261,7 +262,7 @@ class DeceasedController extends Controller
             ? \Carbon\Carbon::parse($validated['interment_at'])
             : null;
 
-        Deceased::create([
+        $deceased = Deceased::create([
             'branch_id' => $mainBranchId,
             'client_id' => $validated['client_id'],
             'address' => $validated['address'] ?? null,
@@ -278,6 +279,20 @@ class DeceasedController extends Controller
             'coffin_size' => $validated['coffin_size'] ?? null,
             'photo_path' => $photoPath,
         ]);
+
+        AuditLogger::log(
+            action: 'deceased.created',
+            actionType: 'create',
+            entityType: 'deceased',
+            entityId: $deceased->id,
+            metadata: [
+                'full_name' => $deceased->full_name,
+                'died' => $deceased->died,
+                'client_id' => $deceased->client_id,
+                'branch_id' => $deceased->branch_id,
+            ],
+            branchId: $deceased->branch_id
+        );
 
         return redirect()->route('deceased.index')->with('success', 'Deceased record added successfully.');
     }
@@ -404,6 +419,14 @@ class DeceasedController extends Controller
             ? \Carbon\Carbon::parse($validated['interment_at'])
             : null;
 
+        $before = [
+            'full_name' => $deceased->full_name,
+            'died' => $deceased->died,
+            'interment_at' => $deceased->interment_at,
+            'place_of_cemetery' => $deceased->place_of_cemetery,
+            'client_id' => $deceased->client_id,
+        ];
+
         $deceased->update([
             'client_id' => $validated['client_id'],
             'address' => $validated['address'] ?? null,
@@ -421,6 +444,24 @@ class DeceasedController extends Controller
             'photo_path' => $photoPath,
         ]);
 
+        AuditLogger::log(
+            action: 'deceased.updated',
+            actionType: 'update',
+            entityType: 'deceased',
+            entityId: $deceased->id,
+            metadata: [
+                'before' => $before,
+                'after' => [
+                    'full_name' => $deceased->full_name,
+                    'died' => $deceased->died,
+                    'interment_at' => $deceased->interment_at,
+                    'place_of_cemetery' => $deceased->place_of_cemetery,
+                    'client_id' => $deceased->client_id,
+                ],
+            ],
+            branchId: $deceased->branch_id
+        );
+
         return redirect()->route('deceased.index')->with('success', 'Deceased record updated successfully.');
     }
 
@@ -436,11 +477,27 @@ class DeceasedController extends Controller
             ]);
         }
 
+        $deceasedId = $deceased->id;
+        $deceasedName = $deceased->full_name;
+        $deceasedBranchId = $deceased->branch_id;
+
         if ($deceased->photo_path) {
             Storage::disk('public')->delete($deceased->photo_path);
         }
 
         $deceased->delete();
+
+        AuditLogger::log(
+            action: 'deceased.deleted',
+            actionType: 'delete',
+            entityType: 'deceased',
+            entityId: $deceasedId,
+            metadata: [
+                'full_name' => $deceasedName,
+                'branch_id' => $deceasedBranchId,
+            ],
+            branchId: $deceasedBranchId
+        );
 
         return back()->with('success', 'Deceased record deleted.');
     }

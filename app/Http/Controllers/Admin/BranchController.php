@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
+use App\Support\AuditLogger;
 use Illuminate\Http\Request;
 
 class BranchController extends Controller
@@ -41,12 +42,26 @@ class BranchController extends Controller
             'branch_name.regex' => 'Branch name must contain letters only (no numbers).',
         ]);
 
-        Branch::create([
+        $branch = Branch::create([
             'branch_code' => $this->nextBranchCode(),
             'branch_name' => $validated['branch_name'],
             'address' => $validated['address'] ?? null,
             'is_active' => $request->boolean('is_active'),
         ]);
+
+        AuditLogger::log(
+            action: 'branch.created',
+            actionType: 'create',
+            entityType: 'branch',
+            entityId: $branch->id,
+            metadata: [
+                'branch_code' => $branch->branch_code,
+                'branch_name' => $branch->branch_name,
+                'address' => $branch->address,
+                'is_active' => $branch->is_active,
+            ],
+            branchId: $branch->id
+        );
 
         return redirect()->route('admin.branches.index')->with('success', 'Branch created successfully.');
     }
@@ -76,11 +91,34 @@ class BranchController extends Controller
             ])->withInput();
         }
 
+        $before = [
+            'branch_name' => $branch->branch_name,
+            'address' => $branch->address,
+            'is_active' => $branch->is_active,
+        ];
+
         $branch->update([
             'branch_name' => $validated['branch_name'],
             'address' => $validated['address'] ?? null,
             'is_active' => $request->boolean('is_active'),
         ]);
+
+        AuditLogger::log(
+            action: 'branch.updated',
+            actionType: 'update',
+            entityType: 'branch',
+            entityId: $branch->id,
+            metadata: [
+                'branch_code' => $branch->branch_code,
+                'before' => $before,
+                'after' => [
+                    'branch_name' => $branch->branch_name,
+                    'address' => $branch->address,
+                    'is_active' => $branch->is_active,
+                ],
+            ],
+            branchId: $branch->id
+        );
 
         return redirect()->route('admin.branches.index')->with('success', 'Branch updated successfully.');
     }
@@ -92,9 +130,25 @@ class BranchController extends Controller
                 ->withErrors(['is_active' => 'Main branch (BR001) must remain active.']);
         }
 
+        $previousStatus = $branch->is_active;
+
         $branch->update([
             'is_active' => !$branch->is_active,
         ]);
+
+        AuditLogger::log(
+            action: 'branch.status_toggled',
+            actionType: 'status_change',
+            entityType: 'branch',
+            entityId: $branch->id,
+            metadata: [
+                'branch_code' => $branch->branch_code,
+                'branch_name' => $branch->branch_name,
+                'from' => $previousStatus ? 'active' : 'inactive',
+                'to' => $branch->is_active ? 'active' : 'inactive',
+            ],
+            branchId: $branch->id
+        );
 
         return redirect()->route('admin.branches.index')
             ->with('success', 'Branch status updated successfully.');

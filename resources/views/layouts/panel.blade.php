@@ -16,7 +16,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Syne:wght@700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link rel="icon" href="{{ asset('images/login-logo.png') }}" type="image/png">
     <link rel="shortcut icon" href="{{ asset('images/login-logo.png') }}" type="image/png">
 
@@ -54,6 +53,25 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="panel-shell-body">
+    <script>
+        (function () {
+            const desktopMedia = window.matchMedia('(min-width: 1024px)');
+            if (!desktopMedia.matches) return;
+
+            const collapseStorageKey = 'sidebar-collapsed';
+            let initialCollapsed = true;
+            try {
+                const stored = localStorage.getItem(collapseStorageKey);
+                initialCollapsed = stored === null ? true : stored === 'true';
+            } catch (error) {
+                initialCollapsed = true;
+            }
+
+            if (initialCollapsed) {
+                document.body.setAttribute('data-sidebar-collapsed', 'true');
+            }
+        })();
+    </script>
     
     <div id="globalLoadingIndicator" class="hidden">
         <div class="loading-pill">
@@ -195,7 +213,7 @@
 
                         $payload = \Illuminate\Support\Facades\Cache::remember(
                             $cacheKey,
-                            now()->addSeconds(20),
+                            now()->addSeconds(120),
                             function () use ($scopeBranchIds) {
                                 $today = now()->startOfDay();
                                 $upcomingEnd = $today->copy()->addDays(7)->endOfDay();
@@ -551,6 +569,63 @@
         </div>
     </div>
 
+    <script>
+        (function () {
+            const meta = {
+                'flash-success': { icon: 'bi-check-circle-fill',        colorClass: 'flash-icon-success' },
+                'flash-error':   { icon: 'bi-x-circle-fill',            colorClass: 'flash-icon-error'   },
+                'flash-info':    { icon: 'bi-info-circle-fill',          colorClass: 'flash-icon-info'    },
+                'flash-warning': { icon: 'bi-exclamation-triangle-fill', colorClass: 'flash-icon-warning' },
+            };
+
+            const toasts = [...document.querySelectorAll('.flash-success, .flash-error, .flash-info, .flash-warning')];
+            if (!toasts.length) return;
+
+            toasts.forEach((el, idx) => {
+                const type = Object.keys(meta).find((k) => el.classList.contains(k)) || 'flash-info';
+                const { icon, colorClass } = meta[type];
+
+                const text = el.textContent.trim();
+
+                const iconEl = document.createElement('i');
+                iconEl.className = `bi ${icon} flash-icon ${colorClass}`;
+
+                const body = document.createElement('span');
+                body.className = 'flash-body';
+                body.textContent = text;
+
+                const closeBtn = document.createElement('button');
+                closeBtn.type = 'button';
+                closeBtn.className = 'flash-close';
+                closeBtn.setAttribute('aria-label', 'Dismiss');
+                closeBtn.innerHTML = '<i class="bi bi-x-lg"></i>';
+
+                el.innerHTML = '';
+                el.appendChild(iconEl);
+                el.appendChild(body);
+                el.appendChild(closeBtn);
+
+                // Stack multiple toasts vertically
+                if (idx > 0) {
+                    el.style.top = (20 + idx * 52) + 'px';
+                }
+
+                const dismiss = () => {
+                    el.classList.remove('flash-show');
+                    el.classList.add('flash-dismiss');
+                    setTimeout(() => el.remove(), 250);
+                };
+
+                closeBtn.addEventListener('click', dismiss);
+                const timer = setTimeout(dismiss, 5000);
+                closeBtn.addEventListener('click', () => clearTimeout(timer));
+
+                // Trigger entrance after a micro-frame so CSS transition fires
+                requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('flash-show')));
+            });
+        })();
+    </script>
+
     @if(session('warning'))
         <div id="flashWarningToast" class="flash-toast-warning">
             <i class="bi bi-exclamation-triangle-fill"></i>
@@ -574,7 +649,7 @@
             const desktopToggle = document.getElementById('desktopSidebarToggle');
             const desktopMedia = window.matchMedia('(min-width: 1024px)');
             const collapseStorageKey = 'sidebar-collapsed';
-            if (!toggle || !backdrop || !sidebar) return;
+            if (!backdrop || !sidebar) return;
 
             const navLinks = sidebar.querySelectorAll('.nav-link');
             navLinks.forEach((link) => {
@@ -594,12 +669,16 @@
 
             const closeSidebar = () => {
                 document.body.removeAttribute('data-sidebar-open');
-                toggle.setAttribute('aria-expanded', 'false');
+                if (toggle) {
+                    toggle.setAttribute('aria-expanded', 'false');
+                }
             };
 
             const openSidebar = () => {
                 document.body.setAttribute('data-sidebar-open', 'true');
-                toggle.setAttribute('aria-expanded', 'true');
+                if (toggle) {
+                    toggle.setAttribute('aria-expanded', 'true');
+                }
             };
 
             const syncDesktopToggle = (collapsed) => {
@@ -638,19 +717,21 @@
                 setDesktopCollapsed(initialCollapsed, false);
             };
 
-            toggle.addEventListener('click', () => {
-                if (desktopMedia.matches) {
-                    const isCollapsed = document.body.getAttribute('data-sidebar-collapsed') === 'true';
-                    setDesktopCollapsed(!isCollapsed);
-                    return;
-                }
+            if (toggle) {
+                toggle.addEventListener('click', () => {
+                    if (desktopMedia.matches) {
+                        const isCollapsed = document.body.getAttribute('data-sidebar-collapsed') === 'true';
+                        setDesktopCollapsed(!isCollapsed);
+                        return;
+                    }
 
-                if (document.body.getAttribute('data-sidebar-open') === 'true') {
-                    closeSidebar();
-                    return;
-                }
-                openSidebar();
-            });
+                    if (document.body.getAttribute('data-sidebar-open') === 'true') {
+                        closeSidebar();
+                        return;
+                    }
+                    openSidebar();
+                });
+            }
 
             if (desktopToggle) {
                 desktopToggle.addEventListener('click', () => {
@@ -927,4 +1008,3 @@
     </script>
 </body>
 </html>
-

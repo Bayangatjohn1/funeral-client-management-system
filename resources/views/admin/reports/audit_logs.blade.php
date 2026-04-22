@@ -83,6 +83,16 @@
                     <input type="date" name="date_to" value="{{ $filters['date_to'] ?? '' }}" class="table-toolbar-select" onchange="this.form.submit()" title="Date to">
                 </div>
 
+                <div class="table-toolbar-field">
+                    <select name="per_page" class="table-toolbar-select" onchange="this.form.submit()" title="Records per page">
+                        @foreach(($perPageOptions ?? [25, 50, 100, 200]) as $size)
+                            <option value="{{ $size }}" {{ (int)($filters['per_page'] ?? 25) === (int)$size ? 'selected' : '' }}>
+                                {{ $size }} / page
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
                 <div class="table-toolbar-reset-wrap">
                     <a href="{{ route('admin.audit-logs.index') }}" class="btn btn-secondary">Clear</a>
                 </div>
@@ -106,8 +116,11 @@
                         @forelse($logs as $log)
                             <tr class="group">
                                 <td>
-                                    <div class="table-primary">{{ $log->created_at?->format('d M Y') }}</div>
-                                    <div class="table-secondary">{{ $log->created_at?->format('h:i A') }}</div>
+                                    @php
+                                        $eventAt = $log->created_at?->copy()->setTimezone(config('app.audit_timezone', 'Asia/Manila'));
+                                    @endphp
+                                    <div class="table-primary">{{ $eventAt?->format('d M Y') }}</div>
+                                    <div class="table-secondary">{{ $eventAt?->format('h:i A') }}</div>
                                 </td>
                                 <td>
                                     <div class="table-primary">{{ $log->actor?->name ?? 'System' }}</div>

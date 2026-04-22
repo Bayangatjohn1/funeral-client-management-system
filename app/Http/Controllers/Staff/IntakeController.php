@@ -9,6 +9,7 @@ use App\Models\Deceased;
 use App\Models\FuneralCase;
 use App\Models\Package;
 use App\Models\Payment;
+use App\Support\AuditLogger;
 use App\Support\Discount\CaseDiscountResolver;
 use App\Support\Validation\FieldRules;
 use Carbon\Carbon;
@@ -209,10 +210,10 @@ class IntakeController extends Controller
                     }
                 },
             ],
-            'custom_package_name' => 'required_if:package_id,custom|string|max:150',
-            'custom_package_price' => 'required_if:package_id,custom|numeric|min:0',
-            'custom_package_inclusions' => 'nullable|string|max:1000',
-            'custom_package_freebies' => 'nullable|string|max:1000',
+            'custom_package_name' => 'exclude_unless:package_id,custom|required|string|max:150',
+            'custom_package_price' => 'exclude_unless:package_id,custom|required|numeric|min:0',
+            'custom_package_inclusions' => 'exclude_unless:package_id,custom|nullable|string|max:1000',
+            'custom_package_freebies' => 'exclude_unless:package_id,custom|nullable|string|max:1000',
             'additional_services' => 'nullable|string|max:1000',
             'additional_service_amount' => 'nullable|numeric|min:0',
             'reporter_name' => FieldRules::personName(false),
@@ -570,7 +571,11 @@ class IntakeController extends Controller
             DB::transaction(function () use (
                 $validated,
                 $branchId,
-                $package,
+                $selectedPackageId,
+                $isCustomPackage,
+                $servicePackageName,
+                $packagePrice,
+                $coffinType,
                 $subtotal,
                 $additionalServiceAmount,
                 $discountAmount,
@@ -579,9 +584,9 @@ class IntakeController extends Controller
                 $total,
                 $age,
                 $wakeDays,
-                
                 $markAsPaid,
                 $photoPath,
+                $seniorProofPath,
                 $user,
                 $initialPaid,
                 $initialBalance,
@@ -634,7 +639,7 @@ class IntakeController extends Controller
                     'deceased_id' => $deceased->id,
                     'package_id' => $selectedPackageId,
                     'custom_package_name' => $isCustomPackage ? $servicePackageName : null,
-                    'custom_package_price' => $isCustomPackage ? $packagePrice : null,
+                    'custom_package_price' => $isCustomPackage ? $packagePrice : 0,
                     'custom_package_inclusions' => $isCustomPackage ? ($validated['custom_package_inclusions'] ?? null) : null,
                     'custom_package_freebies' => $isCustomPackage ? ($validated['custom_package_freebies'] ?? null) : null,
                     'case_code' => $this->nextCaseCode($branchId),
@@ -675,6 +680,29 @@ class IntakeController extends Controller
                     'verification_note' => $verificationNote,
                 ]);
 
+                AuditLogger::log(
+                    action: 'case.created',
+                    actionType: 'create',
+                    entityType: 'funeral_case',
+                    entityId: $funeralCase->id,
+                    metadata: [
+                        'case_code' => $funeralCase->case_code,
+                        'case_status' => $funeralCase->case_status,
+                        'payment_status' => $funeralCase->payment_status,
+                        'entry_source' => $funeralCase->entry_source,
+                        'package_id' => $funeralCase->package_id,
+                        'service_package' => $funeralCase->service_package,
+                        'total_amount' => $funeralCase->total_amount,
+                        'total_paid' => $funeralCase->total_paid,
+                        'balance_amount' => $funeralCase->balance_amount,
+                    ],
+                    branchId: (int) $funeralCase->branch_id,
+                    targetBranchId: (int) $funeralCase->branch_id,
+                    status: 'success',
+                    remarks: 'Case intake recorded',
+                    actionLabel: 'Case created'
+                );
+
                 if ($markAsPaid) {
                     $paidAt = Carbon::parse($validated['paid_at']);
                     $payment = Payment::create([
@@ -692,11 +720,35 @@ class IntakeController extends Controller
                     $payment->update([
                         'receipt_number' => Payment::buildReceiptNumber($payment->id, $paidAt),
                     ]);
+
+                    AuditLogger::log(
+                        action: 'payment.created',
+                        actionType: 'create',
+                        entityType: 'payment',
+                        entityId: $payment->id,
+                        metadata: [
+                            'case_id' => $funeralCase->id,
+                            'amount' => $payment->amount,
+                            'receipt_number' => $payment->receipt_number,
+                            'payment_status_after' => $payment->payment_status_after_payment,
+                            'entry_source' => $funeralCase->entry_source,
+                            'changes' => [
+                                ['field' => 'total_paid', 'before' => 0, 'after' => $funeralCase->total_paid],
+                                ['field' => 'balance_amount', 'before' => $funeralCase->total_amount, 'after' => $funeralCase->balance_amount],
+                                ['field' => 'payment_status', 'before' => 'UNPAID', 'after' => $funeralCase->payment_status],
+                            ],
+                        ],
+                        branchId: (int) $funeralCase->branch_id,
+                        targetBranchId: (int) $funeralCase->branch_id,
+                        status: 'success',
+                        remarks: 'Payment recorded during intake',
+                        actionLabel: 'Payment recorded'
+                    );
                 }
 
                 if ($mode === 'other' && $permission) {
                     $permission->markUsed();
-                    \App\Support\AuditLogger::log(
+                    AuditLogger::log(
                         action: 'permission.cross_branch.used',
                         actionType: 'permission',
                         entityType: 'temporary_cross_branch_permission',

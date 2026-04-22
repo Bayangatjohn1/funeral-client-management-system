@@ -4,9 +4,7 @@ namespace App\Support;
 
 use App\Models\AuditLog;
 use Illuminate\Support\Facades\Auth;
-use App\Jobs\LogAuditEntry;
 use Illuminate\Support\Str;
-use Illuminate\Http\Request;
 
 class AuditLogger
 {
@@ -55,14 +53,10 @@ class AuditLogger
         ];
 
         try {
-            LogAuditEntry::dispatch($payload);
+            // Write immediately so audit visibility never depends on queue workers.
+            AuditLog::create($payload);
         } catch (\Throwable $e) {
-            // Fallback to synchronous write if queue dispatch fails.
-            try {
-                AuditLog::create($payload);
-            } catch (\Throwable $inner) {
-                // swallow to avoid blocking user flow
-            }
+            // swallow to avoid blocking user flow
         }
     }
 

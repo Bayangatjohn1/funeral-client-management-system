@@ -107,8 +107,8 @@
 </div>
 
 <!-- Branch create modal -->
-<div id="branchCreateModalOverlay" class="fixed inset-0 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-200 font-ui-body" style="z-index: 1300;">
-    <div id="branchCreateModalSheet" class="relative w-[92vw] max-w-3xl max-h-[92vh] bg-white rounded-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border border-slate-200 font-ui-body">
+<div id="branchCreateModalOverlay" class="fixed inset-0 hidden flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-200 font-ui-body" style="z-index: 1300;">
+    <div id="branchCreateModalSheet" class="relative w-[92vw] max-w-3xl max-h-[92vh] bg-white rounded-2xl shadow-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border border-slate-200 font-ui-body">
         <div class="overflow-y-auto max-h-[84vh] bg-slate-50">
             <form id="branchCreateForm" method="POST" action="{{ route('admin.branches.store') }}" class="max-w-3xl w-full mx-auto">
                 @csrf
@@ -200,12 +200,15 @@
 </div>
 
 <!-- Branch edit modal -->
-<div id="branchModalOverlay" class="fixed inset-0 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-200 font-ui-body" style="z-index: 1300;">
-    <div id="branchModalSheet" class="relative w-[92vw] max-w-4xl max-h-[92vh] bg-white rounded-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border border-slate-200 font-ui-body">
-        <div id="branchModalContent" class="overflow-y-auto max-h-[84vh] p-5 bg-slate-50">
-            <div class="flex items-center justify-center py-8 text-slate-500 gap-2 text-sm">
-                <i class="bi bi-arrow-repeat animate-spin"></i>
-                <span>Loading...</span>
+<div id="branchModalOverlay" class="fixed inset-0 hidden flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-200 font-ui-body" style="z-index: 1300;">
+    <div id="branchModalSheet" class="relative w-[92vw] max-w-4xl max-h-[92vh] bg-white rounded-2xl shadow-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border border-slate-200 font-ui-body">
+        <button id="branchEditModalClose" type="button" class="absolute top-4 right-4 z-10 inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors focus:outline-none shadow-sm">
+            <i class="bi bi-x-lg" style="font-size:.8rem"></i>
+        </button>
+        <div id="branchModalContent" class="overflow-y-auto max-h-[84vh] p-6 bg-slate-50">
+            <div class="flex flex-col items-center justify-center py-16 gap-3">
+                <div class="w-7 h-7 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin"></div>
+                <span class="text-sm text-slate-400">Loading...</span>
             </div>
         </div>
     </div>
@@ -217,6 +220,7 @@
         const editSheet = document.getElementById('branchModalSheet');
         const editContent = document.getElementById('branchModalContent');
         const editLinks = [...document.querySelectorAll('.open-branch-modal')];
+        const editCloseBtn = document.getElementById('branchEditModalClose');
 
         const createOverlay = document.getElementById('branchCreateModalOverlay');
         const createSheet = document.getElementById('branchCreateModalSheet');
@@ -290,9 +294,9 @@
                 syncPageScrollLock();
                 if (content) {
                     content.innerHTML = `
-                        <div class="flex items-center justify-center py-8 text-slate-500 gap-2 text-sm">
-                            <i class="bi bi-arrow-repeat animate-spin"></i>
-                            <span>Loading...</span>
+                        <div class="flex flex-col items-center justify-center py-16 gap-3">
+                            <div class="w-7 h-7 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin"></div>
+                            <span class="text-sm text-slate-400">Loading...</span>
                         </div>`;
                 }
             }, 180);
@@ -300,9 +304,9 @@
 
         const loadEditForm = async (url) => {
             editContent.innerHTML = `
-                <div class="flex items-center justify-center py-8 text-slate-500 gap-2 text-sm">
-                    <i class="bi bi-arrow-repeat animate-spin"></i>
-                    <span>Loading...</span>
+                <div class="flex flex-col items-center justify-center py-16 gap-3">
+                    <div class="w-7 h-7 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin"></div>
+                    <span class="text-sm text-slate-400">Loading...</span>
                 </div>`;
             try {
                 const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
@@ -376,6 +380,10 @@
                 loadEditForm(url);
             });
         });
+
+        if (editCloseBtn) {
+            editCloseBtn.addEventListener('click', () => hideModal(editOverlay, editSheet, editContent));
+        }
 
         if (editOverlay) {
             editOverlay.addEventListener('click', (e) => {

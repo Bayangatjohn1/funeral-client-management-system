@@ -212,6 +212,7 @@ class PaymentController extends Controller
             'paid_from' => ['nullable', 'date'],
             'paid_to' => ['nullable', 'date', 'after_or_equal:paid_from'],
             'status_after_payment' => ['nullable', 'in:PAID,PARTIAL,UNPAID'],
+            'sort' => ['nullable', 'in:asc,desc'],
         ], [
             'q.regex' => 'Search may contain letters, numbers, spaces, apostrophes, periods, and hyphens only.',
         ]);
@@ -220,6 +221,23 @@ class PaymentController extends Controller
         $paidFrom = $validated['paid_from'] ?? null;
         $paidTo = $validated['paid_to'] ?? null;
         $statusAfterPayment = $validated['status_after_payment'] ?? null;
+        $sort = $validated['sort'] ?? 'desc';
+
+        $branchScope = function ($query) use ($mainBranchId) {
+            $query->where('branch_id', $mainBranchId)
+                ->where(function ($scopeQuery) {
+                    $scopeQuery->where('entry_source', 'MAIN')
+                        ->orWhereNull('entry_source');
+                });
+        };
+
+        $applySearch = function ($query) use ($q) {
+            $query->where(function ($sub) use ($q) {
+                $sub->whereHas('funeralCase', fn ($c) => $c->where('case_code', 'like', "%{$q}%"))
+                    ->orWhereHas('funeralCase.client', fn ($c) => $c->where('full_name', 'like', "%{$q}%"))
+                    ->orWhereHas('funeralCase.deceased', fn ($c) => $c->where('full_name', 'like', "%{$q}%"));
+            });
+        };
 
         $payments = Payment::query()
             ->select([
@@ -235,38 +253,31 @@ class PaymentController extends Controller
                 'recorded_by',
             ])
             ->with([
-                'funeralCase:id,branch_id,client_id,deceased_id,case_code',
+                'funeralCase:id,branch_id,client_id,deceased_id,case_code,total_amount',
                 'funeralCase.branch:id,branch_code',
                 'funeralCase.client:id,full_name',
                 'funeralCase.deceased:id,full_name',
                 'recordedBy:id,name',
             ])
             ->where('branch_id', $mainBranchId)
-            ->whereHas('funeralCase', function ($query) use ($mainBranchId) {
-                $query->where('branch_id', $mainBranchId)
-                    ->where(function ($scopeQuery) {
-                        $scopeQuery->where('entry_source', 'MAIN')
-                            ->orWhereNull('entry_source');
-                    });
-            })
-            ->when($q, function ($query) use ($q) {
-                $query->where(function ($sub) use ($q) {
-                    $sub->whereHas('funeralCase', function ($caseQuery) use ($q) {
-                        $caseQuery->where('case_code', 'like', "%{$q}%");
-                    })->orWhereHas('funeralCase.client', function ($clientQuery) use ($q) {
-                        $clientQuery->where('full_name', 'like', "%{$q}%");
-                    })->orWhereHas('funeralCase.deceased', function ($deceasedQuery) use ($q) {
-                        $deceasedQuery->where('full_name', 'like', "%{$q}%");
-                    });
-                });
-            })
+            ->whereHas('funeralCase', $branchScope)
+            ->when($q, $applySearch)
             ->when($paidFrom, fn ($query) => $query->whereDate('paid_at', '>=', $paidFrom))
             ->when($paidTo, fn ($query) => $query->whereDate('paid_at', '<=', $paidTo))
             ->when($statusAfterPayment, fn ($query) => $query->where('payment_status_after_payment', $statusAfterPayment))
-            ->latest('paid_at')
-            ->latest('id')
+            ->orderBy('paid_at', $sort)
+            ->orderBy('id', $sort)
             ->paginate(20)
             ->withQueryString();
+
+        $kpiBase = Payment::query()
+            ->where('branch_id', $mainBranchId)
+            ->whereHas('funeralCase', $branchScope)
+            ->when($q, $applySearch);
+
+        $totalCollected  = (clone $kpiBase)->sum('amount');
+        $totalOutstanding = (clone $kpiBase)->sum('balance_after_payment');
+        $unpaidCount     = (clone $kpiBase)->where('payment_status_after_payment', 'UNPAID')->count();
 
         return view('staff.payments.history', [
             'payments' => $payments,
@@ -274,7 +285,11 @@ class PaymentController extends Controller
             'paidFrom' => $paidFrom,
             'paidTo' => $paidTo,
             'statusAfterPayment' => $statusAfterPayment,
+            'sort' => $sort,
             'mainBranchId' => $mainBranchId,
+            'totalCollected' => $totalCollected,
+            'totalOutstanding' => $totalOutstanding,
+            'unpaidCount' => $unpaidCount,
         ]);
     }
 

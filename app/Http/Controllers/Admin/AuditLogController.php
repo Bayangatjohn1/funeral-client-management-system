@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Cache;
 
 class AuditLogController extends Controller
 {
+    private const PER_PAGE_OPTIONS = [25, 50, 100, 200];
+
     public function index(Request $request)
     {
         $this->authorize('viewAny', AuditLog::class);
@@ -21,10 +23,15 @@ class AuditLogController extends Controller
             'action' => ['nullable', 'string', 'max:120'],
             'action_type' => ['nullable', 'string', 'max:30'],
             'entity_type' => ['nullable', 'string', 'max:120'],
-            'entity_type' => ['nullable', 'string', 'max:120'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:200'],
         ]);
+
+        $perPage = (int) ($validated['per_page'] ?? self::PER_PAGE_OPTIONS[0]);
+        if (!in_array($perPage, self::PER_PAGE_OPTIONS, true)) {
+            $perPage = self::PER_PAGE_OPTIONS[0];
+        }
 
         $query = AuditLog::with([
                 'actor:id,name,role',
@@ -54,17 +61,20 @@ class AuditLogController extends Controller
             $query->whereDate('created_at', '<=', $validated['date_to']);
         }
 
-        $logs = $query->paginate(25)->withQueryString();
+        $logs = $query->paginate($perPage)->withQueryString();
 
         $users = Cache::remember('audit:users:list', 600, fn () => User::orderBy('name')->get(['id', 'name']));
         $branches = Cache::remember('audit:branches:list', 600, fn () => Branch::orderBy('branch_code')->get(['id', 'branch_code', 'branch_name']));
+
+        $validated['per_page'] = $perPage;
 
         return view('admin.reports.audit_logs', [
             'logs' => $logs,
             'users' => $users,
             'branches' => $branches,
-            'actionTypes' => ['create', 'update', 'delete', 'status_change', 'financial', 'security'],
+            'actionTypes' => ['create', 'update', 'delete', 'status_change', 'financial', 'security', 'permission'],
             'entityTypes' => AuditLog::query()->select('entity_type')->distinct()->pluck('entity_type')->filter()->values(),
+            'perPageOptions' => self::PER_PAGE_OPTIONS,
             'filters' => $validated,
         ]);
     }

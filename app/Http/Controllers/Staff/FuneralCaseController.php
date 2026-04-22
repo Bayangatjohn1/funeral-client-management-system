@@ -472,7 +472,7 @@ class FuneralCaseController extends Controller
             abort(403);
         }
 
-        $funeral_case->load(['client', 'deceased', 'branch', 'reportedBranch', 'encodedBy', 'payments.recordedBy']);
+        $funeral_case->load(['client', 'deceased', 'branch', 'reportedBranch', 'encodedBy', 'payments.recordedBy', 'package']);
 
         return view('staff.funeral_cases.show', compact('funeral_case'));
     }

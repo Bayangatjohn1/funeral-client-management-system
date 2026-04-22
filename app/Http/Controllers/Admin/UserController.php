@@ -69,6 +69,21 @@ class UserController extends Controller
 
         $this->maybeGrantTemporaryPermission($request, $user);
 
+        AuditLogger::log(
+            action: 'user.created',
+            actionType: 'create',
+            entityType: 'user',
+            entityId: $user->id,
+            metadata: [
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'branch_id' => $user->branch_id,
+                'can_encode_any_branch' => $user->can_encode_any_branch,
+            ],
+            branchId: $user->branch_id
+        );
+
         $returnTo = $request->input('return_to');
         if ($returnTo) {
             return redirect()->to($returnTo)->with('success', 'User created successfully.');
@@ -115,6 +130,14 @@ class UserController extends Controller
             return back()->withErrors(['branch_id' => 'Branch is required for staff accounts.'])->withInput();
         }
 
+        $before = [
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $user->role,
+            'branch_id' => $user->branch_id,
+            'can_encode_any_branch' => $user->can_encode_any_branch,
+        ];
+
         $user->update([
             'name' => $validated['name'],
             'email' => $validated['email'],
@@ -130,6 +153,24 @@ class UserController extends Controller
 
         $this->maybeGrantTemporaryPermission($request, $user);
 
+        AuditLogger::log(
+            action: 'user.updated',
+            actionType: 'update',
+            entityType: 'user',
+            entityId: $user->id,
+            metadata: [
+                'before' => $before,
+                'after' => [
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                    'branch_id' => $user->branch_id,
+                    'can_encode_any_branch' => $user->can_encode_any_branch,
+                ],
+            ],
+            branchId: $user->branch_id
+        );
+
         $returnTo = $request->input('return_to');
         if ($returnTo) {
             return redirect()->to($returnTo)->with('success', 'User updated successfully.');
@@ -144,8 +185,23 @@ class UserController extends Controller
             return back()->with('error', "You can't deactivate your own account.");
         }
 
+        $previousStatus = $user->is_active;
         $user->is_active = !$user->is_active;
         $user->save();
+
+        AuditLogger::log(
+            action: $user->is_active ? 'user.activated' : 'user.deactivated',
+            actionType: 'status_change',
+            entityType: 'user',
+            entityId: $user->id,
+            metadata: [
+                'target_user' => $user->name,
+                'target_email' => $user->email,
+                'from' => $previousStatus ? 'active' : 'inactive',
+                'to' => $user->is_active ? 'active' : 'inactive',
+            ],
+            branchId: $user->branch_id
+        );
 
         return back()->with('success', 'User status updated.');
     }
@@ -158,6 +214,19 @@ class UserController extends Controller
 
         $user->password = Hash::make($validated['password']);
         $user->save();
+
+        AuditLogger::log(
+            action: 'user.password_reset',
+            actionType: 'security',
+            entityType: 'user',
+            entityId: $user->id,
+            metadata: [
+                'target_user' => $user->name,
+                'target_email' => $user->email,
+                'reset_by' => auth()->id(),
+            ],
+            branchId: $user->branch_id
+        );
 
         return back()->with('success', 'Password reset successfully.');
     }

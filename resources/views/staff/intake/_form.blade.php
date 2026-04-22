@@ -2060,9 +2060,16 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
 
         syncPreferredPackage();
 
+        const isCustomSelected = selected === customPkgRadio;
         if (customPkgFields) {
-            customPkgFields.classList.toggle('hidden', selected !== customPkgRadio);
+            customPkgFields.classList.toggle('hidden', !isCustomSelected);
         }
+
+        [prefPkg, prefPrice, prefIncl, prefFree].forEach((field) => {
+            if (!field) return;
+            field.disabled = !isCustomSelected;
+            if (!isCustomSelected) field.setCustomValidity('');
+        });
 
         if (selected && shouldToast) {
             const name = selected.dataset.name || 'this package';

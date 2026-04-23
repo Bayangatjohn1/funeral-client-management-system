@@ -16,85 +16,89 @@
 <div class="eb-shell">
 
 @php
+    $baseQuery = request()->query();
+    unset($baseQuery['range'], $baseQuery['date_from'], $baseQuery['date_to']);
     $isCustomRange = ($range ?? 'THIS_MONTH') === 'CUSTOM';
     $formattedFrom = \Carbon\Carbon::parse($dateFrom)->format('M d, Y');
     $formattedTo   = \Carbon\Carbon::parse($dateTo)->format('M d, Y');
+    $dateRangeLinks = [
+        'TODAY' => route('owner.dashboard', array_merge($baseQuery, ['range' => 'TODAY'])),
+        'THIS_MONTH' => route('owner.dashboard', array_merge($baseQuery, ['range' => 'THIS_MONTH'])),
+        'THIS_YEAR' => route('owner.dashboard', array_merge($baseQuery, ['range' => 'THIS_YEAR'])),
+    ];
+    $clearCustomUrl = route('owner.dashboard', array_merge($baseQuery, ['range' => 'THIS_YEAR']));
+    $filterScopeLabel = $selectedBranch
+        ? ($selectedBranch->branch_code . ' - ' . $selectedBranch->branch_name)
+        : 'All Branches';
+    $periodChipLabel = $isCustomRange ? 'CUSTOM RANGE' : str_replace('_', ' ', strtoupper($range ?? 'THIS_MONTH'));
 @endphp
 
 {{-- ── Filter Bar ── --}}
 <div class="eb-filter-bar">
-
     <div class="eb-filter-left">
+        <form method="GET" action="{{ route('owner.dashboard') }}" class="eb-branch-form eb-branch-form-inline">
+            @if($isCustomRange)
+                <input type="hidden" name="range" value="CUSTOM">
+                <input type="hidden" name="date_from" value="{{ $dateFrom }}">
+                <input type="hidden" name="date_to" value="{{ $dateTo }}">
+            @else
+                <input type="hidden" name="range" value="{{ $range }}">
+            @endif
+            <label for="ebBranchFilter" class="eb-filter-label eb-visually-hidden">Branch Filter</label>
+            <div class="eb-branch-select-wrap" title="{{ $filterScopeLabel }}">
+                <i class="bi bi-building"></i>
+                <select id="ebBranchFilter" name="branch_id" class="eb-branch-select" onchange="this.form.submit()">
+                    <option value="">All Branches</option>
+                    @foreach($branches as $branch)
+                        <option value="{{ $branch->id }}" @selected((string) $branchId === (string) $branch->id)>
+                            {{ $branch->branch_code }}
+                        </option>
+                    @endforeach
+                </select>
+                <i class="bi bi-chevron-down eb-branch-select-chev"></i>
+            </div>
+        </form>
 
-        {{-- Segmented preset control --}}
-        <div class="eb-seg">
-            @foreach(['TODAY' => 'Today', 'THIS_MONTH' => 'This Month', 'LAST_30_DAYS' => 'Last 30 Days'] as $val => $label)
-                <a href="{{ route('owner.dashboard', array_merge(request()->except(['range','date_from','date_to']), ['range' => $val, 'branch_id' => $branchId])) }}"
-                   class="eb-seg-item {{ ($range ?? 'THIS_MONTH') === $val && !$isCustomRange ? 'active' : '' }}">
-                    {{ $label }}
-                </a>
-            @endforeach
-        </div>
-
-        {{-- Custom date range trigger --}}
-        <div class="eb-date-wrap" id="ebDateWrap">
-            <button type="button" class="eb-date-btn {{ $isCustomRange ? 'active' : '' }}" id="ebDateBtn">
-                <i class="bi bi-calendar3 eb-date-btn-icon"></i>
-                <span id="ebDateBtnLabel">
-                    @if($isCustomRange)
-                        {{ $formattedFrom }} — {{ $formattedTo }}
-                    @else
-                        Custom Range
-                    @endif
-                </span>
-                @if($isCustomRange)
-                    <a href="{{ route('owner.dashboard', array_merge(request()->except(['range','date_from','date_to']), ['range' => 'THIS_MONTH', 'branch_id' => $branchId])) }}"
-                       class="eb-date-clear" title="Clear custom range">
-                        <i class="bi bi-x"></i>
+        <div class="eb-filter-group">
+            <span class="eb-filter-label eb-visually-hidden">Period Filter</span>
+            <div class="eb-seg" role="group" aria-label="Period Filter">
+                @foreach (['TODAY', 'THIS_MONTH', 'THIS_YEAR'] as $rangeKey)
+                    <a href="{{ $dateRangeLinks[$rangeKey] }}" class="eb-seg-item {{ ($range ?? 'THIS_MONTH') === $rangeKey ? 'active' : '' }}">
+                        {{ ucwords(strtolower(str_replace('_', ' ', $rangeKey))) }}
                     </a>
-                @else
-                    <i class="bi bi-chevron-down eb-date-chev"></i>
-                @endif
-            </button>
+                @endforeach
+                <div class="eb-custom-range-wrap" id="ebDateWrap">
+                    <button type="button" class="eb-seg-item {{ $isCustomRange ? 'active' : '' }}" id="ebDateBtn" aria-expanded="false" aria-controls="ebDatePopover">
+                        <i class="bi bi-calendar3 eb-date-btn-icon"></i>
+                        <span>Custom Range</span>
+                        <i class="bi bi-chevron-down eb-date-chev"></i>
+                    </button>
 
-            {{-- Popover --}}
-            <div class="eb-date-popover" id="ebDatePopover" style="display:none">
-                <form method="GET" action="{{ route('owner.dashboard') }}" id="ebCustomForm">
-                    <input type="hidden" name="range" value="CUSTOM">
-                    @if($branchId)<input type="hidden" name="branch_id" value="{{ $branchId }}">@endif
-                    <div class="eb-pop-label">Custom Date Range</div>
-                    <div class="eb-pop-fields">
-                        <div class="eb-pop-field">
-                            <label class="eb-pop-field-label">From</label>
-                            <input type="date" name="date_from" id="ebDateFrom" value="{{ $dateFrom }}" class="eb-pop-input">
-                        </div>
-                        <div class="eb-pop-sep">—</div>
-                        <div class="eb-pop-field">
-                            <label class="eb-pop-field-label">To</label>
-                            <input type="date" name="date_to" id="ebDateTo" value="{{ $dateTo }}" class="eb-pop-input">
-                        </div>
+                    <div class="eb-date-popover" id="ebDatePopover" style="display:none">
+                        <form method="GET" action="{{ route('owner.dashboard') }}" id="ebCustomForm">
+                            <input type="hidden" name="range" value="CUSTOM">
+                            @if($branchId)<input type="hidden" name="branch_id" value="{{ $branchId }}">@endif
+                            <div class="eb-pop-label">Custom Date Range</div>
+                            <div class="eb-pop-fields">
+                                <div class="eb-pop-field">
+                                    <label class="eb-pop-field-label" for="ebDateFrom">Date From</label>
+                                    <input type="date" name="date_from" id="ebDateFrom" value="{{ $dateFrom }}" class="eb-pop-input">
+                                </div>
+                                <div class="eb-pop-field">
+                                    <label class="eb-pop-field-label" for="ebDateTo">Date To</label>
+                                    <input type="date" name="date_to" id="ebDateTo" value="{{ $dateTo }}" class="eb-pop-input">
+                                </div>
+                            </div>
+                            <div class="eb-pop-actions">
+                                <button type="submit" class="eb-pop-apply">Apply</button>
+                                <a href="{{ $clearCustomUrl }}" class="eb-pop-reset">Reset</a>
+                            </div>
+                        </form>
                     </div>
-                    <button type="submit" class="eb-pop-apply">Apply</button>
-                </form>
+                </div>
             </div>
         </div>
-
     </div>
-
-    {{-- Branch chips --}}
-    <div class="eb-branch-chips">
-        <a href="{{ route('owner.dashboard', array_merge(request()->except(['branch_id']), ['range' => $range ?? 'THIS_MONTH'])) }}"
-           class="eb-branch-chip {{ !$branchId ? 'active' : '' }}">
-            All Branches
-        </a>
-        @foreach($branches as $branch)
-            <a href="{{ route('owner.dashboard', array_merge(request()->all(), ['branch_id' => $branch->id])) }}"
-               class="eb-branch-chip {{ (string) $branchId === (string) $branch->id ? 'active' : '' }}">
-                {{ $branch->branch_code }}
-            </a>
-        @endforeach
-    </div>
-
 </div>
 
 {{-- ── Period context strip ── --}}
@@ -102,10 +106,14 @@
     <div class="eb-period-info">
         <i class="bi bi-calendar3"></i>
         <span>{{ $formattedFrom }} — {{ $formattedTo }}</span>
-        @if($branchId && $selectedBranch)
-            <span class="eb-period-dot">·</span>
-            <span class="eb-period-branch">{{ $selectedBranch->branch_name }}</span>
-        @endif
+    </div>
+    <div class="eb-period-info">
+        <i class="bi bi-building"></i>
+        <span>{{ $filterScopeLabel }}</span>
+    </div>
+    <div class="eb-period-info eb-period-info-muted">
+        <i class="bi bi-funnel"></i>
+        <span>{{ $periodChipLabel }}</span>
     </div>
 </div>
 
@@ -305,14 +313,22 @@
     flex-direction: column;
     gap: 1.5rem;
     color: #0f172a;
-    font-family: inherit;
+    font-family: var(--font-body);
+}
+
+.eb-shell button,
+.eb-shell input,
+.eb-shell select,
+.eb-shell textarea,
+.eb-shell a {
+    font-family: var(--font-body);
 }
 
 /* ── Filter Bar ── */
 .eb-filter-bar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 10px;
     flex-wrap: wrap;
 }
@@ -323,24 +339,58 @@
     flex-wrap: wrap;
 }
 
-/* Filter chips */
+.eb-filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.eb-filter-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+}
+
+.eb-visually-hidden {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Filter controls */
 .eb-seg {
     display: flex;
-    gap: 6px;
     align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
 }
 .eb-seg-item {
-    padding: 6px 14px;
-    border-radius: 999px;
+    height: 32px;
+    padding: 0 0.72rem;
+    border-radius: 9px;
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 600;
     color: #64748b;
     text-decoration: none;
     white-space: nowrap;
-    border: 0.5px solid #e2e8f0;
+    border: 1px solid #dbe3ef;
     background: #fff;
-    transition: all 0.15s;
+    transition: all 0.15s ease;
     line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    width: auto;
+    min-width: fit-content;
+    flex: 0 0 auto;
 }
 .eb-seg-item:hover { border-color: #94a3b8; color: #0f172a; }
 .eb-seg-item.active {
@@ -351,98 +401,65 @@
 }
 
 /* Custom date trigger */
-.eb-date-wrap { position: relative; }
-.eb-date-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 6px 12px 6px 10px;
-    height: 34px;
-    border-radius: 10px;
-    border: 0.5px solid #e2e8f0;
-    background: #fff;
-    font-size: 12px;
-    font-weight: 500;
-    color: #64748b;
-    cursor: pointer;
-    font-family: inherit;
-    white-space: nowrap;
-    transition: all 0.15s;
-}
-.eb-date-btn:hover { border-color: #94a3b8; color: #0f172a; }
-.eb-date-btn.active {
-    border-color: #0f172a;
-    background: #0f172a;
-    color: #fff;
-}
+.eb-custom-range-wrap { position: relative; display: inline-flex; align-items: center; }
 .eb-date-btn-icon { font-size: 13px; opacity: 0.7; }
 .eb-date-chev { font-size: 10px; opacity: 0.5; }
-.eb-date-clear {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 16px; height: 16px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.2);
-    color: #fff;
-    font-size: 11px;
-    text-decoration: none;
-    margin-left: 2px;
-    transition: background 0.12s;
-}
-.eb-date-clear:hover { background: rgba(255,255,255,0.35); }
 
 /* Date popover */
 .eb-date-popover {
     position: absolute;
     top: calc(100% + 8px);
-    left: 0;
-    z-index: 100;
+    right: 0;
+    left: auto;
+    z-index: 240;
     background: #fff;
-    border: 0.5px solid #e2e8f0;
+    border: 1px solid #dbe3ef;
     border-radius: 14px;
     padding: 16px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06);
-    min-width: 280px;
+    min-width: 300px;
+    max-width: min(340px, calc(100vw - 3rem));
 }
 .eb-pop-label {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: #94a3b8;
+    letter-spacing: 0.08em;
+    color: #64748b;
     margin-bottom: 12px;
 }
 .eb-pop-fields {
-    display: flex;
-    align-items: flex-end;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 8px;
     margin-bottom: 12px;
 }
 .eb-pop-field { display: flex; flex-direction: column; gap: 4px; flex: 1; }
 .eb-pop-field-label {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
-    color: #94a3b8;
+    color: #64748b;
     text-transform: uppercase;
     letter-spacing: 0.06em;
 }
 .eb-pop-input {
-    padding: 7px 10px;
-    border: 0.5px solid #e2e8f0;
+    height: 34px;
+    padding: 0 12px;
+    border: 1px solid #dbe3ef;
     border-radius: 8px;
     font-size: 12px;
-    font-family: inherit;
+    font-family: var(--font-body);
     color: #0f172a;
     background: #f8fafc;
     width: 100%;
     transition: border-color 0.12s;
 }
 .eb-pop-input:focus { outline: none; border-color: #94a3b8; background: #fff; }
-.eb-pop-sep { font-size: 14px; color: #cbd5e1; padding-bottom: 8px; }
+.eb-pop-actions { display: flex; align-items: center; gap: 0.45rem; }
 .eb-pop-apply {
-    width: 100%;
-    padding: 8px;
+    width: auto;
+    flex: 1;
+    height: 38px;
     background: #0f172a;
     color: #fff;
     border: none;
@@ -450,48 +467,107 @@
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
-    font-family: inherit;
+    font-family: var(--font-body);
     transition: background 0.12s;
 }
 .eb-pop-apply:hover { background: #1e293b; }
 
-/* Branch chips */
-.eb-branch-chips {
-    display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
-}
-.eb-branch-chip {
-    padding: 6px 14px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 600;
+.eb-pop-reset {
+    height: 38px;
+    padding: 0 0.75rem;
+    border-radius: 8px;
+    border: 1px solid #dbe3ef;
+    background: #fff;
     color: #64748b;
     text-decoration: none;
-    border: 0.5px solid #e2e8f0;
-    background: #fff;
-    white-space: nowrap;
-    transition: all 0.15s;
-    line-height: 1;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
 }
-.eb-branch-chip:hover { border-color: #94a3b8; color: #0f172a; }
-.eb-branch-chip.active { background: #0f172a; color: #fff; border-color: #0f172a; }
+.eb-pop-reset:hover { border-color: #94a3b8; color: #0f172a; }
+
+.eb-branch-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    min-width: min(100%, 340px);
+}
+
+.eb-branch-form-inline {
+    min-width: 0;
+    width: auto;
+    gap: 0;
+    flex: 0 0 auto;
+}
+
+.eb-branch-select-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    height: 32px;
+    box-sizing: border-box;
+    border: 1px solid #dbe3ef;
+    border-radius: 9px;
+    background: #fff;
+    padding: 0 0.42rem;
+    min-width: 132px;
+    max-width: 148px;
+}
+
+.eb-branch-select-wrap i {
+    font-size: 14px;
+    color: #64748b;
+}
+
+.eb-branch-select-chev {
+    font-size: 10px;
+    opacity: 0.65;
+    pointer-events: none;
+}
+
+.eb-branch-select {
+    flex: 0 1 auto;
+    min-width: 0;
+    height: 100%;
+    border: 0;
+    background: transparent;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #334155;
+    outline: none;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    padding-right: 0.1rem;
+    font-family: var(--font-body);
+}
 
 /* ── Period strip ── */
 .eb-period-strip {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 .eb-period-info {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: #94a3b8;
+    gap: 0.35rem;
+    font-size: 11px;
+    color: #334155;
+    border: 1px solid #dbe3ef;
+    background: #fff;
+    border-radius: 999px;
+    padding: 0.35rem 0.65rem;
+    white-space: nowrap;
 }
-.eb-period-dot { color: #cbd5e1; }
-.eb-period-branch { color: #9c5a1a; font-weight: 600; }
+.eb-period-info-muted { color: #64748b; background: #f8fafc; }
 
 /* ── KPI Row ── */
 .eb-kpi-row {
@@ -522,15 +598,16 @@
     background: rgba(214, 176, 115, 0.12);
 }
 .eb-kpi-hero-label {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.08em;
     color: #d6b073;
     display: flex;
     align-items: center;
     gap: 6px;
     position: relative;
+    font-family: var(--font-body);
 }
 .eb-kpi-hero-value {
     font-size: 2.4rem;
@@ -570,11 +647,12 @@
     margin-bottom: 8px;
 }
 .eb-kpi-card-label {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: #94a3b8;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    font-family: var(--font-body);
 }
 .eb-kpi-card-icon {
     width: 32px; height: 32px;
@@ -594,7 +672,7 @@
 }
 .eb-val-green { color: #15803d; }
 .eb-val-red   { color: #b91c1c; }
-.eb-kpi-card-sub { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+.eb-kpi-card-sub { font-size: 12px; color: #64748b; margin-top: 4px; font-family: var(--font-body); }
 
 /* ── Ops Grid ── */
 .eb-ops-grid {
@@ -617,7 +695,7 @@
 }
 .eb-op-card-icon { font-size: 18px; }
 .eb-op-card-val  { font-size: 1.8rem; font-weight: 700; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.eb-op-card-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #94a3b8; }
+.eb-op-card-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; font-family: var(--font-body); }
 
 .eb-op-default { border-bottom-color: #0f172a; }
 .eb-op-default .eb-op-card-icon { color: #0f172a; }
@@ -658,8 +736,8 @@
     justify-content: space-between;
     gap: 12px;
 }
-.eb-section-title { font-size: 14px; font-weight: 700; color: #0f172a; }
-.eb-section-sub { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+.eb-section-title { font-size: 14px; font-weight: 700; color: #0f172a; font-family: var(--font-heading); letter-spacing: -0.02em; }
+.eb-section-sub { font-size: 12px; color: #64748b; margin-top: 2px; font-family: var(--font-body); }
 .eb-card {
     background: #fff;
     border: 0.5px solid #e2e8f0;
@@ -693,7 +771,7 @@
     flex-wrap: wrap;
 }
 .eb-branch-code { font-size: 10px; font-weight: 700; color: #9c5a1a; text-transform: uppercase; letter-spacing: 0.1em; margin-right: 6px; }
-.eb-branch-name { font-size: 13px; font-weight: 600; color: #0f172a; }
+.eb-branch-name { font-size: 13px; font-weight: 600; color: #0f172a; font-family: var(--font-body); }
 .eb-branch-row-stats { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .eb-branch-stat-pill {
     font-size: 10px;
@@ -736,7 +814,7 @@
 .eb-recent-row:hover { opacity: 0.75; }
 .eb-recent-left { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .eb-recent-code { font-size: 10px; font-weight: 700; color: #9c5a1a; letter-spacing: 0.05em; }
-.eb-recent-names { font-size: 12px; font-weight: 500; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+.eb-recent-names { font-size: 12px; font-weight: 500; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; font-family: var(--font-body); }
 .eb-dim { color: #94a3b8; font-weight: 400; }
 .eb-recent-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .eb-recent-branch { font-size: 10px; font-weight: 600; color: #64748b; }
@@ -757,7 +835,7 @@
     border-radius: 8px;
     border: 0.5px solid #e2e8f0;
 }
-.eb-pkg-name  { font-size: 12px; font-weight: 600; color: #0f172a; }
+.eb-pkg-name  { font-size: 12px; font-weight: 600; color: #0f172a; font-family: var(--font-body); }
 .eb-pkg-stats { display: flex; align-items: center; gap: 8px; }
 .eb-pkg-cases { font-size: 11px; color: #64748b; }
 .eb-pkg-amount { font-size: 12px; font-weight: 700; color: #0f172a; font-variant-numeric: tabular-nums; }
@@ -768,20 +846,27 @@
 
 /* ── Dark mode ── */
 html[data-theme='dark'] .eb-shell { color: #e2ecf9; }
-html[data-theme='dark'] .eb-seg { background: #192d47; }
 html[data-theme='dark'] .eb-seg-item { color: #8aa7c5; }
 html[data-theme='dark'] .eb-seg-item:hover { color: #e2ecf9; background: rgba(255,255,255,0.06); }
 html[data-theme='dark'] .eb-seg-item.active { background: #243d5a; color: #e2ecf9; box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 0 0 0.5px #4a6888; }
-html[data-theme='dark'] .eb-date-btn { background: #182638; border-color: #2e4560; color: #8aa7c5; }
-html[data-theme='dark'] .eb-date-btn:hover { border-color: #5a7898; color: #e2ecf9; }
-html[data-theme='dark'] .eb-date-btn.active { background: #e2ecf9; color: #0f172a; border-color: #e2ecf9; }
 html[data-theme='dark'] .eb-date-popover { background: #182638; border-color: #2e4560; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
 html[data-theme='dark'] .eb-pop-input { background: #1e334f; border-color: #2e4560; color: #e2ecf9; }
 html[data-theme='dark'] .eb-pop-input:focus { border-color: #5a7898; background: #243d5a; }
-html[data-theme='dark'] .eb-branch-chip { background: #182638; border-color: #2e4560; color: #8aa7c5; }
-html[data-theme='dark'] .eb-branch-chip:hover { border-color: #5a7898; color: #e2ecf9; }
-html[data-theme='dark'] .eb-branch-chip.active { background: #e2ecf9; color: #0f172a; border-color: #e2ecf9; }
+html[data-theme='dark'] .eb-branch-select-wrap,
+html[data-theme='dark'] .eb-pop-reset,
+html[data-theme='dark'] .eb-period-info {
+    background: #182638;
+    border-color: #2e4560;
+    color: #8aa7c5;
+}
+html[data-theme='dark'] .eb-branch-select,
+html[data-theme='dark'] .eb-branch-select-wrap i,
+html[data-theme='dark'] .eb-branch-select-chev,
+html[data-theme='dark'] .eb-period-info i {
+    color: #8aa7c5;
+}
 html[data-theme='dark'] .eb-period-info { color: #5a7898; }
+html[data-theme='dark'] .eb-period-info-muted { background: #1e334f; color: #8aa7c5; }
 html[data-theme='dark'] .eb-kpi-hero { background: linear-gradient(135deg, #0a1628 0%, #0f1f35 100%); }
 html[data-theme='dark'] .eb-kpi-card,
 html[data-theme='dark'] .eb-op-card,

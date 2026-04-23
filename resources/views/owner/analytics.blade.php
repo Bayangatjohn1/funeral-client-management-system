@@ -14,9 +14,11 @@
         'THIS_YEAR' => route('owner.analytics', array_merge($baseQuery, ['range' => 'THIS_YEAR'])),
     ];
 
-    $clearCustomUrl = route('owner.analytics', array_merge($baseQuery, ['range' => 'TODAY']));
+    $clearCustomUrl = route('owner.analytics', array_merge($baseQuery, ['range' => 'THIS_YEAR']));
     $isCustomRange = $range === 'CUSTOM';
-    $filterScopeLabel = $selectedBranch?->branch_name ?? 'All Branches';
+    $filterScopeLabel = $selectedBranch
+        ? ($selectedBranch->branch_code . ' - ' . $selectedBranch->branch_name)
+        : 'All Branches';
     $periodChipLabel = $isCustomRange ? 'CUSTOM RANGE' : str_replace('_', ' ', strtoupper($range));
 
     $comparisonLabels = $chart['bar']['labels'] ?? [];
@@ -52,46 +54,139 @@
 
     <section class="ba-card ba-workspace">
         <header class="ba-workspace-head">
-            <div class="ba-workspace-head-copy">
-                <h3 class="ba-title">Branch Analytics</h3>
-                <p class="ba-subtitle">View branch summaries, payment status, revenue trends, and collection updates.</p>
+            <div class="ba-head-row ba-head-row-top">
+                <div class="ba-workspace-head-copy">
+                    <h3 class="ba-title">Branch Analytics</h3>
+                    <p class="ba-subtitle">View branch summaries, payment status, revenue trends, and collection updates.</p>
+                </div>
+
+                <div class="ba-workspace-filters" role="group" aria-label="Branch Analytics Filters">
+                    <form method="GET" action="{{ route('owner.analytics') }}" class="ba-branch-form ba-branch-form-inline">
+                        @if($isCustomRange)
+                            <input type="hidden" name="range" value="CUSTOM">
+                            <input type="hidden" name="date_from" value="{{ $dateFrom }}">
+                            <input type="hidden" name="date_to" value="{{ $dateTo }}">
+                        @else
+                            <input type="hidden" name="range" value="{{ $range }}">
+                        @endif
+                        <label for="baBranchFilter" class="ba-filter-label ba-visually-hidden">Branch Filter</label>
+                        <div class="ba-branch-select-wrap" title="{{ $filterScopeLabel }}">
+                            <i class="bi bi-building"></i>
+                            <select id="baBranchFilter" name="branch_id" class="ba-branch-select" onchange="this.form.submit()">
+                                <option value="">All Branches</option>
+                                @foreach($branches as $branch)
+                                    <option value="{{ $branch->id }}" @selected((string) $branchId === (string) $branch->id)>
+                                        {{ $branch->branch_code }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <i class="bi bi-chevron-down ba-branch-select-chev"></i>
+                        </div>
+                    </form>
+
+                    <div class="ba-filter-group">
+                        <span class="ba-filter-label ba-visually-hidden">Period Filter</span>
+                        <div class="ba-seg" role="group" aria-label="Period Filter">
+                            @foreach (['TODAY', 'THIS_MONTH', 'THIS_YEAR'] as $rangeKey)
+                                <a href="{{ $dateRangeLinks[$rangeKey] }}" class="ba-seg-item {{ $range === $rangeKey ? 'active' : '' }}">
+                                    {{ ucwords(strtolower(str_replace('_', ' ', $rangeKey))) }}
+                                </a>
+                            @endforeach
+                            <div class="ba-custom-range-wrap">
+                                <button
+                                    type="button"
+                                    id="baCustomRangeBtn"
+                                    class="ba-seg-item {{ $isCustomRange ? 'active' : '' }}"
+                                    aria-expanded="false"
+                                    aria-controls="baDatePopover"
+                                    title="Open custom date range"
+                                >
+                                    <i class="bi bi-calendar3"></i>
+                                    <span>Custom Range</span>
+                                    <i class="bi bi-chevron-down ba-date-chev"></i>
+                                </button>
+
+                                <div class="ba-date-popover" id="baDatePopover" style="display: none;">
+                                    <form method="GET" action="{{ route('owner.analytics') }}">
+                                        @if($branchId)
+                                            <input type="hidden" name="branch_id" value="{{ $branchId }}">
+                                        @endif
+                                        <input type="hidden" name="range" value="CUSTOM">
+
+                                        <div class="ba-pop-label">Custom Date Range</div>
+                                        <div class="ba-pop-fields">
+                                            <div class="ba-pop-field">
+                                                <label class="ba-pop-field-label" for="baDateFrom">Date From</label>
+                                                <input
+                                                    id="baDateFrom"
+                                                    type="date"
+                                                    name="date_from"
+                                                    value="{{ old('date_from', $dateFrom) }}"
+                                                    class="ba-pop-input"
+                                                    required
+                                                >
+                                            </div>
+                                            <div class="ba-pop-field">
+                                                <label class="ba-pop-field-label" for="baDateTo">Date To</label>
+                                                <input
+                                                    id="baDateTo"
+                                                    type="date"
+                                                    name="date_to"
+                                                    value="{{ old('date_to', $dateTo) }}"
+                                                    class="ba-pop-input"
+                                                    required
+                                                >
+                                            </div>
+                                        </div>
+
+                                        <div class="ba-pop-actions">
+                                            <button type="submit" class="ba-pop-apply">Apply</button>
+                                            <a href="{{ $clearCustomUrl }}" class="ba-pop-reset">Reset</a>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div class="ba-workspace-filters">
-                <div class="ba-context-chip" title="Date Range">
-                    <i class="bi bi-calendar3"></i>
-                    <span>{{ \Carbon\Carbon::parse($dateFrom)->format('M d, Y') }} - {{ \Carbon\Carbon::parse($dateTo)->format('M d, Y') }}</span>
-                </div>
-                <div class="ba-context-chip" title="Branch">
-                    <i class="bi bi-building"></i>
-                    <span>{{ $filterScopeLabel }}</span>
-                </div>
-                <div class="ba-context-chip ba-context-muted" title="Period">
-                    <i class="bi bi-funnel"></i>
-                    <span>{{ $periodChipLabel }}</span>
+            <div class="ba-head-row ba-head-row-nav">
+                <div class="ba-tabs" role="tablist" aria-label="Analytics views">
+                    <button class="ba-tab-btn active" data-target="ba-panel-performance" role="tab" aria-selected="true">
+                        <i class="bi bi-bar-chart-line"></i>
+                        Branch Performance
+                    </button>
+                    <button class="ba-tab-btn" data-target="ba-panel-payment" role="tab" aria-selected="false">
+                        <i class="bi bi-wallet2"></i>
+                        Payment Status
+                    </button>
+                    <button class="ba-tab-btn" data-target="ba-panel-trend" role="tab" aria-selected="false">
+                        <i class="bi bi-graph-up-arrow"></i>
+                        Gross Revenue Trend
+                    </button>
+                    <button class="ba-tab-btn" data-target="ba-panel-collection" role="tab" aria-selected="false">
+                        <i class="bi bi-cash-stack"></i>
+                        Collection Status
+                    </button>
                 </div>
 
+                <div class="ba-workspace-chips" aria-label="Applied filters">
+                    <div class="ba-context-chip" title="Applied Date Range">
+                        <i class="bi bi-calendar3"></i>
+                        <span>{{ \Carbon\Carbon::parse($dateFrom)->format('M d, Y') }} - {{ \Carbon\Carbon::parse($dateTo)->format('M d, Y') }}</span>
+                    </div>
+                    <div class="ba-context-chip" title="Applied Branch">
+                        <i class="bi bi-building"></i>
+                        <span>{{ $filterScopeLabel }}</span>
+                    </div>
+                    <div class="ba-context-chip ba-context-muted" title="Applied Period">
+                        <i class="bi bi-funnel"></i>
+                        <span>{{ $periodChipLabel }}</span>
+                    </div>
+                </div>
             </div>
         </header>
-
-        <div class="ba-tabs" role="tablist" aria-label="Analytics views">
-            <button class="ba-tab-btn active" data-target="ba-panel-performance" role="tab" aria-selected="true">
-                <i class="bi bi-bar-chart-line"></i>
-                Branch Performance
-            </button>
-            <button class="ba-tab-btn" data-target="ba-panel-payment" role="tab" aria-selected="false">
-                <i class="bi bi-wallet2"></i>
-                Payment Status
-            </button>
-            <button class="ba-tab-btn" data-target="ba-panel-trend" role="tab" aria-selected="false">
-                <i class="bi bi-graph-up-arrow"></i>
-                Gross Revenue Trend
-            </button>
-            <button class="ba-tab-btn" data-target="ba-panel-collection" role="tab" aria-selected="false">
-                <i class="bi bi-cash-stack"></i>
-                Collection Status
-            </button>
-        </div>
 
         <div class="ba-panels">
             <article class="ba-panel active" id="ba-panel-performance" role="tabpanel">
@@ -336,18 +431,19 @@
 .ba-seg {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 0.35rem;
+    flex: 0 0 auto;
 }
 
 .ba-seg-item,
 .ba-date-btn {
-    height: 34px;
-    padding: 0 0.8rem;
+    height: 32px;
+    padding: 0 0.72rem;
     border: 1px solid #dbe3ef;
     background: #fff;
     border-radius: 9px;
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 600;
     color: #475569;
     text-decoration: none;
@@ -356,6 +452,11 @@
     gap: 0.4rem;
     line-height: 1;
     transition: all 0.15s ease;
+    cursor: pointer;
+    white-space: nowrap;
+    width: auto;
+    min-width: fit-content;
+    flex: 0 0 auto;
 }
 
 .ba-seg-item:hover,
@@ -372,10 +473,25 @@
 }
 
 .ba-date-wrap {
-    position: relative;
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
+    flex: 0 0 auto;
+}
+
+.ba-custom-range-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+}
+
+.ba-date-btn span {
+    display: inline-block;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .ba-date-chev {
@@ -407,8 +523,9 @@
     top: calc(100% + 8px);
     right: 0;
     left: auto;
-    z-index: 110;
+    z-index: 240;
     min-width: 300px;
+    max-width: min(340px, calc(100vw - 3rem));
     background: #fff;
     border: 1px solid #dbe3ef;
     border-radius: 12px;
@@ -461,7 +578,8 @@
 }
 
 .ba-pop-apply {
-    width: 100%;
+    width: auto;
+    flex: 1;
     border: 0;
     border-radius: 8px;
     height: 34px;
@@ -469,6 +587,34 @@
     color: #fff;
     font-size: 12px;
     font-weight: 700;
+    cursor: pointer;
+}
+
+.ba-pop-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.ba-pop-reset {
+    height: 34px;
+    padding: 0 0.7rem;
+    border: 1px solid #dbe3ef;
+    border-radius: 8px;
+    background: #fff;
+    color: #475569;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.ba-pop-reset:hover {
+    border-color: #9fb0c5;
+    color: #0f172a;
 }
 
 .ba-branch-form {
@@ -479,19 +625,24 @@
 }
 
 .ba-branch-form-inline {
-    min-width: 210px;
+    min-width: 0;
     width: auto;
     gap: 0;
+    flex: 0 0 auto;
 }
 
 .ba-branch-select-wrap {
     display: flex;
     align-items: center;
-    gap: 0.45rem;
+    gap: 0.35rem;
+    height: 32px;
+    box-sizing: border-box;
     border: 1px solid #dbe3ef;
     border-radius: 9px;
     background: #fff;
-    padding: 0 0.55rem;
+    padding: 0 0.42rem;
+    min-width: 132px;
+    max-width: 148px;
 }
 
 .ba-branch-select-wrap i {
@@ -499,17 +650,28 @@
     color: #64748b;
 }
 
+.ba-branch-select-chev {
+    font-size: 10px;
+    opacity: 0.65;
+    pointer-events: none;
+}
+
 .ba-branch-select {
-    flex: 1;
+    flex: 0 1 auto;
     min-width: 0;
-    height: 34px;
+    height: 100%;
     border: 0;
     background: transparent;
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 600;
     color: #334155;
     outline: none;
     text-overflow: ellipsis;
+    white-space: nowrap;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    padding-right: 0.1rem;
 }
 
 .ba-context-row {
@@ -530,6 +692,13 @@
     color: #334155;
     border: 1px solid #dbe3ef;
     background: #fff;
+    white-space: nowrap;
+}
+
+.ba-context-chip span {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
 }
 
@@ -585,22 +754,55 @@
 
 .ba-workspace-head {
     display: flex;
-    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.7rem;
+}
+
+.ba-head-row {
+    display: flex;
+    align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
     flex-wrap: wrap;
+}
+
+.ba-head-row-top {
+    align-items: center;
+}
+
+.ba-head-row-nav {
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 0.75rem;
+    gap: 1rem;
 }
 
 .ba-workspace-head-copy {
     min-width: 260px;
 }
 
-.ba-workspace-filters {
+.ba-workspace-chips {
     display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: 0.5rem;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    flex: 0 0 auto;
+}
+
+.ba-workspace-filters {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.45rem;
+    flex-wrap: nowrap;
+    flex: 0 0 auto;
+}
+
+.ba-workspace-filters form {
+    margin: 0;
 }
 
 .ba-title {
@@ -618,10 +820,11 @@
 
 .ba-tabs {
     display: flex;
-    gap: 0.45rem;
-    flex-wrap: wrap;
-    border-bottom: 1px solid #e2e8f0;
-    padding-bottom: 0.75rem;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: nowrap;
+    min-width: fit-content;
+    flex: 0 0 auto;
 }
 
 .ba-tab-btn {
@@ -632,11 +835,15 @@
     font-size: 12px;
     font-weight: 600;
     height: 34px;
-    padding: 0 0.75rem;
+    padding: 0 0.8rem;
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
     transition: all 0.15s ease;
+    white-space: nowrap;
+    width: auto;
+    min-width: fit-content;
+    flex: 0 0 auto;
 }
 
 .ba-tab-btn:hover {
@@ -855,9 +1062,27 @@
 }
 
 @media (max-width: 900px) {
+    .ba-head-row-top,
+    .ba-head-row-nav {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .ba-tabs {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
     .ba-workspace-filters {
         width: 100%;
         justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .ba-workspace-chips {
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
     }
 
     .ba-chart-frame {
@@ -883,6 +1108,12 @@
         padding: 0.8rem;
     }
 
+    .ba-workspace-chips {
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+
     .ba-kpi-strip {
         grid-template-columns: 1fr;
     }
@@ -893,7 +1124,7 @@
 
     .ba-date-popover {
         right: 0;
-        min-width: 265px;
+        min-width: min(265px, calc(100vw - 2rem));
     }
 
     .ba-chart-frame {
@@ -951,6 +1182,7 @@ html[data-theme='dark'] .ba-tab-btn,
 html[data-theme='dark'] .ba-seg-item,
 html[data-theme='dark'] .ba-date-btn,
 html[data-theme='dark'] .ba-pop-input,
+html[data-theme='dark'] .ba-pop-reset,
 html[data-theme='dark'] .ba-collection-metric,
 html[data-theme='dark'] .ba-branch-kpi-card,
 html[data-theme='dark'] .ba-compare-title {
@@ -971,7 +1203,7 @@ html[data-theme='dark'] .ba-compare-table th {
     background: #1f344d;
 }
 
-html[data-theme='dark'] .ba-tabs {
+html[data-theme='dark'] .ba-head-row-nav {
     border-bottom-color: #2e4560;
 }
 </style>
@@ -1358,16 +1590,25 @@ html[data-theme='dark'] .ba-tabs {
         : (cb) => setTimeout(cb, 180);
     deferBuild(() => buildSecondaryCharts());
 
-    const dateBtn = document.getElementById('baDateBtn');
+    const customRangeBtn = document.getElementById('baCustomRangeBtn');
     const datePopover = document.getElementById('baDatePopover');
-    if (dateBtn && datePopover) {
-        dateBtn.addEventListener('click', (event) => {
+    if (customRangeBtn && datePopover) {
+        const setPopoverState = (isOpen) => {
+            datePopover.style.display = isOpen ? 'block' : 'none';
+            customRangeBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        };
+
+        const togglePopover = (event) => {
             event.stopPropagation();
-            datePopover.style.display = datePopover.style.display === 'none' ? 'block' : 'none';
-        });
+            const isOpen = datePopover.style.display === 'block';
+            setPopoverState(!isOpen);
+        };
+
+        setPopoverState(false);
+        customRangeBtn.addEventListener('click', togglePopover);
 
         document.addEventListener('click', () => {
-            datePopover.style.display = 'none';
+            setPopoverState(false);
         });
 
         datePopover.addEventListener('click', (event) => {

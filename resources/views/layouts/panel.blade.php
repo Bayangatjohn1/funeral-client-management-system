@@ -149,6 +149,13 @@
                     </div>
 
                     <div class="sidebar-account-dropdown__section">
+                        <a href="{{ route('profile.edit') }}" class="sidebar-account-dropdown__logout" aria-label="My Profile">
+                            <i class="bi bi-person-circle"></i>
+                            <span>My Profile</span>
+                        </a>
+                    </div>
+
+                    <div class="sidebar-account-dropdown__section">
                         <form method="POST" action="{{ route('logout') }}" class="sidebar-account-dropdown__logout-form">
                             @csrf
                             <button type="submit" class="sidebar-account-dropdown__logout" aria-label="Logout">

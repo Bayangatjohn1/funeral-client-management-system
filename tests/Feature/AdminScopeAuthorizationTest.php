@@ -239,6 +239,54 @@ class AdminScopeAuthorizationTest extends TestCase
         $this->actingAs($branchAdmin)->get('/admin/users')->assertForbidden();
     }
 
+    public function test_staff_cannot_access_any_admin_routes(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $otherBranch = $this->createBranch('BR002', 'Branch Two');
+        $staff = User::factory()->create([
+            'role' => 'staff',
+            'branch_id' => $otherBranch->id,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($staff)->get('/admin')->assertForbidden();
+        $this->actingAs($staff)->get('/admin/users')->assertForbidden();
+        $this->actingAs($staff)->get('/admin/branches')->assertForbidden();
+        $this->actingAs($staff)->get('/admin/packages')->assertForbidden();
+        $this->actingAs($staff)->get('/admin/reports/sales')->assertForbidden();
+        $this->actingAs($staff)->get('/admin/audit-logs')->assertForbidden();
+    }
+
+    public function test_branch_admin_is_blocked_from_other_branch_intake(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $branch = $this->createBranch('BR002', 'Branch Two');
+        $branchAdmin = $this->createBranchAdmin($branch);
+
+        $this->actingAs($branchAdmin)->get('/intake/other')->assertForbidden();
+        $this->actingAs($branchAdmin)->post('/intake/other', [])->assertForbidden();
+    }
+
+    public function test_main_admin_can_access_monitoring_modules(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $admin = $this->createMainAdmin($mainBranch);
+
+        $this->actingAs($admin)->get('/admin/cases')->assertOk();
+        $this->actingAs($admin)->get('/admin/reminders')->assertOk();
+        $this->actingAs($admin)->get('/admin/audit-logs')->assertOk();
+    }
+
+    public function test_branch_admin_can_access_staff_area_and_reminders(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $branch = $this->createBranch('BR002', 'Branch Two');
+        $branchAdmin = $this->createBranchAdmin($branch);
+
+        $this->actingAs($branchAdmin)->get('/staff')->assertOk();
+        $this->actingAs($branchAdmin)->get('/reminders')->assertOk();
+    }
+
     public function test_create_user_form_has_no_pre_filled_email_or_password(): void
     {
         $mainBranch = $this->createBranch('BR001', 'Main Branch');

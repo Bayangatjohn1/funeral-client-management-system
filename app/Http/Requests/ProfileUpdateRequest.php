@@ -26,6 +26,7 @@ class ProfileUpdateRequest extends FormRequest
                 Rule::unique(User::class)->ignore($this->user()->id),
             ],
             'contact_number' => ['nullable', 'string', 'max:50', 'regex:/^[0-9+\-\s()]+$/'],
+            'position' => ['nullable', 'string', 'max:100'],
             'address' => ['nullable', 'string', 'max:255'],
         ];
     }

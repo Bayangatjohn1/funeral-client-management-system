@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Support\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,25 +17,51 @@ class ProfileController extends Controller
      */
     public function edit(Request $request): View
     {
-        return view('profile.edit', [
-            'user' => $request->user(),
-        ]);
+        $user = $request->user();
+        $user->load('branch');
+
+        return view('profile.edit', compact('user'));
     }
 
-    /**
-     * Update the user's profile information.
-     */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $user = $request->user();
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+        $before = [
+            'name' => $user->name,
+            'email' => $user->email,
+            'contact_number' => $user->contact_number,
+            'position' => $user->position,
+            'address' => $user->address,
+        ];
+
+        $user->fill($request->validated());
+
+        if ($user->isDirty('email')) {
+            $user->email_verified_at = null;
         }
 
-        $request->user()->save();
+        $user->save();
 
-        return Redirect::route('profile.edit')->with('status', 'profile-updated');
+        AuditLogger::log(
+            action: 'user.profile_updated',
+            actionType: 'update',
+            entityType: 'user',
+            entityId: $user->id,
+            metadata: [
+                'before' => $before,
+                'after' => [
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'contact_number' => $user->contact_number,
+                    'position' => $user->position,
+                    'address' => $user->address,
+                ],
+            ],
+            branchId: $user->branch_id
+        );
+
+        return Redirect::route('profile.edit')->with('success', 'Profile updated successfully.');
     }
 
     /**

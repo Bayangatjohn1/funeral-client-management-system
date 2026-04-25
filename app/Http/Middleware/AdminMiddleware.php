@@ -9,7 +9,9 @@ class AdminMiddleware
 {
     public function handle(Request $request, Closure $next)
     {
-        if (!auth()->check() || auth()->user()->role !== 'admin') {
+        $user = $request->user();
+
+        if (!$user || !method_exists($user, 'isAdmin') || !$user->isAdmin()) {
             abort(403, 'Unauthorized');
         }
 

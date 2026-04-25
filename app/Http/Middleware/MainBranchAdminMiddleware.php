@@ -5,17 +5,13 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 
-class StaffOrAdminMiddleware
+class MainBranchAdminMiddleware
 {
     public function handle(Request $request, Closure $next)
     {
         $user = $request->user();
 
-        if (!$user) {
-            abort(403, 'Unauthorized');
-        }
-
-        if ($user->role !== 'staff' && (!method_exists($user, 'isAdmin') || !$user->isAdmin())) {
+        if (!$user || !method_exists($user, 'isMainBranchAdmin') || !$user->isMainBranchAdmin()) {
             abort(403, 'Unauthorized');
         }
 

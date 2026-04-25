@@ -39,12 +39,16 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
-        if ($user->role === 'owner') {
+        if ($user->isOwner()) {
             return redirect()->intended('/owner');
         }
 
-        if ($user->role === 'admin') {
+        if ($user->isMainBranchAdmin()) {
             return redirect()->intended('/admin');
+        }
+
+        if ($user->isBranchAdmin() || $user->role === 'staff') {
+            return redirect()->intended('/staff');
         }
 
         return redirect()->intended(route('dashboard', absolute: false));

@@ -63,7 +63,20 @@ return new class extends Migration
 
     private static function indexExists(string $table, string $indexName): bool
     {
+        $driver = DB::connection()->getDriverName();
+
+        if ($driver === 'sqlite') {
+            $results = DB::select("PRAGMA index_list('{$table}')");
+
+            return collect($results)->contains(function ($index) use ($indexName) {
+                $name = $index->name ?? $index->Key_name ?? null;
+
+                return $name === $indexName;
+            });
+        }
+
         $results = DB::select("SHOW INDEX FROM `{$table}` WHERE `Key_name` = ?", [$indexName]);
+
         return count($results) > 0;
     }
 };

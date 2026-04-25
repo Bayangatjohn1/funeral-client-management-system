@@ -1,0 +1,206 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Branch;
+use App\Models\Package;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class AdminScopeAuthorizationTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_main_branch_admin_keeps_global_admin_access(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $admin = $this->createMainAdmin($mainBranch);
+
+        $this->actingAs($admin)->get('/admin')->assertOk();
+        $this->actingAs($admin)->get('/admin/users')->assertOk();
+        $this->actingAs($admin)->get('/admin/branches')->assertOk();
+        $this->actingAs($admin)->get('/admin/packages')->assertOk();
+    }
+
+    public function test_legacy_main_branch_admin_without_scope_still_keeps_admin_access(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'admin_scope' => null,
+            'branch_id' => $mainBranch->id,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)->get('/admin')->assertOk();
+        $this->assertTrue($admin->fresh()->isMainBranchAdmin());
+    }
+
+    public function test_branch_admin_is_sent_to_staff_dashboard_and_blocked_from_global_admin_modules(): void
+    {
+        $branch = $this->createBranch('BR002', 'Branch Two');
+        $branchAdmin = $this->createBranchAdmin($branch);
+
+        $this->actingAs($branchAdmin)->get('/dashboard')->assertRedirect('/staff');
+        $this->actingAs($branchAdmin)->get('/staff')->assertOk();
+        $this->actingAs($branchAdmin)->get('/admin')->assertForbidden();
+        $this->actingAs($branchAdmin)->get('/admin/users')->assertForbidden();
+        $this->actingAs($branchAdmin)->get('/admin/branches')->assertForbidden();
+        $this->actingAs($branchAdmin)->get('/admin/packages')->assertForbidden();
+        $this->actingAs($branchAdmin)->get('/admin/reports/sales')->assertForbidden();
+        $this->actingAs($branchAdmin)->get('/admin/audit-logs')->assertForbidden();
+    }
+
+    public function test_branch_admin_main_intake_uses_assigned_branch_instead_of_br001(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $branch = $this->createBranch('BR002', 'Branch Two');
+        $package = $this->createPackage();
+        $branchAdmin = $this->createBranchAdmin($branch);
+
+        $response = $this->actingAs($branchAdmin)->post('/intake/main', [
+            'service_requested_at' => now()->toDateString(),
+            'branch_id' => $mainBranch->id,
+            'client_name' => 'Branch Admin Client',
+            'client_relationship' => 'Daughter',
+            'client_contact_number' => '09170000000',
+            'client_email' => 'branch-admin@example.com',
+            'client_valid_id_type' => 'National ID',
+            'client_valid_id_number' => 'ID-5000',
+            'client_address' => 'Branch Two Address',
+            'deceased_name' => 'Branch Admin Deceased',
+            'deceased_address' => 'Branch Two Address',
+            'born' => now()->subYears(65)->toDateString(),
+            'died' => now()->subDay()->toDateString(),
+            'civil_status' => 'MARRIED',
+            'pwd_status' => 0,
+            'wake_location' => 'Branch Two Chapel',
+            'funeral_service_at' => now()->addDay()->toDateString(),
+            'interment_at' => now()->addDays(2)->setTime(9, 0)->format('Y-m-d H:i:s'),
+            'place_of_cemetery' => 'Branch Two Cemetery',
+            'case_status' => 'ACTIVE',
+            'transport_option' => 'HEARSE',
+            'coffin_length_cm' => 175,
+            'coffin_size' => 'LARGE',
+            'embalming_required' => 1,
+            'embalming_status' => 'PENDING',
+            'package_id' => $package->id,
+            'additional_service_amount' => 0,
+            'senior_citizen_status' => 0,
+            'senior_citizen_id_number' => null,
+            'pwd_id_number' => null,
+            'confirm_review' => 1,
+        ]);
+
+        $response->assertRedirect(route('funeral-cases.index', ['record_scope' => 'main'], absolute: false));
+
+        $this->assertDatabaseHas('clients', [
+            'full_name' => 'Branch Admin Client',
+            'branch_id' => $branch->id,
+        ]);
+        $this->assertDatabaseHas('funeral_cases', [
+            'branch_id' => $branch->id,
+            'entry_source' => 'MAIN',
+            'case_status' => 'ACTIVE',
+        ]);
+    }
+
+    public function test_main_branch_admin_cannot_create_owner_accounts_or_assign_main_scope_through_user_management(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $admin = $this->createMainAdmin($mainBranch);
+
+        $this->actingAs($admin)
+            ->from('/admin/users/create')
+            ->post('/admin/users', [
+                'name' => 'Owner Attempt',
+                'email' => 'owner.attempt@example.com',
+                'password' => 'secret123',
+                'role' => 'owner',
+                'branch_id' => $mainBranch->id,
+            ])
+            ->assertRedirect('/admin/users/create')
+            ->assertSessionHasErrors('role');
+
+        $this->actingAs($admin)
+            ->from('/admin/users/create')
+            ->post('/admin/users', [
+                'name' => 'Tampered Main Admin',
+                'email' => 'tampered.main@example.com',
+                'password' => 'secret123',
+                'role' => 'admin',
+                'admin_scope' => 'main',
+                'branch_id' => $mainBranch->id,
+            ])
+            ->assertRedirect('/admin/users/create')
+            ->assertSessionHasErrors('admin_scope');
+
+        $this->assertDatabaseMissing('users', ['email' => 'owner.attempt@example.com']);
+        $this->assertDatabaseMissing('users', ['email' => 'tampered.main@example.com']);
+    }
+
+    public function test_main_branch_admin_can_create_branch_admin_but_new_admin_is_stored_with_branch_scope(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $otherBranch = $this->createBranch('BR002', 'Branch Two');
+        $admin = $this->createMainAdmin($mainBranch);
+
+        $this->actingAs($admin)
+            ->post('/admin/users', [
+                'name' => 'Branch Admin Created',
+                'email' => 'branch.admin.created@example.com',
+                'password' => 'secret123',
+                'role' => 'admin',
+                'branch_id' => $otherBranch->id,
+            ])
+            ->assertRedirect(route('admin.users.index', absolute: false));
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'branch.admin.created@example.com',
+            'role' => 'admin',
+            'admin_scope' => 'branch',
+            'branch_id' => $otherBranch->id,
+        ]);
+    }
+
+    private function createBranch(string $code, string $name): Branch
+    {
+        return Branch::create([
+            'branch_code' => $code,
+            'branch_name' => $name,
+            'address' => 'Test Address',
+            'is_active' => true,
+        ]);
+    }
+
+    private function createPackage(): Package
+    {
+        return Package::create([
+            'name' => 'Standard Package',
+            'coffin_type' => 'Standard',
+            'price' => 20000,
+            'is_active' => true,
+        ]);
+    }
+
+    private function createMainAdmin(Branch $branch): User
+    {
+        return User::factory()->create([
+            'role' => 'admin',
+            'admin_scope' => 'main',
+            'branch_id' => $branch->id,
+            'is_active' => true,
+        ]);
+    }
+
+    private function createBranchAdmin(Branch $branch): User
+    {
+        return User::factory()->create([
+            'role' => 'admin',
+            'admin_scope' => 'branch',
+            'branch_id' => $branch->id,
+            'is_active' => true,
+        ]);
+    }
+}

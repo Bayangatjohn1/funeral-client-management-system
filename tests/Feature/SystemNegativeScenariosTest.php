@@ -15,17 +15,17 @@ class SystemNegativeScenariosTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_non_main_staff_cannot_access_main_branch_only_modules(): void
+    public function test_non_main_staff_uses_assigned_branch_modules_only(): void
     {
         $this->createBranch('BR001', 'Main Branch');
         $otherBranch = $this->createBranch('BR002', 'Other Branch');
         $staff = $this->createUser('staff', $otherBranch, false);
 
-        $this->actingAs($staff)->get('/clients')->assertForbidden();
-        $this->actingAs($staff)->get('/deceased')->assertForbidden();
-        $this->actingAs($staff)->get('/payments')->assertForbidden();
-        $this->actingAs($staff)->get('/intake/other')->assertForbidden();
-        $this->actingAs($staff)->get('/other-branch-reports')->assertForbidden();
+        $this->actingAs($staff)->get('/clients')->assertOk();
+        $this->actingAs($staff)->get('/deceased')->assertRedirect(route('clients.index', absolute: false));
+        $this->actingAs($staff)->get('/payments')->assertOk();
+        $this->actingAs($staff)->get('/intake/other')->assertStatus(302);
+        $this->actingAs($staff)->get('/other-branch-reports')->assertStatus(302);
     }
 
     public function test_admin_cannot_create_staff_user_without_branch_assignment(): void
@@ -254,6 +254,7 @@ class SystemNegativeScenariosTest extends TestCase
     {
         return User::factory()->create([
             'role' => $role,
+            'admin_scope' => $role === 'admin' ? 'main' : null,
             'is_active' => true,
             'branch_id' => $branch?->id,
             'can_encode_any_branch' => $canEncodeAnyBranch,

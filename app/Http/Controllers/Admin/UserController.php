@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 use App\Support\AuditLogger;
@@ -15,7 +16,8 @@ class UserController extends Controller
 {
     public function index()
     {
-        $users = User::with([
+        $users = User::where('role', '!=', 'owner')
+            ->with([
                 'branch',
                 'latestTemporaryPermission',
                 'latestTemporaryPermission.branch',
@@ -34,12 +36,14 @@ class UserController extends Controller
 
     public function store(Request $request)
     {
+        $this->ensureRoleAssignmentAllowed($request);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|min:6',
-            'role' => 'required|in:admin,staff,owner',
-            'branch_id' => 'nullable|exists:branches,id',
+            'role' => 'required|in:admin,staff',
+            'branch_id' => 'required|exists:branches,id',
             'contact_number' => 'nullable|string|max:50',
             'position' => 'nullable|string|max:100',
             'address' => 'nullable|string|max:255',
@@ -49,23 +53,25 @@ class UserController extends Controller
             'temp_expires_at' => 'nullable|date|after_or_equal:today',
         ]);
 
-        if ($validated['role'] === 'staff' && empty($validated['branch_id'])) {
-            return back()->withErrors(['branch_id' => 'Branch is required for staff accounts.'])->withInput();
-        }
-
         $canEncodeAnyBranch = $validated['role'] === 'staff' ? $request->boolean('can_encode_any_branch') : false;
-        $user = User::create([
+        $userAttributes = [
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
             'role' => $validated['role'],
-            'branch_id' => $validated['branch_id'] ?? null,
+            'branch_id' => $validated['branch_id'],
             'contact_number' => $validated['contact_number'] ?? null,
             'position' => $validated['position'] ?? null,
             'address' => $validated['address'] ?? null,
             'can_encode_any_branch' => $canEncodeAnyBranch,
             'is_active' => true,
-        ]);
+        ];
+
+        if (Schema::hasColumn('users', 'admin_scope')) {
+            $userAttributes['admin_scope'] = $validated['role'] === 'admin' ? 'branch' : null;
+        }
+
+        $user = User::create($userAttributes);
 
         $this->maybeGrantTemporaryPermission($request, $user);
 
@@ -78,6 +84,7 @@ class UserController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role,
+                'admin_scope' => $user->admin_scope,
                 'branch_id' => $user->branch_id,
                 'can_encode_any_branch' => $user->can_encode_any_branch,
             ],
@@ -94,6 +101,8 @@ class UserController extends Controller
 
     public function edit(User $user)
     {
+        $this->ensureManageableUser($user);
+
         $user->load([
             'branch',
             'latestTemporaryPermission',
@@ -112,11 +121,14 @@ class UserController extends Controller
 
     public function update(Request $request, User $user)
     {
+        $this->ensureManageableUser($user);
+        $this->ensureRoleAssignmentAllowed($request, $user);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
-            'role' => 'required|in:admin,staff,owner',
-            'branch_id' => 'nullable|exists:branches,id',
+            'role' => 'required|in:admin,staff',
+            'branch_id' => 'required|exists:branches,id',
             'contact_number' => 'nullable|string|max:50',
             'position' => 'nullable|string|max:100',
             'address' => 'nullable|string|max:255',
@@ -126,30 +138,35 @@ class UserController extends Controller
             'temp_expires_at' => 'nullable|date|after_or_equal:today',
         ]);
 
-        if ($validated['role'] === 'staff' && empty($validated['branch_id'])) {
-            return back()->withErrors(['branch_id' => 'Branch is required for staff accounts.'])->withInput();
-        }
-
         $before = [
             'name' => $user->name,
             'email' => $user->email,
             'role' => $user->role,
+            'admin_scope' => $user->admin_scope,
             'branch_id' => $user->branch_id,
             'can_encode_any_branch' => $user->can_encode_any_branch,
         ];
 
-        $user->update([
+        $isManagedMainAdmin = $user->isMainBranchAdmin();
+
+        $updateAttributes = [
             'name' => $validated['name'],
             'email' => $validated['email'],
-            'role' => $validated['role'],
-            'branch_id' => $validated['branch_id'] ?? null,
+            'role' => $isManagedMainAdmin ? 'admin' : $validated['role'],
+            'branch_id' => $isManagedMainAdmin ? $user->branch_id : $validated['branch_id'],
             'contact_number' => $validated['contact_number'] ?? null,
             'position' => $validated['position'] ?? null,
             'address' => $validated['address'] ?? null,
             'can_encode_any_branch' => $validated['role'] === 'staff'
                 ? $request->boolean('can_encode_any_branch')
                 : false,
-        ]);
+        ];
+
+        if (Schema::hasColumn('users', 'admin_scope')) {
+            $updateAttributes['admin_scope'] = $isManagedMainAdmin ? 'main' : ($validated['role'] === 'admin' ? 'branch' : null);
+        }
+
+        $user->update($updateAttributes);
 
         $this->maybeGrantTemporaryPermission($request, $user);
 
@@ -164,6 +181,7 @@ class UserController extends Controller
                     'name' => $user->name,
                     'email' => $user->email,
                     'role' => $user->role,
+                    'admin_scope' => $user->admin_scope,
                     'branch_id' => $user->branch_id,
                     'can_encode_any_branch' => $user->can_encode_any_branch,
                 ],
@@ -181,6 +199,8 @@ class UserController extends Controller
 
     public function toggleActive(User $user)
     {
+        $this->ensureManageableUser($user);
+
         if (auth()->id() === $user->id) {
             return back()->with('error', "You can't deactivate your own account.");
         }
@@ -208,6 +228,8 @@ class UserController extends Controller
 
     public function resetPassword(Request $request, User $user)
     {
+        $this->ensureManageableUser($user);
+
         $validated = $request->validate([
             'password' => 'required|min:6|confirmed',
         ]);
@@ -291,5 +313,41 @@ class UserController extends Controller
             branchId: $user->branch_id,
             targetBranchId: $branch->id
         );
+    }
+
+    private function ensureRoleAssignmentAllowed(Request $request, ?User $targetUser = null): void
+    {
+        if ((string) $request->input('role') === 'owner') {
+            throw ValidationException::withMessages([
+                'role' => 'Unauthorized to create owner accounts.',
+            ]);
+        }
+
+        if ((string) $request->input('admin_scope') === 'main') {
+            throw ValidationException::withMessages([
+                'admin_scope' => 'Unauthorized to assign main branch administrator access.',
+            ]);
+        }
+
+        if ($targetUser?->isMainBranchAdmin()) {
+            if ((string) $request->input('role', 'admin') !== 'admin') {
+                throw ValidationException::withMessages([
+                    'role' => 'Unauthorized to modify main branch administrator access.',
+                ]);
+            }
+
+            if ($request->filled('admin_scope') && (string) $request->input('admin_scope') !== 'main') {
+                throw ValidationException::withMessages([
+                    'admin_scope' => 'Unauthorized to modify main branch administrator access.',
+                ]);
+            }
+        }
+    }
+
+    private function ensureManageableUser(User $user): void
+    {
+        if ($user->isOwner()) {
+            abort(403, 'Unauthorized');
+        }
     }
 }

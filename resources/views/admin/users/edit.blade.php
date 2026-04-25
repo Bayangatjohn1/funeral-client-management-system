@@ -79,12 +79,14 @@
                     <label class="label-section">Role</label>
                     <select name="role" id="role" class="form-select" required>
                         <option value="staff" {{ old('role', $user->role) == 'staff' ? 'selected' : '' }}>Staff</option>
-                        <option value="admin" {{ old('role', $user->role) == 'admin' ? 'selected' : '' }}>Admin</option>
-                        <option value="owner" {{ old('role', $user->role) == 'owner' ? 'selected' : '' }}>Owner</option>
+                        <option value="admin" {{ old('role', $user->role) == 'admin' ? 'selected' : '' }}>Branch Admin</option>
                     </select>
                     @error('role')
                         <div class="form-error">{{ $message }}</div>
                     @enderror
+                    <div class="form-hint mt-1">
+                        {{ $user->isMainBranchAdmin() ? 'Main Branch Administrator access is preserved and cannot be reassigned here.' : 'Admin accounts managed here remain Branch Admins.' }}
+                    </div>
                 </div>
 
                 <div>
@@ -100,7 +102,7 @@
                     @error('branch_id')
                         <div class="form-error">{{ $message }}</div>
                     @enderror
-                    <div id="branch_hint" class="form-hint mt-1">Branch is required for staff accounts.</div>
+                    <div id="branch_hint" class="form-hint mt-1">Branch is required for staff and branch admin accounts.</div>
                 </div>
 
                 <div id="cross_branch_wrap" class="md:col-span-2 space-y-3 border border-amber-200 rounded-xl p-4 bg-amber-50 hidden">
@@ -266,27 +268,21 @@
 
             function syncCrossBranchState() {
                 const isStaff = roleSelect && roleSelect.value === 'staff';
-                const isOwner = roleSelect && roleSelect.value === 'owner';
+                const needsBranch = roleSelect && ['staff', 'admin'].includes(roleSelect.value);
 
                 if (crossWrap) {
                     crossWrap.classList.toggle('hidden', !isStaff);
                 }
 
                 if (branchSelect) {
-                    branchSelect.required = isStaff;
-                    branchSelect.disabled = isOwner;
-                    if (isOwner) {
-                        branchSelect.value = '';
-                    }
+                    branchSelect.required = !!needsBranch;
                 }
 
                 if (branchHint) {
                     if (isStaff) {
                         branchHint.textContent = 'Branch is required for staff accounts.';
-                    } else if (isOwner) {
-                        branchHint.textContent = 'Owner accounts are global and not tied to a branch.';
                     } else {
-                        branchHint.textContent = 'Branch assignment is optional for admin accounts.';
+                        branchHint.textContent = 'Branch is required for branch admin accounts.';
                     }
                 }
 

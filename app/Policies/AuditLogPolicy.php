@@ -12,7 +12,7 @@ class AuditLogPolicy
 
     public function viewAny(User $user): bool
     {
-        return in_array($user->role, ['admin', 'owner'], true);
+        return $user->isOwner() || $user->isMainBranchAdmin();
     }
 
     public function view(User $user, AuditLog $log): bool

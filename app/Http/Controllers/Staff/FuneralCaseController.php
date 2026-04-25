@@ -22,13 +22,11 @@ class FuneralCaseController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
-        $scopeBranchIds = $user->branchScopeIds();
+        $operationalBranchId = (int) ($user->operationalBranchId() ?? 0);
         $canEncodeAnyBranch = $user->canEncodeAnyBranch();
-        $scopeBranches = Branch::whereIn('id', $scopeBranchIds)->orderBy('branch_code')->get();
-        $mainBranch = $scopeBranches->first(function ($branch) {
-            return strtoupper((string) $branch->branch_code) === 'BR001';
-        });
-        $mainBranchId = (int) ($mainBranch?->id ?? 0);
+        $operationalBranch = $operationalBranchId > 0
+            ? Branch::whereKey($operationalBranchId)->first()
+            : null;
 
         $request->validate([
             'q' => ['nullable', 'string', 'max:100', "regex:/^[A-Za-z0-9\\s.'-]+$/"],
@@ -108,13 +106,13 @@ class FuneralCaseController extends Controller
                 'deceased:id,full_name,interment_at,interment',
                 'branch:id,branch_code',
             ])
-            ->where('branch_id', $mainBranchId)
+            ->where('branch_id', $operationalBranchId)
             ->where(function ($scopeQuery) {
                 $scopeQuery->where('entry_source', 'MAIN')
                     ->orWhereNull('entry_source');
             });
 
-        if ($mainBranchId <= 0) {
+        if ($operationalBranchId <= 0) {
             $query->whereRaw('1 = 0');
         }
 
@@ -170,8 +168,8 @@ class FuneralCaseController extends Controller
 
         $openWizard = $request->boolean('open_wizard') && $currentTab === 'active';
         $packages = collect();
-        $branches = $mainBranch ? collect([$mainBranch]) : collect();
-        $defaultBranchId = $mainBranchId > 0 ? $mainBranchId : ((int) $user->branch_id);
+        $branches = $operationalBranch ? collect([$operationalBranch]) : collect();
+        $defaultBranchId = $operationalBranchId > 0 ? $operationalBranchId : ((int) $user->branch_id);
         $nextCode = null;
         $nextCodeMap = collect();
 
@@ -338,7 +336,6 @@ class FuneralCaseController extends Controller
     public function otherReportsIndex(Request $request)
     {
         $user = auth()->user();
-        $scopeBranchIds = $user->branchScopeIds();
         $canEncodeAnyBranch = $user->canEncodeAnyBranch();
 
         if (!$canEncodeAnyBranch) {
@@ -347,15 +344,26 @@ class FuneralCaseController extends Controller
                 ->with('warning', 'You need permission from the admin to view other-branch reports.');
         }
 
-        $scopeBranches = Branch::whereIn('id', $scopeBranchIds)->orderBy('branch_code')->get();
-        $otherScopeBranchIds = $scopeBranches
-            ->filter(function ($branch) {
-                return strtoupper((string) $branch->branch_code) !== 'BR001';
-            })
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->values()
-            ->all();
+        if ($user->isMainBranchAdmin()) {
+            $scopeBranches = Branch::whereIn('id', $user->branchScopeIds())
+                ->orderBy('branch_code')
+                ->get();
+
+            $otherScopeBranchIds = $scopeBranches
+                ->filter(function ($branch) {
+                    return strtoupper((string) $branch->branch_code) !== 'BR001';
+                })
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all();
+        } else {
+            $allowedBranchId = (int) ($user->activeTemporaryPermission()?->allowed_branch_id ?? 0);
+            $scopeBranches = $allowedBranchId > 0
+                ? Branch::whereKey($allowedBranchId)->orderBy('branch_code')->get()
+                : collect();
+            $otherScopeBranchIds = $allowedBranchId > 0 ? [$allowedBranchId] : [];
+        }
 
         $request->validate([
             'q' => ['nullable', 'string', 'max:100', "regex:/^[A-Za-z0-9\\s.'-]+$/"],
@@ -463,8 +471,12 @@ class FuneralCaseController extends Controller
     public function show(FuneralCase $funeral_case)
     {
         $user = auth()->user();
+        $operationalBranchId = (int) ($user->operationalBranchId() ?? 0);
 
-        if (!in_array((int) $funeral_case->branch_id, $user->branchScopeIds(), true)) {
+        if (
+            ($funeral_case->entry_source ?? 'MAIN') === 'MAIN'
+            && (int) $funeral_case->branch_id !== $operationalBranchId
+        ) {
             abort(403);
         }
 
@@ -479,14 +491,13 @@ class FuneralCaseController extends Controller
 
     public function create()
     {
-        $scopeBranchIds = auth()->user()->branchScopeIds();
-        $defaultBranchId = (int) auth()->user()->branch_id;
+        $defaultBranchId = (int) (auth()->user()->operationalBranchId() ?? 0);
 
-        $clients = Client::whereIn('branch_id', $scopeBranchIds)
+        $clients = Client::where('branch_id', $defaultBranchId)
             ->orderBy('full_name')
             ->get();
 
-        $deceaseds = Deceased::whereIn('branch_id', $scopeBranchIds)
+        $deceaseds = Deceased::where('branch_id', $defaultBranchId)
             ->orderBy('full_name')
             ->get();
 
@@ -494,7 +505,7 @@ class FuneralCaseController extends Controller
             ->orderBy('name')
             ->get();
         $nextCode = $this->nextCaseCode($defaultBranchId);
-        $nextCodeMap = Branch::whereIn('id', $scopeBranchIds)
+        $nextCodeMap = Branch::whereKey($defaultBranchId)
             ->orderBy('branch_code')
             ->get()
             ->mapWithKeys(function ($branch) {
@@ -513,16 +524,15 @@ class FuneralCaseController extends Controller
             'case_status' => 'required|in:DRAFT,ACTIVE,COMPLETED',
         ]);
 
-        $scopeBranchIds = auth()->user()->branchScopeIds();
-        $defaultBranchId = (int) auth()->user()->branch_id;
+        $operationalBranchId = (int) (auth()->user()->operationalBranchId() ?? 0);
 
         $client = Client::find($validated['client_id']);
         $deceased = Deceased::find($validated['deceased_id']);
 
-        if (!$client || !in_array((int) $client->branch_id, $scopeBranchIds, true)) {
+        if (!$client || (int) $client->branch_id !== $operationalBranchId) {
             abort(403);
         }
-        if (!$deceased || !in_array((int) $deceased->branch_id, $scopeBranchIds, true)) {
+        if (!$deceased || (int) $deceased->branch_id !== $operationalBranchId) {
             abort(403);
         }
         if ($deceased->client_id !== $client->id) {
@@ -537,12 +547,7 @@ class FuneralCaseController extends Controller
             return back()->withErrors(['package_id' => 'Selected package is unavailable.'])->withInput();
         }
 
-        $entrySource = optional(Branch::find($client->branch_id))->branch_code === 'BR001' ? 'MAIN' : 'OTHER_BRANCH';
-        if ($entrySource === 'OTHER_BRANCH') {
-            return back()->withErrors([
-                'client_id' => 'Direct case creation is for main-branch intake only. Use Other Branch Intake for completed branch reports.',
-            ])->withInput();
-        }
+        $entrySource = 'MAIN';
 
         $subtotal = (float) $package->price;
         $discountPayload = app(CaseDiscountResolver::class)
@@ -621,8 +626,8 @@ class FuneralCaseController extends Controller
 
     public function edit(FuneralCase $funeral_case)
     {
-        $scopeBranchIds = auth()->user()->branchScopeIds();
-        if (!in_array((int) $funeral_case->branch_id, $scopeBranchIds, true)) {
+        $operationalBranchId = (int) (auth()->user()->operationalBranchId() ?? 0);
+        if ((int) $funeral_case->branch_id !== $operationalBranchId) {
             abort(403);
         }
         if (($funeral_case->entry_source ?? 'MAIN') === 'OTHER_BRANCH') {
@@ -631,11 +636,11 @@ class FuneralCaseController extends Controller
                 ->withErrors(['case' => 'Other-branch reported cases are locked. Use admin verification workflow for review.']);
         }
 
-        $clients = Client::whereIn('branch_id', $scopeBranchIds)
+        $clients = Client::where('branch_id', $operationalBranchId)
             ->orderBy('full_name')
             ->get();
 
-        $deceaseds = Deceased::whereIn('branch_id', $scopeBranchIds)
+        $deceaseds = Deceased::where('branch_id', $operationalBranchId)
             ->orderBy('full_name')
             ->get();
 
@@ -652,8 +657,8 @@ class FuneralCaseController extends Controller
         $originalPaymentStatus = $funeral_case->payment_status;
         $originalEntrySource = $funeral_case->entry_source;
 
-        $scopeBranchIds = auth()->user()->branchScopeIds();
-        if (!in_array((int) $funeral_case->branch_id, $scopeBranchIds, true)) {
+        $operationalBranchId = (int) (auth()->user()->operationalBranchId() ?? 0);
+        if ((int) $funeral_case->branch_id !== $operationalBranchId) {
             abort(403);
         }
         if (($funeral_case->entry_source ?? 'MAIN') === 'OTHER_BRANCH') {
@@ -672,10 +677,10 @@ class FuneralCaseController extends Controller
         $client = Client::find($validated['client_id']);
         $deceased = Deceased::find($validated['deceased_id']);
 
-        if (!$client || !in_array((int) $client->branch_id, $scopeBranchIds, true)) {
+        if (!$client || (int) $client->branch_id !== $operationalBranchId) {
             abort(403);
         }
-        if (!$deceased || !in_array((int) $deceased->branch_id, $scopeBranchIds, true)) {
+        if (!$deceased || (int) $deceased->branch_id !== $operationalBranchId) {
             abort(403);
         }
         if ($deceased->client_id !== $client->id) {
@@ -690,12 +695,7 @@ class FuneralCaseController extends Controller
             return back()->withErrors(['package_id' => 'Selected package is unavailable.'])->withInput();
         }
 
-        $entrySource = optional(Branch::find($client->branch_id))->branch_code === 'BR001' ? 'MAIN' : 'OTHER_BRANCH';
-        if ($entrySource === 'OTHER_BRANCH') {
-            return back()->withErrors([
-                'client_id' => 'Direct case management edits are for main-branch records only.',
-            ])->withInput();
-        }
+        $entrySource = 'MAIN';
 
         $subtotal = (float) $package->price;
         $discountPayload = app(CaseDiscountResolver::class)
@@ -825,7 +825,9 @@ class FuneralCaseController extends Controller
 
     public function destroy(FuneralCase $funeral_case)
     {
-        if (!in_array((int) $funeral_case->branch_id, auth()->user()->branchScopeIds(), true)) {
+        $operationalBranchId = (int) (auth()->user()->operationalBranchId() ?? 0);
+
+        if ((int) $funeral_case->branch_id !== $operationalBranchId) {
             abort(403);
         }
         if (($funeral_case->entry_source ?? 'MAIN') === 'OTHER_BRANCH') {

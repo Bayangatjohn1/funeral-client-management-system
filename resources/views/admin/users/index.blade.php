@@ -58,7 +58,7 @@
                             <tr>
                                 <td class="table-primary">{{ $user->name }}</td>
                                 <td class="table-secondary">{{ $user->email }}</td>
-                                <td>{{ ucfirst($user->role) }}</td>
+                                <td>{{ $user->roleLabel() }}</td>
                                 <td>{{ $user->branch->branch_name ?? '-' }}</td>
                                 <td class="table-secondary">{{ $user->position ?? '-' }}</td>
                                 <td>{{ $user->contact_number ?? '-' }}</td>

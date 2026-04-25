@@ -46,7 +46,12 @@ class IntakeController extends Controller
 
     public function createOther()
     {
-        $permission = auth()->user()?->role === 'admin'
+        $user = auth()->user();
+        if ($user?->isBranchAdmin()) {
+            abort(403);
+        }
+
+        $permission = $user?->isMainBranchAdmin()
             ? null
             : $this->requireActiveTemporaryPermission();
 
@@ -65,7 +70,12 @@ class IntakeController extends Controller
 
     public function storeOther(Request $request)
     {
-        $permission = auth()->user()?->role === 'admin'
+        $user = auth()->user();
+        if ($user?->isBranchAdmin()) {
+            abort(403);
+        }
+
+        $permission = $user?->isMainBranchAdmin()
             ? null
             : $this->requireActiveTemporaryPermission();
 
@@ -75,7 +85,7 @@ class IntakeController extends Controller
     private function renderForm(string $mode, ?\App\Models\TemporaryCrossBranchPermission $permission = null)
     {
         $user = auth()->user();
-        $staffBranchId = (int) $user->branch_id;
+        $operationalBranchId = (int) ($user->operationalBranchId() ?? $user->branch_id ?? 0);
         $canEncodeAnyBranch = $user->canEncodeAnyBranch();
         $activePermission = $permission;
 
@@ -85,7 +95,7 @@ class IntakeController extends Controller
 
         $branchQuery = Branch::where('is_active', true)->orderBy('branch_code');
         if ($mode === 'other') {
-            if ($user->role === 'admin') {
+            if ($user->isMainBranchAdmin()) {
                 // Admins can encode for any non-main active branch without temp permission.
                 $branchQuery->whereRaw('UPPER(branch_code) <> ?', ['BR001']);
             } else {
@@ -101,14 +111,12 @@ class IntakeController extends Controller
                     "Temporary permission granted: you can record other-branch reports {$expiresLabel}."
                 );
             }
-        } elseif ($canEncodeAnyBranch) {
-            $branchQuery->where('branch_code', 'BR001');
         } else {
-            $branchQuery->where('id', $staffBranchId);
+            $branchQuery->where('id', $operationalBranchId);
         }
 
         $branches = $branchQuery->get();
-        $defaultBranchId = old('branch_id') ?: ($branches->first()?->id ?? $staffBranchId);
+        $defaultBranchId = old('branch_id') ?: ($branches->first()?->id ?? $operationalBranchId);
 
         return view('staff.intake.create', [
             'packages' => $packages,
@@ -271,12 +279,18 @@ class IntakeController extends Controller
         $validated['wake_days'] = $computedWakeDays;
 
         $user = auth()->user();
-        $staffBranchId = (int) $user->branch_id;
+        $operationalBranchId = (int) ($user->operationalBranchId() ?? $user->branch_id ?? 0);
         $canEncodeAnyBranch = $user->canEncodeAnyBranch();
-        $isAdmin = $user->role === 'admin';
+        $isMainAdmin = $user->isMainBranchAdmin();
+        $isBranchAdmin = $user->isBranchAdmin();
 
         if ($mode === 'other') {
-            if (!$isAdmin) {
+            if ($isBranchAdmin) {
+                return redirect()->back()
+                    ->withErrors(['branch_id' => 'Unauthorized for cross-branch intake.']);
+            }
+
+            if (!$isMainAdmin) {
                 $permission = $permission ?: $this->requireActiveTemporaryPermission();
                 if (
                     !$permission
@@ -293,11 +307,11 @@ class IntakeController extends Controller
         $entrySource = 'MAIN';
         if ($mode === 'main') {
             $mainBranch = Branch::where('is_active', true)
-                ->where('branch_code', 'BR001')
+                ->whereKey($operationalBranchId)
                 ->first();
 
             if (!$mainBranch) {
-                return back()->withErrors(['branch_id' => 'Main branch (BR001) is not available.'])->withInput();
+                return back()->withErrors(['branch_id' => 'Assigned branch is not available.'])->withInput();
             }
 
             $branchId = (int) $mainBranch->id;
@@ -308,7 +322,7 @@ class IntakeController extends Controller
                 ->where('is_active', true)
                 ->first();
 
-            if (!$isAdmin) {
+            if (!$isMainAdmin) {
                 if (
                     !$branch
                     || strtoupper((string) $branch->branch_code) === 'BR001'
@@ -362,7 +376,7 @@ class IntakeController extends Controller
             return back()->withErrors(['branch_id' => 'Selected branch is unavailable.'])->withInput();
         }
         if ($mode === 'main') {
-            $entrySource = strtoupper((string) $branch->branch_code) === 'BR001' ? 'MAIN' : 'OTHER_BRANCH';
+            $entrySource = 'MAIN';
         }
 
         $normalizedClientName = strtolower(trim((string) $validated['client_name']));

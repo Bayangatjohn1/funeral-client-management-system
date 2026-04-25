@@ -30,15 +30,15 @@ Route::get('/', function () {
 Route::middleware(['auth', 'no_cache', 'active'])->get('/dashboard', function () {
     $user = auth()->user();
 
-    if ($user->role === 'owner') {
+    if ($user->isOwner()) {
         return redirect()->route('owner.dashboard');
     }
 
-    if ($user->role === 'admin') {
+    if ($user->isMainBranchAdmin()) {
         return redirect('/admin');
     }
 
-    if ($user->role === 'staff') {
+    if ($user->isBranchAdmin() || $user->role === 'staff') {
         return redirect('/staff');
     }
 
@@ -55,7 +55,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'owner'])->group(function () {
     Route::get('/owner/cases/{funeral_case}', [OwnerDashboardController::class, 'show'])->name('owner.cases.show');
 });
 
-Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->get('/admin', function (Request $request) {
+Route::middleware(['auth', 'no_cache', 'active', 'main_admin', 'branch.scope'])->get('/admin', function (Request $request) {
     $validated = $request->validate([
         'branch_id' => 'nullable|integer|exists:branches,id',
         'date_filter' => 'nullable|in:all,today,this_week,this_month,this_year',
@@ -159,14 +159,10 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->get(
     ]);
 });
 
-Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->get('/staff', function (Request $request) {
+Route::middleware(['auth', 'no_cache', 'active', 'staff_or_admin', 'branch.scope'])->get('/staff', function (Request $request) {
     $user = auth()->user();
-    $scopeBranchIds = $user->branchScopeIds();
+    $dashboardBranchId = (int) ($user->operationalBranchId() ?? 0);
     $canEncodeAnyBranch = $user->canEncodeAnyBranch();
-    $mainBranchId = (int) Branch::whereIn('id', $scopeBranchIds)
-        ->where('branch_code', 'BR001')
-        ->value('id');
-    $dashboardBranchId = $mainBranchId > 0 ? $mainBranchId : (int) $user->branch_id;
     $dashboardBranch = Branch::select(['id', 'branch_code', 'branch_name'])->find($dashboardBranchId);
     $today = now()->startOfDay();
 
@@ -309,7 +305,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff_or_admin', 'branch.scope
     Route::get('reminders', [ReminderController::class, 'index'])->name('staff.reminders.index');
 });
 
-Route::middleware(['auth', 'no_cache', 'active', 'admin'])->prefix('admin')->group(function () {
+Route::middleware(['auth', 'no_cache', 'active', 'main_admin'])->prefix('admin')->group(function () {
     Route::get('/users', [UserController::class, 'index'])->name('admin.users.index');
     Route::get('/users/create', [UserController::class, 'create'])->name('admin.users.create');
     Route::post('/users', [UserController::class, 'store'])->name('admin.users.store');

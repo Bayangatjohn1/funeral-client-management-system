@@ -28,7 +28,7 @@ class DashboardAccessTest extends TestCase
         $response = $this->actingAs($owner)->get('/owner');
 
         $response->assertOk();
-        $response->assertSee('Financial Snapshot');
+        $response->assertSee('Executive Board');
     }
 
     public function test_staff_dashboard_renders_for_staff(): void
@@ -39,7 +39,7 @@ class DashboardAccessTest extends TestCase
         $response = $this->actingAs($staff)->get('/staff');
 
         $response->assertOk()
-            ->assertSee('Case Work Overview')
+            ->assertSee('Staff Dashboard')
             ->assertSee('data-theme-toggle', false);
     }
 
@@ -82,8 +82,13 @@ class DashboardAccessTest extends TestCase
 
     private function createUser(string $role, ?Branch $branch = null): User
     {
+        if ($role === 'admin' && !$branch) {
+            $branch = $this->createBranch('BR001', 'Main Branch');
+        }
+
         return User::factory()->create([
             'role' => $role,
+            'admin_scope' => $role === 'admin' ? 'main' : null,
             'is_active' => true,
             'branch_id' => $branch?->id,
             'can_encode_any_branch' => false,
@@ -92,11 +97,13 @@ class DashboardAccessTest extends TestCase
 
     private function createBranch(string $code, string $name): Branch
     {
-        return Branch::create([
-            'branch_code' => $code,
-            'branch_name' => $name,
-            'address' => 'Test Address',
-            'is_active' => true,
-        ]);
+        return Branch::firstOrCreate(
+            ['branch_code' => $code],
+            [
+                'branch_name' => $name,
+                'address' => 'Test Address',
+                'is_active' => true,
+            ]
+        );
     }
 }

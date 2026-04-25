@@ -46,10 +46,10 @@
                 <label class="label-section">Role <span class="text-rose-500">*</span></label>
                 <select name="role" id="role" class="form-select" required>
                     <option value="staff" {{ old('role')=='staff' ? 'selected' : '' }}>Staff</option>
-                    <option value="admin" {{ old('role')=='admin' ? 'selected' : '' }}>Admin</option>
-                    <option value="owner" {{ old('role')=='owner' ? 'selected' : '' }}>Owner</option>
+                    <option value="admin" {{ old('role')=='admin' ? 'selected' : '' }}>Branch Admin</option>
                 </select>
                 @error('role') <div class="form-error">{{ $message }}</div> @enderror
+                <div class="form-hint">New admin accounts are created as Branch Admins automatically.</div>
             </div>
 
             <div class="md:col-span-2">
@@ -63,7 +63,7 @@
                     @endforeach
                 </select>
                 @error('branch_id') <div class="form-error">{{ $message }}</div> @enderror
-                <div class="form-hint">Branch is required for staff accounts.</div>
+                <div class="form-hint">Branch is required for staff and branch admin accounts.</div>
             </div>
         </div>
 
@@ -114,12 +114,13 @@
         const crossCheckbox = document.getElementById('can_encode_any_branch');
 
         function sync() {
+            const needsBranch = roleSelect && ['staff', 'admin'].includes(roleSelect.value);
             const isStaff = roleSelect && roleSelect.value === 'staff';
             if (crossWrap) {
                 crossWrap.classList.toggle('hidden', !isStaff);
             }
             if (branchSelect) {
-                branchSelect.required = isStaff;
+                branchSelect.required = !!needsBranch;
             }
             if (!isStaff && crossCheckbox) {
                 crossCheckbox.checked = false;

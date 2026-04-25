@@ -9,7 +9,9 @@ class OwnerMiddleware
 {
     public function handle(Request $request, Closure $next)
     {
-        if (!auth()->check() || auth()->user()->role !== 'owner') {
+        $user = $request->user();
+
+        if (!$user || !method_exists($user, 'isOwner') || !$user->isOwner()) {
             abort(403, 'Unauthorized');
         }
 

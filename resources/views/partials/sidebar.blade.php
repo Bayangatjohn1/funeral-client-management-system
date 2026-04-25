@@ -1,5 +1,6 @@
 @php
-    $role = auth()->user()->role ?? null;
+    $user = auth()->user();
+    $role = $user->role ?? null;
 
     $linkBase = 'nav-link';
     $iconBase = 'nav-link__icon';
@@ -13,9 +14,9 @@
     };
 @endphp
 
-@if ($role === 'staff')
+@if ($role === 'staff' || ($user && method_exists($user, 'isBranchAdmin') && $user->isBranchAdmin()))
     @include('partials.sidebar.staff', ['isActive' => $isActive, 'iconState' => $iconState])
-@elseif ($role === 'admin')
+@elseif ($user && method_exists($user, 'isMainBranchAdmin') && $user->isMainBranchAdmin())
     @include('partials.sidebar.admin', ['isActive' => $isActive, 'iconState' => $iconState])
 @elseif ($role === 'owner')
     @include('partials.sidebar.owner', ['isActive' => $isActive, 'iconState' => $iconState])

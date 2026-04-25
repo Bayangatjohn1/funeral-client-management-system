@@ -9,6 +9,17 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('deceased', function (Blueprint $table) {
+            foreach ([
+                'deceased_transport_option_index',
+                'deceased_embalming_status_index',
+            ] as $indexName) {
+                try {
+                    $table->dropIndex($indexName);
+                } catch (\Throwable $e) {
+                    // Ignore if the legacy index is already absent.
+                }
+            }
+
             $columns = [
                 'transport_option',
                 'transport_notes',

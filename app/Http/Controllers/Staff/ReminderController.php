@@ -13,13 +13,10 @@ class ReminderController extends Controller
     {
         $user = $request->user();
         $scopeBranchIds = $user->branchScopeIds();
-        $mainBranchId = (int) Branch::whereIn('id', $scopeBranchIds)
-            ->where('branch_code', 'BR001')
-            ->value('id');
-        $branchId = $mainBranchId > 0 ? $mainBranchId : (int) $user->branch_id;
-        $branchChoices = Branch::whereIn('id', $scopeBranchIds)
-            ->where('branch_code', 'BR001')
-            ->get(['id', 'branch_code', 'branch_name']);
+        $branchId = (int) ($user->operationalBranchId() ?? 0);
+        $branchChoices = $user->isMainBranchAdmin()
+            ? Branch::whereIn('id', $scopeBranchIds)->orderBy('branch_code')->get(['id', 'branch_code', 'branch_name'])
+            : Branch::whereKey($branchId)->get(['id', 'branch_code', 'branch_name']);
         $requestedBranchId = (int) $request->input('branch_id');
         if ($requestedBranchId > 0 && $branchChoices->pluck('id')->contains($requestedBranchId)) {
             $branchId = $requestedBranchId;

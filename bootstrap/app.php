@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'owner' => \App\Http\Middleware\OwnerMiddleware::class,
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
+            'main_admin' => \App\Http\Middleware\MainBranchAdminMiddleware::class,
             'staff' => \App\Http\Middleware\StaffMiddleware::class,
             'staff_or_admin' => \App\Http\Middleware\StaffOrAdminMiddleware::class,
             'active' => \App\Http\Middleware\EnsureUserIsActive::class,

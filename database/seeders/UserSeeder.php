@@ -21,6 +21,7 @@ class UserSeeder extends Seeder
                 'name' => 'Owner',
                 'password' => Hash::make('Owner12345!'),
                 'role' => 'owner',
+                'admin_scope' => null,
                 'branch_id' => null,
             ]
         );
@@ -32,6 +33,7 @@ class UserSeeder extends Seeder
                 'name' => 'Admin',
                 'password' => Hash::make('Admin12345!'),
                 'role' => 'admin',
+                'admin_scope' => 'main',
                 'branch_id' => $main?->id,
             ]
         );
@@ -43,6 +45,7 @@ class UserSeeder extends Seeder
                 'name' => 'Staff',
                 'password' => Hash::make('Staff12345!'),
                 'role' => 'staff',
+                'admin_scope' => null,
                 'branch_id' => $main?->id,
             ]
         );

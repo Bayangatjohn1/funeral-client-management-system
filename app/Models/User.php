@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
@@ -21,6 +22,7 @@ class User extends Authenticatable
     'email',
     'password',
     'role',
+    'admin_scope',
     'branch_id',
     'is_active',
     'can_encode_any_branch',
@@ -54,6 +56,7 @@ class User extends Authenticatable
      */
     protected ?array $cachedBranchScopeIds = null;
     protected ?\App\Models\TemporaryCrossBranchPermission $cachedActiveTemporaryPermission = null;
+    protected static ?bool $cachedAdminScopeColumnExists = null;
 
     /**
      * Get the attributes that should be cast.
@@ -65,8 +68,109 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
             'can_encode_any_branch' => 'boolean',
         ];
+    }
+
+    public function isOwner(): bool
+    {
+        return $this->role === 'owner';
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function isMainBranchAdmin(): bool
+    {
+        if (!$this->isAdmin()) {
+            return false;
+        }
+
+        if ($this->adminScopeColumnExists() && $this->admin_scope !== null) {
+            return $this->admin_scope === 'main';
+        }
+
+        return $this->isAssignedToMainBranch();
+    }
+
+    public function isBranchAdmin(): bool
+    {
+        if (!$this->isAdmin()) {
+            return false;
+        }
+
+        if ($this->adminScopeColumnExists() && $this->admin_scope !== null) {
+            return $this->admin_scope === 'branch';
+        }
+
+        return !$this->isAssignedToMainBranch();
+    }
+
+    public function roleLabel(): string
+    {
+        if ($this->isOwner()) {
+            return 'Owner';
+        }
+
+        if ($this->isMainBranchAdmin()) {
+            return 'Main Branch Admin';
+        }
+
+        if ($this->isBranchAdmin()) {
+            return 'Branch Admin';
+        }
+
+        if ($this->role === 'staff') {
+            return 'Staff';
+        }
+
+        return ucfirst((string) $this->role);
+    }
+
+    public function operationalBranchId(): ?int
+    {
+        if ($this->isOwner()) {
+            return null;
+        }
+
+        if ($this->branch_id) {
+            return (int) $this->branch_id;
+        }
+
+        if ($this->isMainBranchAdmin()) {
+            return (int) \Illuminate\Support\Facades\Cache::remember(
+                'main_branch_id:v1',
+                now()->addSeconds(30),
+                static fn () => (int) (\App\Models\Branch::where('branch_code', 'BR001')->value('id') ?? 0)
+            ) ?: null;
+        }
+
+        return null;
+    }
+
+    protected function adminScopeColumnExists(): bool
+    {
+        if (self::$cachedAdminScopeColumnExists !== null) {
+            return self::$cachedAdminScopeColumnExists;
+        }
+
+        self::$cachedAdminScopeColumnExists = \Illuminate\Support\Facades\Schema::hasColumn('users', 'admin_scope');
+
+        return self::$cachedAdminScopeColumnExists;
+    }
+
+    protected function isAssignedToMainBranch(): bool
+    {
+        $mainBranchId = (int) \Illuminate\Support\Facades\Cache::remember(
+            'main_branch_id:v1',
+            now()->addSeconds(30),
+            static fn () => (int) (\App\Models\Branch::where('branch_code', 'BR001')->value('id') ?? 0)
+        );
+
+        return $mainBranchId > 0 && (int) $this->branch_id === $mainBranchId;
     }
 
     public function temporaryPermissions()
@@ -96,12 +200,16 @@ class User extends Authenticatable
 
     public function canEncodeAnyBranch(): bool
     {
-        if ($this->role === 'admin') {
+        if ($this->isMainBranchAdmin()) {
             return true;
         }
 
-        if ($this->role !== 'staff') {
+        if ($this->isBranchAdmin() || $this->role !== 'staff') {
             return false;
+        }
+
+        if ((bool) $this->can_encode_any_branch) {
+            return true;
         }
 
         return (bool) $this->activeTemporaryPermission();
@@ -113,7 +221,7 @@ class User extends Authenticatable
             return $this->cachedBranchScopeIds;
         }
 
-        if ($this->role === 'admin') {
+        if ($this->isOwner() || $this->isMainBranchAdmin()) {
             $this->cachedBranchScopeIds = \Illuminate\Support\Facades\Cache::remember(
                 'active_branch_scope_ids:v1',
                 now()->addSeconds(30),
@@ -125,7 +233,11 @@ class User extends Authenticatable
 
         $branchIds = [];
 
-        if ($this->role === 'staff') {
+        if ($this->isBranchAdmin()) {
+            if ($this->branch_id) {
+                $branchIds[] = (int) $this->branch_id;
+            }
+        } elseif ($this->role === 'staff') {
             $branchIds = $this->branches()
                 ->where('is_active', true)
                 ->pluck('branches.id')

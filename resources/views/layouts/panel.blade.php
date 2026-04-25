@@ -125,7 +125,7 @@
 
                         <div class="profile-copy">
                             <div class="profile-name">{{ auth()->user()->name ?? 'System User' }}</div>
-                            <div class="profile-role">{{ ucfirst(auth()->user()->role ?? 'User') }} Account</div>
+                            <div class="profile-role">{{ auth()->user()?->roleLabel() ?? ucfirst(auth()->user()->role ?? 'User') }} Account</div>
                         </div>
                         <i class="bi bi-chevron-up profile-pill-caret" aria-hidden="true"></i>
                     </button>
@@ -168,10 +168,11 @@
                 $topbarActions = trim($__env->yieldContent('topbar_actions'));
                 $legacyHeaderActions = trim($__env->yieldContent('header_actions'));
                 $filterBar = trim($__env->yieldContent('filter_bar'));
-                $authRole = auth()->user()->role ?? null;
-                $notificationRouteName = match ($authRole) {
-                    'staff' => 'staff.reminders.index',
-                    'admin' => 'admin.reminders.index',
+                $authUser = auth()->user();
+                $authRole = $authUser->role ?? null;
+                $notificationRouteName = match (true) {
+                    $authUser?->isMainBranchAdmin() => 'admin.reminders.index',
+                    in_array($authRole, ['staff', 'admin'], true) => 'staff.reminders.index',
                     default => null,
                 };
                 $notificationHref = $notificationRouteName ? route($notificationRouteName) : null;
@@ -180,30 +181,19 @@
                 $notificationCounts = ['all' => 0, 'due' => 0, 'today' => 0, 'upcoming' => 0];
 
                 if (auth()->check()) {
-                    $authUser = auth()->user();
                     $scopeBranchIds = [];
 
-                    if ($authRole === 'staff') {
-                        $scopeBranchIds = method_exists($authUser, 'branchScopeIds')
-                            ? $authUser->branchScopeIds()
-                            : [];
-
-                        $mainBranchId = (int) \App\Models\Branch::query()
-                            ->whereIn('id', $scopeBranchIds)
-                            ->where('branch_code', 'BR001')
-                            ->value('id');
-
-                        if ($mainBranchId > 0) {
-                            $scopeBranchIds = [$mainBranchId];
-                        } elseif (!empty($authUser->branch_id)) {
-                            $scopeBranchIds = [(int) $authUser->branch_id];
-                        }
-                    } elseif (in_array($authRole, ['admin', 'owner'], true)) {
+                    if ($authUser->isMainBranchAdmin() || $authUser->isOwner()) {
                         $scopeBranchIds = \App\Models\Branch::query()
                             ->where('is_active', true)
                             ->pluck('id')
                             ->map(fn ($id) => (int) $id)
                             ->all();
+                    } elseif (in_array($authRole, ['staff', 'admin'], true)) {
+                        $operationalBranchId = (int) ($authUser->operationalBranchId() ?? 0);
+                        if ($operationalBranchId > 0) {
+                            $scopeBranchIds = [$operationalBranchId];
+                        }
                     }
 
                     if (!empty($scopeBranchIds)) {

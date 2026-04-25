@@ -104,6 +104,7 @@ class AdminOwnerInputConsistencyTest extends TestCase
     {
         return User::factory()->create([
             'role' => $role,
+            'admin_scope' => $role === 'admin' ? 'main' : null,
             'is_active' => true,
         ]);
     }

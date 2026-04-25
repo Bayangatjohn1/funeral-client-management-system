@@ -47,13 +47,8 @@ class UserController extends Controller
             'contact_number' => 'nullable|string|max:50',
             'position' => 'nullable|string|max:100',
             'address' => 'nullable|string|max:255',
-            'can_encode_any_branch' => 'nullable|boolean',
-            'grant_temp_access' => 'nullable|boolean',
-            'temp_allowed_branch_id' => 'nullable|exists:branches,id',
-            'temp_expires_at' => 'nullable|date|after_or_equal:today',
         ]);
 
-        $canEncodeAnyBranch = $validated['role'] === 'staff' ? $request->boolean('can_encode_any_branch') : false;
         $userAttributes = [
             'name' => $validated['name'],
             'email' => $validated['email'],
@@ -63,7 +58,6 @@ class UserController extends Controller
             'contact_number' => $validated['contact_number'] ?? null,
             'position' => $validated['position'] ?? null,
             'address' => $validated['address'] ?? null,
-            'can_encode_any_branch' => $canEncodeAnyBranch,
             'is_active' => true,
         ];
 
@@ -72,8 +66,6 @@ class UserController extends Controller
         }
 
         $user = User::create($userAttributes);
-
-        $this->maybeGrantTemporaryPermission($request, $user);
 
         AuditLogger::log(
             action: 'user.created',
@@ -86,7 +78,6 @@ class UserController extends Controller
                 'role' => $user->role,
                 'admin_scope' => $user->admin_scope,
                 'branch_id' => $user->branch_id,
-                'can_encode_any_branch' => $user->can_encode_any_branch,
             ],
             branchId: $user->branch_id
         );

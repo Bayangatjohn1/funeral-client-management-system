@@ -164,6 +164,99 @@ class AdminScopeAuthorizationTest extends TestCase
         ]);
     }
 
+    public function test_main_admin_can_create_staff_account(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $otherBranch = $this->createBranch('BR002', 'Branch Two');
+        $admin = $this->createMainAdmin($mainBranch);
+
+        $this->actingAs($admin)
+            ->post('/admin/users', [
+                'name' => 'New Staff Member',
+                'email' => 'new.staff@example.com',
+                'password' => 'secret123',
+                'role' => 'staff',
+                'branch_id' => $otherBranch->id,
+            ])
+            ->assertRedirect(route('admin.users.index', absolute: false));
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'new.staff@example.com',
+            'role' => 'staff',
+            'branch_id' => $otherBranch->id,
+            'admin_scope' => null,
+        ]);
+    }
+
+    public function test_created_staff_is_limited_to_assigned_branch(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $otherBranch = $this->createBranch('BR002', 'Branch Two');
+        $admin = $this->createMainAdmin($mainBranch);
+
+        $this->actingAs($admin)
+            ->post('/admin/users', [
+                'name' => 'Branch Staff',
+                'email' => 'branch.staff@example.com',
+                'password' => 'secret123',
+                'role' => 'staff',
+                'branch_id' => $otherBranch->id,
+            ])
+            ->assertRedirect(route('admin.users.index', absolute: false));
+
+        $staff = User::where('email', 'branch.staff@example.com')->first();
+
+        $this->assertEquals($otherBranch->id, $staff->branch_id);
+        $this->assertNull($staff->admin_scope);
+
+        $this->actingAs($staff)->get('/admin')->assertForbidden();
+        $this->actingAs($staff)->get('/admin/users')->assertForbidden();
+    }
+
+    public function test_created_branch_admin_is_limited_to_assigned_branch(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $otherBranch = $this->createBranch('BR002', 'Branch Two');
+        $admin = $this->createMainAdmin($mainBranch);
+
+        $this->actingAs($admin)
+            ->post('/admin/users', [
+                'name' => 'Branch Admin Test',
+                'email' => 'new.branch.admin@example.com',
+                'password' => 'secret123',
+                'role' => 'admin',
+                'branch_id' => $otherBranch->id,
+            ])
+            ->assertRedirect(route('admin.users.index', absolute: false));
+
+        $branchAdmin = User::where('email', 'new.branch.admin@example.com')->first();
+
+        $this->assertEquals($otherBranch->id, $branchAdmin->branch_id);
+        $this->assertEquals('branch', $branchAdmin->admin_scope);
+
+        $this->actingAs($branchAdmin)->get('/dashboard')->assertRedirect('/staff');
+        $this->actingAs($branchAdmin)->get('/admin')->assertForbidden();
+        $this->actingAs($branchAdmin)->get('/admin/users')->assertForbidden();
+    }
+
+    public function test_create_user_form_has_no_pre_filled_email_or_password(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $admin = $this->createMainAdmin($mainBranch);
+
+        $response = $this->actingAs($admin)->get('/admin/users/create');
+        $response->assertOk();
+
+        $html = $response->getContent();
+
+        $this->assertStringNotContainsString('owner@funeral.test', $html);
+        $this->assertStringNotContainsString('admin@funeral.test', $html);
+        $this->assertStringNotContainsString('staff@funeral.test', $html);
+
+        // Password field must never carry a value attribute
+        $this->assertDoesNotMatchRegularExpression('/name="password"[^>]*value=/i', $html);
+    }
+
     private function createBranch(string $code, string $name): Branch
     {
         return Branch::create([

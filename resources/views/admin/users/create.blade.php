@@ -32,13 +32,13 @@
 
             <div>
                 <label class="label-section">Email <span class="text-rose-500">*</span></label>
-                <input type="email" name="email" value="{{ old('email') }}" class="form-input" required>
+                <input type="email" name="email" value="{{ old('email') }}" class="form-input" required autocomplete="off">
                 @error('email') <div class="form-error">{{ $message }}</div> @enderror
             </div>
 
             <div>
                 <label class="label-section">Password <span class="text-rose-500">*</span></label>
-                <input type="password" name="password" class="form-input" required>
+                <input type="password" name="password" class="form-input" required autocomplete="new-password">
                 @error('password') <div class="form-error">{{ $message }}</div> @enderror
             </div>
 
@@ -65,14 +65,6 @@
                 @error('branch_id') <div class="form-error">{{ $message }}</div> @enderror
                 <div class="form-hint">Branch is required for staff and branch admin accounts.</div>
             </div>
-        </div>
-
-        <div id="cross_branch_wrap" class="hidden rounded-xl border border-amber-200 bg-amber-50 px-4 py-4">
-            <label class="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
-                <input type="hidden" name="can_encode_any_branch" value="0">
-                <input type="checkbox" id="can_encode_any_branch" name="can_encode_any_branch" value="1" {{ old('can_encode_any_branch') ? 'checked' : '' }} class="h-4 w-4 rounded border-slate-300 text-[var(--brand-mid)] focus:ring-[var(--brand-mid)]">
-                Allow cross-branch encoding (Main Branch staff only)
-            </label>
         </div>
 
         <div class="grid gap-4 md:grid-cols-2">
@@ -110,20 +102,11 @@
     (function () {
         const roleSelect = document.getElementById('role');
         const branchSelect = document.getElementById('branch_id');
-        const crossWrap = document.getElementById('cross_branch_wrap');
-        const crossCheckbox = document.getElementById('can_encode_any_branch');
 
         function sync() {
             const needsBranch = roleSelect && ['staff', 'admin'].includes(roleSelect.value);
-            const isStaff = roleSelect && roleSelect.value === 'staff';
-            if (crossWrap) {
-                crossWrap.classList.toggle('hidden', !isStaff);
-            }
             if (branchSelect) {
                 branchSelect.required = !!needsBranch;
-            }
-            if (!isStaff && crossCheckbox) {
-                crossCheckbox.checked = false;
             }
         }
 

@@ -1,7 +1,7 @@
 @extends('layouts.panel')
 
-@section('page_title', 'Administration Overview')
-@section('page_desc', 'Monitor operations, branch performance, and system status.')
+@section('page_title', 'Admin Dashboard')
+@section('page_desc', 'Monitor branch operations, case activity, payments, and system status.')
 
 @section('header_actions')
 @endsection
@@ -21,7 +21,7 @@
     <div class="card-custom admin-top-controls">
         <form method="GET" action="{{ url('/admin') }}" class="admin-top-controls-form">
             <select name="branch_id" onchange="this.form.submit()" class="input-custom w-48">
-                <option value="">{{ auth()->user()?->isMainBranchAdmin() ? 'HQ & All Branches' : 'Assigned Branch' }}</option>
+                <option value="">{{ auth()->user()?->isMainBranchAdmin() ? 'All Branches' : 'Assigned Branch' }}</option>
                 @foreach($branches ?? [] as $branch)
                     <option value="{{ $branch->id }}" {{ (string) ($selectedBranchId ?? '') === (string) $branch->id ? 'selected' : '' }}>
                         {{ $branch->branch_code }} - {{ $branch->branch_name }}
@@ -67,7 +67,7 @@
             <div class="relative z-10 flex items-center justify-between mb-8">
                 <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/10 backdrop-blur-md">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span class="text-[9px] font-black text-emerald-300 uppercase tracking-widest">System Updated Data</span>
+                    <span class="text-[9px] font-black text-emerald-300 uppercase tracking-widest">LIVE SUMMARY</span>
                 </div>
                 <div class="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/50 text-xl">
                     <i class="bi bi-wallet2"></i>
@@ -87,7 +87,7 @@
             <div class="flex items-center justify-between mb-6">
                 <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200">
                     <i class="bi bi-exclamation-circle-fill text-slate-500 text-[10px]"></i>
-                    <span class="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.16em]">Outstanding</span>
+                    <span class="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.16em]">UNSETTLED BALANCE</span>
                 </div>
                 <div class="w-12 h-12 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 text-xl">
                     <i class="bi bi-graph-down-arrow"></i>
@@ -105,15 +105,15 @@
 
     {{-- 3. CASE METRICS --}}
     <section class="space-y-3 section admin-section-block">
-        <h3 class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Operational Health Metrics</h3>
+        <h3 class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Case and Payment Summary</h3>
         <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             @php
                 $caseStats = [
-                    ['label' => 'Total Record', 'val' => $totalCases ?? 0, 'icon' => 'bi-folder2-open', 'color' => 'text-slate-900'],
-                    ['label' => 'Ongoing', 'val' => $ongoingCases ?? 0, 'icon' => 'bi-arrow-repeat', 'color' => 'text-slate-900'],
+                    ['label' => 'Total Records', 'val' => $totalCases ?? 0, 'icon' => 'bi-folder2-open', 'color' => 'text-slate-900'],
+                    ['label' => 'Ongoing Cases', 'val' => $ongoingCases ?? 0, 'icon' => 'bi-arrow-repeat', 'color' => 'text-slate-900'],
                     ['label' => 'Paid in Full', 'val' => $paidCases ?? 0, 'icon' => 'bi-check-circle', 'color' => 'text-emerald-600'],
-                    ['label' => 'Partial Pay', 'val' => $partialCases ?? 0, 'icon' => 'bi-pie-chart', 'color' => 'text-amber-600'],
-                    ['label' => 'Unsettled', 'val' => $unpaidCases ?? 0, 'icon' => 'bi-exclamation-triangle', 'color' => 'text-red-600'],
+                    ['label' => 'Partially Paid', 'val' => $partialCases ?? 0, 'icon' => 'bi-pie-chart', 'color' => 'text-amber-600'],
+                    ['label' => 'Unpaid Cases', 'val' => $unpaidCases ?? 0, 'icon' => 'bi-exclamation-triangle', 'color' => 'text-red-600'],
                     ['label' => 'Total Service Amount', 'val' => number_format((float) ($totalSales ?? 0), 2), 'icon' => 'bi-cash-coin', 'color' => 'text-emerald-600', 'is_money' => true],
                 ];
             @endphp
@@ -140,7 +140,7 @@
         {{-- Left: Elegant Service Amount List --}}
         <div class="xl:col-span-7 card-custom flex flex-col">
             <div class="flex items-center justify-between mb-8">
-                <h3 class="text-[12px] font-black uppercase tracking-widest text-slate-800 font-heading">Branch Service Amount Leadership</h3>
+                <h3 class="text-[12px] font-black uppercase tracking-widest text-slate-800 font-heading">Service Amount by Branch</h3>
                 <i class="bi bi-trophy text-xl text-amber-400"></i>
             </div>
             

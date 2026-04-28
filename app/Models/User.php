@@ -78,22 +78,32 @@ class User extends Authenticatable
         return $this->role === 'owner';
     }
 
+    public function isStaff(): bool
+    {
+        return $this->role === 'staff';
+    }
+
     public function isAdmin(): bool
     {
         return $this->role === 'admin';
     }
 
-    public function isMainBranchAdmin(): bool
+    public function isMainAdmin(): bool
     {
         if (!$this->isAdmin()) {
             return false;
         }
 
         if ($this->adminScopeColumnExists() && $this->admin_scope !== null) {
-            return $this->admin_scope === 'main';
+            return in_array($this->admin_scope, ['main', 'all_branches'], true);
         }
 
         return $this->isAssignedToMainBranch();
+    }
+
+    public function isMainBranchAdmin(): bool
+    {
+        return $this->isMainAdmin();
     }
 
     public function isBranchAdmin(): bool

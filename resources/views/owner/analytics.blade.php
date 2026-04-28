@@ -1208,7 +1208,6 @@ html[data-theme='dark'] .ba-head-row-nav {
 }
 </style>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 (function () {
     const payload = @json($chart);
@@ -1242,6 +1241,7 @@ html[data-theme='dark'] .ba-head-row-nav {
 
     const number = new Intl.NumberFormat('en-PH');
     const charts = {};
+    let chartLoader = null;
 
     const sharedOptions = {
         responsive: true,
@@ -1264,92 +1264,125 @@ html[data-theme='dark'] .ba-head-row-nav {
         },
     };
 
-    const buildChart = (id, config) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        charts[id] = new Chart(el, config);
+    const loadChartJs = () => {
+        if (window.Chart) {
+            return Promise.resolve(window.Chart);
+        }
+        if (chartLoader) {
+            return chartLoader;
+        }
+
+        chartLoader = new Promise((resolve, reject) => {
+            const existing = document.querySelector('script[data-chartjs-loader]');
+            if (existing) {
+                existing.addEventListener('load', () => resolve(window.Chart), { once: true });
+                existing.addEventListener('error', reject, { once: true });
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+            script.async = true;
+            script.dataset.chartjsLoader = 'true';
+            script.onload = () => resolve(window.Chart);
+            script.onerror = () => reject(new Error('Unable to load Chart.js'));
+            document.head.appendChild(script);
+        });
+
+        return chartLoader;
     };
 
-    if (payload.mode === 'all') {
-        buildChart('serviceCasesChart', {
-            type: 'bar',
-            data: {
-                labels: barAxisLabels,
-                datasets: [
-                    {
-                        type: 'bar',
-                        label: 'Total Service Amount',
-                        data: payload.bar.revenue ?? [],
-                        backgroundColor: '#1E293B',
-                        borderColor: '#1E293B',
-                        borderWidth: 1,
-                        borderRadius: 6,
-                        yAxisID: 'yRevenue',
-                    },
-                    {
-                        type: 'bar',
-                        label: 'Total Cases',
-                        data: payload.bar.volume ?? [],
-                        backgroundColor: '#3B82F6',
-                        borderColor: '#3B82F6',
-                        borderWidth: 1,
-                        borderRadius: 6,
-                        yAxisID: 'yCases',
-                    },
-                ],
-            },
-            options: {
-                ...sharedOptions,
-                scales: {
-                    yRevenue: {
-                        beginAtZero: true,
-                        grid: { color: gridColor },
-                        ticks: {
-                            color: textColor,
-                            callback: (value) => money.format(Number(value)),
+    const buildChart = async (id, config) => {
+        const el = document.getElementById(id);
+        if (!el || charts[id]) return charts[id];
+
+        const Chart = await loadChartJs();
+        charts[id] = new Chart(el, config);
+        return charts[id];
+    };
+
+    const buildPrimaryChart = () => {
+        if (payload.mode === 'all') {
+            return buildChart('serviceCasesChart', {
+                type: 'bar',
+                data: {
+                    labels: barAxisLabels,
+                    datasets: [
+                        {
+                            type: 'bar',
+                            label: 'Total Service Amount',
+                            data: payload.bar.revenue ?? [],
+                            backgroundColor: '#1E293B',
+                            borderColor: '#1E293B',
+                            borderWidth: 1,
+                            borderRadius: 6,
+                            yAxisID: 'yRevenue',
                         },
-                    },
-                    yCases: {
-                        beginAtZero: true,
-                        position: 'right',
-                        grid: { drawOnChartArea: false },
-                        ticks: {
-                            precision: 0,
-                            color: textColor,
-                            callback: (value) => number.format(Number(value)),
+                        {
+                            type: 'bar',
+                            label: 'Total Cases',
+                            data: payload.bar.volume ?? [],
+                            backgroundColor: '#3B82F6',
+                            borderColor: '#3B82F6',
+                            borderWidth: 1,
+                            borderRadius: 6,
+                            yAxisID: 'yCases',
                         },
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: {
-                            color: textColor,
-                            maxRotation: 0,
-                            minRotation: 0,
-                        },
-                    },
+                    ],
                 },
-                plugins: {
-                    ...sharedOptions.plugins,
-                    tooltip: {
-                        ...sharedOptions.plugins.tooltip,
-                        callbacks: {
-                            title: (items) => {
-                                const idx = items?.[0]?.dataIndex ?? -1;
-                                return barTooltipLabels[idx] ?? items?.[0]?.label ?? '';
+                options: {
+                    ...sharedOptions,
+                    scales: {
+                        yRevenue: {
+                            beginAtZero: true,
+                            grid: { color: gridColor },
+                            ticks: {
+                                color: textColor,
+                                callback: (value) => money.format(Number(value)),
                             },
-                            label: (ctx) => {
-                                if (ctx.dataset.label === 'Total Service Amount') {
-                                    return `${ctx.dataset.label}: ${money.format(Number(ctx.raw || 0))}`;
-                                }
-                                return `${ctx.dataset.label}: ${number.format(Number(ctx.raw || 0))}`;
+                        },
+                        yCases: {
+                            beginAtZero: true,
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            ticks: {
+                                precision: 0,
+                                color: textColor,
+                                callback: (value) => number.format(Number(value)),
+                            },
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                color: textColor,
+                                maxRotation: 0,
+                                minRotation: 0,
                             },
                         },
                     },
+                    plugins: {
+                        ...sharedOptions.plugins,
+                        tooltip: {
+                            ...sharedOptions.plugins.tooltip,
+                            callbacks: {
+                                title: (items) => {
+                                    const idx = items?.[0]?.dataIndex ?? -1;
+                                    return barTooltipLabels[idx] ?? items?.[0]?.label ?? '';
+                                },
+                                label: (ctx) => {
+                                    if (ctx.dataset.label === 'Total Service Amount') {
+                                        return `${ctx.dataset.label}: ${money.format(Number(ctx.raw || 0))}`;
+                                    }
+                                    return `${ctx.dataset.label}: ${number.format(Number(ctx.raw || 0))}`;
+                                },
+                            },
+                        },
+                    },
                 },
-            },
-        });
-    } else {
-        buildChart('branchPerformanceChart', {
+            });
+        }
+
+        return buildChart('branchPerformanceChart', {
             type: 'bar',
             data: {
                 labels: periodLabels,
@@ -1408,9 +1441,9 @@ html[data-theme='dark'] .ba-head-row-nav {
                         ...sharedOptions.plugins.tooltip,
                         callbacks: {
                             label: (ctx) => {
-                                    if (ctx.dataset.label === 'Total Service Amount') {
-                                        return `${ctx.dataset.label}: ${money.format(Number(ctx.raw || 0))}`;
-                                    }
+                                if (ctx.dataset.label === 'Total Service Amount') {
+                                    return `${ctx.dataset.label}: ${money.format(Number(ctx.raw || 0))}`;
+                                }
                                 return `${ctx.dataset.label}: ${number.format(Number(ctx.raw || 0))}`;
                             },
                         },
@@ -1418,17 +1451,12 @@ html[data-theme='dark'] .ba-head-row-nav {
                 },
             },
         });
-    }
+    };
 
     const billedTotal = summary.totalCollected + summary.totalOutstanding;
     const collectionRate = billedTotal > 0 ? ((summary.totalCollected / billedTotal) * 100) : 0;
-    let secondaryChartsReady = false;
-
-    const buildSecondaryCharts = () => {
-        if (secondaryChartsReady) return;
-        secondaryChartsReady = true;
-
-        buildChart('paymentChart', {
+    const chartFactories = {
+        paymentChart: () => buildChart('paymentChart', {
             type: 'doughnut',
             data: {
                 labels: ['Paid', 'Partial', 'Unpaid'],
@@ -1455,9 +1483,8 @@ html[data-theme='dark'] .ba-head-row-nav {
                     },
                 },
             },
-        });
-
-        buildChart('trendChart', {
+        }),
+        trendChart: () => buildChart('trendChart', {
             type: 'line',
             data: {
                 labels: payload.line.labels ?? [],
@@ -1465,14 +1492,14 @@ html[data-theme='dark'] .ba-head-row-nav {
                     {
                         label: 'Total Service Amount',
                         data: payload.line.data ?? [],
-                        borderColor: '#9c5a1a',
-                        backgroundColor: 'rgba(156, 90, 26, 0.14)',
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.10)',
                         borderWidth: 2.5,
                         fill: true,
                         tension: 0.32,
                         pointRadius: 2.8,
                         pointHoverRadius: 4.5,
-                        pointBackgroundColor: '#9c5a1a',
+                        pointBackgroundColor: '#2563eb',
                     },
                 ],
             },
@@ -1502,9 +1529,8 @@ html[data-theme='dark'] .ba-head-row-nav {
                     },
                 },
             },
-        });
-
-        buildChart('collectionChart', {
+        }),
+        collectionChart: () => buildChart('collectionChart', {
             type: 'bar',
             data: {
                 labels: ['Collected', 'Outstanding', 'Total Service Amount'],
@@ -1552,13 +1578,30 @@ html[data-theme='dark'] .ba-head-row-nav {
                     legend: { display: false },
                 },
             },
-        });
+        }),
+    };
+
+    const ensureChart = async (chartId) => {
+        if (charts[chartId]) {
+            return charts[chartId];
+        }
+
+        if (chartId === 'serviceCasesChart' || chartId === 'branchPerformanceChart') {
+            return buildPrimaryChart();
+        }
+
+        const factory = chartFactories[chartId];
+        if (!factory) {
+            return null;
+        }
+
+        return factory();
     };
 
     const tabButtons = Array.from(document.querySelectorAll('.ba-tab-btn'));
     const panels = Array.from(document.querySelectorAll('.ba-panel'));
 
-    const activatePanel = (targetId) => {
+    const activatePanel = async (targetId) => {
         tabButtons.forEach((btn) => {
             const active = btn.dataset.target === targetId;
             btn.classList.toggle('active', active);
@@ -1573,22 +1616,24 @@ html[data-theme='dark'] .ba-head-row-nav {
 
         const activePanel = document.getElementById(targetId);
         const canvas = activePanel?.querySelector('canvas');
-        if (canvas && !charts[canvas.id] && !['serviceCasesChart', 'branchPerformanceChart'].includes(canvas.id)) {
-            buildSecondaryCharts();
-        }
-        if (canvas && charts[canvas.id]) {
-            requestAnimationFrame(() => charts[canvas.id].resize());
+        if (canvas) {
+            const chart = await ensureChart(canvas.id);
+            if (chart) {
+                requestAnimationFrame(() => chart.resize());
+            }
         }
     };
 
     tabButtons.forEach((button) => {
-        button.addEventListener('click', () => activatePanel(button.dataset.target));
+        button.addEventListener('click', () => {
+            activatePanel(button.dataset.target).catch(() => {});
+        });
     });
 
-    const deferBuild = window.requestIdleCallback
-        ? window.requestIdleCallback.bind(window)
-        : (cb) => setTimeout(cb, 180);
-    deferBuild(() => buildSecondaryCharts());
+    const initialPanelId = payload.mode === 'all'
+        ? 'ba-panel-performance'
+        : 'ba-panel-performance';
+    activatePanel(initialPanelId).catch(() => {});
 
     const customRangeBtn = document.getElementById('baCustomRangeBtn');
     const datePopover = document.getElementById('baDatePopover');

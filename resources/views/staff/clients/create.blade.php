@@ -7,10 +7,30 @@
 <form method="POST" action="{{ route('clients.store') }}" class="space-y-4 max-w-xl">
 @csrf
 
-<div>
-    <label class="block text-sm font-medium">Full Name</label>
-    <input type="text" name="full_name" value="{{ old('full_name') }}" class="w-full border p-2 rounded" pattern="[A-Za-z ]+" title="Letters and spaces only" required>
-    @error('full_name') <div class="text-sm text-red-600 mt-1">{{ $message }}</div> @enderror
+<div class="grid grid-cols-2 gap-3">
+    <div>
+        <label class="block text-sm font-medium">First Name <span class="text-red-500">*</span></label>
+        <input type="text" name="first_name" value="{{ old('first_name') }}" class="w-full border p-2 rounded" pattern="[A-Za-zÀ-öø-ÿĀ-žḀ-ỿ .'\-]+" title="Letters (including accented like Ñ, É), spaces, apostrophes, dots, and hyphens only" required>
+        @error('first_name') <div class="text-sm text-red-600 mt-1">{{ $message }}</div> @enderror
+    </div>
+
+    <div>
+        <label class="block text-sm font-medium">Last Name <span class="text-red-500">*</span></label>
+        <input type="text" name="last_name" value="{{ old('last_name') }}" class="w-full border p-2 rounded" pattern="[A-Za-zÀ-öø-ÿĀ-žḀ-ỿ .'\-]+" title="Letters (including accented like Ñ, É), spaces, apostrophes, dots, and hyphens only" required>
+        @error('last_name') <div class="text-sm text-red-600 mt-1">{{ $message }}</div> @enderror
+    </div>
+
+    <div>
+        <label class="block text-sm font-medium">Middle Name</label>
+        <input type="text" name="middle_name" value="{{ old('middle_name') }}" class="w-full border p-2 rounded" pattern="[A-Za-zÀ-öø-ÿĀ-žḀ-ỿ .'\-]+" title="Letters (including accented like Ñ, É), spaces, apostrophes, dots, and hyphens only">
+        @error('middle_name') <div class="text-sm text-red-600 mt-1">{{ $message }}</div> @enderror
+    </div>
+
+    <div>
+        <label class="block text-sm font-medium">Suffix</label>
+        <input type="text" name="suffix" value="{{ old('suffix') }}" class="w-full border p-2 rounded" placeholder="Jr., Sr., III…" maxlength="20">
+        @error('suffix') <div class="text-sm text-red-600 mt-1">{{ $message }}</div> @enderror
+    </div>
 </div>
 
 <div>
@@ -30,4 +50,3 @@
 </div>
 </form>
 @endsection
-

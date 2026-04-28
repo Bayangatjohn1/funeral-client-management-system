@@ -9,22 +9,81 @@ use Illuminate\Http\Request;
 
 class PackageController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $packages = Package::orderBy('name')
-            ->paginate(20)
-            ->withQueryString();
+        $this->ensureCanViewPackages();
 
-        return view('admin.packages.index', compact('packages'));
+        $user = $request->user();
+        $query = Package::query();
+
+        if ($user->isBranchAdmin()) {
+            $query->where('is_active', true);
+        }
+
+        if ($q = $request->input('q')) {
+            $query->where(function ($builder) use ($q) {
+                $builder->where('name', 'like', "%{$q}%")
+                        ->orWhere('coffin_type', 'like', "%{$q}%");
+            });
+        }
+
+        if ($request->input('status') === 'active') {
+            $query->where('is_active', true);
+        } elseif ($request->input('status') === 'inactive') {
+            $query->where('is_active', false);
+        }
+
+        if ($request->input('promo') === 'with_promo') {
+            $query->where('promo_is_active', true);
+        } elseif ($request->input('promo') === 'no_promo') {
+            $query->where(function ($builder) {
+                $builder->where('promo_is_active', false)->orWhereNull('promo_is_active');
+            });
+        }
+
+        [$sortCol, $sortDir] = match ($request->input('sort', 'name_asc')) {
+            'price_desc'   => ['price', 'desc'],
+            'price_asc'    => ['price', 'asc'],
+            'updated_desc' => ['updated_at', 'desc'],
+            default        => ['name', 'asc'],
+        };
+        $query->orderBy($sortCol, $sortDir);
+
+        $packages = $query->paginate(20)->withQueryString();
+
+        $statsQuery = Package::query();
+
+        if ($user->isBranchAdmin()) {
+            $statsQuery->where('is_active', true);
+        }
+
+        $stats = $statsQuery->selectRaw(
+            'COUNT(*) as total,
+             SUM(is_active) as active_count,
+             SUM(promo_is_active) as promo_count,
+             MAX(price) as max_price'
+        )->first();
+
+        return view('admin.packages.index', [
+            'packages'       => $packages,
+            'totalPackages'  => (int) ($stats->total ?? 0),
+            'activePackages' => (int) ($stats->active_count ?? 0),
+            'promoPackages'  => (int) ($stats->promo_count ?? 0),
+            'highestPrice'   => (float) ($stats->max_price ?? 0),
+        ]);
     }
 
     public function create()
     {
+        $this->ensureCanManagePackages();
+
         return view('admin.packages.create');
     }
 
     public function store(Request $request)
     {
+        $this->ensureCanManagePackages();
+
         $validated = $request->validate([
             'name' => 'required|string|max:150',
             'coffin_type' => 'nullable|string|max:150',
@@ -78,11 +137,15 @@ class PackageController extends Controller
 
     public function edit(Package $package)
     {
+        $this->ensureCanManagePackages();
+
         return view('admin.packages.edit', compact('package'));
     }
 
     public function update(Request $request, Package $package)
     {
+        $this->ensureCanManagePackages();
+
         $validated = $request->validate([
             'name' => 'required|string|max:150',
             'coffin_type' => 'nullable|string|max:150',
@@ -148,6 +211,8 @@ class PackageController extends Controller
 
     public function quickUpdatePrice(Request $request, Package $package)
     {
+        $this->ensureCanManagePackages();
+
         $validated = $request->validate([
             'price' => 'required|numeric|min:0.01',
         ]);
@@ -177,6 +242,24 @@ class PackageController extends Controller
         );
 
         return redirect()->route('admin.packages.index')->with('success', 'Package price updated.');
+    }
+
+    private function ensureCanViewPackages(): void
+    {
+        $user = auth()->user();
+
+        if (! $user || (! $user->isMainAdmin() && ! $user->isBranchAdmin())) {
+            abort(403, 'Unauthorized');
+        }
+    }
+
+    private function ensureCanManagePackages(): void
+    {
+        $user = auth()->user();
+
+        if (! $user || ! $user->isMainAdmin()) {
+            abort(403, 'Branch admins have read-only access to packages.');
+        }
     }
 
     private function resolvePromoPayload(Request $request, array $validated): array

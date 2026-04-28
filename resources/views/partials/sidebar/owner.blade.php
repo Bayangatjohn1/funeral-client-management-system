@@ -27,11 +27,11 @@
             <span>Global Case History</span>
         </a>
 
-        <a href="{{ route('owner.sales.index') }}" class="{{ $isActive(request()->routeIs('owner.sales.*')) }}">
-            <svg class="{{ $iconState(request()->routeIs('owner.sales.*')) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        <a href="{{ route('reports.index', ['report_type' => 'owner_branch_analytics']) }}" class="{{ $isActive(request()->routeIs('reports.*')) }}">
+            <svg class="{{ $iconState(request()->routeIs('reports.*')) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-6m4 6V7m4 10v-4M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"/>
             </svg>
-            <span>Reporting & Export</span>
+            <span>Reports</span>
         </a>
     </div>
 </div>

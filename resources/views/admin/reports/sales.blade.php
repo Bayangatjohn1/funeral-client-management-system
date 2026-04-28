@@ -6,6 +6,7 @@
 
 @section('content')
 @php
+    $isBranchAdmin = auth()->user()?->isBranchAdmin() ?? false;
     $selectedBranch = collect($branches)->firstWhere('id', (int) $branchId);
     $selectedBranchLabel = $selectedBranch
         ? $selectedBranch->branch_code . ' - ' . $selectedBranch->branch_name
@@ -46,6 +47,12 @@
 
     $chartRows = $branchSales->take(4)->values();
     $chartPeak = max(1, (float) $chartRows->max('sales'), (float) $chartRows->max('collected'), (float) $chartRows->max('outstanding'));
+    $printParams = array_filter([
+        'report_type' => 'sales',
+        'branch_id' => $branchId ?: null,
+        'date_from' => $dateFrom ?: null,
+        'date_to' => $dateTo ?: null,
+    ], fn ($value) => filled($value));
 @endphp
 
 <style>
@@ -520,21 +527,29 @@
             </div>
             <div class="topbar-actions">
                 <button type="button" class="btn btn-secondary">↓ Export CSV</button>
-                <button type="button" class="btn btn-secondary">↓ Export PDF</button>
-                <button type="button" class="btn btn-dark">+ Generate Report</button>
+                <a href="{{ route('reports.print', $printParams) }}" target="_blank" rel="noopener" class="btn btn-secondary">↓ Export PDF</a>
+                <a href="{{ route('reports.index') }}" class="btn btn-dark">+ Generate Report</a>
             </div>
         </div>
 
         <div class="sales-filterbar">
             <form method="GET" action="{{ route('admin.reports.sales') }}" class="sales-filter" data-sales-toolbar>
-                <select id="sales-branch" name="branch_id" class="filter-select" data-branch-auto-submit>
-                    <option value="">All Branches</option>
+                @if($isBranchAdmin && $branchId)
+                    <input type="hidden" name="branch_id" value="{{ $branchId }}">
+                @endif
+                <select id="sales-branch" name="branch_id" class="filter-select" data-branch-auto-submit @if($isBranchAdmin) disabled @endif>
+                    @unless($isBranchAdmin)
+                        <option value="">All Branches</option>
+                    @endunless
                     @foreach($branches as $branch)
                         <option value="{{ $branch->id }}" {{ (string) $branchId === (string) $branch->id ? 'selected' : '' }}>
                             {{ $branch->branch_code }} - {{ $branch->branch_name }}
                         </option>
                     @endforeach
                 </select>
+                @if($isBranchAdmin)
+                    <span class="filter-tag"><strong>Assigned Branch Only</strong></span>
+                @endif
 
                 <select id="sales-created-preset" name="date_preset" class="filter-select">
                     <option value="ANY" {{ $resolvedDatePreset === 'ANY' ? 'selected' : '' }}>Any Time</option>

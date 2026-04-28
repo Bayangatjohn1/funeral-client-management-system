@@ -38,8 +38,8 @@
                     class="form-input table-toolbar-search"
                     data-table-search
                     placeholder="{{ $isOtherView ? 'Search case, client, deceased, or reporter...' : 'Search client, deceased, or case...' }}"
-                    pattern="[A-Za-z0-9.'\- ]+"
-                    title="Letters, numbers, spaces, apostrophes, periods, and hyphens only">
+                    pattern="[A-Za-zÀ-öø-ÿĀ-žḀ-ỿ0-9.'\- ]+"
+                    title="Letters (including accented like Ñ, É), numbers, spaces, apostrophes, dots, and hyphens only">
             </div>
 
             @if(!$isOtherView)

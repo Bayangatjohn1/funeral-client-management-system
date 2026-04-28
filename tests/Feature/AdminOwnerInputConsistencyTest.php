@@ -85,15 +85,15 @@ class AdminOwnerInputConsistencyTest extends TestCase
 
         $this->actingAs($owner)
             ->get('/owner/sales-per-branch?' . $validQuery)
-            ->assertOk();
+            ->assertRedirect(route('reports.index', ['report_type' => 'owner_branch_analytics'], absolute: false));
 
         $this->actingAs($owner)
             ->get('/owner/case-history?' . $validQuery)
             ->assertOk();
 
         $this->actingAs($owner)
-            ->get('/owner/sales-per-branch?transport_option=PLANE')
-            ->assertSessionHasErrors('transport_option');
+            ->get('/reports/preview?report_type=owner_branch_analytics&date_from=2026-04-20&date_to=2026-04-01')
+            ->assertSessionHasErrors('date_to');
 
         $this->actingAs($owner)
             ->get('/owner/case-history?q=DROP_TABLE!')

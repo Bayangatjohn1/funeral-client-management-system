@@ -10,6 +10,7 @@ use App\Support\AuditLogger;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
 {
@@ -137,22 +138,15 @@ class PaymentController extends Controller
                 $beforeBalance = round((float) $funeralCase->balance_amount, 2);
                 $beforeStatus = $funeralCase->payment_status;
 
-                // revert payment effect
-                $newPaid = round($beforeTotalPaid - (float) $payment->amount, 2);
-                $newPaid = max($newPaid, 0);
-                $balance = round(max((float) $funeralCase->total_amount - $newPaid, 0), 2);
-                $status = $newPaid <= 0 ? 'UNPAID' : ($balance > 0 ? 'PARTIAL' : 'PAID');
-
                 $payment->update([
                     'status' => 'VOID',
                     'void_reason' => $reason,
                 ]);
 
-                $funeralCase->update([
-                    'total_paid' => $newPaid,
-                    'balance_amount' => $balance,
-                    'payment_status' => $status,
-                ]);
+                // Re-derive aggregates from the payments table so the case totals are
+                // authoritative even if multiple payments exist.
+                $funeralCase->recalculatePaymentTotals();
+                $funeralCase->refresh();
 
                 AuditLogger::log(
                     'payment.voided',
@@ -165,9 +159,9 @@ class PaymentController extends Controller
                         'reference_no' => $payment->receipt_number,
                         'reason' => $reason,
                         'changes' => [
-                            ['field' => 'payment_status', 'before' => $beforeStatus, 'after' => $status],
-                            ['field' => 'total_paid', 'before' => $beforeTotalPaid, 'after' => $newPaid],
-                            ['field' => 'balance_amount', 'before' => $beforeBalance, 'after' => $balance],
+                            ['field' => 'payment_status', 'before' => $beforeStatus, 'after' => $funeralCase->payment_status],
+                            ['field' => 'total_paid', 'before' => $beforeTotalPaid, 'after' => $funeralCase->total_paid],
+                            ['field' => 'balance_amount', 'before' => $beforeBalance, 'after' => $funeralCase->balance_amount],
                         ],
                     ],
                     (int) $funeralCase->branch_id,
@@ -178,6 +172,11 @@ class PaymentController extends Controller
                 );
             });
         } catch (\RuntimeException $e) {
+            Log::error('payment.void_failed', [
+                'payment_id' => $payment->id,
+                'case_id'    => $payment->funeral_case_id,
+                'error'      => $e->getMessage(),
+            ]);
             AuditLogger::log(
                 'payment.void_failed',
                 'delete',
@@ -275,9 +274,14 @@ class PaymentController extends Controller
             ->whereHas('funeralCase', $branchScope)
             ->when($q, $applySearch);
 
-        $totalCollected  = (clone $kpiBase)->sum('amount');
-        $totalOutstanding = (clone $kpiBase)->sum('balance_after_payment');
-        $unpaidCount     = (clone $kpiBase)->where('payment_status_after_payment', 'UNPAID')->count();
+        $kpi = (clone $kpiBase)
+            ->selectRaw('COALESCE(SUM(amount), 0) as total_collected')
+            ->selectRaw('COALESCE(SUM(balance_after_payment), 0) as total_outstanding')
+            ->selectRaw("SUM(CASE WHEN payment_status_after_payment = 'UNPAID' THEN 1 ELSE 0 END) as unpaid_count")
+            ->first();
+        $totalCollected   = (float) ($kpi->total_collected  ?? 0);
+        $totalOutstanding = (float) ($kpi->total_outstanding ?? 0);
+        $unpaidCount      = (int)   ($kpi->unpaid_count     ?? 0);
 
         return view('staff.payments.history', [
             'payments' => $payments,
@@ -298,12 +302,14 @@ class PaymentController extends Controller
         $this->authorize('create', Payment::class);
 
         $validated = $request->validate([
-            'funeral_case_id' => 'required|exists:funeral_cases,id',
-            'paid_at' => 'required|date',
-            'amount_paid' => 'required|numeric|min:0.01',
-            'return_to_case' => 'nullable|boolean',
-            'void' => 'nullable|boolean',
-            'void_reason' => 'nullable|string|max:255',
+            'funeral_case_id'  => 'required|exists:funeral_cases,id',
+            'paid_at'          => 'required|date',
+            'amount_paid'      => 'required|numeric|min:0.01',
+            'payment_mode'     => 'nullable|in:cash,bank_transfer',
+            'reference_number' => 'required_if:payment_mode,bank_transfer|nullable|string|max:100',
+            'return_to_case'   => 'nullable|boolean',
+            'void'             => 'nullable|boolean',
+            'void_reason'      => 'nullable|string|max:255',
         ]);
 
         try {
@@ -337,6 +343,12 @@ class PaymentController extends Controller
 
                 if ($newPaid > $totalDue) {
                     $allowed = round(max($totalDue - $currentPaid, 0), 2);
+                    Log::warning('payment.overpayment_attempted', [
+                        'case_id'   => $funeralCase->id,
+                        'attempted' => $amountPaid,
+                        'remaining' => $allowed,
+                        'user_id'   => $user->id,
+                    ]);
                     throw new \RuntimeException("Payment exceeds balance. Remaining allowed amount is {$allowed}.");
                 }
 
@@ -344,17 +356,21 @@ class PaymentController extends Controller
                 $status = $newPaid <= 0 ? 'UNPAID' : ($balance > 0 ? 'PARTIAL' : 'PAID');
                 $paidAt = Carbon::parse($validated['paid_at']);
 
+                $paymentMode = $validated['payment_mode'] ?? 'cash';
+
                 $payment = Payment::create([
-                    'funeral_case_id' => $funeralCase->id,
-                    'branch_id' => $funeralCase->branch_id,
-                    'method' => 'CASH',
-                    'amount' => $amountPaid,
-                    'balance_after_payment' => $balance,
+                    'funeral_case_id'  => $funeralCase->id,
+                    'branch_id'        => $funeralCase->branch_id,
+                    'method'           => strtoupper($paymentMode), // mirrors payment_mode; ENUM widened in migration 400001
+                    'payment_mode'     => $paymentMode,
+                    'reference_number' => $validated['reference_number'] ?? null,
+                    'amount'           => $amountPaid,
+                    'balance_after_payment'        => $balance,
                     'payment_status_after_payment' => $status,
-                    'paid_date' => $paidAt->toDateString(),
-                    'paid_at' => $paidAt,
-                    'recorded_by' => $user->id,
-                    'status' => 'VALID',
+                    'paid_date'    => $paidAt->toDateString(),
+                    'paid_at'      => $paidAt,
+                    'recorded_by'  => $user->id,
+                    'status'       => 'VALID',
                 ]);
 
                 $payment->update([
@@ -394,6 +410,11 @@ class PaymentController extends Controller
             });
         } catch (\RuntimeException $e) {
             $caseId = $validated['funeral_case_id'] ?? null;
+            Log::error('payment.store_failed', [
+                'case_id' => $caseId,
+                'amount'  => $validated['amount_paid'] ?? null,
+                'error'   => $e->getMessage(),
+            ]);
             AuditLogger::log(
                 'payment.create_failed',
                 'create',

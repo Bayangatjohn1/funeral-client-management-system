@@ -8,9 +8,13 @@ use App\Models\Client;
 use App\Models\Deceased;
 use App\Models\FuneralCase;
 use App\Models\Package;
+use App\Models\ServiceDetail;
 use App\Support\Discount\CaseDiscountResolver;
 use App\Support\AuditLogger;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class FuneralCaseController extends Controller
 {
@@ -31,11 +35,18 @@ class FuneralCaseController extends Controller
         $request->validate([
             'q' => ['nullable', 'string', 'max:100', "regex:/^[A-Za-z0-9\\s.'-]+$/"],
             'tab' => ['nullable', 'in:active,completed'],
-            'case_status' => ['nullable', 'in:DRAFT,ACTIVE'],
+            'case_status' => ['nullable', 'in:DRAFT,ACTIVE,COMPLETED'],
             'payment_status' => ['nullable', 'in:PAID,PARTIAL,UNPAID'],
+            'date_preset' => ['nullable', 'in:TODAY,THIS_MONTH,THIS_YEAR,CUSTOM'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
             'date_range' => ['nullable', 'in:any,today,7d,30d,this_month,custom'],
             'request_date_from' => ['nullable', 'date'],
             'request_date_to' => ['nullable', 'date', 'after_or_equal:request_date_from'],
+            'service_type' => ['nullable', 'string', 'max:100'],
+            'package_id' => ['nullable', 'integer', 'exists:packages,id'],
+            'interment_from' => ['nullable', 'date'],
+            'interment_to' => ['nullable', 'date', 'after_or_equal:interment_from'],
             'sort' => ['nullable', 'in:newest,oldest,service_date_asc,service_date_desc,total_desc,total_asc,paid_desc,paid_asc,balance_desc,balance_asc'],
             'quick_filter' => ['nullable', 'in:all,needs_attention,with_balance,recent,paid,recently_completed'],
             'record_scope' => ['nullable', 'in:main,other'],
@@ -89,12 +100,15 @@ class FuneralCaseController extends Controller
                 'branch_id',
                 'client_id',
                 'deceased_id',
+                'package_id',
                 'case_code',
                 'service_requested_at',
                 'created_at',
                 'updated_at',
                 'funeral_service_at',
                 'service_package',
+                'service_type',
+                'interment_at',
                 'total_amount',
                 'total_paid',
                 'balance_amount',
@@ -104,7 +118,7 @@ class FuneralCaseController extends Controller
             ->with([
                 'client:id,full_name,contact_number',
                 'deceased:id,full_name,interment_at,interment',
-                'branch:id,branch_code',
+                'branch:id,branch_code,branch_name',
             ])
             ->where('branch_id', $operationalBranchId)
             ->where(function ($scopeQuery) {
@@ -131,35 +145,63 @@ class FuneralCaseController extends Controller
             });
         }
 
-        if ($currentTab === 'active' && $request->filled('case_status')) {
+        if ($request->filled('case_status')) {
             $query->where('case_status', $request->case_status);
         }
         if ($request->filled('payment_status')) {
             $query->where('payment_status', $request->payment_status);
         }
-        $dateRange = $request->string('date_range', 'any')->toString();
-        $usesCustomDate = $dateRange === 'custom'
-            || (!$request->filled('date_range') && ($request->filled('request_date_from') || $request->filled('request_date_to')));
-
-        if ($usesCustomDate) {
-            if ($request->filled('request_date_from')) {
-                $query->whereDate('service_requested_at', '>=', $request->string('request_date_from')->toString());
-            }
-            if ($request->filled('request_date_to')) {
-                $query->whereDate('service_requested_at', '<=', $request->string('request_date_to')->toString());
-            }
-        } elseif ($dateRange !== 'any') {
-            $today = now()->startOfDay();
-            if ($dateRange === 'today') {
-                $query->whereDate('service_requested_at', $today->toDateString());
-            } elseif ($dateRange === '7d') {
-                $query->where('service_requested_at', '>=', now()->subDays(7)->startOfDay());
-            } elseif ($dateRange === '30d') {
-                $query->where('service_requested_at', '>=', now()->subDays(30)->startOfDay());
-            } elseif ($dateRange === 'this_month') {
-                $query->whereBetween('service_requested_at', [now()->startOfMonth(), now()->endOfMonth()]);
-            }
+        if ($request->filled('service_type')) {
+            $query->where('service_type', $request->string('service_type')->toString());
         }
+        if ($request->filled('package_id')) {
+            $query->where('package_id', (int) $request->query('package_id'));
+        }
+
+        $datePreset = $request->string('date_preset')->toString();
+        if ($datePreset === '' && $request->filled('date_range')) {
+            $datePreset = match ($request->string('date_range')->toString()) {
+                'today' => 'TODAY',
+                'this_month' => 'THIS_MONTH',
+                'custom' => 'CUSTOM',
+                default => '',
+            };
+        }
+        if ($datePreset === '' && ($request->filled('date_from') || $request->filled('date_to') || $request->filled('request_date_from') || $request->filled('request_date_to'))) {
+            $datePreset = 'CUSTOM';
+        }
+
+        [$dateFrom, $dateTo] = $this->resolveCaseDateRange(
+            $datePreset,
+            $request->query('date_from', $request->query('request_date_from')),
+            $request->query('date_to', $request->query('request_date_to'))
+        );
+        [$startAt, $endAt] = $this->parseDateBounds($dateFrom, $dateTo);
+        $query
+            ->when($startAt, fn ($dateQuery) => $dateQuery->where('created_at', '>=', $startAt))
+            ->when($endAt, fn ($dateQuery) => $dateQuery->where('created_at', '<=', $endAt));
+
+        $intermentFrom = $request->query('interment_from');
+        $intermentTo = $request->query('interment_to');
+        $query->when($intermentFrom || $intermentTo, function ($intermentQuery) use ($intermentFrom, $intermentTo) {
+            $intermentQuery->where(function ($outer) use ($intermentFrom, $intermentTo) {
+                $outer->where(function ($caseDate) use ($intermentFrom, $intermentTo) {
+                    if ($intermentFrom) {
+                        $caseDate->whereDate('interment_at', '>=', $intermentFrom);
+                    }
+                    if ($intermentTo) {
+                        $caseDate->whereDate('interment_at', '<=', $intermentTo);
+                    }
+                })->orWhereHas('deceased', function ($deceasedDate) use ($intermentFrom, $intermentTo) {
+                    if ($intermentFrom) {
+                        $deceasedDate->whereRaw('DATE(COALESCE(interment_at, interment)) >= ?', [$intermentFrom]);
+                    }
+                    if ($intermentTo) {
+                        $deceasedDate->whereRaw('DATE(COALESCE(interment_at, interment)) <= ?', [$intermentTo]);
+                    }
+                });
+            });
+        });
 
         $this->applyCaseRecordQuickFilter($query, $currentTab, $quickFilter);
         $this->applyCaseRecordSort($query, $sort);
@@ -167,8 +209,19 @@ class FuneralCaseController extends Controller
         $cases = $query->paginate(20)->withQueryString();
 
         $openWizard = $request->boolean('open_wizard') && $currentTab === 'active';
-        $packages = collect();
+        $packages = Package::query()
+            ->select(['id', 'name', 'coffin_type', 'price'])
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
         $branches = $operationalBranch ? collect([$operationalBranch]) : collect();
+        $serviceTypes = FuneralCase::query()
+            ->where('branch_id', $operationalBranchId)
+            ->whereNotNull('service_type')
+            ->where('service_type', '!=', '')
+            ->distinct()
+            ->orderBy('service_type')
+            ->pluck('service_type');
         $defaultBranchId = $operationalBranchId > 0 ? $operationalBranchId : ((int) $user->branch_id);
         $nextCode = null;
         $nextCodeMap = collect();
@@ -199,8 +252,26 @@ class FuneralCaseController extends Controller
             'sortOptions',
             'sort',
             'quickFilterOptions',
-            'quickFilter'
+            'quickFilter',
+            'operationalBranch',
+            'datePreset',
+            'dateFrom',
+            'dateTo',
+            'intermentFrom',
+            'intermentTo',
+            'serviceTypes'
         ));
+    }
+
+    private function resolveCaseDateRange(?string $preset, ?string $dateFrom, ?string $dateTo): array
+    {
+        return match ($preset) {
+            'TODAY' => [Carbon::today()->toDateString(), Carbon::today()->toDateString()],
+            'THIS_MONTH' => [Carbon::today()->startOfMonth()->toDateString(), Carbon::today()->toDateString()],
+            'THIS_YEAR' => [Carbon::today()->startOfYear()->toDateString(), Carbon::today()->toDateString()],
+            'CUSTOM' => [$dateFrom, $dateTo],
+            default => [null, null],
+        };
     }
 
     public function completedIndex(Request $request)
@@ -212,10 +283,18 @@ class FuneralCaseController extends Controller
         return redirect()->route('funeral-cases.index', array_filter([
             'tab' => 'completed',
             'q' => $request->query('q'),
+            'case_status' => $request->query('case_status'),
             'payment_status' => $request->query('payment_status'),
+            'date_preset' => $request->query('date_preset'),
+            'date_from' => $request->query('date_from'),
+            'date_to' => $request->query('date_to'),
             'date_range' => $request->query('date_range'),
             'request_date_from' => $request->query('request_date_from'),
             'request_date_to' => $request->query('request_date_to'),
+            'service_type' => $request->query('service_type'),
+            'package_id' => $request->query('package_id'),
+            'interment_from' => $request->query('interment_from'),
+            'interment_to' => $request->query('interment_to'),
             'sort' => $request->query('sort'),
             'quick_filter' => $request->query('quick_filter'),
         ], fn ($value) => !is_null($value) && $value !== ''));
@@ -571,37 +650,87 @@ class FuneralCaseController extends Controller
             ])->withInput();
         }
 
-        $case = FuneralCase::create([
-            'branch_id' => $client->branch_id,
-            'client_id' => $client->id,
-            'deceased_id' => $deceased->id,
-            'package_id' => $package->id,
-            'case_code' => $this->nextCaseCode((int) $client->branch_id),
-            'service_requested_at' => $serviceRequestedAt,
-            'service_package' => $package->name,
-            'coffin_type' => $package->coffin_type,
-            'wake_location' => $wakeLocation,
-            'funeral_service_at' => $funeralServiceAt,
-            'subtotal_amount' => $subtotal,
-            'discount_type' => $discountPayload['discount_type'],
-            'discount_value_type' => $discountPayload['discount_value_type'],
-            'discount_value' => $discountPayload['discount_value'],
-            'discount_amount' => $discount,
-            'discount_note' => $discountPayload['discount_note'],
-            'total_amount' => $total,
-            'total_paid' => $payment['total_paid'],
-            'balance_amount' => $payment['balance'],
-            'payment_status' => $payment['status'],
-            'case_status' => $validated['case_status'],
-            'encoded_by' => auth()->id(),
-            'reported_branch_id' => $client->branch_id,
-            'reported_at' => now(),
-            'entry_source' => $entrySource,
-            'verification_status' => 'VERIFIED',
-            'verified_by' => auth()->id(),
-            'verified_at' => now(),
-            'verification_note' => 'Auto-verified main-branch case creation.',
-        ]);
+        // Wrap case creation and service_details in a retryable transaction.
+        // On a duplicate case_number collision (error 1062) the loop calls
+        // nextCaseNumber() again with a fresh MAX before retrying. Max 3 attempts.
+        $attempt    = 0;
+        $maxRetries = 3;
+        do {
+            $attempt++;
+            DB::beginTransaction();
+            try {
+                $case = FuneralCase::create([
+                    'branch_id'   => $client->branch_id,
+                    'client_id'   => $client->id,
+                    'deceased_id' => $deceased->id,
+                    'package_id'  => $package->id,
+                    'case_number' => FuneralCase::nextCaseNumber((int) $client->branch_id),
+                    'case_code'   => $this->nextCaseCode((int) $client->branch_id),
+                    'service_requested_at' => $serviceRequestedAt,
+                    'service_package'  => $package->name,
+                    'coffin_type'      => $package->coffin_type,
+                    'wake_location'    => $wakeLocation,
+                    'funeral_service_at' => $funeralServiceAt,
+                    'subtotal_amount'  => $subtotal,
+                    'discount_type'    => $discountPayload['discount_type'],
+                    'discount_value_type' => $discountPayload['discount_value_type'],
+                    'discount_value'   => $discountPayload['discount_value'],
+                    'discount_amount'  => $discount,
+                    'discount_note'    => $discountPayload['discount_note'],
+                    'total_amount'     => $total,
+                    'total_paid'       => $payment['total_paid'],
+                    'balance_amount'   => $payment['balance'],
+                    'payment_status'   => $payment['status'],
+                    'case_status'      => $validated['case_status'],
+                    'encoded_by'       => auth()->id(),
+                    'reported_branch_id' => $client->branch_id,
+                    'reported_at'      => now(),
+                    'entry_source'     => $entrySource,
+                    'verification_status' => 'VERIFIED',
+                    'verified_by'      => auth()->id(),
+                    'verified_at'      => now(),
+                    'verification_note' => 'Auto-verified main-branch case creation.',
+                ]);
+
+                ServiceDetail::create([
+                    'funeral_case_id' => $case->id,
+                    'start_of_wake'   => $funeralServiceAt,
+                    'internment_date' => null,
+                    'wake_days'       => null,
+                    'wake_location'   => $wakeLocation,
+                    'cemetery_place'  => null,
+                    'case_status'     => match ($validated['case_status']) {
+                        'ACTIVE'    => 'ongoing',
+                        'COMPLETED' => 'completed',
+                        default     => 'pending',
+                    },
+                ]);
+
+                DB::commit();
+                break;
+            } catch (\Illuminate\Database\QueryException $e) {
+                DB::rollBack();
+                if ($attempt >= $maxRetries || ($e->errorInfo[1] ?? 0) !== 1062) {
+                    Log::error('funeral_case.creation_failed', [
+                        'branch_id' => $client->branch_id,
+                        'attempt'   => $attempt,
+                        'error'     => $e->getMessage(),
+                    ]);
+                    return back()->withErrors(['case' => 'Failed to create case record. Please try again.'])->withInput();
+                }
+                Log::warning('funeral_case.case_number_collision', [
+                    'branch_id' => $client->branch_id,
+                    'attempt'   => $attempt,
+                ]);
+            } catch (\Throwable $e) {
+                DB::rollBack();
+                Log::error('funeral_case.creation_failed', [
+                    'branch_id' => $client->branch_id,
+                    'error'     => $e->getMessage(),
+                ]);
+                return back()->withErrors(['case' => 'Failed to create case record. Please try again.'])->withInput();
+            }
+        } while ($attempt < $maxRetries);
 
         AuditLogger::log(
             'case.created',
@@ -609,10 +738,10 @@ class FuneralCaseController extends Controller
             'funeral_case',
             $case->id,
             [
-                'case_status' => $case->case_status,
+                'case_status'    => $case->case_status,
                 'payment_status' => $case->payment_status,
-                'entry_source' => $case->entry_source,
-                'package_id' => $case->package_id,
+                'entry_source'   => $case->entry_source,
+                'package_id'     => $case->package_id,
             ],
             (int) $case->branch_id,
             null,

@@ -54,11 +54,15 @@ class AuditLogController extends Controller
         if ($request->filled('entity_type')) {
             $query->where('entity_type', 'like', '%' . $validated['entity_type'] . '%');
         }
-        if ($request->filled('date_from')) {
-            $query->whereDate('created_at', '>=', $validated['date_from']);
+        [$dateStart, $dateEnd] = $this->parseDateBounds(
+            $request->filled('date_from') ? $validated['date_from'] : null,
+            $request->filled('date_to') ? $validated['date_to'] : null,
+        );
+        if ($dateStart) {
+            $query->where('created_at', '>=', $dateStart);
         }
-        if ($request->filled('date_to')) {
-            $query->whereDate('created_at', '<=', $validated['date_to']);
+        if ($dateEnd) {
+            $query->where('created_at', '<=', $dateEnd);
         }
 
         $logs = $query->paginate($perPage)->withQueryString();

@@ -13,771 +13,584 @@
 
 <div class="intake-root w-full p-0 m-0 text-slate-800 font-sans border-0 shadow-none rounded-none">
     <style>
-       /* Force intake to fill the viewport like the dashboard */
-       html, body { margin: 0 !important; padding: 0 !important; }
-       .app-shell { width: 100% !important; }
-       .main-area { padding: 0 !important; }
-       .topbar { padding: 0 18px !important; margin: 0 !important; }
-       @media (max-width: 1023px) {
-           .topbar { padding: 0 16px !important; }
-       }
-       .page-content { padding: 0 !important; margin: 0 !important; width: 100% !important; background: transparent !important; }
-       .page-content > * { padding: 0 !important; margin: 0 !important; width: 100% !important; }
-       .intake-root { width: 100% !important; padding: 0 !important; margin: 0 !important; }
-
-       html { scrollbar-gutter: auto; }
-
-.hide-scrollbar::-webkit-scrollbar { display: none; }
-.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-.form-input,
-.form-textarea {
-    width: 100%;
-    border-radius: 0.9rem;
-    border: 1px solid #646e82;
-    background-color: #ffffff;
-    padding: 0.82rem 1rem;
-    font-size: 0.92rem;
-    font-weight: 400;
-    color: #0f172a;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-    transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
-}
-
-.form-textarea {
-    resize: vertical;
-    min-height: 100px;
-}
-
-.form-input:focus,
-.form-textarea:focus {
-    border-color: #9c5a1a;
-    box-shadow: 0 0 0 4px rgba(156, 90, 26, 0.10);
-    outline: none;
-}
-
-.form-input::placeholder,
-.form-textarea::placeholder {
-    color: #9aa9bd;
-    font-weight: 400 !important;
-    opacity: 1;
-}
-
-.intake-root input::placeholder,
-.intake-root textarea::placeholder {
-    color: #9aa9bd !important;
-    font-weight: 400 !important;
-    opacity: 1;
-}
-
-.field-label {
-    display: block;
-    font-size: 0.72rem;
-    font-weight: 500;
-    color: #334155;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 0.55rem;
-    padding-left: 2px;
-}
-
-.package-card-item { position: relative; }
-
-.package-card-item .package-radio {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    opacity: 0.001;
-    cursor: pointer;
-    z-index: 5;
-}
-
-.package-card {
-    transition: all 0.22s ease;
-}
-
-.package-card .check-dot {
-    opacity: 0;
-    transform: scale(0.6);
-    border-color: #cbd5e1;
-    transition: all 0.18s ease;
-}
-
-.package-card.selected {
-    border-color: #0f172a;
-    background-color: #f8fafc;
-    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
-}
-
-.package-card.selected .check-dot {
-    opacity: 1;
-    transform: scale(1);
-    border-color: #059669;
-}
-
-/* ===== Professional Flatpickr Header ===== */
-.flatpickr-calendar {
-    margin-top: 10px !important;
-    border-radius: 22px !important;
-    border: 1px solid #e2e8f0 !important;
-    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14) !important;
-    padding: 12px 12px 10px !important;
-    width: 340px !important;
-    max-height: calc(100vh - 24px) !important;
-    background: #ffffff !important;
-    overflow: auto !important;
-    z-index: 2400 !important;
-}
-
-.flatpickr-calendar.arrowTop::before,
-.flatpickr-calendar.arrowTop::after,
-.flatpickr-calendar.arrowBottom::before,
-.flatpickr-calendar.arrowBottom::after {
-    display: none !important;
-}
-
-.flatpickr-months {
-    position: relative !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    padding: 6px 34px 12px !important;
-    margin-bottom: 2px !important;
-    border-bottom: 1px solid #f1f5f9 !important;
-}
-
-.flatpickr-month {
-    height: auto !important;
-    display: flex !important;
-    justify-content: center !important;
-    align-items: center !important;
-}
-
-.flatpickr-current-month {
-    position: static !important;
-    left: auto !important;
-    width: auto !important;
-    height: auto !important;
-    padding: 0 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 8px !important;
-    line-height: 1.2 !important;
-    color: #0f172a !important;
-    font-weight: 800 !important;
-    white-space: nowrap !important;
-}
-
-.flatpickr-current-month .flatpickr-monthDropdown-months {
-    appearance: none !important;
-    -webkit-appearance: none !important;
-    -moz-appearance: none !important;
-    border: 1px solid #e2e8f0 !important;
-    background: #f8fafc !important;
-    border-radius: 10px !important;
-    padding: 4px 28px 4px 10px !important;
-    margin: 0 !important;
-    font-size: 15px !important;
-    font-weight: 800 !important;
-    color: #0f172a !important;
-    line-height: 1.2 !important;
-    cursor: pointer !important;
-    box-shadow: none !important;
-    min-width: 110px !important;
-}
-
-.flatpickr-current-month input.cur-year {
-    border: 1px solid #e2e8f0 !important;
-    background: #f8fafc !important;
-    border-radius: 10px !important;
-    box-shadow: none !important;
-    padding: 4px 8px !important;
-    margin: 0 !important;
-    font-size: 15px !important;
-    font-weight: 800 !important;
-    color: #0f172a !important;
-    line-height: 1.2 !important;
-    width: 74px !important;
-    min-width: 74px !important;
-    text-align: center !important;
-}
-
-.flatpickr-current-month .flatpickr-monthDropdown-months:focus,
-.flatpickr-current-month input.cur-year:focus {
-    outline: none !important;
-    border-color: #9c5a1a !important;
-    box-shadow: 0 0 0 3px rgba(156, 90, 26, 0.10) !important;
-}
-
-.numInputWrapper {
-    width: auto !important;
-    min-width: 74px !important;
-}
-
-.numInputWrapper span {
-    display: none !important;
-}
-
-.flatpickr-prev-month,
-.flatpickr-next-month {
-    top: 12px !important;
-    width: 30px !important;
-    height: 30px !important;
-    padding: 0 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    color: #64748b !important;
-    border-radius: 999px !important;
-    background: #ffffff !important;
-    transition: all 0.15s ease !important;
-}
-
-.flatpickr-prev-month:hover,
-.flatpickr-next-month:hover {
-    color: #0f172a !important;
-    background: #f1f5f9 !important;
-}
-
-.flatpickr-prev-month svg,
-.flatpickr-next-month svg {
-    display: none !important;
-}
-
-.flatpickr-prev-month::before {
-    content: "‹";
-    font-size: 22px;
-    font-weight: 700;
-    line-height: 1;
-}
-
-.flatpickr-next-month::before {
-    content: "›";
-    font-size: 22px;
-    font-weight: 700;
-    line-height: 1;
-}
-
-.flatpickr-weekdays {
-    margin: 8px 0 10px !important;
-}
-
-.flatpickr-weekday {
-    font-size: 12px !important;
-    font-weight: 800 !important;
-    color: #64748b !important;
-}
-
-.flatpickr-day {
-    border-radius: 14px !important;
-    max-width: 42px !important;
-    height: 42px !important;
-    line-height: 42px !important;
-    font-size: 15px !important;
-    font-weight: 700 !important;
-    color: #0f172a !important;
-}
-
-.flatpickr-day:hover {
-    background: #f1f5f9 !important;
-    border-color: #f1f5f9 !important;
-}
-
-.flatpickr-day.today {
-    border: 1px solid #b45309 !important;
-}
-
-.flatpickr-day.selected,
-.flatpickr-day.startRange,
-.flatpickr-day.endRange {
-    background: #0f172a !important;
-    border-color: #0f172a !important;
-    color: #ffffff !important;
-}
-
-.flatpickr-day.disabled,
-.flatpickr-day.prevMonthDay,
-.flatpickr-day.nextMonthDay {
-    color: #cbd5e1 !important;
-}
-
-.flatpickr-time {
-    border-top: 1px solid #e2e8f0 !important;
-    margin-top: 8px !important;
-    padding-top: 10px !important;
-}
-
-.flatpickr-time input,
-.flatpickr-time .flatpickr-am-pm {
-    border-radius: 10px !important;
-    font-weight: 700 !important;
-}
-
-.flatpickr-calendar.open {
-    margin-top: 12px !important;
-}
-
-.intake-locked {
-    opacity: 0.55;
-    pointer-events: none;
-    user-select: none;
-    filter: grayscale(0.06);
-}
-
-.lock-overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 20;
-    background: rgba(255,255,255,0.72);
-    backdrop-filter: blur(1px);
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding-top: 3.5rem;
-    border-radius: 0 0 1rem 1rem;
-}
-
-.lock-overlay.hidden {
-    display: none;
-}
-
-.toast-pop {
-    left: 50% !important;
-    top: calc(var(--topbar-h, 72px) + 10px) !important;
-    transform: translate(-50%, -8px) scale(0.96);
-    min-width: 280px;
-    text-align: center;
-    pointer-events: none;
-    filter: none;
-    border: 1px solid rgba(148, 163, 184, 0.3);
-    transition: opacity 0.25s ease, transform 0.25s ease;
-    z-index: 40 !important;
-}
-
-.toast-pop.toast-visible {
-    opacity: 1 !important;
-    transform: translate(-50%, 0) scale(1);
-}
-
-.intake-toast-branch {
-    top: calc(var(--topbar-h, 72px) + 10px) !important;
-}
-
-.intake-toast-package {
-    top: calc(var(--topbar-h, 72px) + 58px) !important;
-}
-
-html[data-theme='dark'] .intake-toast-branch {
-    background: #1a2b41 !important;
-    color: #e8f0fc !important;
-    border-color: #3f5b7f !important;
-}
-
-html[data-theme='dark'] .intake-toast-package {
-    background: #1f5d46 !important;
-    color: #e8fff4 !important;
-    border-color: #2e8666 !important;
-}
-
-.intake-section-shell {
-    border: none;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-    overflow: visible;
-}
-
-.subsection-soft {
-    border: 1px solid #e7edf4;
-    border-radius: 1.1rem;
-    background: linear-gradient(180deg, #fbfcfe 0%, #f8fafc 100%);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.75);
-}
-
-.wizard-tab {
-    --wizard-step-size: 34px;
-    --wizard-step-offset-y: 0.35rem;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.28rem;
-    min-width: 110px;
-    padding: 0.35rem 0.5rem 0.55rem;
-    font-size: 0.78rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    text-transform: none;
-    color: #475569;
-    background: transparent;
-    border: none;
-}
-
-.wizard-tab .wizard-step-number {
-    width: var(--wizard-step-size);
-    height: var(--wizard-step-size);
-    border-radius: 50%;
-    border: 1px solid #cbd5e1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    z-index: 2;
-    font-weight: 700;
-    color: #475569;
-    background: #fff;
-    transition: all 0.18s ease;
-}
-
-.wizard-tab .wizard-step-label {
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: #475569;
-}
-
-.wizard-tab:hover {
-    color: #9c5a1a;
-}
-
-.wizard-tab::after {
-    content: "";
-    position: absolute;
-    left: calc(50% + (var(--wizard-step-size) / 2));
-    top: calc(var(--wizard-step-offset-y) + (var(--wizard-step-size) / 2));
-    width: calc(100% - (var(--wizard-step-size) / 2));
-    height: 2.5px;
-    border-radius: 999px;
-    background: #dbe3ec;
-    transform: translateY(-50%);
-    z-index: 1;
-}
-
-.wizard-tab:last-child::after {
-    display: none;
-}
-
-.wizard-tab.completed-step::after {
-    background: #9c5a1a;
-}
-
-.wizard-tab.active-step {
-    color: #9c5a1a;
-}
-
-.wizard-tab:hover .wizard-step-number {
-    border-color: #9c5a1a;
-    color: #9c5a1a;
-}
-
-.wizard-tab.active-step .wizard-step-number {
-    background: #9c5a1a;
-    color: #fff;
-    border-color: #9c5a1a;
-}
-
-.wizard-tab.completed-step .wizard-step-number {
-    background: #9c5a1a;
-    color: #ffffff;
-    border-color: #9c5a1a;
-}
-
-.wizard-tab.completed-step .wizard-step-label {
-    color: #475569;
-    font-weight: 600;
-}
-
-.wizard-tab.active-step .wizard-step-label {
-    color: #9c5a1a;
-    font-weight: 700;
-}
-
-.section-heading-icon {
-    width: 2.8rem;
-    height: 2.8rem;
-    border-radius: 1rem;
-    background: #f6f8fb;
-    border: 1px solid #dbe3ec;
-    color: #475569;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: none;
-}
-
-.sticky-review-card {
-    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.16);
-}
-
-.footer-action-bar {
-    backdrop-filter: none;
-}
-
-.package-card,
-.payment-type-card {
-    will-change: transform, box-shadow;
-}
-
-.package-card:hover,
-.payment-type-card:hover {
-    transform: translateY(-1px);
-}
-
-/* ===== New shared visual helpers ===== */
-.intake-top-shell {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    padding-left: 36px;
-    padding-right: 36px;
-    padding-bottom: 0.4rem;
-    margin-bottom: 0.9rem;
-    border-bottom: 1px solid #e5eaf1;
-}
-
-@media (min-width: 1024px) {
+    /* ═══════════════════════════════════════════════════════════
+       INTAKE FORM  —  Premium SaaS Design System
+       Palette: Deep Navy · Slate Gray · Soft Cream
+       ═══════════════════════════════════════════════════════════ */
+
+    /* ── Scroll utility ── */
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* ── Panel shell overrides (keep form full-width inside existing layout) ── */
+    html, body { margin: 0 !important; padding: 0 !important; }
+    .app-shell  { width: 100% !important; }
+    .main-area  { padding: 0 !important; }
+    .topbar     { padding: 0 18px !important; margin: 0 !important; }
+    @media (max-width: 1023px) { .topbar { padding: 0 16px !important; } }
+    /* Make page-content a flex column so intake-section-shell's flex:1 is bounded */
+    .page-content { padding: 0 !important; margin: 0 !important; width: 100% !important; background: transparent !important; display: flex !important; flex-direction: column !important; overflow: hidden !important; }
+    .page-content > * { padding: 0 !important; margin: 0 !important; width: 100% !important; }
+    .intake-root { width: 100% !important; padding: 0 !important; margin: 0 !important; background: #f3f2ef !important; font-family: inherit; flex-shrink: 0 !important; }
+    html { scrollbar-gutter: auto; }
+
+    /* ── Top header bar ── */
     .intake-top-shell {
+        display: flex;
         flex-direction: row;
         align-items: center;
         justify-content: space-between;
-    }
-}
-
-.intake-mode-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.5rem 0.85rem;
-    border-radius: 0.9rem;
-    font-size: 0.68rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05);
-}
-
-.intake-meta-shell {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 1.25rem;
-    padding: 0.2rem 0;
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    box-shadow: none;
-}
-
-.intake-meta-divider {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 1.25rem;
-    padding-right: 0;
-    border-right: 0;
-}
-
-@media (max-width: 1023px) {
-    .intake-meta-divider {
-        border-right: 0;
-        padding-right: 0;
-    }
-}
-
-@media (max-width: 768px) {
-    .wizard-steps-shell {
-        display: flex !important;
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        overflow-y: hidden;
-        -webkit-overflow-scrolling: touch;
-        gap: 0.35rem;
-        padding: 0.45rem 16px 0.25rem;
+        gap: 12px;
+        padding: 0 32px;
+        height: 60px;
+        min-height: 60px;
+        background: #ffffff;
+        border-bottom: 1px solid #e4e8ef;
+        flex-shrink: 0;
     }
 
-    .wizard-tab {
-        --wizard-step-size: 30px;
-        --wizard-step-offset-y: 0.28rem;
-        flex: 0 0 auto !important;
-        min-width: 94px;
-        padding: 0.28rem 0.4rem 0.45rem;
-        gap: 0.2rem;
+    /* ── Thin progress bar (sits between header and body) ── */
+    .intake-progress-rail {
+        height: 3px;
+        background: #e9ecf2;
+        flex-shrink: 0;
+        position: relative;
+        overflow: hidden;
+    }
+    .intake-progress-fill {
+        position: absolute;
+        left: 0; top: 0; bottom: 0;
+        width: 20%;              /* JS updates this */
+        background: linear-gradient(90deg, #1b3358 0%, #2c5f9e 100%);
+        border-radius: 0 2px 2px 0;
+        transition: width 0.45s cubic-bezier(.4,0,.2,1);
     }
 
-    .wizard-tab .wizard-step-number {
-        font-size: 0.78rem;
+    /* ── Header internals ── */
+    .intake-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-shrink: 0;
     }
-
-    .wizard-tab .wizard-step-label {
-        font-size: 0.78rem;
-        text-align: center;
+    .intake-brand-logo {
+        width: 32px; height: 32px;
+        background: #1b3358;
+        border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
     }
-
+    .intake-brand-name {
+        font-size: 14.5px;
+        font-weight: 700;
+        color: #0d1f38;
+        letter-spacing: -0.25px;
+    }
+    .intake-mode-badge {
+        display: inline-flex; align-items: center;
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 9.5px; font-weight: 800;
+        text-transform: uppercase; letter-spacing: 0.11em;
+    }
     .intake-meta-shell {
-        display: block;
-        padding: 0;
+        display: flex; flex-wrap: wrap; align-items: center;
+        justify-content: center; gap: 0.15rem 1.1rem;
+        flex: 1;
     }
-
     .intake-meta-divider {
-        width: 100%;
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        column-gap: 1rem;
-        row-gap: 0.75rem;
-        align-items: start;
+        display: flex; flex-wrap: wrap;
+        align-items: center; gap: 1.1rem;
     }
-
     .intake-meta-item {
-        min-width: 0;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        text-align: center; gap: 1px; min-width: 72px;
     }
-}
+    .intake-meta-label {
+        font-size: 0.6rem; text-transform: uppercase;
+        letter-spacing: 0.1em; font-weight: 800; color: #9baec8;
+    }
+    .intake-meta-value {
+        font-size: 0.76rem; font-weight: 700; color: #2d3f56;
+    }
+    .branch-toggle {
+        padding: 0; border: none; background: transparent;
+        font-size: 0.76rem; font-weight: 700; color: #2d3f56;
+        cursor: pointer; transition: color .15s;
+    }
+    .branch-toggle:hover { color: #1b3358; }
+    .intake-header-right {
+        display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+    }
+    .intake-draft-label {
+        font-size: 11.5px; color: #9baec8; font-weight: 500; white-space: nowrap;
+    }
+    .intake-exit-btn {
+        font-size: 12.5px; font-weight: 600; color: #3d5268;
+        border: 1.5px solid #dde3ec; padding: 6px 16px;
+        border-radius: 8px; text-decoration: none;
+        background: #fff; transition: all .15s; white-space: nowrap;
+        cursor: pointer;
+    }
+    .intake-exit-btn:hover { border-color: #c0ccd9; background: #f4f7fb; color: #1b3358; }
 
-.intake-meta-item {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-    gap: 0.18rem;
-    min-width: 92px;
-}
+    /* ── Two-column shell: sidebar + content ── */
+    .intake-section-shell {
+        display: flex; flex-direction: row;
+        flex: 1; min-height: 0; overflow: hidden;
+        background: transparent; border: none; border-radius: 0; box-shadow: none;
+    }
 
-.intake-meta-label {
-    font-size: 0.63rem;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    font-weight: 800;
-    color: #64748b;
-}
+    /* ── Left sidebar (step wizard) ── */
+    .wizard-steps-shell {
+        width: 220px; flex-shrink: 0;
+        display: flex; flex-direction: column; gap: 0;
+        padding: 18px 0 12px;
+        background: #ffffff;
+        border-right: 1px solid #e4e8ef;
+        overflow-y: auto; overflow-x: hidden;
+    }
+    .wizard-steps-group-label {
+        font-size: 9px; font-weight: 800;
+        text-transform: uppercase; letter-spacing: 0.13em; color: #9baec8;
+        padding: 0 18px 10px; border-bottom: 1px solid #f0f2f6;
+        margin-bottom: 6px;
+    }
 
-.intake-meta-value {
-    font-size: 0.78rem;
-    font-weight: 500;
-    color: #475569;
-}
+    /* ── Individual step tab ── */
+    .wizard-tab {
+        --wsz: 28px;
+        position: relative;
+        display: flex; flex-direction: row; align-items: stretch;
+        width: 100%; padding: 0;
+        background: transparent; border: none;
+        text-align: left; cursor: pointer;
+    }
+    /* track column: circle + vertical line */
+    .wizard-tab .wz-track {
+        display: flex; flex-direction: column; align-items: center;
+        padding: 12px 0 0 18px; flex-shrink: 0; width: 52px;
+    }
+    .wizard-tab .wizard-step-number {
+        width: var(--wsz); height: var(--wsz);
+        border-radius: 50%;
+        border: 1.5px solid #d0d9e8;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0; position: relative; z-index: 2;
+        font-weight: 700; font-size: 11px; color: #9baec8;
+        background: #ffffff;
+        transition: all .22s ease;
+    }
+    .wizard-tab .wz-line {
+        width: 1.5px; flex: 1; min-height: 18px;
+        background: #e4e8ef; margin-top: 4px;
+        transition: background .3s ease;
+    }
+    .wizard-tab:last-child .wz-line { visibility: hidden; }
+    /* text column */
+    .wizard-tab .wz-body {
+        flex: 1; padding: 10px 14px 10px 4px;
+        border-radius: 8px; margin: 4px 8px 4px 0;
+        display: flex; flex-direction: column; gap: 3px;
+        transition: background .15s ease;
+        min-height: 48px;
+    }
+    .wizard-tab:hover .wz-body { background: #f4f6fb; }
+    .wizard-tab .wizard-step-label {
+        font-size: 0.78rem; font-weight: 600; color: #6b7e96;
+        line-height: 1.25; display: block;
+    }
+    .wizard-tab .wz-sub {
+        font-size: 0.65rem; color: #9baec8; font-weight: 500;
+        line-height: 1.3; display: block;
+    }
 
-.branch-toggle {
-    padding: 0.08rem 0.2rem;
-    border: none;
-    border-radius: 0;
-    background: transparent;
-    font-size: 0.78rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: #475569;
-    box-shadow: none;
-    transition: color 0.15s ease, text-decoration-color 0.15s ease;
-}
+    /* horizontal connector hidden (was for old horizontal tabs) */
+    .wizard-tab::after        { display: none; }
+    .wizard-tab:last-child::after { display: none; }
+    .wizard-tab.completed-step::after { display: none; }
 
-.wizard-steps-shell {
-    position: relative;
-    background: transparent;
-    border-bottom: 1px solid #e6ebf2;
-    gap: 1rem;
-    padding-left: 18px;
-    padding-right: 18px;
-}
+    /* Active */
+    .wizard-tab.active-step .wizard-step-number {
+        background: #1b3358; border-color: #1b3358; color: #ffffff;
+        box-shadow: 0 4px 14px rgba(27,51,88,.32);
+    }
+    .wizard-tab.active-step .wz-body { background: #edf1f9; }
+    .wizard-tab.active-step .wizard-step-label { color: #1b3358; font-weight: 700; }
+    .wizard-tab.active-step .wz-sub { color: #5070a0; }
 
-.section-title-block {
-    display: flex;
-    align-items: center;
-    gap: 0.9rem;
-    margin-bottom: 2rem;
-}
+    /* Completed */
+    .wizard-tab.completed-step .wizard-step-number {
+        background: #1e3a5f; border-color: #1e3a5f; color: #ffffff; font-size: 0;
+    }
+    .wizard-tab.completed-step .wizard-step-number::after {
+        content: "✓"; font-size: 11px; font-weight: 900;
+    }
+    .wizard-tab.completed-step .wz-line { background: #1e3a5f; }
+    .wizard-tab.completed-step .wizard-step-label { color: #4d6480; }
 
-.section-title-text h3 {
-    margin: 0;
-    font-size: 1.12rem;
-    font-weight: 800;
-    color: #0f172a;
-    letter-spacing: -0.01em;
-}
+    /* ── Form content wrapper ── */
+    .intake-form-wrapper {
+        flex: 1; min-width: 0; overflow: hidden;
+        display: flex; flex-direction: column;
+        position: relative; background: #f3f2ef;
+    }
 
-.section-title-text p {
-    margin: 0.2rem 0 0;
-    font-size: 0.8rem;
-    color: #64748b;
-    font-weight: 500;
-}
+    /* Form must be flex-column so #intakeFormContent fills and footer is anchored */
+    form#intakeWizardForm {
+        display: flex; flex-direction: column;
+        flex: 1; min-height: 0;
+    }
 
-#intakeWizardForm {
-    background-color: transparent;
-}
+    /* ── Each wizard step lives in a card ── */
+    .wizard-panel {
+        background: #ffffff;
+        border-radius: 18px;
+        border: 1px solid #e4e8ef;
+        padding: 24px 28px 22px;
+        box-shadow: 0 1px 3px rgba(15,23,42,.04), 0 4px 16px rgba(15,23,42,.03);
+    }
 
-#intakeFormContent {
-    padding-left: 36px !important;
-    padding-right: 36px !important;
-}
+    #intakeFormContent {
+        padding: 20px 28px !important;
+        flex: 1; min-height: 0; overflow-y: auto;
+        display: flex; flex-direction: column; gap: 0;
+    }
 
-.footer-action-bar {
-    padding-left: 36px !important;
-    padding-right: 36px !important;
-}
+    /* ── Section title block ── */
+    .section-title-block {
+        display: flex; align-items: flex-start;
+        gap: 14px; margin-bottom: 18px;
+    }
+    .section-heading-icon {
+        width: 44px; height: 44px; border-radius: 12px;
+        background: #1b3358; color: #ffffff;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 18px; flex-shrink: 0;
+        box-shadow: 0 4px 14px rgba(27,51,88,.26);
+    }
+    .section-title-text h3 {
+        margin: 0; font-size: 1.2rem; font-weight: 700;
+        color: #0d1f38; letter-spacing: -.02em; line-height: 1.25;
+    }
+    .section-title-text p {
+        margin: 5px 0 0; font-size: 0.83rem;
+        color: #6b7e96; font-weight: 400; line-height: 1.5;
+    }
 
-html[data-theme='dark'] .panel-shell-body,
-html[data-theme='dark'] .main-area,
-html[data-theme='dark'] .page-content,
-html[data-theme='dark'] .intake-root,
-html[data-theme='dark'] .intake-section-shell {
-    background: #223148 !important;
-    color: #e5edf6;
-}
+    /* ── Field labels ── */
+    .field-label {
+        display: block; font-size: 0.67rem; font-weight: 800;
+        color: #4d6480; text-transform: uppercase;
+        letter-spacing: 0.09em; margin-bottom: 0.5rem;
+    }
 
-html[data-theme='dark'] .intake-top-shell,
-html[data-theme='dark'] .wizard-steps-shell {
-    border-color: #3f536b;
-}
+    /* ── Inputs ── */
+    .form-input, .form-textarea {
+        width: 100%; border-radius: 10px;
+        border: 1.5px solid #dde4ee;
+        background: #ffffff;
+        padding: 0.75rem 1rem;
+        font-size: 0.88rem; font-weight: 400; color: #0d1f38;
+        box-shadow: 0 1px 3px rgba(15,23,42,.05);
+        transition: border-color .18s, box-shadow .18s, background .18s;
+        font-family: inherit; box-sizing: border-box;
+    }
+    .form-textarea { resize: vertical; min-height: 100px; }
+    .form-input:focus, .form-textarea:focus {
+        border-color: #1b3358;
+        box-shadow: 0 0 0 4px rgba(27,51,88,.09);
+        outline: none; background: #fafcff;
+    }
+    .form-input::placeholder, .form-textarea::placeholder { color: #b0beca; font-weight: 400; }
+    .intake-root input::placeholder, .intake-root textarea::placeholder { color: #b0beca !important; font-weight: 400 !important; opacity: 1; }
+    .form-input[readonly], .form-input.cursor-not-allowed { background: #f4f6fb; color: #7a8fa8; cursor: not-allowed; }
 
-html[data-theme='dark'] .section-title-text h3 {
-    color: #f8fbff;
-}
+    /* ── Subsection soft ── */
+    .subsection-soft {
+        border: 1px solid #e4e8ef; border-radius: 12px;
+        background: linear-gradient(180deg,#f8fafc 0%,#f1f5f9 100%);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
+    }
 
-html[data-theme='dark'] .section-title-text p,
-html[data-theme='dark'] .field-label,
-html[data-theme='dark'] .intake-meta-label,
-html[data-theme='dark'] .intake-meta-value {
-    color: #a9bbd2;
-}
+    /* ── Package cards ── */
+    .package-card-item { position: relative; }
+    .package-card-item .package-radio {
+        position: absolute; inset: 0; width: 100%; height: 100%;
+        opacity: .001; cursor: pointer; z-index: 5;
+    }
+    .package-card {
+        border: 1.5px solid #e4e8ef; border-radius: 14px;
+        background: #ffffff; padding: 20px; cursor: pointer;
+        transition: all .2s cubic-bezier(.4,0,.2,1);
+        position: relative; display: flex; flex-direction: column;
+        box-shadow: 0 1px 3px rgba(15,23,42,.04);
+        will-change: transform, box-shadow;
+    }
+    .package-card:hover { border-color: #1b3358; box-shadow: 0 8px 24px rgba(27,51,88,.12); transform: translateY(-2px); }
+    .package-card .check-dot { opacity: 0; transform: scale(.5); border-color: #d0d9e8; transition: all .2s ease; }
+    .package-card.selected { border-color: #1b3358; background: #eef3fc; box-shadow: 0 8px 28px rgba(27,51,88,.15); }
+    .package-card.selected .check-dot { opacity: 1; transform: scale(1); border-color: #059669; background: #059669; }
+    .package-card, .payment-type-card { will-change: transform, box-shadow; }
+    .package-card:hover, .payment-type-card:hover { transform: translateY(-2px); }
 
-html[data-theme='dark'] .lock-overlay {
-    background: rgba(15, 23, 42, 0.72);
-}
+    /* ── Premium Package Card redesign ── */
+    .pkg-grid-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
+    .pkg-section-title { font-size: 15px; font-weight: 800; color: #0d1f38; margin: 0 0 3px; }
+    .pkg-section-sub { font-size: 12px; color: #6b7e96; margin: 0; }
 
-html[data-theme='dark'] #intake_lock_overlay .bg-white {
-    background: #1b2a3d !important;
-    border-color: #3f536b !important;
-    color: #e5edf6 !important;
-}
+    .pkg-premium-card {
+        border: 1.5px solid #e4e8ef !important;
+        border-radius: 16px !important;
+        background: #ffffff !important;
+        display: flex !important; flex-direction: column !important;
+        padding: 0 !important;
+        box-shadow: 0 1px 4px rgba(15,23,42,.05), 0 4px 14px rgba(15,23,42,.04) !important;
+        overflow: hidden;
+        min-height: 380px;
+        transition: all .22s cubic-bezier(.4,0,.2,1) !important;
+    }
+    .pkg-premium-card:hover { border-color: #b0bfd8 !important; box-shadow: 0 8px 28px rgba(27,51,88,.13) !important; transform: translateY(-3px) !important; }
+    .pkg-card-featured { border-color: #1b3358 !important; box-shadow: 0 6px 24px rgba(27,51,88,.18) !important; }
+    .pkg-card-featured:hover { box-shadow: 0 12px 36px rgba(27,51,88,.22) !important; }
 
-html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
-    background: #273a52 !important;
-    border-color: #3f536b !important;
-    color: #d7e6fa !important;
-}
+    .pkg-featured-item { position: relative; padding-top: 14px; }
+    .pkg-badge-recommended {
+        position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+        background: #1b3358; color: #fff;
+        font-size: 9px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase;
+        padding: 4px 14px; border-radius: 0 0 10px 10px; z-index: 6; white-space: nowrap;
+    }
 
-@media (max-width: 1023px) {
-    .intake-top-shell,
-    .wizard-steps-shell,
-    #intakeFormContent,
+    .pkg-card-body { flex: 1; padding: 22px 22px 14px; }
+    .pkg-tier-label { font-size: 10px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: #6b7e96; margin-bottom: 5px; }
+    .pkg-name { font-size: 18px; font-weight: 800; color: #0d1f38; margin-bottom: 6px; line-height: 1.2; }
+    .pkg-price { font-size: 30px; font-weight: 900; color: #0d1f38; line-height: 1; margin-bottom: 5px; }
+    .pkg-price sub { font-size: 14px; font-weight: 700; vertical-align: super; }
+    .pkg-price-note { font-size: 11px; color: #9baec8; margin-bottom: 14px; }
+    .pkg-promo-badge { display: inline-block; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; background: #d1fae5; color: #065f46; padding: 3px 8px; border-radius: 999px; margin-bottom: 10px; }
+
+    .pkg-features-list { list-style: none; padding: 0; margin: 14px 0 0; border-top: 1px solid #f0f3f8; padding-top: 14px; display: flex; flex-direction: column; gap: 7px; }
+    .pkg-feature-item { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; font-weight: 500; color: #334155; line-height: 1.45; }
+    .pkg-feature-check { color: #059669; font-weight: 900; flex-shrink: 0; margin-top: 1px; }
+    .pkg-feature-plus { color: #d97706; font-weight: 900; flex-shrink: 0; font-size: 13px; line-height: 1; }
+
+    .pkg-card-footer { padding: 0 22px 20px; }
+    .pkg-select-btn {
+        width: 100%; padding: 10px 16px; border-radius: 10px;
+        font-size: 13px; font-weight: 700; text-align: center;
+        border: 1.5px solid #d0d9e8; background: #fff; color: #334155;
+        transition: all .18s ease; display: flex; align-items: center; justify-content: center; gap: 6px;
+        pointer-events: none; user-select: none;
+    }
+    .pkg-card-featured .pkg-select-btn { border-color: #1b3358; color: #1b3358; background: #f4f7fd; }
+    .pkg-card-custom .pkg-select-btn { border-color: #fcd34d; color: #92400e; background: #fffbeb; }
+
+    .pkg-btn-selected { display: none; }
+
+    /* Selected state */
+    .pkg-premium-card:has(.package-radio:checked) { border-color: #1b3358 !important; background: #f6f9ff !important; }
+    .pkg-premium-card:has(.package-radio:checked) .pkg-select-btn { background: #1b3358 !important; color: #fff !important; border-color: #1b3358 !important; }
+    .pkg-card-custom:has(.package-radio:checked) .pkg-select-btn { background: #92400e !important; color: #fff !important; border-color: #92400e !important; }
+    .pkg-premium-card:has(.package-radio:checked) .pkg-btn-unselected { display: none; }
+    .pkg-premium-card:has(.package-radio:checked) .pkg-btn-selected { display: flex; align-items: center; gap: 5px; }
+
+    /* Dark mode */
+    html[data-theme='dark'] .pkg-premium-card { background: #152035 !important; border-color: #2a3f5f !important; }
+    html[data-theme='dark'] .pkg-name, html[data-theme='dark'] .pkg-price { color: #d8ecff !important; }
+    html[data-theme='dark'] .pkg-tier-label, html[data-theme='dark'] .pkg-price-note { color: #7a9cc0 !important; }
+    html[data-theme='dark'] .pkg-features-list { border-color: #1e3050 !important; }
+    html[data-theme='dark'] .pkg-feature-item { color: #c8ddf2 !important; }
+    html[data-theme='dark'] .pkg-select-btn { background: #1c2f4a !important; border-color: #2a4060 !important; color: #c8ddf2 !important; }
+    html[data-theme='dark'] .pkg-premium-card:has(.package-radio:checked) { background: #1a2f50 !important; border-color: #4a82c0 !important; }
+    html[data-theme='dark'] .pkg-premium-card:has(.package-radio:checked) .pkg-select-btn { background: #1b3358 !important; }
+
+    /* ── Payment type cards ── */
+    .payment-type-card {
+        border: 1.5px solid #e4e8ef; border-radius: 12px;
+        background: #ffffff; transition: all .18s ease; cursor: pointer;
+    }
+    .payment-type-card:hover { border-color: #1b3358; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(27,51,88,.1); }
+
+    /* ── Billing summary card (legacy, kept for reference) ── */
+    .sticky-review-card {
+        background: linear-gradient(140deg,#0d1f38 0%,#1b3358 100%);
+        border-radius: 18px;
+        box-shadow: 0 20px 50px rgba(13,31,56,.38);
+        border: 1px solid rgba(255,255,255,.06);
+    }
+
+    /* ── Billing & Payment step — tab group ── */
+    .bpay-tab-group { border: 1.5px solid #e4e8ef; border-radius: 12px; overflow: hidden; display: flex; }
+    .bpay-tab-group .payment-type-card,
+    .bpay-tab-group .payment-method-card { border: 0 !important; border-radius: 0 !important; box-shadow: none !important; transform: none !important; flex: 1; display: flex; align-items: center; justify-content: center; padding: 11px 0; }
+    .bpay-tab-group .payment-type-card:hover,
+    .bpay-tab-group .payment-method-card:hover { transform: none !important; box-shadow: none !important; background: #f8fafc; border: 0 !important; }
+    .bpay-tab-group .payment-type-card + .payment-type-card,
+    .bpay-tab-group .payment-method-card + .payment-method-card { border-left: 1.5px solid #e4e8ef !important; }
+    .bpay-tab-group .payment-type-card.bg-slate-50,
+    .bpay-tab-group .payment-type-card.border-slate-800 { background: #f1f5f9 !important; border: 0 !important; }
+    .bpay-tab-group .payment-type-card.ring-2 { box-shadow: none !important; }
+    .bpay-tab-group .payment-method-card.active-tab,
+    .bpay-tab-group .payment-type-card.active-tab { background: #1b3358 !important; color: #ffffff !important; border: 0 !important; }
+    .bpay-tab-group .payment-method-card.active-tab span,
+    .bpay-tab-group .payment-type-card.active-tab span { color: #ffffff !important; }
+    .bpay-tab-group .payment-method-card.active-tab i,
+    .bpay-tab-group .payment-type-card.active-tab i { color: #ffffff !important; }
+
+    /* Toggle pill peer states (CSS fallback for Tailwind peer utilities) */
+    #mark_as_paid_toggle input:checked ~ div:first-of-type { background: #1b3358 !important; border-color: #1b3358 !important; }
+    #mark_as_paid_toggle input:checked ~ div:last-of-type { transform: translateX(20px); }
+
+    /* ── Lock overlay ── */
+    .intake-locked { opacity: .5; pointer-events: none; user-select: none; filter: grayscale(.1); }
+    .lock-overlay {
+        position: absolute; inset: 0; z-index: 20;
+        background: rgba(243,242,239,.88); backdrop-filter: blur(3px);
+        display: flex; align-items: flex-start; justify-content: center;
+        padding-top: 3.5rem; border-radius: 0;
+    }
+    .lock-overlay.hidden { display: none; }
+
+    /* ── Toasts ── */
+    .toast-pop {
+        left: 50% !important;
+        top: calc(var(--topbar-h,72px) + 10px) !important;
+        transform: translate(-50%,-8px) scale(.96);
+        min-width: 280px; text-align: center; pointer-events: none;
+        filter: none; border: 1px solid rgba(148,163,184,.25);
+        transition: opacity .25s ease, transform .25s ease; z-index: 40 !important;
+    }
+    .toast-pop.toast-visible { opacity: 1 !important; transform: translate(-50%,0) scale(1); }
+    .intake-toast-branch { top: calc(var(--topbar-h,72px) + 10px) !important; }
+    .intake-toast-package { top: calc(var(--topbar-h,72px) + 58px) !important; }
+
+    /* ── Footer action bar ── */
     .footer-action-bar {
-        padding-left: 16px !important;
-        padding-right: 16px !important;
+        padding: 14px 32px !important;
+        border-top: 1px solid #e4e8ef;
+        background: #ffffff;
+        display: flex; align-items: center;
+        justify-content: space-between; gap: 12px;
+        flex-shrink: 0; backdrop-filter: none;
     }
-}
-
-@media (max-width: 640px) {
-    .footer-action-bar {
-        align-items: stretch;
-        gap: 0.75rem;
-    }
-
     #wizardPrev {
-        min-width: 104px;
-        text-align: center;
+        padding: 10px 24px !important; border-radius: 10px !important;
+        border: 1.5px solid #dde4ee !important; background: #ffffff !important;
+        font-size: 13px !important; font-weight: 600 !important; color: #4d6480 !important;
+        transition: all .15s ease !important; min-width: 100px;
     }
-}
+    #wizardPrev:hover:not(:disabled) { border-color: #c0ccd9 !important; background: #f4f7fb !important; color: #1b3358 !important; }
+    #wizardPrev:disabled { opacity: .32; }
+    #wizardNext {
+        padding: 10px 28px !important; border-radius: 10px !important;
+        background: linear-gradient(135deg,#1b3358 0%,#1e3a5f 100%) !important;
+        font-size: 13px !important; font-weight: 700 !important; color: #ffffff !important;
+        border: none !important;
+        box-shadow: 0 4px 14px rgba(27,51,88,.3) !important;
+        transition: all .18s ease !important; min-width: 160px !important;
+    }
+    #wizardNext:hover:not(:disabled) { background: linear-gradient(135deg,#142846 0%,#19305a 100%) !important; box-shadow: 0 6px 20px rgba(27,51,88,.42) !important; transform: translateY(-1px); }
+    #saveIntakeRecord {
+        padding: 10px 28px !important; border-radius: 10px !important;
+        background: linear-gradient(135deg,#047857 0%,#059669 100%) !important;
+        font-size: 13px !important; font-weight: 700 !important; color: #ffffff !important;
+        border: none !important;
+        box-shadow: 0 4px 14px rgba(5,150,105,.3) !important;
+        transition: all .18s ease !important; min-width: 160px !important;
+    }
+    #saveIntakeRecord:hover:not(:disabled) { background: linear-gradient(135deg,#036348 0%,#047857 100%) !important; box-shadow: 0 6px 20px rgba(5,150,105,.42) !important; transform: translateY(-1px); }
+    #saveIntakeRecord:disabled { opacity: .5; transform: none !important; }
+
+    /* ── Flatpickr ── */
+    .flatpickr-calendar { margin-top: 10px !important; border-radius: 18px !important; border: 1px solid #e4e8ef !important; box-shadow: 0 16px 40px rgba(15,23,42,.15) !important; padding: 12px 12px 10px !important; width: 340px !important; max-height: calc(100vh - 24px) !important; background: #ffffff !important; overflow: auto !important; z-index: 2400 !important; }
+    .flatpickr-calendar.arrowTop::before,.flatpickr-calendar.arrowTop::after,.flatpickr-calendar.arrowBottom::before,.flatpickr-calendar.arrowBottom::after { display: none !important; }
+    .flatpickr-months { position: relative !important; display: flex !important; align-items: center !important; justify-content: center !important; padding: 6px 34px 12px !important; margin-bottom: 2px !important; border-bottom: 1px solid #f0f4f8 !important; }
+    .flatpickr-month { height: auto !important; display: flex !important; justify-content: center !important; align-items: center !important; }
+    .flatpickr-current-month { position: static !important; left: auto !important; width: auto !important; height: auto !important; padding: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important; line-height: 1.2 !important; color: #0d1f38 !important; font-weight: 800 !important; white-space: nowrap !important; }
+    .flatpickr-current-month .flatpickr-monthDropdown-months { appearance: none !important; -webkit-appearance: none !important; border: 1px solid #e4e8ef !important; background: #f4f7fb !important; border-radius: 10px !important; padding: 4px 28px 4px 10px !important; margin: 0 !important; font-size: 15px !important; font-weight: 800 !important; color: #0d1f38 !important; line-height: 1.2 !important; cursor: pointer !important; box-shadow: none !important; min-width: 110px !important; }
+    .flatpickr-current-month input.cur-year { border: 1px solid #e4e8ef !important; background: #f4f7fb !important; border-radius: 10px !important; box-shadow: none !important; padding: 4px 8px !important; margin: 0 !important; font-size: 15px !important; font-weight: 800 !important; color: #0d1f38 !important; width: 74px !important; min-width: 74px !important; text-align: center !important; }
+    .flatpickr-current-month .flatpickr-monthDropdown-months:focus,.flatpickr-current-month input.cur-year:focus { outline: none !important; border-color: #1b3358 !important; box-shadow: 0 0 0 3px rgba(27,51,88,.1) !important; }
+    .numInputWrapper { width: auto !important; min-width: 74px !important; }
+    .numInputWrapper span { display: none !important; }
+    .flatpickr-prev-month,.flatpickr-next-month { top: 12px !important; width: 30px !important; height: 30px !important; padding: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important; color: #6b7e96 !important; border-radius: 999px !important; background: #ffffff !important; transition: all .15s ease !important; }
+    .flatpickr-prev-month:hover,.flatpickr-next-month:hover { color: #0d1f38 !important; background: #f0f4f8 !important; }
+    .flatpickr-prev-month svg,.flatpickr-next-month svg { display: none !important; }
+    .flatpickr-prev-month::before { content: "‹"; font-size: 22px; font-weight: 700; line-height: 1; }
+    .flatpickr-next-month::before { content: "›"; font-size: 22px; font-weight: 700; line-height: 1; }
+    .flatpickr-weekdays { margin: 8px 0 10px !important; }
+    .flatpickr-weekday { font-size: 12px !important; font-weight: 800 !important; color: #6b7e96 !important; }
+    .flatpickr-day { border-radius: 10px !important; max-width: 42px !important; height: 42px !important; line-height: 42px !important; font-size: 14px !important; font-weight: 600 !important; color: #0d1f38 !important; }
+    .flatpickr-day:hover { background: #f0f4f8 !important; border-color: #f0f4f8 !important; }
+    .flatpickr-day.today { border: 2px solid #1b3358 !important; color: #1b3358 !important; font-weight: 800 !important; }
+    .flatpickr-day.selected,.flatpickr-day.startRange,.flatpickr-day.endRange { background: #1b3358 !important; border-color: #1b3358 !important; color: #ffffff !important; border-radius: 10px !important; }
+    .flatpickr-day.disabled,.flatpickr-day.prevMonthDay,.flatpickr-day.nextMonthDay { color: #d0d9e8 !important; }
+    .flatpickr-time { border-top: 1px solid #e4e8ef !important; margin-top: 8px !important; padding-top: 10px !important; }
+    .flatpickr-time input,.flatpickr-time .flatpickr-am-pm { border-radius: 8px !important; font-weight: 700 !important; }
+    .flatpickr-calendar.open { margin-top: 12px !important; }
+
+    /* ── Dark mode ── */
+    html[data-theme='dark'] .panel-shell-body,
+    html[data-theme='dark'] .main-area,
+    html[data-theme='dark'] .page-content,
+    html[data-theme='dark'] .intake-root,
+    html[data-theme='dark'] .intake-form-wrapper { background: #0f1a2e !important; color: #e0eaf8; }
+    html[data-theme='dark'] .intake-top-shell { background: #111e33 !important; border-color: #203050 !important; }
+    html[data-theme='dark'] .wizard-steps-shell { background: #111e33 !important; border-color: #203050 !important; }
+    html[data-theme='dark'] .wizard-panel { background: #152035 !important; border-color: #203050 !important; }
+    html[data-theme='dark'] .footer-action-bar { background: #111e33 !important; border-color: #203050 !important; }
+    html[data-theme='dark'] .section-title-text h3 { color: #e8f2ff; }
+    html[data-theme='dark'] .section-title-text p,
+    html[data-theme='dark'] .field-label,
+    html[data-theme='dark'] .intake-meta-label,
+    html[data-theme='dark'] .intake-meta-value { color: #7a9ec8; }
+    html[data-theme='dark'] .form-input,
+    html[data-theme='dark'] .form-textarea { background: #1a2b41 !important; border-color: #2a3f5f !important; color: #d8ecff !important; }
+    html[data-theme='dark'] .form-input:focus,
+    html[data-theme='dark'] .form-textarea:focus { border-color: #4a82c0 !important; box-shadow: 0 0 0 4px rgba(74,130,192,.15) !important; background: #1e3050 !important; }
+    html[data-theme='dark'] .wizard-tab.active-step .wz-body { background: #1e3050 !important; }
+    html[data-theme='dark'] .wizard-tab.active-step .wizard-step-label { color: #7ec0ff !important; }
+    html[data-theme='dark'] .lock-overlay { background: rgba(15,26,46,.9); }
+    html[data-theme='dark'] #intake_lock_overlay .bg-white { background: #152035 !important; border-color: #2a3f5f !important; color: #d8ecff !important; }
+    html[data-theme='dark'] .package-card { background: #152035 !important; border-color: #2a3f5f !important; }
+    html[data-theme='dark'] .package-card.selected { background: #1a2f50 !important; border-color: #4a82c0 !important; }
+    html[data-theme='dark'] .subsection-soft { background: #1a2b41 !important; border-color: #2a3f5f !important; }
+    html[data-theme='dark'] .intake-toast-branch { background: #1a2b41 !important; color: #e8f0fc !important; border-color: #3f5b7f !important; }
+    html[data-theme='dark'] .intake-toast-package { background: #1f5d46 !important; color: #e8fff4 !important; border-color: #2e8666 !important; }
+
+    /* ── Mobile responsive ── */
+    @media (min-width: 640px) {
+        #meta_request_wrap { display: flex !important; }
+    }
+    @media (min-width: 1024px) {
+        #meta_encoder_wrap { display: flex !important; }
+    }
+
+    @media (max-width: 768px) {
+        .intake-section-shell { flex-direction: column; }
+        .wizard-steps-shell {
+            width: 100% !important;
+            flex-direction: row !important;
+            border-right: none; border-bottom: 1px solid #e4e8ef;
+            overflow-x: auto; overflow-y: hidden;
+            padding: 0; height: auto;
+        }
+        .wizard-steps-group-label { display: none; }
+        .wizard-tab { flex-direction: column; width: auto; flex: 0 0 auto; min-width: 70px; align-items: center; }
+        .wizard-tab .wz-track { flex-direction: row; padding: 10px 0 0 0; width: auto; }
+        .wizard-tab .wz-line { display: none; }
+        .wizard-tab .wz-body { padding: 4px 6px 8px; margin: 0 4px; min-height: auto; align-items: center; }
+        .wizard-tab .wz-sub { display: none; }
+        .wizard-tab .wizard-step-label { font-size: 0.67rem; text-align: center; }
+        #intakeFormContent { padding: 14px 16px !important; }
+        .footer-action-bar { padding: 12px 16px !important; }
+        .wizard-panel { padding: 18px 16px; border-radius: 14px; }
+    }
+    @media (max-width: 640px) {
+        .footer-action-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+        #wizardPrev, #wizardNext, #saveIntakeRecord { text-align: center; width: 100%; }
+    }
     </style>
 
     <div id="branch_toast" class="hidden fixed left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl bg-slate-900 text-white text-sm font-semibold transition-all duration-300 opacity-0 translate-y-[-8px] toast-pop intake-toast-branch">
@@ -788,40 +601,12 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
         <i class="bi bi-check2-circle text-lg"></i>
         <span class="package-toast-text">You selected a package.</span>
     </div>
-
-    <div class="intake-top-shell">
-    @php
-        $intakeModeLabel = $isOtherEntryMode ? 'Other Branch' : 'Main Branch';
-    @endphp
-
-    <div class="intake-meta-shell text-sm">
-        <div class="intake-meta-divider place-items-start">
-            <div class="intake-meta-item">
-                <span class="intake-meta-label">Case ID</span>
-                <span id="next_case_code" class="intake-meta-value">{{ $nextCode }}</span>
-            </div>
-
-            <div class="intake-meta-item hidden sm:flex">
-                <span class="intake-meta-label">{{ $isOtherEntryMode ? 'Encoded' : 'Request' }}</span>
-                <span id="service_requested_display" class="intake-meta-value">
-                    {{ \Illuminate\Support\Carbon::parse(old('service_requested_at', now()->toDateString()))->format('M d, Y') }}
-                </span>
-            </div>
-
-            <div class="intake-meta-item hidden lg:flex">
-                <span class="intake-meta-label">Encoder</span>
-                <span class="intake-meta-value">{{ auth()->user()->name }}</span>
-            </div>
-
-            <div class="intake-meta-item">
-                <span class="intake-meta-label">Branch <span class="text-rose-500">*</span></span>
-                <span class="intake-meta-value" id="selected_branch_code">{{ $branches->firstWhere('id', $initialSelectedBranchId)?->branch_code }}</span>
-            </div>
-        </div>
-
-        <div id="branch_error" class="hidden text-xs font-bold text-rose-500 w-full"></div>
-    </div>
+    {{-- Right: draft label + exit --}}
+    
 </div>
+
+{{-- Progress rail (updated by JS) --}}
+<div class="intake-progress-rail"><div class="intake-progress-fill" id="intakeProgressFill"></div></div>
 
     @if($isOtherEntryMode)
         <div class="mb-6 rounded-2xl border px-5 py-4 text-sm {{ $otherBranchWindowClosed ? 'border-rose-200 bg-rose-50 text-rose-900' : 'border-amber-200 bg-amber-50 text-amber-900' }} shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
@@ -835,47 +620,61 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
         </div>
     @endif
 
-    <div class="intake-section-shell overflow-hidden relative">
-        <div id="intake_lock_overlay" class="lock-overlay hidden">
-            <div class="max-w-md w-full mx-4 rounded-3xl border border-slate-200 bg-white shadow-[0_20px_45px_rgba(15,23,42,0.16)] px-5 py-5">
-                <div class="flex items-start gap-3">
-                    <div class="w-11 h-11 rounded-2xl bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center shrink-0">
-                        <i class="bi bi-diagram-3"></i>
-                    </div>
-                    <div>
-                        <h4 class="text-sm font-bold text-slate-900">Select Branch to Begin</h4>
-                        <p class="text-xs text-slate-600 mt-1">
-                            To begin, please select which branch this case belongs to.
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div class="intake-section-shell">
 
-        <div class="wizard-steps-shell flex overflow-x-auto hide-scrollbar" id="wizardSteps">
+        <div class="wizard-steps-shell hide-scrollbar" id="wizardSteps">
     @php
         $steps = [
-            1 => 'Client',
+            1 => 'Client Info',
             2 => 'Deceased',
-            3 => 'Package',
-            4 => 'Service Details',
-            5 => 'Billing',
-            6 => $isOtherEntryMode ? 'Payment Confirmation' : 'Payment',
-            7 => 'Review'
+            3 => 'Service Selection',
+            4 => 'Billing & Payment',
+            5 => 'Review',
+        ];
+        $stepSubs = [
+            1 => 'Primary contact',
+            2 => 'Deceased details',
+            3 => 'Package & dates',
+            4 => 'Charges & payment',
+            5 => 'Final review',
         ];
     @endphp
+
+    <div class="wizard-steps-group-label">Case Progress</div>
 
     @foreach($steps as $num => $label)
         <button
             type="button"
             data-step="{{ $num }}"
-            class="wizard-tab flex-1 {{ $num === 1 ? 'active-step' : '' }}"
+            class="wizard-tab {{ $num === 1 ? 'active-step' : '' }}"
         >
-            <span class="wizard-step-number">{{ $num }}</span>
-            <span class="wizard-step-label">{{ $label }}</span>
+            <div class="wz-track">
+                <span class="wizard-step-number">{{ $num }}</span>
+                <span class="wz-line"></span>
+            </div>
+            <div class="wz-body">
+                <span class="wizard-step-label">{{ $label }}</span>
+                <span class="wz-sub">{{ $stepSubs[$num] }}</span>
+            </div>
         </button>
     @endforeach
 </div>
+
+        <div class="intake-form-wrapper">
+
+            <div id="intake_lock_overlay" class="lock-overlay hidden">
+                <div class="max-w-md w-full mx-4 rounded-2xl border border-slate-200 bg-white shadow-[0_20px_45px_rgba(13,31,56,.18)] px-6 py-5">
+                    <div class="flex items-start gap-4">
+                        <div class="w-11 h-11 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 flex items-center justify-center shrink-0">
+                            <i class="bi bi-diagram-3 text-lg"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-bold text-slate-900">Select a Branch to Begin</h4>
+                            <p class="text-xs text-slate-500 mt-1.5 leading-relaxed">To begin recording, choose which branch this case belongs to.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
         <form method="POST" action="{{ $formAction ?? route('intake.main.store') }}" enctype="multipart/form-data" id="intakeWizardForm">
             @csrf
@@ -884,7 +683,7 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
             <input type="hidden" name="branch_id" id="branch_id" value="{{ $initialSelectedBranchId }}">
             <input type="hidden" id="branch_code_main_default" value="{{ optional($branches->first())->branch_code ?? 'BR001' }}">
 
-            <div id="intakeFormContent" class="p-6 md:p-8 lg:p-10 xl:p-12">
+            <div id="intakeFormContent">
                 <section class="wizard-panel" data-step="1">
                     <div class="section-title-block">
                         <div class="section-heading-icon">
@@ -928,8 +727,28 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                         <div class="md:col-span-2 lg:col-span-1">
-                            <label class="field-label">Full Name <span class="text-rose-500">*</span></label>
-                            <input type="text" name="client_name" value="{{ old('client_name') }}" data-validate="letters-spaces" data-label="client name" class="form-input" placeholder="e.g., Maria Santos" required>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="field-label">First Name <span class="text-rose-500">*</span></label>
+                                    <input type="text" name="client_first_name" value="{{ old('client_first_name') }}" data-label="client first name" class="form-input" placeholder="e.g., Maria" required>
+                                    @error('client_first_name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <label class="field-label">Last Name <span class="text-rose-500">*</span></label>
+                                    <input type="text" name="client_last_name" value="{{ old('client_last_name') }}" data-label="client last name" class="form-input" placeholder="e.g., Santos" required>
+                                    @error('client_last_name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <label class="field-label">Middle Name</label>
+                                    <input type="text" name="client_middle_name" value="{{ old('client_middle_name') }}" data-label="client middle name" class="form-input" placeholder="e.g., Reyes">
+                                    @error('client_middle_name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <label class="field-label">Suffix</label>
+                                    <input type="text" name="client_suffix" value="{{ old('client_suffix') }}" data-label="client suffix" class="form-input" placeholder="Jr., Sr., III…" maxlength="20">
+                                    @error('client_suffix') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                                </div>
+                            </div>
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:col-span-2 lg:col-span-1">
@@ -984,8 +803,28 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
 
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-x-6 gap-y-5">
                         <div class="md:col-span-8">
-                            <label class="field-label">Deceased Name <span class="text-rose-500">*</span></label>
-                            <input type="text" name="deceased_name" value="{{ old('deceased_name') }}" data-validate="letters-spaces" data-label="deceased name" class="form-input" placeholder="e.g., Juan Dela Cruz" required>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="field-label">First Name <span class="text-rose-500">*</span></label>
+                                    <input type="text" name="deceased_first_name" value="{{ old('deceased_first_name') }}" data-label="deceased first name" class="form-input" placeholder="e.g., Juan" required>
+                                    @error('deceased_first_name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <label class="field-label">Last Name <span class="text-rose-500">*</span></label>
+                                    <input type="text" name="deceased_last_name" value="{{ old('deceased_last_name') }}" data-label="deceased last name" class="form-input" placeholder="e.g., Dela Cruz" required>
+                                    @error('deceased_last_name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <label class="field-label">Middle Name</label>
+                                    <input type="text" name="deceased_middle_name" value="{{ old('deceased_middle_name') }}" data-label="deceased middle name" class="form-input" placeholder="e.g., Reyes">
+                                    @error('deceased_middle_name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <label class="field-label">Suffix</label>
+                                    <input type="text" name="deceased_suffix" value="{{ old('deceased_suffix') }}" data-label="deceased suffix" class="form-input" placeholder="Jr., Sr., III…" maxlength="20">
+                                    @error('deceased_suffix') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                                </div>
+                            </div>
                         </div>
 
                         <div class="md:col-span-4">
@@ -1049,32 +888,45 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
                 </section>
 
                 <section class="wizard-panel hidden" data-step="3">
-                    <div class="flex items-center justify-between mb-6">
-                        <div class="section-title-block" style="margin-bottom:0;">
-                            <div class="section-heading-icon">
-                                <i class="bi bi-box-seam-fill"></i>
-                            </div>
-                            <div class="section-title-text">
-                                <h3>Service Package</h3>
-                                <p>Select the appropriate service package for this case.</p>
-                            </div>
-                        </div>
+                    @php
+                        $maxPkgPrice = $packages->max('price');
+                    @endphp
 
-                        <div id="package_error" class="hidden text-xs font-bold text-rose-500 bg-rose-50 px-3 py-1 rounded-md">
-                            Selection Required
+                    <div class="pkg-grid-header">
+                        <div>
+                            <p class="pkg-section-title">Service Packages</p>
+                            <p class="pkg-section-sub">Select the appropriate service package for this case.</p>
+                        </div>
+                        <div id="package_error" class="hidden text-xs font-bold text-rose-500 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-lg flex items-center gap-1">
+                            <i class="bi bi-exclamation-circle-fill"></i> Selection required
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="packageCardList">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5" id="packageCardList">
                         @foreach($packages as $pkg)
                             @php
                                 $promoNow = $pkg->promo_is_active
                                     && (!$pkg->promo_starts_at || $pkg->promo_starts_at->lte(now()))
                                     && (!$pkg->promo_ends_at || $pkg->promo_ends_at->gte(now()));
+
+                                $isFeatured = $pkg->price == $maxPkgPrice;
+
+                                $rawInc = (string) $pkg->inclusions;
+                                $inclusionItems = [];
+                                if (trim($rawInc) !== '') {
+                                    if (str_starts_with(trim($rawInc), '[')) {
+                                        $inclusionItems = array_values(array_filter(json_decode($rawInc, true) ?? []));
+                                    } else {
+                                        $inclusionItems = array_values(array_filter(array_map('trim', preg_split('/[\r\n,;]+/', $rawInc))));
+                                    }
+                                }
                             @endphp
 
-                            <div class="package-card-item">
-                                <label class="package-card relative flex flex-col p-5 rounded-xl border-2 border-slate-100 bg-white cursor-pointer hover:border-slate-300 transition-all group focus-within:ring-2 focus-within:ring-slate-900">
+                            <div class="package-card-item {{ $isFeatured ? 'pkg-featured-item' : '' }}">
+                                @if($isFeatured)
+                                    <div class="pkg-badge-recommended">Recommended</div>
+                                @endif
+                                <label class="package-card pkg-premium-card {{ $isFeatured ? 'pkg-card-featured' : '' }} w-full cursor-pointer">
                                     <input
                                         type="radio"
                                         name="package_id"
@@ -1092,31 +944,42 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
                                         required
                                     >
 
-                                    <div class="mb-2 flex items-start justify-between">
-                                        <span class="text-[9px] font-black uppercase tracking-widest text-slate-400">{{ $pkg->coffin_type ?? 'Standard' }}</span>
-
+                                    <div class="pkg-card-body">
+                                        <div class="pkg-tier-label">{{ $pkg->coffin_type ?? 'Standard' }}</div>
+                                        <div class="pkg-name">{{ $pkg->name }}</div>
+                                        <div class="pkg-price"><sub>&#8369;</sub>{{ number_format($pkg->price, 0) }}</div>
                                         @if($promoNow)
-                                            <span class="bg-emerald-100 text-emerald-800 text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
-                                                {{ $pkg->promo_label }}
-                                            </span>
+                                            <div class="pkg-promo-badge">{{ $pkg->promo_label }}</div>
+                                        @else
+                                            <p class="pkg-price-note">Fixed package rate</p>
+                                        @endif
+
+                                        @if(count($inclusionItems) > 0)
+                                            <ul class="pkg-features-list">
+                                                @foreach(array_slice($inclusionItems, 0, 6) as $item)
+                                                    <li class="pkg-feature-item">
+                                                        <span class="pkg-feature-check">&#10003;</span>
+                                                        {{ $item }}
+                                                    </li>
+                                                @endforeach
+                                            </ul>
                                         @endif
                                     </div>
 
-                                    <h4 class="package-title text-base font-bold text-slate-900 leading-tight">{{ $pkg->name }}</h4>
-
-                                    <div class="mt-6 flex items-baseline justify-between">
-                                        <div class="text-xl font-black text-slate-900">&#8369;{{ number_format($pkg->price, 2) }}</div>
-                                        <div class="check-dot w-6 h-6 rounded-full border-2 flex items-center justify-center bg-white transition-all">
-                                            <i class="bi bi-check text-emerald-600 text-base"></i>
+                                    <div class="pkg-card-footer">
+                                        <div class="pkg-select-btn">
+                                            <span class="pkg-btn-unselected">Select Package</span>
+                                            <span class="pkg-btn-selected"><i class="bi bi-check-circle-fill"></i> Selected</span>
                                         </div>
+                                        <div class="check-dot hidden"></div>{{-- JS compat --}}
                                     </div>
                                 </label>
                             </div>
                         @endforeach
 
                         @if(empty($entryMode) || $entryMode === 'main')
-                            <div class="package-card-item relative">
-                                <label class="package-card relative flex flex-col p-5 rounded-xl border-2 border-dashed border-amber-200 bg-amber-50/40 cursor-pointer hover:border-amber-300 transition-all group focus-within:ring-2 focus-within:ring-amber-500/50">
+                            <div class="package-card-item">
+                                <label class="package-card pkg-premium-card pkg-card-custom w-full cursor-pointer">
                                     <input
                                         type="radio"
                                         name="package_id"
@@ -1129,18 +992,36 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
                                         data-freebies=""
                                     >
 
-                                    <div class="mb-2 flex items-start justify-between">
-                                        <span class="text-[9px] font-black uppercase tracking-widest text-amber-700">Client Preference</span>
-                                        <span class="bg-white text-amber-700 text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider border border-amber-200">Custom</span>
+                                    <div class="pkg-card-body">
+                                        <div class="pkg-tier-label" style="color:#b45309;">Client Preference</div>
+                                        <div class="pkg-name" style="color:#78350f;">Custom</div>
+                                        <div class="pkg-price" style="color:#92400e;">
+                                            <sub>&#8369;</sub><span id="custom_package_price_display">0</span>
+                                        </div>
+                                        <p class="pkg-price-note">Tailored to client's needs</p>
+
+                                        <ul class="pkg-features-list">
+                                            <li class="pkg-feature-item">
+                                                <span class="pkg-feature-plus">+</span>
+                                                Choose Casket Tier
+                                            </li>
+                                            <li class="pkg-feature-item">
+                                                <span class="pkg-feature-plus">+</span>
+                                                Flexible Wake Duration
+                                            </li>
+                                            <li class="pkg-feature-item">
+                                                <span class="pkg-feature-plus">+</span>
+                                                Add-on Services (Music, Video)
+                                            </li>
+                                        </ul>
                                     </div>
 
-                                    <h4 class="package-title text-base font-bold text-amber-900 leading-tight">Enter package name</h4>
-
-                                    <div class="mt-6 flex items-baseline justify-between">
-                                        <div class="text-xl font-black text-amber-900">&#8369;<span id="custom_package_price_display">0.00</span></div>
-                                        <div class="check-dot w-6 h-6 rounded-full border-2 border-amber-300 flex items-center justify-center bg-white transition-all">
-                                            <i class="bi bi-check text-emerald-600 text-base"></i>
+                                    <div class="pkg-card-footer">
+                                        <div class="pkg-select-btn">
+                                            <span class="pkg-btn-unselected">Build Package</span>
+                                            <span class="pkg-btn-selected"><i class="bi bi-check-circle-fill"></i> Selected</span>
                                         </div>
+                                        <div class="check-dot hidden"></div>{{-- JS compat --}}
                                     </div>
                                 </label>
                             </div>
@@ -1190,18 +1071,17 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
                             </ul>
                         </div>
                     </div>
-                </section>
 
-                <section class="wizard-panel hidden" data-step="4">
-                    <div class="section-title-block">
-                        <div class="section-heading-icon">
-                            <i class="bi bi-geo-alt-fill"></i>
+                    <div class="mt-8 pt-8 border-t border-slate-200">
+                        <div class="section-title-block mb-6">
+                            <div class="section-heading-icon">
+                                <i class="bi bi-geo-alt-fill"></i>
+                            </div>
+                            <div class="section-title-text">
+                                <h3>Service Details</h3>
+                                <p>Set the wake, interment, and case progress details.</p>
+                            </div>
                         </div>
-                        <div class="section-title-text">
-                            <h3>Service Details</h3>
-                            <p>Set the wake, interment, and case progress details.</p>
-                        </div>
-                    </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                         <div>
                             <label class="field-label">Wake Start Date <span class="text-rose-500">*</span></label>
@@ -1280,232 +1160,235 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
                         <label class="field-label">Upload Deceased Photo (Optional)</label>
                         <input type="file" name="deceased_photo" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300">
                     </div>
+                    </div>{{-- /service-details-wrapper --}}
                 </section>
 
-                <section class="wizard-panel hidden" data-step="5">
+                <section class="wizard-panel hidden" data-step="4">
                     <div class="section-title-block">
                         <div class="section-heading-icon">
                             <i class="bi bi-receipt"></i>
                         </div>
                         <div class="section-title-text">
-                            <h3>Billing Statement</h3>
-                            <p>Review charges, discounts and total amount due.</p>
+                            <h3>Billing &amp; Payment</h3>
+                            <p>Review the summary and record the initial deposit or full payment.</p>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8">
-                        <div class="space-y-6">
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="field-label">Package Price</label>
-                                    <div class="flex items-center rounded-lg border border-slate-300 bg-slate-50 focus-within:ring-2 focus-within:ring-slate-900">
-                                        <span class="pl-3 pr-2 text-slate-500 font-bold">&#8369;</span>
-                                        <input type="number" step="0.01" name="package_amount" id="package_amount" value="{{ old('package_amount') }}" class="w-full border-0 focus:outline-none focus:ring-0 bg-slate-50 font-bold p-3" readonly>
-                                    </div>
-                                </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6 mt-6">
 
-                                <div>
-                                    <label class="field-label">Additional Charges</label>
-                                    <div class="flex items-center rounded-lg border border-slate-300 bg-white focus-within:ring-2 focus-within:ring-slate-900">
-                                        <span class="pl-3 pr-2 text-slate-500 font-bold">&#8369;</span>
-                                        <input type="number" step="0.01" min="0" name="additional_service_amount" id="additional_service_amount" value="{{ old('additional_service_amount') }}" data-label="additional charges" class="w-full border-0 focus:outline-none focus:ring-0 font-bold p-3" placeholder="0.00">
-                                    </div>
+                        {{-- LEFT: Record Payment card --}}
+                        <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                            <div class="px-5 py-4 border-b border-slate-100 flex items-center gap-3 bg-slate-50">
+                                <div class="w-7 h-7 rounded-lg bg-slate-800 text-white flex items-center justify-center flex-shrink-0">
+                                    <i class="bi bi-credit-card-fill text-xs"></i>
                                 </div>
+                                <span class="font-bold text-slate-800 text-sm">Record Payment</span>
                             </div>
+                            <div class="p-5 space-y-5">
 
-                            <div>
-                                <label class="field-label">Description of Extras</label>
-                                <textarea name="additional_services" id="additional_services" rows="2" data-label="additional services" class="form-textarea" placeholder="Detail any add-ons here...">{{ old('additional_services') }}</textarea>
-                            </div>
-
-                            <div class="p-5 rounded-xl border border-slate-200 bg-slate-50 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div class="col-span-2">
-                                    <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-500">Discounts & Tax</h4>
-                                </div>
-
-                                <div>
-                                    <label class="field-label">Discount Applied</label>
-                                    <input type="text" id="auto_discount_type" value="None" class="form-input bg-white text-xs font-bold" readonly>
-                                </div>
-
-                                <div>
-                                    <label class="field-label">Discount Value</label>
-                                    <input type="text" id="auto_discount_amount" value="PHP 0.00" class="form-input bg-white text-xs font-bold text-emerald-600" readonly>
-                                </div>
-
-                                <div>
-                                    <label class="field-label">Tax Rate (%)</label>
-                                    <div class="relative">
-                                        <input type="number" step="0.01" min="0" max="100" name="tax_rate" id="tax_rate" value="{{ old('tax_rate', '0') }}" data-label="tax rate" class="form-input pr-10">
-                                        <span class="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">%</span>
+                                {{-- Additional charges --}}
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="field-label">Additional Charges</label>
+                                        <div class="flex items-center rounded-lg border border-slate-300 bg-white focus-within:ring-2 focus-within:ring-slate-900">
+                                            <span class="pl-3 pr-2 text-slate-500 font-bold">&#8369;</span>
+                                            <input type="number" step="0.01" min="0" name="additional_service_amount" id="additional_service_amount" value="{{ old('additional_service_amount') }}" data-label="additional charges" class="w-full border-0 focus:outline-none focus:ring-0 font-bold p-3" placeholder="0.00">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="field-label">Description of Extras</label>
+                                        <textarea name="additional_services" id="additional_services" rows="2" data-label="additional services" class="form-textarea" placeholder="Detail any add-ons here...">{{ old('additional_services') }}</textarea>
                                     </div>
                                 </div>
 
-                                <div>
-                                    <label class="field-label">Tax Amount</label>
-                                    <input type="text" id="tax_amount_display" value="PHP 0.00" class="form-input bg-white text-xs font-bold text-rose-600" readonly>
-                                </div>
+                                {{-- Hidden billing inputs still used by JS --}}
+                                <input type="number" step="0.01" name="package_amount" id="package_amount" value="{{ old('package_amount') }}" class="hidden" readonly>
+                                <input type="hidden" name="tax_rate" id="tax_rate" value="0">
+                                <input type="text" id="auto_discount_type" value="None" class="hidden" readonly>
+                                <input type="text" id="auto_discount_amount" value="PHP 0.00" class="hidden" readonly>
 
-                                <div id="discount_help_wrap" class="col-span-2 text-[11px] font-medium text-slate-500 flex gap-2 items-start mt-1">
-                                    <i class="bi bi-info-circle text-blue-500"></i>
+                                {{-- Discount info note --}}
+                                <div id="discount_help_wrap" class="text-[11px] font-medium text-slate-500 flex gap-2 items-start">
+                                    <i class="bi bi-info-circle text-blue-400 mt-0.5 flex-shrink-0"></i>
                                     <span id="discount_help_text_secondary">Discount is tied to Senior Citizen status.</span>
                                 </div>
+
+                                <div class="border-t border-slate-100"></div>
+
+                                @if($isOtherEntryMode)
+                                    <input type="hidden" name="mark_as_paid" id="mark_as_paid" value="1">
+                                    <input type="hidden" name="payment_type" id="payment_type" value="FULL">
+                                    <div class="p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900 flex gap-3">
+                                        <i class="bi bi-shield-check text-amber-600 text-lg flex-shrink-0"></i>
+                                        <div>
+                                            <strong class="block text-xs uppercase tracking-wider mb-0.5">Verification Rule Applied</strong>
+                                            This external branch report will be saved as fully paid and routed automatically.
+                                        </div>
+                                    </div>
+                                @endif
+
+                                @if(!$isOtherEntryMode)
+                                    <label id="mark_as_paid_label" class="group flex items-center justify-between gap-4 p-4 rounded-xl border-2 {{ old('mark_as_paid') ? 'border-slate-800 bg-slate-50' : 'border-slate-200 bg-white' }} cursor-pointer transition-all duration-200 hover:border-slate-400">
+                                        <div class="flex items-center gap-3">
+                                            <div id="mark_as_paid_icon" class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-200 {{ old('mark_as_paid') ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500' }}">
+                                                <i class="bi bi-cash-stack text-base"></i>
+                                            </div>
+                                            <div>
+                                                <span class="block text-sm font-bold text-slate-800">Record Payment Now</span>
+                                                <span class="block text-xs text-slate-500 mt-0.5">Click to log a deposit or full settlement.</span>
+                                            </div>
+                                        </div>
+                                        <div id="mark_as_paid_toggle" class="relative w-11 h-6 flex-shrink-0">
+                                            <input type="checkbox" name="mark_as_paid" id="mark_as_paid" value="1" {{ old('mark_as_paid') ? 'checked' : '' }} class="sr-only peer">
+                                            <div class="w-11 h-6 rounded-full border-2 transition-all duration-200 peer-checked:bg-slate-900 peer-checked:border-slate-900 border-slate-300 bg-slate-100"></div>
+                                            <div class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-all duration-200 peer-checked:translate-x-5 peer-checked:shadow-md"></div>
+                                        </div>
+                                    </label>
+                                @endif
+
+                                <div id="payment_form_fields" class="{{ $isOtherEntryMode ? '' : 'hidden' }} space-y-5">
+                                    {{-- Payment Method --}}
+                                    <div>
+                                        <label class="field-label text-xs">Payment Method</label>
+                                        <div class="bpay-tab-group">
+                                            <label class="payment-method-card cursor-pointer">
+                                                <input type="radio" name="payment_method" value="CASH" class="payment-method-radio sr-only" {{ old('payment_method', 'CASH') === 'CASH' ? 'checked' : '' }}>
+                                                <span class="flex items-center gap-2 text-sm font-bold text-slate-700"><i class="bi bi-cash-coin"></i> Cash</span>
+                                            </label>
+                                            <label class="payment-method-card cursor-pointer">
+                                                <input type="radio" name="payment_method" value="BANK_TRANSFER" class="payment-method-radio sr-only" {{ old('payment_method') === 'BANK_TRANSFER' ? 'checked' : '' }}>
+                                                <span class="flex items-center gap-2 text-sm font-bold text-slate-700"><i class="bi bi-bank"></i> Bank Transfer</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    {{-- Bank reference (visible only when Bank Transfer is selected) --}}
+                                    <div id="bank_reference_wrap" class="hidden">
+                                        <label class="field-label">Transaction / Reference No.</label>
+                                        <input type="text" name="bank_reference" id="bank_reference" value="{{ old('bank_reference') }}" data-label="bank reference" class="form-input" placeholder="e.g. TXN-20240101-001">
+                                    </div>
+
+                                    @if(!$isOtherEntryMode)
+                                        <div>
+                                            <label class="field-label text-xs">Payment Type</label>
+                                            <div class="bpay-tab-group" id="payment_type_group">
+                                                <label class="payment-type-card cursor-pointer transition-colors">
+                                                    <input type="radio" name="payment_type" value="FULL" class="payment-type-radio sr-only" {{ old('payment_type') === 'FULL' ? 'checked' : '' }}>
+                                                    <span class="text-sm font-bold text-slate-700">Full Payment</span>
+                                                </label>
+                                                <label class="payment-type-card cursor-pointer transition-colors">
+                                                    <input type="radio" name="payment_type" value="PARTIAL" class="payment-type-radio sr-only" {{ old('payment_type') === 'PARTIAL' ? 'checked' : '' }}>
+                                                    <span class="text-sm font-bold text-slate-700">Partial Payment</span>
+                                                </label>
+                                            </div>
+                                            <div id="payment_type_error" class="hidden text-xs font-bold text-rose-500 mt-2">Please select a type.</div>
+                                        </div>
+                                    @endif
+
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                        <div>
+                                            <label class="field-label">Amount Received</label>
+                                            <div class="flex items-center rounded-lg border border-slate-300 bg-white focus-within:ring-2 focus-within:ring-slate-900">
+                                                <span class="pl-3 pr-2 text-slate-500 font-bold text-lg">&#8369;</span>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0.01"
+                                                    name="amount_paid"
+                                                    id="amount_paid"
+                                                    value="{{ old('amount_paid') }}"
+                                                    data-label="amount paid"
+                                                    class="w-full border-0 focus:outline-none focus:ring-0 font-black p-3 text-lg"
+                                                    placeholder="0.00"
+                                                >
+                                            </div>
+                                            <p class="text-[11px] font-medium text-blue-500 mt-1.5" id="payment_amount_hint">
+                                                {{ $isOtherEntryMode ? 'Must equal full amount' : 'Enter amount received' }}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <label class="field-label">Date Received</label>
+                                            <input type="datetime-local" name="paid_at" id="paid_at" value="{{ old('paid_at', now()->format('Y-m-d\\TH:i')) }}" data-label="payment date" class="form-input">
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-3 gap-3">
+                                        <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                            <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Status</div>
+                                            <div id="payment_status_preview" class="text-base font-black text-slate-800">UNPAID</div>
+                                        </div>
+                                        <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                                            <div class="text-[9px] font-black uppercase tracking-widest text-emerald-600 mb-1">Paid Amount</div>
+                                            <div class="text-base font-black text-emerald-800">&#8369; <span id="payment_paid_preview">0.00</span></div>
+                                        </div>
+                                        <div class="rounded-xl border border-slate-800 bg-slate-900 p-4 text-white">
+                                            <div class="text-[9px] font-black uppercase tracking-widest opacity-50 mb-1">Remaining Balance</div>
+                                            <div class="text-base font-black">&#8369; <span id="payment_balance_preview">0.00</span></div>
+                                        </div>
+                                    </div>
+                                </div>
+
                             </div>
                         </div>
 
+                        {{-- RIGHT: Live Summary card --}}
                         <div class="self-start sticky top-6">
-                            <div class="sticky-review-card bg-slate-900 rounded-[1.35rem] p-6 text-white">
-                                <h4 class=" text-white text-center uppercase tracking-widest opacity-90 mb-5">Summary Dashboard</h4>
+                            <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                                <div class="px-5 py-4 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
+                                    <div class="w-7 h-7 rounded-lg bg-slate-800 text-white flex items-center justify-center flex-shrink-0">
+                                        <i class="bi bi-receipt text-xs"></i>
+                                    </div>
+                                    <span class="font-bold text-slate-800 text-sm">Live Summary</span>
+                                </div>
+                                <div class="p-5 space-y-3 text-sm">
 
-                                <div class="space-y-4 text-sm">
-                                    <div class="flex justify-between border-b border-white/10 pb-3">
-                                        <span class="opacity-70">Package</span>
-                                        <span class="font-bold"><span class="mr-1">&#8369;</span><span id="summary_package_price">0.00</span></span>
+                                    <div class="flex justify-between items-center gap-2">
+                                        <span class="text-slate-500">Package</span>
+                                        <span class="font-bold text-slate-900 whitespace-nowrap">&#8369;&nbsp;<span id="summary_package_price">0.00</span></span>
                                     </div>
 
-                                    <div class="flex justify-between border-b border-white/10 pb-3">
-                                        <span class="opacity-70">Extras</span>
-                                        <span class="font-bold"><span class="mr-1">&#8369;</span><span id="summary_additional">0.00</span></span>
+                                    <div class="flex justify-between items-center gap-2">
+                                        <span class="text-slate-500">Extras</span>
+                                        <span class="font-bold text-slate-900 whitespace-nowrap">&#8369;&nbsp;<span id="summary_additional">0.00</span></span>
                                     </div>
 
-                                    <div class="flex justify-between border-b border-white/10 pb-3">
-                                        <span class="opacity-70 text-xs">Subtotal</span>
-                                        <span class="font-bold text-xs"><span class="mr-1">&#8369;</span><span id="summary_subtotal">0.00</span></span>
+                                    <div class="flex justify-between items-center gap-2">
+                                        <span class="text-emerald-600 text-xs">Discount (<span id="summary_discount_source">None</span>)</span>
+                                        <span class="font-bold text-emerald-600 whitespace-nowrap">&#8722;&nbsp;&#8369;&nbsp;<span id="summary_discount">0.00</span></span>
                                     </div>
 
-                                    <div class="flex justify-between text-emerald-400">
-                                        <span class="text-xs">Discount (<span id="summary_discount_source">None</span>)</span>
-                                        <span class="font-bold">- <span class="mr-1">&#8369;</span><span id="summary_discount">0.00</span></span>
+                                    <div class="border-t border-slate-100 pt-3 space-y-2">
+                                        <div class="flex justify-between items-center gap-2">
+                                            <span class="text-slate-400 text-xs">Subtotal</span>
+                                            <span class="font-semibold text-slate-700 text-xs whitespace-nowrap">&#8369;&nbsp;<span id="summary_subtotal">0.00</span></span>
+                                        </div>
+                                        <span id="summary_tax" class="hidden">0.00</span>
                                     </div>
 
-                                    <div class="flex justify-between border-b border-white/10 pb-3">
-                                        <span class="opacity-70 text-xs">Tax</span>
-                                        <span class="font-bold text-xs"><span class="mr-1">&#8369;</span><span id="summary_tax">0.00</span></span>
+                                    <div class="border-t border-slate-200 pt-4 flex justify-between items-end gap-2">
+                                        <span class="font-bold text-slate-800 text-base">Total Amount</span>
+                                        <span class="font-black text-slate-900 text-2xl whitespace-nowrap leading-none">&#8369;<span id="summary_total">0.00</span></span>
                                     </div>
 
-                                    <div class="flex justify-between items-end pt-2">
-                                        <span class="text-base font-bold">Total Due</span>
-                                        <span class="text-2xl font-black"><span class="mr-1">&#8369;</span><span id="summary_total">0.00</span></span>
+                                    <div class="border-t border-slate-100 pt-3 space-y-2 text-xs">
+                                        <div class="flex justify-between items-center gap-2 text-slate-500">
+                                            <span>Current Payment</span>
+                                            <span class="font-bold text-slate-700 whitespace-nowrap">&#8369;&nbsp;<span id="summary_payment_status_dummy" class="hidden"></span><span id="summary_payment_status" class="font-bold">UNPAID</span></span>
+                                        </div>
+                                        <div class="flex justify-between items-center gap-2 text-slate-500">
+                                            <span>Remaining Balance</span>
+                                            <span class="font-bold text-slate-800 whitespace-nowrap">&#8369;&nbsp;<span id="summary_balance">0.00</span></span>
+                                        </div>
                                     </div>
 
-                                    <div class="flex justify-between border-t border-white/10 pt-3 text-xs">
-                                        <span class="opacity-70">Payment Status</span>
-                                        <span id="summary_payment_status" class="font-bold">UNPAID</span>
-                                    </div>
-
-                                    <div class="flex justify-between text-xs">
-                                        <span class="opacity-70">Balance</span>
-                                        <span class="font-bold"><span class="mr-1">&#8369;</span><span id="summary_balance">0.00</span></span>
-                                    </div>
                                 </div>
                             </div>
                         </div>
+
                     </div>
                 </section>
 
-                <section class="wizard-panel hidden" data-step="6">
-                    <div class="section-title-block">
-                        <div class="section-heading-icon">
-                            <i class="bi bi-wallet2"></i>
-                        </div>
-                        <div class="section-title-text">
-                            <h3>{{ $isOtherEntryMode ? 'Payment Confirmation' : 'Process Payment' }}</h3>
-                            <p>{{ $isOtherEntryMode ? 'Confirm the required payment condition for external branch intake.' : 'Record an initial payment, deposit, or full settlement.' }}</p>
-                        </div>
-                    </div>
-
-                    @if($isOtherEntryMode)
-                        <input type="hidden" name="mark_as_paid" id="mark_as_paid" value="1">
-                        <input type="hidden" name="payment_type" id="payment_type" value="FULL">
-
-                        <div class="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900 flex gap-3">
-                            <i class="bi bi-shield-check text-amber-600 text-lg"></i>
-                            <div>
-                                <strong class="block text-xs uppercase tracking-wider mb-0.5">Verification Rule Applied</strong>
-                                This external branch report will be saved as fully paid and routed automatically.
-                            </div>
-                        </div>
-                    @endif
-
-                    @if(!$isOtherEntryMode)
-                        <div class="mb-8">
-                            <label class="flex items-center gap-4 p-4 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors">
-                                <input type="checkbox" name="mark_as_paid" id="mark_as_paid" value="1" {{ old('mark_as_paid') ? 'checked' : '' }} class="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900">
-                                <div>
-                                    <span class="block text-sm font-bold text-slate-800">Record Initial Payment Now</span>
-                                    <span class="block text-xs text-slate-500">Toggle this to log a deposit or full settlement.</span>
-                                </div>
-                            </label>
-                        </div>
-                    @endif
-
-                    <div id="payment_form_fields" class="{{ $isOtherEntryMode ? '' : 'hidden' }} space-y-6">
-                        @if(!$isOtherEntryMode)
-                            <div>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="payment_type_group">
-                                    <label class="payment-type-card flex items-center justify-center py-3 border-2 border-slate-200 rounded-xl cursor-pointer hover:border-slate-300 transition-colors">
-                                        <input type="radio" name="payment_type" value="FULL" class="payment-type-radio sr-only" {{ old('payment_type') === 'FULL' ? 'checked' : '' }}>
-                                        <span class="text-sm font-bold text-slate-800">Full Payment</span>
-                                    </label>
-
-                                    <label class="payment-type-card flex items-center justify-center py-3 border-2 border-slate-200 rounded-xl cursor-pointer hover:border-slate-300 transition-colors">
-                                        <input type="radio" name="payment_type" value="PARTIAL" class="payment-type-radio sr-only" {{ old('payment_type') === 'PARTIAL' ? 'checked' : '' }}>
-                                        <span class="text-sm font-bold text-slate-800">Partial Payment</span>
-                                    </label>
-                                </div>
-
-                                <div id="payment_type_error" class="hidden text-xs font-bold text-rose-500 mt-2">Please select a type.</div>
-                            </div>
-                        @endif
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label class="field-label">Amount Tendered</label>
-                                <div class="flex items-center rounded-lg border border-slate-300 bg-white focus-within:ring-2 focus-within:ring-slate-900">
-                                    <span class="pl-3 pr-2 text-slate-500 font-bold">&#8369;</span>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0.01"
-                                        name="amount_paid"
-                                        id="amount_paid"
-                                        value="{{ old('amount_paid') }}"
-                                        data-label="amount paid"
-                                        class="w-full border-0 focus:outline-none focus:ring-0 font-black p-3 text-lg"
-                                        placeholder="0.00"
-                                    >
-                                </div>
-                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2" id="payment_amount_hint">
-                                    {{ $isOtherEntryMode ? 'Must equal full amount' : 'Enter amount received' }}
-                                </p>
-                            </div>
-
-                            <div>
-                                <label class="field-label">Transaction Timestamp</label>
-                                <input type="datetime-local" name="paid_at" id="paid_at" value="{{ old('paid_at', now()->format('Y-m-d\\TH:i')) }}" data-label="payment date" class="form-input">
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                                <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Status</div>
-                                <div id="payment_status_preview" class="text-base font-black text-slate-800">UNPAID</div>
-                            </div>
-
-                            <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                                <div class="text-[9px] font-black uppercase tracking-widest text-emerald-600 mb-1">Paid Amount</div>
-                                <div class="text-base font-black text-emerald-800">&#8369; <span id="payment_paid_preview">0.00</span></div>
-                            </div>
-
-                            <div class="rounded-xl border border-slate-800 bg-slate-900 p-4 text-white">
-                                <div class="text-[9px] font-black uppercase tracking-widest opacity-50 mb-1">Remaining Balance</div>
-                                <div class="text-base font-black">&#8369; <span id="payment_balance_preview">0.00</span></div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="wizard-panel hidden" data-step="7">
+                <section class="wizard-panel hidden" data-step="5">
                     <div class="section-title-block pb-4 border-b border-slate-100">
                         <div class="section-heading-icon">
                             <i class="bi bi-clipboard-check"></i>
@@ -1516,18 +1399,28 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
                         </div>
                     </div>
 
+                    @php
+                        $reviewCards = [
+                            'client'   => ['title' => 'Client',   'step' => 1],
+                            'deceased' => ['title' => 'Deceased',  'step' => 2],
+                            'package'  => ['title' => 'Package',   'step' => 3],
+                            'service'  => ['title' => 'Service',   'step' => 3],
+                            'billing'  => ['title' => 'Billing',   'step' => 4],
+                            'payment'  => ['title' => 'Payment',   'step' => 4],
+                        ];
+                    @endphp
                     <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                        @foreach(['client' => 'Client', 'deceased' => 'Deceased', 'package' => 'Package', 'service' => 'Service', 'billing' => 'Billing', 'payment' => 'Payment'] as $id => $title)
+                        @foreach($reviewCards as $id => $card)
                             <div class="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 group relative shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
                                 <button
                                     type="button"
                                     class="review-edit absolute top-4 right-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-900 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    data-jump-step="{{ $loop->iteration }}"
+                                    data-jump-step="{{ $card['step'] }}"
                                 >
                                     <i class="bi bi-pencil-square"></i> Edit
                                 </button>
 
-                                <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">{{ $title }}</h4>
+                                <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">{{ $card['title'] }}</h4>
                                 <dl class="space-y-2 text-xs text-slate-700" id="review_{{ $id }}"></dl>
                             </div>
                         @endforeach
@@ -1548,7 +1441,7 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
                 </button>
 
                 <div class="flex-1 sm:flex-none sm:ml-auto">
-                    <button type="button" id="wizardNext" class="w-full sm:w-auto sm:min-w-[190px] px-8 py-3 rounded-xl bg-slate-900 text-white text-sm font-bold transition-all hover:bg-[#9c5a1a] hover:-translate-y-0.5">
+                    <button type="button" id="wizardNext" class="w-full sm:w-auto sm:min-w-[190px] px-8 py-3 rounded-xl bg-slate-900 text-white text-sm font-bold transition-all hover:bg-[#2563eb] hover:-translate-y-0.5">
                         Continue
                     </button>
 
@@ -1558,8 +1451,9 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
                 </div>
             </div>
         </form>
-    </div>
-</div>
+        </div>{{-- /intake-form-wrapper --}}
+    </div>{{-- /intake-section-shell --}}
+</div>{{-- /intake-root --}}
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -2096,10 +1990,11 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
         }
 
         payTypeCards.forEach((card) => {
-            const active = card.querySelector('.payment-type-radio')?.checked;
-            card.classList.toggle('border-slate-800', !!active);
-            card.classList.toggle('bg-slate-50', !!active);
-            card.classList.toggle('ring-2', !!active);
+            const active = !!card.querySelector('.payment-type-radio')?.checked;
+            card.classList.toggle('active-tab', active);
+            card.classList.toggle('border-slate-800', active);
+            card.classList.toggle('bg-slate-50', active);
+            card.classList.toggle('ring-2', active);
         });
 
         if (discountHelpSecondary) discountHelpSecondary.textContent = autoDiscountMeta().message;
@@ -2113,7 +2008,7 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
         if (reviewClient) {
             reviewClient.innerHTML = [
                 detailRow('Branch', branchCode() !== '-' ? branchCode() : (!isOtherEntryMode ? mainBranchCodeDefault : '-')),
-                detailRow('Client Name', textOrDash(f.elements.client_name?.value)),
+                detailRow('Client Name', textOrDash([f.elements.client_first_name?.value, f.elements.client_middle_name?.value, f.elements.client_last_name?.value, f.elements.client_suffix?.value].filter(Boolean).join(' '))),
                 detailRow('Relationship', textOrDash(f.elements.client_relationship?.value)),
                 detailRow('Contact Number', textOrDash(f.elements.client_contact_number?.value)),
                 detailRow('Address', textOrDash(f.elements.client_address?.value)),
@@ -2127,7 +2022,7 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
 
         if (reviewDeceased) {
             reviewDeceased.innerHTML = [
-                detailRow('Deceased Name', textOrDash(f.elements.deceased_name?.value)),
+                detailRow('Deceased Name', textOrDash([f.elements.deceased_first_name?.value, f.elements.deceased_middle_name?.value, f.elements.deceased_last_name?.value, f.elements.deceased_suffix?.value].filter(Boolean).join(' '))),
                 detailRow('Address', textOrDash(f.elements.deceased_address?.value)),
                 detailRow('Birthdate', formatDateOnly(f.elements.born?.value)),
                 detailRow('Age', textOrDash(f.elements.age?.value)),
@@ -2428,7 +2323,7 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
         if (!panel) return true;
 
         if (targetStep === 2) validateDobDod('full');
-        if (targetStep === 4) validateWakeInterment('full');
+        if (targetStep === 3) validateWakeInterment('full');
 
         if (!validatePanelFields(panel)) return false;
 
@@ -2513,7 +2408,7 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
             return false;
         }
 
-        if (targetStep === 4) {
+        if (targetStep === 3) {
             const wakeRaw = getRawDateString(funeral, wakePicker);
             const interRaw = getRawDateString(interment, interPicker);
             const wakeDate = getDateValue(funeral, wakePicker);
@@ -2573,7 +2468,7 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
             }
         }
 
-        if (targetStep === 6 && payNow()) {
+        if (targetStep === 4 && payNow()) {
             const t = totals();
 
             if (!payType()) {
@@ -2606,7 +2501,7 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
             }
         }
 
-        if (targetStep === 7) {
+        if (targetStep === 5) {
             const confirmBox = document.getElementById('confirm_review');
             if (confirmBox && !confirmBox.checked) {
                 confirmBox.setCustomValidity('Please confirm that the information is correct.');
@@ -2677,6 +2572,12 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
 
         if (step === totalSteps) renderReview();
         if (scroll && step !== previousStep) scrollToStepTop(smooth);
+
+        // Update progress rail
+        const progressFill = document.getElementById('intakeProgressFill');
+        if (progressFill) {
+            progressFill.style.width = `${(step / totalSteps) * 100}%`;
+        }
     };
 
     const syncBranch = (showNotice = false) => {
@@ -3315,11 +3216,32 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
         render();
     });
 
+    const syncMarkLabel = () => {
+        if (!mark || mark.type !== 'checkbox') return;
+        const label = document.getElementById('mark_as_paid_label');
+        const icon  = document.getElementById('mark_as_paid_icon');
+        const on = mark.checked;
+        if (label) {
+            label.classList.toggle('border-slate-800', on);
+            label.classList.toggle('bg-slate-50', on);
+            label.classList.toggle('border-slate-200', !on);
+            label.classList.toggle('bg-white', !on);
+        }
+        if (icon) {
+            icon.classList.toggle('bg-slate-900', on);
+            icon.classList.toggle('text-white', on);
+            icon.classList.toggle('bg-slate-100', !on);
+            icon.classList.toggle('text-slate-500', !on);
+        }
+    };
+
     if (mark?.type === 'checkbox') {
         mark.addEventListener('change', () => {
+            syncMarkLabel();
             syncControls();
             render();
         });
+        syncMarkLabel();
     }
 
     payTypeRadios.forEach((radio) => {
@@ -3329,6 +3251,21 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
             render();
         });
     });
+
+    const payMethodRadios = [...document.querySelectorAll('.payment-method-radio')];
+    const payMethodCards  = [...document.querySelectorAll('.payment-method-card')];
+    const bankRefWrap     = document.getElementById('bank_reference_wrap');
+
+    function syncPayMethod() {
+        const selected = payMethodRadios.find(r => r.checked)?.value;
+        payMethodCards.forEach(card => {
+            card.classList.toggle('active-tab', !!card.querySelector('.payment-method-radio')?.checked);
+        });
+        if (bankRefWrap) bankRefWrap.classList.toggle('hidden', selected !== 'BANK_TRANSFER');
+    }
+
+    payMethodRadios.forEach(r => r.addEventListener('change', syncPayMethod));
+    syncPayMethod();
 
     pkgRadios.forEach((radio) => {
         radio.addEventListener('change', () => {
@@ -3454,7 +3391,7 @@ html[data-theme='dark'] #intake_lock_overlay .bg-slate-100 {
             return;
         }
 
-        for (let index = 1; index <= totalSteps - 1; index += 1) {
+        for (let index = 1; index <= totalSteps; index += 1) {
             if (!validate(index)) {
                 event.preventDefault();
                 go(index);

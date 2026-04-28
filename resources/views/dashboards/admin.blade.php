@@ -21,7 +21,7 @@
     <div class="card-custom admin-top-controls">
         <form method="GET" action="{{ url('/admin') }}" class="admin-top-controls-form">
             <select name="branch_id" onchange="this.form.submit()" class="input-custom w-48">
-                <option value="">HQ &amp; All Branches</option>
+                <option value="">{{ auth()->user()?->isMainBranchAdmin() ? 'HQ & All Branches' : 'Assigned Branch' }}</option>
                 @foreach($branches ?? [] as $branch)
                     <option value="{{ $branch->id }}" {{ (string) ($selectedBranchId ?? '') === (string) $branch->id ? 'selected' : '' }}>
                         {{ $branch->branch_code }} - {{ $branch->branch_name }}
@@ -42,6 +42,7 @@
             </div>
         </form>
 
+        @if(auth()->user()?->isMainBranchAdmin())
         <div class="admin-top-controls-actions">
             <a href="{{ route('admin.users.create', ['return_to' => request()->fullUrl()]) }}" class="btn-secondary-custom btn-sm flex items-center gap-2">
                 <i class="bi bi-person-plus-fill text-sm"></i> Add User
@@ -50,6 +51,7 @@
                 <i class="bi bi-diagram-3-fill text-sm"></i> New Branch
             </a>
         </div>
+        @endif
     </div>
 
     {{-- 2. FINANCIAL HERO CARDS (Premium Fintech Look) --}}

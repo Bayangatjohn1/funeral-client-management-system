@@ -9,6 +9,7 @@ use App\Models\Deceased;
 use App\Models\FuneralCase;
 use App\Models\Package;
 use App\Models\Payment;
+use App\Models\ServiceDetail;
 use App\Support\AuditLogger;
 use App\Support\Discount\CaseDiscountResolver;
 use App\Support\Validation\FieldRules;
@@ -16,6 +17,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 class IntakeController extends Controller
@@ -140,11 +142,17 @@ class IntakeController extends Controller
     private function storeByMode(Request $request, string $mode, ?\App\Models\TemporaryCrossBranchPermission $permission = null)
     {
         $trimFields = [
-            'client_name',
+            'client_first_name',
+            'client_last_name',
+            'client_middle_name',
+            'client_suffix',
             'client_relationship',
             'client_contact_number',
             'client_address',
-            'deceased_name',
+            'deceased_first_name',
+            'deceased_last_name',
+            'deceased_middle_name',
+            'deceased_suffix',
             'deceased_address',
             'wake_location',
             'place_of_cemetery',
@@ -179,12 +187,18 @@ class IntakeController extends Controller
 
         $validated = $request->validate([
             'service_requested_at' => 'required|date|before_or_equal:today',
-            'client_name' => FieldRules::personName(),
+            'client_first_name'  => FieldRules::namePart(),
+            'client_last_name'   => FieldRules::namePart(),
+            'client_middle_name' => FieldRules::namePart(false),
+            'client_suffix'      => FieldRules::namePart(false),
             'client_relationship' => ['required', 'string', 'max:100', Rule::in(self::CLIENT_RELATIONSHIP_OPTIONS)],
             'client_contact_number' => ['required', 'string', 'regex:/^\d{7,15}$/'],
             'client_address' => 'required|string|max:255',
 
-            'deceased_name' => FieldRules::personName(),
+            'deceased_first_name'  => FieldRules::namePart(),
+            'deceased_last_name'   => FieldRules::namePart(),
+            'deceased_middle_name' => FieldRules::namePart(false),
+            'deceased_suffix'      => FieldRules::namePart(false),
             'deceased_address' => 'required|string|max:255',
             'born' => 'required|date_format:Y-m-d|before_or_equal:today',
             'died' => 'required|date_format:Y-m-d|after_or_equal:born|before_or_equal:today',
@@ -237,8 +251,12 @@ class IntakeController extends Controller
         ], [
             'service_requested_at.required' => 'Request date is required.',
             'service_requested_at.before_or_equal' => 'Request date cannot be in the future.',
-            'client_name.regex' => 'Client name may contain letters, spaces, apostrophes, periods, and hyphens only.',
-            'deceased_name.regex' => 'Deceased name may contain letters, spaces, apostrophes, periods, and hyphens only.',
+            'client_first_name.regex'  => FieldRules::nameRegexMessage('Client first name'),
+            'client_last_name.regex'   => FieldRules::nameRegexMessage('Client last name'),
+            'client_middle_name.regex' => FieldRules::nameRegexMessage('Client middle name'),
+            'deceased_first_name.regex'  => FieldRules::nameRegexMessage('Deceased first name'),
+            'deceased_last_name.regex'   => FieldRules::nameRegexMessage('Deceased last name'),
+            'deceased_middle_name.regex' => FieldRules::nameRegexMessage('Deceased middle name'),
             'client_relationship.in' => 'Please select a valid relationship to the deceased.',
             'client_contact_number.regex' => 'Contact number must be 7 to 15 digits (numbers only).',
             'reporter_contact.regex' => 'Reporter contact number must contain numbers only.',
@@ -379,10 +397,25 @@ class IntakeController extends Controller
             $entrySource = 'MAIN';
         }
 
-        $normalizedClientName = strtolower(trim((string) $validated['client_name']));
-        $normalizedClientContact = trim((string) ($validated['client_contact_number'] ?? ''));
-        $normalizedClientAddress = strtolower(trim((string) $validated['client_address']));
+        $clientFullName = implode(' ', array_filter([
+            $validated['client_first_name'],
+            $validated['client_middle_name'] ?? null,
+            $validated['client_last_name'],
+            $validated['client_suffix'] ?? null,
+        ]));
+        $deceasedFullName = implode(' ', array_filter([
+            $validated['deceased_first_name'],
+            $validated['deceased_middle_name'] ?? null,
+            $validated['deceased_last_name'],
+            $validated['deceased_suffix'] ?? null,
+        ]));
+
+        $normalizedClientName     = strtolower(trim($clientFullName));
+        $normalizedClientContact  = trim((string) ($validated['client_contact_number'] ?? ''));
+        $normalizedClientAddress  = strtolower(trim((string) $validated['client_address']));
+        $normalizedDeceasedName   = strtolower(trim($deceasedFullName));
         $normalizedDeceasedAddress = strtolower(trim((string) $validated['deceased_address']));
+
         $duplicateClient = Client::query()
             ->where('branch_id', $branchId)
             ->whereRaw('LOWER(TRIM(full_name)) = ?', [$normalizedClientName])
@@ -392,27 +425,27 @@ class IntakeController extends Controller
 
         if ($duplicateClient) {
             return back()->withErrors([
-                'client_name' => 'Duplicate client detected (same name, contact number, and address).',
+                'client_first_name' => 'Duplicate client detected (same name, contact number, and address).',
             ])->withInput();
         }
 
         $duplicateDeceasedQuery = Deceased::query()
             ->where('branch_id', $branchId)
-            ->whereRaw('LOWER(TRIM(full_name)) = ?', [strtolower(trim((string) $validated['deceased_name']))])
+            ->whereRaw('LOWER(TRIM(full_name)) = ?', [$normalizedDeceasedName])
             ->whereDate('died', $validated['died'])
             ->whereRaw('LOWER(TRIM(address)) = ?', [$normalizedDeceasedAddress]);
 
         if ($duplicateDeceasedQuery->exists()) {
             return back()->withErrors([
-                'deceased_name' => 'Duplicate deceased record detected (same name, date of death, and address).',
+                'deceased_first_name' => 'Duplicate deceased record detected (same name, date of death, and address).',
             ])->withInput();
         }
 
         $duplicateActiveCaseQuery = FuneralCase::query()
             ->where('branch_id', $branchId)
             ->whereIn('case_status', ['DRAFT', 'ACTIVE'])
-            ->whereHas('deceased', function ($query) use ($validated, $normalizedDeceasedAddress) {
-                $query->whereRaw('LOWER(TRIM(full_name)) = ?', [strtolower(trim((string) $validated['deceased_name']))])
+            ->whereHas('deceased', function ($query) use ($validated, $normalizedDeceasedName, $normalizedDeceasedAddress) {
+                $query->whereRaw('LOWER(TRIM(full_name)) = ?', [$normalizedDeceasedName])
                     ->whereDate('died', $validated['died']);
 
                 if (!empty($validated['born'])) {
@@ -424,7 +457,7 @@ class IntakeController extends Controller
 
         if ($duplicateActiveCaseQuery->exists()) {
             return back()->withErrors([
-                'deceased_name' => 'An active case already exists for this deceased record.',
+                'deceased_first_name' => 'An active case already exists for this deceased record.',
             ])->withInput();
         }
 
@@ -581,7 +614,14 @@ class IntakeController extends Controller
             : 'Auto-verified main-branch intake.';
         $initialPaymentType = $markAsPaid ? strtoupper((string) ($validated['payment_type'] ?? '')) : null;
 
-        try {
+        // Retry up to 3 times on a duplicate case_number collision (error 1062).
+        // The transaction is idempotent: Client, Deceased, and FuneralCase rows are
+        // all rolled back on failure, so a fresh attempt starts clean each time.
+        $attempt    = 0;
+        $maxRetries = 3;
+        do {
+            $attempt++;
+            try {
             DB::transaction(function () use (
                 $validated,
                 $branchId,
@@ -617,8 +657,11 @@ class IntakeController extends Controller
                 $permission
             ) {
                 $client = Client::create([
-                    'branch_id' => $branchId,
-                    'full_name' => $validated['client_name'],
+                    'branch_id'   => $branchId,
+                    'first_name'  => $validated['client_first_name'],
+                    'last_name'   => $validated['client_last_name'],
+                    'middle_name' => $validated['client_middle_name'] ?? null,
+                    'suffix'      => $validated['client_suffix'] ?? null,
                     'relationship_to_deceased' => $validated['client_relationship'],
                     'contact_number' => $validated['client_contact_number'] ?? null,
                     'address' => $validated['client_address'],
@@ -629,10 +672,13 @@ class IntakeController extends Controller
                     : null;
 
                 $deceased = Deceased::create([
-                    'branch_id' => $branchId,
-                    'client_id' => $client->id,
-                    'address' => $validated['deceased_address'],
-                    'full_name' => $validated['deceased_name'],
+                    'branch_id'   => $branchId,
+                    'client_id'   => $client->id,
+                    'address'     => $validated['deceased_address'],
+                    'first_name'  => $validated['deceased_first_name'],
+                    'last_name'   => $validated['deceased_last_name'],
+                    'middle_name' => $validated['deceased_middle_name'] ?? null,
+                    'suffix'      => $validated['deceased_suffix'] ?? null,
                     'born' => $validated['born'] ?? null,
                     'died' => $validated['died'] ?? null,
                     'date_of_death' => $validated['died'] ?? null,
@@ -648,15 +694,16 @@ class IntakeController extends Controller
                 ]);
 
                 $funeralCase = FuneralCase::create([
-                    'branch_id' => $branchId,
-                    'client_id' => $client->id,
+                    'branch_id'   => $branchId,
+                    'client_id'   => $client->id,
                     'deceased_id' => $deceased->id,
-                    'package_id' => $selectedPackageId,
-                    'custom_package_name' => $isCustomPackage ? $servicePackageName : null,
-                    'custom_package_price' => $isCustomPackage ? $packagePrice : 0,
-                    'custom_package_inclusions' => $isCustomPackage ? ($validated['custom_package_inclusions'] ?? null) : null,
-                    'custom_package_freebies' => $isCustomPackage ? ($validated['custom_package_freebies'] ?? null) : null,
-                    'case_code' => $this->nextCaseCode($branchId),
+                    'package_id'  => $selectedPackageId,
+                    'case_number' => FuneralCase::nextCaseNumber($branchId),
+                    'case_code'   => $this->nextCaseCode($branchId),
+                    'custom_package_name'        => $isCustomPackage ? $servicePackageName : null,
+                    'custom_package_price'       => $isCustomPackage ? $packagePrice : 0,
+                    'custom_package_inclusions'  => $isCustomPackage ? ($validated['custom_package_inclusions'] ?? null) : null,
+                    'custom_package_freebies'    => $isCustomPackage ? ($validated['custom_package_freebies'] ?? null) : null,
                     'service_type' => $validated['service_type'],
                     'service_requested_at' => Carbon::parse($validated['service_requested_at'])->toDateString(),
                     'service_package' => $servicePackageName,
@@ -694,6 +741,21 @@ class IntakeController extends Controller
                     'verification_note' => $verificationNote,
                 ]);
 
+                // Populate the normalized service_details row for this case.
+                ServiceDetail::create([
+                    'funeral_case_id' => $funeralCase->id,
+                    'start_of_wake'   => Carbon::parse($validated['funeral_service_at'])->toDateString(),
+                    'internment_date' => $intermentAt?->toDateString(),
+                    'wake_days'       => $wakeDays,
+                    'wake_location'   => $validated['wake_location'],
+                    'cemetery_place'  => $validated['place_of_cemetery'],
+                    'case_status'     => match ($caseStatus) {
+                        'ACTIVE'    => 'ongoing',
+                        'COMPLETED' => 'completed',
+                        default     => 'pending',
+                    },
+                ]);
+
                 AuditLogger::log(
                     action: 'case.created',
                     actionType: 'create',
@@ -720,14 +782,15 @@ class IntakeController extends Controller
                 if ($markAsPaid) {
                     $paidAt = Carbon::parse($validated['paid_at']);
                     $payment = Payment::create([
-                        'funeral_case_id' => $funeralCase->id,
-                        'branch_id' => $branchId,
-                        'method' => 'CASH',
-                        'amount' => round((float) $validated['amount_paid'], 2),
-                        'balance_after_payment' => $initialBalance,
+                        'funeral_case_id'  => $funeralCase->id,
+                        'branch_id'        => $branchId,
+                        'method'           => 'CASH',
+                        'payment_mode'     => 'cash',
+                        'amount'           => round((float) $validated['amount_paid'], 2),
+                        'balance_after_payment'        => $initialBalance,
                         'payment_status_after_payment' => $initialPaymentStatus,
-                        'paid_date' => $paidAt->toDateString(),
-                        'paid_at' => $paidAt,
+                        'paid_date'   => $paidAt->toDateString(),
+                        'paid_at'     => $paidAt,
                         'recorded_by' => $user->id,
                     ]);
 
@@ -776,9 +839,24 @@ class IntakeController extends Controller
                     );
                 }
             });
+            break; // transaction succeeded — exit retry loop
+        } catch (\Illuminate\Database\QueryException $e) {
+            if ($attempt >= $maxRetries || ($e->errorInfo[1] ?? 0) !== 1062) {
+                Log::error('intake.case_creation_failed', [
+                    'branch_id' => $branchId,
+                    'attempt'   => $attempt,
+                    'error'     => $e->getMessage(),
+                ]);
+                return back()->withErrors(['case' => 'Failed to save intake record. Please try again.'])->withInput();
+            }
+            Log::warning('intake.case_number_collision', [
+                'branch_id' => $branchId,
+                'attempt'   => $attempt,
+            ]);
         } catch (\RuntimeException $e) {
             return back()->withErrors(['deceased_name' => $e->getMessage()])->withInput();
         }
+        } while ($attempt < $maxRetries);
 
         $redirectRoute = $mode === 'other'
             ? route('funeral-cases.other-reports')

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\Branch;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -44,7 +45,31 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+        $response->assertRedirect('/staff');
+    }
+
+    public function test_branch_admin_login_redirects_to_admin_dashboard(): void
+    {
+        $branch = Branch::create([
+            'branch_code' => 'BR002',
+            'branch_name' => 'Branch Two',
+            'address' => 'Test Address',
+            'is_active' => true,
+        ]);
+        $user = User::factory()->create([
+            'role' => 'admin',
+            'admin_scope' => 'branch',
+            'branch_id' => $branch->id,
+            'is_active' => true,
+        ]);
+
+        $response = $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+
+        $this->assertAuthenticatedAs($user);
+        $response->assertRedirect('/admin');
     }
 
     public function test_authenticated_dashboard_pages_are_sent_with_no_cache_headers(): void

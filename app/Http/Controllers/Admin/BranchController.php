@@ -4,21 +4,52 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
+use App\Models\FuneralCase;
 use App\Support\AuditLogger;
 use Illuminate\Http\Request;
 
 class BranchController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $branches = Branch::withCount('funeralCases')
-            ->orderBy('branch_code')
-            ->paginate(20)
-            ->withQueryString();
+        $query = Branch::withCount('funeralCases');
 
+        if ($q = $request->input('q')) {
+            $query->where(function ($builder) use ($q) {
+                $builder->where('branch_name', 'like', "%{$q}%")
+                        ->orWhere('branch_code', 'like', "%{$q}%")
+                        ->orWhere('address', 'like', "%{$q}%");
+            });
+        }
+
+        if ($request->input('status') === 'active') {
+            $query->where('is_active', true);
+        } elseif ($request->input('status') === 'inactive') {
+            $query->where('is_active', false);
+        }
+
+        [$sortCol, $sortDir] = match ($request->input('sort', 'code_asc')) {
+            'name_asc'     => ['branch_name', 'asc'],
+            'records_desc' => ['funeral_cases_count', 'desc'],
+            default        => ['branch_code', 'asc'],
+        };
+        $query->orderBy($sortCol, $sortDir);
+
+        $branches = $query->paginate(20)->withQueryString();
         $nextCode = $this->nextBranchCode();
 
-        return view('admin.branches.index', compact('branches', 'nextCode'));
+        $stats      = Branch::selectRaw('COUNT(*) as total, SUM(is_active) as active_count')->first();
+        $totalRecords = FuneralCase::count();
+        $mainBranch = Branch::where('branch_code', 'BR001')->first();
+
+        return view('admin.branches.index', [
+            'branches'       => $branches,
+            'nextCode'       => $nextCode,
+            'totalBranches'  => (int) ($stats->total ?? 0),
+            'activeBranches' => (int) ($stats->active_count ?? 0),
+            'totalRecords'   => $totalRecords,
+            'mainBranch'     => $mainBranch,
+        ]);
     }
 
     public function create()

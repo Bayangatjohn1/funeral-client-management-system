@@ -43,11 +43,11 @@ class AuthenticatedSessionController extends Controller
             return redirect()->intended('/owner');
         }
 
-        if ($user->isMainBranchAdmin()) {
+        if ($user->isAdmin()) {
             return redirect()->intended('/admin');
         }
 
-        if ($user->isBranchAdmin() || $user->role === 'staff') {
+        if ($user->role === 'staff') {
             return redirect()->intended('/staff');
         }
 

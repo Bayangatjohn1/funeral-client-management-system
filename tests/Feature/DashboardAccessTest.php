@@ -47,6 +47,14 @@ class DashboardAccessTest extends TestCase
     {
         $owner = $this->createUser('owner');
         $admin = $this->createUser('admin');
+        $branch = $this->createBranch('BR002', 'Branch Two');
+        $branchAdmin = User::factory()->create([
+            'role' => 'admin',
+            'admin_scope' => 'branch',
+            'is_active' => true,
+            'branch_id' => $branch->id,
+            'can_encode_any_branch' => false,
+        ]);
         $mainBranch = $this->createBranch('BR001', 'Main Branch');
         $staff = $this->createUser('staff', $mainBranch);
 
@@ -55,6 +63,10 @@ class DashboardAccessTest extends TestCase
             ->assertRedirect(route('owner.dashboard', absolute: false));
 
         $this->actingAs($admin)
+            ->get('/dashboard')
+            ->assertRedirect('/admin');
+
+        $this->actingAs($branchAdmin)
             ->get('/dashboard')
             ->assertRedirect('/admin');
 

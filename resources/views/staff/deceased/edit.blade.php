@@ -17,8 +17,9 @@
         <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wide">ID: {{ $deceased->deceased_code ?? ('DC-' . str_pad($deceased->id,3,'0',STR_PAD_LEFT)) }}</span>
     </div>
 
+    @php $nameParts = $deceased->splitName(); @endphp
     <div class="grid gap-4 md:grid-cols-2">
-        <div>
+        <div class="md:col-span-2">
             <label class="label-section">Client</label>
             <select name="client_id" class="form-select" required>
                 @foreach($clients as $client)
@@ -31,9 +32,27 @@
         </div>
 
         <div>
-            <label class="label-section">Name</label>
-            <input type="text" name="full_name" value="{{ old('full_name', $deceased->full_name) }}" class="form-input" pattern="[A-Za-z ]+" title="Letters and spaces only" required>
-            @error('full_name') <div class="form-error">{{ $message }}</div> @enderror
+            <label class="label-section">First Name <span class="text-rose-500">*</span></label>
+            <input type="text" name="first_name" value="{{ old('first_name', $nameParts['first_name']) }}" class="form-input" pattern="[A-Za-zÀ-öø-ÿĀ-žḀ-ỿ .'\-]+" title="Letters (including accented like Ñ, É), spaces, apostrophes, dots, and hyphens only" required>
+            @error('first_name') <div class="form-error">{{ $message }}</div> @enderror
+        </div>
+
+        <div>
+            <label class="label-section">Last Name <span class="text-rose-500">*</span></label>
+            <input type="text" name="last_name" value="{{ old('last_name', $nameParts['last_name']) }}" class="form-input" pattern="[A-Za-zÀ-öø-ÿĀ-žḀ-ỿ .'\-]+" title="Letters (including accented like Ñ, É), spaces, apostrophes, dots, and hyphens only" required>
+            @error('last_name') <div class="form-error">{{ $message }}</div> @enderror
+        </div>
+
+        <div>
+            <label class="label-section">Middle Name</label>
+            <input type="text" name="middle_name" value="{{ old('middle_name', $nameParts['middle_name']) }}" class="form-input" pattern="[A-Za-zÀ-öø-ÿĀ-žḀ-ỿ .'\-]+" title="Letters (including accented like Ñ, É), spaces, apostrophes, dots, and hyphens only">
+            @error('middle_name') <div class="form-error">{{ $message }}</div> @enderror
+        </div>
+
+        <div>
+            <label class="label-section">Suffix</label>
+            <input type="text" name="suffix" value="{{ old('suffix', $nameParts['suffix']) }}" class="form-input" placeholder="Jr., Sr., III…" maxlength="20">
+            @error('suffix') <div class="form-error">{{ $message }}</div> @enderror
         </div>
 
         <div class="md:col-span-2">

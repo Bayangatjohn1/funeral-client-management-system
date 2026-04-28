@@ -2,11 +2,12 @@
 
 use App\Http\Controllers\Admin\BranchController;
 use App\Http\Controllers\Admin\PackageController;
-use App\Http\Controllers\Admin\ReportController;
+use App\Http\Controllers\Admin\ReportController as AdminReportController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Owner\DashboardController as OwnerDashboardController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Staff\ClientController;
 use App\Http\Controllers\Staff\DeceasedController;
 use App\Http\Controllers\Staff\FuneralCaseController;
@@ -34,11 +35,11 @@ Route::middleware(['auth', 'no_cache', 'active'])->get('/dashboard', function ()
         return redirect()->route('owner.dashboard');
     }
 
-    if ($user->isMainBranchAdmin()) {
+    if ($user->isAdmin()) {
         return redirect('/admin');
     }
 
-    if ($user->isBranchAdmin() || $user->role === 'staff') {
+    if ($user->role === 'staff') {
         return redirect('/staff');
     }
 
@@ -50,17 +51,37 @@ Route::middleware(['auth', 'no_cache', 'active', 'owner'])->group(function () {
     Route::get('/owner', [OwnerDashboardController::class, 'dashboard'])->name('owner.dashboard');
     Route::get('/owner/branch-analytics', [OwnerDashboardController::class, 'analytics'])->name('owner.analytics');
     Route::get('/owner/case-history', [OwnerDashboardController::class, 'history'])->name('owner.history');
-    Route::get('/owner/sales-per-branch', [OwnerDashboardController::class, 'salesPerBranch'])->name('owner.sales.index');
-    Route::get('/owner/sales-per-branch/export', [OwnerDashboardController::class, 'export'])->name('owner.sales.export');
+    Route::get('/owner/sales-per-branch', function () {
+        return redirect()->route('reports.index', ['report_type' => 'owner_branch_analytics']);
+    })->name('owner.sales.index');
+    Route::get('/owner/sales-per-branch/export', function (Request $request) {
+        return redirect()->route('reports.exportCsv', array_merge(
+            $request->query(),
+            ['report_type' => 'owner_branch_analytics']
+        ));
+    })->name('owner.sales.export');
     Route::get('/owner/cases/{funeral_case}', [OwnerDashboardController::class, 'show'])->name('owner.cases.show');
 });
 
-Route::middleware(['auth', 'no_cache', 'active', 'main_admin', 'branch.scope'])->get('/admin', function (Request $request) {
+Route::middleware(['auth', 'no_cache', 'active'])->group(function () {
+    Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/preview', [ReportController::class, 'preview'])->name('reports.preview');
+    Route::get('/reports/print', [ReportController::class, 'print'])->name('reports.print');
+    Route::get('/reports/export-pdf', [ReportController::class, 'exportPdf'])->name('reports.exportPdf');
+    Route::get('/reports/export-csv', [ReportController::class, 'exportCsv'])->name('reports.exportCsv');
+});
+
+Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->get('/admin', function (Request $request) {
+    $user = $request->user();
+    $branchScopeIds = $user->branchScopeIds();
     $validated = $request->validate([
         'branch_id' => 'nullable|integer|exists:branches,id',
         'date_filter' => 'nullable|in:all,today,this_week,this_month,this_year',
     ]);
     $branchId = isset($validated['branch_id']) ? (int) $validated['branch_id'] : null;
+    if ($branchId && $branchScopeIds !== null && !in_array($branchId, $branchScopeIds, true)) {
+        abort(403, 'Branch is outside your admin scope.');
+    }
     $dateFilter = $validated['date_filter'] ?? 'this_month';
 
     $now = now();
@@ -98,7 +119,10 @@ Route::middleware(['auth', 'no_cache', 'active', 'main_admin', 'branch.scope'])-
     $totalOutstanding = (clone $casesQuery)->sum('balance_amount');
     $ongoingCases = (clone $casesQuery)->whereIn('case_status', ['DRAFT', 'ACTIVE'])->count();
 
-    $branches = Branch::orderBy('branch_code')->get();
+    $branches = Branch::query()
+        ->when($branchScopeIds !== null, fn ($query) => $query->whereIn('id', $branchScopeIds))
+        ->orderBy('branch_code')
+        ->get();
     $selectedBranches = $branchId
         ? $branches->where('id', $branchId)->values()
         : $branches;
@@ -133,13 +157,14 @@ Route::middleware(['auth', 'no_cache', 'active', 'main_admin', 'branch.scope'])-
     });
 
     $activeStaffCount = User::where('role', 'staff')
+        ->when($branchScopeIds !== null, fn ($query) => $query->whereIn('branch_id', $branchScopeIds))
         ->where('is_active', true)
         ->count();
     $activePackageCount = Package::where('is_active', true)->count();
 
     return view('dashboards.admin', [
-        'branchCount' => Branch::count(),
-        'userCount' => User::count(),
+        'branchCount' => $branches->count(),
+        'userCount' => User::when($branchScopeIds !== null, fn ($query) => $query->whereIn('branch_id', $branchScopeIds))->count(),
         'packageCount' => Package::count(),
         'branches' => $branches,
         'selectedBranchId' => $branchId,
@@ -174,11 +199,18 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff_or_admin', 'branch.scope
             $query->where('entry_source', 'MAIN')
                 ->orWhereNull('entry_source');
         });
-    $caseCount = (clone $mainCasesBase)->count();
-    $ongoingCount = (clone $mainCasesBase)->whereIn('case_status', ['DRAFT', 'ACTIVE'])->count();
-    $unpaidCount = (clone $mainCasesBase)->whereIn('payment_status', ['UNPAID', 'PARTIAL'])->count();
-    $partialCount = (clone $mainCasesBase)->where('payment_status', 'PARTIAL')->count();
-    $paidCount = (clone $mainCasesBase)->where('payment_status', 'PAID')->count();
+    $caseSummary = (clone $mainCasesBase)
+        ->selectRaw('COUNT(*) as total')
+        ->selectRaw("SUM(CASE WHEN case_status IN ('DRAFT', 'ACTIVE') THEN 1 ELSE 0 END) as ongoing")
+        ->selectRaw("SUM(CASE WHEN payment_status IN ('UNPAID', 'PARTIAL') THEN 1 ELSE 0 END) as unpaid")
+        ->selectRaw("SUM(CASE WHEN payment_status = 'PARTIAL' THEN 1 ELSE 0 END) as partial")
+        ->selectRaw("SUM(CASE WHEN payment_status = 'PAID' THEN 1 ELSE 0 END) as paid")
+        ->first();
+    $caseCount    = (int) ($caseSummary->total   ?? 0);
+    $ongoingCount = (int) ($caseSummary->ongoing ?? 0);
+    $unpaidCount  = (int) ($caseSummary->unpaid  ?? 0);
+    $partialCount = (int) ($caseSummary->partial ?? 0);
+    $paidCount    = (int) ($caseSummary->paid    ?? 0);
     $todayPaidTotal = Payment::where('branch_id', $dashboardBranchId)
         ->whereDate('paid_at', $today->toDateString())
         ->whereHas('funeralCase', function ($query) use ($dashboardBranchId) {
@@ -328,6 +360,11 @@ Route::middleware(['auth', 'no_cache', 'active', 'main_admin'])->prefix('admin')
     Route::put('/branches/{branch}', [BranchController::class, 'update'])->name('admin.branches.update');
     Route::patch('/branches/{branch}/toggle-status', [BranchController::class, 'toggleStatus'])->name('admin.branches.toggleStatus');
 
+    Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('admin.audit-logs.index');
+    Route::get('/audit-logs/{audit_log}', [AuditLogController::class, 'show'])->name('admin.audit-logs.show');
+});
+
+Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->prefix('admin')->group(function () {
     Route::get('/packages', [PackageController::class, 'index'])->name('admin.packages.index');
     Route::get('/packages/create', [PackageController::class, 'create'])->name('admin.packages.create');
     Route::post('/packages', [PackageController::class, 'store'])->name('admin.packages.store');
@@ -336,12 +373,10 @@ Route::middleware(['auth', 'no_cache', 'active', 'main_admin'])->prefix('admin')
     Route::patch('/packages/{package}/quick-price', [PackageController::class, 'quickUpdatePrice'])->name('admin.packages.quickPrice');
 
     // Monitoring
-    Route::get('/cases', [ReportController::class, 'masterCases'])->name('admin.cases.index');
-    Route::patch('/cases/{funeral_case}/verification', [ReportController::class, 'updateVerification'])->name('admin.cases.verification');
-    Route::get('/reports/sales', [ReportController::class, 'sales'])->name('admin.reports.sales');
+    Route::get('/cases', [AdminReportController::class, 'masterCases'])->name('admin.cases.index');
+    Route::patch('/cases/{funeral_case}/verification', [AdminReportController::class, 'updateVerification'])->name('admin.cases.verification');
+    Route::get('/reports/sales', [AdminReportController::class, 'sales'])->name('admin.reports.sales');
     Route::get('/reminders', [ReminderController::class, 'index'])->name('admin.reminders.index');
-    Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('admin.audit-logs.index');
-    Route::get('/audit-logs/{audit_log}', [AuditLogController::class, 'show'])->name('admin.audit-logs.show');
 });
 
 Route::middleware(['auth', 'no_cache', 'active'])->group(function () {

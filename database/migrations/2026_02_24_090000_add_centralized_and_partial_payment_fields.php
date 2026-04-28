@@ -57,10 +57,8 @@ return new class extends Migration
         }
 
         Schema::table('payments', function (Blueprint $table) {
-            try {
+            if ($this->indexExists('payments', 'payments_funeral_case_id_unique')) {
                 $table->dropUnique('payments_funeral_case_id_unique');
-            } catch (\Throwable $e) {
-                // Ignore if unique index does not exist in this environment.
             }
 
             if (!Schema::hasColumn('payments', 'recorded_by')) {
@@ -162,5 +160,19 @@ return new class extends Migration
                 $table->dropColumn($dropColumns);
             }
         });
+    }
+
+    private function indexExists(string $table, string $indexName): bool
+    {
+        try {
+            if (DB::getDriverName() === 'sqlite') {
+                return collect(DB::select("PRAGMA index_list('{$table}')"))
+                    ->contains(fn ($index) => ($index->name ?? null) === $indexName);
+            }
+
+            return count(DB::select("SHOW INDEX FROM `{$table}` WHERE `Key_name` = ?", [$indexName])) > 0;
+        } catch (\Throwable) {
+            return false;
+        }
     }
 };

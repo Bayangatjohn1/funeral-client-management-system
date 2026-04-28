@@ -9,6 +9,7 @@
     </div>
 </div>
 
+@if(auth()->user()?->isMainBranchAdmin())
 <div class="nav-section">
     <p class="nav-group-label">System Configuration</p>
     <div class="nav-list">
@@ -18,14 +19,6 @@
             </svg>
             <span>Branch Management</span>
         </a>
-
-        <a href="{{ route('admin.packages.index') }}" class="{{ $isActive(request()->is('admin/packages*')) }}">
-            <svg class="{{ $iconState(request()->is('admin/packages*')) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
-            </svg>
-            <span>Service Packages</span>
-        </a>
-
         <a href="{{ route('admin.users.index') }}" class="{{ $isActive(request()->is('admin/users*')) }}">
             <svg class="{{ $iconState(request()->is('admin/users*')) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
@@ -34,6 +27,21 @@
         </a>
     </div>
 </div>
+@endif
+
+@if(auth()->user()?->isMainBranchAdmin() || auth()->user()?->isBranchAdmin())
+<div class="nav-section">
+    <p class="nav-group-label">Package Reference</p>
+    <div class="nav-list">
+        <a href="{{ route('admin.packages.index') }}" class="{{ $isActive(request()->is('admin/packages*')) }}">
+            <svg class="{{ $iconState(request()->is('admin/packages*')) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+            </svg>
+            <span>Service Packages</span>
+        </a>
+    </div>
+</div>
+@endif
 
 <div class="nav-section">
     <p class="nav-group-label">Data Monitoring</p>
@@ -45,18 +53,20 @@
             <span>Master Case Records</span>
         </a>
 
-        <a href="{{ route('admin.reports.sales') }}" class="{{ $isActive(request()->routeIs('admin.reports.sales')) }}">
-            <svg class="{{ $iconState(request()->routeIs('admin.reports.sales')) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <a href="{{ route('reports.index') }}" class="{{ $isActive(request()->routeIs('reports.*')) }}">
+            <svg class="{{ $iconState(request()->routeIs('reports.*')) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
             </svg>
-            <span>Sales Reports</span>
+            <span>Reports</span>
         </a>
 
-        <a href="{{ route('admin.audit-logs.index') }}" class="{{ $isActive(request()->routeIs('admin.audit-logs.index')) }}">
-            <svg class="{{ $iconState(request()->routeIs('admin.audit-logs.index')) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5h6m-3 0v14m7-9H5m12 0a2 2 0 012 2v7a2 2 0 01-2 2H7a2 2 0 01-2-2v-7a2 2 0 012-2"/>
-            </svg>
-            <span>Audit Logs</span>
-        </a>
+        @if(auth()->user()?->isMainBranchAdmin())
+            <a href="{{ route('admin.audit-logs.index') }}" class="{{ $isActive(request()->routeIs('admin.audit-logs.index')) }}">
+                <svg class="{{ $iconState(request()->routeIs('admin.audit-logs.index')) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5h6m-3 0v14m7-9H5m12 0a2 2 0 012 2v7a2 2 0 01-2 2H7a2 2 0 01-2-2v-7a2 2 0 012-2"/>
+                </svg>
+                <span>Audit Logs</span>
+            </a>
+        @endif
     </div>
 </div>

@@ -58,8 +58,8 @@
         gap: 0.5rem;
         padding: 0.58rem 0.95rem;
         border-radius: 0.72rem;
-        border: 1px solid #9c5a1a;
-        background: #9c5a1a;
+        border: 1px solid var(--accent);
+        background: var(--accent);
         color: #fff;
         font-size: 0.92rem;
         font-weight: 700;
@@ -67,8 +67,8 @@
     }
 
     .payments-record-action:hover {
-        background: #7d4515;
-        border-color: #7d4515;
+        background: #1d4ed8;
+        border-color: #1d4ed8;
     }
 
     .payments-record-action:focus {
@@ -133,13 +133,18 @@
 <div id="paymentFormModal" class="fixed inset-0 z-40 hidden panel-overlay-content">
     <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" id="paymentFormBackdrop"></div>
     <div class="payment-modal-viewport">
-        <div class="payment-modal-sheet border border-slate-200 bg-white shadow-2xl rounded-2xl overflow-hidden">
-            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white">
-                <div>
-                    <div class="text-base font-semibold text-slate-900">Record Payment</div>
-                    <div class="text-xs text-slate-500 mt-0.5">Enter payment details for the selected case</div>
+        <div class="payment-modal-sheet rounded-2xl overflow-hidden" style="border:1px solid var(--border);background:var(--card);box-shadow:0 25px 60px rgba(0,0,0,0.22)">
+            <div class="flex items-center justify-between px-6 py-5" style="border-bottom:1px solid var(--border);background:var(--surface-muted)">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-[#1b3358] text-white flex items-center justify-center flex-shrink-0 shadow-md">
+                        <i class="bi bi-cash-stack text-base"></i>
+                    </div>
+                    <div>
+                        <div class="text-sm font-bold" style="color:var(--ink)">Record Payment</div>
+                        <div class="text-xs mt-0.5" style="color:var(--ink-muted)">Log a cash payment against an open case</div>
+                    </div>
                 </div>
-                <button type="button" id="closePaymentFormTop" class="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors focus:outline-none shadow-sm">
+                <button type="button" id="closePaymentFormTop" class="inline-flex items-center justify-center w-9 h-9 rounded-xl transition-colors focus:outline-none shadow-sm" style="background:var(--card);border:1px solid var(--border);color:var(--ink-muted)">
                     <i class="bi bi-x-lg" style="font-size:.8rem"></i>
                 </button>
             </div>
@@ -183,7 +188,7 @@
         <div class="list-card-header">
             <div>
                 <div class="list-card-title">Open Cases</div>
-                <div class="list-card-copy">Unpaid and partial-payment cases available for follow-up collection.</div>
+                <div class="list-card-copy">Click any row to record a payment, or use the button to open the form manually.</div>
             </div>
             <div>
                 <button id="openPaymentForm" type="button" class="payments-record-action">
@@ -210,14 +215,14 @@
                 </thead>
                 <tbody>
                 @forelse($openCases as $case)
-                    <tr>
-                        <td>{{ $case->case_code }}</td>
+                    <tr data-open-payment-case="{{ $case->id }}" title="Click to record payment for this case" class="hover:bg-slate-50 transition-colors cursor-pointer">
+                        <td class="font-mono font-bold text-slate-800">{{ $case->case_code }}</td>
                         <td>{{ $case->client?->full_name ?? '-' }}</td>
                         <td>{{ $case->deceased?->full_name ?? '-' }}</td>
                         <td>{{ $case->service_package ?: ($case->custom_package_name ?: '-') }}</td>
-                        <td>{{ number_format($case->total_amount, 2) }}</td>
-                        <td>{{ number_format((float) $case->total_paid, 2) }}</td>
-                        <td>{{ number_format((float) $case->balance_amount, 2) }}</td>
+                        <td class="font-semibold">{{ number_format($case->total_amount, 2) }}</td>
+                        <td class="text-emerald-700 font-semibold">{{ number_format((float) $case->total_paid, 2) }}</td>
+                        <td class="text-rose-700 font-bold">{{ number_format((float) $case->balance_amount, 2) }}</td>
                         <td>
                             <span class="{{ $case->payment_status === 'PARTIAL' ? 'status-pill-warning' : 'status-pill-danger' }}">
                                 {{ $case->payment_status }}
@@ -231,7 +236,10 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="9" class="py-6 text-center text-slate-500">No open cases.</td>
+                        <td colspan="9" class="py-10 text-center">
+                            <div class="text-slate-400 text-sm font-medium">No open cases found.</div>
+                            <div class="text-slate-300 text-xs mt-1">All cases are fully paid or no cases match the filters.</div>
+                        </td>
                     </tr>
                 @endforelse
                 </tbody>
@@ -251,47 +259,64 @@
 </div>
 
 <script>
-    (function () {
-        const openBtn = document.getElementById('openPaymentForm');
-        const modal = document.getElementById('paymentFormModal');
-        const backdrop = document.getElementById('paymentFormBackdrop');
-        const closeTop = document.getElementById('closePaymentFormTop');
-        const closeBottom = document.getElementById('closePaymentFormBottom');
-        const caseSelect = document.getElementById('funeral_case_id');
-        const preselectCaseId = @json($preselectCase->id ?? null);
-        const autoOpenPayment = @json($autoOpenPayment ?? false);
-        if (!openBtn || !modal) {
-            return;
-        }
+(function () {
+    const openBtn    = document.getElementById('openPaymentForm');
+    const modal      = document.getElementById('paymentFormModal');
+    const backdrop   = document.getElementById('paymentFormBackdrop');
+    const closeTop   = document.getElementById('closePaymentFormTop');
+    const closeBottom= document.getElementById('closePaymentFormBottom');
+    const caseSelect = document.getElementById('funeral_case_id');
+    const preselectCaseId  = @json($preselectCase->id ?? null);
+    const autoOpenPayment  = @json($autoOpenPayment ?? false);
 
-        function openModal() {
-            modal.classList.remove('hidden');
-            document.body.classList.add('overflow-hidden');
-        }
+    if (!openBtn || !modal) return;
 
-        function closeModal() {
+    function openModal() {
+        modal.classList.remove('hidden');
+        requestAnimationFrame(() => modal.classList.add('opacity-100'));
+        document.body.classList.add('overflow-hidden');
+    }
+
+    function closeModal() {
+        modal.classList.remove('opacity-100');
+        setTimeout(() => {
             modal.classList.add('hidden');
             document.body.classList.remove('overflow-hidden');
-        }
+        }, 190);
+    }
 
-        openBtn.addEventListener('click', openModal);
-        if (backdrop) backdrop.addEventListener('click', closeModal);
-        if (closeTop) closeTop.addEventListener('click', closeModal);
-        if (closeBottom) closeBottom.addEventListener('click', closeModal);
+    openBtn.addEventListener('click', openModal);
+    if (backdrop)    backdrop.addEventListener('click', closeModal);
+    if (closeTop)    closeTop.addEventListener('click', closeModal);
+    if (closeBottom) closeBottom.addEventListener('click', closeModal);
 
-        if (caseSelect && preselectCaseId) {
-            caseSelect.value = String(preselectCaseId);
-            caseSelect.dispatchEvent(new Event('change'));
-        }
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+    });
 
-        if (preselectCaseId || autoOpenPayment) {
+    document.querySelectorAll('[data-open-payment-case]').forEach(row => {
+        row.style.cursor = 'pointer';
+        row.addEventListener('click', () => {
+            const caseId = row.dataset.openPaymentCase;
+            if (caseSelect && caseId) {
+                caseSelect.value = caseId;
+                caseSelect.dispatchEvent(new Event('change'));
+            }
             openModal();
-        }
+        });
+    });
 
-        @if($errors->any())
-            openModal();
-        @endif
-    })();
+    if (caseSelect && preselectCaseId) {
+        caseSelect.value = String(preselectCaseId);
+        caseSelect.dispatchEvent(new Event('change'));
+    }
+
+    if (preselectCaseId || autoOpenPayment) openModal();
+
+    @if($errors->any())
+        openModal();
+    @endif
+})();
 </script>
 </div>
 @endsection

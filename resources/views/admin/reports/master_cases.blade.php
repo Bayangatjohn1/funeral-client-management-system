@@ -6,6 +6,7 @@
 @section('content')
 <div class="admin-table-page">
     @php
+        $isBranchAdmin = auth()->user()?->isBranchAdmin() ?? false;
         $resolvedDatePreset = $datePreset ?? 'ANY';
         $isCustomDate = $resolvedDatePreset === 'CUSTOM';
         $sort = $sort ?? 'newest';
@@ -128,7 +129,28 @@
         </div>
 
         <div class="table-system-toolbar admin-table-toolbar">
-            <form method="GET" action="{{ route('admin.cases.index') }}" class="admin-master-toolbar" data-table-toolbar data-search-debounce="400">
+            @include('partials.case_filter_toolbar', [
+                'action' => route('admin.cases.index'),
+                'resetUrl' => route('admin.cases.index'),
+                'branchMode' => $isBranchAdmin ? 'locked' : 'all',
+                'assignedBranch' => $isBranchAdmin ? $branches->first() : null,
+                'branchId' => $branchId,
+                'branches' => $branches,
+                'datePreset' => $datePreset ?? '',
+                'dateFrom' => $dateFrom ?? null,
+                'dateTo' => $dateTo ?? null,
+                'intermentFrom' => $intermentFrom ?? null,
+                'intermentTo' => $intermentTo ?? null,
+                'serviceTypes' => $serviceTypes ?? collect(),
+                'packages' => $packages ?? collect(),
+                'encoders' => $encoders ?? collect(),
+                'showVerificationStatus' => true,
+                'showPackage' => true,
+                'showEncodedBy' => true,
+                'hiddenInputs' => array_filter(['sort' => request('sort')], fn ($value) => filled($value)),
+            ])
+
+            <form method="GET" action="{{ route('admin.cases.index') }}" class="admin-master-toolbar hidden" data-table-toolbar data-search-debounce="400">
                 <div class="admin-master-toolbar-row admin-master-toolbar-row-top admin-master-toolbar-row-primary">
                     <div class="table-toolbar-field">
                         <input
@@ -141,8 +163,13 @@
                     </div>
 
                     <div class="table-toolbar-field">
-                        <select name="branch_id" class="table-toolbar-select" data-table-auto-submit>
-                            <option value="">All Branches</option>
+                        @if($isBranchAdmin && $branchId)
+                            <input type="hidden" name="branch_id" value="{{ $branchId }}">
+                        @endif
+                        <select name="branch_id" class="table-toolbar-select" data-table-auto-submit @if($isBranchAdmin) disabled @endif>
+                            @unless($isBranchAdmin)
+                                <option value="">All Branches</option>
+                            @endunless
                             @foreach($branches as $branch)
                                 <option value="{{ $branch->id }}" {{ (string) $branchId === (string) $branch->id ? 'selected' : '' }}>
                                     {{ $branch->branch_code }} - {{ $branch->branch_name }}
@@ -246,6 +273,9 @@
                         <a href="{{ route('admin.cases.index') }}">Clear all filters</a>
                     @endif
                     <span>Date Range: <strong>{{ $presetLabel }}</strong></span>
+                    @if($isBranchAdmin)
+                        <span><strong>Assigned Branch Only</strong></span>
+                    @endif
                 </div>
             </form>
         </div>
@@ -256,13 +286,17 @@
                     <thead>
                         <tr>
                             <th class="text-left">Case ID</th>
-                            <th class="text-left">Service Date</th>
+                            <th class="text-left">Date Encoded</th>
                             <th class="text-left">Branch</th>
                             <th class="text-left">Client</th>
                             <th class="text-left">Deceased</th>
+                            <th class="text-left">Service Type</th>
+                            <th class="text-left">Package</th>
+                            <th class="table-col-number">Total</th>
                             <th class="text-left">Verification</th>
                             <th class="text-left">Case Status</th>
                             <th class="text-left">Payment Status</th>
+                            <th class="text-left">Interment</th>
                             <th class="table-col-number">Balance</th>
                             <th class="table-col-actions">Actions</th>
                         </tr>
@@ -304,13 +338,16 @@
 
                         <tr>
                             <td class="table-primary whitespace-nowrap">{{ $case->case_code }}</td>
-                            <td class="whitespace-nowrap">{{ $case->service_requested_at?->format('Y-m-d') ?? $case->created_at?->format('Y-m-d') }}</td>
+                            <td class="whitespace-nowrap">{{ $case->created_at?->format('Y-m-d') }}</td>
                             <td>
                                 <div class="table-primary whitespace-nowrap">{{ $case->branch?->branch_code ?? '-' }}</div>
                                 <div class="table-secondary">{{ \Illuminate\Support\Str::limit($case->branch?->branch_name ?? '-', 18) }}</div>
                             </td>
                             <td class="table-primary">{{ \Illuminate\Support\Str::limit($case->client?->full_name ?? '-', 24) }}</td>
                             <td class="table-primary">{{ \Illuminate\Support\Str::limit($case->deceased?->full_name ?? '-', 24) }}</td>
+                            <td>{{ $case->service_type ?? '-' }}</td>
+                            <td>{{ $case->package?->name ?? $case->service_package ?? '-' }}</td>
+                            <td class="table-col-number whitespace-nowrap">{{ number_format((float) $case->total_amount, 2) }}</td>
                             <td>
                                 <span class="{{ $verificationClass }}">{{ $verificationLabel }}</span>
                             </td>
@@ -320,6 +357,7 @@
                             <td>
                                 <span class="{{ $paymentStatusClass }}">{{ \Illuminate\Support\Str::headline(strtolower((string) $case->payment_status)) }}</span>
                             </td>
+                            <td class="whitespace-nowrap">{{ $case->interment_at?->format('Y-m-d H:i') ?? $case->deceased?->interment_at?->format('Y-m-d H:i') ?? $case->deceased?->interment?->format('Y-m-d') ?? '-' }}</td>
                             <td class="table-col-number whitespace-nowrap">{{ number_format((float) $case->balance_amount, 2) }}</td>
                             <td class="table-col-actions">
                                 <div class="row-action-menu" data-row-menu>
@@ -343,6 +381,16 @@
                                             <i class="bi bi-search"></i>
                                             <span>Focus this case</span>
                                         </a>
+
+                                        <button
+                                            type="button"
+                                            class="row-action-item open-case-modal"
+                                            data-row-menu-item
+                                            data-url="{{ route('funeral-cases.show', $case) }}"
+                                        >
+                                            <i class="bi bi-eye"></i>
+                                            <span>View case</span>
+                                        </button>
 
                                         @if(!$isOtherBranch)
                                             <a
@@ -402,7 +450,7 @@
 
                         @if($isOtherBranch)
                             <tr id="verify-panel-{{ $case->id }}" class="hidden">
-                                <td colspan="10" class="!py-0">
+                                <td colspan="14" class="!py-0">
                                     <div class="admin-master-inline-review">
                                         <form method="POST" action="{{ route('admin.cases.verification', $case) }}" class="admin-master-inline-review-form">
                                             @csrf
@@ -422,7 +470,7 @@
                         @endif
                     @empty
                         <tr>
-                            <td colspan="10" class="table-system-empty">No case records found.</td>
+                            <td colspan="14" class="table-system-empty">No case records found.</td>
                         </tr>
                     @endforelse
                     </tbody>
@@ -434,6 +482,25 @@
             </div>
         </div>
     </section>
+</div>
+
+{{-- Case view modal --}}
+<div id="adminCaseViewOverlay" style="display:none; position:fixed; inset:0; z-index:400; background:rgba(0,0,0,0.55); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); align-items:center; justify-content:center;">
+    <div id="adminCaseViewSheet" class="relative w-[92vw] max-w-4xl max-h-[92vh] rounded-2xl shadow-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border"
+         style="background:var(--card);border-color:var(--border);">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--surface-panel);flex-shrink:0;">
+            <span style="font-size:13px;font-weight:700;color:var(--ink);">Case Details</span>
+            <button id="adminCaseViewClose" type="button" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--ink-muted);cursor:pointer;" aria-label="Close">
+                <i class="bi bi-x-lg" style="font-size:.75rem;"></i>
+            </button>
+        </div>
+        <div id="adminCaseViewContent" class="overflow-y-auto" style="max-height:calc(92vh - 54px);padding:16px;">
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 0;gap:10px;">
+                <div style="width:28px;height:28px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--brand);animation:spin 1s linear infinite;"></div>
+                <span style="font-size:13px;color:var(--ink-muted);">Loading…</span>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -564,6 +631,72 @@
         });
 
         syncCustomDateVisibility();
+    })();
+
+    (() => {
+        const overlay  = document.getElementById('adminCaseViewOverlay');
+        const sheet    = document.getElementById('adminCaseViewSheet');
+        const content  = document.getElementById('adminCaseViewContent');
+        const closeBtn = document.getElementById('adminCaseViewClose');
+        if (!overlay || !sheet || !content || !closeBtn) return;
+
+        const loadingHtml = `
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 0;gap:10px;">
+                <div style="width:28px;height:28px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--brand);animation:spin 1s linear infinite;"></div>
+                <span style="font-size:13px;color:var(--ink-muted);">Loading…</span>
+            </div>`;
+
+        const show = () => {
+            overlay.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            requestAnimationFrame(() => {
+                sheet.classList.remove('scale-95', 'opacity-0');
+                sheet.classList.add('scale-100', 'opacity-100');
+            });
+        };
+
+        const hide = () => {
+            sheet.classList.add('scale-95', 'opacity-0');
+            sheet.classList.remove('scale-100', 'opacity-100');
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                document.body.style.overflow = '';
+                content.innerHTML = loadingHtml;
+            }, 180);
+        };
+
+        const load = async (url) => {
+            content.innerHTML = loadingHtml;
+            try {
+                const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' });
+                const html = await res.text();
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const payload = doc.querySelector('#caseViewContent');
+                if (payload) {
+                    content.innerHTML = payload.innerHTML;
+                    doc.querySelectorAll('script').forEach(oldScript => {
+                        const script = document.createElement('script');
+                        script.textContent = oldScript.textContent;
+                        content.appendChild(script);
+                    });
+                } else {
+                    content.innerHTML = `<div style="padding:20px;font-size:13px;color:#b91c1c;">Unable to load case details.</div>`;
+                }
+            } catch {
+                content.innerHTML = `<div style="padding:20px;font-size:13px;color:#b91c1c;">Network error. Please try again.</div>`;
+            }
+        };
+
+        document.querySelectorAll('.open-case-modal').forEach(btn => {
+            btn.addEventListener('click', () => {
+                show();
+                load(btn.dataset.url);
+            });
+        });
+
+        closeBtn.addEventListener('click', hide);
+        overlay.addEventListener('click', e => { if (e.target === overlay) hide(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay.style.display !== 'none') hide(); });
     })();
 </script>
 @endsection

@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
-use App\Models\FuneralCase;
 use App\Support\AuditLogger;
 use App\Support\Validation\FieldRules;
 use Illuminate\Http\Request;
@@ -42,42 +41,19 @@ class ClientController extends Controller
                 'address',
                 'created_at',
             ])
-            ->where('branch_id', $mainBranchId)
-            ->addSelect([
-                'latest_deceased_name' => FuneralCase::query()
-                    ->withoutGlobalScopes()
-                    ->from('funeral_cases as fc')
-                    ->join('deceased as d', 'd.id', '=', 'fc.deceased_id')
-                    ->whereColumn('fc.client_id', 'clients.id')
-                    ->where('fc.branch_id', $mainBranchId)
-                    ->orderByDesc('fc.created_at')
-                    ->select('d.full_name')
-                    ->limit(1),
-                'latest_service_package' => FuneralCase::query()
-                    ->withoutGlobalScopes()
-                    ->from('funeral_cases as fc')
-                    ->whereColumn('fc.client_id', 'clients.id')
-                    ->where('fc.branch_id', $mainBranchId)
-                    ->orderByDesc('fc.created_at')
-                    ->select('fc.service_package')
-                    ->limit(1),
-                'latest_case_status' => FuneralCase::query()
-                    ->withoutGlobalScopes()
-                    ->from('funeral_cases as fc')
-                    ->whereColumn('fc.client_id', 'clients.id')
-                    ->where('fc.branch_id', $mainBranchId)
-                    ->orderByDesc('fc.created_at')
-                    ->select('fc.case_status')
-                    ->limit(1),
-                'latest_payment_status' => FuneralCase::query()
-                    ->withoutGlobalScopes()
-                    ->from('funeral_cases as fc')
-                    ->whereColumn('fc.client_id', 'clients.id')
-                    ->where('fc.branch_id', $mainBranchId)
-                    ->orderByDesc('fc.created_at')
-                    ->select('fc.payment_status')
-                    ->limit(1),
-            ]);
+            ->with([
+                'latestFuneralCase' => fn ($q) => $q->select([
+                    'funeral_cases.id',
+                    'funeral_cases.client_id',
+                    'funeral_cases.deceased_id',
+                    'funeral_cases.service_package',
+                    'funeral_cases.case_status',
+                    'funeral_cases.payment_status',
+                    'funeral_cases.created_at',
+                ]),
+                'latestFuneralCase.deceased:id,full_name',
+            ])
+            ->where('branch_id', $mainBranchId);
 
         // Optional search
         if ($request->filled('q')) {
@@ -90,16 +66,20 @@ class ClientController extends Controller
             || (!$request->filled('date_range') && ($request->filled('added_from') || $request->filled('added_to')));
 
         if ($usesCustomDate) {
-            if ($request->filled('added_from')) {
-                $query->whereDate('created_at', '>=', $request->string('added_from')->toString());
+            [$dateStart, $dateEnd] = $this->parseDateBounds(
+                $request->filled('added_from') ? $request->string('added_from')->toString() : null,
+                $request->filled('added_to') ? $request->string('added_to')->toString() : null,
+            );
+            if ($dateStart) {
+                $query->where('created_at', '>=', $dateStart);
             }
-            if ($request->filled('added_to')) {
-                $query->whereDate('created_at', '<=', $request->string('added_to')->toString());
+            if ($dateEnd) {
+                $query->where('created_at', '<=', $dateEnd);
             }
         } elseif ($dateRange !== 'any') {
             $today = now()->startOfDay();
             if ($dateRange === 'today') {
-                $query->whereDate('created_at', $today->toDateString());
+                $query->whereBetween('created_at', [$today, $today->copy()->endOfDay()]);
             } elseif ($dateRange === '7d') {
                 $query->where('created_at', '>=', now()->subDays(7)->startOfDay());
             } elseif ($dateRange === '30d') {
@@ -144,29 +124,44 @@ class ClientController extends Controller
         $mainBranchId = $this->mainBranchIdForDirectory();
 
         $validated = $request->validate([
-            'full_name' => FieldRules::personName(),
+            'first_name' => FieldRules::namePart(),
+            'last_name'  => FieldRules::namePart(),
+            'middle_name' => FieldRules::namePart(false),
+            'suffix'      => FieldRules::namePart(false),
             'contact_number' => FieldRules::contactNumber(),
             'address' => 'nullable|string|max:255',
         ], [
-            'full_name.regex' => 'Full name may contain letters, spaces, apostrophes, periods, and hyphens only.',
+            'first_name.regex'  => FieldRules::nameRegexMessage('First name'),
+            'last_name.regex'   => FieldRules::nameRegexMessage('Last name'),
+            'middle_name.regex' => FieldRules::nameRegexMessage('Middle name'),
             'contact_number.regex' => 'Contact number format is invalid.',
         ]);
 
+        $fullName = implode(' ', array_filter([
+            $validated['first_name'],
+            $validated['middle_name'] ?? null,
+            $validated['last_name'],
+            $validated['suffix'] ?? null,
+        ]));
+
         $duplicateClient = Client::query()
             ->where('branch_id', $mainBranchId)
-            ->whereRaw('LOWER(TRIM(full_name)) = ?', [strtolower(trim($validated['full_name']))])
+            ->whereRaw('LOWER(TRIM(full_name)) = ?', [strtolower(trim($fullName))])
             ->whereRaw('COALESCE(contact_number, "") = ?', [trim((string) ($validated['contact_number'] ?? ''))])
             ->first();
 
         if ($duplicateClient) {
             return back()->withErrors([
-                'full_name' => 'Client record already exists in this branch (same name and contact number).',
+                'first_name' => 'Client record already exists in this branch (same name and contact number).',
             ])->withInput();
         }
 
         $client = Client::create([
-            'branch_id' => $mainBranchId,
-            'full_name' => $validated['full_name'],
+            'branch_id'  => $mainBranchId,
+            'first_name' => $validated['first_name'],
+            'last_name'  => $validated['last_name'],
+            'middle_name' => $validated['middle_name'] ?? null,
+            'suffix'      => $validated['suffix'] ?? null,
             'relationship_to_deceased' => 'Other',
             'contact_number' => $validated['contact_number'] ?? null,
             'valid_id_type' => 'Legacy Record',
@@ -200,6 +195,10 @@ class ClientController extends Controller
             abort(403);
         }
 
+        if ($this->wantsModalFragment(request())) {
+            return view('staff.clients.partials.edit-form', compact('client'));
+        }
+
         return view('staff.clients.edit', compact('client'));
     }
 
@@ -210,10 +209,28 @@ class ClientController extends Controller
         }
 
         $client->load([
-            'deceaseds',
-            'funeralCases.deceased',
-            'funeralCases.payments',
+            'deceaseds:id,client_id,full_name,address,born,age,died,date_of_death,interment,place_of_cemetery,created_at',
+            'funeralCases' => function ($query) {
+                $query->select([
+                    'id',
+                    'client_id',
+                    'deceased_id',
+                    'case_code',
+                    'service_package',
+                    'total_amount',
+                    'payment_status',
+                    'paid_at',
+                    'case_status',
+                    'created_at',
+                ])->latest('created_at');
+            },
+            'funeralCases.deceased:id,full_name',
+            'funeralCases.payments:id,funeral_case_id,method,amount,paid_at,paid_date',
         ]);
+
+        if ($this->wantsModalFragment(request())) {
+            return view('staff.clients.partials.show-content', compact('client'));
+        }
 
         return view('staff.clients.show', compact('client'));
     }
@@ -229,24 +246,36 @@ class ClientController extends Controller
         }
 
         $validated = $request->validate([
-            'full_name' => FieldRules::personName(),
+            'first_name'  => FieldRules::namePart(),
+            'last_name'   => FieldRules::namePart(),
+            'middle_name' => FieldRules::namePart(false),
+            'suffix'      => FieldRules::namePart(false),
             'contact_number' => FieldRules::contactNumber(),
             'address' => 'nullable|string|max:255',
         ], [
-            'full_name.regex' => 'Full name may contain letters, spaces, apostrophes, periods, and hyphens only.',
+            'first_name.regex'  => FieldRules::nameRegexMessage('First name'),
+            'last_name.regex'   => FieldRules::nameRegexMessage('Last name'),
+            'middle_name.regex' => FieldRules::nameRegexMessage('Middle name'),
             'contact_number.regex' => 'Contact number format is invalid.',
         ]);
+
+        $fullName = implode(' ', array_filter([
+            $validated['first_name'],
+            $validated['middle_name'] ?? null,
+            $validated['last_name'],
+            $validated['suffix'] ?? null,
+        ]));
 
         $duplicateClient = Client::query()
             ->where('branch_id', $client->branch_id)
             ->whereKeyNot($client->id)
-            ->whereRaw('LOWER(TRIM(full_name)) = ?', [strtolower(trim($validated['full_name']))])
+            ->whereRaw('LOWER(TRIM(full_name)) = ?', [strtolower(trim($fullName))])
             ->whereRaw('COALESCE(contact_number, "") = ?', [trim((string) ($validated['contact_number'] ?? ''))])
             ->first();
 
         if ($duplicateClient) {
             return back()->withErrors([
-                'full_name' => 'Another client with the same name and contact number already exists.',
+                'first_name' => 'Another client with the same name and contact number already exists.',
             ])->withInput();
         }
 
@@ -256,7 +285,14 @@ class ClientController extends Controller
             'address' => $client->address,
         ];
 
-        $client->update($validated);
+        $client->update([
+            'first_name'  => $validated['first_name'],
+            'last_name'   => $validated['last_name'],
+            'middle_name' => $validated['middle_name'] ?? null,
+            'suffix'      => $validated['suffix'] ?? null,
+            'contact_number' => $validated['contact_number'] ?? null,
+            'address'     => $validated['address'] ?? null,
+        ]);
 
         AuditLogger::log(
             action: 'client.updated',
@@ -318,5 +354,11 @@ class ClientController extends Controller
         }
 
         return (int) $user->branch_id;
+    }
+
+    private function wantsModalFragment(Request $request): bool
+    {
+        return $request->query('fragment') === 'modal'
+            || $request->headers->get('X-Client-Fragment') === 'modal';
     }
 }

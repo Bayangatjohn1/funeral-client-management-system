@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Owner;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\FuneralCase;
+use App\Models\Package;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -18,20 +20,21 @@ class DashboardController extends Controller
         $dateFrom = $filters['date_from'];
         $dateTo = $filters['date_to'];
         $range = $filters['range'];
+        [$startAt, $endAt] = $this->parseDateBounds($dateFrom, $dateTo);
 
         $base = FuneralCase::query()
             ->where('verification_status', 'VERIFIED')
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
-            ->whereDate('created_at', '>=', $dateFrom)
-            ->whereDate('created_at', '<=', $dateTo);
+            ->whereBetween('created_at', [$startAt, $endAt]);
 
-        $totalCases = (clone $base)->count();
-        $paidCases = (clone $base)->where('payment_status', 'PAID')->count();
-        $partialCases = (clone $base)->where('payment_status', 'PARTIAL')->count();
-        $unpaidCases = (clone $base)->where('payment_status', 'UNPAID')->count();
-        $totalSales = (clone $base)->where('payment_status', 'PAID')->sum('total_amount');
-        $totalCollected = (clone $base)->sum('total_paid');
-        $totalOutstanding = (clone $base)->sum('balance_amount');
+        $summary = $this->buildAggregateSummary((clone $base));
+        $totalCases = (int) ($summary->total_cases ?? 0);
+        $paidCases = (int) ($summary->paid_cases ?? 0);
+        $partialCases = (int) ($summary->partial_cases ?? 0);
+        $unpaidCases = (int) ($summary->unpaid_cases ?? 0);
+        $totalSales = (float) ($summary->total_sales ?? 0);
+        $totalCollected = (float) ($summary->total_collected ?? 0);
+        $totalOutstanding = (float) ($summary->total_outstanding ?? 0);
         $ongoingCases = (clone $base)
             ->where(function ($q) {
                 $q->whereIn('case_status', ['DRAFT', 'ACTIVE'])
@@ -42,21 +45,22 @@ class DashboardController extends Controller
             ->count();
 
         $branches = Branch::orderBy('branch_code')->get();
-        $branchCards = $branches->map(function ($branch) use ($dateFrom, $dateTo) {
-            $query = FuneralCase::where('branch_id', $branch->id);
-            $query->where('verification_status', 'VERIFIED');
-            $query->whereDate('created_at', '>=', $dateFrom)
-                ->whereDate('created_at', '<=', $dateTo);
-
+        $branchStats = $this->buildAggregateRowsByBranch(
+            FuneralCase::query()
+                ->where('verification_status', 'VERIFIED')
+                ->whereBetween('created_at', [$startAt, $endAt])
+        );
+        $branchCards = $branches->map(function ($branch) use ($branchStats) {
+            $stats = $branchStats->get($branch->id);
             return [
                 'branch' => $branch,
-                'total_cases' => (clone $query)->count(),
-                'paid_cases' => (clone $query)->where('payment_status', 'PAID')->count(),
-                'partial_cases' => (clone $query)->where('payment_status', 'PARTIAL')->count(),
-                'unpaid_cases' => (clone $query)->where('payment_status', 'UNPAID')->count(),
-                'sales' => (clone $query)->where('payment_status', 'PAID')->sum('total_amount'),
-                'collected' => (clone $query)->sum('total_paid'),
-                'outstanding' => (clone $query)->sum('balance_amount'),
+                'total_cases' => (int) ($stats->total_cases ?? 0),
+                'paid_cases' => (int) ($stats->paid_cases ?? 0),
+                'partial_cases' => (int) ($stats->partial_cases ?? 0),
+                'unpaid_cases' => (int) ($stats->unpaid_cases ?? 0),
+                'sales' => (float) ($stats->total_sales ?? 0),
+                'collected' => (float) ($stats->total_collected ?? 0),
+                'outstanding' => (float) ($stats->total_outstanding ?? 0),
             ];
         });
 
@@ -67,8 +71,7 @@ class DashboardController extends Controller
         $recentCases = FuneralCase::with(['branch', 'client', 'deceased'])
             ->where('verification_status', 'VERIFIED')
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
-            ->whereDate('created_at', '>=', $dateFrom)
-            ->whereDate('created_at', '<=', $dateTo)
+            ->whereBetween('created_at', [$startAt, $endAt])
             ->latest()
             ->take(10)
             ->get();
@@ -79,8 +82,7 @@ class DashboardController extends Controller
             $topPackages = FuneralCase::query()
                 ->where('verification_status', 'VERIFIED')
                 ->where('branch_id', $branchId)
-                ->whereDate('created_at', '>=', $dateFrom)
-                ->whereDate('created_at', '<=', $dateTo)
+                ->whereBetween('created_at', [$startAt, $endAt])
                 ->where('payment_status', 'PAID')
                 ->whereNotNull('service_package')
                 ->selectRaw('service_package, COUNT(*) as total_cases, COALESCE(SUM(total_amount), 0) as total_sales')
@@ -117,8 +119,9 @@ class DashboardController extends Controller
     {
         $filters = $this->validatedFilters($request);
         $branches = Branch::orderBy('branch_code')->get();
+        [$startAt, $endAt] = $this->parseDateBounds($filters['date_from'], $filters['date_to']);
 
-        $casesQuery = FuneralCase::with(['branch', 'client', 'deceased'])
+        $baseQuery = FuneralCase::query()
             ->where('verification_status', 'VERIFIED')
             ->when($filters['branch_id'], fn ($q) => $q->where('branch_id', $filters['branch_id']))
             ->when($filters['interment_from'] || $filters['interment_to'], function ($q) use ($filters) {
@@ -131,51 +134,40 @@ class DashboardController extends Controller
                     }
                 });
             })
-            ->whereDate('created_at', '>=', $filters['date_from'])
-            ->whereDate('created_at', '<=', $filters['date_to']);
+            ->whereBetween('created_at', [$startAt, $endAt]);
 
-        $totalCases = (clone $casesQuery)->count();
-        $paidCases = (clone $casesQuery)->where('payment_status', 'PAID')->count();
-        $partialCases = (clone $casesQuery)->where('payment_status', 'PARTIAL')->count();
-        $unpaidCases = (clone $casesQuery)->where('payment_status', 'UNPAID')->count();
-        $totalSales = (clone $casesQuery)->where('payment_status', 'PAID')->sum('total_amount');
-        $totalCollected = (clone $casesQuery)->sum('total_paid');
-        $totalOutstanding = (clone $casesQuery)->sum('balance_amount');
+        $summary = $this->buildAggregateSummary((clone $baseQuery));
+        $totalCases = (int) ($summary->total_cases ?? 0);
+        $paidCases = (int) ($summary->paid_cases ?? 0);
+        $partialCases = (int) ($summary->partial_cases ?? 0);
+        $unpaidCases = (int) ($summary->unpaid_cases ?? 0);
+        $totalSales = (float) ($summary->total_sales ?? 0);
+        $totalCollected = (float) ($summary->total_collected ?? 0);
+        $totalOutstanding = (float) ($summary->total_outstanding ?? 0);
 
         $branchSet = $filters['branch_id']
             ? $branches->where('id', (int) $filters['branch_id'])->values()
             : $branches;
-
-        $branchSummary = $branchSet->map(function ($branch) use ($filters) {
-            $query = FuneralCase::query()
-                ->where('verification_status', 'VERIFIED')
-                ->where('branch_id', $branch->id)
-                ->when($filters['interment_from'] || $filters['interment_to'], function ($q) use ($filters) {
-                    $q->whereHas('deceased', function ($dq) use ($filters) {
-                        if ($filters['interment_from']) {
-                            $dq->whereRaw('DATE(COALESCE(interment_at, interment)) >= ?', [$filters['interment_from']]);
-                        }
-                        if ($filters['interment_to']) {
-                            $dq->whereRaw('DATE(COALESCE(interment_at, interment)) <= ?', [$filters['interment_to']]);
-                        }
-                    });
-                })
-                ->whereDate('created_at', '>=', $filters['date_from'])
-                ->whereDate('created_at', '<=', $filters['date_to']);
-
+        $branchRows = $this->buildAggregateRowsByBranch((clone $baseQuery));
+        $branchSummary = $branchSet->map(function ($branch) use ($branchRows) {
+            $row = $branchRows->get($branch->id);
             return [
                 'branch' => $branch,
-                'total_cases' => (clone $query)->count(),
-                'paid_cases' => (clone $query)->where('payment_status', 'PAID')->count(),
-                'partial_cases' => (clone $query)->where('payment_status', 'PARTIAL')->count(),
-                'unpaid_cases' => (clone $query)->where('payment_status', 'UNPAID')->count(),
-                'sales' => (clone $query)->where('payment_status', 'PAID')->sum('total_amount'),
-                'collected' => (clone $query)->sum('total_paid'),
-                'outstanding' => (clone $query)->sum('balance_amount'),
+                'total_cases' => (int) ($row->total_cases ?? 0),
+                'paid_cases' => (int) ($row->paid_cases ?? 0),
+                'partial_cases' => (int) ($row->partial_cases ?? 0),
+                'unpaid_cases' => (int) ($row->unpaid_cases ?? 0),
+                'sales' => (float) ($row->total_sales ?? 0),
+                'collected' => (float) ($row->total_collected ?? 0),
+                'outstanding' => (float) ($row->total_outstanding ?? 0),
             ];
         });
 
-        $cases = (clone $casesQuery)->latest()->paginate(20)->withQueryString();
+        $cases = (clone $baseQuery)
+            ->with(['branch', 'client', 'deceased'])
+            ->latest()
+            ->paginate(20)
+            ->withQueryString();
 
         return view('owner.sales_per_branch', [
             'branches' => $branches,
@@ -195,6 +187,7 @@ class DashboardController extends Controller
     public function export(Request $request): StreamedResponse
     {
         $filters = $this->validatedFilters($request);
+        [$startAt, $endAt] = $this->parseDateBounds($filters['date_from'], $filters['date_to']);
 
         $rows = FuneralCase::with(['branch', 'client', 'deceased'])
             ->where('verification_status', 'VERIFIED')
@@ -209,8 +202,7 @@ class DashboardController extends Controller
                     }
                 });
             })
-            ->whereDate('created_at', '>=', $filters['date_from'])
-            ->whereDate('created_at', '<=', $filters['date_to'])
+            ->whereBetween('created_at', [$startAt, $endAt])
             ->latest()
             ->get();
 
@@ -258,7 +250,7 @@ class DashboardController extends Controller
             abort(404);
         }
 
-        $funeral_case->load(['branch', 'client', 'deceased', 'reportedBranch', 'encodedBy', 'payments.recordedBy']);
+        $funeral_case->load(['branch', 'client', 'deceased', 'reportedBranch', 'encodedBy', 'payments.recordedBy', 'package']);
 
         return view('owner.cases.show', compact('funeral_case'));
     }
@@ -417,8 +409,13 @@ class DashboardController extends Controller
         $validated = $request->validate([
             'branch_id' => 'nullable|integer|exists:branches,id',
             'q' => "nullable|string|max:100|regex:/^[A-Za-z0-9\\s.'-]+$/",
+            'date_preset' => 'nullable|in:TODAY,THIS_MONTH,THIS_YEAR,CUSTOM',
             'date_from' => 'nullable|date',
             'date_to' => 'nullable|date|after_or_equal:date_from',
+            'case_status' => 'nullable|in:DRAFT,ACTIVE,COMPLETED',
+            'payment_status' => 'nullable|in:PAID,PARTIAL,UNPAID',
+            'service_type' => 'nullable|string|max:100',
+            'package_id' => 'nullable|integer|exists:packages,id',
             'interment_from' => 'nullable|date',
             'interment_to' => 'nullable|date|after_or_equal:interment_from',
         ], [
@@ -427,24 +424,47 @@ class DashboardController extends Controller
 
         $branchId = $validated['branch_id'] ?? null;
         $q = $validated['q'] ?? null;
-        $dateFrom = $validated['date_from'] ?? null;
-        $dateTo = $validated['date_to'] ?? null;
+        $datePreset = $validated['date_preset'] ?? ((($validated['date_from'] ?? null) || ($validated['date_to'] ?? null)) ? 'CUSTOM' : '');
+        [$dateFrom, $dateTo] = $this->resolveHistoryDateRange(
+            $datePreset,
+            $validated['date_from'] ?? null,
+            $validated['date_to'] ?? null
+        );
+        $caseStatus = $validated['case_status'] ?? null;
+        $paymentStatus = $validated['payment_status'] ?? null;
+        $serviceType = $validated['service_type'] ?? null;
+        $packageId = $validated['package_id'] ?? null;
         $intermentFrom = $validated['interment_from'] ?? null;
         $intermentTo = $validated['interment_to'] ?? null;
+        [$startAt, $endAt] = $this->parseDateBounds($dateFrom, $dateTo);
 
         $cases = FuneralCase::with(['branch', 'client', 'deceased'])
             ->where('verification_status', 'VERIFIED')
             ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
-            ->when($dateFrom, fn ($query) => $query->whereDate('created_at', '>=', $dateFrom))
-            ->when($dateTo, fn ($query) => $query->whereDate('created_at', '<=', $dateTo))
+            ->when($startAt && $endAt, fn ($query) => $query->whereBetween('created_at', [$startAt, $endAt]))
+            ->when($startAt && !$endAt, fn ($query) => $query->where('created_at', '>=', $startAt))
+            ->when(!$startAt && $endAt, fn ($query) => $query->where('created_at', '<=', $endAt))
+            ->when($caseStatus, fn ($query) => $query->where('case_status', $caseStatus))
+            ->when($paymentStatus, fn ($query) => $query->where('payment_status', $paymentStatus))
+            ->when($serviceType, fn ($query) => $query->where('service_type', $serviceType))
+            ->when($packageId, fn ($query) => $query->where('package_id', $packageId))
             ->when($intermentFrom || $intermentTo, function ($query) use ($intermentFrom, $intermentTo) {
-                $query->whereHas('deceased', function ($dq) use ($intermentFrom, $intermentTo) {
-                    if ($intermentFrom) {
-                        $dq->whereRaw('DATE(COALESCE(interment_at, interment)) >= ?', [$intermentFrom]);
-                    }
-                    if ($intermentTo) {
-                        $dq->whereRaw('DATE(COALESCE(interment_at, interment)) <= ?', [$intermentTo]);
-                    }
+                $query->where(function ($outer) use ($intermentFrom, $intermentTo) {
+                    $outer->where(function ($caseDate) use ($intermentFrom, $intermentTo) {
+                        if ($intermentFrom) {
+                            $caseDate->whereDate('interment_at', '>=', $intermentFrom);
+                        }
+                        if ($intermentTo) {
+                            $caseDate->whereDate('interment_at', '<=', $intermentTo);
+                        }
+                    })->orWhereHas('deceased', function ($dq) use ($intermentFrom, $intermentTo) {
+                        if ($intermentFrom) {
+                            $dq->whereRaw('DATE(COALESCE(interment_at, interment)) >= ?', [$intermentFrom]);
+                        }
+                        if ($intermentTo) {
+                            $dq->whereRaw('DATE(COALESCE(interment_at, interment)) <= ?', [$intermentTo]);
+                        }
+                    });
                 });
             })
             ->when($q, function ($query) use ($q) {
@@ -459,17 +479,46 @@ class DashboardController extends Controller
             ->withQueryString();
 
         $branches = Branch::orderBy('branch_code')->get();
+        $serviceTypes = FuneralCase::query()
+            ->where('verification_status', 'VERIFIED')
+            ->whereNotNull('service_type')
+            ->where('service_type', '!=', '')
+            ->distinct()
+            ->orderBy('service_type')
+            ->pluck('service_type');
+        $packages = Package::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
         return view('owner.cases.history', compact(
             'cases',
             'branches',
             'branchId',
             'q',
+            'datePreset',
             'dateFrom',
             'dateTo',
+            'caseStatus',
+            'paymentStatus',
+            'serviceType',
+            'packageId',
             'intermentFrom',
-            'intermentTo'
+            'intermentTo',
+            'serviceTypes',
+            'packages'
         ));
+    }
+
+    private function resolveHistoryDateRange(?string $preset, ?string $dateFrom, ?string $dateTo): array
+    {
+        return match ($preset) {
+            'TODAY' => [now()->toDateString(), now()->toDateString()],
+            'THIS_MONTH' => [now()->startOfMonth()->toDateString(), now()->toDateString()],
+            'THIS_YEAR' => [now()->startOfYear()->toDateString(), now()->toDateString()],
+            'CUSTOM' => [$dateFrom, $dateTo],
+            default => [null, null],
+        };
     }
 
     private function validatedFilters(Request $request): array
@@ -741,5 +790,30 @@ class DashboardController extends Controller
             'collected' => $collected,
             'outstanding' => $outstanding,
         ];
+    }
+
+    private function applyAggregateSelects(Builder $query): Builder
+    {
+        return $query
+            ->selectRaw('COUNT(*) as total_cases')
+            ->selectRaw("SUM(CASE WHEN payment_status = 'PAID' THEN 1 ELSE 0 END) as paid_cases")
+            ->selectRaw("SUM(CASE WHEN payment_status = 'PARTIAL' THEN 1 ELSE 0 END) as partial_cases")
+            ->selectRaw("SUM(CASE WHEN payment_status = 'UNPAID' THEN 1 ELSE 0 END) as unpaid_cases")
+            ->selectRaw("COALESCE(SUM(CASE WHEN payment_status = 'PAID' THEN total_amount ELSE 0 END), 0) as total_sales")
+            ->selectRaw('COALESCE(SUM(total_paid), 0) as total_collected')
+            ->selectRaw('COALESCE(SUM(balance_amount), 0) as total_outstanding');
+    }
+
+    private function buildAggregateSummary(Builder $query): object
+    {
+        return $this->applyAggregateSelects($query)->first();
+    }
+
+    private function buildAggregateRowsByBranch(Builder $query)
+    {
+        return $this->applyAggregateSelects($query->select('branch_id'))
+            ->groupBy('branch_id')
+            ->get()
+            ->keyBy('branch_id');
     }
 }

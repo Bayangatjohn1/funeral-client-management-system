@@ -99,9 +99,9 @@
         font-size: .82rem;
         font-weight: 700;
         letter-spacing: .02em;
-        color: #9c5a1a;
-        background: #f8ebdc;
-        border: 1px solid #ecd2b7;
+        color: var(--accent);
+        background: rgba(37, 99, 235, 0.08);
+        border: 1px solid rgba(37, 99, 235, 0.20);
     }
 
     .staff-tools {

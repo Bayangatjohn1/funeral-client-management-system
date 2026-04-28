@@ -193,9 +193,12 @@ class DeceasedController extends Controller
         $mainBranchId = $this->mainBranchIdForDirectory();
 
         $validated = $request->validate([
-            'client_id' => 'required|exists:clients,id',
-            'address' => 'nullable|string|max:255',
-            'full_name' => FieldRules::personName(),
+            'client_id'   => 'required|exists:clients,id',
+            'address'     => 'nullable|string|max:255',
+            'first_name'  => FieldRules::namePart(),
+            'last_name'   => FieldRules::namePart(),
+            'middle_name' => FieldRules::namePart(false),
+            'suffix'      => FieldRules::namePart(false),
             'born' => 'nullable|date',
             'died' => 'nullable|date|after_or_equal:born|before_or_equal:today|required_with:interment_at',
             'age' => 'nullable|integer|min:0|max:150',
@@ -206,7 +209,9 @@ class DeceasedController extends Controller
             'coffin_size' => 'nullable|in:SMALL,MEDIUM,LARGE,XL,CUSTOM',
             'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:3072',
         ], [
-            'full_name.regex' => 'Name may contain letters, spaces, apostrophes, periods, and hyphens only.',
+            'first_name.regex'  => FieldRules::nameRegexMessage('First name'),
+            'last_name.regex'   => FieldRules::nameRegexMessage('Last name'),
+            'middle_name.regex' => FieldRules::nameRegexMessage('Middle name'),
             'died.after_or_equal' => 'Died date must be on or after born date.',
             'died.required_with' => 'Date of death is required when interment datetime is set.',
             'died.before_or_equal' => 'Date of death cannot be in the future.',
@@ -225,10 +230,17 @@ class DeceasedController extends Controller
             abort(403);
         }
 
+        $deceasedFullName = implode(' ', array_filter([
+            $validated['first_name'],
+            $validated['middle_name'] ?? null,
+            $validated['last_name'],
+            $validated['suffix'] ?? null,
+        ]));
+
         $duplicateDeceased = Deceased::query()
             ->where('branch_id', $mainBranchId)
             ->where('client_id', $validated['client_id'])
-            ->whereRaw('LOWER(TRIM(full_name)) = ?', [strtolower(trim($validated['full_name']))]);
+            ->whereRaw('LOWER(TRIM(full_name)) = ?', [strtolower(trim($deceasedFullName))]);
 
         if (!empty($validated['died'])) {
             $duplicateDeceased->whereDate('died', $validated['died']);
@@ -238,7 +250,7 @@ class DeceasedController extends Controller
 
         if ($duplicateDeceased->exists()) {
             return back()->withErrors([
-                'full_name' => 'Deceased record already exists for this client (same name and date of death).',
+                'first_name' => 'Deceased record already exists for this client (same name and date of death).',
             ])->withInput();
         }
 
@@ -263,10 +275,13 @@ class DeceasedController extends Controller
             : null;
 
         $deceased = Deceased::create([
-            'branch_id' => $mainBranchId,
-            'client_id' => $validated['client_id'],
-            'address' => $validated['address'] ?? null,
-            'full_name' => $validated['full_name'],
+            'branch_id'   => $mainBranchId,
+            'client_id'   => $validated['client_id'],
+            'address'     => $validated['address'] ?? null,
+            'first_name'  => $validated['first_name'],
+            'last_name'   => $validated['last_name'],
+            'middle_name' => $validated['middle_name'] ?? null,
+            'suffix'      => $validated['suffix'] ?? null,
             'born' => $validated['born'] ?? null,
             'died' => $validated['died'] ?? null,
             'date_of_death' => $validated['died'] ?? null,
@@ -339,9 +354,12 @@ class DeceasedController extends Controller
         }
 
         $validated = $request->validate([
-            'client_id' => 'required|exists:clients,id',
-            'address' => 'nullable|string|max:255',
-            'full_name' => FieldRules::personName(),
+            'client_id'   => 'required|exists:clients,id',
+            'address'     => 'nullable|string|max:255',
+            'first_name'  => FieldRules::namePart(),
+            'last_name'   => FieldRules::namePart(),
+            'middle_name' => FieldRules::namePart(false),
+            'suffix'      => FieldRules::namePart(false),
             'born' => 'nullable|date',
             'died' => 'nullable|date|after_or_equal:born|before_or_equal:today|required_with:interment_at',
             'age' => 'nullable|integer|min:0|max:150',
@@ -353,7 +371,9 @@ class DeceasedController extends Controller
             'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:3072',
             'remove_photo' => 'nullable|boolean',
         ], [
-            'full_name.regex' => 'Name may contain letters, spaces, apostrophes, periods, and hyphens only.',
+            'first_name.regex'  => FieldRules::nameRegexMessage('First name'),
+            'last_name.regex'   => FieldRules::nameRegexMessage('Last name'),
+            'middle_name.regex' => FieldRules::nameRegexMessage('Middle name'),
             'died.after_or_equal' => 'Died date must be on or after born date.',
             'died.required_with' => 'Date of death is required when interment datetime is set.',
             'died.before_or_equal' => 'Date of death cannot be in the future.',
@@ -372,11 +392,18 @@ class DeceasedController extends Controller
             abort(403);
         }
 
+        $deceasedFullName = implode(' ', array_filter([
+            $validated['first_name'],
+            $validated['middle_name'] ?? null,
+            $validated['last_name'],
+            $validated['suffix'] ?? null,
+        ]));
+
         $duplicateDeceased = Deceased::query()
             ->where('branch_id', $deceased->branch_id)
             ->where('client_id', $validated['client_id'])
             ->whereKeyNot($deceased->id)
-            ->whereRaw('LOWER(TRIM(full_name)) = ?', [strtolower(trim($validated['full_name']))]);
+            ->whereRaw('LOWER(TRIM(full_name)) = ?', [strtolower(trim($deceasedFullName))]);
 
         if (!empty($validated['died'])) {
             $duplicateDeceased->whereDate('died', $validated['died']);
@@ -386,7 +413,7 @@ class DeceasedController extends Controller
 
         if ($duplicateDeceased->exists()) {
             return back()->withErrors([
-                'full_name' => 'Another deceased record with the same name and date of death already exists for this client.',
+                'first_name' => 'Another deceased record with the same name and date of death already exists for this client.',
             ])->withInput();
         }
 
@@ -428,9 +455,12 @@ class DeceasedController extends Controller
         ];
 
         $deceased->update([
-            'client_id' => $validated['client_id'],
-            'address' => $validated['address'] ?? null,
-            'full_name' => $validated['full_name'],
+            'client_id'   => $validated['client_id'],
+            'address'     => $validated['address'] ?? null,
+            'first_name'  => $validated['first_name'],
+            'last_name'   => $validated['last_name'],
+            'middle_name' => $validated['middle_name'] ?? null,
+            'suffix'      => $validated['suffix'] ?? null,
             'born' => $validated['born'] ?? null,
             'died' => $validated['died'] ?? null,
             'date_of_death' => $validated['died'] ?? null,

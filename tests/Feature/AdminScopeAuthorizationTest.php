@@ -37,19 +37,68 @@ class AdminScopeAuthorizationTest extends TestCase
         $this->assertTrue($admin->fresh()->isMainBranchAdmin());
     }
 
-    public function test_branch_admin_is_sent_to_staff_dashboard_and_blocked_from_global_admin_modules(): void
+    public function test_branch_admin_is_sent_to_admin_dashboard_and_blocked_from_global_admin_modules(): void
     {
         $branch = $this->createBranch('BR002', 'Branch Two');
         $branchAdmin = $this->createBranchAdmin($branch);
 
-        $this->actingAs($branchAdmin)->get('/dashboard')->assertRedirect('/staff');
-        $this->actingAs($branchAdmin)->get('/staff')->assertOk();
-        $this->actingAs($branchAdmin)->get('/admin')->assertForbidden();
+        $this->actingAs($branchAdmin)->get('/dashboard')->assertRedirect('/admin');
+        $this->actingAs($branchAdmin)->get('/admin')->assertOk();
         $this->actingAs($branchAdmin)->get('/admin/users')->assertForbidden();
         $this->actingAs($branchAdmin)->get('/admin/branches')->assertForbidden();
-        $this->actingAs($branchAdmin)->get('/admin/packages')->assertForbidden();
-        $this->actingAs($branchAdmin)->get('/admin/reports/sales')->assertForbidden();
+        $this->actingAs($branchAdmin)->get('/admin/packages')->assertOk();
+        $this->actingAs($branchAdmin)->get('/admin/reports/sales')->assertOk();
         $this->actingAs($branchAdmin)->get('/admin/audit-logs')->assertForbidden();
+    }
+
+    public function test_branch_admin_has_read_only_package_access_to_active_packages(): void
+    {
+        $branch = $this->createBranch('BR002', 'Branch Two');
+        $branchAdmin = $this->createBranchAdmin($branch);
+        $activePackage = $this->createPackage();
+        $inactivePackage = Package::create([
+            'name' => 'Inactive Package',
+            'coffin_type' => 'Premium',
+            'price' => 30000,
+            'is_active' => false,
+        ]);
+
+        $response = $this->actingAs($branchAdmin)->get('/admin/packages');
+
+        $response->assertOk()
+            ->assertSee('Read-only access')
+            ->assertSee($activePackage->name)
+            ->assertDontSee($inactivePackage->name)
+            ->assertDontSee('Add Package')
+            ->assertDontSee('Update Price')
+            ->assertDontSee('Edit Package');
+    }
+
+    public function test_branch_admin_cannot_submit_package_write_routes(): void
+    {
+        $branch = $this->createBranch('BR002', 'Branch Two');
+        $branchAdmin = $this->createBranchAdmin($branch);
+        $package = $this->createPackage();
+
+        $this->actingAs($branchAdmin)
+            ->get('/admin/packages/create')
+            ->assertForbidden()
+            ->assertSee('Branch admins have read-only access to packages.');
+
+        $this->actingAs($branchAdmin)
+            ->get("/admin/packages/{$package->id}/edit")
+            ->assertForbidden()
+            ->assertSee('Branch admins have read-only access to packages.');
+
+        $this->actingAs($branchAdmin)
+            ->patch("/admin/packages/{$package->id}/quick-price", ['price' => 25000])
+            ->assertForbidden()
+            ->assertSee('Branch admins have read-only access to packages.');
+
+        $this->assertDatabaseHas('packages', [
+            'id' => $package->id,
+            'price' => 20000,
+        ]);
     }
 
     public function test_branch_admin_main_intake_uses_assigned_branch_instead_of_br001(): void
@@ -62,6 +111,8 @@ class AdminScopeAuthorizationTest extends TestCase
         $response = $this->actingAs($branchAdmin)->post('/intake/main', [
             'service_requested_at' => now()->toDateString(),
             'branch_id' => $mainBranch->id,
+            'client_first_name' => 'Branch',
+            'client_last_name' => 'Client',
             'client_name' => 'Branch Admin Client',
             'client_relationship' => 'Daughter',
             'client_contact_number' => '09170000000',
@@ -69,6 +120,8 @@ class AdminScopeAuthorizationTest extends TestCase
             'client_valid_id_type' => 'National ID',
             'client_valid_id_number' => 'ID-5000',
             'client_address' => 'Branch Two Address',
+            'deceased_first_name' => 'Branch',
+            'deceased_last_name' => 'Deceased',
             'deceased_name' => 'Branch Admin Deceased',
             'deceased_address' => 'Branch Two Address',
             'born' => now()->subYears(65)->toDateString(),
@@ -96,7 +149,7 @@ class AdminScopeAuthorizationTest extends TestCase
         $response->assertRedirect(route('funeral-cases.index', ['record_scope' => 'main'], absolute: false));
 
         $this->assertDatabaseHas('clients', [
-            'full_name' => 'Branch Admin Client',
+            'full_name' => 'Branch Client',
             'branch_id' => $branch->id,
         ]);
         $this->assertDatabaseHas('funeral_cases', [
@@ -234,8 +287,8 @@ class AdminScopeAuthorizationTest extends TestCase
         $this->assertEquals($otherBranch->id, $branchAdmin->branch_id);
         $this->assertEquals('branch', $branchAdmin->admin_scope);
 
-        $this->actingAs($branchAdmin)->get('/dashboard')->assertRedirect('/staff');
-        $this->actingAs($branchAdmin)->get('/admin')->assertForbidden();
+        $this->actingAs($branchAdmin)->get('/dashboard')->assertRedirect('/admin');
+        $this->actingAs($branchAdmin)->get('/admin')->assertOk();
         $this->actingAs($branchAdmin)->get('/admin/users')->assertForbidden();
     }
 
@@ -277,14 +330,35 @@ class AdminScopeAuthorizationTest extends TestCase
         $this->actingAs($admin)->get('/admin/audit-logs')->assertOk();
     }
 
-    public function test_branch_admin_can_access_staff_area_and_reminders(): void
+    public function test_branch_admin_can_access_admin_monitoring_and_reminders(): void
     {
         $mainBranch = $this->createBranch('BR001', 'Main Branch');
         $branch = $this->createBranch('BR002', 'Branch Two');
         $branchAdmin = $this->createBranchAdmin($branch);
 
-        $this->actingAs($branchAdmin)->get('/staff')->assertOk();
+        $this->actingAs($branchAdmin)->get('/admin')->assertOk();
+        $this->actingAs($branchAdmin)->get('/admin/cases')->assertOk();
+        $this->actingAs($branchAdmin)->get('/admin/reminders')->assertOk();
         $this->actingAs($branchAdmin)->get('/reminders')->assertOk();
+    }
+
+    public function test_branch_admin_cannot_filter_admin_dashboard_to_another_branch(): void
+    {
+        $branch = $this->createBranch('BR002', 'Branch Two');
+        $otherBranch = $this->createBranch('BR003', 'Branch Three');
+        $branchAdmin = $this->createBranchAdmin($branch);
+
+        $this->actingAs($branchAdmin)
+            ->get('/admin?branch_id=' . $otherBranch->id)
+            ->assertForbidden();
+
+        $this->actingAs($branchAdmin)
+            ->get('/admin/reports/sales?branch_id=' . $otherBranch->id)
+            ->assertForbidden();
+
+        $this->actingAs($branchAdmin)
+            ->get('/admin/cases?branch_id=' . $otherBranch->id)
+            ->assertForbidden();
     }
 
     public function test_create_user_form_has_no_pre_filled_email_or_password(): void

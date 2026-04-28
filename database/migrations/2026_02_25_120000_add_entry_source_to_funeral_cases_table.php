@@ -3,6 +3,7 @@
 use App\Models\Branch;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -18,7 +19,7 @@ return new class extends Migration
 
         $branchCodeById = Branch::query()->pluck('branch_code', 'id')->all();
 
-        \App\Models\FuneralCase::query()
+        DB::table('funeral_cases')
             ->select(['id', 'branch_id'])
             ->orderBy('id')
             ->chunkById(200, function ($cases) use ($branchCodeById) {
@@ -26,8 +27,8 @@ return new class extends Migration
                     $branchCode = strtoupper((string) ($branchCodeById[$case->branch_id] ?? ''));
                     $entrySource = $branchCode === 'BR001' ? 'MAIN' : 'OTHER_BRANCH';
 
-                    \App\Models\FuneralCase::query()
-                        ->whereKey($case->id)
+                    DB::table('funeral_cases')
+                        ->where('id', $case->id)
                         ->update(['entry_source' => $entrySource]);
                 }
             });

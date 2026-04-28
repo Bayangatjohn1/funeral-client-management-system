@@ -109,7 +109,7 @@
 .ph-name { font-size: 14px; font-weight: 500; margin-bottom: 3px; line-height: 1.3; }
 .ph-name .dim { color: #94a3b8; font-weight: 400; }
 .ph-meta { font-size: 12px; color: #94a3b8; display: flex; gap: 10px; flex-wrap: wrap; }
-.ph-meta .case-ref { color: #9c5a1a; }
+.ph-meta .case-ref { color: var(--accent); }
 
 .ph-amt { font-size: 14px; font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
 .ph-bal { font-size: 13px; text-align: right; color: #94a3b8; }
@@ -143,7 +143,7 @@
 .ph-di { padding: 10px 12px; background: #fff; border-radius: 8px; border: 0.5px solid #e2e8f0; }
 .ph-dl { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
 .ph-dv { font-size: 13px; font-weight: 500; word-break: break-word; }
-.ph-dv.case-c  { color: #9c5a1a; }
+.ph-dv.case-c  { color: var(--accent); }
 .ph-dv.paid-c  { color: #15803d; }
 .ph-dv.owed-c  { color: #b45309; }
 

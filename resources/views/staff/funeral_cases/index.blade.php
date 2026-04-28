@@ -22,10 +22,18 @@
         'tab' => 'active',
         'record_scope' => $recordScope,
         'q' => request('q'),
+        'case_status' => request('case_status'),
         'payment_status' => request('payment_status'),
+        'service_type' => request('service_type'),
+        'package_id' => request('package_id'),
+        'date_preset' => request('date_preset'),
+        'date_from' => request('date_from'),
+        'date_to' => request('date_to'),
         'date_range' => request('date_range'),
         'request_date_from' => request('request_date_from'),
         'request_date_to' => request('request_date_to'),
+        'interment_from' => request('interment_from'),
+        'interment_to' => request('interment_to'),
         'sort' => 'newest',
         'quick_filter' => 'all',
     ], fn ($value) => !is_null($value) && $value !== ''));
@@ -34,10 +42,18 @@
         'tab' => 'completed',
         'record_scope' => $recordScope,
         'q' => request('q'),
+        'case_status' => request('case_status'),
         'payment_status' => request('payment_status'),
+        'service_type' => request('service_type'),
+        'package_id' => request('package_id'),
+        'date_preset' => request('date_preset'),
+        'date_from' => request('date_from'),
+        'date_to' => request('date_to'),
         'date_range' => request('date_range'),
         'request_date_from' => request('request_date_from'),
         'request_date_to' => request('request_date_to'),
+        'interment_from' => request('interment_from'),
+        'interment_to' => request('interment_to'),
         'sort' => 'newest',
         'quick_filter' => 'all',
     ], fn ($value) => !is_null($value) && $value !== ''));
@@ -102,7 +118,27 @@
             </div>
         @else
             <div class="table-system-toolbar">
-                <form id="caseRecordsFilterForm" method="GET" action="{{ route('funeral-cases.index') }}" class="table-toolbar" data-table-toolbar data-search-debounce="400">
+                @include('partials.case_filter_toolbar', [
+                    'action' => route('funeral-cases.index'),
+                    'resetUrl' => route('funeral-cases.index', ['tab' => $activeTab, 'record_scope' => $recordScope]),
+                    'branchMode' => 'locked',
+                    'assignedBranch' => $operationalBranch ?? null,
+                    'branchId' => $operationalBranch?->id ?? auth()->user()?->branch_id,
+                    'branches' => $branches,
+                    'datePreset' => $datePreset ?? '',
+                    'dateFrom' => $dateFrom ?? null,
+                    'dateTo' => $dateTo ?? null,
+                    'intermentFrom' => $intermentFrom ?? null,
+                    'intermentTo' => $intermentTo ?? null,
+                    'serviceTypes' => $serviceTypes ?? collect(),
+                    'packages' => $packages ?? collect(),
+                    'hiddenInputs' => ['tab' => $activeTab, 'record_scope' => $recordScope, 'sort' => $sort],
+                    'showVerificationStatus' => false,
+                    'showPackage' => true,
+                    'showEncodedBy' => false,
+                ])
+
+                <form id="caseRecordsFilterForm" method="GET" action="{{ route('funeral-cases.index') }}" class="table-toolbar hidden" data-table-toolbar data-search-debounce="400">
                     <input type="hidden" name="tab" value="{{ $activeTab }}">
                     <input type="hidden" name="record_scope" value="{{ $recordScope }}">
 
@@ -115,8 +151,8 @@
                             class="form-input table-toolbar-search"
                             data-table-search
                             placeholder="Search case, client, or deceased..."
-                            pattern="[A-Za-z0-9.'\- ]+"
-                            title="Letters, numbers, spaces, apostrophes, periods, and hyphens only"
+                            pattern="[A-Za-zÀ-öø-ÿĀ-žḀ-ỿ0-9.'\- ]+"
+                            title="Letters (including accented like Ñ, É), numbers, spaces, apostrophes, dots, and hyphens only"
                         >
                     </div>
 
@@ -222,11 +258,13 @@
                             @if($isActiveTab)
                                 <tr>
                                     <th class="text-left">Case ID</th>
-                                    <th class="text-left">Request Date</th>
+                                    <th class="text-left">Branch</th>
+                                    <th class="text-left">Date Encoded</th>
                                     <th class="text-left">Client</th>
                                     <th class="text-left">Contact</th>
                                     <th class="text-left">Deceased</th>
                                     <th class="text-left">Service / Interment Date</th>
+                                    <th class="text-left">Service Type</th>
                                     <th class="text-left">Package</th>
                                     <th class="table-col-number">Total</th>
                                     <th class="table-col-number">Total Paid</th>
@@ -237,14 +275,17 @@
                             @else
                                 <tr>
                                     <th class="text-left">Case ID</th>
-                                    <th class="text-left">Request Date</th>
+                                    <th class="text-left">Branch</th>
+                                    <th class="text-left">Date Encoded</th>
                                     <th class="text-left">Client</th>
                                     <th class="text-left">Deceased</th>
                                     <th class="text-left">Service / Interment Date</th>
+                                    <th class="text-left">Service Type</th>
                                     <th class="text-left">Package</th>
                                     <th class="table-col-number">Total</th>
                                     <th class="table-col-number">Total Paid</th>
                                     <th class="text-left">Payment Status</th>
+                                    <th class="text-left">Case Status</th>
                                     <th class="table-col-actions">Actions</th>
                                 </tr>
                             @endif
@@ -253,7 +294,8 @@
                             @forelse($cases as $case)
                                 <tr>
                                     <td class="table-primary">{{ $case->case_code }}</td>
-                                    <td>{{ $case->service_requested_at?->format('Y-m-d') ?? $case->created_at?->format('Y-m-d') }}</td>
+                                    <td>{{ $case->branch?->branch_code ?? '-' }}</td>
+                                    <td>{{ $case->created_at?->format('Y-m-d') }}</td>
                                     <td>{{ $case->client?->full_name ?? '-' }}</td>
 
                                     @if($isActiveTab)
@@ -262,6 +304,7 @@
 
                                     <td>{{ $case->deceased?->full_name ?? '-' }}</td>
                                     <td>{{ $case->deceased?->interment_at?->format('Y-m-d H:i') ?? $case->deceased?->interment?->format('Y-m-d') ?? '-' }}</td>
+                                    <td>{{ $case->service_type ?? '-' }}</td>
                                     <td>{{ $case->service_package ?? '-' }}</td>
                                     <td class="table-col-number">{{ number_format((float) $case->total_amount, 2) }}</td>
                                     <td class="table-col-number">{{ number_format((float) $case->total_paid, 2) }}</td>
@@ -274,6 +317,9 @@
                                     @else
                                         <td>
                                             <x-status-badge :status="$case->payment_status" />
+                                        </td>
+                                        <td>
+                                            <x-status-badge :status="$case->case_status" />
                                         </td>
                                     @endif
 
@@ -341,7 +387,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="{{ $isActiveTab ? 12 : 10 }}" class="table-system-empty">
+                                    <td colspan="{{ $isActiveTab ? 14 : 13 }}" class="table-system-empty">
                                         No case records found.
                                     </td>
                                 </tr>
@@ -358,14 +404,14 @@
     </section>
 
     <div id="caseEditOverlay" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-200 panel-overlay-content">
-        <div id="caseEditSheet" class="relative w-[90vw] max-w-4xl max-h-[94vh] bg-white rounded-2xl shadow-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border border-slate-200">
-            <button id="caseEditClose" type="button" class="absolute top-4 right-4 z-10 inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors focus:outline-none shadow-sm">
+        <div id="caseEditSheet" class="relative w-[90vw] max-w-4xl max-h-[94vh] rounded-2xl shadow-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0" style="background:var(--card);border:1px solid var(--border)">
+            <button id="caseEditClose" type="button" class="absolute top-4 right-4 z-10 inline-flex items-center justify-center w-9 h-9 rounded-xl transition-colors focus:outline-none shadow-sm" style="background:var(--card);border:1px solid var(--border);color:var(--ink-muted)">
                 <i class="bi bi-x-lg" style="font-size:.8rem"></i>
             </button>
-            <div id="caseEditContent" class="overflow-y-auto max-h-[84vh] p-6 bg-slate-50">
+            <div id="caseEditContent" class="overflow-y-auto max-h-[84vh]" style="padding:16px;background:var(--card);">
                 <div class="flex flex-col items-center justify-center py-16 gap-3">
-                    <div class="w-7 h-7 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin"></div>
-                    <span class="text-sm text-slate-400">Loading...</span>
+                    <div class="w-7 h-7 rounded-full animate-spin" style="border:2px solid var(--border);border-top-color:var(--ink-muted)"></div>
+                    <span class="text-sm" style="color:var(--ink-muted)">Loading...</span>
                 </div>
             </div>
         </div>
@@ -408,10 +454,37 @@
         const content = document.getElementById('caseEditContent');
         const closeBtn = document.getElementById('caseEditClose');
         const openLinks = [...document.querySelectorAll('.open-edit-modal, .open-view-modal')];
+        const transitionMs = 180;
+        let hideTimer = null;
+        let activeRequestId = 0;
+
+        const loadingMarkup = `
+            <div class="flex flex-col items-center justify-center py-16 gap-3">
+                <div class="w-7 h-7 rounded-full animate-spin" style="border:2px solid var(--border);border-top-color:var(--ink-muted)"></div>
+                <span class="text-sm" style="color:var(--ink-muted)">Loading...</span>
+            </div>`;
+
+        const dispatchUiReset = () => {
+            document.dispatchEvent(new CustomEvent('panel-ui:reset'));
+        };
+
+        const syncPageScrollLock = (isOpen) => {
+            document.documentElement.classList.toggle('overflow-hidden', !!isOpen);
+            document.body.classList.toggle('overflow-hidden', !!isOpen);
+        };
+
+        const resetContent = () => {
+            if (content) {
+                content.innerHTML = loadingMarkup;
+            }
+        };
 
         const showShell = () => {
             if (!overlay || !sheet) return;
+            window.clearTimeout(hideTimer);
+            dispatchUiReset();
             overlay.classList.remove('hidden');
+            syncPageScrollLock(true);
             requestAnimationFrame(() => {
                 sheet.classList.remove('scale-95', 'opacity-0');
                 sheet.classList.add('scale-100', 'opacity-100');
@@ -421,32 +494,31 @@
 
         const hideShell = () => {
             if (!overlay || !sheet || !content) return;
+            activeRequestId += 1;
+            window.clearTimeout(hideTimer);
             sheet.classList.add('scale-95', 'opacity-0');
             sheet.classList.remove('scale-100', 'opacity-100');
             overlay.classList.remove('opacity-100');
-            setTimeout(() => {
+            syncPageScrollLock(false);
+            dispatchUiReset();
+            hideTimer = window.setTimeout(() => {
                 overlay.classList.add('hidden');
-                content.innerHTML = `
-                    <div class="flex flex-col items-center justify-center py-16 gap-3">
-                        <div class="w-7 h-7 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin"></div>
-                        <span class="text-sm text-slate-400">Loading...</span>
-                    </div>`;
-            }, 180);
+                syncPageScrollLock(false);
+                resetContent();
+            }, transitionMs);
         };
 
         const loadContent = async (url) => {
             if (!content) return;
-            content.innerHTML = `
-                <div class="flex flex-col items-center justify-center py-16 gap-3">
-                    <div class="w-7 h-7 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin"></div>
-                    <span class="text-sm text-slate-400">Loading...</span>
-                </div>`;
+            const requestId = ++activeRequestId;
+            resetContent();
             try {
                 const res = await fetch(url, {
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                     credentials: 'same-origin',
                 });
                 const html = await res.text();
+                if (requestId !== activeRequestId || overlay.classList.contains('hidden')) return;
                 const doc = new DOMParser().parseFromString(html, 'text/html');
                 const form = doc.querySelector('#caseEditForm');
                 const view = doc.querySelector('#caseViewContent');
@@ -467,6 +539,7 @@
                     content.innerHTML = html;
                 }
             } catch (err) {
+                if (requestId !== activeRequestId || overlay.classList.contains('hidden')) return;
                 content.innerHTML = `<div class="p-6 text-sm text-rose-600">Unable to load. Please try again.</div>`;
             }
         };

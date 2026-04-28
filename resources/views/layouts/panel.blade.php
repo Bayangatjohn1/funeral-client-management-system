@@ -178,8 +178,8 @@
                 $authUser = auth()->user();
                 $authRole = $authUser->role ?? null;
                 $notificationRouteName = match (true) {
-                    $authUser?->isMainBranchAdmin() => 'admin.reminders.index',
-                    in_array($authRole, ['staff', 'admin'], true) => 'staff.reminders.index',
+                    $authUser?->isAdmin() => 'admin.reminders.index',
+                    $authRole === 'staff' => 'staff.reminders.index',
                     default => null,
                 };
                 $notificationHref = $notificationRouteName ? route($notificationRouteName) : null;
@@ -188,194 +188,9 @@
                 $notificationCounts = ['all' => 0, 'due' => 0, 'today' => 0, 'upcoming' => 0];
 
                 if (auth()->check()) {
-                    $scopeBranchIds = [];
-
-                    if ($authUser->isMainBranchAdmin() || $authUser->isOwner()) {
-                        $scopeBranchIds = \App\Models\Branch::query()
-                            ->where('is_active', true)
-                            ->pluck('id')
-                            ->map(fn ($id) => (int) $id)
-                            ->all();
-                    } elseif (in_array($authRole, ['staff', 'admin'], true)) {
-                        $operationalBranchId = (int) ($authUser->operationalBranchId() ?? 0);
-                        if ($operationalBranchId > 0) {
-                            $scopeBranchIds = [$operationalBranchId];
-                        }
-                    }
-
-                    if (!empty($scopeBranchIds)) {
-                        sort($scopeBranchIds);
-                        $scopeKey = sha1(implode(',', $scopeBranchIds));
-                        $cacheKey = 'topbar:notifications:v2:user:' . $authUser->id . ':role:' . ($authRole ?? 'guest') . ':scope:' . $scopeKey;
-
-                        $payload = \Illuminate\Support\Facades\Cache::remember(
-                            $cacheKey,
-                            now()->addSeconds(120),
-                            function () use ($scopeBranchIds) {
-                                $today = now()->startOfDay();
-                                $upcomingEnd = $today->copy()->addDays(7)->endOfDay();
-                                $todayDate = $today->toDateString();
-                                $upcomingDate = $upcomingEnd->toDateString();
-
-                                $notificationCases = \App\Models\FuneralCase::query()
-                                    ->select([
-                                        'id',
-                                        'branch_id',
-                                        'client_id',
-                                        'deceased_id',
-                                        'case_code',
-                                        'case_status',
-                                        'payment_status',
-                                        'balance_amount',
-                                        'funeral_service_at',
-                                        'interment_at',
-                                        'created_at',
-                                    ])
-                                    ->with([
-                                        'client:id,full_name',
-                                        'deceased:id,full_name',
-                                    ])
-                                    ->whereIn('branch_id', $scopeBranchIds)
-                                    ->where(function ($q) {
-                                        $q->where('entry_source', 'MAIN')->orWhereNull('entry_source');
-                                    })
-                                    ->where(function ($candidate) use ($todayDate, $upcomingDate, $today, $upcomingEnd) {
-                                        $candidate
-                                            ->where(function ($due) {
-                                                $due->whereIn('payment_status', ['UNPAID', 'PARTIAL'])
-                                                    ->orWhere('balance_amount', '>', 0);
-                                            })
-                                            ->orWhere(function ($schedule) use ($todayDate, $upcomingDate, $today, $upcomingEnd) {
-                                                $schedule->where('case_status', '!=', 'COMPLETED')
-                                                    ->where(function ($dateWindow) use ($todayDate, $upcomingDate, $today, $upcomingEnd) {
-                                                        $dateWindow
-                                                            ->whereBetween('funeral_service_at', [$todayDate, $upcomingDate])
-                                                            ->orWhereBetween('interment_at', [$today, $upcomingEnd]);
-                                                    });
-                                            });
-                                    })
-                                    ->get();
-
-                                $items = collect();
-
-                                foreach ($notificationCases as $case) {
-                                    $deceasedName = $case->deceased?->full_name ?: 'Unknown';
-                                    $caseCode = $case->case_code ?: 'N/A';
-
-                                    if (
-                                        in_array($case->payment_status, ['UNPAID', 'PARTIAL'], true) ||
-                                        ((float) ($case->balance_amount ?? 0) > 0)
-                                    ) {
-                                        $isIntermentDueToday = $case->interment_at && $case->interment_at->isSameDay($today);
-                                        $items->push([
-                                            'bucket' => 'due',
-                                            'priority' => 4,
-                                            'title' => $isIntermentDueToday ? 'Payment due today (Interment)' : 'Balance pending',
-                                            'subtitle' => "{$caseCode} - {$deceasedName}",
-                                            'date' => $case->interment_at?->copy() ?? $case->funeral_service_at?->copy() ?? now(),
-                                            'tab' => 'unpaid',
-                                            'alert_type' => 'balance',
-                                            'case_code' => $caseCode,
-                                            'deceased_name' => $deceasedName,
-                                            'client_name' => $case->client?->full_name ?? 'N/A',
-                                        ]);
-                                    }
-
-                                    if ($case->case_status === 'COMPLETED') {
-                                        continue;
-                                    }
-
-                                    if ($case->funeral_service_at && $case->funeral_service_at->isSameDay($today)) {
-                                        $items->push([
-                                            'bucket' => 'today',
-                                            'priority' => 3,
-                                            'title' => 'Funeral service today',
-                                            'subtitle' => "{$caseCode} - {$deceasedName}",
-                                            'date' => $case->funeral_service_at->copy(),
-                                            'tab' => 'today',
-                                            'alert_type' => 'service_today',
-                                            'case_code' => $caseCode,
-                                            'deceased_name' => $deceasedName,
-                                            'client_name' => $case->client?->full_name ?? 'N/A',
-                                        ]);
-                                    }
-
-                                    if ($case->interment_at && $case->interment_at->isSameDay($today)) {
-                                        $items->push([
-                                            'bucket' => 'today',
-                                            'priority' => 3,
-                                            'title' => 'Interment today',
-                                            'subtitle' => "{$caseCode} - {$deceasedName}",
-                                            'date' => $case->interment_at->copy(),
-                                            'tab' => 'today',
-                                            'alert_type' => 'interment_today',
-                                            'case_code' => $caseCode,
-                                            'deceased_name' => $deceasedName,
-                                            'client_name' => $case->client?->full_name ?? 'N/A',
-                                        ]);
-                                    }
-
-                                    if (
-                                        $case->funeral_service_at &&
-                                        $case->funeral_service_at->greaterThan($today) &&
-                                        $case->funeral_service_at->lessThanOrEqualTo($upcomingEnd)
-                                    ) {
-                                        $items->push([
-                                            'bucket' => 'upcoming',
-                                            'priority' => 2,
-                                            'title' => 'Upcoming funeral service',
-                                            'subtitle' => "{$caseCode} - {$deceasedName}",
-                                            'date' => $case->funeral_service_at->copy(),
-                                            'tab' => 'upcoming',
-                                            'alert_type' => 'upcoming_service',
-                                            'case_code' => $caseCode,
-                                            'deceased_name' => $deceasedName,
-                                            'client_name' => $case->client?->full_name ?? 'N/A',
-                                        ]);
-                                    }
-
-                                    if (
-                                        $case->interment_at &&
-                                        $case->interment_at->greaterThan($today) &&
-                                        $case->interment_at->lessThanOrEqualTo($upcomingEnd)
-                                    ) {
-                                        $items->push([
-                                            'bucket' => 'upcoming',
-                                            'priority' => 2,
-                                            'title' => 'Upcoming interment',
-                                            'subtitle' => "{$caseCode} - {$deceasedName}",
-                                            'date' => $case->interment_at->copy(),
-                                            'tab' => 'upcoming',
-                                            'alert_type' => 'upcoming_interment',
-                                            'case_code' => $caseCode,
-                                            'deceased_name' => $deceasedName,
-                                            'client_name' => $case->client?->full_name ?? 'N/A',
-                                        ]);
-                                    }
-                                }
-
-                                $sortedItems = $items
-                                    ->sortBy([
-                                        ['priority', 'desc'],
-                                        ['date', 'asc'],
-                                    ])
-                                    ->values();
-
-                                return [
-                                    'items' => $sortedItems->take(8)->all(),
-                                    'counts' => [
-                                        'all' => $sortedItems->count(),
-                                        'due' => $sortedItems->where('bucket', 'due')->count(),
-                                        'today' => $sortedItems->where('bucket', 'today')->count(),
-                                        'upcoming' => $sortedItems->where('bucket', 'upcoming')->count(),
-                                    ],
-                                ];
-                            }
-                        );
-
-                        $topbarNotifications = collect($payload['items'] ?? []);
-                        $notificationCounts = array_merge($notificationCounts, $payload['counts'] ?? []);
-                    }
+                    $payload = app(\App\Support\TopbarNotificationBuilder::class)->forUser($authUser, $authRole);
+                    $topbarNotifications = collect($payload['items'] ?? []);
+                    $notificationCounts = array_merge($notificationCounts, $payload['counts'] ?? []);
                 }
 
                 $notificationTotal = $notificationCounts['all'] ?? 0;
@@ -892,6 +707,8 @@
                     closeMenu();
                 }
             });
+
+            document.addEventListener('panel-ui:reset', closeMenu);
         })();
 
         (function () {
@@ -989,6 +806,8 @@
                 }
             });
 
+            document.addEventListener('panel-ui:reset', closeMenu);
+
             updateVisibleState('all');
         })();
 
@@ -1002,6 +821,7 @@
                 localStorage.setItem(key, String(scroller.scrollTop));
             });
         })();
+
     </script>
 </body>
 </html>

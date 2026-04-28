@@ -241,11 +241,11 @@
 
         <div id="hero-slider" class="absolute inset-0 w-full h-full z-0">
             <div class="slide login-hero-slide absolute inset-0 w-full h-full opacity-100 transition-opacity duration-1000 ease-in-out">
-                <div class="absolute inset-0 bg-[linear-gradient(145deg,rgba(15,23,42,0.92),rgba(140,64,4,0.25))]"></div>
+                <div class="absolute inset-0 bg-[linear-gradient(145deg,rgba(15,23,42,0.92),rgba(37,99,235,0.22))]"></div>
                 <div class="absolute right-16 top-16 h-44 w-44 rounded-[2rem] border border-white/15 bg-white/5 backdrop-blur-sm shadow-2xl"></div>
-                <div class="absolute right-28 top-28 h-24 w-24 rounded-3xl border border-white/10 bg-[#d4a373]/20"></div>
+                <div class="absolute right-28 top-28 h-24 w-24 rounded-3xl border border-white/10 bg-[#60a5fa]/20"></div>
                 <div class="absolute bottom-12 left-12 max-w-lg z-20">
-                    <span class="px-3 py-1 bg-[#9C5A1A] text-white text-[10px] font-medium uppercase tracking-widest rounded-md mb-4 inline-block shadow-sm">Our Services</span>
+                    <span class="px-3 py-1 bg-[#2563eb] text-white text-[10px] font-medium uppercase tracking-widest rounded-md mb-4 inline-block shadow-sm">Our Services</span>
                     <h3 class="text-4xl font-bold text-white font-heading leading-tight mb-3">Premium Viewing <br>Chapel Setup</h3>
                     <p class="text-white/80 font-medium text-sm leading-relaxed">Providing a peaceful and dignified environment for families to honor the lives of their loved ones.</p>
                 </div>
@@ -256,21 +256,21 @@
                 <div class="absolute right-16 top-12 h-52 w-64 rounded-[2.25rem] border border-white/15 bg-white/5 backdrop-blur-md shadow-2xl"></div>
                 <div class="absolute right-24 top-20 flex gap-3">
                     <div class="h-24 w-16 rounded-2xl bg-white/10 border border-white/10"></div>
-                    <div class="h-24 w-16 rounded-2xl bg-[#9C5A1A]/30 border border-[#d4a373]/20"></div>
+                    <div class="h-24 w-16 rounded-2xl bg-[#2563eb]/30 border border-[#60a5fa]/20"></div>
                     <div class="h-24 w-16 rounded-2xl bg-white/10 border border-white/10"></div>
                 </div>
                 <div class="absolute bottom-12 left-12 max-w-lg z-20">
-                    <span class="px-3 py-1 bg-white text-[#9C5A1A] text-[10px] font-medium uppercase tracking-widest rounded-md mb-4 inline-block shadow-sm">Transport</span>
+                    <span class="px-3 py-1 bg-white text-[#2563eb] text-[10px] font-medium uppercase tracking-widest rounded-md mb-4 inline-block shadow-sm">Transport</span>
                     <h3 class="text-4xl font-bold text-white font-heading leading-tight mb-3">State-of-the-art <br>Funeral Fleet</h3>
                     <p class="text-white/80 font-medium text-sm leading-relaxed">Ensuring a solemn and respectful journey with our well-maintained and elegant vehicles.</p>
                 </div>
             </div>
 
             <div class="slide login-hero-slide absolute inset-0 w-full h-full opacity-0 transition-opacity duration-1000 ease-in-out">
-                <div class="absolute inset-0 bg-[linear-gradient(145deg,rgba(30,41,59,0.88),rgba(120,53,15,0.22))]"></div>
+                <div class="absolute inset-0 bg-[linear-gradient(145deg,rgba(30,41,59,0.88),rgba(37,99,235,0.18))]"></div>
                 <div class="absolute right-16 top-16 w-72 rounded-[2rem] border border-white/15 bg-white/5 p-6 backdrop-blur-md shadow-2xl">
                     <div class="flex items-center gap-4">
-                        <div class="h-14 w-14 rounded-2xl bg-[#9C5A1A]/30 border border-[#d4a373]/30"></div>
+                        <div class="h-14 w-14 rounded-2xl bg-[#2563eb]/30 border border-[#60a5fa]/30"></div>
                         <div class="space-y-2">
                             <div class="h-3 w-24 rounded-full bg-white/20"></div>
                             <div class="h-3 w-32 rounded-full bg-white/10"></div>

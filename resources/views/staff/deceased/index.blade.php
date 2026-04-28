@@ -244,9 +244,37 @@
         const content = document.getElementById('deceasedModalContent');
         const closeBtn = document.getElementById('deceasedModalClose');
         const links = [...document.querySelectorAll('.open-deceased-modal')];
+        const transitionMs = 180;
+        let hideTimer = null;
+        let activeRequestId = 0;
+
+        const loadingMarkup = `
+            <div class="flex flex-col items-center justify-center py-16 gap-3">
+                <div class="w-7 h-7 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin"></div>
+                <span class="text-sm text-slate-400">Loading...</span>
+            </div>`;
+
+        const dispatchUiReset = () => {
+            document.dispatchEvent(new CustomEvent('panel-ui:reset'));
+        };
+
+        const syncPageScrollLock = (isOpen) => {
+            document.documentElement.classList.toggle('overflow-hidden', !!isOpen);
+            document.body.classList.toggle('overflow-hidden', !!isOpen);
+        };
+
+        const resetContent = () => {
+            if (content) {
+                content.innerHTML = loadingMarkup;
+            }
+        };
 
         const show = () => {
+            if (!overlay || !sheet) return;
+            window.clearTimeout(hideTimer);
+            dispatchUiReset();
             overlay.classList.remove('hidden');
+            syncPageScrollLock(true);
             requestAnimationFrame(() => {
                 sheet.classList.remove('scale-95', 'opacity-0');
                 sheet.classList.add('scale-100', 'opacity-100');
@@ -255,17 +283,19 @@
         };
 
         const hide = () => {
+            if (!overlay || !sheet) return;
+            activeRequestId += 1;
+            window.clearTimeout(hideTimer);
             sheet.classList.add('scale-95', 'opacity-0');
             sheet.classList.remove('scale-100', 'opacity-100');
             overlay.classList.remove('opacity-100');
-            setTimeout(() => {
+            syncPageScrollLock(false);
+            dispatchUiReset();
+            hideTimer = window.setTimeout(() => {
                 overlay.classList.add('hidden');
-                content.innerHTML = `
-                    <div class="flex flex-col items-center justify-center py-16 gap-3">
-                        <div class="w-7 h-7 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin"></div>
-                        <span class="text-sm text-slate-400">Loading...</span>
-                    </div>`;
-            }, 180);
+                syncPageScrollLock(false);
+                resetContent();
+            }, transitionMs);
         };
 
         const attachPrintHandler = () => {
@@ -304,14 +334,13 @@
         };
 
         const load = async (url) => {
-            content.innerHTML = `
-                <div class="flex flex-col items-center justify-center py-16 gap-3">
-                    <div class="w-7 h-7 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin"></div>
-                    <span class="text-sm text-slate-400">Loading...</span>
-                </div>`;
+            if (!content) return;
+            const requestId = ++activeRequestId;
+            resetContent();
             try {
                 const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                 const html = await res.text();
+                if (requestId !== activeRequestId || overlay.classList.contains('hidden')) return;
                 const doc = new DOMParser().parseFromString(html, 'text/html');
                 const view = doc.querySelector('#deceasedViewContent');
                 const form = doc.querySelector('#deceasedEditForm');
@@ -330,6 +359,7 @@
                     content.innerHTML = html;
                 }
             } catch (e) {
+                if (requestId !== activeRequestId || overlay.classList.contains('hidden')) return;
                 content.innerHTML = `<div class="p-4 text-sm text-rose-600">Unable to load content.</div>`;
             }
         };

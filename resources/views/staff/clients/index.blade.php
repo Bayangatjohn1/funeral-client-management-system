@@ -91,24 +91,25 @@
                 </thead>
                 <tbody>
                 @forelse($clients as $client)
+                    @php($latestCase = $client->latestFuneralCase)
                     <tr>
                         <td>
                             <div class="table-primary">{{ $client->full_name }}</div>
                             <div class="table-secondary">{{ $client->client_code ?? 'CL-' . str_pad($client->id, 3, '0', STR_PAD_LEFT) }}</div>
                         </td>
                         <td>{{ $client->relationship_to_deceased ?? '-' }}</td>
-                        <td>{{ $client->latest_deceased_name ?: '-' }}</td>
-                        <td>{{ $client->latest_service_package ?: '-' }}</td>
+                        <td>{{ $latestCase?->deceased?->full_name ?: '-' }}</td>
+                        <td>{{ $latestCase?->service_package ?: '-' }}</td>
                         <td>
-                            @if($client->latest_case_status)
-                                <x-status-badge :status="$client->latest_case_status" />
+                            @if($latestCase?->case_status)
+                                <x-status-badge :status="$latestCase->case_status" />
                             @else
                                 <span class="table-secondary">-</span>
                             @endif
                         </td>
                         <td>
-                            @if($client->latest_payment_status)
-                                <x-status-badge :status="$client->latest_payment_status" />
+                            @if($latestCase?->payment_status)
+                                <x-status-badge :status="$latestCase->payment_status" />
                             @else
                                 <span class="table-secondary">-</span>
                             @endif
@@ -216,9 +217,37 @@
         const content = document.getElementById('clientModalContent');
         const closeBtn = document.getElementById('clientModalClose');
         const links = [...document.querySelectorAll('.open-client-modal')];
+        const transitionMs = 180;
+        let hideTimer = null;
+        let activeRequestId = 0;
+
+        const loadingMarkup = `
+            <div class="flex flex-col items-center justify-center py-16 gap-3">
+                <div class="w-7 h-7 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin"></div>
+                <span class="text-sm text-slate-400">Loading...</span>
+            </div>`;
+
+        const dispatchUiReset = () => {
+            document.dispatchEvent(new CustomEvent('panel-ui:reset'));
+        };
+
+        const syncPageScrollLock = (isOpen) => {
+            document.documentElement.classList.toggle('overflow-hidden', !!isOpen);
+            document.body.classList.toggle('overflow-hidden', !!isOpen);
+        };
+
+        const resetContent = () => {
+            if (content) {
+                content.innerHTML = loadingMarkup;
+            }
+        };
 
         const show = () => {
+            if (!overlay || !sheet) return;
+            window.clearTimeout(hideTimer);
+            dispatchUiReset();
             overlay.classList.remove('hidden');
+            syncPageScrollLock(true);
             requestAnimationFrame(() => {
                 sheet.classList.remove('scale-95', 'opacity-0');
                 sheet.classList.add('scale-100', 'opacity-100');
@@ -227,17 +256,19 @@
         };
 
         const hide = () => {
+            if (!overlay || !sheet) return;
+            activeRequestId += 1;
+            window.clearTimeout(hideTimer);
             sheet.classList.add('scale-95', 'opacity-0');
             sheet.classList.remove('scale-100', 'opacity-100');
             overlay.classList.remove('opacity-100');
-            setTimeout(() => {
+            syncPageScrollLock(false);
+            dispatchUiReset();
+            hideTimer = window.setTimeout(() => {
                 overlay.classList.add('hidden');
-                content.innerHTML = `
-                    <div class="flex flex-col items-center justify-center py-16 gap-3">
-                        <div class="w-7 h-7 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin"></div>
-                        <span class="text-sm text-slate-400">Loading...</span>
-                    </div>`;
-            }, 180);
+                syncPageScrollLock(false);
+                resetContent();
+            }, transitionMs);
         };
 
         const attachPrintHandler = () => {
@@ -274,33 +305,51 @@
             });
         };
 
-        const load = async (url) => {
-            content.innerHTML = `
-                <div class="flex flex-col items-center justify-center py-16 gap-3">
-                    <div class="w-7 h-7 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin"></div>
-                    <span class="text-sm text-slate-400">Loading...</span>
-                </div>`;
+        const withFragment = (url) => {
             try {
-                const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-                const html = await res.text();
-                const doc = new DOMParser().parseFromString(html, 'text/html');
-                const form = doc.querySelector('#clientEditForm');
-                const view = doc.querySelector('#clientViewContent');
-                const payload = form || view;
-                if (payload) {
-                    content.innerHTML = payload.outerHTML;
-                    doc.querySelectorAll('style').forEach((style) => {
-                        if (style.innerHTML.includes('client') || style.innerHTML.includes('print')) {
-                            const s = document.createElement('style');
-                            s.textContent = style.innerHTML;
-                            content.appendChild(s);
-                        }
-                    });
-                    attachPrintHandler();
-                } else {
-                    content.innerHTML = html;
+                const target = new URL(url, window.location.href);
+                target.searchParams.set('fragment', 'modal');
+                return target.toString();
+            } catch (error) {
+                return url;
+            }
+        };
+
+        const load = async (url) => {
+            if (!content) return;
+            const requestId = ++activeRequestId;
+            resetContent();
+            try {
+                const res = await fetch(withFragment(url), {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-Client-Fragment': 'modal',
+                    },
+                });
+                if (!res.ok) {
+                    throw new Error(`Request failed with ${res.status}`);
                 }
+                const html = await res.text();
+                if (requestId !== activeRequestId || overlay.classList.contains('hidden')) return;
+                content.innerHTML = html;
+                const hasModalPayload = content.querySelector('#clientEditForm') || content.querySelector('#clientViewContent');
+                if (!hasModalPayload) {
+                    const doc = new DOMParser().parseFromString(html, 'text/html');
+                    const payload = doc.querySelector('#clientEditForm') || doc.querySelector('#clientViewContent');
+                    if (payload) {
+                        content.innerHTML = payload.outerHTML;
+                        doc.querySelectorAll('style').forEach((style) => {
+                            if (style.innerHTML.includes('client') || style.innerHTML.includes('print')) {
+                                const s = document.createElement('style');
+                                s.textContent = style.innerHTML;
+                                content.appendChild(s);
+                            }
+                        });
+                    }
+                }
+                attachPrintHandler();
             } catch (e) {
+                if (requestId !== activeRequestId || overlay.classList.contains('hidden')) return;
                 content.innerHTML = `<div class="p-4 text-sm text-rose-600">Unable to load content.</div>`;
             }
         };

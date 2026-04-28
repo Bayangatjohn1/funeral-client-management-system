@@ -770,7 +770,7 @@
     gap: 12px;
     flex-wrap: wrap;
 }
-.eb-branch-code { font-size: 10px; font-weight: 700; color: #9c5a1a; text-transform: uppercase; letter-spacing: 0.1em; margin-right: 6px; }
+.eb-branch-code { font-size: 10px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; margin-right: 6px; }
 .eb-branch-name { font-size: 13px; font-weight: 600; color: #0f172a; font-family: var(--font-body); }
 .eb-branch-row-stats { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .eb-branch-stat-pill {
@@ -813,7 +813,7 @@
 .eb-recent-row:last-child { border-bottom: none; }
 .eb-recent-row:hover { opacity: 0.75; }
 .eb-recent-left { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.eb-recent-code { font-size: 10px; font-weight: 700; color: #9c5a1a; letter-spacing: 0.05em; }
+.eb-recent-code { font-size: 10px; font-weight: 700; color: var(--accent); letter-spacing: 0.05em; }
 .eb-recent-names { font-size: 12px; font-weight: 500; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; font-family: var(--font-body); }
 .eb-dim { color: #94a3b8; font-weight: 400; }
 .eb-recent-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }

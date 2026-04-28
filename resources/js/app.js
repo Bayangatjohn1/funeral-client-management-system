@@ -92,12 +92,19 @@ function initRowActionMenus() {
     const triggerSelector = '[data-row-menu-trigger]';
     const itemSelector = '[data-row-menu-item]';
 
+    const closeMenu = (menu) => {
+        if (!menu) return;
+        menu.classList.remove('is-open');
+        const trigger = menu.querySelector(triggerSelector);
+        if (trigger) {
+            trigger.setAttribute('aria-expanded', 'false');
+        }
+    };
+
     const closeAllMenus = (except = null) => {
         document.querySelectorAll(menuSelector).forEach((menu) => {
             if (except && menu === except) return;
-            menu.classList.remove('is-open');
-            const trigger = menu.querySelector(triggerSelector);
-            if (trigger) trigger.setAttribute('aria-expanded', 'false');
+            closeMenu(menu);
         });
     };
 
@@ -111,8 +118,7 @@ function initRowActionMenus() {
             closeAllMenus(menu);
 
             if (isOpen) {
-                menu.classList.remove('is-open');
-                trigger.setAttribute('aria-expanded', 'false');
+                closeMenu(menu);
             } else {
                 menu.classList.add('is-open');
                 trigger.setAttribute('aria-expanded', 'true');
@@ -135,6 +141,10 @@ function initRowActionMenus() {
         if (event.key === 'Escape') {
             closeAllMenus();
         }
+    });
+
+    document.addEventListener('panel-ui:reset', () => {
+        closeAllMenus();
     });
 }
 
@@ -232,9 +242,59 @@ function initTableToolbarBehavior() {
     });
 }
 
+function initCaseCompactFilters() {
+    document.querySelectorAll('[data-case-filter]').forEach((form) => {
+        const customToggle = form.querySelector('[data-case-custom-toggle]');
+        const customPanel = form.querySelector('[data-case-custom-panel]');
+        const moreToggle = form.querySelector('[data-case-more-toggle]');
+        const morePanel = form.querySelector('[data-case-more-panel]');
+        const moreIcon = form.querySelector('[data-case-more-icon]');
+        const hasAdvancedFilters = moreToggle?.classList.contains('active') || false;
+
+        const setCustomOpen = (open) => {
+            if (!customToggle || !customPanel) return;
+            customPanel.hidden = !open;
+            customToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        };
+
+        const setMoreOpen = (open) => {
+            if (!moreToggle || !morePanel) return;
+            morePanel.hidden = !open;
+            moreToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            moreToggle.classList.toggle('active', open || hasAdvancedFilters);
+            if (moreIcon) {
+                moreIcon.classList.toggle('bi-chevron-down', !open);
+                moreIcon.classList.toggle('bi-chevron-up', open);
+            }
+        };
+
+        customToggle?.addEventListener('click', () => {
+            setCustomOpen(customToggle.getAttribute('aria-expanded') !== 'true');
+        });
+
+        moreToggle?.addEventListener('click', () => {
+            setMoreOpen(moreToggle.getAttribute('aria-expanded') !== 'true');
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!(event.target instanceof Element)) return;
+            if (customPanel && customToggle && !customPanel.contains(event.target) && !customToggle.contains(event.target)) {
+                setCustomOpen(false);
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                setCustomOpen(false);
+            }
+        });
+    });
+}
+
 initTheme();
 initRowActionMenus();
 initTableToolbarBehavior();
+initCaseCompactFilters();
 
 window.Alpine = Alpine;
 

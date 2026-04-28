@@ -564,6 +564,14 @@ html[data-theme='dark'] .prof-banner {
     -webkit-backdrop-filter: blur(3px);
     z-index: 1300;
     font-family: var(--font-body);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .18s ease;
+}
+
+.prof-overlay.is-open {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .prof-sheet {
@@ -738,14 +746,19 @@ html[data-theme='dark'] .prof-banner {
         const overlay = document.getElementById(overlayId);
         const sheet   = document.getElementById(sheetId);
         if (!overlay || !sheet) return;
+        let hideTimer = null;
 
         const lock   = () => { document.documentElement.classList.add('overflow-hidden'); document.body.classList.add('overflow-hidden'); };
         const unlock = () => { document.documentElement.classList.remove('overflow-hidden'); document.body.classList.remove('overflow-hidden'); };
+        const resetUi = () => { document.dispatchEvent(new CustomEvent('panel-ui:reset')); };
 
         const show = () => {
+            window.clearTimeout(hideTimer);
+            resetUi();
             overlay.style.display = 'flex';
             lock();
             requestAnimationFrame(() => {
+                overlay.classList.add('is-open');
                 sheet.classList.remove('scale-95', 'opacity-0');
                 sheet.classList.add('scale-100', 'opacity-100');
             });
@@ -754,7 +767,10 @@ html[data-theme='dark'] .prof-banner {
         const hide = () => {
             sheet.classList.add('scale-95', 'opacity-0');
             sheet.classList.remove('scale-100', 'opacity-100');
-            setTimeout(() => { overlay.style.display = 'none'; unlock(); }, 180);
+            overlay.classList.remove('is-open');
+            unlock();
+            resetUi();
+            hideTimer = window.setTimeout(() => { overlay.style.display = 'none'; }, 180);
         };
 
         openIds.forEach(id => {

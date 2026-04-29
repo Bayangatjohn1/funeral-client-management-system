@@ -197,6 +197,12 @@
             {{-- Package cards --}}
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 @foreach($packages as $package)
+                @php
+                    $inclusionItems = $package->inclusionNames();
+                    $freebieItems = $package->freebieNames();
+                    $visibleInclusions = array_slice($inclusionItems, 0, 3);
+                    $visibleFreebies = array_slice($freebieItems, 0, 3);
+                @endphp
                 <div
                     class="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col"
                     x-data="{ editingPrice: false }"
@@ -249,7 +255,7 @@
                                 <input
                                     type="number"
                                     step="0.01"
-                                    min="0.01"
+                                    min="0"
                                     name="price"
                                     value="{{ number_format($package->price, 2, '.', '') }}"
                                     class="admin-table-input-inline flex-1 min-w-0"
@@ -299,8 +305,15 @@
                             <p class="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-1.5 flex items-center gap-1">
                                 <i class="bi bi-check2-all"></i> Inclusions
                             </p>
-                            @if($package->inclusions)
-                                <p class="text-xs text-slate-600 leading-relaxed line-clamp-3">{{ $package->inclusions }}</p>
+                            @if($inclusionItems)
+                                <ul class="space-y-1 text-xs text-slate-600 leading-relaxed">
+                                    @foreach($visibleInclusions as $item)
+                                        <li class="flex gap-1.5"><span class="text-emerald-600">&bull;</span><span>{{ $item }}</span></li>
+                                    @endforeach
+                                </ul>
+                                @if(count($inclusionItems) > 3)
+                                    <p class="mt-1 text-[11px] font-semibold text-slate-400">+{{ count($inclusionItems) - 3 }} more</p>
+                                @endif
                             @else
                                 <p class="text-xs text-slate-400 italic">None listed</p>
                             @endif
@@ -309,8 +322,15 @@
                             <p class="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-1.5 flex items-center gap-1">
                                 <i class="bi bi-gift"></i> Freebies
                             </p>
-                            @if($package->freebies)
-                                <p class="text-xs text-slate-600 leading-relaxed line-clamp-3">{{ $package->freebies }}</p>
+                            @if($freebieItems)
+                                <ul class="space-y-1 text-xs text-slate-600 leading-relaxed">
+                                    @foreach($visibleFreebies as $item)
+                                        <li class="flex gap-1.5"><span class="text-amber-600">&bull;</span><span>{{ $item }}</span></li>
+                                    @endforeach
+                                </ul>
+                                @if(count($freebieItems) > 3)
+                                    <p class="mt-1 text-[11px] font-semibold text-slate-400">+{{ count($freebieItems) - 3 }} more</p>
+                                @endif
                             @else
                                 <p class="text-xs text-slate-400 italic">None listed</p>
                             @endif
@@ -384,6 +404,10 @@
                     </thead>
                     <tbody>
                     @forelse($packages as $package)
+                        @php
+                            $inclusionItems = $package->inclusionNames();
+                            $freebieItems = $package->freebieNames();
+                        @endphp
                         <tr>
                             <td class="table-primary">{{ $package->name }}</td>
                             <td>{{ $package->coffin_type ?? '—' }}</td>
@@ -392,15 +416,41 @@
                                     <form method="POST" action="{{ route('admin.packages.quickPrice', $package) }}" class="flex items-center gap-2">
                                         @csrf
                                         @method('PATCH')
-                                        <input type="number" step="0.01" min="0.01" name="price" value="{{ number_format($package->price, 2, '.', '') }}" class="admin-table-input-inline">
+                                        <input type="number" step="0.01" min="0" name="price" value="{{ number_format($package->price, 2, '.', '') }}" class="admin-table-input-inline">
                                         <button class="admin-table-save-btn" type="submit">Save</button>
                                     </form>
                                 @else
                                     <span class="font-semibold text-slate-900">&#8369;{{ number_format((float) $package->price, 2) }}</span>
                                 @endif
                             </td>
-                            <td class="table-secondary">{{ \Illuminate\Support\Str::limit($package->inclusions ?? '—', 80) }}</td>
-                            <td class="table-secondary">{{ \Illuminate\Support\Str::limit($package->freebies ?? '—', 80) }}</td>
+                            <td class="table-secondary">
+                                @if($inclusionItems)
+                                    <ul class="space-y-1">
+                                        @foreach(array_slice($inclusionItems, 0, 3) as $item)
+                                            <li>&bull; {{ $item }}</li>
+                                        @endforeach
+                                    </ul>
+                                    @if(count($inclusionItems) > 3)
+                                        <span class="text-[11px] font-semibold text-slate-400">+{{ count($inclusionItems) - 3 }} more</span>
+                                    @endif
+                                @else
+                                    &mdash;
+                                @endif
+                            </td>
+                            <td class="table-secondary">
+                                @if($freebieItems)
+                                    <ul class="space-y-1">
+                                        @foreach(array_slice($freebieItems, 0, 3) as $item)
+                                            <li>&bull; {{ $item }}</li>
+                                        @endforeach
+                                    </ul>
+                                    @if(count($freebieItems) > 3)
+                                        <span class="text-[11px] font-semibold text-slate-400">+{{ count($freebieItems) - 3 }} more</span>
+                                    @endif
+                                @else
+                                    None listed
+                                @endif
+                            </td>
                             <td>
                                 @if($package->promo_is_active && $package->promo_value_type && $package->promo_value)
                                     <div class="text-xs font-semibold text-emerald-700">{{ $package->promo_label ?: 'Promo' }}</div>

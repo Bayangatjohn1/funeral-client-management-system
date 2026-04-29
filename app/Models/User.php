@@ -6,18 +6,23 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use App\Support\NormalizesName;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, NormalizesName;
 
     /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
      */
-    protected $fillable = [
+protected $fillable = [
+    'first_name',
+    'middle_name',
+    'last_name',
+    'suffix',
     'name',
     'email',
     'password',
@@ -30,6 +35,31 @@ class User extends Authenticatable
     'position',
     'address',
 ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $user) {
+            $user->normalizeUserNameFields();
+        });
+    }
+
+    protected function normalizeUserNameFields(): void
+    {
+        foreach (['first_name', 'middle_name', 'last_name', 'suffix', 'name'] as $col) {
+            if (array_key_exists($col, $this->attributes)) {
+                $this->attributes[$col] = static::cleanNamePart($this->attributes[$col]);
+            }
+        }
+
+        $first = $this->attributes['first_name'] ?? null;
+        $middle = $this->attributes['middle_name'] ?? null;
+        $last = $this->attributes['last_name'] ?? null;
+        $suffix = $this->attributes['suffix'] ?? null;
+
+        if ($first && $last && (! $this->isDirty('name') || empty($this->attributes['name']))) {
+            $this->attributes['name'] = static::buildFullName($first, $middle, $last, $suffix);
+        }
+    }
     public function branch()
     {
         // return $this->belongsTo(Branch::class);
@@ -232,6 +262,16 @@ class User extends Authenticatable
         }
 
         if ($this->isOwner() || $this->isMainBranchAdmin()) {
+            $this->cachedBranchScopeIds = \Illuminate\Support\Facades\Cache::remember(
+                'active_branch_scope_ids:v1',
+                now()->addSeconds(30),
+                static fn () => \App\Models\Branch::where('is_active', true)->pluck('id')->all()
+            );
+
+            return $this->cachedBranchScopeIds;
+        }
+
+        if ($this->role === 'staff' && (bool) $this->can_encode_any_branch) {
             $this->cachedBranchScopeIds = \Illuminate\Support\Facades\Cache::remember(
                 'active_branch_scope_ids:v1',
                 now()->addSeconds(30),

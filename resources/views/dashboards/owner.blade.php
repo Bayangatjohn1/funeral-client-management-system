@@ -23,6 +23,7 @@
     $formattedTo   = \Carbon\Carbon::parse($dateTo)->format('M d, Y');
     $dateRangeLinks = [
         'TODAY' => route('owner.dashboard', array_merge($baseQuery, ['range' => 'TODAY'])),
+        'LAST_30_DAYS' => route('owner.dashboard', array_merge($baseQuery, ['range' => 'LAST_30_DAYS'])),
         'THIS_MONTH' => route('owner.dashboard', array_merge($baseQuery, ['range' => 'THIS_MONTH'])),
         'THIS_YEAR' => route('owner.dashboard', array_merge($baseQuery, ['range' => 'THIS_YEAR'])),
     ];
@@ -62,7 +63,7 @@
         <div class="eb-filter-group">
             <span class="eb-filter-label eb-visually-hidden">Period Filter</span>
             <div class="eb-seg" role="group" aria-label="Period Filter">
-                @foreach (['TODAY', 'THIS_MONTH', 'THIS_YEAR'] as $rangeKey)
+                @foreach (['TODAY', 'LAST_30_DAYS', 'THIS_MONTH', 'THIS_YEAR'] as $rangeKey)
                     <a href="{{ $dateRangeLinks[$rangeKey] }}" class="eb-seg-item {{ ($range ?? 'THIS_MONTH') === $rangeKey ? 'active' : '' }}">
                         {{ ucwords(strtolower(str_replace('_', ' ', $rangeKey))) }}
                     </a>

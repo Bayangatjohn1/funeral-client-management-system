@@ -23,6 +23,10 @@ class DeceasedController extends Controller
     public function index(Request $request)
     {
         $mainBranchId = $this->mainBranchIdForDirectory();
+        $branchCode = Branch::whereKey($mainBranchId)->value('branch_code');
+        if (($request->user()?->role ?? null) === 'staff' && strtoupper((string) $branchCode) !== 'BR001') {
+            return redirect()->route('clients.index');
+        }
 
         $request->validate([
             'q' => FieldRules::searchName(),
@@ -60,7 +64,12 @@ class DeceasedController extends Controller
 
         if ($request->filled('q')) {
             $q = $request->q;
-            $query->where('full_name', 'like', "%{$q}%");
+            $query->where(function ($nameQuery) use ($q) {
+                $nameQuery->where('full_name', 'like', "%{$q}%")
+                    ->orWhere('first_name', 'like', "%{$q}%")
+                    ->orWhere('middle_name', 'like', "%{$q}%")
+                    ->orWhere('last_name', 'like', "%{$q}%");
+            });
         }
 
         $dateRange = $request->string('date_range', 'any')->toString();
@@ -191,12 +200,13 @@ class DeceasedController extends Controller
     public function store(Request $request)
     {
         $mainBranchId = $this->mainBranchIdForDirectory();
+        $this->mergeLegacyFullName($request);
 
         $validated = $request->validate([
             'client_id'   => 'required|exists:clients,id',
             'address'     => 'nullable|string|max:255',
-            'first_name'  => FieldRules::namePart(),
-            'last_name'   => FieldRules::namePart(),
+            'first_name'  => FieldRules::namePart(min: 2),
+            'last_name'   => FieldRules::namePart(min: 2),
             'middle_name' => FieldRules::namePart(false),
             'suffix'      => FieldRules::namePart(false),
             'born' => 'nullable|date',
@@ -218,6 +228,10 @@ class DeceasedController extends Controller
             'interment_at.after' => 'Interment date/time must be after the date of death.',
             'interment_at.before_or_equal' => 'Interment date cannot be in the future.',
         ]);
+        $validated = $this->normalizeValidatedNameParts($validated);
+        if ($response = $this->rejectDuplicateNameParts($validated)) {
+            return $response;
+        }
 
         if (!$this->isIntermentAfterDeathDate($validated['died'] ?? null, $validated['interment_at'] ?? null)) {
             return back()->withErrors([
@@ -230,12 +244,12 @@ class DeceasedController extends Controller
             abort(403);
         }
 
-        $deceasedFullName = implode(' ', array_filter([
+        $deceasedFullName = Deceased::buildFullName(
             $validated['first_name'],
             $validated['middle_name'] ?? null,
             $validated['last_name'],
             $validated['suffix'] ?? null,
-        ]));
+        );
 
         $duplicateDeceased = Deceased::query()
             ->where('branch_id', $mainBranchId)
@@ -314,7 +328,8 @@ class DeceasedController extends Controller
 
     public function edit(Deceased $deceased)
     {
-        if (auth()->user()?->role === 'staff') {
+        $user = auth()->user();
+        if ($user?->role === 'staff' && !$user->canEncodeAnyBranch()) {
             return redirect()->route('deceased.index')->with('warning', 'Need permission from the admin.');
         }
 
@@ -344,7 +359,8 @@ class DeceasedController extends Controller
 
     public function update(Request $request, Deceased $deceased)
     {
-        if (auth()->user()?->role === 'staff') {
+        $user = auth()->user();
+        if ($user?->role === 'staff' && !$user->canEncodeAnyBranch()) {
             return redirect()->route('deceased.index')->with('warning', 'Need permission from the admin.');
         }
 
@@ -352,12 +368,13 @@ class DeceasedController extends Controller
         if ((int) $deceased->branch_id !== $mainBranchId) {
             abort(403);
         }
+        $this->mergeLegacyFullName($request);
 
         $validated = $request->validate([
             'client_id'   => 'required|exists:clients,id',
             'address'     => 'nullable|string|max:255',
-            'first_name'  => FieldRules::namePart(),
-            'last_name'   => FieldRules::namePart(),
+            'first_name'  => FieldRules::namePart(min: 2),
+            'last_name'   => FieldRules::namePart(min: 2),
             'middle_name' => FieldRules::namePart(false),
             'suffix'      => FieldRules::namePart(false),
             'born' => 'nullable|date',
@@ -380,6 +397,10 @@ class DeceasedController extends Controller
             'interment_at.after' => 'Interment date/time must be after the date of death.',
             'interment_at.before_or_equal' => 'Interment date cannot be in the future.',
         ]);
+        $validated = $this->normalizeValidatedNameParts($validated);
+        if ($response = $this->rejectDuplicateNameParts($validated)) {
+            return $response;
+        }
 
         if (!$this->isIntermentAfterDeathDate($validated['died'] ?? null, $validated['interment_at'] ?? null)) {
             return back()->withErrors([
@@ -392,12 +413,12 @@ class DeceasedController extends Controller
             abort(403);
         }
 
-        $deceasedFullName = implode(' ', array_filter([
+        $deceasedFullName = Deceased::buildFullName(
             $validated['first_name'],
             $validated['middle_name'] ?? null,
             $validated['last_name'],
             $validated['suffix'] ?? null,
-        ]));
+        );
 
         $duplicateDeceased = Deceased::query()
             ->where('branch_id', $deceased->branch_id)
@@ -598,6 +619,50 @@ class DeceasedController extends Controller
         } catch (\Throwable $e) {
             return null;
         }
+    }
+
+    private function normalizeValidatedNameParts(array $validated): array
+    {
+        return array_replace($validated, Deceased::normalizedNameParts($validated));
+    }
+
+    private function mergeLegacyFullName(Request $request): void
+    {
+        if (
+            !$request->filled('full_name')
+            || $request->filled('first_name')
+            || $request->filled('last_name')
+        ) {
+            return;
+        }
+
+        $request->merge(array_filter(
+            Deceased::parseFullName((string) $request->input('full_name')),
+            static fn (?string $value): bool => $value !== null
+        ));
+    }
+
+    private function rejectDuplicateNameParts(array $validated): ?\Illuminate\Http\RedirectResponse
+    {
+        $parts = array_filter([
+            'first_name' => $validated['first_name'] ?? null,
+            'middle_name' => $validated['middle_name'] ?? null,
+            'last_name' => $validated['last_name'] ?? null,
+            'suffix' => $validated['suffix'] ?? null,
+        ], static fn (?string $value): bool => $value !== null);
+
+        $seen = [];
+        foreach ($parts as $field => $value) {
+            $key = mb_strtolower($value);
+            if (isset($seen[$key])) {
+                return back()->withErrors([
+                    $field => 'Name parts must not repeat exactly.',
+                ])->withInput();
+            }
+            $seen[$key] = true;
+        }
+
+        return null;
     }
 
 }

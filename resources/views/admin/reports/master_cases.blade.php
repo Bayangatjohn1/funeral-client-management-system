@@ -285,19 +285,13 @@
                 <table class="table-base table-system-table admin-master-table">
                     <thead>
                         <tr>
-                            <th class="text-left">Case ID</th>
-                            <th class="text-left">Date Encoded</th>
+                            <th class="text-left">Case</th>
                             <th class="text-left">Branch</th>
-                            <th class="text-left">Client</th>
-                            <th class="text-left">Deceased</th>
-                            <th class="text-left">Service Type</th>
-                            <th class="text-left">Package</th>
-                            <th class="table-col-number">Total</th>
-                            <th class="text-left">Verification</th>
-                            <th class="text-left">Case Status</th>
-                            <th class="text-left">Payment Status</th>
+                            <th class="text-left">Family / Client</th>
+                            <th class="text-left">Service</th>
                             <th class="text-left">Interment</th>
-                            <th class="table-col-number">Balance</th>
+                            <th class="table-col-number">Financials</th>
+                            <th class="text-left">Review</th>
                             <th class="table-col-actions">Actions</th>
                         </tr>
                     </thead>
@@ -334,45 +328,87 @@
                                 'UNPAID' => 'status-badge status-badge-danger',
                                 default => 'status-badge status-badge-neutral',
                             };
+                            $intermentDate = $case->interment_at
+                                ?? $case->deceased?->interment_at
+                                ?? $case->deceased?->interment;
                         @endphp
 
-                        <tr>
-                            <td class="table-primary whitespace-nowrap">{{ $case->case_code }}</td>
-                            <td class="whitespace-nowrap">{{ $case->created_at?->format('Y-m-d') }}</td>
+                        <tr
+                            data-clickable-row
+                            data-row-href="{{ route('funeral-cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}"
+                            tabindex="0"
+                            role="link"
+                            aria-label="Open full case details for {{ $case->case_code }}"
+                        >
+                            <td>
+                                <div class="table-primary whitespace-nowrap">{{ $case->case_code }}</div>
+                                <div class="table-secondary">Encoded {{ $case->created_at?->format('M d, Y') }}</div>
+                            </td>
                             <td>
                                 <div class="table-primary whitespace-nowrap">{{ $case->branch?->branch_code ?? '-' }}</div>
-                                <div class="table-secondary">{{ \Illuminate\Support\Str::limit($case->branch?->branch_name ?? '-', 18) }}</div>
-                            </td>
-                            <td class="table-primary">{{ \Illuminate\Support\Str::limit($case->client?->full_name ?? '-', 24) }}</td>
-                            <td class="table-primary">{{ \Illuminate\Support\Str::limit($case->deceased?->full_name ?? '-', 24) }}</td>
-                            <td>{{ $case->service_type ?? '-' }}</td>
-                            <td>{{ $case->package?->name ?? $case->service_package ?? '-' }}</td>
-                            <td class="table-col-number whitespace-nowrap">{{ number_format((float) $case->total_amount, 2) }}</td>
-                            <td>
-                                <span class="{{ $verificationClass }}">{{ $verificationLabel }}</span>
+                                <div class="table-secondary">{{ \Illuminate\Support\Str::limit($case->branch?->branch_name ?? '-', 24) }}</div>
                             </td>
                             <td>
-                                <span class="{{ $caseStatusClass }}">{{ \Illuminate\Support\Str::headline(strtolower((string) $case->case_status)) }}</span>
+                                <div class="table-primary">{{ \Illuminate\Support\Str::limit($case->deceased?->full_name ?? '-', 30) }}</div>
+                                <div class="table-secondary">{{ \Illuminate\Support\Str::limit($case->client?->full_name ?? '-', 28) }}</div>
                             </td>
                             <td>
-                                <span class="{{ $paymentStatusClass }}">{{ \Illuminate\Support\Str::headline(strtolower((string) $case->payment_status)) }}</span>
+                                <div class="table-primary">{{ $case->service_type ?? '-' }}</div>
+                                <div class="table-secondary">{{ \Illuminate\Support\Str::limit($case->package?->name ?? $case->service_package ?? '-', 30) }}</div>
                             </td>
-                            <td class="whitespace-nowrap">{{ $case->interment_at?->format('Y-m-d H:i') ?? $case->deceased?->interment_at?->format('Y-m-d H:i') ?? $case->deceased?->interment?->format('Y-m-d') ?? '-' }}</td>
-                            <td class="table-col-number whitespace-nowrap">{{ number_format((float) $case->balance_amount, 2) }}</td>
+                            <td>
+                                <div class="table-primary whitespace-nowrap">{{ $intermentDate ? $intermentDate->format('M d, Y') : '-' }}</div>
+                                <div class="table-secondary">{{ $intermentDate && $intermentDate->format('H:i') !== '00:00' ? $intermentDate->format('h:i A') : 'Scheduled date' }}</div>
+                            </td>
+                            <td class="table-col-number">
+                                <div class="table-primary whitespace-nowrap">{{ number_format((float) $case->total_amount, 2) }}</div>
+                                <div class="table-secondary whitespace-nowrap">Paid {{ number_format((float) $case->total_paid, 2) }} &middot; Bal {{ number_format((float) $case->balance_amount, 2) }}</div>
+                            </td>
+                            <td>
+                                <div class="flex flex-wrap gap-1.5">
+                                    <span class="{{ $verificationClass }}">{{ $verificationLabel }}</span>
+                                    <span class="{{ $caseStatusClass }}">{{ \Illuminate\Support\Str::headline(strtolower((string) $case->case_status)) }}</span>
+                                    <span class="{{ $paymentStatusClass }}">{{ \Illuminate\Support\Str::headline(strtolower((string) $case->payment_status)) }}</span>
+                                </div>
+                            </td>
                             <td class="table-col-actions">
-                                <div class="row-action-menu" data-row-menu>
-                                    <button
-                                        type="button"
-                                        class="row-action-trigger"
-                                        data-row-menu-trigger
-                                        aria-haspopup="menu"
-                                        aria-expanded="false"
-                                        aria-label="Open row actions"
-                                    >
-                                        <i class="bi bi-three-dots-vertical"></i>
-                                    </button>
+                                <div class="table-row-actions">
+                                    @if(!$isOtherBranch)
+                                        <a
+                                            class="action-chip action-chip-primary table-row-actions-visible"
+                                            href="{{ route('funeral-cases.edit', $case) }}"
+                                            data-no-row-click
+                                        >
+                                            <i class="bi bi-pencil-square"></i>
+                                            <span>Edit</span>
+                                        </a>
+                                    @else
+                                        <button
+                                            type="button"
+                                            class="action-chip table-row-actions-visible"
+                                            data-verify-panel-toggle
+                                            data-verify-panel-target="verify-panel-{{ $case->id }}"
+                                            data-no-row-click
+                                        >
+                                            <i class="bi bi-shield-check"></i>
+                                            <span>Review</span>
+                                        </button>
+                                    @endif
 
-                                    <div class="row-action-dropdown" role="menu">
+                                    <div class="row-action-menu" data-row-menu>
+                                        <button
+                                            type="button"
+                                            class="row-action-trigger"
+                                            data-row-menu-trigger
+                                            data-no-row-click
+                                            aria-haspopup="menu"
+                                            aria-expanded="false"
+                                            aria-label="Open row actions"
+                                        >
+                                            <i class="bi bi-three-dots-vertical"></i>
+                                        </button>
+
+                                        <div class="row-action-dropdown" role="menu">
                                         <a
                                             class="row-action-item"
                                             data-row-menu-item
@@ -382,15 +418,14 @@
                                             <span>Focus this case</span>
                                         </a>
 
-                                        <button
-                                            type="button"
-                                            class="row-action-item open-case-modal"
+                                        <a
+                                            href="{{ route('funeral-cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}"
+                                            class="row-action-item"
                                             data-row-menu-item
-                                            data-url="{{ route('funeral-cases.show', $case) }}"
                                         >
                                             <i class="bi bi-eye"></i>
-                                            <span>View case</span>
-                                        </button>
+                                            <span>Open full details</span>
+                                        </a>
 
                                         @if(!$isOtherBranch)
                                             <a
@@ -443,6 +478,7 @@
                                                 <span>Auto-verified record</span>
                                             </span>
                                         @endif
+                                        </div>
                                     </div>
                                 </div>
                             </td>
@@ -450,7 +486,7 @@
 
                         @if($isOtherBranch)
                             <tr id="verify-panel-{{ $case->id }}" class="hidden">
-                                <td colspan="14" class="!py-0">
+                                <td colspan="8" class="!py-0">
                                     <div class="admin-master-inline-review">
                                         <form method="POST" action="{{ route('admin.cases.verification', $case) }}" class="admin-master-inline-review-form">
                                             @csrf
@@ -470,7 +506,7 @@
                         @endif
                     @empty
                         <tr>
-                            <td colspan="14" class="table-system-empty">No case records found.</td>
+                            <td colspan="8" class="table-system-empty">No case records found.</td>
                         </tr>
                     @endforelse
                     </tbody>

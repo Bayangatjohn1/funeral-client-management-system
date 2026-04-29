@@ -556,7 +556,7 @@ class DashboardController extends Controller
     {
         $validated = $request->validate([
             'branch_id' => 'nullable|integer|exists:branches,id',
-            'range' => 'nullable|in:TODAY,THIS_MONTH,THIS_YEAR,CUSTOM',
+            'range' => 'nullable|in:TODAY,LAST_30_DAYS,THIS_MONTH,THIS_YEAR,CUSTOM',
             'date_from' => 'nullable|date',
             'date_to' => 'nullable|date|after_or_equal:date_from',
         ]);
@@ -567,6 +567,9 @@ class DashboardController extends Controller
 
         if ($range === 'TODAY') {
             $dateFrom = now()->toDateString();
+            $dateTo = now()->toDateString();
+        } elseif ($range === 'LAST_30_DAYS') {
+            $dateFrom = now()->subDays(29)->toDateString();
             $dateTo = now()->toDateString();
         } elseif ($range === 'THIS_MONTH') {
             $dateFrom = now()->startOfMonth()->toDateString();

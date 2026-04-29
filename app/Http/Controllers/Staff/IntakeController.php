@@ -23,9 +23,10 @@ use Illuminate\Validation\Rule;
 class IntakeController extends Controller
 {
     private const CLIENT_RELATIONSHIP_OPTIONS = [
-        'Spouse',
-        'Mother',
         'Father',
+        'Mother',
+        'Spouse',
+        'Child',
         'Daughter',
         'Son',
         'Sibling',
@@ -35,6 +36,8 @@ class IntakeController extends Controller
         'Friend',
         'Other',
     ];
+
+    private const SUFFIX_OPTIONS = ['Jr.', 'Sr.', 'II', 'III', 'IV', 'V'];
 
     public function create()
     {
@@ -53,7 +56,7 @@ class IntakeController extends Controller
             abort(403);
         }
 
-        $permission = $user?->isMainBranchAdmin()
+        $permission = ($user?->isMainBranchAdmin() || $user?->canEncodeAnyBranch())
             ? null
             : $this->requireActiveTemporaryPermission();
 
@@ -77,7 +80,7 @@ class IntakeController extends Controller
             abort(403);
         }
 
-        $permission = $user?->isMainBranchAdmin()
+        $permission = ($user?->isMainBranchAdmin() || $user?->canEncodeAnyBranch())
             ? null
             : $this->requireActiveTemporaryPermission();
 
@@ -91,14 +94,15 @@ class IntakeController extends Controller
         $canEncodeAnyBranch = $user->canEncodeAnyBranch();
         $activePermission = $permission;
 
-        $packages = Package::where('is_active', true)
+        $packages = Package::with(['packageInclusions', 'packageFreebies'])
+            ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
         $branchQuery = Branch::where('is_active', true)->orderBy('branch_code');
         if ($mode === 'other') {
-            if ($user->isMainBranchAdmin()) {
-                // Admins can encode for any non-main active branch without temp permission.
+            if ($user->isMainBranchAdmin() || $canEncodeAnyBranch) {
+                // Elevated encoders can record any non-main active branch without temp permission.
                 $branchQuery->whereRaw('UPPER(branch_code) <> ?', ['BR001']);
             } else {
                 $activePermission = $activePermission ?: $this->requireActiveTemporaryPermission();
@@ -174,36 +178,37 @@ class IntakeController extends Controller
             $digitsOnly = preg_replace('/\D+/', '', (string) $request->input('client_contact_number'));
             $request->merge(['client_contact_number' => $digitsOnly]);
         }
+        $this->mergeLegacyIntakeNameParts($request, 'client');
+        $this->mergeLegacyIntakeNameParts($request, 'deceased');
 
         $wakeDateRules = ['required', 'date', 'after_or_equal:died'];
         $intermentDateRules = ['required', 'date', 'after_or_equal:funeral_service_at'];
-
-        // Main intake can schedule upcoming wake/interment dates.
-        // Other-branch report intake remains strict (completed records only).
-        if ($mode === 'other') {
-            $wakeDateRules[] = 'before_or_equal:today';
-            $intermentDateRules[] = 'before_or_equal:today';
-        }
 
         $validated = $request->validate([
             'service_requested_at' => 'required|date|before_or_equal:today',
             'client_first_name'  => FieldRules::namePart(),
             'client_last_name'   => FieldRules::namePart(),
             'client_middle_name' => FieldRules::namePart(false),
-            'client_suffix'      => FieldRules::namePart(false),
+            'client_suffix'      => ['nullable', 'string', Rule::in(self::SUFFIX_OPTIONS)],
             'client_relationship' => ['required', 'string', 'max:100', Rule::in(self::CLIENT_RELATIONSHIP_OPTIONS)],
-            'client_contact_number' => ['required', 'string', 'regex:/^\d{7,15}$/'],
-            'client_address' => 'required|string|max:255',
+            'client_contact_number' => ['required', 'string', 'regex:/^(09\d{9}|639\d{9})$/'],
+            'client_email' => 'nullable|email|max:255',
+            'client_valid_id_type' => 'nullable|string|max:100',
+            'client_valid_id_number' => 'nullable|string|max:100',
+            'client_address' => ['required', 'string', 'max:255', $this->addressHasPlaceName()],
 
             'deceased_first_name'  => FieldRules::namePart(),
             'deceased_last_name'   => FieldRules::namePart(),
             'deceased_middle_name' => FieldRules::namePart(false),
-            'deceased_suffix'      => FieldRules::namePart(false),
-            'deceased_address' => 'required|string|max:255',
+            'deceased_suffix'      => ['nullable', 'string', Rule::in(self::SUFFIX_OPTIONS)],
+            'deceased_address' => ['required', 'string', 'max:255', $this->addressHasPlaceName()],
             'born' => 'required|date_format:Y-m-d|before_or_equal:today',
             'died' => 'required|date_format:Y-m-d|after_or_equal:born|before_or_equal:today',
+            'civil_status' => 'nullable|string|max:30',
             'senior_citizen_status' => 'required|boolean',
             'senior_citizen_id_number' => 'nullable|string|max:100',
+            'pwd_status' => 'nullable|boolean',
+            'pwd_id_number' => 'nullable|string|max:100',
             'senior_proof' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
             'wake_location' => 'required|string|max:255',
             'funeral_service_at' => $wakeDateRules,
@@ -211,6 +216,14 @@ class IntakeController extends Controller
             'wake_days' => 'nullable|integer|min:1|max:30',
             'place_of_cemetery' => 'required|string|max:255',
             'case_status' => 'required|in:DRAFT,ACTIVE,COMPLETED',
+            'transport_option' => 'nullable|string|max:30',
+            'transport_notes' => 'nullable|string|max:500',
+            'coffin_length_cm' => 'nullable|numeric|min:30|max:300',
+            'coffin_size' => 'nullable|in:SMALL,MEDIUM,LARGE,XL,CUSTOM',
+            'embalming_required' => 'nullable|boolean',
+            'embalming_status' => 'nullable|string|max:20',
+            'embalming_at' => 'nullable|date',
+            'embalming_notes' => 'nullable|string|max:500',
             'deceased_photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:3072',
 
             'branch_id' => 'required|integer|exists:branches,id',
@@ -247,7 +260,7 @@ class IntakeController extends Controller
             'payment_type' => 'required_if:mark_as_paid,1|in:FULL,PARTIAL',
             'paid_at' => 'required_if:mark_as_paid,1|date|after_or_equal:died',
             'amount_paid' => 'required_if:mark_as_paid,1|numeric|min:0.01',
-            'confirm_review' => 'accepted',
+            'confirm_review' => 'nullable|boolean',
         ], [
             'service_requested_at.required' => 'Request date is required.',
             'service_requested_at.before_or_equal' => 'Request date cannot be in the future.',
@@ -258,7 +271,11 @@ class IntakeController extends Controller
             'deceased_last_name.regex'   => FieldRules::nameRegexMessage('Deceased last name'),
             'deceased_middle_name.regex' => FieldRules::nameRegexMessage('Deceased middle name'),
             'client_relationship.in' => 'Please select a valid relationship to the deceased.',
-            'client_contact_number.regex' => 'Contact number must be 7 to 15 digits (numbers only).',
+            'client_suffix.in' => 'Please select a valid suffix.',
+            'deceased_suffix.in' => 'Please select a valid suffix.',
+            'client_contact_number.regex' => 'Please enter a valid Philippine mobile number.',
+            'client_address.required' => 'Complete address is required.',
+            'deceased_address.required' => 'Complete address is required.',
             'reporter_contact.regex' => 'Reporter contact number must contain numbers only.',
             'born.required' => 'Date of birth is required.',
             'born.date_format' => 'Please enter a valid date of birth.',
@@ -268,14 +285,19 @@ class IntakeController extends Controller
             'died.after_or_equal' => 'Date of death cannot be earlier than date of birth.',
             'died.before_or_equal' => 'Date of death cannot be in the future.',
             'funeral_service_at.after_or_equal' => 'Funeral service date must be on or after the date of death.',
-            'funeral_service_at.before_or_equal' => 'Funeral service date cannot be in the future for other-branch reports.',
             'interment_at.after_or_equal' => 'Interment date cannot be earlier than the wake start date.',
-            'interment_at.before_or_equal' => 'Interment date/time cannot be in the future for other-branch reports.',
             'paid_at.after_or_equal' => 'Paid date/time must be on or after date of death.',
             'reported_at.before_or_equal' => 'Reported date/time cannot be in the future.',
             'confirm_review' => 'You must confirm that the information is correct before saving.',
         ]);
         $validated['service_type'] = 'Burial';
+        $validated = $this->normalizeIntakeNameParts($validated);
+        if ($response = $this->rejectDuplicateIntakeNameParts($validated, 'client')) {
+            return $response;
+        }
+        if ($response = $this->rejectDuplicateIntakeNameParts($validated, 'deceased')) {
+            return $response;
+        }
 
         if (!$this->isIntermentAfterDeathDate($validated['died'] ?? null, $validated['interment_at'] ?? null)) {
             return back()->withErrors([
@@ -301,6 +323,7 @@ class IntakeController extends Controller
         $canEncodeAnyBranch = $user->canEncodeAnyBranch();
         $isMainAdmin = $user->isMainBranchAdmin();
         $isBranchAdmin = $user->isBranchAdmin();
+        $needsTemporaryPermission = !$isMainAdmin && !$canEncodeAnyBranch;
 
         if ($mode === 'other') {
             if ($isBranchAdmin) {
@@ -308,7 +331,7 @@ class IntakeController extends Controller
                     ->withErrors(['branch_id' => 'Unauthorized for cross-branch intake.']);
             }
 
-            if (!$isMainAdmin) {
+            if ($needsTemporaryPermission) {
                 $permission = $permission ?: $this->requireActiveTemporaryPermission();
                 if (
                     !$permission
@@ -334,13 +357,15 @@ class IntakeController extends Controller
 
             $branchId = (int) $mainBranch->id;
         } else {
-            $permission = $permission ?: $this->requireActiveTemporaryPermission();
+            if ($needsTemporaryPermission) {
+                $permission = $permission ?: $this->requireActiveTemporaryPermission();
+            }
             $branchId = (int) $validated['branch_id'];
             $branch = Branch::where('id', $branchId)
                 ->where('is_active', true)
                 ->first();
 
-            if (!$isMainAdmin) {
+            if ($needsTemporaryPermission) {
                 if (
                     !$branch
                     || strtoupper((string) $branch->branch_code) === 'BR001'
@@ -378,7 +403,8 @@ class IntakeController extends Controller
 
         $package = null;
         if (!$isCustomPackage) {
-            $package = Package::where('id', $selectedPackageId)
+            $package = Package::with(['packageInclusions', 'packageFreebies'])
+                ->where('id', $selectedPackageId)
                 ->where('is_active', true)
                 ->first();
 
@@ -397,24 +423,32 @@ class IntakeController extends Controller
             $entrySource = 'MAIN';
         }
 
-        $clientFullName = implode(' ', array_filter([
+        $clientFullName = Client::buildFullName(
             $validated['client_first_name'],
             $validated['client_middle_name'] ?? null,
             $validated['client_last_name'],
             $validated['client_suffix'] ?? null,
-        ]));
-        $deceasedFullName = implode(' ', array_filter([
+        );
+        $deceasedFullName = Deceased::buildFullName(
             $validated['deceased_first_name'],
             $validated['deceased_middle_name'] ?? null,
             $validated['deceased_last_name'],
             $validated['deceased_suffix'] ?? null,
-        ]));
+        );
 
         $normalizedClientName     = strtolower(trim($clientFullName));
         $normalizedClientContact  = trim((string) ($validated['client_contact_number'] ?? ''));
         $normalizedClientAddress  = strtolower(trim((string) $validated['client_address']));
         $normalizedDeceasedName   = strtolower(trim($deceasedFullName));
         $normalizedDeceasedAddress = strtolower(trim((string) $validated['deceased_address']));
+        $clientDuplicateKey = $request->filled('client_name') ? 'client_name' : 'client_first_name';
+        $deceasedDuplicateKey = $request->filled('deceased_name') ? 'deceased_name' : 'deceased_first_name';
+
+        if ($normalizedClientName === $normalizedDeceasedName) {
+            return back()->withErrors([
+                $deceasedDuplicateKey => 'Client and deceased names cannot be exactly the same. Please verify the entered information.',
+            ])->withInput();
+        }
 
         $duplicateClient = Client::query()
             ->where('branch_id', $branchId)
@@ -425,7 +459,7 @@ class IntakeController extends Controller
 
         if ($duplicateClient) {
             return back()->withErrors([
-                'client_first_name' => 'Duplicate client detected (same name, contact number, and address).',
+                $clientDuplicateKey => 'Duplicate client detected (same name, contact number, and address).',
             ])->withInput();
         }
 
@@ -437,7 +471,7 @@ class IntakeController extends Controller
 
         if ($duplicateDeceasedQuery->exists()) {
             return back()->withErrors([
-                'deceased_first_name' => 'Duplicate deceased record detected (same name, date of death, and address).',
+                $deceasedDuplicateKey => 'Duplicate deceased record detected (same name, date of death, and address).',
             ])->withInput();
         }
 
@@ -457,7 +491,13 @@ class IntakeController extends Controller
 
         if ($duplicateActiveCaseQuery->exists()) {
             return back()->withErrors([
-                'deceased_first_name' => 'An active case already exists for this deceased record.',
+                $deceasedDuplicateKey => 'An active case already exists for this deceased record.',
+            ])->withInput();
+        }
+
+        if ($request->has('confirm_review') && !$request->boolean('confirm_review')) {
+            return back()->withErrors([
+                'confirm_review' => 'You must confirm that the information is correct before saving.',
             ])->withInput();
         }
 
@@ -664,6 +704,9 @@ class IntakeController extends Controller
                     'suffix'      => $validated['client_suffix'] ?? null,
                     'relationship_to_deceased' => $validated['client_relationship'],
                     'contact_number' => $validated['client_contact_number'] ?? null,
+                    'email' => $validated['client_email'] ?? null,
+                    'valid_id_type' => $validated['client_valid_id_type'] ?? null,
+                    'valid_id_number' => $validated['client_valid_id_number'] ?? null,
                     'address' => $validated['client_address'],
                 ]);
 
@@ -682,6 +725,7 @@ class IntakeController extends Controller
                     'born' => $validated['born'] ?? null,
                     'died' => $validated['died'] ?? null,
                     'date_of_death' => $validated['died'] ?? null,
+                    'civil_status' => $validated['civil_status'] ?? null,
                     'age' => $age,
                     'interment' => $intermentAt?->toDateString(),
                     'interment_at' => $intermentAt,
@@ -689,6 +733,8 @@ class IntakeController extends Controller
                     'place_of_cemetery' => $validated['place_of_cemetery'],
                     'senior_citizen_status' => (bool) $validated['senior_citizen_status'],
                     'senior_citizen_id_number' => $validated['senior_citizen_id_number'] ?? null,
+                    'pwd_status' => (bool) ($validated['pwd_status'] ?? false),
+                    'pwd_id_number' => $validated['pwd_id_number'] ?? null,
                     'photo_path' => $photoPath,
                     'senior_proof_path' => $seniorProofPath,
                 ]);
@@ -710,6 +756,14 @@ class IntakeController extends Controller
                     'coffin_type' => $coffinType,
                     'wake_location' => $validated['wake_location'],
                     'funeral_service_at' => Carbon::parse($validated['funeral_service_at'])->toDateString(),
+                    'transport_option' => $validated['transport_option'] ?? null,
+                    'transport_notes' => $validated['transport_notes'] ?? null,
+                    'coffin_length_cm' => $validated['coffin_length_cm'] ?? null,
+                    'coffin_size' => $validated['coffin_size'] ?? null,
+                    'embalming_required' => (bool) ($validated['embalming_required'] ?? false),
+                    'embalming_status' => $validated['embalming_status'] ?? null,
+                    'embalming_at' => !empty($validated['embalming_at']) ? Carbon::parse($validated['embalming_at']) : null,
+                    'embalming_notes' => $validated['embalming_notes'] ?? null,
                     'additional_services' => $validated['additional_services'] ?? null,
                     'additional_service_amount' => $additionalServiceAmount,
                     'subtotal_amount' => $subtotal,
@@ -784,18 +838,21 @@ class IntakeController extends Controller
                     $payment = Payment::create([
                         'funeral_case_id'  => $funeralCase->id,
                         'branch_id'        => $branchId,
+                        'payment_record_no' => Payment::nextPaymentRecordNumber($paidAt),
                         'method'           => 'CASH',
                         'payment_mode'     => 'cash',
+                        'payment_method'   => 'cash',
                         'amount'           => round((float) $validated['amount_paid'], 2),
                         'balance_after_payment'        => $initialBalance,
                         'payment_status_after_payment' => $initialPaymentStatus,
                         'paid_date'   => $paidAt->toDateString(),
                         'paid_at'     => $paidAt,
+                        'encoded_by'  => $user->id,
                         'recorded_by' => $user->id,
                     ]);
 
                     $payment->update([
-                        'receipt_number' => Payment::buildReceiptNumber($payment->id, $paidAt),
+                        'receipt_number' => $payment->payment_record_no,
                     ]);
 
                     AuditLogger::log(
@@ -806,7 +863,7 @@ class IntakeController extends Controller
                         metadata: [
                             'case_id' => $funeralCase->id,
                             'amount' => $payment->amount,
-                            'receipt_number' => $payment->receipt_number,
+                            'payment_record_no' => $payment->payment_record_no,
                             'payment_status_after' => $payment->payment_status_after_payment,
                             'entry_source' => $funeralCase->entry_source,
                             'changes' => [
@@ -960,6 +1017,15 @@ class IntakeController extends Controller
         CaseDiscountResolver $discountResolver,
         float $packagePrice
     ): array {
+        if ((bool) ($validated['pwd_status'] ?? false)) {
+            return $discountResolver->resolveSelected(
+                new Package(['name' => 'Automatic PWD Discount']),
+                'PWD',
+                $packagePrice,
+                now()
+            );
+        }
+
         if ((bool) ($validated['senior_citizen_status'] ?? false)) {
             return $discountResolver->resolveSelected(
                 new Package(['name' => 'Automatic Senior Discount']),
@@ -977,6 +1043,82 @@ class IntakeController extends Controller
             'discount_note' => null,
             'source' => 'None',
         ];
+    }
+
+    private function normalizeIntakeNameParts(array $validated): array
+    {
+        foreach (['client', 'deceased'] as $prefix) {
+            foreach (['first_name', 'middle_name', 'last_name', 'suffix'] as $field) {
+                $key = "{$prefix}_{$field}";
+                $validated[$key] = Client::cleanNamePart($validated[$key] ?? null);
+            }
+        }
+
+        return $validated;
+    }
+
+    private function addressHasPlaceName(): \Closure
+    {
+        return static function (string $attribute, mixed $value, \Closure $fail): void {
+            if (! preg_match('/\pL/u', (string) $value)) {
+                $fail('Complete address must include a valid place name.');
+            }
+        };
+    }
+
+    private function mergeLegacyIntakeNameParts(Request $request, string $prefix): void
+    {
+        $legacyKey = "{$prefix}_name";
+        if (! $request->filled($legacyKey) || $request->filled("{$prefix}_first_name") || $request->filled("{$prefix}_last_name")) {
+            return;
+        }
+
+        $parts = Client::parseFullName((string) $request->input($legacyKey));
+        $request->merge([
+            "{$prefix}_first_name" => $parts['first_name'],
+            "{$prefix}_middle_name" => $parts['middle_name'],
+            "{$prefix}_last_name" => $parts['last_name'],
+            "{$prefix}_suffix" => $parts['suffix'],
+        ]);
+    }
+
+    private function rejectDuplicateIntakeNameParts(array $validated, string $prefix): ?\Illuminate\Http\RedirectResponse
+    {
+        $first = mb_strtolower((string) ($validated["{$prefix}_first_name"] ?? ''));
+        $middle = mb_strtolower((string) ($validated["{$prefix}_middle_name"] ?? ''));
+        $last = mb_strtolower((string) ($validated["{$prefix}_last_name"] ?? ''));
+
+        if ($first !== '' && $last !== '' && $first === $last) {
+            return back()->withErrors([
+                "{$prefix}_last_name" => 'First name and last name cannot be the same.',
+            ])->withInput();
+        }
+
+        if ($middle !== '' && ($middle === $first || $middle === $last)) {
+            return back()->withErrors([
+                "{$prefix}_middle_name" => 'Middle name should not be the same as first name or last name.',
+            ])->withInput();
+        }
+
+        $parts = array_filter([
+            "{$prefix}_first_name" => $validated["{$prefix}_first_name"] ?? null,
+            "{$prefix}_middle_name" => $validated["{$prefix}_middle_name"] ?? null,
+            "{$prefix}_last_name" => $validated["{$prefix}_last_name"] ?? null,
+            "{$prefix}_suffix" => $validated["{$prefix}_suffix"] ?? null,
+        ], static fn (?string $value): bool => $value !== null);
+
+        $seen = [];
+        foreach ($parts as $field => $value) {
+            $key = mb_strtolower($value);
+            if (isset($seen[$key])) {
+                return back()->withErrors([
+                    $field => ucfirst($prefix) . ' name parts must not repeat exactly.',
+                ])->withInput();
+            }
+            $seen[$key] = true;
+        }
+
+        return null;
     }
 
     private function nextCaseCode(int $branchId): string

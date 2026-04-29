@@ -1,7 +1,11 @@
 @php
     $pkg           = $funeral_case->package ?? null;
-    $pkgInclusions = $funeral_case->custom_package_inclusions ?: ($pkg?->inclusions ?? null);
-    $pkgFreebies   = $funeral_case->custom_package_freebies   ?: ($pkg?->freebies   ?? null);
+    $pkgInclusionItems = $funeral_case->custom_package_inclusions
+        ? \App\Models\Package::parseLegacyItems($funeral_case->custom_package_inclusions)
+        : ($pkg?->inclusionNames() ?? []);
+    $pkgFreebieItems = $funeral_case->custom_package_freebies
+        ? \App\Models\Package::parseLegacyItems($funeral_case->custom_package_freebies)
+        : ($pkg?->freebieNames() ?? []);
     $pkgPrice      = $funeral_case->custom_package_price      ?: ($pkg?->price       ?? null);
     $pkgCoffin     = $funeral_case->coffin_type               ?: ($pkg?->coffin_type ?? null);
     $isOtherBranch = ($funeral_case->entry_source ?? 'MAIN') === 'OTHER_BRANCH';
@@ -250,13 +254,13 @@
       @endif
     </div>
 
-    @if($pkgInclusions || $pkgFreebies)
+    @if($pkgInclusionItems || $pkgFreebieItems)
     <div class="cv-pkg-pair">
       <div class="cv-pkg-box">
         <div class="cv-pkg-box-head"><i class="bi bi-check2-circle" style="color:#15803d"></i>Inclusions</div>
-        @if($pkgInclusions)
+        @if($pkgInclusionItems)
           <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px;">
-            @foreach(array_filter(array_map('trim', preg_split('/[\n,]+/', $pkgInclusions))) as $item)
+            @foreach($pkgInclusionItems as $item)
               <li style="display:flex;align-items:flex-start;gap:5px;font-size:12px;color:var(--ink);">
                 <i class="bi bi-dot" style="color:#15803d;font-size:15px;line-height:1.2;flex-shrink:0;"></i>{{ $item }}
               </li>
@@ -268,9 +272,9 @@
       </div>
       <div class="cv-pkg-box">
         <div class="cv-pkg-box-head"><i class="bi bi-gift" style="color:#d97706"></i>Freebies</div>
-        @if($pkgFreebies)
+        @if($pkgFreebieItems)
           <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px;">
-            @foreach(array_filter(array_map('trim', preg_split('/[\n,]+/', $pkgFreebies))) as $item)
+            @foreach($pkgFreebieItems as $item)
               <li style="display:flex;align-items:flex-start;gap:5px;font-size:12px;color:var(--ink);">
                 <i class="bi bi-dot" style="color:#d97706;font-size:15px;line-height:1.2;flex-shrink:0;"></i>{{ $item }}
               </li>
@@ -361,12 +365,12 @@
         @foreach($funeral_case->payments as $pmt)
           <div class="cv-txn">
             <div class="cv-txn-head">
-              <span class="cv-txn-receipt">{{ $pmt->receipt_number ?? '—' }}</span>
+              <span class="cv-txn-receipt">{{ $pmt->display_payment_record_no ?? '—' }}</span>
               <x-status-badge :status="$pmt->payment_status_after_payment ?? '—'" />
             </div>
             <div class="cv-txn-grid">
               <div>
-                <div class="cv-txn-lbl">Amount</div>
+                <div class="cv-txn-lbl">Payment Amount</div>
                 <div class="cv-txn-val" style="font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;">₱ {{ number_format((float) $pmt->amount, 2) }}</div>
               </div>
               <div>
@@ -374,16 +378,20 @@
                 <div class="cv-txn-val" style="font-variant-numeric:tabular-nums;">₱ {{ number_format((float) ($pmt->balance_after_payment ?? 0), 2) }}</div>
               </div>
               <div>
-                <div class="cv-txn-lbl">Method</div>
-                <div class="cv-txn-val">{{ $pmt->method }}</div>
+                <div class="cv-txn-lbl">Payment Method</div>
+                <div class="cv-txn-val">{{ ($pmt->payment_method ?? $pmt->payment_mode) === 'bank_transfer' ? 'Bank Transfer' : 'Cash' }}</div>
               </div>
               <div>
-                <div class="cv-txn-lbl">Date</div>
+                <div class="cv-txn-lbl">Payment Date &amp; Time</div>
                 <div class="cv-txn-val">{{ $fmtDt($pmt->paid_at) !== '—' ? $fmtDt($pmt->paid_at) : $fmtDate($pmt->paid_date) }}</div>
               </div>
               <div>
-                <div class="cv-txn-lbl">Recorded By</div>
-                <div class="cv-txn-val">{{ $pmt->recordedBy?->name ?? '—' }}</div>
+                <div class="cv-txn-lbl">Accounting Reference No.</div>
+                <div class="cv-txn-val">{{ $pmt->accounting_reference_no ?? '—' }}</div>
+              </div>
+              <div>
+                <div class="cv-txn-lbl">Encoded By</div>
+                <div class="cv-txn-val">{{ $pmt->encodedBy?->name ?? $pmt->recordedBy?->name ?? '—' }}</div>
               </div>
             </div>
           </div>

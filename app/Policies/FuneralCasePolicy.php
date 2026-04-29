@@ -32,7 +32,7 @@ class FuneralCasePolicy
 
     public function delete(User $user, FuneralCase $case): bool
     {
-        return false;
+        return $this->branchMatch($user, $case) && in_array($user->role, ['staff', 'admin'], true);
     }
 
     private function branchMatch(User $user, FuneralCase $case): bool

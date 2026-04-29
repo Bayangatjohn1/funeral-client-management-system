@@ -25,7 +25,7 @@ class SystemNegativeScenariosTest extends TestCase
         $this->actingAs($staff)->get('/deceased')->assertRedirect(route('clients.index', absolute: false));
         $this->actingAs($staff)->get('/payments')->assertOk();
         $this->actingAs($staff)->get('/intake/other')->assertStatus(302);
-        $this->actingAs($staff)->get('/other-branch-reports')->assertStatus(302);
+        $this->actingAs($staff)->get('/other-branch-reports')->assertForbidden();
     }
 
     public function test_admin_cannot_create_staff_user_without_branch_assignment(): void
@@ -34,14 +34,14 @@ class SystemNegativeScenariosTest extends TestCase
 
         $response = $this->actingAs($admin)->from('/admin/users/create')->post('/admin/users', [
             'name' => 'Staff No Branch',
-            'email' => 'staff.nobranch@example.com',
+            'email' => 'staff.nobranch@gmail.com',
             'password' => 'secret123',
             'role' => 'staff',
         ]);
 
         $response->assertRedirect('/admin/users/create');
         $response->assertSessionHasErrors('branch_id');
-        $this->assertDatabaseMissing('users', ['email' => 'staff.nobranch@example.com']);
+        $this->assertDatabaseMissing('users', ['email' => 'staff.nobranch@gmail.com']);
     }
 
     public function test_staff_cannot_create_case_with_mismatched_client_and_deceased(): void
@@ -115,6 +115,9 @@ class SystemNegativeScenariosTest extends TestCase
             'funeral_case_id' => $case->id,
             'paid_at' => now()->format('Y-m-d H:i:s'),
             'amount_paid' => 7000,
+            'payment_method' => 'cash',
+            'accounting_reference_no' => 'OR-OVERPAY-001',
+            'received_by' => 'Accounting Staff',
         ]);
 
         $response->assertRedirect('/payments');

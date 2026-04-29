@@ -110,10 +110,12 @@
 
         @if($openWizard)
             <div class="p-4 md:p-5">
-                @php($showCancelButton = false)
-                @php($cancelUrl = route('funeral-cases.index', ['tab' => 'active', 'record_scope' => $recordScope]))
-                @php($formAction = route('intake.main.store'))
-                @php($entryMode = 'main')
+                @php
+                    $showCancelButton = false;
+                    $cancelUrl = route('funeral-cases.index', ['tab' => 'active', 'record_scope' => $recordScope]);
+                    $formAction = route('intake.main.store');
+                    $entryMode = 'main';
+                @endphp
                 @include('staff.intake._form')
             </div>
         @else
@@ -255,81 +257,90 @@
                 <div class="table-wrapper table-system-wrap">
                     <table class="table-base table-system-table">
                         <thead>
-                            @if($isActiveTab)
-                                <tr>
-                                    <th class="text-left">Case ID</th>
-                                    <th class="text-left">Branch</th>
-                                    <th class="text-left">Date Encoded</th>
-                                    <th class="text-left">Client</th>
-                                    <th class="text-left">Contact</th>
-                                    <th class="text-left">Deceased</th>
-                                    <th class="text-left">Service / Interment Date</th>
-                                    <th class="text-left">Service Type</th>
-                                    <th class="text-left">Package</th>
-                                    <th class="table-col-number">Total</th>
-                                    <th class="table-col-number">Total Paid</th>
-                                    <th class="table-col-number">Balance</th>
-                                    <th class="text-left">Status</th>
-                                    <th class="table-col-actions">Actions</th>
-                                </tr>
-                            @else
-                                <tr>
-                                    <th class="text-left">Case ID</th>
-                                    <th class="text-left">Branch</th>
-                                    <th class="text-left">Date Encoded</th>
-                                    <th class="text-left">Client</th>
-                                    <th class="text-left">Deceased</th>
-                                    <th class="text-left">Service / Interment Date</th>
-                                    <th class="text-left">Service Type</th>
-                                    <th class="text-left">Package</th>
-                                    <th class="table-col-number">Total</th>
-                                    <th class="table-col-number">Total Paid</th>
-                                    <th class="text-left">Payment Status</th>
-                                    <th class="text-left">Case Status</th>
-                                    <th class="table-col-actions">Actions</th>
-                                </tr>
-                            @endif
+                            <tr>
+                                <th class="text-left">Case</th>
+                                <th class="text-left">Family / Client</th>
+                                <th class="text-left">Service</th>
+                                <th class="text-left">Schedule</th>
+                                <th class="table-col-number">Financials</th>
+                                <th class="text-left">Status</th>
+                                <th class="table-col-actions">Actions</th>
+                            </tr>
                         </thead>
                         <tbody>
                             @forelse($cases as $case)
-                                <tr>
-                                    <td class="table-primary">{{ $case->case_code }}</td>
-                                    <td>{{ $case->branch?->branch_code ?? '-' }}</td>
-                                    <td>{{ $case->created_at?->format('Y-m-d') }}</td>
-                                    <td>{{ $case->client?->full_name ?? '-' }}</td>
-
-                                    @if($isActiveTab)
-                                        <td>{{ $case->client?->contact_number ?? '-' }}</td>
-                                    @endif
-
-                                    <td>{{ $case->deceased?->full_name ?? '-' }}</td>
-                                    <td>{{ $case->deceased?->interment_at?->format('Y-m-d H:i') ?? $case->deceased?->interment?->format('Y-m-d') ?? '-' }}</td>
-                                    <td>{{ $case->service_type ?? '-' }}</td>
-                                    <td>{{ $case->service_package ?? '-' }}</td>
-                                    <td class="table-col-number">{{ number_format((float) $case->total_amount, 2) }}</td>
-                                    <td class="table-col-number">{{ number_format((float) $case->total_paid, 2) }}</td>
-
-                                    @if($isActiveTab)
-                                        <td class="table-col-number">{{ number_format((float) $case->balance_amount, 2) }}</td>
-                                        <td>
+                                @php
+                                    $serviceDate = $case->deceased?->interment_at
+                                        ?? $case->interment_at
+                                        ?? $case->deceased?->interment;
+                                @endphp
+                                <tr
+                                    data-clickable-row
+                                    data-row-href="{{ route('funeral-cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}"
+                                    tabindex="0"
+                                    role="link"
+                                    aria-label="Open case details for {{ $case->case_code }}"
+                                >
+                                    <td>
+                                        <div class="table-primary whitespace-nowrap">{{ $case->case_code }}</div>
+                                        <div class="table-secondary">{{ $case->branch?->branch_code ?? 'Assigned Branch' }} &middot; Encoded {{ $case->created_at?->format('M d, Y') }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="table-primary">{{ \Illuminate\Support\Str::limit($case->deceased?->full_name ?? '-', 30) }}</div>
+                                        <div class="table-secondary">
+                                            {{ \Illuminate\Support\Str::limit($case->client?->full_name ?? '-', 28) }}
+                                            @if($isActiveTab && $case->client?->contact_number)
+                                                &middot; {{ $case->client->contact_number }}
+                                            @endif
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="table-primary">{{ $case->service_type ?? '-' }}</div>
+                                        <div class="table-secondary">{{ \Illuminate\Support\Str::limit($case->package?->name ?? $case->service_package ?? '-', 30) }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="table-primary whitespace-nowrap">{{ $serviceDate ? $serviceDate->format('M d, Y') : '-' }}</div>
+                                        <div class="table-secondary">{{ $serviceDate && $serviceDate->format('H:i') !== '00:00' ? $serviceDate->format('h:i A') : 'Interment date' }}</div>
+                                    </td>
+                                    <td class="table-col-number">
+                                        <div class="table-primary whitespace-nowrap">{{ number_format((float) $case->total_amount, 2) }}</div>
+                                        <div class="table-secondary whitespace-nowrap">Paid {{ number_format((float) $case->total_paid, 2) }} &middot; Bal {{ number_format((float) $case->balance_amount, 2) }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="flex flex-wrap gap-1.5">
                                             <x-status-badge :status="$case->case_status" />
-                                        </td>
-                                    @else
-                                        <td>
                                             <x-status-badge :status="$case->payment_status" />
-                                        </td>
-                                        <td>
-                                            <x-status-badge :status="$case->case_status" />
-                                        </td>
-                                    @endif
+                                        </div>
+                                    </td>
 
                                     <td class="table-col-actions">
                                         <div class="table-row-actions">
+                                            @if($isActiveTab)
+                                                <a
+                                                    href="{{ route('funeral-cases.edit', $case) }}"
+                                                    class="action-chip action-chip-primary open-edit-modal table-row-actions-visible"
+                                                    data-url="{{ route('funeral-cases.edit', $case) }}"
+                                                    data-no-row-click
+                                                >
+                                                    <i class="bi bi-pencil-square"></i>
+                                                    <span>Update</span>
+                                                </a>
+                                            @else
+                                                <a
+                                                    href="{{ route('payments.history', ['q' => $case->case_code]) }}"
+                                                    class="action-chip table-row-actions-visible"
+                                                    data-no-row-click
+                                                >
+                                                    <i class="bi bi-clock-history"></i>
+                                                    <span>Payments</span>
+                                                </a>
+                                            @endif
                                             <div class="row-action-menu" data-row-menu>
                                                 <button
                                                     type="button"
                                                     class="row-action-trigger"
                                                     data-row-menu-trigger
+                                                    data-no-row-click
                                                     aria-label="Open row actions"
                                                     aria-haspopup="menu"
                                                     aria-expanded="false"
@@ -340,12 +351,12 @@
                                                 <div class="row-action-dropdown" role="menu">
                                                     <a
                                                         href="{{ route('funeral-cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}"
-                                                        class="row-action-item open-view-modal"
+                                                        class="row-action-item"
                                                         data-row-menu-item
-                                                        data-url="{{ route('funeral-cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}"
+                                                        data-row-view-trigger
                                                     >
                                                         <i class="bi bi-eye"></i>
-                                                        <span>View</span>
+                                                        <span>Open details</span>
                                                     </a>
 
                                                     @if($isActiveTab)
@@ -365,11 +376,11 @@
                                                             data-row-menu-item
                                                         >
                                                             <i class="bi bi-clock-history"></i>
-                                                            <span>Payment History</span>
+                                                            <span>Payment Monitoring</span>
                                                         </a>
                                                     @endif
 
-                                                    @if((float) $case->balance_amount > 0)
+                                                    @if(auth()->user()?->can('create', \App\Models\Payment::class) && (int) $case->branch_id === (int) (auth()->user()?->branch_id ?? 0) && (float) $case->balance_amount > 0)
                                                         <a
                                                             href="{{ route('payments.index', ['case_id' => $case->id, 'open_payment' => 1]) }}"
                                                             class="row-action-item"
@@ -387,7 +398,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="{{ $isActiveTab ? 14 : 13 }}" class="table-system-empty">
+                                    <td colspan="7" class="table-system-empty">
                                         No case records found.
                                     </td>
                                 </tr>

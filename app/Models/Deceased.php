@@ -28,6 +28,7 @@ class Deceased extends Model
         'born',
         'died',
         'date_of_death',
+        'civil_status',
         // Canonical date-of-birth (Phase 1+, mirrors born).
         'date_of_birth',
         'age',
@@ -40,6 +41,8 @@ class Deceased extends Model
         // Canonical senior flag (Phase 1+, mirrors senior_citizen_status).
         'is_senior',
         'senior_citizen_id_number',
+        'pwd_status',
+        'pwd_id_number',
         'photo_path',
         'senior_proof_path',
     ];
@@ -53,6 +56,7 @@ class Deceased extends Model
         'interment_at'          => 'datetime',
         'senior_citizen_status' => 'boolean',
         'is_senior'             => 'boolean',
+        'pwd_status'            => 'boolean',
         'deleted_at'            => 'datetime',
     ];
 

@@ -53,6 +53,13 @@
             <span>Master Case Records</span>
         </a>
 
+        <a href="{{ route('admin.payments.index') }}" class="{{ $isActive(request()->routeIs('payments.history') || request()->routeIs('admin.payments.index') || request()->routeIs('admin.payment-monitoring')) }}">
+            <svg class="{{ $iconState(request()->routeIs('payments.history') || request()->routeIs('admin.payments.index') || request()->routeIs('admin.payment-monitoring')) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h.01M11 15h2m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+            </svg>
+            <span>Payment Monitoring</span>
+        </a>
+
         <a href="{{ route('reports.index') }}" class="{{ $isActive(request()->routeIs('reports.*')) }}">
             <svg class="{{ $iconState(request()->routeIs('reports.*')) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>

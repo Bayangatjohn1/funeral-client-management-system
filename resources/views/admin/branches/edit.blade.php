@@ -39,15 +39,16 @@
         <div class="grid gap-4 md:grid-cols-2">
             <div>
                 <label class="label-section">Branch Name <span class="text-rose-500">*</span></label>
-                <input id="branch_name" type="text" name="branch_name" value="{{ old('branch_name', $branch->branch_name) }}" class="form-input" autocomplete="off" inputmode="text" required>
+                <input id="branch_name" type="text" name="branch_name" value="{{ old('branch_name', $branch->branch_name) }}" class="form-input" placeholder="Caguioa Sabangan Funeral Home" autocomplete="off" inputmode="text" required>
                 @error('branch_name') <div class="form-error">{{ $message }}</div> @enderror
-                <div class="text-xs text-slate-500 mt-1">Letters only. Numbers are auto-removed.</div>
+                <div class="form-error hidden" data-field-error="branch_name"></div>
             </div>
 
             <div>
-                <label class="label-section">Address</label>
-                <input type="text" name="address" value="{{ old('address', $branch->address) }}" class="form-input" placeholder="Street, City, Province">
+                <label class="label-section">Address <span class="text-rose-500">*</span></label>
+                <input type="text" name="address" value="{{ old('address', $branch->address) }}" class="form-input" placeholder="Street, City, Province" required>
                 @error('address') <div class="form-error">{{ $message }}</div> @enderror
+                <div class="form-error hidden" data-field-error="address"></div>
             </div>
         </div>
 
@@ -85,35 +86,72 @@
 <script>
     (() => {
         const input = document.getElementById('branch_name');
+        const form = document.getElementById('branchEditForm');
+        const address = form?.querySelector('[name="address"]');
         const statusToggle = document.getElementById('is_active');
         const statusPill = document.getElementById('branch-status-pill');
         if (!input) return;
-        const pattern = /^[A-Za-z][A-Za-z\s'.&-]*$/;
+        const pattern = /^[\p{L}\p{M}][\p{L}\p{M}\s'.&-]*$/u;
+        const invalidClass = ['border-rose-300', 'bg-rose-50', 'focus:border-rose-500', 'focus:ring-rose-500'];
 
         const normalize = (value) => String(value || '')
-            .replace(/\d+/g, '')
-            .replace(/[^A-Za-z\s'.&-]/g, '')
-            .replace(/\s{2,}/g, ' ')
-            .replace(/^\s+/, '');
+            .replace(/\s+/g, ' ')
+            .trim();
+        const showFieldError = (field, message) => {
+            const target = form?.querySelector(`[name="${field}"]`);
+            const error = form?.querySelector(`[data-field-error="${field}"]`);
+            if (target) target.classList.add(...invalidClass);
+            if (error) {
+                error.textContent = message;
+                error.classList.remove('hidden');
+            }
+        };
+        const clearFieldError = (field) => {
+            const target = form?.querySelector(`[name="${field}"]`);
+            const error = form?.querySelector(`[data-field-error="${field}"]`);
+            if (target) target.classList.remove(...invalidClass);
+            if (error) {
+                error.textContent = '';
+                error.classList.add('hidden');
+            }
+        };
 
-        const sync = (trimEnd = false) => {
-            const normalized = normalize(input.value);
-            input.value = trimEnd ? normalized.trim() : normalized;
+        const sync = () => {
+            input.value = normalize(input.value);
             const finalValue = input.value.trim();
             if (!finalValue) {
                 input.setCustomValidity('Branch name is required.');
                 return;
             }
-            if (!pattern.test(finalValue)) {
-                input.setCustomValidity('Branch name must contain letters only (no numbers).');
+            if (/\d/.test(finalValue) || !pattern.test(finalValue)) {
+                input.setCustomValidity('Branch name must contain letters only.');
                 return;
             }
             input.setCustomValidity('');
         };
 
-        input.addEventListener('input', () => sync(false));
-        input.addEventListener('blur', () => sync(true));
-        sync(true);
+        input.addEventListener('input', () => clearFieldError('branch_name'));
+        address?.addEventListener('input', () => clearFieldError('address'));
+        form?.addEventListener('submit', (event) => {
+            let valid = true;
+            clearFieldError('branch_name');
+            clearFieldError('address');
+            input.value = normalize(input.value);
+            if (address) address.value = normalize(address.value);
+            if (!input.value) {
+                valid = false;
+                showFieldError('branch_name', 'Branch name is required.');
+            } else if (/\d/.test(input.value) || !pattern.test(input.value)) {
+                valid = false;
+                showFieldError('branch_name', 'Branch name must contain letters only.');
+            }
+            if (!address?.value || !/[\p{L}\p{M}]/u.test(address.value) || /^\d+$/.test(address.value)) {
+                valid = false;
+                showFieldError('address', 'Address must include a valid place name.');
+            }
+            if (!valid) event.preventDefault();
+        });
+        sync();
 
         if (statusToggle && statusPill) {
             const syncStatus = () => {

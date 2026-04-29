@@ -22,12 +22,12 @@ class PaymentPolicy
 
     public function create(User $user): bool
     {
-        return in_array($user->role, ['staff', 'admin'], true);
+        return $user->role === 'staff';
     }
 
     public function update(User $user, Payment $payment): bool
     {
-        return $this->branchMatch($user, $payment) && in_array($user->role, ['staff', 'admin'], true);
+        return $this->branchMatch($user, $payment) && $user->role === 'staff';
     }
 
     public function delete(User $user, Payment $payment): bool

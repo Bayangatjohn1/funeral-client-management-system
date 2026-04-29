@@ -26,6 +26,14 @@
             ? $activeTemp->expires_at->format('Y-m-d')
             : ''
     );
+
+    $hasSplitUserNames = \Illuminate\Support\Facades\Schema::hasColumn('users', 'first_name')
+        && \Illuminate\Support\Facades\Schema::hasColumn('users', 'last_name');
+    $hasMiddleName = \Illuminate\Support\Facades\Schema::hasColumn('users', 'middle_name');
+    $hasSuffix = \Illuminate\Support\Facades\Schema::hasColumn('users', 'suffix');
+    $fallbackNameParts = preg_split('/\s+/', trim((string) $user->name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    $fallbackFirstName = $fallbackNameParts[0] ?? '';
+    $fallbackLastName = count($fallbackNameParts) > 1 ? end($fallbackNameParts) : '';
 @endphp
 
 <div id="userEditModalContent" class="space-y-8 font-ui-body">
@@ -47,19 +55,59 @@
             </div>
 
             <div class="grid gap-4 md:grid-cols-2">
+                @if($hasSplitUserNames)
                 <div>
-                    <label class="label-section">Name</label>
+                    <label class="label-section">First Name <span class="text-rose-500">*</span></label>
                     <input
                         type="text"
-                        name="name"
-                        value="{{ old('name', $user->name) }}"
+                        name="first_name"
+                        value="{{ old('first_name', $user->first_name ?: $fallbackFirstName) }}"
                         class="form-input"
+                        placeholder="Juan"
                         required
                     >
-                    @error('name')
+                    @error('first_name')
                         <div class="form-error">{{ $message }}</div>
                     @enderror
+                    <div class="form-error hidden" data-field-error="first_name"></div>
                 </div>
+
+                @if($hasMiddleName)
+                <div>
+                    <label class="label-section">Middle Name</label>
+                    <input type="text" name="middle_name" value="{{ old('middle_name', $user->middle_name) }}" class="form-input" placeholder="Santos">
+                    @error('middle_name') <div class="form-error">{{ $message }}</div> @enderror
+                    <div class="form-error hidden" data-field-error="middle_name"></div>
+                </div>
+                @endif
+
+                <div>
+                    <label class="label-section">Last Name <span class="text-rose-500">*</span></label>
+                    <input type="text" name="last_name" value="{{ old('last_name', $user->last_name ?: $fallbackLastName) }}" class="form-input" placeholder="Dela Cruz" required>
+                    @error('last_name') <div class="form-error">{{ $message }}</div> @enderror
+                    <div class="form-error hidden" data-field-error="last_name"></div>
+                </div>
+
+                @if($hasSuffix)
+                <div>
+                    <label class="label-section">Suffix</label>
+                    <select name="suffix" class="form-select">
+                        <option value="">Select suffix</option>
+                        @foreach(['Jr.', 'Sr.', 'II', 'III', 'IV', 'V'] as $suffix)
+                            <option value="{{ $suffix }}" {{ old('suffix', $user->suffix) === $suffix ? 'selected' : '' }}>{{ $suffix }}</option>
+                        @endforeach
+                    </select>
+                    @error('suffix') <div class="form-error">{{ $message }}</div> @enderror
+                </div>
+                @endif
+                @else
+                <div>
+                    <label class="label-section">Name</label>
+                    <input type="text" name="name" value="{{ old('name', $user->name) }}" class="form-input" placeholder="Juan Dela Cruz" required>
+                    @error('name') <div class="form-error">{{ $message }}</div> @enderror
+                    <div class="form-error hidden" data-field-error="name"></div>
+                </div>
+                @endif
 
                 <div>
                     <label class="label-section">Email</label>
@@ -68,11 +116,13 @@
                         name="email"
                         value="{{ old('email', $user->email) }}"
                         class="form-input"
+                        placeholder="user@example.com"
                         required
                     >
                     @error('email')
                         <div class="form-error">{{ $message }}</div>
                     @enderror
+                    <div class="form-error hidden" data-field-error="email"></div>
                 </div>
 
                 <div>
@@ -102,6 +152,7 @@
                     @error('branch_id')
                         <div class="form-error">{{ $message }}</div>
                     @enderror
+                    <div class="form-error hidden" data-field-error="branch_id"></div>
                     <div id="branch_hint" class="form-hint mt-1">Branch is required for staff and branch admin accounts.</div>
                 </div>
 
@@ -185,17 +236,14 @@
                     @error('contact_number')
                         <div class="form-error">{{ $message }}</div>
                     @enderror
+                    <div class="form-error hidden" data-field-error="contact_number"></div>
                 </div>
 
                 <div id="position_wrap">
                     <label class="label-section">Position</label>
-                    <input
-                        type="text"
-                        name="position"
-                        value="{{ old('position', $user->position) }}"
-                        class="form-input"
-                        placeholder="Staff/Admin Position"
-                    >
+                    <select name="position" id="position" class="form-select" data-selected="{{ old('position', $user->position) }}">
+                        <option value="">Select position</option>
+                    </select>
                     @error('position')
                         <div class="form-error">{{ $message }}</div>
                     @enderror
@@ -208,10 +256,12 @@
                         name="address"
                         value="{{ old('address', $user->address) }}"
                         class="form-input"
+                        placeholder="House No., Street, Barangay, City"
                     >
                     @error('address')
                         <div class="form-error">{{ $message }}</div>
                     @enderror
+                    <div class="form-error hidden" data-field-error="address"></div>
                 </div>
             </div>
         </div>
@@ -260,11 +310,58 @@
         (function () {
             const roleSelect = document.getElementById('role');
             const branchSelect = document.getElementById('branch_id');
+            const form = document.getElementById('userEditForm');
+            const positionSelect = document.getElementById('position');
             const crossWrap = document.getElementById('cross_branch_wrap');
             const grantCheckbox = document.getElementById('grant_temp_access');
             const tempBranchSelect = document.getElementById('temp_allowed_branch_id');
             const tempExpiresInput = document.getElementById('temp_expires_at');
             const branchHint = document.getElementById('branch_hint');
+            const invalidClass = ['border-rose-300', 'bg-rose-50', 'focus:border-rose-500', 'focus:ring-rose-500'];
+            const positions = {
+                staff: ['Staff', 'Encoder', 'Cashier', 'Branch Staff', 'Funeral Assistant'],
+                admin: ['Branch Admin', 'Branch Manager', 'Office Admin'],
+            };
+            const normalizeText = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+            const hasLetter = (value) => /[\p{L}\p{M}]/u.test(value);
+            const isValidName = (value) => /^[\p{L}\p{M}\s.'-]+$/u.test(value) && !/\d/.test(value);
+            const isValidPhilippineMobile = (value) => {
+                const normalized = String(value || '').replace(/[\s()-]/g, '');
+                return !normalized || /^(\+639|639|09)\d{9}$/.test(normalized);
+            };
+            const showFieldError = (field, message) => {
+                const input = form?.querySelector(`[name="${field}"]`);
+                const error = form?.querySelector(`[data-field-error="${field}"]`);
+                if (input) input.classList.add(...invalidClass);
+                if (error) {
+                    error.textContent = message;
+                    error.classList.remove('hidden');
+                }
+            };
+            const clearFieldError = (field) => {
+                const input = form?.querySelector(`[name="${field}"]`);
+                const error = form?.querySelector(`[data-field-error="${field}"]`);
+                if (input) input.classList.remove(...invalidClass);
+                if (error) {
+                    error.textContent = '';
+                    error.classList.add('hidden');
+                }
+            };
+
+            function syncPositions() {
+                if (!positionSelect || !roleSelect) return;
+                const selected = positionSelect.dataset.selected || positionSelect.value;
+                const options = positions[roleSelect.value] || [];
+                positionSelect.innerHTML = '<option value="">Select position</option>';
+                options.forEach((label) => {
+                    const option = document.createElement('option');
+                    option.value = label;
+                    option.textContent = label;
+                    option.selected = label === selected;
+                    positionSelect.appendChild(option);
+                });
+                positionSelect.dataset.selected = '';
+            }
 
             function syncCrossBranchState() {
                 const isStaff = roleSelect && roleSelect.value === 'staff';
@@ -306,6 +403,56 @@
                         tempExpiresInput.value = '';
                     }
                 }
+
+                syncPositions();
+            }
+
+            function validateForm(event) {
+                let valid = true;
+                ['first_name', 'middle_name', 'last_name', 'name', 'email', 'branch_id', 'contact_number', 'address'].forEach(clearFieldError);
+                form?.querySelectorAll('input[type="text"], input[type="email"]').forEach((input) => {
+                    input.value = normalizeText(input.value);
+                });
+
+                ['first_name', 'middle_name', 'last_name', 'name'].forEach((field) => {
+                    const input = form?.querySelector(`[name="${field}"]`);
+                    if (!input) return;
+                    const value = normalizeText(input.value);
+                    if (input.required && !value) {
+                        valid = false;
+                        showFieldError(field, `${input.closest('div')?.querySelector('label')?.textContent.replace('*', '').trim() || 'Name'} is required.`);
+                    } else if (value && (!hasLetter(value) || !isValidName(value))) {
+                        valid = false;
+                        showFieldError(field, 'Name fields may only contain letters, spaces, hyphen, apostrophe, period, ñ, Ñ, and accented letters.');
+                    }
+                });
+
+                const parts = ['first_name', 'middle_name', 'last_name', 'suffix']
+                    .map((field) => normalizeText(form?.querySelector(`[name="${field}"]`)?.value || '').toLowerCase())
+                    .filter(Boolean);
+                if (new Set(parts).size !== parts.length) {
+                    valid = false;
+                    showFieldError('last_name', 'Name parts must not be exact duplicates.');
+                }
+
+                const email = form?.querySelector('[name="email"]');
+                if (email && !email.validity.valid) {
+                    valid = false;
+                    showFieldError('email', 'Enter a valid email address.');
+                }
+
+                if (branchSelect && ['staff', 'admin'].includes(roleSelect?.value) && !branchSelect.value) {
+                    valid = false;
+                    showFieldError('branch_id', 'Branch is required for staff and branch admin accounts.');
+                }
+
+                const contact = form?.querySelector('[name="contact_number"]');
+                if (contact && !isValidPhilippineMobile(contact.value)) {
+                    valid = false;
+                    showFieldError('contact_number', 'Enter a valid Philippine mobile number.');
+                }
+
+                if (!valid) event.preventDefault();
             }
 
             if (roleSelect) {
@@ -314,6 +461,13 @@
 
             if (grantCheckbox) {
                 grantCheckbox.addEventListener('change', syncCrossBranchState);
+            }
+
+            if (form) {
+                form.addEventListener('submit', validateForm);
+                form.addEventListener('input', (event) => {
+                    if (event.target?.name) clearFieldError(event.target.name);
+                });
             }
 
             syncCrossBranchState();

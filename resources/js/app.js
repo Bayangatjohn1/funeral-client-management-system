@@ -249,6 +249,7 @@ function initCaseCompactFilters() {
         const moreToggle = form.querySelector('[data-case-more-toggle]');
         const morePanel = form.querySelector('[data-case-more-panel]');
         const moreIcon = form.querySelector('[data-case-more-icon]');
+        const moreText = form.querySelector('[data-case-more-text]');
         const hasAdvancedFilters = moreToggle?.classList.contains('active') || false;
 
         const setCustomOpen = (open) => {
@@ -262,6 +263,9 @@ function initCaseCompactFilters() {
             morePanel.hidden = !open;
             moreToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
             moreToggle.classList.toggle('active', open || hasAdvancedFilters);
+            if (moreText) {
+                moreText.textContent = open ? 'Hide Filters' : 'More Filters';
+            }
             if (moreIcon) {
                 moreIcon.classList.toggle('bi-chevron-down', !open);
                 moreIcon.classList.toggle('bi-chevron-up', open);
@@ -291,10 +295,65 @@ function initCaseCompactFilters() {
     });
 }
 
+function initClickableRecordRows() {
+    const interactiveSelector = [
+        'a',
+        'button',
+        'input',
+        'select',
+        'textarea',
+        'label',
+        'summary',
+        '[role="button"]',
+        '[data-row-menu]',
+        '[data-row-menu-item]',
+        '[data-no-row-click]',
+    ].join(',');
+
+    document.addEventListener('click', (event) => {
+        if (!(event.target instanceof Element)) return;
+        if (event.target.closest(interactiveSelector)) return;
+
+        const row = event.target.closest('[data-clickable-row]');
+        if (!row) return;
+
+        const trigger = row.querySelector('[data-row-view-trigger]');
+        if (trigger instanceof HTMLElement) {
+            trigger.click();
+            return;
+        }
+
+        const href = row.getAttribute('data-row-href');
+        if (href) {
+            window.location.href = href;
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') return;
+        if (!(event.target instanceof HTMLElement)) return;
+
+        const row = event.target.closest('[data-clickable-row]');
+        if (!row || event.target !== row) return;
+
+        const trigger = row.querySelector('[data-row-view-trigger]');
+        if (trigger instanceof HTMLElement) {
+            trigger.click();
+            return;
+        }
+
+        const href = row.getAttribute('data-row-href');
+        if (href) {
+            window.location.href = href;
+        }
+    });
+}
+
 initTheme();
 initRowActionMenus();
 initTableToolbarBehavior();
 initCaseCompactFilters();
+initClickableRecordRows();
 
 window.Alpine = Alpine;
 

@@ -905,7 +905,7 @@
             <a href="{{ route('payments.history') }}" class="staff-action-card is-light">
                 <div class="icon"><i class="bi bi-clock-history"></i></div>
                 <div>
-                    <p class="title">Payment History</p>
+                    <p class="title">Payment Monitoring</p>
                     <p class="desc">Browse all payments</p>
                 </div>
             </a>
@@ -1354,4 +1354,3 @@
     })();
 </script>
 @endsection
-

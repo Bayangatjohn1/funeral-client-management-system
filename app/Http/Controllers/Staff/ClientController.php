@@ -58,7 +58,12 @@ class ClientController extends Controller
         // Optional search
         if ($request->filled('q')) {
             $q = $request->q;
-            $query->where('full_name', 'like', "%{$q}%");
+            $query->where(function ($nameQuery) use ($q) {
+                $nameQuery->where('full_name', 'like', "%{$q}%")
+                    ->orWhere('first_name', 'like', "%{$q}%")
+                    ->orWhere('middle_name', 'like', "%{$q}%")
+                    ->orWhere('last_name', 'like', "%{$q}%");
+            });
         }
 
         $dateRange = $request->string('date_range', 'any')->toString();
@@ -124,8 +129,8 @@ class ClientController extends Controller
         $mainBranchId = $this->mainBranchIdForDirectory();
 
         $validated = $request->validate([
-            'first_name' => FieldRules::namePart(),
-            'last_name'  => FieldRules::namePart(),
+            'first_name' => FieldRules::namePart(min: 2),
+            'last_name'  => FieldRules::namePart(min: 2),
             'middle_name' => FieldRules::namePart(false),
             'suffix'      => FieldRules::namePart(false),
             'contact_number' => FieldRules::contactNumber(),
@@ -136,13 +141,17 @@ class ClientController extends Controller
             'middle_name.regex' => FieldRules::nameRegexMessage('Middle name'),
             'contact_number.regex' => 'Contact number format is invalid.',
         ]);
+        $validated = $this->normalizeValidatedNameParts($validated);
+        if ($response = $this->rejectDuplicateNameParts($validated)) {
+            return $response;
+        }
 
-        $fullName = implode(' ', array_filter([
+        $fullName = Client::buildFullName(
             $validated['first_name'],
             $validated['middle_name'] ?? null,
             $validated['last_name'],
             $validated['suffix'] ?? null,
-        ]));
+        );
 
         $duplicateClient = Client::query()
             ->where('branch_id', $mainBranchId)
@@ -191,9 +200,7 @@ class ClientController extends Controller
             return redirect()->route('clients.index')->with('warning', 'Need permission from the admin.');
         }
 
-        if ((int) $client->branch_id !== $this->mainBranchIdForDirectory()) {
-            abort(403);
-        }
+        $this->ensureClientBranchAccessible($client);
 
         if ($this->wantsModalFragment(request())) {
             return view('staff.clients.partials.edit-form', compact('client'));
@@ -204,9 +211,7 @@ class ClientController extends Controller
 
     public function show(Client $client)
     {
-        if ((int) $client->branch_id !== $this->mainBranchIdForDirectory()) {
-            abort(403);
-        }
+        $this->ensureClientBranchAccessible($client);
 
         $client->load([
             'deceaseds:id,client_id,full_name,address,born,age,died,date_of_death,interment,place_of_cemetery,created_at',
@@ -241,13 +246,11 @@ class ClientController extends Controller
             return redirect()->route('clients.index')->with('warning', 'Need permission from the admin.');
         }
 
-        if ((int) $client->branch_id !== $this->mainBranchIdForDirectory()) {
-            abort(403);
-        }
+        $this->ensureClientBranchAccessible($client);
 
         $validated = $request->validate([
-            'first_name'  => FieldRules::namePart(),
-            'last_name'   => FieldRules::namePart(),
+            'first_name'  => FieldRules::namePart(min: 2),
+            'last_name'   => FieldRules::namePart(min: 2),
             'middle_name' => FieldRules::namePart(false),
             'suffix'      => FieldRules::namePart(false),
             'contact_number' => FieldRules::contactNumber(),
@@ -258,13 +261,17 @@ class ClientController extends Controller
             'middle_name.regex' => FieldRules::nameRegexMessage('Middle name'),
             'contact_number.regex' => 'Contact number format is invalid.',
         ]);
+        $validated = $this->normalizeValidatedNameParts($validated);
+        if ($response = $this->rejectDuplicateNameParts($validated)) {
+            return $response;
+        }
 
-        $fullName = implode(' ', array_filter([
+        $fullName = Client::buildFullName(
             $validated['first_name'],
             $validated['middle_name'] ?? null,
             $validated['last_name'],
             $validated['suffix'] ?? null,
-        ]));
+        );
 
         $duplicateClient = Client::query()
             ->where('branch_id', $client->branch_id)
@@ -315,9 +322,7 @@ class ClientController extends Controller
 
     public function destroy(Client $client)
     {
-        if ((int) $client->branch_id !== $this->mainBranchIdForDirectory()) {
-            abort(403);
-        }
+        $this->ensureClientBranchAccessible($client);
 
         if ($client->deceaseds()->exists() || $client->funeralCases()->exists()) {
             return back()->withErrors([
@@ -356,9 +361,49 @@ class ClientController extends Controller
         return (int) $user->branch_id;
     }
 
+    private function ensureClientBranchAccessible(Client $client): void
+    {
+        $user = auth()->user();
+        $allowedBranchIds = method_exists($user, 'branchScopeIds')
+            ? array_map('intval', $user->branchScopeIds())
+            : [(int) ($user?->branch_id ?? 0)];
+
+        if (!in_array((int) $client->branch_id, $allowedBranchIds, true)) {
+            abort(403);
+        }
+    }
+
     private function wantsModalFragment(Request $request): bool
     {
         return $request->query('fragment') === 'modal'
             || $request->headers->get('X-Client-Fragment') === 'modal';
+    }
+
+    private function normalizeValidatedNameParts(array $validated): array
+    {
+        return array_replace($validated, Client::normalizedNameParts($validated));
+    }
+
+    private function rejectDuplicateNameParts(array $validated): ?\Illuminate\Http\RedirectResponse
+    {
+        $parts = array_filter([
+            'first_name' => $validated['first_name'] ?? null,
+            'middle_name' => $validated['middle_name'] ?? null,
+            'last_name' => $validated['last_name'] ?? null,
+            'suffix' => $validated['suffix'] ?? null,
+        ], static fn (?string $value): bool => $value !== null);
+
+        $seen = [];
+        foreach ($parts as $field => $value) {
+            $key = mb_strtolower($value);
+            if (isset($seen[$key])) {
+                return back()->withErrors([
+                    $field => 'Name parts must not repeat exactly.',
+                ])->withInput();
+            }
+            $seen[$key] = true;
+        }
+
+        return null;
     }
 }

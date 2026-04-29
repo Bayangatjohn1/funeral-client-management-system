@@ -152,13 +152,22 @@
 
         <button type="button" class="case-compact-more {{ $advancedFilterCount > 0 ? 'active' : '' }}" data-case-more-toggle aria-expanded="false">
             <i class="bi bi-sliders"></i>
-            <span>More Filters</span>
+            <span data-case-more-text>More Filters</span>
             <i class="bi bi-chevron-down" data-case-more-icon></i>
         </button>
     </div>
     <div class="case-compact-advanced" data-case-more-panel hidden>
-        <div class="case-compact-advanced-note">
-            Date preset buttons filter Date Encoded / Date Created. Interment fields below filter Interment Date.
+        <div class="case-compact-advanced-head">
+            <div>
+                <div class="case-compact-advanced-title">More Filters</div>
+                <div class="case-compact-advanced-note">
+                    Date presets use encoded date. Interment fields narrow the service schedule.
+                </div>
+            </div>
+            <a href="{{ $resetUrl }}" class="case-compact-advanced-clear">
+                <i class="bi bi-x-circle"></i>
+                <span>Clear filters</span>
+            </a>
         </div>
 
         @if($showCaseStatus)

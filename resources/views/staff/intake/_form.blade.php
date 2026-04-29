@@ -303,10 +303,90 @@
         box-shadow: 0 0 0 4px rgba(27,51,88,.09);
         outline: none; background: #fafcff;
     }
+    .form-input.field-error, .form-textarea.field-error {
+        border-color: #e11d48 !important;
+        background: #fff7f8 !important;
+        box-shadow: 0 0 0 4px rgba(225,29,72,.08) !important;
+    }
     .form-input::placeholder, .form-textarea::placeholder { color: #b0beca; font-weight: 400; }
     .intake-root input::placeholder, .intake-root textarea::placeholder { color: #b0beca !important; font-weight: 400 !important; opacity: 1; }
     .form-input[readonly], .form-input.cursor-not-allowed { background: #f4f6fb; color: #7a8fa8; cursor: not-allowed; }
 
+
+    /* -- UI-only field organization helpers for Client/Deceased steps -- */
+    .intake-field-section {
+        border: 1px solid #e4e8ef;
+        border-radius: 14px;
+        background: #ffffff;
+        padding: 18px;
+        box-shadow: 0 1px 3px rgba(15,23,42,.035);
+    }
+    .intake-field-section + .intake-field-section { margin-top: 16px; }
+    .intake-section-kicker {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 14px;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+        color: #64748b;
+    }
+    .intake-section-kicker i { color: #1b3358; font-size: 13px; }
+    .intake-name-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 14px;
+    }
+    .intake-info-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 14px;
+    }
+    .intake-full-field { grid-column: 1 / -1; }
+    .intake-field-help {
+        margin-top: 6px;
+        font-size: 11px;
+        line-height: 1.4;
+        color: #7a8fa8;
+        font-weight: 500;
+    }
+    .form-select-wrap { position: relative; }
+    .form-select-wrap .form-input {
+        appearance: none;
+        -webkit-appearance: none;
+        padding-right: 2.4rem;
+    }
+    .form-select-wrap::after {
+        content: "";
+        position: absolute;
+        right: 14px;
+        top: 50%;
+        width: 8px;
+        height: 8px;
+        border-right: 2px solid #94a3b8;
+        border-bottom: 2px solid #94a3b8;
+        transform: translateY(-65%) rotate(45deg);
+        pointer-events: none;
+    }
+    @media (min-width: 640px) {
+        .intake-name-grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr); }
+        .intake-info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (min-width: 1024px) {
+        .intake-name-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.1fr) 150px; }
+        .intake-info-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .intake-info-grid.deceased-meta { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 120px; }
+    }
+    html[data-theme='dark'] .intake-field-section {
+        background: #152035 !important;
+        border-color: #203050 !important;
+        box-shadow: none;
+    }
+    html[data-theme='dark'] .intake-section-kicker { color: #7a9ec8; }
+    html[data-theme='dark'] .intake-section-kicker i { color: #7ec0ff; }
+    html[data-theme='dark'] .intake-field-help { color: #7a9ec8; }
     /* ── Subsection soft ── */
     .subsection-soft {
         border: 1px solid #e4e8ef; border-radius: 12px;
@@ -612,10 +692,11 @@
         <div class="mb-6 rounded-2xl border px-5 py-4 text-sm {{ $otherBranchWindowClosed ? 'border-rose-200 bg-rose-50 text-rose-900' : 'border-amber-200 bg-amber-50 text-amber-900' }} shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
             <div class="font-bold flex items-center gap-2">
                 <i class="bi {{ $otherBranchWindowClosed ? 'bi-x-circle-fill text-rose-500' : 'bi-exclamation-triangle-fill text-amber-500' }}"></i>
-                {{ $otherBranchWindowClosed ? 'Intake Window Closed' : 'External Branch Rules Apply' }}
+                {{ $otherBranchWindowClosed ? 'Intake Window Closed' : 'External Branch Report' }}
             </div>
+            <div class="mt-2 text-[10px] font-black uppercase tracking-widest">Other-Branch Intake Rules</div>
             <div class="mt-1 text-xs font-medium opacity-90">
-                Reports must be completed, fully paid, and submitted within today only (00:00 to {{ $otherBranchCutoffAt->format('H:i') }}).
+                Reports must be completed, fully paid, and submitted within today only from 00:00 to {{ $otherBranchCutoffAt->format('H:i') }}.
             </div>
         </div>
     @endif
@@ -710,7 +791,7 @@
                             </div>
 
                             <div>
-                                <label class="field-label">Reported At</label>
+                                <label class="field-label">Encoded Date</label>
                                 <input
                                     type="datetime-local"
                                     name="reported_at"
@@ -725,67 +806,80 @@
                         </div>
                     @endif
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-                        <div class="md:col-span-2 lg:col-span-1">
-                            <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-4">
+                        <div class="intake-field-section">
+                            <div class="intake-section-kicker"><i class="bi bi-person-lines-fill"></i><span>Client name</span></div>
+                            <div class="intake-name-grid">
                                 <div>
                                     <label class="field-label">First Name <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="client_first_name" value="{{ old('client_first_name') }}" data-label="client first name" class="form-input" placeholder="e.g., Maria" required>
+                                    <input type="text" name="client_first_name" value="{{ old('client_first_name') }}" data-label="client first name" class="form-input" placeholder="First name" required>
                                     @error('client_first_name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
-                                    <label class="field-label">Last Name <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="client_last_name" value="{{ old('client_last_name') }}" data-label="client last name" class="form-input" placeholder="e.g., Santos" required>
-                                    @error('client_last_name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
-                                </div>
-                                <div>
                                     <label class="field-label">Middle Name</label>
-                                    <input type="text" name="client_middle_name" value="{{ old('client_middle_name') }}" data-label="client middle name" class="form-input" placeholder="e.g., Reyes">
+                                    <input type="text" name="client_middle_name" value="{{ old('client_middle_name') }}" data-label="client middle name" class="form-input" placeholder="Middle name">
                                     @error('client_middle_name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
+                                    <label class="field-label">Last Name <span class="text-rose-500">*</span></label>
+                                    <input type="text" name="client_last_name" value="{{ old('client_last_name') }}" data-label="client last name" class="form-input" placeholder="Last name" required>
+                                    @error('client_last_name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
                                     <label class="field-label">Suffix</label>
-                                    <input type="text" name="client_suffix" value="{{ old('client_suffix') }}" data-label="client suffix" class="form-input" placeholder="Jr., Sr., III…" maxlength="20">
+                                    <div class="form-select-wrap">
+                                        <select name="client_suffix" data-label="client suffix" class="form-input">
+                                            <option value="" {{ old('client_suffix') === null || old('client_suffix') === '' ? 'selected' : '' }}>None</option>
+                                            @foreach(['Jr.', 'Sr.', 'II', 'III', 'IV', 'V'] as $suffixOption)
+                                                <option value="{{ $suffixOption }}" {{ old('client_suffix') === $suffixOption ? 'selected' : '' }}>{{ $suffixOption }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
                                     @error('client_suffix') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                                 </div>
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:col-span-2 lg:col-span-1">
-                            <div>
-                                <label class="field-label">Relationship <span class="text-rose-500">*</span></label>
-                                <select name="client_relationship" data-label="relationship to the deceased" class="form-input" required>
-                                    <option value="">Select...</option>
-                                    @foreach(($clientRelationshipOptions ?? []) as $relationship)
-                                        <option value="{{ $relationship }}" {{ old('client_relationship') === $relationship ? 'selected' : '' }}>
-                                            {{ $relationship }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
+                        <div class="intake-field-section">
+                            <div class="intake-section-kicker"><i class="bi bi-telephone-fill"></i><span>Contact and relationship</span></div>
+                            <div class="intake-info-grid">
+                                <div>
+                                    <label class="field-label">Relationship to Deceased <span class="text-rose-500">*</span></label>
+                                    <div class="form-select-wrap">
+                                        <select name="client_relationship" data-label="relationship to the deceased" class="form-input" required>
+                                            <option value="">Select relationship</option>
+                                            @foreach(['Father', 'Mother', 'Spouse', 'Child', 'Sibling', 'Relative', 'Guardian', 'Other'] as $relationship)
+                                                <option value="{{ $relationship }}" {{ old('client_relationship') === $relationship ? 'selected' : '' }}>
+                                                    {{ $relationship }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
 
-                            <div>
-                                <label class="field-label">Contact Number <span class="text-rose-500">*</span></label>
-                                <input
-                                    type="text"
-                                    name="client_contact_number"
-                                    value="{{ old('client_contact_number') }}"
-                                    data-validate="digits"
-                                    data-label="contact number"
-                                    inputmode="numeric"
-                                    maxlength="15"
-                                    pattern="[0-9]{7,15}"
-                                    title="7 to 15 digits only"
-                                    class="form-input"
-                                    placeholder="e.g. 0912..."
-                                    required
-                                >
-                            </div>
-                        </div>
+                                <div>
+                                    <label class="field-label">Mobile Number <span class="text-rose-500">*</span></label>
+                                    <input
+                                        type="text"
+                                        name="client_contact_number"
+                                        value="{{ old('client_contact_number') }}"
+                                        data-validate="philippine-mobile"
+                                        data-label="contact number"
+                                        inputmode="tel"
+                                        maxlength="15"
+                                        title="Philippine mobile number"
+                                        class="form-input"
+                                        placeholder="09XXXXXXXXX"
+                                        required
+                                    >
+                                    <p class="intake-field-help">Use an active Philippine mobile number for updates and coordination.</p>
+                                </div>
 
-                        <div class="md:col-span-2">
-                            <label class="field-label">Complete Address <span class="text-rose-500">*</span></label>
-                            <input type="text" name="client_address" id="client_address" value="{{ old('client_address') }}" data-label="client address" class="form-input" placeholder="House No, Street, Barangay, City" required>
+                                <div class="intake-full-field">
+                                    <label class="field-label">Complete Address <span class="text-rose-500">*</span></label>
+                                    <input type="text" name="client_address" id="client_address" value="{{ old('client_address') }}" data-label="client address" class="form-input" placeholder="House no., street, barangay, city/municipality, province" required>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -801,87 +895,108 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-12 gap-x-6 gap-y-5">
-                        <div class="md:col-span-8">
-                            <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-4">
+                        <div class="intake-field-section">
+                            <div class="intake-section-kicker"><i class="bi bi-person-vcard"></i><span>Deceased name</span></div>
+                            <div class="intake-name-grid">
                                 <div>
                                     <label class="field-label">First Name <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="deceased_first_name" value="{{ old('deceased_first_name') }}" data-label="deceased first name" class="form-input" placeholder="e.g., Juan" required>
+                                    <input type="text" name="deceased_first_name" value="{{ old('deceased_first_name') }}" data-label="deceased first name" class="form-input" placeholder="First name" required>
                                     @error('deceased_first_name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
-                                    <label class="field-label">Last Name <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="deceased_last_name" value="{{ old('deceased_last_name') }}" data-label="deceased last name" class="form-input" placeholder="e.g., Dela Cruz" required>
-                                    @error('deceased_last_name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
-                                </div>
-                                <div>
                                     <label class="field-label">Middle Name</label>
-                                    <input type="text" name="deceased_middle_name" value="{{ old('deceased_middle_name') }}" data-label="deceased middle name" class="form-input" placeholder="e.g., Reyes">
+                                    <input type="text" name="deceased_middle_name" value="{{ old('deceased_middle_name') }}" data-label="deceased middle name" class="form-input" placeholder="Middle name">
                                     @error('deceased_middle_name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
+                                    <label class="field-label">Last Name <span class="text-rose-500">*</span></label>
+                                    <input type="text" name="deceased_last_name" value="{{ old('deceased_last_name') }}" data-label="deceased last name" class="form-input" placeholder="Last name" required>
+                                    @error('deceased_last_name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
                                     <label class="field-label">Suffix</label>
-                                    <input type="text" name="deceased_suffix" value="{{ old('deceased_suffix') }}" data-label="deceased suffix" class="form-input" placeholder="Jr., Sr., III…" maxlength="20">
+                                    <div class="form-select-wrap">
+                                        <select name="deceased_suffix" data-label="deceased suffix" class="form-input">
+                                            <option value="" {{ old('deceased_suffix') === null || old('deceased_suffix') === '' ? 'selected' : '' }}>None</option>
+                                            @foreach(['Jr.', 'Sr.', 'II', 'III', 'IV', 'V'] as $suffixOption)
+                                                <option value="{{ $suffixOption }}" {{ old('deceased_suffix') === $suffixOption ? 'selected' : '' }}>{{ $suffixOption }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
                                     @error('deceased_suffix') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                                 </div>
                             </div>
                         </div>
 
-                        <div class="md:col-span-4">
-                            <label class="field-label">Date of Birth <span class="text-rose-500">*</span></label>
-                            <div class="relative">
-                                <input type="text" name="born" id="born" value="{{ old('born') }}" data-label="birthdate" class="form-input pr-10 cursor-pointer" placeholder="e.g., January 2, 1990" autocomplete="off" required>
-                                <span id="born_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
-                                    <i class="bi bi-calendar-event text-lg"></i>
-                                </span>
+                        <div class="intake-field-section">
+                            <div class="intake-section-kicker"><i class="bi bi-calendar-heart"></i><span>Life dates and address</span></div>
+                            <div class="intake-info-grid deceased-meta">
+                                <div>
+                                    <label class="field-label">Date of Birth <span class="text-rose-500">*</span></label>
+                                    <div class="relative">
+                                        <input type="text" name="born" id="born" value="{{ old('born') }}" data-label="birthdate" class="form-input pr-10 cursor-pointer" placeholder="Select birth date" autocomplete="off" required>
+                                        <span id="born_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
+                                            <i class="bi bi-calendar-event text-lg"></i>
+                                        </span>
+                                    </div>
+                                    @error('born')
+                                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                    @enderror
+                                    <p id="born_error" class="mt-1 text-sm text-red-600 hidden"></p>
+                                </div>
+
+                                <div>
+                                    <label class="field-label">Date of Death <span class="text-rose-500">*</span></label>
+                                    <div class="relative">
+                                        <input type="text" name="died" id="died" value="{{ old('died') }}" data-label="date of death" class="form-input pr-10 cursor-pointer" placeholder="Select date of death" autocomplete="off" required>
+                                        <span id="died_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
+                                            <i class="bi bi-calendar-event text-lg"></i>
+                                        </span>
+                                    </div>
+                                    @error('died')
+                                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                    @enderror
+                                    <p id="died_error" class="mt-1 text-sm text-red-600 hidden"></p>
+                                </div>
+
+                                <div>
+                                    <label class="field-label">Age</label>
+                                    <input type="number" name="age" id="age" value="{{ old('age') }}" class="form-input bg-slate-50 text-slate-500 cursor-not-allowed" readonly>
+                                    <p class="intake-field-help">Auto-computed.</p>
+                                </div>
+
+                                <div class="intake-full-field">
+                                    <label class="field-label">Complete Address <span class="text-rose-500">*</span></label>
+                                    <input type="text" name="deceased_address" id="deceased_address" value="{{ old('deceased_address', old('client_address')) }}" data-label="deceased address" class="form-input" placeholder="House no., street, barangay, city/municipality, province" required>
+                                </div>
                             </div>
-                            @error('born')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                            <p id="born_error" class="mt-1 text-sm text-red-600 hidden"></p>
                         </div>
 
-                        <div class="md:col-span-8">
-                            <label class="field-label">Complete Address <span class="text-rose-500">*</span></label>
-                            <input type="text" name="deceased_address" id="deceased_address" value="{{ old('deceased_address', old('client_address')) }}" data-label="deceased address" class="form-input" placeholder="House No, Street, Barangay, City" required>
-                        </div>
+                        <div class="intake-field-section">
+                            <div class="intake-section-kicker"><i class="bi bi-patch-check"></i><span>Senior citizen verification</span></div>
+                            <div class="intake-info-grid">
+                                <div>
+                                    <label class="field-label">Senior Citizen Status</label>
+                                    <div class="form-select-wrap">
+                                        <select name="senior_citizen_status" id="senior_citizen_status" data-label="senior citizen status" class="form-input w-full">
+                                            <option value="0" {{ old('senior_citizen_status', '0') === '0' ? 'selected' : '' }}>No / Standard</option>
+                                            <option value="1" {{ old('senior_citizen_status') === '1' ? 'selected' : '' }}>Yes / Eligible</option>
+                                        </select>
+                                    </div>
+                                    <p class="intake-field-help">Discount applies automatically when eligible.</p>
+                                </div>
 
-                        <div class="md:col-span-4">
-                            <label class="field-label">Date of Death <span class="text-rose-500">*</span></label>
-                            <div class="relative">
-                                <input type="text" name="died" id="died" value="{{ old('died') }}" data-label="date of death" class="form-input pr-10 cursor-pointer" placeholder="e.g., January 27, 2026" autocomplete="off" required>
-                                <span id="died_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
-                                    <i class="bi bi-calendar-event text-lg"></i>
-                                </span>
-                            </div>
-                            @error('died')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                            <p id="died_error" class="mt-1 text-sm text-red-600 hidden"></p>
-                        </div>
+                                <div id="senior_id_wrap" class="hidden">
+                                    <label class="field-label">Senior Citizen ID Number <span class="text-slate-400 normal-case tracking-normal font-normal">(Optional)</span></label>
+                                    <input type="text" name="senior_citizen_id_number" id="senior_citizen_id_number" value="{{ old('senior_citizen_id_number') }}" data-label="Senior Citizen ID number" class="form-input" placeholder="Enter Senior Citizen ID number">
+                                </div>
 
-                        <div class="md:col-span-3">
-                            <label class="field-label">Age</label>
-                            <input type="number" name="age" id="age" value="{{ old('age') }}" class="form-input bg-slate-50 text-slate-500 cursor-not-allowed" readonly>
-                        </div>
-
-                        <div class="md:col-span-9">
-                            <label class="field-label">Senior Citizen Verification</label>
-                            <select name="senior_citizen_status" id="senior_citizen_status" data-label="senior citizen status" class="form-input w-full">
-                                <option value="0" {{ old('senior_citizen_status', '0') === '0' ? 'selected' : '' }}>No / Standard</option>
-                                <option value="1" {{ old('senior_citizen_status') === '1' ? 'selected' : '' }}>Yes / Eligible</option>
-                            </select>
-                            <p class="text-[11px] text-slate-500 mt-1">Applies automatic discounts if enabled.</p>
-
-                            <div id="senior_id_wrap" class="mt-3 hidden">
-                                <label class="field-label">Senior Citizen ID Number <span class="text-slate-400 normal-case tracking-normal font-normal">(Optional)</span></label>
-                                <input type="text" name="senior_citizen_id_number" id="senior_citizen_id_number" value="{{ old('senior_citizen_id_number') }}" data-label="Senior Citizen ID number" class="form-input w-full md:w-1/2" placeholder="Enter Valid ID">
-                            </div>
-
-                            <div id="senior_proof_wrap" class="mt-3 hidden">
-                                <label class="field-label">Upload Senior ID / Certificate <span class="text-slate-400 normal-case tracking-normal font-normal">(Optional)</span></label>
-                                <input type="file" name="senior_proof" id="senior_proof" accept=".jpg,.jpeg,.png,.webp,.pdf" class="form-input">
-                                <p class="text-[11px] text-slate-500 mt-1">Accepted: JPG, PNG, WEBP, PDF. Max 5MB.</p>
+                                <div id="senior_proof_wrap" class="intake-full-field hidden">
+                                    <label class="field-label">Upload Senior ID / Certificate <span class="text-slate-400 normal-case tracking-normal font-normal">(Optional)</span></label>
+                                    <input type="file" name="senior_proof" id="senior_proof" accept=".jpg,.jpeg,.png,.webp,.pdf" class="form-input">
+                                    <p class="intake-field-help">Accepted: JPG, PNG, WEBP, PDF. Max 5MB.</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -911,15 +1026,8 @@
 
                                 $isFeatured = $pkg->price == $maxPkgPrice;
 
-                                $rawInc = (string) $pkg->inclusions;
-                                $inclusionItems = [];
-                                if (trim($rawInc) !== '') {
-                                    if (str_starts_with(trim($rawInc), '[')) {
-                                        $inclusionItems = array_values(array_filter(json_decode($rawInc, true) ?? []));
-                                    } else {
-                                        $inclusionItems = array_values(array_filter(array_map('trim', preg_split('/[\r\n,;]+/', $rawInc))));
-                                    }
-                                }
+                                $inclusionItems = $pkg->inclusionNames();
+                                $freebieItems = $pkg->freebieNames();
                             @endphp
 
                             <div class="package-card-item {{ $isFeatured ? 'pkg-featured-item' : '' }}">
@@ -938,8 +1046,8 @@
                                         data-promo-type="{{ $pkg->promo_value_type }}"
                                         data-promo-value="{{ $pkg->promo_value }}"
                                         data-promo-label="{{ $pkg->promo_label }}"
-                                        data-inclusions="{{ e((string) $pkg->inclusions) }}"
-                                        data-freebies="{{ e((string) $pkg->freebies) }}"
+                                        data-inclusions="{{ e(implode("\n", $inclusionItems)) }}"
+                                        data-freebies="{{ e(implode("\n", $freebieItems)) }}"
                                         {{ (string) old('package_id') === (string) $pkg->id ? 'checked' : '' }}
                                         required
                                     >
@@ -1221,8 +1329,9 @@
                                     <div class="p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900 flex gap-3">
                                         <i class="bi bi-shield-check text-amber-600 text-lg flex-shrink-0"></i>
                                         <div>
-                                            <strong class="block text-xs uppercase tracking-wider mb-0.5">Verification Rule Applied</strong>
-                                            This external branch report will be saved as fully paid and routed automatically.
+                                            <strong class="block text-xs uppercase tracking-wider mb-0.5">Payment Confirmation</strong>
+                                            Other-branch completed reports must already be fully paid before they can be encoded.
+                                            This report will be saved as a completed, fully paid branch report and routed automatically.
                                         </div>
                                     </div>
                                 @endif
@@ -1641,9 +1750,157 @@
 
     const clearFieldMessage = (field) => {
         if (field?.setCustomValidity) field.setCustomValidity('');
+        field?.classList?.remove('field-error');
+        field?.removeAttribute?.('aria-invalid');
+
+        const errorEl = fieldErrorElement(field, false);
+        if (errorEl) {
+            errorEl.textContent = '';
+            errorEl.classList.add('hidden');
+        }
     };
 
     const labelFor = (field) => field?.dataset?.label || field?.getAttribute('placeholder') || 'this field';
+
+    const fieldByName = (name) => f.querySelector(`[name="${name}"]`);
+
+    const fieldErrorElement = (field, create = true) => {
+        if (!field) return null;
+        const fieldName = field.getAttribute('name') || field.id;
+        if (!fieldName) return null;
+
+        const safeName = fieldName.replace(/[^A-Za-z0-9_-]/g, '_');
+        let errorEl = document.getElementById(`${safeName}_inline_error`);
+        if (!errorEl && create) {
+            errorEl = document.createElement('p');
+            errorEl.id = `${safeName}_inline_error`;
+            errorEl.className = 'mt-1 text-sm text-red-600 hidden';
+            field.insertAdjacentElement('afterend', errorEl);
+        }
+
+        return errorEl;
+    };
+
+    const showFieldError = (field, message) => {
+        if (!field) return false;
+        const errorEl = fieldErrorElement(field);
+        field.setCustomValidity(message);
+        setFieldError(field, errorEl, message);
+        field.focus();
+        return false;
+    };
+
+    const normalizeText = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
+    const normalizeComparable = (value) => normalizeText(value).toLocaleLowerCase();
+    const hasLetter = (value) => /\p{L}/u.test(String(value ?? ''));
+    const isValidName = (value) => /^[\p{L}\p{M}\s.'-]+$/u.test(normalizeText(value));
+    const isValidSuffix = (value) => {
+        const normalized = normalizeText(value);
+        return normalized === '' || ['Jr.', 'Sr.', 'II', 'III', 'IV', 'V'].includes(normalized);
+    };
+    const isValidPhilippineMobile = (value) => /^(09\d{9}|\+639\d{9}|639\d{9})$/.test(normalizeText(value));
+
+    const validateDuplicateNameParts = (first, middle, last) => {
+        const normalizedFirst = normalizeComparable(first);
+        const normalizedMiddle = normalizeComparable(middle);
+        const normalizedLast = normalizeComparable(last);
+
+        if (normalizedFirst && normalizedLast && normalizedFirst === normalizedLast) {
+            return { field: 'last', message: 'First name and last name cannot be the same.' };
+        }
+
+        if (normalizedMiddle && (normalizedMiddle === normalizedFirst || normalizedMiddle === normalizedLast)) {
+            return { field: 'middle', message: 'Middle name should not be the same as first name or last name.' };
+        }
+
+        return null;
+    };
+
+    const fullNameForPrefix = (prefix) => ['first_name', 'middle_name', 'last_name', 'suffix']
+        .map((field) => normalizeText(fieldByName(`${prefix}_${field}`)?.value))
+        .filter(Boolean)
+        .join(' ');
+
+    const validateAddressField = (field) => {
+        const value = normalizeText(field?.value);
+        if (field) field.value = value;
+
+        if (!value) {
+            return showFieldError(field, 'Complete address is required.');
+        }
+
+        if (!hasLetter(value)) {
+            return showFieldError(field, 'Complete address must include a valid place name.');
+        }
+
+        clearFieldMessage(field);
+        return true;
+    };
+
+    const validateNameGroup = (prefix, labels) => {
+        const fields = {
+            first: fieldByName(`${prefix}_first_name`),
+            middle: fieldByName(`${prefix}_middle_name`),
+            last: fieldByName(`${prefix}_last_name`),
+            suffix: fieldByName(`${prefix}_suffix`),
+        };
+
+        Object.values(fields).forEach(clearFieldMessage);
+
+        const first = normalizeText(fields.first?.value);
+        const middle = normalizeText(fields.middle?.value);
+        const last = normalizeText(fields.last?.value);
+        const suffix = normalizeText(fields.suffix?.value);
+
+        if (fields.first) fields.first.value = first;
+        if (fields.middle) fields.middle.value = middle;
+        if (fields.last) fields.last.value = last;
+        if (fields.suffix) fields.suffix.value = suffix;
+
+        if (!first) return showFieldError(fields.first, `${labels.first} is required.`);
+        if (!isValidName(first)) return showFieldError(fields.first, `${labels.first} must contain letters only.`);
+        if (middle && !isValidName(middle)) return showFieldError(fields.middle, `${labels.middle} must contain letters only.`);
+        if (!last) return showFieldError(fields.last, `${labels.last} is required.`);
+        if (!isValidName(last)) return showFieldError(fields.last, `${labels.last} must contain letters only.`);
+        if (!isValidSuffix(suffix)) return showFieldError(fields.suffix, 'Please select a valid suffix.');
+
+        const duplicate = validateDuplicateNameParts(first, middle, last);
+        if (duplicate) return showFieldError(fields[duplicate.field], duplicate.message);
+
+        return true;
+    };
+
+    const validateClientInformationStep = () => {
+        if (!validateNameGroup('client', { first: 'First name', middle: 'Middle name', last: 'Last name' })) return false;
+
+        const relationship = fieldByName('client_relationship');
+        if (!normalizeText(relationship?.value)) {
+            return showFieldError(relationship, 'Relationship is required.');
+        }
+        clearFieldMessage(relationship);
+
+        const contact = fieldByName('client_contact_number');
+        if (!normalizeText(contact?.value)) {
+            return showFieldError(contact, 'Contact number is required.');
+        }
+        if (!isValidPhilippineMobile(contact.value)) {
+            return showFieldError(contact, 'Please enter a valid Philippine mobile number.');
+        }
+        clearFieldMessage(contact);
+
+        return validateAddressField(fieldByName('client_address'));
+    };
+
+    const validateDeceasedInformationStep = () => {
+        if (!validateNameGroup('deceased', { first: 'First name', middle: 'Middle name', last: 'Last name' })) return false;
+        if (!validateAddressField(fieldByName('deceased_address'))) return false;
+
+        if (normalizeComparable(fullNameForPrefix('client')) === normalizeComparable(fullNameForPrefix('deceased'))) {
+            return showFieldError(fieldByName('deceased_first_name'), 'Client and deceased names cannot be exactly the same. Please verify the entered information.');
+        }
+
+        return true;
+    };
 
     const branchCode = () => {
         return branchBtns.find((button) => String(button.dataset.branchId) === String(branch.value))?.dataset.branchCode || '-';
@@ -2322,6 +2579,8 @@
         const panel = panels.find((element) => Number(element.dataset.step) === targetStep);
         if (!panel) return true;
 
+        if (targetStep === 1 && !validateClientInformationStep()) return false;
+        if (targetStep === 2 && !validateDeceasedInformationStep()) return false;
         if (targetStep === 2) validateDobDod('full');
         if (targetStep === 3) validateWakeInterment('full');
 
@@ -3329,6 +3588,10 @@
 
             if (element.dataset.validate === 'digits') {
                 element.value = element.value.replace(/\D/g, '');
+            }
+
+            if (element.dataset.validate === 'philippine-mobile') {
+                element.value = element.value.replace(/[^\d+]/g, '').replace(/(?!^)\+/g, '');
             }
         });
     });

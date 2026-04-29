@@ -40,37 +40,55 @@
     </div>
 
     <div class="table-wrapper rounded-none border-0">
-        <table class="table-base text-sm">
+        <table class="table-base table-system-table text-sm">
             <thead>
                 <tr>
-                    <th class="text-left">Case Code</th>
-                    <th class="text-left">Date Encoded</th>
+                    <th class="text-left">Case</th>
                     <th class="text-left">Branch</th>
-                    <th class="text-left">Client</th>
-                    <th class="text-left">Deceased</th>
-                    <th class="text-left">Service Type</th>
+                    <th class="text-left">Family / Client</th>
+                    <th class="text-left">Service</th>
                     <th class="text-left">Interment</th>
-                    <th class="text-left">Package</th>
-                    <th class="text-left">Total Amount</th>
                     <th class="text-left">Payment</th>
-                    <th class="text-left">Case Status</th>
-                    <th class="text-left">Total Paid</th>
-                    <th class="text-left">Balance</th>
+                    <th class="text-left">Status</th>
                     <th class="text-left">Action</th>
                 </tr>
             </thead>
             <tbody>
             @forelse($cases as $case)
-                <tr>
-                    <td>{{ $case->case_code }}</td>
-                    <td>{{ $case->created_at?->format('Y-m-d') }}</td>
-                    <td>{{ $case->branch?->branch_code ?? '-' }}</td>
-                    <td>{{ $case->client?->full_name ?? '-' }}</td>
-                    <td>{{ $case->deceased?->full_name ?? '-' }}</td>
-                    <td>{{ $case->service_type ?? '-' }}</td>
-                    <td>{{ $case->deceased?->interment_at?->format('Y-m-d H:i') ?? $case->deceased?->interment?->format('Y-m-d') ?? '-' }}</td>
-                    <td>{{ $case->service_package ?? '-' }}</td>
-                    <td>{{ number_format((float) $case->total_amount, 2) }}</td>
+                @php
+                    $intermentDate = $case->deceased?->interment_at ?? $case->interment_at ?? $case->deceased?->interment;
+                @endphp
+                <tr
+                    data-clickable-row
+                    data-row-href="{{ route('owner.cases.show', $case) }}"
+                    tabindex="0"
+                    role="link"
+                    aria-label="Open full case details for {{ $case->case_code }}"
+                >
+                    <td>
+                        <div class="table-primary whitespace-nowrap">{{ $case->case_code }}</div>
+                        <div class="table-secondary">Encoded {{ $case->created_at?->format('M d, Y') }}</div>
+                    </td>
+                    <td>
+                        <div class="table-primary whitespace-nowrap">{{ $case->branch?->branch_code ?? '-' }}</div>
+                        <div class="table-secondary">{{ \Illuminate\Support\Str::limit($case->branch?->branch_name ?? '-', 24) }}</div>
+                    </td>
+                    <td>
+                        <div class="table-primary">{{ \Illuminate\Support\Str::limit($case->deceased?->full_name ?? '-', 30) }}</div>
+                        <div class="table-secondary">{{ \Illuminate\Support\Str::limit($case->client?->full_name ?? '-', 28) }}</div>
+                    </td>
+                    <td>
+                        <div class="table-primary">{{ $case->service_type ?? '-' }}</div>
+                        <div class="table-secondary">{{ \Illuminate\Support\Str::limit($case->package?->name ?? $case->service_package ?? '-', 30) }}</div>
+                    </td>
+                    <td>
+                        <div class="table-primary whitespace-nowrap">{{ $intermentDate ? $intermentDate->format('M d, Y') : '-' }}</div>
+                        <div class="table-secondary">{{ $intermentDate && $intermentDate->format('H:i') !== '00:00' ? $intermentDate->format('h:i A') : 'Service date' }}</div>
+                    </td>
+                    <td>
+                        <div class="table-primary whitespace-nowrap">{{ number_format((float) $case->total_amount, 2) }}</div>
+                        <div class="table-secondary whitespace-nowrap">Paid {{ number_format((float) $case->total_paid, 2) }} &middot; Bal {{ number_format((float) $case->balance_amount, 2) }}</div>
+                    </td>
                     <td>
                         <span class="{{
                             $case->payment_status === 'PAID'
@@ -79,21 +97,20 @@
                         }}">
                             {{ $case->payment_status }}
                         </span>
+                        <div class="mt-1">
+                            <x-status-badge :status="$case->case_status" />
+                        </div>
                     </td>
-                    <td><x-status-badge :status="$case->case_status" /></td>
-                    <td>{{ number_format((float) $case->total_paid, 2) }}</td>
-                    <td>{{ number_format((float) $case->balance_amount, 2) }}</td>
                     <td>
-                        <button
-                            type="button"
-                            class="table-action-link open-case-modal"
-                            data-url="{{ route('owner.cases.show', $case) }}"
-                        >View Details</button>
+                        <a
+                            href="{{ route('owner.cases.show', $case) }}"
+                            class="table-action-link"
+                        >View Details</a>
                     </td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="14" class="py-6 text-center text-slate-500">No records found.</td>
+                    <td colspan="8" class="py-6 text-center text-slate-500">No records found.</td>
                 </tr>
             @endforelse
             </tbody>

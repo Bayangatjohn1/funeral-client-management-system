@@ -11,6 +11,8 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Validation\Rule;
 
 class PaymentController extends Controller
 {
@@ -19,26 +21,35 @@ class PaymentController extends Controller
         $this->authorize('viewAny', Payment::class);
 
         $user = auth()->user();
-        $mainBranchId = $this->mainBranchIdForPayment($user);
+        $viewBranchScopeIds = $this->paymentViewBranchIds($user);
 
         $validated = $request->validate([
             'q' => ['nullable', 'string', 'max:100', "regex:/^[A-Za-z0-9\\s.'-]+$/"],
-            'payment_status' => ['nullable', 'in:PARTIAL,UNPAID'],
+            'payment_status' => ['nullable', 'in:PAID,PARTIAL,UNPAID'],
             'case_status' => ['nullable', 'in:DRAFT,ACTIVE,COMPLETED'],
             'request_date_from' => ['nullable', 'date'],
             'request_date_to' => ['nullable', 'date', 'after_or_equal:request_date_from'],
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
             'case_id' => ['nullable', 'integer', 'exists:funeral_cases,id'],
             'open_payment' => ['nullable', 'boolean'],
         ], [
             'q.regex' => 'Search may contain letters, numbers, spaces, apostrophes, periods, and hyphens only.',
         ]);
 
+        $branchScopeIds = $this->selectedPaymentBranchIds($viewBranchScopeIds, $validated['branch_id'] ?? null);
+        $mainBranchId = $branchScopeIds[0] ?? null;
+        $canRecordPayment = $user->can('create', Payment::class);
+        $branches = Branch::query()
+            ->whereIn('id', $viewBranchScopeIds)
+            ->orderBy('branch_code')
+            ->get(['id', 'branch_code', 'branch_name']);
+
         $preselectCase = null;
         if ($request->filled('case_id')) {
             $preselectCase = FuneralCase::query()
-                ->select(['id', 'branch_id', 'client_id', 'case_code'])
+                ->select(['id', 'branch_id', 'client_id', 'case_code', 'total_amount', 'total_paid', 'balance_amount'])
                 ->with(['client:id,full_name'])
-                ->where('branch_id', $mainBranchId)
+                ->whereIn('branch_id', $branchScopeIds)
                 ->find($request->integer('case_id'));
         }
 
@@ -63,7 +74,7 @@ class PaymentController extends Controller
                 'client:id,full_name',
                 'deceased:id,full_name',
             ])
-            ->where('branch_id', $mainBranchId)
+            ->whereIn('branch_id', $branchScopeIds)
             ->where('payment_status', '!=', 'PAID')
             ->where(function ($scopeQuery) {
                 $scopeQuery->where('entry_source', 'MAIN')
@@ -108,14 +119,17 @@ class PaymentController extends Controller
         return view('staff.payments.index', [
             'openCases' => $openCases,
             'mainBranchId' => $mainBranchId,
+            'branches' => $branches,
+            'selectedBranchId' => $validated['branch_id'] ?? null,
+            'canRecordPayment' => $canRecordPayment,
             'preselectCase' => $preselectCase,
-            'autoOpenPayment' => (bool) $request->boolean('open_payment'),
+            'autoOpenPayment' => $canRecordPayment && (bool) $request->boolean('open_payment'),
         ]);
     }
 
     public function void(Request $request, Payment $payment)
     {
-        $this->authorize('update', Payment::class);
+        $this->authorize('update', $payment);
 
         $validated = $request->validate([
             'reason' => ['required', 'string', 'max:255'],
@@ -156,7 +170,7 @@ class PaymentController extends Controller
                     [
                         'case_id' => $funeralCase->id,
                         'amount' => $payment->amount,
-                        'reference_no' => $payment->receipt_number,
+                        'payment_record_no' => $payment->display_payment_record_no,
                         'reason' => $reason,
                         'changes' => [
                             ['field' => 'payment_status', 'before' => $beforeStatus, 'after' => $funeralCase->payment_status],
@@ -201,99 +215,266 @@ class PaymentController extends Controller
 
     public function history(Request $request)
     {
+        if ($request->user()?->isOwner()) {
+            if (Route::has('owner.analytics')) {
+                return redirect()->route('owner.analytics');
+            }
+
+            abort(403);
+        }
+
         $this->authorize('viewAny', Payment::class);
 
         $user = auth()->user();
-        $mainBranchId = $this->mainBranchIdForPayment($user);
+        $viewBranchScopeIds = $this->paymentViewBranchIds($user);
 
         $validated = $request->validate([
             'q' => ['nullable', 'string', 'max:100', "regex:/^[A-Za-z0-9\\s.'-]+$/"],
             'paid_from' => ['nullable', 'date'],
             'paid_to' => ['nullable', 'date', 'after_or_equal:paid_from'],
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
+            'payment_status' => ['nullable', 'in:PAID,PARTIAL,UNPAID'],
+            'case_status' => ['nullable', 'in:DRAFT,ACTIVE,COMPLETED'],
+            'payment_method' => ['nullable', 'in:cash,bank_transfer'],
             'status_after_payment' => ['nullable', 'in:PAID,PARTIAL,UNPAID'],
             'sort' => ['nullable', 'in:asc,desc'],
+            'tab' => ['nullable', 'in:summary,transactions'],
         ], [
             'q.regex' => 'Search may contain letters, numbers, spaces, apostrophes, periods, and hyphens only.',
         ]);
 
+        $branchScopeIds = $this->selectedPaymentBranchIds($viewBranchScopeIds, $validated['branch_id'] ?? null);
+        $mainBranchId = $branchScopeIds[0] ?? null;
+        $selectedBranchId = count($branchScopeIds) === 1 ? $branchScopeIds[0] : ($validated['branch_id'] ?? null);
+        $branches = Branch::query()
+            ->whereIn('id', $viewBranchScopeIds)
+            ->orderBy('branch_code')
+            ->get(['id', 'branch_code', 'branch_name']);
+        $assignedBranch = count($viewBranchScopeIds) === 1 ? $branches->first() : null;
+
         $q = $validated['q'] ?? null;
         $paidFrom = $validated['paid_from'] ?? null;
         $paidTo = $validated['paid_to'] ?? null;
-        $statusAfterPayment = $validated['status_after_payment'] ?? null;
+        $currentPaymentStatus = $validated['payment_status'] ?? ($validated['status_after_payment'] ?? null);
+        $caseStatus = $validated['case_status'] ?? null;
+        $paymentMethod = $validated['payment_method'] ?? null;
         $sort = $validated['sort'] ?? 'desc';
+        $activeTab = $validated['tab'] ?? 'summary';
+        $paidFromDate = $paidFrom ? Carbon::parse($paidFrom)->startOfDay() : null;
+        $paidToDate = $paidTo ? Carbon::parse($paidTo)->endOfDay() : null;
 
-        $branchScope = function ($query) use ($mainBranchId) {
-            $query->where('branch_id', $mainBranchId)
+        $caseScope = function ($query) use ($branchScopeIds) {
+            $query->whereIn('branch_id', $branchScopeIds)
                 ->where(function ($scopeQuery) {
                     $scopeQuery->where('entry_source', 'MAIN')
                         ->orWhereNull('entry_source');
                 });
         };
 
-        $applySearch = function ($query) use ($q) {
+        $applyCaseSearch = function ($query) use ($q) {
             $query->where(function ($sub) use ($q) {
-                $sub->whereHas('funeralCase', fn ($c) => $c->where('case_code', 'like', "%{$q}%"))
-                    ->orWhereHas('funeralCase.client', fn ($c) => $c->where('full_name', 'like', "%{$q}%"))
-                    ->orWhereHas('funeralCase.deceased', fn ($c) => $c->where('full_name', 'like', "%{$q}%"));
+                $sub->where('case_code', 'like', "%{$q}%")
+                    ->orWhereHas('client', fn ($c) => $c->where('full_name', 'like', "%{$q}%"))
+                    ->orWhereHas('deceased', fn ($c) => $c->where('full_name', 'like', "%{$q}%"))
+                    ->orWhereHas('payments', function ($paymentQuery) use ($q) {
+                        $paymentQuery->where('payment_record_no', 'like', "%{$q}%")
+                            ->orWhere('receipt_number', 'like', "%{$q}%")
+                            ->orWhere('accounting_reference_no', 'like', "%{$q}%")
+                            ->orWhere('transaction_reference_no', 'like', "%{$q}%")
+                            ->orWhere('reference_number', 'like', "%{$q}%");
+                    });
             });
         };
 
-        $payments = Payment::query()
+        $applyPaymentDateRange = function ($query) use ($paidFromDate, $paidToDate) {
+            if (!$paidFromDate && !$paidToDate) {
+                return;
+            }
+
+            $query->whereHas('payments', function ($paymentQuery) use ($paidFromDate, $paidToDate) {
+                $paymentQuery
+                    ->when($paidFromDate, fn ($q) => $q->where('paid_at', '>=', $paidFromDate))
+                    ->when($paidToDate, fn ($q) => $q->where('paid_at', '<=', $paidToDate));
+            });
+        };
+
+        $caseFilter = FuneralCase::query()
+            ->where($caseScope)
+            ->has('payments')
+            ->when($q, $applyCaseSearch)
+            ->when($paidFromDate || $paidToDate, $applyPaymentDateRange)
+            ->when($currentPaymentStatus, fn ($query) => $query->where('payment_status', $currentPaymentStatus))
+            ->when($caseStatus, fn ($query) => $query->where('case_status', $caseStatus))
+            ->when($paymentMethod, function ($query) use ($paymentMethod) {
+                $query->whereHas('payments', function ($paymentQuery) use ($paymentMethod) {
+                    $paymentQuery->where(function ($methodQuery) use ($paymentMethod) {
+                        $methodQuery->where('payment_method', $paymentMethod)
+                            ->orWhere('payment_mode', $paymentMethod);
+                    });
+                });
+            });
+
+        $paymentRecordsCount = Payment::query()
+            ->whereIn('funeral_case_id', (clone $caseFilter)->select('id'))
+            ->when($paymentMethod, function ($query) use ($paymentMethod) {
+                $query->where(function ($methodQuery) use ($paymentMethod) {
+                    $methodQuery->where('payment_method', $paymentMethod)
+                        ->orWhere('payment_mode', $paymentMethod);
+                });
+            })
+            ->when($paidFromDate, fn ($query) => $query->where('paid_at', '>=', $paidFromDate))
+            ->when($paidToDate, fn ($query) => $query->where('paid_at', '<=', $paidToDate))
+            ->count();
+
+        $caseKpi = (clone $caseFilter)
+            ->selectRaw('COUNT(*) as cases_count')
+            ->selectRaw('COALESCE(SUM(total_paid), 0) as total_collected')
+            ->selectRaw('COALESCE(SUM(balance_amount), 0) as outstanding_balance')
+            ->first();
+
+        $totalCasesWithPayments = (int) ($caseKpi->cases_count ?? 0);
+        $totalCollected = (float) ($caseKpi->total_collected ?? 0);
+        $totalOutstanding = (float) ($caseKpi->outstanding_balance ?? 0);
+
+        $paymentCases = (clone $caseFilter)
             ->select([
                 'id',
-                'funeral_case_id',
                 'branch_id',
-                'receipt_number',
-                'amount',
-                'balance_after_payment',
-                'payment_status_after_payment',
-                'paid_date',
-                'paid_at',
-                'recorded_by',
+                'client_id',
+                'deceased_id',
+                'case_code',
+                'total_amount',
+                'total_paid',
+                'balance_amount',
+                'payment_status',
+                'case_status',
             ])
             ->with([
-                'funeralCase:id,branch_id,client_id,deceased_id,case_code,total_amount',
-                'funeralCase.branch:id,branch_code',
-                'funeralCase.client:id,full_name',
-                'funeralCase.deceased:id,full_name',
-                'recordedBy:id,name',
+                'branch:id,branch_code,branch_name',
+                'client:id,full_name',
+                'deceased:id,full_name',
+                'payments' => function ($query) {
+                    $query->select([
+                            'id',
+                            'funeral_case_id',
+                            'branch_id',
+                            'receipt_number',
+                            'payment_record_no',
+                            'accounting_reference_no',
+                            'payment_method',
+                            'payment_mode',
+                            'bank_or_channel',
+                            'other_bank_or_channel',
+                            'transaction_reference_no',
+                            'sender_name',
+                            'transfer_datetime',
+                            'amount',
+                            'balance_after_payment',
+                            'payment_status_after_payment',
+                            'paid_date',
+                            'paid_at',
+                            'received_by',
+                            'encoded_by',
+                            'recorded_by',
+                            'remarks',
+                        ])
+                        ->with(['recordedBy:id,name', 'encodedBy:id,name'])
+                        ->orderByDesc('paid_at')
+                        ->orderByDesc('id');
+                },
             ])
-            ->where('branch_id', $mainBranchId)
-            ->whereHas('funeralCase', $branchScope)
-            ->when($q, $applySearch)
-            ->when($paidFrom, fn ($query) => $query->whereDate('paid_at', '>=', $paidFrom))
-            ->when($paidTo, fn ($query) => $query->whereDate('paid_at', '<=', $paidTo))
-            ->when($statusAfterPayment, fn ($query) => $query->where('payment_status_after_payment', $statusAfterPayment))
-            ->orderBy('paid_at', $sort)
+            ->withCount('payments')
+            ->withMax('payments', 'paid_at')
+            ->orderBy('payments_max_paid_at', $sort)
             ->orderBy('id', $sort)
             ->paginate(20)
             ->withQueryString();
 
-        $kpiBase = Payment::query()
-            ->where('branch_id', $mainBranchId)
-            ->whereHas('funeralCase', $branchScope)
-            ->when($q, $applySearch);
+        $filteredPayments = function ($query) use ($paymentMethod, $paidFromDate, $paidToDate) {
+            $query->select([
+                    'id',
+                    'funeral_case_id',
+                    'branch_id',
+                    'receipt_number',
+                    'payment_record_no',
+                    'accounting_reference_no',
+                    'payment_method',
+                    'payment_mode',
+                    'bank_or_channel',
+                    'other_bank_or_channel',
+                    'transaction_reference_no',
+                    'reference_number',
+                    'sender_name',
+                    'transfer_datetime',
+                    'amount',
+                    'balance_after_payment',
+                    'payment_status_after_payment',
+                    'paid_date',
+                    'paid_at',
+                    'received_by',
+                    'encoded_by',
+                    'recorded_by',
+                    'remarks',
+                ])
+                ->with(['recordedBy:id,name', 'encodedBy:id,name'])
+                ->when($paymentMethod, function ($paymentQuery) use ($paymentMethod) {
+                    $paymentQuery->where(function ($methodQuery) use ($paymentMethod) {
+                        $methodQuery->where('payment_method', $paymentMethod)
+                            ->orWhere('payment_mode', $paymentMethod);
+                    });
+                })
+                ->when($paidFromDate, fn ($paymentQuery) => $paymentQuery->where('paid_at', '>=', $paidFromDate))
+                ->when($paidToDate, fn ($paymentQuery) => $paymentQuery->where('paid_at', '<=', $paidToDate))
+                ->orderByDesc('paid_at')
+                ->orderByDesc('id');
+        };
 
-        $kpi = (clone $kpiBase)
-            ->selectRaw('COALESCE(SUM(amount), 0) as total_collected')
-            ->selectRaw('COALESCE(SUM(balance_after_payment), 0) as total_outstanding')
-            ->selectRaw("SUM(CASE WHEN payment_status_after_payment = 'UNPAID' THEN 1 ELSE 0 END) as unpaid_count")
-            ->first();
-        $totalCollected   = (float) ($kpi->total_collected  ?? 0);
-        $totalOutstanding = (float) ($kpi->total_outstanding ?? 0);
-        $unpaidCount      = (int)   ($kpi->unpaid_count     ?? 0);
+        $transactionCases = (clone $caseFilter)
+            ->select([
+                'id',
+                'branch_id',
+                'client_id',
+                'deceased_id',
+                'case_code',
+                'total_amount',
+                'total_paid',
+                'balance_amount',
+                'payment_status',
+                'case_status',
+            ])
+            ->with([
+                'branch:id,branch_code,branch_name',
+                'client:id,full_name',
+                'deceased:id,full_name',
+                'payments' => $filteredPayments,
+            ])
+            ->withCount('payments')
+            ->withMax('payments', 'paid_at')
+            ->orderBy('payments_max_paid_at', $sort)
+            ->orderBy('id', $sort)
+            ->paginate(20, ['*'], 'transactions_page')
+            ->withQueryString();
 
         return view('staff.payments.history', [
-            'payments' => $payments,
+            'paymentCases' => $paymentCases,
+            'transactionCases' => $transactionCases,
             'q' => $q,
             'paidFrom' => $paidFrom,
             'paidTo' => $paidTo,
-            'statusAfterPayment' => $statusAfterPayment,
+            'statusAfterPayment' => $currentPaymentStatus,
+            'paymentStatus' => $currentPaymentStatus,
+            'caseStatus' => $caseStatus,
+            'paymentMethod' => $paymentMethod,
             'sort' => $sort,
+            'activeTab' => $activeTab,
             'mainBranchId' => $mainBranchId,
+            'branches' => $branches,
+            'assignedBranch' => $assignedBranch,
+            'selectedBranchId' => $selectedBranchId,
+            'totalCasesWithPayments' => $totalCasesWithPayments,
+            'paymentRecordsCount' => $paymentRecordsCount,
             'totalCollected' => $totalCollected,
             'totalOutstanding' => $totalOutstanding,
-            'unpaidCount' => $unpaidCount,
         ]);
     }
 
@@ -302,23 +483,30 @@ class PaymentController extends Controller
         $this->authorize('create', Payment::class);
 
         $validated = $request->validate([
-            'funeral_case_id'  => 'required|exists:funeral_cases,id',
-            'paid_at'          => 'required|date',
-            'amount_paid'      => 'required|numeric|min:0.01',
-            'payment_mode'     => 'nullable|in:cash,bank_transfer',
-            'reference_number' => 'required_if:payment_mode,bank_transfer|nullable|string|max:100',
-            'return_to_case'   => 'nullable|boolean',
-            'void'             => 'nullable|boolean',
-            'void_reason'      => 'nullable|string|max:255',
+            'funeral_case_id' => ['required', 'exists:funeral_cases,id'],
+            'paid_at' => ['required', 'date'],
+            'amount_paid' => ['required', 'numeric', 'gt:0'],
+            'payment_method' => ['required', Rule::in(['cash', 'bank_transfer'])],
+            'accounting_reference_no' => ['required', 'string', 'max:100'],
+            'received_by' => ['required', 'string', 'max:120'],
+            'bank_or_channel' => ['nullable', 'required_if:payment_method,bank_transfer', Rule::in(['BDO', 'BPI', 'Metrobank', 'Landbank', 'Security Bank', 'UnionBank', 'RCBC', 'PNB', 'China Bank', 'EastWest Bank', 'AUB', 'GCash', 'Maya', 'Other'])],
+            'other_bank_or_channel' => ['nullable', 'required_if:bank_or_channel,Other', 'string', 'max:100'],
+            'transaction_reference_no' => ['nullable', 'required_if:payment_method,bank_transfer', 'string', 'max:100'],
+            'sender_name' => ['nullable', 'string', 'max:120'],
+            'transfer_datetime' => ['nullable', 'date'],
+            'remarks' => ['nullable', 'string', 'max:1000'],
+            'return_to_case' => ['nullable', 'boolean'],
+            'void' => ['nullable', 'boolean'],
+            'void_reason' => ['nullable', 'string', 'max:255'],
         ]);
 
         try {
             DB::transaction(function () use ($validated) {
                 $user = auth()->user();
-                $mainBranchId = $this->mainBranchIdForPayment($user);
+                $branchScopeIds = $this->paymentWriteBranchIds($user);
 
                 $funeralCase = FuneralCase::whereKey($validated['funeral_case_id'])
-                    ->where('branch_id', $mainBranchId)
+                    ->whereIn('branch_id', $branchScopeIds)
                     ->where(function ($scopeQuery) {
                         $scopeQuery->where('entry_source', 'MAIN')
                             ->orWhereNull('entry_source');
@@ -341,8 +529,12 @@ class PaymentController extends Controller
                 $currentStatus = $funeralCase->payment_status;
                 $newPaid = round($currentPaid + $amountPaid, 2);
 
-                if ($newPaid > $totalDue) {
-                    $allowed = round(max($totalDue - $currentPaid, 0), 2);
+                if ($currentStatus === 'PAID' || $currentBalance <= 0) {
+                    throw new \RuntimeException('This case is already fully paid. Additional payments are blocked.');
+                }
+
+                if ($amountPaid > $currentBalance || $newPaid > $totalDue) {
+                    $allowed = round(max($currentBalance, 0), 2);
                     Log::warning('payment.overpayment_attempted', [
                         'case_id'   => $funeralCase->id,
                         'attempted' => $amountPaid,
@@ -356,25 +548,45 @@ class PaymentController extends Controller
                 $status = $newPaid <= 0 ? 'UNPAID' : ($balance > 0 ? 'PARTIAL' : 'PAID');
                 $paidAt = Carbon::parse($validated['paid_at']);
 
-                $paymentMode = $validated['payment_mode'] ?? 'cash';
+                $paymentMethod = $validated['payment_method'];
+                $isBankTransfer = $paymentMethod === 'bank_transfer';
+                $transactionReferenceNo = $isBankTransfer ? ($validated['transaction_reference_no'] ?? null) : null;
+                $bankOrChannel = $isBankTransfer ? ($validated['bank_or_channel'] ?? null) : null;
+                $otherBankOrChannel = $isBankTransfer && ($bankOrChannel === 'Other')
+                    ? ($validated['other_bank_or_channel'] ?? null)
+                    : null;
+                $transferDateTime = $isBankTransfer && !empty($validated['transfer_datetime'])
+                    ? Carbon::parse($validated['transfer_datetime'])
+                    : null;
 
                 $payment = Payment::create([
                     'funeral_case_id'  => $funeralCase->id,
                     'branch_id'        => $funeralCase->branch_id,
-                    'method'           => strtoupper($paymentMode), // mirrors payment_mode; ENUM widened in migration 400001
-                    'payment_mode'     => $paymentMode,
-                    'reference_number' => $validated['reference_number'] ?? null,
+                    'payment_record_no' => Payment::nextPaymentRecordNumber($paidAt),
+                    'accounting_reference_no' => $validated['accounting_reference_no'],
+                    'method'           => strtoupper($paymentMethod), // mirrors payment_mode; ENUM widened in migration 400001
+                    'payment_mode'     => $paymentMethod,
+                    'payment_method'   => $paymentMethod,
+                    'reference_number' => $transactionReferenceNo,
+                    'bank_or_channel'  => $bankOrChannel,
+                    'other_bank_or_channel' => $otherBankOrChannel,
+                    'transaction_reference_no' => $transactionReferenceNo,
+                    'sender_name'      => $isBankTransfer ? ($validated['sender_name'] ?? null) : null,
+                    'transfer_datetime' => $transferDateTime,
                     'amount'           => $amountPaid,
                     'balance_after_payment'        => $balance,
                     'payment_status_after_payment' => $status,
                     'paid_date'    => $paidAt->toDateString(),
                     'paid_at'      => $paidAt,
+                    'received_by'  => $validated['received_by'],
+                    'encoded_by'   => $user->id,
                     'recorded_by'  => $user->id,
+                    'remarks'      => $validated['remarks'] ?? null,
                     'status'       => 'VALID',
                 ]);
 
                 $payment->update([
-                    'receipt_number' => Payment::buildReceiptNumber($payment->id, $paidAt),
+                    'receipt_number' => $payment->payment_record_no,
                 ]);
 
                 $funeralCase->update([
@@ -392,7 +604,9 @@ class PaymentController extends Controller
                     [
                         'case_id' => $funeralCase->id,
                         'amount' => $amountPaid,
-                        'receipt_number' => $payment->receipt_number,
+                        'payment_record_no' => $payment->payment_record_no,
+                        'accounting_reference_no' => $payment->accounting_reference_no,
+                        'payment_method' => $payment->payment_method,
                         'payment_status_after' => $status,
                         'entry_source' => $funeralCase->entry_source,
                         'changes' => [
@@ -443,12 +657,54 @@ class PaymentController extends Controller
         return redirect()->route('payments.index')->with('success', 'Payment recorded successfully.');
     }
 
-    private function mainBranchIdForPayment($user): int
+    private function paymentViewBranchIds($user): array
     {
-        if (!$user || !$user->branch_id) {
+        if (!$user) {
             abort(403);
         }
 
-        return (int) $user->branch_id;
+        if (($user->role ?? null) === 'owner' || (method_exists($user, 'isMainAdmin') && $user->isMainAdmin())) {
+            $ids = Branch::query()
+                ->where('is_active', true)
+                ->pluck('id')
+                ->all();
+        } else {
+            $ids = array_filter([(int) ($user->branch_id ?? 0)]);
+        }
+
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+
+        if ($ids === []) {
+            abort(403);
+        }
+
+        return $ids;
+    }
+
+    private function paymentWriteBranchIds($user): array
+    {
+        if (!$user || ($user->role ?? null) !== 'staff' || !$user->branch_id) {
+            abort(403);
+        }
+
+        return [(int) $user->branch_id];
+    }
+
+    private function selectedPaymentBranchIds(array $viewBranchScopeIds, mixed $selectedBranchId): array
+    {
+        if (count($viewBranchScopeIds) === 1) {
+            return array_values($viewBranchScopeIds);
+        }
+
+        if (!$selectedBranchId) {
+            return $viewBranchScopeIds;
+        }
+
+        $selected = (int) $selectedBranchId;
+        if (!in_array($selected, $viewBranchScopeIds, true)) {
+            abort(403, 'Branch is outside your payment monitoring scope.');
+        }
+
+        return [$selected];
     }
 }

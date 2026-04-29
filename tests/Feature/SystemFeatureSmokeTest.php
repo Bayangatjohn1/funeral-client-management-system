@@ -57,7 +57,7 @@ class SystemFeatureSmokeTest extends TestCase
         $this->actingAs($admin)
             ->post('/admin/users', [
                 'name' => 'Staff One',
-                'email' => 'staff.one@example.com',
+                'email' => 'staff.one@gmail.com',
                 'password' => 'secret123',
                 'role' => 'staff',
                 'branch_id' => $mainBranch->id,
@@ -66,7 +66,7 @@ class SystemFeatureSmokeTest extends TestCase
             ->assertRedirect(route('admin.users.index', absolute: false));
 
         $this->assertDatabaseHas('users', [
-            'email' => 'staff.one@example.com',
+            'email' => 'staff.one@gmail.com',
             'role' => 'staff',
             'branch_id' => $mainBranch->id,
         ]);
@@ -104,10 +104,13 @@ class SystemFeatureSmokeTest extends TestCase
 
         $this->actingAs($staff)
             ->post('/payments/pay', [
-                'funeral_case_id' => $case->id,
-                'paid_at' => now()->format('Y-m-d H:i:s'),
-                'amount_paid' => (float) $case->total_amount,
-            ])
+                  'funeral_case_id' => $case->id,
+                  'paid_at' => now()->format('Y-m-d H:i:s'),
+                  'amount_paid' => (float) $case->total_amount,
+                  'payment_method' => 'cash',
+                  'accounting_reference_no' => 'OR-SMOKE-001',
+                  'received_by' => 'Accounting Staff',
+              ])
             ->assertRedirect(route('payments.index', absolute: false));
 
         $case->refresh();
@@ -156,15 +159,28 @@ class SystemFeatureSmokeTest extends TestCase
             'encoded_by' => $owner->id,
         ]);
 
-        $this->actingAs($owner)->get('/owner')->assertOk();
+        $this->actingAs($owner)
+            ->get('/owner')
+            ->assertOk()
+            ->assertDontSee('Payment Monitoring');
         $this->actingAs($owner)->get('/owner/branch-analytics')->assertOk();
         $this->actingAs($owner)->get('/owner/case-history')->assertOk();
-        $this->actingAs($owner)->get('/owner/sales-per-branch')->assertOk();
+        $this->actingAs($owner)
+            ->get('/payments/history')
+            ->assertRedirect(route('owner.analytics', absolute: false));
+        $this->actingAs($owner)
+            ->get('/admin/payments')
+            ->assertRedirect(route('owner.analytics', absolute: false));
+        $this->actingAs($owner)
+            ->get('/admin/payment-monitoring')
+            ->assertRedirect(route('owner.analytics', absolute: false));
+        $this->actingAs($owner)
+            ->get('/owner/sales-per-branch')
+            ->assertRedirect(route('reports.index', ['report_type' => 'owner_branch_analytics'], absolute: false));
         $this->actingAs($owner)->get("/owner/cases/{$case->id}")->assertOk();
 
         $export = $this->actingAs($owner)->get('/owner/sales-per-branch/export');
-        $export->assertOk();
-        $export->assertHeader('content-type', 'text/csv; charset=UTF-8');
+        $export->assertRedirect(route('reports.exportCsv', ['report_type' => 'owner_branch_analytics'], absolute: false));
     }
 
     public function test_other_branch_report_access_depends_on_staff_scope(): void

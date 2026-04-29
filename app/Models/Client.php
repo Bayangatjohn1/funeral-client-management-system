@@ -24,6 +24,9 @@ class Client extends Model
         'relationship',           // canonical short name (Phase 1+)
         'relationship_to_deceased', // legacy name (preserved)
         'contact_number',
+        'email',
+        'valid_id_type',
+        'valid_id_number',
         'address',
     ];
 

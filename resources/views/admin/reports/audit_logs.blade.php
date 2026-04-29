@@ -199,8 +199,10 @@
                                                             'entry_source' => 'Entry Source',
                                                             'package_id' => 'Package ID',
                                                             'amount' => 'Amount',
-                                                            'receipt_number' => 'Receipt No.',
-                                                            'reference_no' => 'Reference No.',
+                                                            'receipt_number' => 'Payment Record No.',
+                                                            'payment_record_no' => 'Payment Record No.',
+                                                            'reference_no' => 'Accounting Reference No.',
+                                                            'accounting_reference_no' => 'Accounting Reference No.',
                                                             'reason' => 'Reason',
                                                         ];
                                                         $label = $labelMap[$key] ?? Str::headline(str_replace('_', ' ', $key));

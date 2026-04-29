@@ -134,6 +134,8 @@ class SystemRegressionGuardsTest extends TestCase
 
     public function test_other_branch_intake_redirects_back_to_other_branch_reports(): void
     {
+        $this->travelTo(now()->setTime(10, 0));
+
         $mainBranch = $this->createBranch('BR001', 'Main Branch');
         $otherBranch = $this->createBranch('BR002', 'Other Branch');
         $staff = $this->createUser('staff', $mainBranch, true);
@@ -146,6 +148,7 @@ class SystemRegressionGuardsTest extends TestCase
             'client_address' => 'Other Branch Address',
             'deceased_name' => 'External Deceased',
             'deceased_address' => 'Other Branch Address',
+            'born' => now()->subYears(50)->toDateString(),
             'died' => now()->subDay()->toDateString(),
             'reported_at' => now()->format('Y-m-d H:i:s'),
             'reporter_name' => 'Branch Reporter',
@@ -248,6 +251,192 @@ class SystemRegressionGuardsTest extends TestCase
             ->get('/payments/history?q=' . urlencode("O'Neil"))
             ->assertOk()
             ->assertSee("Maria P. O'Neil");
+    }
+
+    public function test_branch_admin_payment_monitoring_forces_assigned_branch_scope(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $branchTwo = $this->createBranch('BR002', 'Branch Two');
+        $package = $this->createPackage();
+
+        $mainClient = $this->createClient($mainBranch, 'Main Payment Client');
+        $mainDeceased = $this->createDeceased($mainBranch, $mainClient, 'Main Payment Deceased');
+        $mainCase = $this->createCase($mainBranch, $mainClient, $mainDeceased, $package, [
+            'case_code' => 'PAY-MAIN-001',
+            'payment_status' => 'PAID',
+            'total_paid' => 20000,
+            'balance_amount' => 0,
+        ]);
+
+        $branchClient = $this->createClient($branchTwo, 'Branch Two Payment Client');
+        $branchDeceased = $this->createDeceased($branchTwo, $branchClient, 'Branch Two Payment Deceased');
+        $branchCase = $this->createCase($branchTwo, $branchClient, $branchDeceased, $package, [
+            'case_code' => 'PAY-BR002-001',
+            'payment_status' => 'PARTIAL',
+            'total_paid' => 5000,
+            'balance_amount' => 15000,
+        ]);
+
+        Payment::create([
+            'payment_record_no' => 'PAY-2026-000101',
+            'accounting_reference_no' => 'ACCT-MAIN-001',
+            'funeral_case_id' => $mainCase->id,
+            'branch_id' => $mainBranch->id,
+            'method' => 'CASH',
+            'payment_method' => 'cash',
+            'amount' => 20000,
+            'balance_after_payment' => 0,
+            'payment_status_after_payment' => 'PAID',
+            'paid_date' => now()->toDateString(),
+            'paid_at' => now(),
+        ]);
+
+        Payment::create([
+            'payment_record_no' => 'PAY-2026-000102',
+            'accounting_reference_no' => 'ACCT-BR002-001',
+            'funeral_case_id' => $branchCase->id,
+            'branch_id' => $branchTwo->id,
+            'method' => 'CASH',
+            'payment_method' => 'cash',
+            'amount' => 5000,
+            'balance_after_payment' => 15000,
+            'payment_status_after_payment' => 'PARTIAL',
+            'paid_date' => now()->toDateString(),
+            'paid_at' => now(),
+        ]);
+
+        $branchAdmin = User::factory()->create([
+            'role' => 'admin',
+            'admin_scope' => 'branch',
+            'branch_id' => $branchTwo->id,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($branchAdmin)
+            ->get('/payments/history?branch_id=' . $mainBranch->id)
+            ->assertOk()
+            ->assertSee('Assigned Branch: BR002 - Branch Two')
+            ->assertSee('PAY-BR002-001')
+            ->assertDontSee('PAY-MAIN-001')
+            ->assertDontSee('All Branches')
+            ->assertDontSee('Add Payment');
+    }
+
+    public function test_main_admin_payment_monitoring_can_filter_all_branches(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $branchTwo = $this->createBranch('BR002', 'Branch Two');
+        $admin = $this->createUser('admin', $mainBranch);
+        $package = $this->createPackage();
+
+        $mainClient = $this->createClient($mainBranch, 'Main Admin Client');
+        $mainDeceased = $this->createDeceased($mainBranch, $mainClient, 'Main Admin Deceased');
+        $mainCase = $this->createCase($mainBranch, $mainClient, $mainDeceased, $package, [
+            'case_code' => 'ADMIN-MAIN-001',
+            'payment_status' => 'PAID',
+            'total_paid' => 20000,
+            'balance_amount' => 0,
+        ]);
+
+        $branchClient = $this->createClient($branchTwo, 'Branch Admin Client');
+        $branchDeceased = $this->createDeceased($branchTwo, $branchClient, 'Branch Admin Deceased');
+        $branchCase = $this->createCase($branchTwo, $branchClient, $branchDeceased, $package, [
+            'case_code' => 'ADMIN-BR002-001',
+            'payment_status' => 'PAID',
+            'total_paid' => 20000,
+            'balance_amount' => 0,
+        ]);
+
+        foreach ([[$mainCase, $mainBranch, 'PAY-2026-000201'], [$branchCase, $branchTwo, 'PAY-2026-000202']] as [$case, $branch, $recordNo]) {
+            Payment::create([
+                'payment_record_no' => $recordNo,
+                'accounting_reference_no' => $recordNo . '-ACCT',
+                'funeral_case_id' => $case->id,
+                'branch_id' => $branch->id,
+                'method' => 'CASH',
+                'payment_method' => 'cash',
+                'amount' => 20000,
+                'balance_after_payment' => 0,
+                'payment_status_after_payment' => 'PAID',
+                'paid_date' => now()->toDateString(),
+                'paid_at' => now(),
+            ]);
+        }
+
+        $this->actingAs($admin)
+            ->get('/admin/payments')
+            ->assertOk()
+            ->assertSee('All Branches')
+            ->assertSee('ADMIN-MAIN-001')
+            ->assertSee('ADMIN-BR002-001')
+            ->assertDontSee('Add Payment');
+
+        $this->actingAs($admin)
+            ->get('/admin/payments?branch_id=' . $branchTwo->id)
+            ->assertOk()
+            ->assertSee('ADMIN-BR002-001')
+            ->assertViewHas('paymentCases', function ($cases) {
+                return $cases->pluck('case_code')->contains('ADMIN-BR002-001')
+                    && ! $cases->pluck('case_code')->contains('ADMIN-MAIN-001');
+            });
+    }
+
+    public function test_transaction_history_groups_multiple_payments_under_one_case(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $staff = $this->createUser('staff', $mainBranch, true);
+        $package = $this->createPackage();
+        $client = $this->createClient($mainBranch, 'Grouped Payment Client');
+        $deceased = $this->createDeceased($mainBranch, $client, 'Grouped Payment Deceased');
+        $case = $this->createCase($mainBranch, $client, $deceased, $package, [
+            'case_code' => 'FC0003',
+            'total_amount' => 250000,
+            'total_paid' => 250000,
+            'balance_amount' => 0,
+            'payment_status' => 'PAID',
+        ]);
+
+        foreach ([50000, 20000, 10000, 170000] as $index => $amount) {
+            $isFinal = $index === 3;
+            Payment::create([
+                'payment_record_no' => 'PAY-2026-00030' . ($index + 1),
+                'accounting_reference_no' => 'ACCT-FC0003-' . ($index + 1),
+                'funeral_case_id' => $case->id,
+                'branch_id' => $mainBranch->id,
+                'method' => 'CASH',
+                'payment_method' => 'cash',
+                'amount' => $amount,
+                'balance_after_payment' => $isFinal ? 0 : 250000 - array_sum(array_slice([50000, 20000, 10000, 170000], 0, $index + 1)),
+                'payment_status_after_payment' => $isFinal ? 'PAID' : 'PARTIAL',
+                'paid_date' => now()->subDays(3 - $index)->toDateString(),
+                'paid_at' => now()->subDays(3 - $index),
+                'received_by' => 'Accounting Staff',
+                'recorded_by' => $staff->id,
+                'encoded_by' => $staff->id,
+            ]);
+        }
+
+        $this->actingAs($staff)
+            ->get('/payments/history?tab=transactions')
+            ->assertOk()
+            ->assertViewHas('transactionCases', function ($cases) {
+                return $cases->total() === 1
+                    && $cases->first()?->case_code === 'FC0003'
+                    && $cases->first()?->payments->count() === 4;
+            })
+            ->assertSee('View Full Transactions')
+            ->assertSee('PAY-2026-000301')
+            ->assertSee('PAY-2026-000304');
+
+        $this->actingAs($staff)
+            ->get('/payments/history?tab=transactions&payment_status=PAID')
+            ->assertOk()
+            ->assertViewHas('transactionCases', fn ($cases) => $cases->pluck('case_code')->contains('FC0003'));
+
+        $this->actingAs($staff)
+            ->get('/payments/history?tab=transactions&payment_status=PARTIAL')
+            ->assertOk()
+            ->assertViewHas('transactionCases', fn ($cases) => ! $cases->pluck('case_code')->contains('FC0003'));
     }
 
     public function test_admin_master_cases_search_accepts_name_punctuation(): void
@@ -495,6 +684,9 @@ class SystemRegressionGuardsTest extends TestCase
                 'funeral_case_id' => $case->id,
                 'paid_at' => now()->format('Y-m-d H:i:s'),
                 'amount_paid' => 10000,
+                'payment_method' => 'cash',
+                'accounting_reference_no' => 'OR-CASE-001',
+                'received_by' => 'Accounting Staff',
                 'return_to_case' => 1,
             ])
             ->assertRedirect(route('funeral-cases.show', $case, absolute: false));
@@ -507,6 +699,7 @@ class SystemRegressionGuardsTest extends TestCase
         $payment = Payment::query()->latest('id')->first();
         $this->assertNotNull($payment);
         $this->assertSame($case->id, $payment->funeral_case_id);
+        $this->assertNotNull($payment->payment_record_no);
         $this->assertNotNull($payment->receipt_number);
         $this->assertSame('PARTIAL', $payment->payment_status_after_payment);
         $this->assertEquals(5000.0, (float) $payment->balance_after_payment);

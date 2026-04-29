@@ -61,22 +61,18 @@ class BranchController extends Controller
 
     public function store(Request $request)
     {
-        $request->merge([
-            'branch_name' => $this->normalizeBranchName((string) $request->input('branch_name')),
-        ]);
+        $this->trimBranchInput($request);
 
-        $validated = $request->validate([
-            'branch_name' => ['required', 'string', 'max:255', 'regex:/^[A-Za-z][A-Za-z\s\'.&-]*$/'],
-            'address' => 'nullable|string|max:255',
-            'is_active' => 'boolean',
-        ], [
-            'branch_name.regex' => 'Branch name must contain letters only (no numbers).',
+        $validated = $request->validate($this->branchValidationRules(), $this->branchValidationMessages());
+
+        $request->merge([
+            'branch_name' => $this->normalizeBranchName((string) $validated['branch_name']),
         ]);
 
         $branch = Branch::create([
             'branch_code' => $this->nextBranchCode(),
-            'branch_name' => $validated['branch_name'],
-            'address' => $validated['address'] ?? null,
+            'branch_name' => $request->input('branch_name'),
+            'address' => $validated['address'],
             'is_active' => $request->boolean('is_active'),
         ]);
 
@@ -94,6 +90,11 @@ class BranchController extends Controller
             branchId: $branch->id
         );
 
+        $returnTo = $request->input('return_to');
+        if ($returnTo) {
+            return redirect()->to($returnTo)->with('success', 'Branch created successfully.');
+        }
+
         return redirect()->route('admin.branches.index')->with('success', 'Branch created successfully.');
     }
 
@@ -104,16 +105,12 @@ class BranchController extends Controller
 
     public function update(Request $request, Branch $branch)
     {
-        $request->merge([
-            'branch_name' => $this->normalizeBranchName((string) $request->input('branch_name')),
-        ]);
+        $this->trimBranchInput($request);
 
-        $validated = $request->validate([
-            'branch_name' => ['required', 'string', 'max:255', 'regex:/^[A-Za-z][A-Za-z\s\'.&-]*$/'],
-            'address' => 'nullable|string|max:255',
-            'is_active' => 'boolean',
-        ], [
-            'branch_name.regex' => 'Branch name must contain letters only (no numbers).',
+        $validated = $request->validate($this->branchValidationRules(), $this->branchValidationMessages());
+
+        $request->merge([
+            'branch_name' => $this->normalizeBranchName((string) $validated['branch_name']),
         ]);
 
         if ($this->isProtectedMainBranch($branch) && !$request->boolean('is_active')) {
@@ -129,8 +126,8 @@ class BranchController extends Controller
         ];
 
         $branch->update([
-            'branch_name' => $validated['branch_name'],
-            'address' => $validated['address'] ?? null,
+            'branch_name' => $request->input('branch_name'),
+            'address' => $validated['address'],
             'is_active' => $request->boolean('is_active'),
         ]);
 
@@ -150,6 +147,11 @@ class BranchController extends Controller
             ],
             branchId: $branch->id
         );
+
+        $returnTo = $request->input('return_to');
+        if ($returnTo) {
+            return redirect()->to($returnTo)->with('success', 'Branch updated successfully.');
+        }
 
         return redirect()->route('admin.branches.index')->with('success', 'Branch updated successfully.');
     }
@@ -208,5 +210,42 @@ class BranchController extends Controller
         $name = preg_replace('/\d+/', '', $name);
         $name = preg_replace('/\s+/', ' ', (string) $name);
         return trim((string) $name);
+    }
+
+    private function branchValidationRules(): array
+    {
+        return [
+            'branch_name' => ['required', 'string', 'max:255', 'regex:/^[\pL\pM][\pL\pM\s\'.&-]*$/u'],
+            'address' => ['required', 'string', 'max:255', $this->validBranchAddressRule()],
+            'is_active' => 'boolean',
+        ];
+    }
+
+    private function branchValidationMessages(): array
+    {
+        return [
+            'branch_name.required' => 'Branch name is required.',
+            'branch_name.regex' => 'Branch name must contain letters only.',
+            'address.required' => 'Address is required.',
+        ];
+    }
+
+    private function trimBranchInput(Request $request): void
+    {
+        $request->merge([
+            'branch_name' => trim(preg_replace('/\s+/', ' ', (string) $request->input('branch_name'))),
+            'address' => trim(preg_replace('/\s+/', ' ', (string) $request->input('address'))),
+        ]);
+    }
+
+    private function validBranchAddressRule(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail): void {
+            $value = trim((string) $value);
+
+            if ($value === '' || ! preg_match('/[\pL\pM]/u', $value) || preg_match('/^\d+$/', $value)) {
+                $fail('Address must include a valid place name.');
+            }
+        };
     }
 }

@@ -323,18 +323,20 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff_or_admin', 'branch.scope
     Route::get('intake/other', [IntakeController::class, 'createOther'])->name('intake.other.create');
     Route::post('intake/other', [IntakeController::class, 'storeOther'])->name('intake.other.store');
     Route::resource('clients', ClientController::class)->except(['create', 'store', 'destroy']);
-    Route::get('deceased', function () {
-        return redirect()->route('clients.index');
-    })->name('deceased.index');
+    Route::get('deceased', [DeceasedController::class, 'index'])->name('deceased.index');
     Route::resource('deceased', DeceasedController::class)->only(['edit', 'update', 'show']);
     Route::resource('funeral-cases', FuneralCaseController::class);
     Route::get('completed-cases', [FuneralCaseController::class, 'completedIndex'])->name('funeral-cases.completed');
     Route::get('other-branch-reports', [FuneralCaseController::class, 'otherReportsIndex'])->name('funeral-cases.other-reports');
+    Route::get('reminders', [ReminderController::class, 'index'])->name('staff.reminders.index');
+});
+
+Route::middleware(['auth', 'no_cache', 'active'])->get('payments/history', [PaymentController::class, 'history'])->name('payments.history');
+
+Route::middleware(['auth', 'no_cache', 'active', 'branch.scope'])->group(function () {
     Route::get('payments', [PaymentController::class, 'index'])->name('payments.index');
-    Route::get('payments/history', [PaymentController::class, 'history'])->name('payments.history');
     Route::post('payments/pay', [PaymentController::class, 'store'])->name('payments.store');
     Route::post('payments/{payment}/void', [PaymentController::class, 'void'])->name('payments.void');
-    Route::get('reminders', [ReminderController::class, 'index'])->name('staff.reminders.index');
 });
 
 Route::middleware(['auth', 'no_cache', 'active', 'main_admin'])->prefix('admin')->group(function () {
@@ -375,6 +377,8 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->pref
     // Monitoring
     Route::get('/cases', [AdminReportController::class, 'masterCases'])->name('admin.cases.index');
     Route::patch('/cases/{funeral_case}/verification', [AdminReportController::class, 'updateVerification'])->name('admin.cases.verification');
+    Route::get('/payments', [PaymentController::class, 'history'])->name('admin.payments.index');
+    Route::get('/payment-monitoring', [PaymentController::class, 'history'])->name('admin.payment-monitoring');
     Route::get('/reports/sales', [AdminReportController::class, 'sales'])->name('admin.reports.sales');
     Route::get('/reminders', [ReminderController::class, 'index'])->name('admin.reminders.index');
 });

@@ -41,6 +41,69 @@
         padding: 20px var(--panel-content-inline);
     }
 
+    .payments-filter-shell {
+        padding: 12px var(--panel-content-inline);
+        background: var(--card);
+    }
+
+    .payments-filter-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .payments-filter-toolbar .table-toolbar-field {
+        gap: 0;
+        min-width: 10rem;
+    }
+
+    .payments-filter-toolbar .payments-filter-search {
+        flex: 1 1 20rem;
+        min-width: min(100%, 18rem);
+    }
+
+    .payments-filter-toolbar .payments-filter-date {
+        min-width: 10.75rem;
+    }
+
+    .payments-filter-toolbar .table-toolbar-label {
+        display: none;
+    }
+
+    .payments-filter-toolbar .table-toolbar-search,
+    .payments-filter-toolbar .table-toolbar-select {
+        width: 100%;
+        min-height: 2.75rem;
+        height: 2.75rem;
+        border: 1px solid var(--border);
+        border-radius: 0.75rem;
+        background: var(--card);
+        color: var(--ink);
+        font-size: 0.875rem;
+        box-shadow: none;
+    }
+
+    .payments-filter-toolbar .table-toolbar-search:focus,
+    .payments-filter-toolbar .table-toolbar-select:focus {
+        border-color: var(--accent);
+        box-shadow: var(--shadow-focus);
+    }
+
+    .payments-filter-toolbar .payments-filter-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    .payments-filter-toolbar .payments-filter-actions .btn-secondary,
+    .payments-filter-toolbar .payments-filter-actions .btn-outline {
+        min-height: 2.75rem;
+        border-radius: 0.75rem;
+        white-space: nowrap;
+    }
+
     .payments-unified-card .list-card {
         border-top: 1px solid var(--border);
         display: flex;
@@ -114,10 +177,27 @@
             width: 100%;
             justify-content: center;
         }
+
+        .payments-filter-toolbar,
+        .payments-filter-toolbar .table-toolbar-field,
+        .payments-filter-toolbar .payments-filter-actions,
+        .payments-filter-toolbar .payments-filter-actions .btn-secondary,
+        .payments-filter-toolbar .payments-filter-actions .btn-outline {
+            width: 100%;
+        }
     }
 </style>
 
 <div class="payments-page">
+@php
+    $paymentDateRange = request('date_range', 'any');
+    $usesPaymentCustomDate = $paymentDateRange === 'custom'
+        || (!request()->filled('date_range') && (request()->filled('request_date_from') || request()->filled('request_date_to')));
+    if ($usesPaymentCustomDate) {
+        $paymentDateRange = 'custom';
+    }
+@endphp
+
 @if(session('success'))
     <div class="flash-success">
         {{ session('success') }}
@@ -130,6 +210,7 @@
     </div>
 @endif
 
+@if($canRecordPayment ?? false)
 <div id="paymentFormModal" class="fixed inset-0 z-40 hidden panel-overlay-content">
     <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" id="paymentFormBackdrop"></div>
     <div class="payment-modal-viewport">
@@ -141,7 +222,7 @@
                     </div>
                     <div>
                         <div class="text-sm font-bold" style="color:var(--ink)">Record Payment</div>
-                        <div class="text-xs mt-0.5" style="color:var(--ink-muted)">Log a cash payment against an open case</div>
+                        <div class="text-xs mt-0.5" style="color:var(--ink-muted)">Log payment details from accounting reference.</div>
                     </div>
                 </div>
                 <button type="button" id="closePaymentFormTop" class="inline-flex items-center justify-center w-9 h-9 rounded-xl transition-colors focus:outline-none shadow-sm" style="background:var(--card);border:1px solid var(--border);color:var(--ink-muted)">
@@ -154,32 +235,102 @@
         </div>
     </div>
 </div>
+@endif
 
 <div class="payments-unified-card">
-    <div class="filter-panel">
-        <form method="GET" action="{{ route('payments.index') }}" class="space-y-4">
-            <div class="filter-grid">
-                <input name="q" value="{{ request('q') }}" class="form-input w-full md:w-[22rem]" placeholder="Search case, client, or deceased..." onchange="this.form.submit()">
+    <div class="payments-filter-shell table-system-toolbar">
+        <form id="paymentRecordingFilterForm" method="GET" action="{{ route('payments.index') }}" class="payments-filter-toolbar" data-table-toolbar data-search-debounce="400">
+            <div class="table-toolbar-field payments-filter-search">
+                <label for="payment-filter-q" class="table-toolbar-label">Search</label>
+                <input
+                    id="payment-filter-q"
+                    name="q"
+                    value="{{ request('q') }}"
+                    class="form-input table-toolbar-search"
+                    data-table-search
+                    placeholder="Search case, client, or deceased..."
+                >
+            </div>
 
-                <select name="payment_status" class="form-select w-full md:w-44" onchange="this.form.submit()">
+            <div class="table-toolbar-field">
+                <label for="payment-status-filter" class="table-toolbar-label">Payment Status</label>
+                <select id="payment-status-filter" name="payment_status" class="form-select table-toolbar-select" data-table-auto-submit>
                     <option value="">All Payment Status</option>
                     <option value="UNPAID" {{ request('payment_status') === 'UNPAID' ? 'selected' : '' }}>Unpaid</option>
                     <option value="PARTIAL" {{ request('payment_status') === 'PARTIAL' ? 'selected' : '' }}>Partial</option>
+                    <option value="PAID" {{ request('payment_status') === 'PAID' ? 'selected' : '' }}>Paid</option>
                 </select>
+            </div>
 
-                <select name="case_status" class="form-select w-full md:w-44" onchange="this.form.submit()">
+            <div class="table-toolbar-field">
+                <label for="case-status-filter" class="table-toolbar-label">Case Status</label>
+                <select id="case-status-filter" name="case_status" class="form-select table-toolbar-select" data-table-auto-submit>
                     <option value="">All Case Status</option>
                     <option value="DRAFT" {{ request('case_status') === 'DRAFT' ? 'selected' : '' }}>Draft</option>
                     <option value="ACTIVE" {{ request('case_status') === 'ACTIVE' ? 'selected' : '' }}>Active</option>
                     <option value="COMPLETED" {{ request('case_status') === 'COMPLETED' ? 'selected' : '' }}>Completed</option>
                 </select>
-
-                <input type="date" name="request_date_from" value="{{ request('request_date_from') }}" class="form-input w-full md:w-44" title="Request date from" onchange="this.form.submit()">
-                <input type="date" name="request_date_to" value="{{ request('request_date_to') }}" class="form-input w-full md:w-44" title="Request date to" onchange="this.form.submit()">
             </div>
 
-            <div class="filter-actions">
-                <a href="{{ route('payments.index') }}" class="btn-outline">Reset</a>
+            @if(($branches ?? collect())->count() > 1)
+                <div class="table-toolbar-field">
+                    <label for="payment-branch-filter" class="table-toolbar-label">Branch</label>
+                    <select id="payment-branch-filter" name="branch_id" class="form-select table-toolbar-select" data-table-auto-submit>
+                        <option value="">All Branches</option>
+                        @foreach($branches as $branch)
+                            <option value="{{ $branch->id }}" {{ (string) ($selectedBranchId ?? '') === (string) $branch->id ? 'selected' : '' }}>
+                                {{ $branch->branch_code }} - {{ $branch->branch_name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
+
+            <div class="table-toolbar-field">
+                <label for="payment-date-range" class="table-toolbar-label">Service Date</label>
+                <select id="payment-date-range" name="date_range" class="form-select table-toolbar-select" data-payment-date-range>
+                    <option value="any" @selected($paymentDateRange === 'any')>Any Service Date</option>
+                    <option value="custom" @selected($paymentDateRange === 'custom')>Custom Range</option>
+                </select>
+            </div>
+
+            <div class="table-toolbar-field payments-filter-date" data-payment-custom-date-field @if(!$usesPaymentCustomDate) hidden @endif>
+                <label for="payment-service-date-from" class="table-toolbar-label">Service Date From</label>
+                <input
+                    id="payment-service-date-from"
+                    type="date"
+                    name="request_date_from"
+                    value="{{ request('request_date_from') }}"
+                    class="form-input table-toolbar-select"
+                    title="Service Date From"
+                    data-payment-custom-date-input
+                    @if(!$usesPaymentCustomDate) disabled @endif
+                >
+            </div>
+
+            <div class="table-toolbar-field payments-filter-date" data-payment-custom-date-field @if(!$usesPaymentCustomDate) hidden @endif>
+                <label for="payment-service-date-to" class="table-toolbar-label">Service Date To</label>
+                <input
+                    id="payment-service-date-to"
+                    type="date"
+                    name="request_date_to"
+                    value="{{ request('request_date_to') }}"
+                    class="form-input table-toolbar-select"
+                    title="Service Date To"
+                    data-payment-custom-date-input
+                    @if(!$usesPaymentCustomDate) disabled @endif
+                >
+            </div>
+
+            <div class="payments-filter-actions">
+                <button type="submit" class="btn-secondary">
+                    <i class="bi bi-search"></i>
+                    <span>Search</span>
+                </button>
+                <a href="{{ route('payments.index') }}" class="btn-outline btn-filter-reset">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                    <span>Reset</span>
+                </a>
             </div>
         </form>
     </div>
@@ -188,14 +339,22 @@
         <div class="list-card-header">
             <div>
                 <div class="list-card-title">Open Cases</div>
-                <div class="list-card-copy">Click any row to record a payment, or use the button to open the form manually.</div>
+                <div class="list-card-copy">
+                    @if($canRecordPayment ?? false)
+                        Click any row to record a payment, or use the button to open the form manually.
+                    @else
+                        Review cases with remaining balances. Payment recording is limited to assigned staff.
+                    @endif
+                </div>
             </div>
-            <div>
-                <button id="openPaymentForm" type="button" class="payments-record-action">
-                    <i class="bi bi-cash-stack text-base"></i>
-                    Record Payment
-                </button>
-            </div>
+            @if($canRecordPayment ?? false)
+                <div>
+                    <button id="openPaymentForm" type="button" class="payments-record-action">
+                        <i class="bi bi-cash-stack text-base"></i>
+                        Record Payment
+                    </button>
+                </div>
+            @endif
         </div>
 
         <div class="table-wrapper rounded-none border-0">
@@ -215,7 +374,10 @@
                 </thead>
                 <tbody>
                 @forelse($openCases as $case)
-                    <tr data-open-payment-case="{{ $case->id }}" title="Click to record payment for this case" class="hover:bg-slate-50 transition-colors cursor-pointer">
+                    <tr
+                        @if($canRecordPayment ?? false) data-open-payment-case="{{ $case->id }}" title="Click to record payment for this case" @endif
+                        class="hover:bg-slate-50 transition-colors {{ ($canRecordPayment ?? false) ? 'cursor-pointer' : '' }}"
+                    >
                         <td class="font-mono font-bold text-slate-800">{{ $case->case_code }}</td>
                         <td>{{ $case->client?->full_name ?? '-' }}</td>
                         <td>{{ $case->deceased?->full_name ?? '-' }}</td>
@@ -251,15 +413,45 @@
         </div>
 
         <div class="payments-meta-section">
-            <div class="list-card-title mb-2">Payment History</div>
-            <div class="list-card-copy">Payment history is on a separate page with its own date and status filters.</div>
-            <a href="{{ route('payments.history') }}" class="btn-outline mt-4 inline-flex">Open Payment History</a>
+            <div class="list-card-title mb-2">Payment Monitoring</div>
+            <div class="list-card-copy">Payment monitoring is on a separate page with case summaries and transaction filters.</div>
+            <a href="{{ route('payments.history') }}" class="btn-outline mt-4 inline-flex">Open Payment Monitoring</a>
         </div>
     </div>
 </div>
 
 <script>
 (function () {
+    const filterForm = document.getElementById('paymentRecordingFilterForm');
+    if (filterForm) {
+        const dateRange = filterForm.querySelector('[data-payment-date-range]');
+        const customDateFields = filterForm.querySelectorAll('[data-payment-custom-date-field]');
+        const customDateInputs = filterForm.querySelectorAll('[data-payment-custom-date-input]');
+
+        const setCustomDateState = (isCustom) => {
+            customDateFields.forEach((field) => {
+                field.hidden = !isCustom;
+            });
+            customDateInputs.forEach((input) => {
+                input.disabled = !isCustom;
+                if (!isCustom) {
+                    input.value = '';
+                }
+            });
+        };
+
+        dateRange?.addEventListener('change', () => {
+            const isCustom = dateRange.value === 'custom';
+            setCustomDateState(isCustom);
+            if (!isCustom) {
+                filterForm.requestSubmit();
+            }
+        });
+    }
+
+    const canRecordPayment = @json($canRecordPayment ?? false);
+    if (!canRecordPayment) return;
+
     const openBtn    = document.getElementById('openPaymentForm');
     const modal      = document.getElementById('paymentFormModal');
     const backdrop   = document.getElementById('paymentFormBackdrop');

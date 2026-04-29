@@ -168,7 +168,7 @@ class AdminScopeAuthorizationTest extends TestCase
             ->from('/admin/users/create')
             ->post('/admin/users', [
                 'name' => 'Owner Attempt',
-                'email' => 'owner.attempt@example.com',
+                'email' => 'owner.attempt@gmail.com',
                 'password' => 'secret123',
                 'role' => 'owner',
                 'branch_id' => $mainBranch->id,
@@ -180,7 +180,7 @@ class AdminScopeAuthorizationTest extends TestCase
             ->from('/admin/users/create')
             ->post('/admin/users', [
                 'name' => 'Tampered Main Admin',
-                'email' => 'tampered.main@example.com',
+                'email' => 'tampered.main@gmail.com',
                 'password' => 'secret123',
                 'role' => 'admin',
                 'admin_scope' => 'main',
@@ -189,8 +189,8 @@ class AdminScopeAuthorizationTest extends TestCase
             ->assertRedirect('/admin/users/create')
             ->assertSessionHasErrors('admin_scope');
 
-        $this->assertDatabaseMissing('users', ['email' => 'owner.attempt@example.com']);
-        $this->assertDatabaseMissing('users', ['email' => 'tampered.main@example.com']);
+        $this->assertDatabaseMissing('users', ['email' => 'owner.attempt@gmail.com']);
+        $this->assertDatabaseMissing('users', ['email' => 'tampered.main@gmail.com']);
     }
 
     public function test_main_branch_admin_can_create_branch_admin_but_new_admin_is_stored_with_branch_scope(): void
@@ -202,7 +202,7 @@ class AdminScopeAuthorizationTest extends TestCase
         $this->actingAs($admin)
             ->post('/admin/users', [
                 'name' => 'Branch Admin Created',
-                'email' => 'branch.admin.created@example.com',
+                'email' => 'branch.admin.created@gmail.com',
                 'password' => 'secret123',
                 'role' => 'admin',
                 'branch_id' => $otherBranch->id,
@@ -210,7 +210,7 @@ class AdminScopeAuthorizationTest extends TestCase
             ->assertRedirect(route('admin.users.index', absolute: false));
 
         $this->assertDatabaseHas('users', [
-            'email' => 'branch.admin.created@example.com',
+            'email' => 'branch.admin.created@gmail.com',
             'role' => 'admin',
             'admin_scope' => 'branch',
             'branch_id' => $otherBranch->id,
@@ -226,7 +226,7 @@ class AdminScopeAuthorizationTest extends TestCase
         $this->actingAs($admin)
             ->post('/admin/users', [
                 'name' => 'New Staff Member',
-                'email' => 'new.staff@example.com',
+                'email' => 'new.staff@gmail.com',
                 'password' => 'secret123',
                 'role' => 'staff',
                 'branch_id' => $otherBranch->id,
@@ -234,11 +234,121 @@ class AdminScopeAuthorizationTest extends TestCase
             ->assertRedirect(route('admin.users.index', absolute: false));
 
         $this->assertDatabaseHas('users', [
-            'email' => 'new.staff@example.com',
+            'email' => 'new.staff@gmail.com',
             'role' => 'staff',
             'branch_id' => $otherBranch->id,
             'admin_scope' => null,
         ]);
+    }
+
+    public function test_create_user_rejects_invalid_email_format(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $admin = $this->createMainAdmin($mainBranch);
+
+        $this->actingAs($admin)
+            ->from('/admin/users/create')
+            ->post('/admin/users', [
+                'name' => 'Invalid Email Format',
+                'email' => 'abc',
+                'password' => 'secret123',
+                'role' => 'staff',
+                'branch_id' => $mainBranch->id,
+            ])
+            ->assertRedirect('/admin/users/create')
+            ->assertSessionHasErrors(['email' => 'Please enter a valid email address.']);
+    }
+
+    public function test_create_user_rejects_email_with_invalid_domain(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $admin = $this->createMainAdmin($mainBranch);
+
+        $this->actingAs($admin)
+            ->from('/admin/users/create')
+            ->post('/admin/users', [
+                'name' => 'Invalid Email Domain',
+                'email' => 'user@fake-domain-that-does-not-exist.test',
+                'password' => 'secret123',
+                'role' => 'staff',
+                'branch_id' => $mainBranch->id,
+            ])
+            ->assertRedirect('/admin/users/create')
+            ->assertSessionHasErrors(['email' => 'The email domain appears to be invalid.']);
+    }
+
+    public function test_create_user_rejects_duplicate_email(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $admin = $this->createMainAdmin($mainBranch);
+        User::factory()->create(['email' => 'duplicate.user@gmail.com']);
+
+        $this->actingAs($admin)
+            ->from('/admin/users/create')
+            ->post('/admin/users', [
+                'name' => 'Duplicate Email',
+                'email' => 'duplicate.user@gmail.com',
+                'password' => 'secret123',
+                'role' => 'staff',
+                'branch_id' => $mainBranch->id,
+            ])
+            ->assertRedirect('/admin/users/create')
+            ->assertSessionHasErrors(['email' => 'This email address is already taken.']);
+    }
+
+    public function test_create_user_accepts_valid_email_domain(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $admin = $this->createMainAdmin($mainBranch);
+
+        $this->actingAs($admin)
+            ->post('/admin/users', [
+                'name' => 'Valid Email Domain',
+                'email' => 'valid.user.domain@gmail.com',
+                'password' => 'secret123',
+                'role' => 'staff',
+                'branch_id' => $mainBranch->id,
+            ])
+            ->assertRedirect(route('admin.users.index', absolute: false));
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'valid.user.domain@gmail.com',
+            'role' => 'staff',
+            'branch_id' => $mainBranch->id,
+        ]);
+    }
+
+    public function test_update_user_allows_current_email_but_rejects_duplicate_email(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $admin = $this->createMainAdmin($mainBranch);
+        $staff = User::factory()->create([
+            'email' => 'current.staff@gmail.com',
+            'role' => 'staff',
+            'branch_id' => $mainBranch->id,
+            'is_active' => true,
+        ]);
+        User::factory()->create(['email' => 'taken.staff@gmail.com']);
+
+        $this->actingAs($admin)
+            ->put("/admin/users/{$staff->id}", [
+                'name' => 'Current Staff',
+                'email' => 'current.staff@gmail.com',
+                'role' => 'staff',
+                'branch_id' => $mainBranch->id,
+            ])
+            ->assertRedirect(route('admin.users.index', absolute: false));
+
+        $this->actingAs($admin)
+            ->from("/admin/users/{$staff->id}/edit")
+            ->put("/admin/users/{$staff->id}", [
+                'name' => 'Current Staff',
+                'email' => 'taken.staff@gmail.com',
+                'role' => 'staff',
+                'branch_id' => $mainBranch->id,
+            ])
+            ->assertRedirect("/admin/users/{$staff->id}/edit")
+            ->assertSessionHasErrors(['email' => 'This email address is already taken.']);
     }
 
     public function test_created_staff_is_limited_to_assigned_branch(): void
@@ -250,14 +360,14 @@ class AdminScopeAuthorizationTest extends TestCase
         $this->actingAs($admin)
             ->post('/admin/users', [
                 'name' => 'Branch Staff',
-                'email' => 'branch.staff@example.com',
+                'email' => 'branch.staff@gmail.com',
                 'password' => 'secret123',
                 'role' => 'staff',
                 'branch_id' => $otherBranch->id,
             ])
             ->assertRedirect(route('admin.users.index', absolute: false));
 
-        $staff = User::where('email', 'branch.staff@example.com')->first();
+        $staff = User::where('email', 'branch.staff@gmail.com')->first();
 
         $this->assertEquals($otherBranch->id, $staff->branch_id);
         $this->assertNull($staff->admin_scope);
@@ -275,14 +385,14 @@ class AdminScopeAuthorizationTest extends TestCase
         $this->actingAs($admin)
             ->post('/admin/users', [
                 'name' => 'Branch Admin Test',
-                'email' => 'new.branch.admin@example.com',
+                'email' => 'new.branch.admin@gmail.com',
                 'password' => 'secret123',
                 'role' => 'admin',
                 'branch_id' => $otherBranch->id,
             ])
             ->assertRedirect(route('admin.users.index', absolute: false));
 
-        $branchAdmin = User::where('email', 'new.branch.admin@example.com')->first();
+        $branchAdmin = User::where('email', 'new.branch.admin@gmail.com')->first();
 
         $this->assertEquals($otherBranch->id, $branchAdmin->branch_id);
         $this->assertEquals('branch', $branchAdmin->admin_scope);
@@ -326,6 +436,8 @@ class AdminScopeAuthorizationTest extends TestCase
         $admin = $this->createMainAdmin($mainBranch);
 
         $this->actingAs($admin)->get('/admin/cases')->assertOk();
+        $this->actingAs($admin)->get('/admin/payments')->assertOk();
+        $this->actingAs($admin)->get('/admin/payment-monitoring')->assertOk();
         $this->actingAs($admin)->get('/admin/reminders')->assertOk();
         $this->actingAs($admin)->get('/admin/audit-logs')->assertOk();
     }
@@ -338,6 +450,8 @@ class AdminScopeAuthorizationTest extends TestCase
 
         $this->actingAs($branchAdmin)->get('/admin')->assertOk();
         $this->actingAs($branchAdmin)->get('/admin/cases')->assertOk();
+        $this->actingAs($branchAdmin)->get('/admin/payments')->assertOk();
+        $this->actingAs($branchAdmin)->get('/payments/history')->assertOk();
         $this->actingAs($branchAdmin)->get('/admin/reminders')->assertOk();
         $this->actingAs($branchAdmin)->get('/reminders')->assertOk();
     }

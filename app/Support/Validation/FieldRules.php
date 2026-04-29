@@ -26,9 +26,12 @@ class FieldRules
     }
 
     /** Single name component (first_name, last_name, middle_name, suffix). */
-    public static function namePart(bool $required = true): array
+    public static function namePart(bool $required = true, int $min = 0): array
     {
         $rules = ['string', 'max:100', self::NAME_REGEX];
+        if ($min > 0) {
+            $rules[] = 'min:' . $min;
+        }
         array_unshift($rules, $required ? 'required' : 'nullable');
 
         return $rules;

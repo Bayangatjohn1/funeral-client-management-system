@@ -389,18 +389,20 @@
                                     name="branch_name"
                                     value="{{ old('branch_name') }}"
                                     class="form-input"
+                                    placeholder="Caguioa Sabangan Funeral Home"
                                     autocomplete="off"
                                     inputmode="text"
                                     required
                                 >
                                 @error('branch_name') <div class="form-error">{{ $message }}</div> @enderror
-                                <div class="text-sm text-slate-500 mt-2">Letters only. Numbers are auto-removed.</div>
+                                <div class="form-error hidden" data-field-error="branch_name"></div>
                             </div>
 
                             <div>
-                                <label class="label-section">Address</label>
-                                <input type="text" name="address" value="{{ old('address') }}" class="form-input" placeholder="Street, City, Province">
+                                <label class="label-section">Address <span class="text-rose-500">*</span></label>
+                                <input type="text" name="address" value="{{ old('address') }}" class="form-input" placeholder="Street, City, Province" required>
                                 @error('address') <div class="form-error">{{ $message }}</div> @enderror
+                                <div class="form-error hidden" data-field-error="address"></div>
                             </div>
                         </div>
 
@@ -486,28 +488,79 @@ function branchCatalog() {
     const createStatusToggle = document.getElementById('branch_create_is_active');
     const createStatusPill   = document.getElementById('branch-create-status-pill');
     const shouldOpenCreateModal = @json(old('form_context') === 'branch_create_modal');
-    const branchNamePattern = /^[A-Za-z][A-Za-z\s'.&-]*$/;
+    const branchNamePattern = /^[\p{L}\p{M}][\p{L}\p{M}\s'.&-]*$/u;
+    const invalidClass = ['border-rose-300', 'bg-rose-50', 'focus:border-rose-500', 'focus:ring-rose-500'];
 
     const normalizeBranchNameInput = (value) => String(value || '')
-        .replace(/\d+/g, '')
-        .replace(/[^A-Za-z\s'.&-]/g, '')
-        .replace(/\s{2,}/g, ' ')
-        .replace(/^\s+/, '');
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    const showFieldError = (form, field, message) => {
+        const input = form?.querySelector(`[name="${field}"]`);
+        const error = form?.querySelector(`[data-field-error="${field}"]`);
+        if (input) input.classList.add(...invalidClass);
+        if (error) {
+            error.textContent = message;
+            error.classList.remove('hidden');
+        }
+    };
+
+    const clearFieldError = (form, field) => {
+        const input = form?.querySelector(`[name="${field}"]`);
+        const error = form?.querySelector(`[data-field-error="${field}"]`);
+        if (input) input.classList.remove(...invalidClass);
+        if (error) {
+            error.textContent = '';
+            error.classList.add('hidden');
+        }
+    };
 
     const bindBranchNameValidation = (input) => {
         if (!input || input.dataset.branchNameBound === '1') return;
         input.dataset.branchNameBound = '1';
         const sync = (trimEnd = false) => {
             const normalized = normalizeBranchNameInput(input.value);
-            input.value = trimEnd ? normalized.trim() : normalized;
+            input.value = normalized;
             const finalValue = input.value.trim();
             if (!finalValue) { input.setCustomValidity('Branch name is required.'); return; }
-            if (!branchNamePattern.test(finalValue)) { input.setCustomValidity('Branch name must contain letters only (no numbers).'); return; }
+            if (/\d/.test(finalValue) || !branchNamePattern.test(finalValue)) { input.setCustomValidity('Branch name must contain letters only.'); return; }
             input.setCustomValidity('');
         };
-        input.addEventListener('input', () => sync(false));
+        input.addEventListener('input', () => {
+            clearFieldError(input.form, 'branch_name');
+            sync(false);
+        });
         input.addEventListener('blur', () => sync(true));
         sync(true);
+    };
+
+    const bindBranchFormValidation = (form) => {
+        if (!form || form.dataset.branchValidationBound === '1') return;
+        form.dataset.branchValidationBound = '1';
+        const address = form.querySelector('[name="address"]');
+        if (address) {
+            address.addEventListener('input', () => clearFieldError(form, 'address'));
+        }
+        form.addEventListener('submit', (event) => {
+            const input = form.querySelector('[name="branch_name"]');
+            let valid = true;
+            clearFieldError(form, 'branch_name');
+            clearFieldError(form, 'address');
+            if (input) input.value = normalizeBranchNameInput(input.value);
+            if (address) address.value = String(address.value || '').replace(/\s+/g, ' ').trim();
+            if (!input?.value) {
+                valid = false;
+                showFieldError(form, 'branch_name', 'Branch name is required.');
+            } else if (/\d/.test(input.value) || !branchNamePattern.test(input.value)) {
+                valid = false;
+                showFieldError(form, 'branch_name', 'Branch name must contain letters only.');
+            }
+            if (!address?.value || !/[\p{L}\p{M}]/u.test(address.value) || /^\d+$/.test(address.value)) {
+                valid = false;
+                showFieldError(form, 'address', 'Address must include a valid place name.');
+            }
+            if (!valid) event.preventDefault();
+        });
     };
 
     const syncPageScrollLock = () => {
@@ -560,6 +613,7 @@ function branchCatalog() {
             if (form) {
                 editContent.innerHTML = form.outerHTML;
                 bindBranchNameValidation(editContent.querySelector('input[name="branch_name"]'));
+                bindBranchFormValidation(editContent.querySelector('form'));
                 const cancelLink = editContent.querySelector('.branch-modal-cancel');
                 if (cancelLink) {
                     cancelLink.addEventListener('click', (evt) => {
@@ -592,6 +646,7 @@ function branchCatalog() {
     });
 
     bindBranchNameValidation(document.getElementById('branch_create_name'));
+    bindBranchFormValidation(document.getElementById('branchCreateForm'));
 
     if (createStatusToggle && createStatusPill) {
         const syncCreateStatus = () => {

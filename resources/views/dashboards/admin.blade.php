@@ -36,6 +36,13 @@
                 <option value="this_month" {{ ($selectedDateFilter ?? 'this_month') === 'this_month' ? 'selected' : '' }}>This Month</option>
                 <option value="this_year" {{ ($selectedDateFilter ?? 'this_month') === 'this_year' ? 'selected' : '' }}>This Year</option>
             </select>
+            <select class="input-custom w-40 md:hidden" aria-hidden="true" disabled>
+                <option value="all" {{ ($selectedDateFilter ?? 'this_month') === 'all' ? 'selected' : '' }}>All Time</option>
+                <option value="today" {{ ($selectedDateFilter ?? 'this_month') === 'today' ? 'selected' : '' }}>Today</option>
+                <option value="this_week" {{ ($selectedDateFilter ?? 'this_month') === 'this_week' ? 'selected' : '' }}>This Week</option>
+                <option value="this_month" {{ ($selectedDateFilter ?? 'this_month') === 'this_month' ? 'selected' : '' }}>This Month</option>
+                <option value="this_year" {{ ($selectedDateFilter ?? 'this_month') === 'this_year' ? 'selected' : '' }}>This Year</option>
+            </select>
 
             <div class="flex items-center gap-2">
                 <a href="{{ url('/admin') }}" class="btn-secondary-custom btn-sm">Reset</a>

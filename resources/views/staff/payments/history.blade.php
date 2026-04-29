@@ -1,558 +1,670 @@
 @extends('layouts.panel')
 
-@section('page_title', 'Payment History')
-@section('page_desc', 'All recorded payments and status history across cases.')
+@section('page_title', 'Payment Monitoring')
+@section('page_desc', 'Review case payment summaries and recorded payment transactions.')
 
 @section('content')
 @php
-    $statusTabs = ['' => 'All', 'PAID' => 'Paid', 'PARTIAL' => 'Partial', 'UNPAID' => 'Unpaid'];
+    $user = auth()->user();
+    $isBranchOnly = ($branches ?? collect())->count() === 1;
+    $isBranchAdmin = $user?->isBranchAdmin();
+    $isMainAdmin = $user?->isMainBranchAdmin();
+    $isOwner = $user?->isOwner();
+    $activeTab = $activeTab ?? 'summary';
+    $monitoringRoute = request()->routeIs('admin.payments.index') || request()->routeIs('admin.payment-monitoring')
+        ? 'admin.payments.index'
+        : 'payments.history';
+    $paymentStatus = $paymentStatus ?? $statusAfterPayment ?? null;
+    $dateRange = request('date_preset') ?: ((request()->filled('paid_from') || request()->filled('paid_to')) ? 'custom' : 'all');
+    $emptyMessage = $isBranchAdmin
+        ? 'No payment records found for your assigned branch.'
+        : 'No payment records found for the selected filters.';
+
+    $tabQuery = fn (string $tab) => array_filter(array_merge(request()->except(['tab', 'page', 'transactions_page', 'open_case']), ['tab' => $tab]), fn ($v) => $v !== null && $v !== '');
+    $statusClass = fn ($status) => match (strtoupper((string) $status)) {
+        'PAID' => 'is-paid',
+        'PARTIAL' => 'is-partial',
+        default => 'is-unpaid',
+    };
+    $caseRoute = function ($case) use ($isOwner) {
+        if (!$case) {
+            return '#';
+        }
+
+        return $isOwner
+            ? route('owner.cases.show', $case)
+            : route('funeral-cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]);
+    };
 @endphp
 
 <style>
-.ph * { box-sizing: border-box; }
+    .pm-page { color: var(--ink); padding: 1.5rem var(--panel-content-inline, 1.5rem) 3rem; }
+    .pm-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin-bottom: 1rem; }
+    .pm-kpi { background: var(--card); border: 1px solid var(--border); border-radius: .5rem; padding: 1rem; }
+    .pm-kpi span { display:block; font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-muted); font-weight:700; }
+    .pm-kpi strong { display:block; margin-top:.35rem; font-size:1.25rem; font-weight:800; font-variant-numeric:tabular-nums; }
+    .pm-kpi .good { color:#15803d; }
+    .pm-kpi .warn { color:#b91c1c; }
 
-.ph {
-    color: #0f172a;
-    width: 100%;
-    padding: 1.5rem var(--panel-content-inline, 1.5rem) 3rem;
-}
+    .pm-toolbar-shell { background: var(--card); border:1px solid var(--border); border-radius:.75rem; padding:.75rem; margin-bottom:1rem; overflow:visible; }
+    .pm-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:.75rem; }
+    .pm-field { flex:1 1 11rem; min-width:10rem; }
+    .pm-field.branch { flex:1 1 15rem; }
+    .pm-field.search { flex:2 1 24rem; min-width:18rem; }
+    .pm-field.has-icon { position:relative; }
+    .pm-field.has-icon > i { position:absolute; left:.85rem; top:50%; transform:translateY(-50%); color:var(--ink-muted); pointer-events:none; z-index:1; }
+    .pm-field.has-icon .pm-control { padding-left:2.35rem; }
+    .pm-control {
+        width:100%; height:2.75rem; border:1px solid var(--border); border-radius:.75rem;
+        background:#fff; color:var(--ink); font-size:.875rem; padding:0 .85rem;
+    }
+    .pm-control:disabled { background:var(--surface-muted); color:var(--ink-muted); opacity:1; }
+    .pm-actions { display:flex; gap:.75rem; flex:0 0 auto; align-items:center; }
+    .pm-btn {
+        height:2.75rem; border-radius:.75rem; border:1px solid var(--border); background:#fff;
+        color:var(--ink); padding:0 .95rem; display:inline-flex; align-items:center; gap:.45rem;
+        font-weight:700; font-size:.875rem; text-decoration:none;
+    }
+    .pm-btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+    .pm-hidden-date-fields { display:none; }
+    .pm-modal-backdrop { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.45); z-index:60; padding:1rem; }
+    .pm-modal-backdrop.open { display:flex; }
+    .pm-modal { width:min(100%,28rem); background:var(--card); border:1px solid var(--border); border-radius:1rem; box-shadow:0 20px 45px rgba(15,23,42,.22); overflow:hidden; }
+    .pm-modal-hd { display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:1rem 1.1rem; border-bottom:1px solid var(--border); }
+    .pm-modal-title { font-weight:900; }
+    .pm-modal-body { display:grid; gap:.8rem; padding:1rem 1.1rem; }
+    .pm-modal-ft { display:flex; justify-content:flex-end; gap:.65rem; padding:1rem 1.1rem; border-top:1px solid var(--border); }
 
-/* KPI Strip */
-.ph-kpi {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    border: 0.5px solid #e2e8f0;
-    border-radius: 12px;
-    overflow: hidden;
-    margin-bottom: 1.5rem;
-}
-.ph-k { padding: 16px 18px; border-right: 0.5px solid #e2e8f0; }
-.ph-k:last-child { border-right: none; }
-.ph-kl {
-    font-size: 11px; color: #94a3b8;
-    text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px;
-}
-.ph-kv { font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; }
-.ph-kv.green { color: #16a34a; }
-.ph-kv.amber { color: #b45309; }
-.ph-kv.red   { color: #b91c1c; }
+    .pm-tabs { display:flex; gap:.35rem; border-bottom:1px solid var(--border); margin:1rem 0; }
+    .pm-tab {
+        display:inline-flex; align-items:center; gap:.45rem; padding:.75rem .95rem; color:var(--ink-muted);
+        border-bottom:2px solid transparent; text-decoration:none; font-weight:800; font-size:.9rem;
+    }
+    .pm-tab.active { color:var(--accent); border-color:var(--accent); }
 
-/* Controls */
-.ph-bar { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 1rem; }
-.ph-search { position: relative; flex: 1; min-width: 200px; }
-.ph-search-icon {
-    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
-    color: #94a3b8; pointer-events: none; width: 13px; height: 13px;
-}
-.ph-search input {
-    width: 100%; padding: 8px 12px 8px 32px;
-    border: 0.5px solid #cbd5e1; border-radius: 8px;
-    background: #fff; font-size: 13px; font-family: inherit; color: #0f172a;
-}
-.ph-search input:focus { outline: none; border-color: #94a3b8; }
-.ph-search input::placeholder { color: #94a3b8; }
-.ph-select {
-    padding: 8px 12px; border: 0.5px solid #cbd5e1;
-    border-radius: 8px; background: #fff; font-size: 13px;
-    font-family: inherit; color: #0f172a; height: 36px;
-}
-.ph-btn-row { display: flex; gap: 6px; }
-.ph-btn {
-    padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 500;
-    border: 0.5px solid #e2e8f0; background: #fff; cursor: pointer;
-    font-family: inherit; text-decoration: none; color: #0f172a; white-space: nowrap;
-    display: inline-flex; align-items: center; height: 36px;
-}
-.ph-btn:hover { background: #f1f5f9; }
+    .pm-panel { background:var(--card); border:1px solid var(--border); border-radius:.75rem; overflow:hidden; }
+    .pm-money { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; font-weight:700; }
+    .pm-row-list { background:var(--card); }
+    .pm-case-row { display:grid; grid-template-columns:minmax(7rem,.65fr) minmax(0,1.8fr) minmax(12rem,.9fr) auto; gap:1rem; align-items:center; width:100%; padding:1rem; border:0; border-bottom:1px solid var(--border); background:transparent; color:inherit; text-align:left; }
+    .pm-case-row.is-toggle { cursor:pointer; }
+    .pm-case-row.is-toggle:hover { background:rgba(15,23,42,.025); }
+    .pm-case-row[aria-expanded="true"] .pm-chev { transform:rotate(180deg); }
+    .pm-row-main { min-width:0; }
+    .pm-row-title { font-weight:850; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .pm-row-meta { margin-top:.22rem; color:var(--ink-muted); font-size:.82rem; display:flex; gap:.4rem; flex-wrap:wrap; align-items:center; }
+    .pm-row-date { color:var(--ink-muted); font-size:.86rem; white-space:nowrap; }
+    .pm-row-actions { display:flex; align-items:center; justify-content:flex-end; gap:.65rem; min-width:max-content; }
+    .pm-row-link { display:inline-flex; align-items:center; gap:.4rem; color:var(--accent); font-weight:850; font-size:.84rem; text-decoration:none; background:transparent; border:0; padding:0; }
+    .pm-light-link { display:inline-flex; align-items:center; gap:.35rem; color:var(--ink-muted); font-weight:750; font-size:.84rem; text-decoration:none; background:transparent; border:0; padding:0; }
+    .pm-light-link:hover { color:var(--accent); }
+    .pm-icon-toggle { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; border:1px solid var(--border); border-radius:.6rem; background:#fff; color:var(--ink-muted); }
+    .pm-summary-detail { display:none; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.75rem; padding:.85rem 1rem 1rem; background:var(--surface-muted); border-bottom:1px solid var(--border); }
+    .pm-summary-detail.open { display:grid; }
+    .pm-summary-stat { background:var(--card); border:1px solid var(--border); border-radius:.75rem; padding:.75rem; min-width:0; }
+    .pm-summary-stat span { display:block; color:var(--ink-muted); font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
+    .pm-summary-stat strong { display:block; margin-top:.25rem; color:var(--ink); font-size:.95rem; font-weight:900; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pm-muted { color:var(--ink-muted); }
+    .pm-case { font-weight:800; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .pm-name { font-weight:800; }
+    .pm-sub { margin-top:.15rem; font-size:.78rem; color:var(--ink-muted); }
+    .pm-status { display:inline-flex; align-items:center; border-radius:999px; padding:.22rem .58rem; font-size:.72rem; font-weight:800; }
+    .pm-status.is-paid { background:#dcfce7; color:#166534; }
+    .pm-status.is-partial { background:#fef3c7; color:#92400e; }
+    .pm-status.is-unpaid { background:#fee2e2; color:#991b1b; }
+    .pm-link { color:var(--accent); font-weight:800; text-decoration:none; white-space:nowrap; }
+    .pm-empty { padding:3rem 1rem; text-align:center; color:var(--ink-muted); font-weight:700; }
+    .pm-foot { padding:.85rem 1rem; border-top:1px solid var(--border); display:flex; justify-content:space-between; gap:.75rem; flex-wrap:wrap; align-items:center; }
 
-/* Status Tabs */
-.ph-tabs { display: flex; gap: 2px; background: #f1f5f9; border-radius: 8px; padding: 2px; margin-bottom: 1rem; width: fit-content; }
-.ph-tab {
-    padding: 5px 14px; border-radius: 6px; font-size: 12px;
-    font-weight: 500; background: none; border: none;
-    color: #64748b; font-family: inherit; text-decoration: none; cursor: pointer; white-space: nowrap;
-}
-.ph-tab.active { background: #fff; color: #0f172a; box-shadow: 0 0 0 0.5px #cbd5e1; }
+    .pm-trans-list { background:var(--card); }
+    .pm-trans-item { background:var(--card); border-bottom:1px solid var(--border); overflow:hidden; }
+    .pm-trans-row { width:100%; display:grid; grid-template-columns:minmax(7rem,.65fr) minmax(0,1.8fr) minmax(12rem,.9fr) auto; align-items:center; gap:1rem; padding:1rem; border:0; background:transparent; color:inherit; text-align:left; cursor:pointer; }
+    .pm-trans-main { min-width:0; }
+    .pm-trans-title { font-weight:850; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .pm-trans-meta { margin-top:.25rem; color:var(--ink-muted); font-size:.82rem; display:flex; gap:.45rem; flex-wrap:wrap; }
+    .pm-trans-money { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; min-width:0; }
+    .pm-trans-stat span { display:block; color:var(--ink-muted); font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
+    .pm-trans-stat strong { display:block; margin-top:.2rem; font-size:.9rem; font-weight:900; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .pm-trans-side { display:flex; align-items:center; justify-content:flex-end; gap:.75rem; }
+    .pm-trans-count { color:var(--ink-muted); font-size:.78rem; font-weight:800; white-space:nowrap; }
+    .pm-expand-label { color:var(--accent); font-size:.82rem; font-weight:900; white-space:nowrap; }
+    .pm-chev { color:var(--ink-muted); transition:transform .16s ease; }
+    .pm-trans-row[aria-expanded="true"] .pm-chev { transform:rotate(180deg); }
+    .pm-detail { display:none; background:var(--surface-muted); padding:0 0 .75rem; }
+    .pm-detail.open { display:block; }
+    .pm-case-overview { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.75rem; padding:.85rem 1rem; background:var(--surface-muted); border-bottom:1px solid var(--border); }
+    .pm-detail-actions { display:flex; gap:.5rem; padding:.75rem 1rem 0; flex-wrap:wrap; }
 
-/* Column Labels */
-.ph-col {
-    display: grid;
-    grid-template-columns: 10px 1fr 130px 130px 90px 26px;
-    gap: 12px; padding: 0 14px 8px;
-    font-size: 11px; color: #94a3b8;
-    text-transform: uppercase; letter-spacing: 0.05em;
-}
+    .pm-txn-list { display:flex; flex-direction:column; gap:.5rem; padding:.75rem 1rem 0; }
+    .pm-txn-card { background:var(--card); border:1px solid var(--border); border-radius:.6rem; overflow:hidden; }
+    .pm-txn-hd { display:flex; justify-content:space-between; align-items:flex-start; padding:.85rem 1rem; gap:1rem; }
+    .pm-txn-info { min-width:0; flex:1 1 0; }
+    .pm-txn-rec { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:900; font-size:.92rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:24rem; color:var(--ink); }
+    .pm-txn-rec-label { display:block; margin-bottom:.16rem; color:var(--ink-muted); font-size:.65rem; font-family:inherit; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
+    .pm-txn-sub { display:flex; flex-wrap:wrap; gap:.3rem; font-size:.78rem; color:var(--ink-muted); margin-top:.2rem; align-items:center; }
+    .pm-dot { color:var(--ink-muted); }
+    .pm-txn-right { display:flex; flex-direction:column; align-items:flex-end; gap:.2rem; flex-shrink:0; }
+    .pm-txn-amt { font-size:1rem; font-weight:900; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .pm-txn-bal { display:flex; flex-direction:column; align-items:flex-end; margin-top:.15rem; }
+    .pm-txn-bal-lbl { font-size:.65rem; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-muted); font-weight:700; }
+    .pm-txn-bal-val { font-size:.8rem; font-weight:700; font-variant-numeric:tabular-nums; color:var(--ink-muted); white-space:nowrap; }
+    .pm-txn-foot { padding:.1rem 1rem .55rem; display:flex; flex-wrap:wrap; align-items:center; gap:.35rem; font-size:.78rem; color:var(--ink-muted); }
+    .pm-txn-foot strong { color:var(--ink); font-weight:700; }
+    .pm-txn-tog {
+        display:inline-flex; align-items:center; gap:.3rem;
+        margin:0 1rem .55rem; padding:.28rem .6rem;
+        background:transparent; border:1px solid var(--border); border-radius:.4rem;
+        color:var(--ink-muted); font-size:.75rem; font-weight:700; cursor:pointer;
+    }
+    .pm-txn-tog:hover { background:var(--surface-muted); color:var(--ink); }
+    .pm-txn-tog[aria-expanded="true"] .pm-chev { transform:rotate(180deg); }
+    .pm-txn-det { border-top:1px solid var(--border); padding:.65rem 1rem .85rem; background:var(--surface-muted); }
+    .pm-txn-det-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(11rem,1fr)); gap:.5rem; }
+    .pm-txn-det-cell span { display:block; font-size:.65rem; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-muted); font-weight:700; margin-bottom:.2rem; }
+    .pm-txn-det-cell strong { font-size:.8rem; word-break:break-word; }
+    .pm-txn-det-full { grid-column:1/-1; }
 
-/* Transaction Card */
-.ph-card {
-    display: grid;
-    grid-template-columns: 10px 1fr 130px 130px 90px 26px;
-    gap: 12px; align-items: center;
-    padding: 13px 14px;
-    border: 0.5px solid #e2e8f0; border-radius: 10px;
-    margin-bottom: 6px; cursor: pointer;
-    background: #fff; transition: border-color 0.12s; text-decoration: none; color: inherit;
-    display: grid;
-}
-.ph-card:hover { border-color: #94a3b8; }
-.ph-card.open  {
-    border-color: #64748b;
-    border-bottom-left-radius: 0; border-bottom-right-radius: 0;
-    margin-bottom: 0;
-}
+    html[data-theme='dark'] .pm-control,
+    html[data-theme='dark'] .pm-btn { background:#1e334f; color:#e2ecf9; }
 
-.ph-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-.ph-dot.paid    { background: #22c55e; }
-.ph-dot.partial { background: #f59e0b; }
-.ph-dot.unpaid  { background: #ef4444; }
-
-.ph-name { font-size: 14px; font-weight: 500; margin-bottom: 3px; line-height: 1.3; }
-.ph-name .dim { color: #94a3b8; font-weight: 400; }
-.ph-meta { font-size: 12px; color: #94a3b8; display: flex; gap: 10px; flex-wrap: wrap; }
-.ph-meta .case-ref { color: var(--accent); }
-
-.ph-amt { font-size: 14px; font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
-.ph-bal { font-size: 13px; text-align: right; color: #94a3b8; }
-.ph-bal.owed { color: #b45309; }
-
-.ph-badge { display: inline-block; padding: 3px 9px; border-radius: 4px; font-size: 11px; font-weight: 500; }
-.ph-badge.paid    { background: #f0fdf4; color: #15803d; }
-.ph-badge.partial { background: #fffbeb; color: #a16207; }
-.ph-badge.unpaid  { background: #fef2f2; color: #b91c1c; }
-
-.ph-chev { font-size: 13px; color: #94a3b8; transition: transform 0.15s; text-align: center; user-select: none; }
-.ph-card.open .ph-chev { transform: rotate(90deg); }
-
-/* Expanded Detail */
-.ph-detail {
-    border: 0.5px solid #64748b; border-top: none;
-    border-radius: 0 0 10px 10px;
-    background: #f8fafc;
-    padding: 14px 14px 14px 36px;
-    margin-bottom: 6px;
-}
-.ph-prog { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-.ph-pbar { flex: 1; height: 3px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
-.ph-pfill { height: 100%; border-radius: 999px; }
-.ph-pfill.paid    { background: #22c55e; }
-.ph-pfill.partial { background: #f59e0b; }
-.ph-pfill.unpaid  { background: #ef4444; }
-.ph-pct { font-size: 11px; color: #94a3b8; white-space: nowrap; }
-
-.ph-dg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
-.ph-di { padding: 10px 12px; background: #fff; border-radius: 8px; border: 0.5px solid #e2e8f0; }
-.ph-dl { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
-.ph-dv { font-size: 13px; font-weight: 500; word-break: break-word; }
-.ph-dv.case-c  { color: var(--accent); }
-.ph-dv.paid-c  { color: #15803d; }
-.ph-dv.owed-c  { color: #b45309; }
-
-.ph-acts { display: flex; gap: 6px; flex-wrap: wrap; }
-.ph-act {
-    padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 500;
-    border: 0.5px solid #e2e8f0; background: #fff; cursor: pointer;
-    font-family: inherit; text-decoration: none; color: #0f172a;
-    display: inline-flex; align-items: center; gap: 5px;
-}
-.ph-act:hover { background: #f1f5f9; }
-.ph-act.dark { background: #0f172a; color: #fff; border-color: #0f172a; }
-.ph-act.dark:hover { background: #1e293b; }
-
-/* Footer */
-.ph-foot {
-    display: flex; justify-content: space-between; align-items: center;
-    padding-top: 1rem; margin-top: .75rem; border-top: 0.5px solid #e2e8f0;
-    flex-wrap: wrap; gap: 8px;
-}
-.ph-fl { font-size: 12px; color: #94a3b8; }
-
-/* Responsive */
-@media (max-width: 900px) {
-    .ph-kpi { grid-template-columns: 1fr 1fr; }
-    .ph-k:nth-child(1), .ph-k:nth-child(2) { border-bottom: 0.5px solid #e2e8f0; }
-    .ph-k:nth-child(2) { border-right: none; }
-}
-@media (max-width: 680px) {
-    .ph-col { display: none; }
-    .ph-card { grid-template-columns: 10px 1fr auto 26px; }
-    .ph-card .ph-bal, .ph-card .ph-badge { display: none; }
-    .ph-dg { grid-template-columns: 1fr 1fr; }
-    .ph-kpi { grid-template-columns: 1fr 1fr; }
-    .ph-k:nth-child(1), .ph-k:nth-child(2) { border-bottom: 0.5px solid #e2e8f0; }
-    .ph-k:nth-child(2) { border-right: none; }
-}
-
-/* Dark mode */
-html[data-theme='dark'] .ph-kpi { border-color: #334a69; }
-html[data-theme='dark'] .ph-k { border-color: #334a69; }
-html[data-theme='dark'] .ph-kl { color: #7a94b4; }
-html[data-theme='dark'] .ph-kv { color: #e2ecf9; }
-html[data-theme='dark'] .ph-kv.green { color: #4ade80; }
-html[data-theme='dark'] .ph-kv.amber { color: #fbbf24; }
-html[data-theme='dark'] .ph-kv.red   { color: #f87171; }
-html[data-theme='dark'] .ph-search input,
-html[data-theme='dark'] .ph-select {
-    background: #1e334f; border-color: #4a6888; color: #e2ecf9;
-}
-html[data-theme='dark'] .ph-search input::placeholder { color: #5a7a9f; }
-html[data-theme='dark'] .ph-tabs { background: #192d47; }
-html[data-theme='dark'] .ph-tab { color: #8aa7c5; }
-html[data-theme='dark'] .ph-tab.active { background: #243d5a; color: #e2ecf9; box-shadow: 0 0 0 0.5px #4a6888; }
-html[data-theme='dark'] .ph-card {
-    background: #182638; border-color: #2e4560; color: #d5e0f0;
-}
-html[data-theme='dark'] .ph-card:hover { border-color: #5a7898; }
-html[data-theme='dark'] .ph-card.open { border-color: #7a9ab8; }
-html[data-theme='dark'] .ph-name .dim { color: #5a7898; }
-html[data-theme='dark'] .ph-meta { color: #5a7898; }
-html[data-theme='dark'] .ph-meta .case-ref { color: #c88a4a; }
-html[data-theme='dark'] .ph-amt { color: #d5e0f0; }
-html[data-theme='dark'] .ph-bal { color: #5a7898; }
-html[data-theme='dark'] .ph-bal.owed { color: #fbbf24; }
-html[data-theme='dark'] .ph-chev { color: #5a7898; }
-html[data-theme='dark'] .ph-detail { background: #182638; border-color: #7a9ab8; }
-html[data-theme='dark'] .ph-pbar { background: #2e4560; }
-html[data-theme='dark'] .ph-pct { color: #5a7898; }
-html[data-theme='dark'] .ph-di { background: #1e334f; border-color: #2e4560; }
-html[data-theme='dark'] .ph-dl { color: #5a7898; }
-html[data-theme='dark'] .ph-dv { color: #d5e0f0; }
-html[data-theme='dark'] .ph-dv.case-c { color: #c88a4a; }
-html[data-theme='dark'] .ph-dv.paid-c { color: #4ade80; }
-html[data-theme='dark'] .ph-dv.owed-c { color: #fbbf24; }
-html[data-theme='dark'] .ph-act { background: #1e334f; border-color: #2e4560; color: #d5e0f0; }
-html[data-theme='dark'] .ph-act:hover { background: #243d5a; }
-html[data-theme='dark'] .ph-act.dark { background: #e2ecf9; color: #0f172a; border-color: #e2ecf9; }
-html[data-theme='dark'] .ph-act.dark:hover { background: #cbd5e1; }
-html[data-theme='dark'] .ph-foot { border-color: #2e4560; }
-html[data-theme='dark'] .ph-fl { color: #5a7898; }
-html[data-theme='dark'] .ph-col { color: #5a7898; }
-html[data-theme='dark'] .ph-btn {
-    background: #1e334f; border-color: #2e4560; color: #d5e0f0;
-}
-html[data-theme='dark'] .ph-btn:hover { background: #243d5a; }
+    @media (max-width: 900px) {
+        .pm-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
+        .pm-summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+    @media (max-width: 640px) {
+        .pm-kpis { grid-template-columns:1fr; }
+        .pm-toolbar { flex-wrap:wrap; min-width:0; }
+        .pm-field, .pm-field.search, .pm-field.branch, .pm-actions, .pm-actions .pm-btn { width:100%; flex-basis:100%; min-width:0; }
+        .pm-summary-top { flex-direction:column; }
+        .pm-summary-grid { grid-template-columns:1fr; }
+        .pm-summary-actions, .pm-summary-actions .pm-btn { width:100%; justify-content:center; }
+        .pm-case-row, .pm-trans-row { grid-template-columns:minmax(0,1fr); }
+        .pm-summary-detail, .pm-case-overview, .pm-trans-money { grid-template-columns:1fr 1fr; }
+        .pm-trans-side, .pm-row-actions { justify-content:flex-start; }
+        .pm-txn-hd { flex-direction:column; gap:.5rem; }
+        .pm-txn-right { align-items:flex-start; }
+    }
 </style>
 
-<div class="ph">
-
-@if(session('success'))
-    <div class="flash-success">{{ session('success') }}</div>
-@endif
-@if($errors->any())
-    <div class="flash-error">{{ $errors->first() }}</div>
-@endif
-
-{{-- Controls --}}
-<form method="GET" action="{{ route('payments.history') }}" id="phFilterForm">
-    @if(filled($statusAfterPayment))
-        <input type="hidden" name="status_after_payment" value="{{ $statusAfterPayment }}">
+<div class="pm-page">
+    @if(session('success'))
+        <div class="flash-success">{{ session('success') }}</div>
     @endif
-    <input type="hidden" name="paid_from" id="phHiddenFrom" value="{{ $paidFrom ?? '' }}">
-    <input type="hidden" name="paid_to"   id="phHiddenTo"   value="{{ $paidTo ?? '' }}">
+    @if($errors->any())
+        <div class="flash-error">{{ $errors->first() }}</div>
+    @endif
 
-    <div class="ph-bar">
-        <div class="ph-search">
-            <svg class="ph-search-icon" viewBox="0 0 13 13" fill="none">
-                <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" stroke-width="1.2"/>
-                <path d="M9 9l2.5 2.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-            </svg>
-            <input type="text" name="q" value="{{ $q ?? '' }}"
-                   placeholder="Search client, deceased, or case ID..."
-                   autocomplete="off" id="phSearch">
-        </div>
-
-        <select id="phRange" class="ph-select" title="Date range">
-            <option value="">Any time</option>
-            <option value="today" {{ (!$paidFrom && !$paidTo) ? '' : '' }}>Today</option>
-            <option value="week">This week</option>
-            <option value="month">This month</option>
-            <option value="custom">Custom range</option>
-        </select>
-
-        <div id="phCustomDates" style="display:none; gap:6px; align-items:flex-end;" class="ph-btn-row">
-            <input type="date" id="phFromInput" class="ph-select" value="{{ $paidFrom ?? '' }}" title="From date">
-            <input type="date" id="phToInput"   class="ph-select" value="{{ $paidTo ?? '' }}"   title="To date">
-        </div>
-
-        <select name="sort" class="ph-select" title="Sort order" onchange="this.form.submit()">
-            <option value="desc" {{ ($sort ?? 'desc') === 'desc' ? 'selected' : '' }}>Newest first</option>
-            <option value="asc"  {{ ($sort ?? 'desc') === 'asc'  ? 'selected' : '' }}>Oldest first</option>
-        </select>
-
-        <div class="ph-btn-row">
-            <button type="submit" class="ph-btn">Search</button>
-            <a href="{{ route('payments.history') }}" class="ph-btn">Reset</a>
-        </div>
-    </div>
-</form>
-
-{{-- Status tabs --}}
-<div class="ph-tabs">
-    @foreach($statusTabs as $val => $label)
-        @php
-            $tabQuery = array_filter(
-                array_merge(request()->except(['status_after_payment', 'page']), $val !== '' ? ['status_after_payment' => $val] : []),
-                fn($v) => $v !== null && $v !== ''
-            );
-        @endphp
-        <a href="{{ route('payments.history', $tabQuery) }}"
-           class="ph-tab {{ ($statusAfterPayment ?? '') === $val ? 'active' : '' }}">
-            {{ $label }}
-        </a>
-    @endforeach
-</div>
-
-{{-- Column headers --}}
-<div class="ph-col">
-    <div></div>
-    <div>Client - Deceased</div>
-    <div style="text-align:right">Amount Paid</div>
-    <div style="text-align:right">Balance</div>
-    <div>Status</div>
-    <div></div>
-</div>
-
-{{-- Cards --}}
-@forelse($payments as $payment)
-    @php
-        $st      = strtolower($payment->payment_status_after_payment ?? 'unpaid');
-        $total   = (float) ($payment->funeralCase->total_amount ?? 0);
-        $paid    = (float) ($payment->amount ?? 0);
-        $pct     = $total > 0 ? (int) round($paid / $total * 100) : 0;
-        $balance = (float) ($payment->balance_after_payment ?? 0);
-    @endphp
-
-    <div class="ph-card {{ $st }}" data-ph-toggle="ph-detail-{{ $payment->id }}" role="button" tabindex="0">
-
-        <div class="ph-dot {{ $st }}"></div>
-
-        <div>
-            <div class="ph-name">
-                {{ $payment->funeralCase?->client?->full_name ?? '-' }}
-                <span class="dim"> - {{ $payment->funeralCase?->deceased?->full_name ?? '-' }}</span>
-            </div>
-            <div class="ph-meta">
-                <span>{{ $payment->paid_at?->format('Y-m-d H:i') ?? '-' }}</span>
-                <span>{{ $payment->receipt_number ?? '-' }}</span>
-                <span class="case-ref">{{ $payment->funeralCase?->case_code ?? '-' }}</span>
-                <span>{{ $payment->funeralCase?->branch?->branch_code ?? '-' }}</span>
-            </div>
-        </div>
-
-        <div class="ph-amt">PHP {{ number_format($paid, 2) }}</div>
-
-        <div class="ph-bal {{ $balance > 0 ? 'owed' : '' }}">
-            {{ $balance > 0 ? 'PHP ' . number_format($balance, 2) : '-' }}
-        </div>
-
-        <div><span class="ph-badge {{ $st }}">{{ ucfirst($st) }}</span></div>
-
-        <div class="ph-chev">></div>
+    <div class="pm-kpis">
+        <div class="pm-kpi"><span>Total Cases with Payments</span><strong>{{ number_format($totalCasesWithPayments ?? 0) }}</strong></div>
+        <div class="pm-kpi"><span>Total Payment Transactions</span><strong>{{ number_format($paymentRecordsCount ?? 0) }}</strong></div>
+        <div class="pm-kpi"><span>Total Collected</span><strong class="good">PHP {{ number_format((float) ($totalCollected ?? 0), 2) }}</strong></div>
+        <div class="pm-kpi"><span>Outstanding Balance</span><strong class="warn">PHP {{ number_format((float) ($totalOutstanding ?? 0), 2) }}</strong></div>
     </div>
 
-    <div class="ph-detail" id="ph-detail-{{ $payment->id }}" style="display:none">
-        <div class="ph-prog">
-            <div class="ph-pbar">
-                <div class="ph-pfill {{ $st }}" style="width:{{ $pct }}%"></div>
-            </div>
-            <span class="ph-pct">
-                {{ $pct }}% collected -
-                PHP {{ number_format($paid, 2) }} of PHP {{ number_format($total, 2) }}
-            </span>
-        </div>
+    <div class="pm-toolbar-shell">
+        <form id="pmFilterForm" method="GET" action="{{ route($monitoringRoute) }}" class="pm-toolbar">
+            <input type="hidden" name="tab" value="{{ $activeTab }}">
 
-        <div class="ph-dg">
-            <div class="ph-di">
-                <div class="ph-dl">Receipt No.</div>
-                <div class="ph-dv">{{ $payment->receipt_number ?? '-' }}</div>
+            <div class="pm-field search has-icon">
+                <i class="bi bi-search"></i>
+                <input class="pm-control" name="q" value="{{ $q ?? '' }}" placeholder="Search client, deceased, case no., payment record, accounting ref, transaction ref..." autocomplete="off">
             </div>
-            <div class="ph-di">
-                <div class="ph-dl">Case ID</div>
-                <div class="ph-dv case-c">{{ $payment->funeralCase?->case_code ?? '-' }}</div>
-            </div>
-            <div class="ph-di">
-                <div class="ph-dl">Branch</div>
-                <div class="ph-dv">{{ $payment->funeralCase?->branch?->branch_code ?? '-' }}</div>
-            </div>
-            <div class="ph-di">
-                <div class="ph-dl">Recorded By</div>
-                <div class="ph-dv">{{ $payment->recordedBy?->name ?? '-' }}</div>
-            </div>
-            <div class="ph-di">
-                <div class="ph-dl">Amount Paid</div>
-                <div class="ph-dv paid-c">PHP {{ number_format($paid, 2) }}</div>
-            </div>
-            <div class="ph-di">
-                <div class="ph-dl">Remaining Balance</div>
-                <div class="ph-dv {{ $balance > 0 ? 'owed-c' : '' }}">
-                    {{ $balance > 0 ? 'PHP ' . number_format($balance, 2) : 'Settled' }}
+
+            @if(!$isBranchOnly)
+                <div class="pm-field branch has-icon">
+                    <i class="bi bi-building"></i>
+                    <select name="branch_id" class="pm-control" title="Branch">
+                        <option value="">All Branches</option>
+                        @foreach($branches as $branch)
+                            <option value="{{ $branch->id }}" @selected((string) ($selectedBranchId ?? '') === (string) $branch->id)>
+                                {{ $branch->branch_code }} - {{ $branch->branch_name }}
+                            </option>
+                        @endforeach
+                    </select>
                 </div>
-            </div>
-            <div class="ph-di">
-                <div class="ph-dl">Total Amount</div>
-                <div class="ph-dv">PHP {{ number_format($total, 2) }}</div>
-            </div>
-            <div class="ph-di">
-                <div class="ph-dl">Payment Date</div>
-                <div class="ph-dv">{{ $payment->paid_at?->format('M d, Y - h:i A') ?? '-' }}</div>
-            </div>
-        </div>
+            @elseif($assignedBranch)
+                <div class="pm-field branch has-icon">
+                    <i class="bi bi-building"></i>
+                    <div class="pm-control" role="status">
+                        Assigned Branch: {{ $assignedBranch->branch_code }} - {{ $assignedBranch->branch_name }}
+                    </div>
+                </div>
+            @endif
 
-        <div class="ph-acts">
-            @if($payment->funeralCase)
-                <a href="{{ route('funeral-cases.show', ['funeral_case' => $payment->funeralCase, 'return_to' => request()->fullUrl()]) }}"
-                   class="ph-act dark">
-                    <i class="bi bi-eye"></i>
-                    View case
-                </a>
-                @if($balance > 0)
-                    <a href="{{ route('payments.index', ['case_id' => $payment->funeral_case_id, 'open_payment' => 1]) }}"
-                       class="ph-act">
-                        <i class="bi bi-cash-stack"></i>
-                        Add payment
-                    </a>
-                @endif
+            <div class="pm-field has-icon">
+                <i class="bi bi-credit-card"></i>
+                <select name="payment_status" class="pm-control" title="Payment Status">
+                    <option value="">All Payment Status</option>
+                    <option value="UNPAID" @selected($paymentStatus === 'UNPAID')>Unpaid</option>
+                    <option value="PARTIAL" @selected($paymentStatus === 'PARTIAL')>Partial</option>
+                    <option value="PAID" @selected($paymentStatus === 'PAID')>Paid</option>
+                </select>
+            </div>
+
+            <div class="pm-field has-icon">
+                <i class="bi bi-clipboard-check"></i>
+                <select name="case_status" class="pm-control" title="Case Status">
+                    <option value="">All Case Status</option>
+                    <option value="DRAFT" @selected(($caseStatus ?? '') === 'DRAFT')>Draft</option>
+                    <option value="ACTIVE" @selected(($caseStatus ?? '') === 'ACTIVE')>Active</option>
+                    <option value="COMPLETED" @selected(($caseStatus ?? '') === 'COMPLETED')>Completed</option>
+                </select>
+            </div>
+
+            <div class="pm-field has-icon">
+                <i class="bi bi-wallet2"></i>
+                <select name="payment_method" class="pm-control" title="Payment Method">
+                    <option value="">All Payment Methods</option>
+                    <option value="cash" @selected(($paymentMethod ?? '') === 'cash')>Cash</option>
+                    <option value="bank_transfer" @selected(($paymentMethod ?? '') === 'bank_transfer')>Bank Transfer</option>
+                </select>
+            </div>
+
+            <div class="pm-field has-icon">
+                <i class="bi bi-calendar3"></i>
+                <select id="pmDateRange" name="date_preset" class="pm-control" title="Date Range">
+                    <option value="all" @selected($dateRange === 'all' || $dateRange === 'any')>All Payment Dates</option>
+                    <option value="today" @selected($dateRange === 'today')>Today</option>
+                    <option value="week" @selected($dateRange === 'week')>This Week</option>
+                    <option value="month" @selected($dateRange === 'month')>This Month</option>
+                    <option value="year" @selected($dateRange === 'year')>This Year</option>
+                    <option value="custom" @selected($dateRange === 'custom')>Custom</option>
+                </select>
+            </div>
+
+            <div class="pm-hidden-date-fields">
+                <input id="pmPaidFrom" type="date" name="paid_from" value="{{ $paidFrom ?? '' }}">
+                <input id="pmPaidTo" type="date" name="paid_to" value="{{ $paidTo ?? '' }}">
+            </div>
+
+            <div class="pm-actions">
+                <a href="{{ route($monitoringRoute) }}" class="pm-btn"><i class="bi bi-arrow-counterclockwise"></i><span>Reset</span></a>
+            </div>
+        </form>
+    </div>
+
+    <div class="pm-tabs" role="tablist">
+        <a class="pm-tab {{ $activeTab === 'summary' ? 'active' : '' }}" href="{{ route($monitoringRoute, $tabQuery('summary')) }}">
+            <i class="bi bi-folder2-open"></i> Case Payment Summary
+        </a>
+        <a class="pm-tab {{ $activeTab === 'transactions' ? 'active' : '' }}" href="{{ route($monitoringRoute, $tabQuery('transactions')) }}">
+            <i class="bi bi-list-ul"></i> Transaction History
+        </a>
+    </div>
+
+    @if($activeTab === 'summary')
+        <div class="pm-panel">
+            <div class="pm-row-list">
+                @forelse($paymentCases as $case)
+                    @php
+                        $latestPaymentAt = $case->payments_max_paid_at ? \Illuminate\Support\Carbon::parse($case->payments_max_paid_at) : null;
+                        $summaryId = 'summary-case-' . $case->id;
+                    @endphp
+                    <button type="button" class="pm-case-row is-toggle" data-pm-summary-toggle="{{ $summaryId }}" aria-expanded="false">
+                        <div class="pm-case">{{ $case->case_code ?? '-' }}</div>
+                        <div class="pm-row-main">
+                            <div class="pm-row-title">{{ $case->client?->full_name ?? '-' }} &ndash; {{ $case->deceased?->full_name ?? '-' }}</div>
+                            <div class="pm-row-meta">
+                                <span>{{ $case->branch?->branch_code ?? '-' }}{{ $case->branch?->branch_name ? ' · ' . $case->branch->branch_name : '' }}</span>
+                            </div>
+                        </div>
+                        <div class="pm-row-date">Last payment: {{ $latestPaymentAt?->format('M d, Y h:i A') ?? '-' }}</div>
+                        <div class="pm-row-actions">
+                            <span class="pm-status {{ $statusClass($case->payment_status) }}">{{ \Illuminate\Support\Str::headline($case->payment_status ?? 'UNPAID') }}</span>
+                            <a class="pm-light-link" data-pm-stop-row-toggle href="{{ route($monitoringRoute, array_filter(array_merge(request()->except(['tab', 'q', 'page', 'transactions_page', 'open_case']), ['tab' => 'transactions', 'q' => $case->case_code, 'open_case' => $case->case_code]))) }}">
+                                <i class="bi bi-list-ul"></i><span>View Transactions</span>
+                            </a>
+                            <span class="pm-icon-toggle" aria-hidden="true"><i class="bi bi-chevron-down pm-chev"></i></span>
+                        </div>
+                    </button>
+                    <div id="{{ $summaryId }}" class="pm-summary-detail">
+                        <div class="pm-summary-stat"><span>Total Case Amount</span><strong>PHP {{ number_format((float) $case->total_amount, 2) }}</strong></div>
+                        <div class="pm-summary-stat"><span>Total Paid</span><strong>PHP {{ number_format((float) $case->total_paid, 2) }}</strong></div>
+                        <div class="pm-summary-stat"><span>Remaining Balance</span><strong>PHP {{ number_format((float) $case->balance_amount, 2) }}</strong></div>
+                        <div class="pm-summary-stat"><span>Transactions</span><strong>{{ number_format($case->payments_count ?? 0) }}</strong></div>
+                    </div>
+                @empty
+                    <div class="pm-empty">{{ $emptyMessage }}</div>
+                @endforelse
+            </div>
+            @if($paymentCases->total() > 0)
+                <div class="pm-foot">
+                    <span class="pm-muted">Showing {{ $paymentCases->firstItem() }}-{{ $paymentCases->lastItem() }} of {{ number_format($paymentCases->total()) }} cases</span>
+                    {{ $paymentCases->links() }}
+                </div>
             @endif
         </div>
-    </div>
+    @else
+        <div class="pm-panel">
+            <div class="pm-trans-list">
+                @forelse($transactionCases as $case)
+                    @php
+                        $casePayments = $case->payments ?? collect();
+                        $latestPayment = $casePayments->first();
+                        $latestPaymentAt = $latestPayment?->paid_at
+                            ?? ($case->payments_max_paid_at ? \Illuminate\Support\Carbon::parse($case->payments_max_paid_at) : null);
+                        $latestAmount = $latestPayment?->amount;
+                        $detailId = 'case-transactions-' . $case->id;
+                    @endphp
+                    <div class="pm-trans-item">
+                        <button type="button" class="pm-trans-row" data-pm-transaction-toggle="{{ $detailId }}" data-case-code="{{ $case->case_code }}" aria-expanded="false">
+                            <div class="pm-case">{{ $case->case_code ?? '-' }}</div>
+                            <div class="pm-trans-main">
+                                <div class="pm-trans-title">{{ $case->client?->full_name ?? '-' }} &ndash; {{ $case->deceased?->full_name ?? '-' }}</div>
+                                <div class="pm-trans-meta">
+                                    <span>{{ $case->branch?->branch_code ?? '-' }}{{ $case->branch?->branch_name ? ' · ' . $case->branch->branch_name : '' }}</span>
+                                </div>
+                            </div>
+                            <div class="pm-row-date">Last payment: {{ $latestPaymentAt?->format('M d, Y h:i A') ?? '-' }}</div>
+                            <div class="pm-trans-side">
+                                <span class="pm-status {{ $statusClass($case->payment_status) }}">{{ \Illuminate\Support\Str::headline($case->payment_status ?? 'UNPAID') }}</span>
+                                <span class="pm-expand-label">View Full Transactions</span>
+                                <i class="bi bi-chevron-down pm-chev"></i>
+                            </div>
+                        </button>
 
-@empty
-    <div style="text-align:center; padding:3rem; color:#94a3b8; font-size:13px;">
-        No transactions match your filters.
-    </div>
-@endforelse
-
-{{-- Footer --}}
-@if($payments->total() > 0)
-<div class="ph-foot">
-    <span class="ph-fl">
-        Showing {{ $payments->firstItem() }}-{{ $payments->lastItem() }}
-        of {{ number_format($payments->total()) }} records
-    </span>
-    <div>
-        {{ $payments->links() }}
-    </div>
+                        <div id="{{ $detailId }}" class="pm-detail">
+                            <div class="pm-case-overview">
+                                <div class="pm-summary-stat"><span>Total Paid / Total Case Amount</span><strong>PHP {{ number_format((float) $case->total_paid, 2) }} / PHP {{ number_format((float) $case->total_amount, 2) }}</strong></div>
+                                <div class="pm-summary-stat"><span>Remaining Balance</span><strong>PHP {{ number_format((float) $case->balance_amount, 2) }}</strong></div>
+                                <div class="pm-summary-stat"><span>Latest Payment Amount</span><strong>{{ $latestAmount !== null ? 'PHP ' . number_format((float) $latestAmount, 2) : 'Not available' }}</strong></div>
+                                <div class="pm-summary-stat"><span>Total Transactions</span><strong>{{ number_format($case->payments_count ?? $casePayments->count()) }}</strong></div>
+                            </div>
+                            <div class="pm-txn-list">
+                                @forelse($casePayments as $payment)
+                                    @php
+                                        $method = $payment->payment_method ?: $payment->payment_mode ?: 'cash';
+                                        $isBank = $method === 'bank_transfer';
+                                        $methodLabel = $isBank ? 'Bank Transfer' : 'Cash';
+                                        $channel = $payment->bank_or_channel === 'Other'
+                                            ? ($payment->other_bank_or_channel ?: 'Other')
+                                            : ($payment->bank_or_channel ?: null);
+                                        $paidAt = $payment->paid_at ?? $payment->paid_date;
+                                        $hasBalSnap = $payment->balance_after_payment !== null;
+                                        $balanceLabel = $hasBalSnap ? 'Balance After Payment' : 'Current Balance';
+                                        $balanceValue = $hasBalSnap ? $payment->balance_after_payment : $case->balance_amount;
+                                        $txnDetId = 'txnd-' . $payment->id;
+                                        $txnRef = $payment->transaction_reference_no ?: $payment->reference_number ?: null;
+                                        $acctRef = $payment->accounting_reference_no ?: null;
+                                        $remarks = $payment->remarks ?: null;
+                                        $receivedBy = $payment->received_by ?: null;
+                                        $encodedBy = $payment->encodedBy?->name ?? $payment->recordedBy?->name ?? null;
+                                        $senderName = $payment->sender_name ?: null;
+                                        $statusAfter = $payment->payment_status_after_payment ?? null;
+                                        $recordNo = $payment->display_payment_record_no ?? null;
+                                    @endphp
+                                    <div class="pm-txn-card">
+                                        <div class="pm-txn-hd">
+                                            <div class="pm-txn-info">
+                                                <span class="pm-txn-rec-label">Payment Record No.</span>
+                                                <div class="pm-txn-rec">{{ $recordNo ?? '—' }}</div>
+                                                <div class="pm-txn-sub">
+                                                    <span>{{ $methodLabel }}</span>
+                                                    <span class="pm-dot">&middot;</span>
+                                                    <span>{{ $paidAt?->format('M d, Y h:i A') ?? 'Not provided' }}</span>
+                                                </div>
+                                            </div>
+                                            <div class="pm-txn-right">
+                                                <div class="pm-txn-amt">PHP {{ number_format((float) $payment->amount, 2) }}</div>
+                                                @if($statusAfter)
+                                                    <span class="pm-status {{ $statusClass($statusAfter) }}">{{ \Illuminate\Support\Str::headline($statusAfter) }}</span>
+                                                @endif
+                                                <div class="pm-txn-bal">
+                                                    <span class="pm-txn-bal-lbl">{{ $balanceLabel }}</span>
+                                                    <span class="pm-txn-bal-val">PHP {{ number_format((float) $balanceValue, 2) }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        @if($encodedBy || $receivedBy)
+                                            <div class="pm-txn-foot">
+                                                @if($encodedBy)<span>Encoded by <strong>{{ $encodedBy }}</strong></span>@endif
+                                                @if($encodedBy && $receivedBy)<span class="pm-dot">&middot;</span>@endif
+                                                @if($receivedBy)<span>Received by <strong>{{ $receivedBy }}</strong></span>@endif
+                                            </div>
+                                        @endif
+                                        <button type="button" class="pm-txn-tog" data-pm-txn-det="{{ $txnDetId }}" aria-expanded="false">
+                                            <i class="bi bi-info-circle"></i> Details <i class="bi bi-chevron-down pm-chev"></i>
+                                        </button>
+                                        <div id="{{ $txnDetId }}" class="pm-txn-det" hidden>
+                                            <div class="pm-txn-det-grid">
+                                                <div class="pm-txn-det-cell">
+                                                    <span>Payment Record No.</span>
+                                                    <strong>{{ $recordNo ?? 'Not provided' }}</strong>
+                                                </div>
+                                                <div class="pm-txn-det-cell">
+                                                    <span>Accounting Reference No.</span>
+                                                    <strong>{{ $acctRef ?: 'Not provided' }}</strong>
+                                                </div>
+                                                <div class="pm-txn-det-cell">
+                                                    <span>Payment Method</span>
+                                                    <strong>{{ $methodLabel }}</strong>
+                                                </div>
+                                                <div class="pm-txn-det-cell">
+                                                    <span>Payment Amount</span>
+                                                    <strong>PHP {{ number_format((float) $payment->amount, 2) }}</strong>
+                                                </div>
+                                                <div class="pm-txn-det-cell">
+                                                    <span>Payment Date &amp; Time</span>
+                                                    <strong>{{ $paidAt?->format('M d, Y h:i A') ?? 'Not provided' }}</strong>
+                                                </div>
+                                                <div class="pm-txn-det-cell">
+                                                    <span>{{ $balanceLabel }}</span>
+                                                    <strong>PHP {{ number_format((float) $balanceValue, 2) }}</strong>
+                                                </div>
+                                                <div class="pm-txn-det-cell">
+                                                    <span>Encoded By</span>
+                                                    <strong>{{ $encodedBy ?: 'Not provided' }}</strong>
+                                                </div>
+                                                <div class="pm-txn-det-cell">
+                                                    <span>Received By</span>
+                                                    <strong>{{ $receivedBy ?: 'Not provided' }}</strong>
+                                                </div>
+                                                @if($isBank)
+                                                    <div class="pm-txn-det-cell">
+                                                        <span>Bank / Payment Channel</span>
+                                                        <strong>{{ $channel ?: 'Not provided' }}</strong>
+                                                    </div>
+                                                    <div class="pm-txn-det-cell">
+                                                        <span>Transaction Reference No.</span>
+                                                        <strong>{{ $txnRef ?: 'Not provided' }}</strong>
+                                                    </div>
+                                                @endif
+                                                @if($senderName)
+                                                    <div class="pm-txn-det-cell">
+                                                        <span>Sender / Account Name</span>
+                                                        <strong>{{ $senderName }}</strong>
+                                                    </div>
+                                                @endif
+                                                @if($remarks)
+                                                    <div class="pm-txn-det-cell pm-txn-det-full">
+                                                        <span>Remarks</span>
+                                                        <strong>{{ $remarks }}</strong>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                @empty
+                                    <div class="pm-empty">No payment transactions match the selected filters for this case.</div>
+                                @endforelse
+                            </div>
+                            <div class="pm-detail-actions">
+                                @if($case)
+                                    <a class="pm-btn primary" href="{{ $caseRoute($case) }}"><i class="bi bi-eye"></i><span>View Case</span></a>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                @empty
+                    <div class="pm-empty">{{ $emptyMessage }}</div>
+                @endforelse
+            </div>
+            @if($transactionCases->total() > 0)
+                <div class="pm-foot">
+                    <span class="pm-muted">Showing {{ $transactionCases->firstItem() }}-{{ $transactionCases->lastItem() }} of {{ number_format($transactionCases->total()) }} cases with payment transactions</span>
+                    {{ $transactionCases->links() }}
+                </div>
+            @endif
+        </div>
+    @endif
 </div>
-@endif
 
+<div id="pmDateModal" class="pm-modal-backdrop" aria-hidden="true">
+    <div class="pm-modal" role="dialog" aria-modal="true" aria-labelledby="pmDateModalTitle">
+        <div class="pm-modal-hd">
+            <div class="pm-modal-title" id="pmDateModalTitle">Custom Payment Date Range</div>
+            <button type="button" class="pm-btn compact" data-pm-date-cancel aria-label="Close date range modal"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="pm-modal-body">
+            <label>
+                <span class="pm-txn-rec-label">Date Range From</span>
+                <input id="pmModalPaidFrom" class="pm-control" type="date" value="{{ $paidFrom ?? '' }}">
+            </label>
+            <label>
+                <span class="pm-txn-rec-label">Date Range To</span>
+                <input id="pmModalPaidTo" class="pm-control" type="date" value="{{ $paidTo ?? '' }}">
+            </label>
+        </div>
+        <div class="pm-modal-ft">
+            <button type="button" class="pm-btn" data-pm-date-cancel>Cancel</button>
+            <button type="button" class="pm-btn primary" id="pmApplyCustomDates">Apply Date Range</button>
+        </div>
+    </div>
 </div>
 
 <script>
-(function () {
-    const form       = document.getElementById('phFilterForm');
-    const rangeSelect = document.getElementById('phRange');
-    const customDates = document.getElementById('phCustomDates');
-    const fromInput  = document.getElementById('phFromInput');
-    const toInput    = document.getElementById('phToInput');
-    const hiddenFrom = document.getElementById('phHiddenFrom');
-    const hiddenTo   = document.getElementById('phHiddenTo');
-    const searchInput = document.getElementById('phSearch');
-    if (!form || !rangeSelect) return;
-
-    const fmt = (d) => {
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const dy = String(d.getDate()).padStart(2, '0');
-        return `${y}-${m}-${dy}`;
-    };
-
-    const presets = {
-        today: () => {
-            const t = fmt(new Date());
-            return { from: t, to: t };
-        },
-        week: () => {
-            const now = new Date();
-            const mon = new Date(now);
-            mon.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-            return { from: fmt(mon), to: fmt(now) };
-        },
-        month: () => {
-            const now = new Date();
-            const first = new Date(now.getFullYear(), now.getMonth(), 1);
-            return { from: fmt(first), to: fmt(now) };
-        },
-    };
-
-    // Detect current state from hidden inputs
-    const initFrom = hiddenFrom.value;
-    const initTo   = hiddenTo.value;
-    if (initFrom || initTo) {
-        // Try to match a preset, else fall back to custom
-        let matched = false;
-        for (const [key, fn] of Object.entries(presets)) {
-            const r = fn();
-            if (r.from === initFrom && r.to === initTo) {
-                rangeSelect.value = key;
-                matched = true;
-                break;
-            }
-        }
-        if (!matched && (initFrom || initTo)) {
-            rangeSelect.value = 'custom';
-            customDates.style.display = 'flex';
-            fromInput.value = initFrom;
-            toInput.value   = initTo;
-        }
-    }
-
-    rangeSelect.addEventListener('change', () => {
-        const val = rangeSelect.value;
-        if (val === 'custom') {
-            customDates.style.display = 'flex';
-        } else {
-            customDates.style.display = 'none';
-            if (val === '') {
-                hiddenFrom.value = '';
-                hiddenTo.value   = '';
-            } else {
-                const r = presets[val]?.();
-                if (r) {
-                    hiddenFrom.value = r.from;
-                    hiddenTo.value   = r.to;
-                }
-            }
-            form.submit();
-        }
-    });
-
-    if (fromInput) {
-        fromInput.addEventListener('change', () => {
-            hiddenFrom.value = fromInput.value;
-            if (fromInput.value && toInput.value) form.submit();
-        });
-    }
-    if (toInput) {
-        toInput.addEventListener('change', () => {
-            hiddenTo.value = toInput.value;
-            if (fromInput.value && toInput.value) form.submit();
-        });
-    }
-
-    // Card expand/collapse
-    document.querySelectorAll('[data-ph-toggle]').forEach(card => {
-        const toggle = () => {
-            const detail = document.getElementById(card.dataset.phToggle);
-            if (!detail) return;
-            const isOpen = detail.style.display !== 'none';
-            detail.style.display = isOpen ? 'none' : 'block';
-            card.classList.toggle('open', !isOpen);
-        };
-        card.addEventListener('click', toggle);
-        card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
-    });
-
-    // Debounced search
+(() => {
+    const form = document.getElementById('pmFilterForm');
+    const range = document.getElementById('pmDateRange');
+    const paidFrom = document.getElementById('pmPaidFrom');
+    const paidTo = document.getElementById('pmPaidTo');
+    const modal = document.getElementById('pmDateModal');
+    const modalFrom = document.getElementById('pmModalPaidFrom');
+    const modalTo = document.getElementById('pmModalPaidTo');
+    const applyCustomDates = document.getElementById('pmApplyCustomDates');
+    const openCase = new URLSearchParams(window.location.search).get('open_case');
     let searchTimer = null;
-    if (searchInput) {
-        searchInput.addEventListener('input', () => {
-            clearTimeout(searchTimer);
-            searchTimer = setTimeout(() => form.submit(), 400);
+
+    const toDateValue = (date) => date.toISOString().slice(0, 10);
+    const submitFilters = () => form?.requestSubmit();
+
+    const setDateRange = (preset) => {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        let from = '';
+        let to = '';
+
+        if (preset === 'today') {
+            from = to = toDateValue(today);
+        } else if (preset === 'week') {
+            const day = today.getDay();
+            const diff = day === 0 ? -6 : 1 - day;
+            const start = new Date(today);
+            start.setDate(today.getDate() + diff);
+            const end = new Date(start);
+            end.setDate(start.getDate() + 6);
+            from = toDateValue(start);
+            to = toDateValue(end);
+        } else if (preset === 'month') {
+            from = toDateValue(new Date(today.getFullYear(), today.getMonth(), 1));
+            to = toDateValue(new Date(today.getFullYear(), today.getMonth() + 1, 0));
+        } else if (preset === 'year') {
+            from = toDateValue(new Date(today.getFullYear(), 0, 1));
+            to = toDateValue(new Date(today.getFullYear(), 11, 31));
+        }
+
+        if (paidFrom) paidFrom.value = from;
+        if (paidTo) paidTo.value = to;
+    };
+
+    const openDateModal = () => {
+        if (modalFrom && paidFrom) modalFrom.value = paidFrom.value;
+        if (modalTo && paidTo) modalTo.value = paidTo.value;
+        modal?.classList.add('open');
+        modal?.setAttribute('aria-hidden', 'false');
+        modalFrom?.focus();
+    };
+
+    const closeDateModal = () => {
+        modal?.classList.remove('open');
+        modal?.setAttribute('aria-hidden', 'true');
+    };
+
+    range?.addEventListener('change', () => {
+        if (range.value === 'custom') {
+            openDateModal();
+            return;
+        }
+
+        setDateRange(range.value);
+        submitFilters();
+    });
+
+    applyCustomDates?.addEventListener('click', () => {
+        if (paidFrom && modalFrom) paidFrom.value = modalFrom.value;
+        if (paidTo && modalTo) paidTo.value = modalTo.value;
+        closeDateModal();
+        submitFilters();
+    });
+
+    document.querySelectorAll('[data-pm-date-cancel]').forEach(button => {
+        button.addEventListener('click', () => {
+            closeDateModal();
+            if (range && (!paidFrom?.value && !paidTo?.value)) range.value = 'all';
         });
-        searchInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') { e.preventDefault(); clearTimeout(searchTimer); form.submit(); }
+    });
+
+    modal?.addEventListener('click', event => {
+        if (event.target === modal) closeDateModal();
+    });
+
+    document.querySelectorAll('[data-pm-stop-row-toggle]').forEach(link => {
+        link.addEventListener('click', event => event.stopPropagation());
+    });
+
+    document.querySelectorAll('[data-pm-summary-toggle]').forEach(button => {
+        button.addEventListener('click', () => {
+            const target = document.getElementById(button.dataset.pmSummaryToggle);
+            if (!target) return;
+            const nextOpen = !target.classList.contains('open');
+            target.classList.toggle('open', nextOpen);
+            button.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
         });
-    }
+    });
+
+    document.querySelectorAll('[data-pm-transaction-toggle]').forEach(button => {
+        const target = document.getElementById(button.dataset.pmTransactionToggle);
+        const toggle = (forceOpen = null) => {
+            if (!target) return;
+            const nextOpen = forceOpen === null ? !target.classList.contains('open') : forceOpen;
+            target.classList.toggle('open', nextOpen);
+            button.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+        };
+
+        button.addEventListener('click', () => toggle());
+
+        if (openCase && button.dataset.caseCode === openCase) {
+            toggle(true);
+        }
+    });
+
+    document.querySelectorAll('[data-pm-txn-det]').forEach(button => {
+        button.addEventListener('click', () => {
+            const target = document.getElementById(button.dataset.pmTxnDet);
+            if (!target) return;
+            const nextOpen = target.hidden;
+            target.hidden = !nextOpen;
+            button.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+        });
+    });
+
+    form?.querySelectorAll('select[name="branch_id"], select[name="payment_status"], select[name="case_status"], select[name="payment_method"]').forEach(control => {
+        control.addEventListener('change', submitFilters);
+    });
+
+    form?.querySelector('input[name="q"]')?.addEventListener('input', () => {
+        window.clearTimeout(searchTimer);
+        searchTimer = window.setTimeout(submitFilters, 450);
+    });
 })();
 </script>
 @endsection
-

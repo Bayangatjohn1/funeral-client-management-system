@@ -35,11 +35,12 @@ class ReportController extends Controller
         ]);
 
         $requestedBranchId = $validated['branch_id'] ?? null;
+        $originalRequestedBranchId = $requestedBranchId;
         if ($request->user()?->isBranchAdmin()) {
             $requestedBranchId = $request->user()->branch_id;
         }
         $scopeBranchIds = $request->user()->branchScopeIds();
-        if ($requestedBranchId && $scopeBranchIds !== null && !in_array((int) $requestedBranchId, $scopeBranchIds, true)) {
+        if ($originalRequestedBranchId && $scopeBranchIds !== null && !in_array((int) $originalRequestedBranchId, $scopeBranchIds, true)) {
             abort(403, 'Branch is outside your admin scope.');
         }
         $branchId = $this->effectiveBranchId($request, $requestedBranchId);

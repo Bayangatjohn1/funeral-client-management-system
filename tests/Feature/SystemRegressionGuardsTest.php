@@ -138,10 +138,10 @@ class SystemRegressionGuardsTest extends TestCase
 
         $mainBranch = $this->createBranch('BR001', 'Main Branch');
         $otherBranch = $this->createBranch('BR002', 'Other Branch');
-        $staff = $this->createUser('staff', $mainBranch, true);
+        $mainAdmin = $this->createUser('admin', $mainBranch);
         $package = $this->createPackage();
 
-        $response = $this->actingAs($staff)->post('/intake/other', $this->baseIntakePayload($otherBranch, $package, [
+        $response = $this->actingAs($mainAdmin)->post('/intake/other', $this->baseIntakePayload($otherBranch, $package, [
             'branch_id' => $otherBranch->id,
             'client_name' => 'External Client',
             'client_contact_number' => '09175550000',
@@ -172,7 +172,7 @@ class SystemRegressionGuardsTest extends TestCase
     {
         $mainBranch = $this->createBranch('BR001', 'Main Branch');
         $otherBranch = $this->createBranch('BR002', 'Other Branch');
-        $staff = $this->createUser('staff', $mainBranch, true);
+        $mainAdmin = $this->createUser('admin', $mainBranch);
         $package = $this->createPackage();
         $client = $this->createClient($otherBranch, "Maria P. O'Neil");
         $deceased = $this->createDeceased($otherBranch, $client, 'Other Search Deceased');
@@ -187,7 +187,7 @@ class SystemRegressionGuardsTest extends TestCase
             'reporter_name' => "Anne P. O'Neil",
         ]);
 
-        $this->actingAs($staff)
+        $this->actingAs($mainAdmin)
             ->get('/other-branch-reports?q=' . urlencode("O'Neil"))
             ->assertOk()
             ->assertSee('FC2010');
@@ -480,9 +480,9 @@ class SystemRegressionGuardsTest extends TestCase
     {
         $mainBranch = $this->createBranch('BR001', 'Main Branch');
         $this->createBranch('BR002', 'Other Branch');
-        $staff = $this->createUser('staff', $mainBranch, true);
+        $mainAdmin = $this->createUser('admin', $mainBranch);
 
-        $this->actingAs($staff)
+        $this->actingAs($mainAdmin)
             ->get('/intake/other')
             ->assertOk()
             ->assertSee('External Branch Report')
@@ -714,7 +714,7 @@ class SystemRegressionGuardsTest extends TestCase
     {
         $mainBranch = $this->createBranch('BR001', 'Main Branch');
         $otherBranch = $this->createBranch('BR002', 'Other Branch');
-        $staff = $this->createUser('staff', $mainBranch, true);
+        $mainAdmin = $this->createUser('admin', $mainBranch);
         $package = $this->createPackage();
         $client = $this->createClient($otherBranch, 'Other Payment Client');
         $deceased = $this->createDeceased($otherBranch, $client, 'Other Payment Deceased');
@@ -727,7 +727,7 @@ class SystemRegressionGuardsTest extends TestCase
             'reporter_name' => 'Reporter One',
         ]);
 
-        $this->actingAs($staff)
+        $this->actingAs($mainAdmin)
             ->get("/funeral-cases/{$case->id}")
             ->assertOk()
             ->assertDontSee('Add Payment')

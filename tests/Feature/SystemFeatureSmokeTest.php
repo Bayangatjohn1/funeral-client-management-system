@@ -166,6 +166,9 @@ class SystemFeatureSmokeTest extends TestCase
         $this->actingAs($owner)->get('/owner/branch-analytics')->assertOk();
         $this->actingAs($owner)->get('/owner/case-history')->assertOk();
         $this->actingAs($owner)
+            ->get('/payments')
+            ->assertRedirect(route('owner.analytics', absolute: false));
+        $this->actingAs($owner)
             ->get('/payments/history')
             ->assertRedirect(route('owner.analytics', absolute: false));
         $this->actingAs($owner)
@@ -223,10 +226,10 @@ class SystemFeatureSmokeTest extends TestCase
             'encoded_by' => null,
         ]);
 
-        $mainStaff = $this->createUser('staff', $mainBranch, true);
+        $mainAdmin = $this->createUser('admin', $mainBranch);
         $otherStaff = $this->createUser('staff', $otherBranch, false);
 
-        $this->actingAs($mainStaff)->get('/other-branch-reports')->assertOk();
+        $this->actingAs($mainAdmin)->get('/other-branch-reports')->assertOk();
         $this->actingAs($otherStaff)->get('/other-branch-reports')->assertForbidden();
     }
 

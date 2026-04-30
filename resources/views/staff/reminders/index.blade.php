@@ -489,7 +489,7 @@
                                 </span>
 
                                 <a
-                                    href="{{ route('funeral-cases.show', $item['case_id']) }}"
+                                    href="{{ route('funeral-cases.show', ['funeral_case' => $item['case_id'], 'return_to' => request()->fullUrl()]) }}"
                                     class="px-3 py-2 text-[11px] font-bold uppercase tracking-widest rounded-lg bg-slate-900 text-white hover:bg-[#9C5A1A] transition-colors"
                                 >
                                     View Details

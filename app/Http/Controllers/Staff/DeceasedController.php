@@ -328,11 +328,6 @@ class DeceasedController extends Controller
 
     public function edit(Deceased $deceased)
     {
-        $user = auth()->user();
-        if ($user?->role === 'staff' && !$user->canEncodeAnyBranch()) {
-            return redirect()->route('deceased.index')->with('warning', 'Need permission from the admin.');
-        }
-
         $mainBranchId = $this->mainBranchIdForDirectory();
         if ((int) $deceased->branch_id !== $mainBranchId) {
             abort(403);
@@ -359,11 +354,6 @@ class DeceasedController extends Controller
 
     public function update(Request $request, Deceased $deceased)
     {
-        $user = auth()->user();
-        if ($user?->role === 'staff' && !$user->canEncodeAnyBranch()) {
-            return redirect()->route('deceased.index')->with('warning', 'Need permission from the admin.');
-        }
-
         $mainBranchId = $this->mainBranchIdForDirectory();
         if ((int) $deceased->branch_id !== $mainBranchId) {
             abort(403);

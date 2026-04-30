@@ -1310,10 +1310,10 @@
                                 </div>
 
                                 {{-- Hidden billing inputs still used by JS --}}
-                                <input type="number" step="0.01" name="package_amount" id="package_amount" value="{{ old('package_amount') }}" class="hidden" readonly>
+                                <input type="hidden" name="package_amount" id="package_amount" value="{{ old('package_amount') }}">
                                 <input type="hidden" name="tax_rate" id="tax_rate" value="0">
-                                <input type="text" id="auto_discount_type" value="None" class="hidden" readonly>
-                                <input type="text" id="auto_discount_amount" value="PHP 0.00" class="hidden" readonly>
+                                <input type="hidden" id="auto_discount_type" value="None">
+                                <input type="hidden" id="auto_discount_amount" value="PHP 0.00">
 
                                 {{-- Discount info note --}}
                                 <div id="discount_help_wrap" class="text-[11px] font-medium text-slate-500 flex gap-2 items-start">

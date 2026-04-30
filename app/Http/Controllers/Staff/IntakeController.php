@@ -14,7 +14,6 @@ use App\Support\AuditLogger;
 use App\Support\Discount\CaseDiscountResolver;
 use App\Support\Validation\FieldRules;
 use Carbon\Carbon;
-use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -56,11 +55,11 @@ class IntakeController extends Controller
             abort(403);
         }
 
-        $permission = ($user?->isMainBranchAdmin() || $user?->canEncodeAnyBranch())
-            ? null
-            : $this->requireActiveTemporaryPermission();
+        if (!$user?->isMainBranchAdmin()) {
+            abort(403, 'Only Main Branch Admin can record other-branch reports.');
+        }
 
-        return $this->renderForm('other', $permission);
+        return $this->renderForm('other');
     }
 
     public function store(Request $request)
@@ -80,19 +79,18 @@ class IntakeController extends Controller
             abort(403);
         }
 
-        $permission = ($user?->isMainBranchAdmin() || $user?->canEncodeAnyBranch())
-            ? null
-            : $this->requireActiveTemporaryPermission();
+        if (!$user?->isMainBranchAdmin()) {
+            abort(403, 'Only Main Branch Admin can record other-branch reports.');
+        }
 
-        return $this->storeByMode($request, 'other', $permission);
+        return $this->storeByMode($request, 'other');
     }
 
-    private function renderForm(string $mode, ?\App\Models\TemporaryCrossBranchPermission $permission = null)
+    private function renderForm(string $mode)
     {
         $user = auth()->user();
         $operationalBranchId = (int) ($user->operationalBranchId() ?? $user->branch_id ?? 0);
         $canEncodeAnyBranch = $user->canEncodeAnyBranch();
-        $activePermission = $permission;
 
         $packages = Package::with(['packageInclusions', 'packageFreebies'])
             ->where('is_active', true)
@@ -101,22 +99,7 @@ class IntakeController extends Controller
 
         $branchQuery = Branch::where('is_active', true)->orderBy('branch_code');
         if ($mode === 'other') {
-            if ($user->isMainBranchAdmin() || $canEncodeAnyBranch) {
-                // Elevated encoders can record any non-main active branch without temp permission.
-                $branchQuery->whereRaw('UPPER(branch_code) <> ?', ['BR001']);
-            } else {
-                $activePermission = $activePermission ?: $this->requireActiveTemporaryPermission();
-                $branchQuery->where('id', $activePermission->allowed_branch_id);
-
-                // Let the staff know the permission is active
-                $expiresLabel = $activePermission->expires_at
-                    ? $activePermission->expires_at->format('M d, Y h:i A')
-                    : 'until revoked';
-                session()->flash(
-                    'success',
-                    "Temporary permission granted: you can record other-branch reports {$expiresLabel}."
-                );
-            }
+            $branchQuery->whereRaw('UPPER(branch_code) <> ?', ['BR001']);
         } else {
             $branchQuery->where('id', $operationalBranchId);
         }
@@ -132,7 +115,6 @@ class IntakeController extends Controller
                 return [$branch->id => $this->nextCaseCode((int) $branch->id)];
             }),
             'canEncodeAnyBranch' => $canEncodeAnyBranch,
-            'activeTemporaryPermission' => $activePermission,
             'entryMode' => $mode,
             'defaultBranchId' => (int) $defaultBranchId,
             'formAction' => $mode === 'other'
@@ -143,7 +125,7 @@ class IntakeController extends Controller
         ]);
     }
 
-    private function storeByMode(Request $request, string $mode, ?\App\Models\TemporaryCrossBranchPermission $permission = null)
+    private function storeByMode(Request $request, string $mode)
     {
         $trimFields = [
             'client_first_name',
@@ -320,28 +302,13 @@ class IntakeController extends Controller
 
         $user = auth()->user();
         $operationalBranchId = (int) ($user->operationalBranchId() ?? $user->branch_id ?? 0);
-        $canEncodeAnyBranch = $user->canEncodeAnyBranch();
         $isMainAdmin = $user->isMainBranchAdmin();
         $isBranchAdmin = $user->isBranchAdmin();
-        $needsTemporaryPermission = !$isMainAdmin && !$canEncodeAnyBranch;
 
         if ($mode === 'other') {
-            if ($isBranchAdmin) {
+            if ($isBranchAdmin || !$isMainAdmin) {
                 return redirect()->back()
                     ->withErrors(['branch_id' => 'Unauthorized for cross-branch intake.']);
-            }
-
-            if ($needsTemporaryPermission) {
-                $permission = $permission ?: $this->requireActiveTemporaryPermission();
-                if (
-                    !$permission
-                    || !$permission->is_active
-                    || $permission->is_used
-                    || ($permission->expires_at && $permission->expires_at->isPast())
-                ) {
-                    return redirect()->back()
-                        ->with('warning', 'You need permission from the admin to record other branch reports.');
-                }
             }
         }
 
@@ -357,30 +324,15 @@ class IntakeController extends Controller
 
             $branchId = (int) $mainBranch->id;
         } else {
-            if ($needsTemporaryPermission) {
-                $permission = $permission ?: $this->requireActiveTemporaryPermission();
-            }
             $branchId = (int) $validated['branch_id'];
             $branch = Branch::where('id', $branchId)
                 ->where('is_active', true)
                 ->first();
 
-            if ($needsTemporaryPermission) {
-                if (
-                    !$branch
-                    || strtoupper((string) $branch->branch_code) === 'BR001'
-                    || $branchId !== (int) $permission->allowed_branch_id
-                ) {
-                    return back()->withErrors([
-                        'branch_id' => 'Please select the authorized branch for this temporary permission.',
-                    ])->withInput();
-                }
-            } else {
-                if (!$branch || strtoupper((string) $branch->branch_code) === 'BR001') {
-                    return back()->withErrors([
-                        'branch_id' => 'Please select a non-main active branch.',
-                    ])->withInput();
-                }
+            if (!$branch || strtoupper((string) $branch->branch_code) === 'BR001') {
+                return back()->withErrors([
+                    'branch_id' => 'Please select a non-main active branch.',
+                ])->withInput();
             }
 
             if (empty($validated['reporter_name'])) {
@@ -694,7 +646,6 @@ class IntakeController extends Controller
                 $verifiedAt,
                 $verificationNote,
                 $initialPaymentType,
-                $permission
             ) {
                 $client = Client::create([
                     'branch_id'   => $branchId,
@@ -880,21 +831,6 @@ class IntakeController extends Controller
                     );
                 }
 
-                if ($mode === 'other' && $permission) {
-                    $permission->markUsed();
-                    AuditLogger::log(
-                        action: 'permission.cross_branch.used',
-                        actionType: 'permission',
-                        entityType: 'temporary_cross_branch_permission',
-                        entityId: $permission->id,
-                        metadata: [
-                            'funeral_case_id' => $funeralCase->id,
-                            'branch_id' => $branchId,
-                        ],
-                        branchId: $branchId,
-                        targetBranchId: $branchId
-                    );
-                }
             });
             break; // transaction succeeded — exit retry loop
         } catch (\Illuminate\Database\QueryException $e) {
@@ -936,26 +872,6 @@ class IntakeController extends Controller
         }
 
         return $redirectResponse;
-    }
-
-    private function requireActiveTemporaryPermission(): \App\Models\TemporaryCrossBranchPermission
-    {
-        $user = auth()->user();
-        $permission = $user?->activeTemporaryPermission();
-
-        if (
-            !$permission
-            || !$permission->is_active
-            || $permission->is_used
-            || ($permission->expires_at && $permission->expires_at->isPast())
-        ) {
-            throw new HttpResponseException(
-                redirect()->back()
-                    ->with('warning', 'You need permission from the admin to record other branch reports.')
-            );
-        }
-
-        return $permission;
     }
 
     private function resolveAge(?string $born, ?string $died): ?int

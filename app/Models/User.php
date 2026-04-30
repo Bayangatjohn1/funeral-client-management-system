@@ -240,19 +240,7 @@ protected $fillable = [
 
     public function canEncodeAnyBranch(): bool
     {
-        if ($this->isMainBranchAdmin()) {
-            return true;
-        }
-
-        if ($this->isBranchAdmin() || $this->role !== 'staff') {
-            return false;
-        }
-
-        if ((bool) $this->can_encode_any_branch) {
-            return true;
-        }
-
-        return (bool) $this->activeTemporaryPermission();
+        return $this->isMainBranchAdmin();
     }
 
     public function branchScopeIds(): array
@@ -271,34 +259,11 @@ protected $fillable = [
             return $this->cachedBranchScopeIds;
         }
 
-        if ($this->role === 'staff' && (bool) $this->can_encode_any_branch) {
-            $this->cachedBranchScopeIds = \Illuminate\Support\Facades\Cache::remember(
-                'active_branch_scope_ids:v1',
-                now()->addSeconds(30),
-                static fn () => \App\Models\Branch::where('is_active', true)->pluck('id')->all()
-            );
-
-            return $this->cachedBranchScopeIds;
-        }
-
         $branchIds = [];
 
-        if ($this->isBranchAdmin()) {
+        if ($this->isBranchAdmin() || $this->role === 'staff') {
             if ($this->branch_id) {
                 $branchIds[] = (int) $this->branch_id;
-            }
-        } elseif ($this->role === 'staff') {
-            $branchIds = $this->branches()
-                ->where('is_active', true)
-                ->pluck('branches.id')
-                ->all();
-
-            if ($this->branch_id) {
-                $branchIds[] = (int) $this->branch_id;
-            }
-
-            if ($permission = $this->activeTemporaryPermission()) {
-                $branchIds[] = (int) $permission->allowed_branch_id;
             }
         }
 

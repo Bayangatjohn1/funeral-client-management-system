@@ -10,18 +10,16 @@
         : ($funeral_case->case_status === 'COMPLETED'
             ? route('funeral-cases.index', ['tab' => 'completed'])
             : route('funeral-cases.index', ['tab' => 'active']));
-    $returnUrl = request()->query('return_to');
-    $returnPath = is_string($returnUrl) ? (parse_url($returnUrl, PHP_URL_PATH) ?: '') : '';
-    $isPaymentMonitoringReturn = \Illuminate\Support\Str::contains($returnPath, [
-        '/payments/history',
-        '/admin/payments',
-        '/admin/payment-monitoring',
-    ]);
+    $requestedReturnUrl = request()->query('return_to');
+    $previousUrl = url()->previous();
+    $currentUrl = request()->fullUrl();
+    $returnUrl = is_string($requestedReturnUrl) && $requestedReturnUrl !== ''
+        ? $requestedReturnUrl
+        : ($previousUrl !== $currentUrl ? $previousUrl : $defaultReturnUrl);
     if (
         !is_string($returnUrl)
         || $returnUrl === ''
         || !\Illuminate\Support\Str::startsWith($returnUrl, [url('/'), '/'])
-        || $isPaymentMonitoringReturn
     ) {
         $returnUrl = $defaultReturnUrl;
     }
@@ -80,6 +78,7 @@
                     @csrf
                     <input type="hidden" name="funeral_case_id" value="{{ $funeral_case->id }}">
                     <input type="hidden" name="return_to_case" value="1">
+                    <input type="hidden" name="return_to" value="{{ $returnUrl }}">
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
                             <label class="form-label">Payment Method</label>

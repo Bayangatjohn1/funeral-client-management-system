@@ -2,8 +2,11 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Schema;
 use App\Support\BranchScoped;
 
 class FuneralCase extends Model
@@ -180,6 +183,40 @@ class FuneralCase extends Model
     {
         $max = static::where('branch_id', $branchId)->max('case_number');
         return ($max ?? 0) + 1;
+    }
+
+    /**
+     * Complete active cases whose scheduled interment datetime has passed.
+     */
+    public static function completePastInterments(?CarbonInterface $now = null): int
+    {
+        $now = $now ? Carbon::instance($now) : now();
+        $hasCompletedAt = Schema::hasColumn((new static())->getTable(), 'completed_at');
+        $completed = 0;
+
+        static::query()
+            ->where('case_status', 'ACTIVE')
+            ->whereNotNull('interment_at')
+            ->where('interment_at', '<=', $now)
+            ->orderBy('id')
+            ->chunkById(100, function ($cases) use ($now, $hasCompletedAt, &$completed) {
+                foreach ($cases as $case) {
+                    if (! $case->interment_at || $case->interment_at->isStartOfDay()) {
+                        continue;
+                    }
+
+                    $attributes = ['case_status' => 'COMPLETED'];
+
+                    if ($hasCompletedAt) {
+                        $attributes['completed_at'] = $now;
+                    }
+
+                    $case->forceFill($attributes)->save();
+                    $completed++;
+                }
+            });
+
+        return $completed;
     }
 
     /**

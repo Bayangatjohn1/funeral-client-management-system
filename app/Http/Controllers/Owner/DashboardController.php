@@ -68,14 +68,6 @@ class DashboardController extends Controller
             return [$row['branch']->branch_code => (float) $row['sales']];
         });
 
-        $recentCases = FuneralCase::with(['branch', 'client', 'deceased'])
-            ->where('verification_status', 'VERIFIED')
-            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
-            ->whereBetween('created_at', [$startAt, $endAt])
-            ->latest()
-            ->take(10)
-            ->get();
-
         $selectedBranch = $branchId ? $branches->firstWhere('id', (int) $branchId) : null;
         $topPackages = collect();
         if ($branchId) {
@@ -104,7 +96,6 @@ class DashboardController extends Controller
             'ongoingCases',
             'branchRevenue',
             'branchCards',
-            'recentCases',
             'branches',
             'branchId',
             'dateFrom',

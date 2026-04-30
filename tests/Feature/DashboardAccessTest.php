@@ -18,7 +18,7 @@ class DashboardAccessTest extends TestCase
         $response = $this->actingAs($admin)->get('/admin');
 
         $response->assertOk();
-        $response->assertSee('Administration Overview');
+        $response->assertSee('Admin Dashboard');
     }
 
     public function test_owner_dashboard_renders_for_owner(): void
@@ -28,7 +28,11 @@ class DashboardAccessTest extends TestCase
         $response = $this->actingAs($owner)->get('/owner');
 
         $response->assertOk();
-        $response->assertSee('Executive Board');
+        $response->assertSee('Owner Overview');
+        $response->assertSee('Reports & Analytics', false);
+        $response->assertDontSee('Recent Cases');
+        $response->assertDontSee('Reminders &amp; Alerts', false);
+        $response->assertDontSee('bi-bell', false);
     }
 
     public function test_staff_dashboard_renders_for_staff(): void

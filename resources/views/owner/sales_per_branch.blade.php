@@ -237,7 +237,7 @@
                 <td class="p-2 border">{{ number_format((float) $case->total_paid, 2) }}</td>
                 <td class="p-2 border">{{ number_format((float) $case->balance_amount, 2) }}</td>
                 <td class="p-2 border no-print">
-                    <a href="{{ route('owner.cases.show', $case) }}" class="underline">View</a>
+                    <a href="{{ route('owner.cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}" class="underline">View</a>
                 </td>
             </tr>
         @empty

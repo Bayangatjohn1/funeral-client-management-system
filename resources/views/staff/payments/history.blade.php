@@ -32,7 +32,7 @@
         }
 
         return $isOwner
-            ? route('owner.cases.show', $case)
+            ? route('owner.cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()])
             : route('funeral-cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]);
     };
 @endphp
@@ -50,6 +50,7 @@
     .pm-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:.75rem; }
     .pm-field { flex:1 1 11rem; min-width:10rem; }
     .pm-field.branch { flex:1 1 15rem; }
+    .pm-field.branch-readonly { flex:0 1 18rem; min-width:14rem; max-width:18rem; }
     .pm-field.search { flex:2 1 24rem; min-width:18rem; }
     .pm-field.has-icon { position:relative; }
     .pm-field.has-icon > i { position:absolute; left:.85rem; top:50%; transform:translateY(-50%); color:var(--ink-muted); pointer-events:none; z-index:1; }
@@ -59,6 +60,11 @@
         background:#fff; color:var(--ink); font-size:.875rem; padding:0 .85rem;
     }
     .pm-control:disabled { background:var(--surface-muted); color:var(--ink-muted); opacity:1; }
+    .pm-readonly-control {
+        display:flex; align-items:center; min-height:2.75rem; height:2.75rem;
+        background:var(--surface-muted); color:var(--ink-muted); cursor:default;
+        white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
     .pm-actions { display:flex; gap:.75rem; flex:0 0 auto; align-items:center; }
     .pm-btn {
         height:2.75rem; border-radius:.75rem; border:1px solid var(--border); background:#fff;
@@ -173,7 +179,7 @@
     @media (max-width: 640px) {
         .pm-kpis { grid-template-columns:1fr; }
         .pm-toolbar { flex-wrap:wrap; min-width:0; }
-        .pm-field, .pm-field.search, .pm-field.branch, .pm-actions, .pm-actions .pm-btn { width:100%; flex-basis:100%; min-width:0; }
+        .pm-field, .pm-field.search, .pm-field.branch, .pm-field.branch-readonly, .pm-actions, .pm-actions .pm-btn { width:100%; flex-basis:100%; min-width:0; max-width:none; }
         .pm-summary-top { flex-direction:column; }
         .pm-summary-grid { grid-template-columns:1fr; }
         .pm-summary-actions, .pm-summary-actions .pm-btn { width:100%; justify-content:center; }
@@ -209,7 +215,7 @@
                 <input class="pm-control" name="q" value="{{ $q ?? '' }}" placeholder="Search client, deceased, case no., payment record, accounting ref, transaction ref..." autocomplete="off">
             </div>
 
-            @if(!$isBranchOnly)
+            @if($isMainAdmin || !$isBranchOnly)
                 <div class="pm-field branch has-icon">
                     <i class="bi bi-building"></i>
                     <select name="branch_id" class="pm-control" title="Branch">
@@ -222,10 +228,15 @@
                     </select>
                 </div>
             @elseif($assignedBranch)
-                <div class="pm-field branch has-icon">
+                <div class="pm-field branch branch-readonly has-icon">
                     <i class="bi bi-building"></i>
-                    <div class="pm-control" role="status">
-                        Assigned Branch: {{ $assignedBranch->branch_code }} - {{ $assignedBranch->branch_name }}
+                    <div
+                        class="pm-control pm-readonly-control"
+                        role="status"
+                        title="{{ trim(($assignedBranch->branch_code ?? 'Assigned Branch') . ' - ' . ($assignedBranch->branch_name ?? '')) }}"
+                        aria-label="Assigned Branch: {{ $assignedBranch->branch_code ?? 'Assigned Branch' }}"
+                    >
+                        Assigned Branch: {{ $assignedBranch->branch_code ?? 'Assigned Branch' }}
                     </div>
                 </div>
             @endif

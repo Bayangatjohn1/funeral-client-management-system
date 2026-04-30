@@ -420,32 +420,21 @@ class FuneralCaseController extends Controller
         $canEncodeAnyBranch = $user->canEncodeAnyBranch();
 
         if (!$canEncodeAnyBranch) {
-            abort(403, 'You need permission from the admin to view other-branch reports.');
+            abort(403, 'Only Main Branch Admin can view other-branch reports.');
         }
 
-        $hasAllBranchEncoding = $user->isMainBranchAdmin()
-            || ($user->role === 'staff' && (bool) $user->can_encode_any_branch);
+        $scopeBranches = Branch::whereIn('id', $user->branchScopeIds())
+            ->orderBy('branch_code')
+            ->get();
 
-        if ($hasAllBranchEncoding) {
-            $scopeBranches = Branch::whereIn('id', $user->branchScopeIds())
-                ->orderBy('branch_code')
-                ->get();
-
-            $otherScopeBranchIds = $scopeBranches
-                ->filter(function ($branch) {
-                    return strtoupper((string) $branch->branch_code) !== 'BR001';
-                })
-                ->pluck('id')
-                ->map(fn ($id) => (int) $id)
-                ->values()
-                ->all();
-        } else {
-            $allowedBranchId = (int) ($user->activeTemporaryPermission()?->allowed_branch_id ?? 0);
-            $scopeBranches = $allowedBranchId > 0
-                ? Branch::whereKey($allowedBranchId)->orderBy('branch_code')->get()
-                : collect();
-            $otherScopeBranchIds = $allowedBranchId > 0 ? [$allowedBranchId] : [];
-        }
+        $otherScopeBranchIds = $scopeBranches
+            ->filter(function ($branch) {
+                return strtoupper((string) $branch->branch_code) !== 'BR001';
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
 
         $request->validate([
             'q' => ['nullable', 'string', 'max:100', "regex:/^[A-Za-z0-9\\s.'-]+$/"],

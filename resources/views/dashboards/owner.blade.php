@@ -1,7 +1,7 @@
 @extends('layouts.panel')
 
-@section('page_title', 'Executive Board')
-@section('page_desc', 'Real-time business performance and branch financial overview.')
+@section('page_title', 'Owner Overview')
+@section('page_desc', 'Monitor branch performance, collections, and operational summaries.')
 
 @section('header_actions')
     <div class="hidden md:flex items-center gap-2">
@@ -32,9 +32,16 @@
         ? ($selectedBranch->branch_code . ' - ' . $selectedBranch->branch_name)
         : 'All Branches';
     $periodChipLabel = $isCustomRange ? 'CUSTOM RANGE' : str_replace('_', ' ', strtoupper($range ?? 'THIS_MONTH'));
+    $analyticsQuery = array_filter([
+        'branch_id' => $branchId,
+        'range' => $range,
+        'date_from' => $isCustomRange ? $dateFrom : null,
+        'date_to' => $isCustomRange ? $dateTo : null,
+    ], fn ($value) => filled($value));
+    $reportsQuery = array_merge(['report_type' => 'owner_branch_analytics'], $analyticsQuery);
 @endphp
 
-{{-- ── Filter Bar ── --}}
+{{-- Filter Bar --}}
 <div class="eb-filter-bar">
     <div class="eb-filter-left">
         <form method="GET" action="{{ route('owner.dashboard') }}" class="eb-branch-form eb-branch-form-inline">
@@ -102,11 +109,11 @@
     </div>
 </div>
 
-{{-- ── Period context strip ── --}}
+{{-- Period context strip --}}
 <div class="eb-period-strip">
     <div class="eb-period-info">
         <i class="bi bi-calendar3"></i>
-        <span>{{ $formattedFrom }} — {{ $formattedTo }}</span>
+        <span>{{ $formattedFrom }} &mdash; {{ $formattedTo }}</span>
     </div>
     <div class="eb-period-info">
         <i class="bi bi-building"></i>
@@ -118,7 +125,7 @@
     </div>
 </div>
 
-{{-- ── Financial KPIs ── --}}
+{{-- Financial KPIs --}}
 <div class="eb-kpi-row">
 
     {{-- Hero: Total Service Amount --}}
@@ -127,7 +134,7 @@
             <i class="bi bi-graph-up-arrow"></i>
             Total Service Amount
         </div>
-        <div class="eb-kpi-hero-value">₱ {{ number_format((float) ($totalSales ?? 0), 2) }}</div>
+        <div class="eb-kpi-hero-value">&#8369; {{ number_format((float) ($totalSales ?? 0), 2) }}</div>
         <div class="eb-kpi-hero-sub">Fully paid cases in period</div>
     </div>
 
@@ -135,10 +142,10 @@
     <div class="eb-kpi-secondary">
         <div class="eb-kpi-card">
             <div class="eb-kpi-card-top">
-                <span class="eb-kpi-card-label">Collected Amount</span>
+                <span class="eb-kpi-card-label">Total Collected</span>
                 <span class="eb-kpi-card-icon eb-icon-green"><i class="bi bi-cash-stack"></i></span>
             </div>
-            <div class="eb-kpi-card-value eb-val-green">₱ {{ number_format((float) ($totalCollected ?? 0), 2) }}</div>
+            <div class="eb-kpi-card-value eb-val-green">&#8369; {{ number_format((float) ($totalCollected ?? 0), 2) }}</div>
             <div class="eb-kpi-card-sub">Total payments received</div>
         </div>
 
@@ -147,14 +154,14 @@
                 <span class="eb-kpi-card-label">Outstanding Balance</span>
                 <span class="eb-kpi-card-icon eb-icon-red"><i class="bi bi-exclamation-circle"></i></span>
             </div>
-            <div class="eb-kpi-card-value eb-val-red">₱ {{ number_format((float) ($totalOutstanding ?? 0), 2) }}</div>
+            <div class="eb-kpi-card-value eb-val-red">&#8369; {{ number_format((float) ($totalOutstanding ?? 0), 2) }}</div>
             <div class="eb-kpi-card-sub">Remaining unpaid amounts</div>
         </div>
     </div>
 
 </div>
 
-{{-- ── Case Operation Status ── --}}
+{{-- Case Operation Status --}}
 <section class="eb-section">
     <div class="eb-section-header">
         <h3 class="eb-section-title">Case Operation Status</h3>
@@ -163,7 +170,7 @@
         @php
             $ops = [
                 ['label' => 'Total Cases',       'val' => $totalCases   ?? 0, 'icon' => 'bi-folder2-open',   'cls' => 'eb-op-default'],
-                ['label' => 'Ongoing Services',  'val' => $ongoingCases ?? 0, 'icon' => 'bi-activity',        'cls' => 'eb-op-slate'],
+                ['label' => 'Ongoing Cases',     'val' => $ongoingCases ?? 0, 'icon' => 'bi-activity',        'cls' => 'eb-op-slate'],
                 ['label' => 'Fully Paid',        'val' => $paidCases    ?? 0, 'icon' => 'bi-check-circle',    'cls' => 'eb-op-green'],
                 ['label' => 'Partial Payments',  'val' => $partialCases ?? 0, 'icon' => 'bi-hourglass-split', 'cls' => 'eb-op-amber'],
                 ['label' => 'Unpaid Accounts',   'val' => $unpaidCases  ?? 0, 'icon' => 'bi-exclamation-triangle', 'cls' => 'eb-op-red'],
@@ -179,23 +186,25 @@
     </div>
 </section>
 
-{{-- ── Bottom Grid: Branch Performance + Recent Cases ── --}}
+{{-- Bottom Grid: Branch Performance + Reports --}}
 <div class="eb-bottom-grid">
 
     {{-- Branch Performance Matrix --}}
-    <section class="eb-section eb-card">
+    <section class="eb-section eb-card eb-branch-performance-card">
         <div class="eb-section-header">
             <div>
                 <h3 class="eb-section-title">Branch Performance</h3>
-                <p class="eb-section-sub">Revenue by branch in selected period</p>
+                <p class="eb-section-sub">Collections and payment status by branch</p>
             </div>
-            <a href="{{ route('owner.analytics', ['branch_id' => $branchId, 'range' => $range]) }}" class="eb-link-btn">
+            <a href="{{ route('owner.analytics', $analyticsQuery) }}" class="eb-link-btn">
                 Analytics <i class="bi bi-arrow-right"></i>
             </a>
         </div>
 
         @php
-            $branchCardsCollection = collect($branchCards);
+            $branchCardsCollection = collect($branchCards)
+                ->sortByDesc(fn ($row) => (float) ($row['sales'] ?? 0))
+                ->values();
             $maxSales = max(1, (float) ($branchCardsCollection->max('sales') ?? 1));
             $barColors = ['#0f172a', '#9C5A1A', '#15803d', '#7c3aed', '#0369a1'];
         @endphp
@@ -205,13 +214,19 @@
                 @php
                     $bSales = (float) ($row['sales'] ?? 0);
                     $bWidth = (int) round(($bSales / $maxSales) * 100);
+                    $rank = $i + 1;
                     $barColor = $barColors[$i % count($barColors)];
                 @endphp
                 <div class="eb-branch-row">
                     <div class="eb-branch-row-head">
-                        <div>
-                            <span class="eb-branch-code">{{ $row['branch']?->branch_code ?? 'N/A' }}</span>
-                            <span class="eb-branch-name">{{ $row['branch']?->branch_name ?? '—' }}</span>
+                        <div class="eb-branch-main">
+                            <span class="eb-rank-badge {{ $rank === 1 ? 'is-top' : '' }}">
+                                {{ $rank === 1 ? 'Top 1' : '#' . $rank }}
+                            </span>
+                            <span class="eb-branch-copy">
+                                <span class="eb-branch-code">{{ $row['branch']?->branch_code ?? 'N/A' }}</span>
+                                <span class="eb-branch-name">{{ $row['branch']?->branch_name ?? '&mdash;' }}</span>
+                            </span>
                         </div>
                         <div class="eb-branch-row-stats">
                             <span class="eb-branch-stat-pill eb-bsp-green">{{ $row['paid_cases'] ?? 0 }} paid</span>
@@ -221,7 +236,7 @@
                             @if(($row['unpaid_cases'] ?? 0) > 0)
                                 <span class="eb-branch-stat-pill eb-bsp-red">{{ $row['unpaid_cases'] }} unpaid</span>
                             @endif
-                            <span class="eb-branch-amount">₱ {{ number_format($bSales, 2) }}</span>
+                            <span class="eb-branch-amount">&#8369; {{ number_format($bSales, 2) }}</span>
                         </div>
                     </div>
                     <div class="eb-branch-bar-track">
@@ -237,44 +252,53 @@
         </div>
     </section>
 
-    {{-- Right column: Recent Cases + Top Packages --}}
+    {{-- Right column: Reports + Top Packages --}}
     <div class="eb-right-col">
 
-        {{-- Recent Cases --}}
-        <section class="eb-section eb-card">
+        {{-- Reports shortcuts --}}
+        <section class="eb-section eb-card eb-reports-card">
             <div class="eb-section-header">
                 <div>
-                    <h3 class="eb-section-title">Recent Cases</h3>
-                    <p class="eb-section-sub">Latest verified cases in period</p>
+                    <h3 class="eb-section-title">Reports & Analytics</h3>
+                    <p class="eb-section-sub">Owner-level summaries and printable reports</p>
                 </div>
-                <a href="{{ route('owner.history', ['branch_id' => $branchId]) }}" class="eb-link-btn">
-                    View all <i class="bi bi-arrow-right"></i>
+                <a href="{{ route('reports.index', $reportsQuery) }}" class="eb-link-btn">
+                    Open Reports <i class="bi bi-arrow-right"></i>
                 </a>
             </div>
-            <div class="eb-recent-list">
-                @forelse($recentCases as $rc)
-                    <a href="{{ route('owner.cases.show', $rc) }}" class="eb-recent-row">
-                        <div class="eb-recent-left">
-                            <span class="eb-recent-code">{{ $rc?->case_code ?? '—' }}</span>
-                            <span class="eb-recent-names">
-                                {{ $rc->client?->full_name ?? '—' }}
-                                <span class="eb-dim">/ {{ $rc->deceased?->full_name ?? '—' }}</span>
-                            </span>
-                        </div>
-                        <div class="eb-recent-right">
-                            <span class="eb-recent-branch">{{ $rc->branch?->branch_code ?? '—' }}</span>
-                            @php
-                                $rSt = strtolower($rc?->payment_status ?? 'unpaid');
-                            @endphp
-                            <span class="eb-recent-badge eb-rbadge-{{ $rSt }}">{{ ucfirst($rSt) }}</span>
-                        </div>
-                    </a>
-                @empty
-                    <div class="eb-empty">
-                        <i class="bi bi-inbox eb-empty-icon"></i>
-                        <p>No recent cases found.</p>
-                    </div>
-                @endforelse
+            <div class="eb-report-list">
+                <a href="{{ route('owner.analytics', $analyticsQuery) }}" class="eb-report-row">
+                    <span class="eb-report-icon eb-report-icon-blue"><i class="bi bi-bar-chart-line"></i></span>
+                    <span class="eb-report-copy">
+                        <strong>Branch Analytics</strong>
+                        <small>Compare branch performance and collections.</small>
+                    </span>
+                    <i class="bi bi-arrow-up-right eb-report-arrow"></i>
+                </a>
+                <a href="{{ route('reports.index', $reportsQuery) }}" class="eb-report-row">
+                    <span class="eb-report-icon eb-report-icon-green"><i class="bi bi-wallet2"></i></span>
+                    <span class="eb-report-copy">
+                        <strong>Payment Summary Report</strong>
+                        <small>Review collected and outstanding amounts.</small>
+                    </span>
+                    <i class="bi bi-arrow-up-right eb-report-arrow"></i>
+                </a>
+                <a href="{{ route('reports.index', $reportsQuery) }}" class="eb-report-row">
+                    <span class="eb-report-icon eb-report-icon-amber"><i class="bi bi-exclamation-diamond"></i></span>
+                    <span class="eb-report-copy">
+                        <strong>Outstanding Balance Report</strong>
+                        <small>Track partial and unpaid accounts by branch.</small>
+                    </span>
+                    <i class="bi bi-arrow-up-right eb-report-arrow"></i>
+                </a>
+                <a href="{{ route('reports.index', $reportsQuery) }}" class="eb-report-row">
+                    <span class="eb-report-icon eb-report-icon-slate"><i class="bi bi-clipboard-data"></i></span>
+                    <span class="eb-report-copy">
+                        <strong>Case Summary Report</strong>
+                        <small>View summarized case volume and status.</small>
+                    </span>
+                    <i class="bi bi-arrow-up-right eb-report-arrow"></i>
+                </a>
             </div>
         </section>
 
@@ -284,7 +308,7 @@
             <div class="eb-section-header">
                 <div>
                     <h3 class="eb-section-title">Top Packages</h3>
-                    <p class="eb-section-sub">By case volume — paid cases only</p>
+                    <p class="eb-section-sub">By case volume &mdash; paid cases only</p>
                 </div>
             </div>
             <div class="eb-pkg-list">
@@ -293,7 +317,7 @@
                         <div class="eb-pkg-name">{{ $pkg->service_package }}</div>
                         <div class="eb-pkg-stats">
                             <span class="eb-pkg-cases">{{ $pkg->total_cases }} {{ Str::plural('case', $pkg->total_cases) }}</span>
-                            <span class="eb-pkg-amount">₱ {{ number_format((float) $pkg->total_sales, 2) }}</span>
+                            <span class="eb-pkg-amount">&#8369; {{ number_format((float) $pkg->total_sales, 2) }}</span>
                         </div>
                     </div>
                 @endforeach
@@ -307,12 +331,12 @@
 </div>
 
 <style>
-/* ── Shell ── */
+/* Shell */
 .eb-shell {
     padding: 1.5rem var(--panel-content-inline, 1.5rem) 3rem;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1rem;
     color: #0f172a;
     font-family: var(--font-body);
 }
@@ -325,18 +349,22 @@
     font-family: var(--font-body);
 }
 
-/* ── Filter Bar ── */
+/* Filter Bar */
 .eb-filter-bar {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
+    justify-content: flex-start;
+    gap: 12px;
     flex-wrap: wrap;
+    background: var(--card, #fff);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 12px;
+    padding: 12px;
 }
 .eb-filter-left {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     flex-wrap: wrap;
 }
 
@@ -370,15 +398,15 @@
 .eb-seg {
     display: flex;
     align-items: center;
-    gap: 6px;
-    flex-wrap: nowrap;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 .eb-seg-item {
-    height: 32px;
-    padding: 0 0.72rem;
-    border-radius: 9px;
+    min-height: 44px;
+    padding: 0 13px;
+    border-radius: 12px;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 800;
     color: #64748b;
     text-decoration: none;
     white-space: nowrap;
@@ -507,15 +535,15 @@
 .eb-branch-select-wrap {
     display: flex;
     align-items: center;
-    gap: 0.35rem;
-    height: 32px;
+    gap: 8px;
+    min-height: 44px;
     box-sizing: border-box;
     border: 1px solid #dbe3ef;
-    border-radius: 9px;
+    border-radius: 12px;
     background: #fff;
-    padding: 0 0.42rem;
-    min-width: 132px;
-    max-width: 148px;
+    padding: 0 12px;
+    min-width: 220px;
+    max-width: 320px;
 }
 
 .eb-branch-select-wrap i {
@@ -535,8 +563,8 @@
     height: 100%;
     border: 0;
     background: transparent;
-    font-size: 11.5px;
-    font-weight: 600;
+    font-size: 12px;
+    font-weight: 700;
     color: #334155;
     outline: none;
     text-overflow: ellipsis;
@@ -548,7 +576,7 @@
     font-family: var(--font-body);
 }
 
-/* ── Period strip ── */
+/* Period strip */
 .eb-period-strip {
     display: flex;
     align-items: center;
@@ -570,7 +598,7 @@
 }
 .eb-period-info-muted { color: #64748b; background: #f8fafc; }
 
-/* ── KPI Row ── */
+/* KPI Row */
 .eb-kpi-row {
     display: grid;
     grid-template-columns: 1fr 2fr;
@@ -675,7 +703,7 @@
 .eb-val-red   { color: #b91c1c; }
 .eb-kpi-card-sub { font-size: 12px; color: #64748b; margin-top: 4px; font-family: var(--font-body); }
 
-/* ── Ops Grid ── */
+/* Ops Grid */
 .eb-ops-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -718,18 +746,35 @@
 .eb-op-red .eb-op-card-icon { color: #dc2626; }
 .eb-op-red .eb-op-card-val  { color: #b91c1c; }
 
-/* ── Bottom Grid ── */
+/* Bottom Grid */
 .eb-bottom-grid {
     display: grid;
     grid-template-columns: 1fr 380px;
     gap: 1rem;
-    align-items: start;
+    align-items: stretch;
 }
 @media (max-width: 1100px) { .eb-bottom-grid { grid-template-columns: 1fr; } }
 
-.eb-right-col { display: flex; flex-direction: column; gap: 1rem; }
+.eb-right-col { display: flex; flex-direction: column; gap: 1rem; min-height: 0; }
+.eb-branch-performance-card,
+.eb-reports-card {
+    min-height: 354px;
+    padding: 18px;
+    gap: 14px;
+}
+.eb-branch-performance-card {
+    max-height: 354px;
+    overflow: hidden;
+}
+@media (max-width: 1100px) {
+    .eb-branch-performance-card,
+    .eb-reports-card {
+        min-height: auto;
+        max-height: none;
+    }
+}
 
-/* ── Section ── */
+/* Section */
 .eb-section { display: flex; flex-direction: column; gap: 1rem; }
 .eb-section-header {
     display: flex;
@@ -761,14 +806,104 @@
 }
 .eb-link-btn:hover { background: #0f172a; color: #fff; border-color: #0f172a; }
 
-/* ── Branch list ── */
-.eb-branch-list { display: flex; flex-direction: column; gap: 14px; }
-.eb-branch-row { display: flex; flex-direction: column; gap: 6px; }
+.eb-report-list { display: flex; flex-direction: column; gap: 8px; flex: 1; justify-content: space-between; }
+.eb-report-row {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    min-height: 56px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+    color: inherit;
+    text-decoration: none;
+    transition: border-color 0.12s ease, background-color 0.12s ease, transform 0.12s ease;
+}
+.eb-report-row:hover {
+    background: #fff;
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+}
+.eb-report-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+}
+.eb-report-icon-blue { background: #eff6ff; color: #1d4ed8; }
+.eb-report-icon-green { background: #f0fdf4; color: #15803d; }
+.eb-report-icon-amber { background: #fffbeb; color: #b45309; }
+.eb-report-icon-slate { background: #f1f5f9; color: #334155; }
+.eb-report-copy { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.eb-report-copy strong { font-size: 12px; color: #0f172a; font-weight: 800; }
+.eb-report-copy small { font-size: 11px; color: #64748b; line-height: 1.35; }
+.eb-report-arrow { color: #94a3b8; font-size: 13px; }
+
+/* Branch list */
+.eb-branch-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    justify-content: space-between;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 2px;
+}
+.eb-branch-row {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-height: 56px;
+    padding: 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+}
 .eb-branch-row-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.eb-branch-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+.eb-rank-badge {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 42px;
+    height: 24px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+}
+.eb-rank-badge.is-top {
+    background: #fffbeb;
+    border-color: #fde68a;
+    color: #92400e;
+}
+.eb-branch-copy {
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
     flex-wrap: wrap;
 }
 .eb-branch-code { font-size: 10px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; margin-right: 6px; }
@@ -787,8 +922,8 @@
 
 .eb-branch-bar-track {
     width: 100%;
-    height: 5px;
-    background: #f1f5f9;
+    height: 4px;
+    background: #e2e8f0;
     border-radius: 999px;
     overflow: hidden;
 }
@@ -798,33 +933,7 @@
     transition: width 0.6s ease;
 }
 
-/* ── Recent Cases ── */
-.eb-recent-list { display: flex; flex-direction: column; }
-.eb-recent-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 10px 0;
-    border-bottom: 0.5px solid #f1f5f9;
-    text-decoration: none;
-    color: inherit;
-    transition: background 0.1s;
-}
-.eb-recent-row:last-child { border-bottom: none; }
-.eb-recent-row:hover { opacity: 0.75; }
-.eb-recent-left { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.eb-recent-code { font-size: 10px; font-weight: 700; color: var(--accent); letter-spacing: 0.05em; }
-.eb-recent-names { font-size: 12px; font-weight: 500; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; font-family: var(--font-body); }
-.eb-dim { color: #94a3b8; font-weight: 400; }
-.eb-recent-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-.eb-recent-branch { font-size: 10px; font-weight: 600; color: #64748b; }
-.eb-recent-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
-.eb-rbadge-paid    { background: #f0fdf4; color: #15803d; }
-.eb-rbadge-partial { background: #fffbeb; color: #a16207; }
-.eb-rbadge-unpaid  { background: #fef2f2; color: #b91c1c; }
-
-/* ── Top Packages ── */
+/* Top Packages */
 .eb-pkg-list { display: flex; flex-direction: column; gap: 8px; }
 .eb-pkg-row {
     display: flex;
@@ -841,11 +950,11 @@
 .eb-pkg-cases { font-size: 11px; color: #64748b; }
 .eb-pkg-amount { font-size: 12px; font-weight: 700; color: #0f172a; font-variant-numeric: tabular-nums; }
 
-/* ── Empty state ── */
+/* Empty state */
 .eb-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 2rem; color: #94a3b8; font-size: 12px; text-align: center; }
 .eb-empty-icon { font-size: 2rem; }
 
-/* ── Dark mode ── */
+/* Dark mode */
 html[data-theme='dark'] .eb-shell { color: #e2ecf9; }
 html[data-theme='dark'] .eb-seg-item { color: #8aa7c5; }
 html[data-theme='dark'] .eb-seg-item:hover { color: #e2ecf9; background: rgba(255,255,255,0.06); }
@@ -882,16 +991,24 @@ html[data-theme='dark'] .eb-section-title,
 html[data-theme='dark'] .eb-op-default .eb-op-card-val,
 html[data-theme='dark'] .eb-branch-name,
 html[data-theme='dark'] .eb-branch-amount,
-html[data-theme='dark'] .eb-recent-names,
 html[data-theme='dark'] .eb-pkg-name,
 html[data-theme='dark'] .eb-pkg-amount { color: #e2ecf9; }
 html[data-theme='dark'] .eb-op-slate .eb-op-card-val { color: #94a3b8; }
 html[data-theme='dark'] .eb-link-btn { background: #1e334f; border-color: #2e4560; color: #8aa7c5; }
 html[data-theme='dark'] .eb-link-btn:hover { background: #e2ecf9; color: #0f172a; border-color: #e2ecf9; }
+html[data-theme='dark'] .eb-report-row { background: #1e334f; border-color: #2e4560; }
+html[data-theme='dark'] .eb-report-row:hover { background: #243d5a; border-color: #4a6888; }
+html[data-theme='dark'] .eb-report-copy strong { color: #e2ecf9; }
+html[data-theme='dark'] .eb-report-copy small,
+html[data-theme='dark'] .eb-report-arrow { color: #8aa7c5; }
+html[data-theme='dark'] .eb-report-icon-blue { background: #172554; color: #93c5fd; }
+html[data-theme='dark'] .eb-report-icon-green { background: #052e16; color: #4ade80; }
+html[data-theme='dark'] .eb-report-icon-amber { background: #451a03; color: #fbbf24; }
+html[data-theme='dark'] .eb-report-icon-slate { background: #334155; color: #cbd5e1; }
+html[data-theme='dark'] .eb-branch-row { background: #1e334f; border-color: #2e4560; }
 html[data-theme='dark'] .eb-branch-bar-track { background: #2e4560; }
-html[data-theme='dark'] .eb-recent-row { border-bottom-color: #1e334f; }
-html[data-theme='dark'] .eb-recent-code { color: #c88a4a; }
-html[data-theme='dark'] .eb-recent-branch { color: #5a7898; }
+html[data-theme='dark'] .eb-rank-badge { background: #243d5a; border-color: #4a6888; color: #cbd5e1; }
+html[data-theme='dark'] .eb-rank-badge.is-top { background: #451a03; border-color: #92400e; color: #fbbf24; }
 html[data-theme='dark'] .eb-pkg-row { background: #1e334f; border-color: #2e4560; }
 html[data-theme='dark'] .eb-pkg-cases { color: #5a7898; }
 html[data-theme='dark'] .eb-empty { color: #4a6888; }

@@ -1066,7 +1066,7 @@
                                     default => 'info',
                                 };
                             @endphp
-                            <a href="{{ route('funeral-cases.show', $item['case_id']) }}" class="staff-list-row">
+                            <a href="{{ route('funeral-cases.show', ['funeral_case' => $item['case_id'], 'return_to' => request()->fullUrl()]) }}" class="staff-list-row">
                                 <div>
                                     <strong>{{ $item['deceased_name'] }} - {{ $item['case_code'] }}</strong>
                                     <small>
@@ -1146,7 +1146,7 @@
                 <div data-schedule-panel="today">
                     <div class="staff-list">
                         @forelse($todayItems as $item)
-                            <a href="{{ route('funeral-cases.show', $item['case_id']) }}" class="staff-list-row">
+                            <a href="{{ route('funeral-cases.show', ['funeral_case' => $item['case_id'], 'return_to' => request()->fullUrl()]) }}" class="staff-list-row">
                                 <div>
                                     <strong>{{ $item['deceased_name'] }}</strong>
                                     <small>{{ $item['case_code'] }}</small>
@@ -1170,7 +1170,7 @@
                 <div data-schedule-panel="upcoming" hidden>
                     <div class="staff-list">
                         @forelse($upcomingItems as $item)
-                            <a href="{{ route('funeral-cases.show', $item['case_id']) }}" class="staff-list-row" style="align-items:center;">
+                            <a href="{{ route('funeral-cases.show', ['funeral_case' => $item['case_id'], 'return_to' => request()->fullUrl()]) }}" class="staff-list-row" style="align-items:center;">
                                 <div class="staff-upcoming-date">
                                     <strong>{{ $item['date']?->format('d') }}</strong>
                                     <span>{{ $item['date']?->format('M') }}</span>

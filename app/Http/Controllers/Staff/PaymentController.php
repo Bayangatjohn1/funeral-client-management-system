@@ -18,6 +18,14 @@ class PaymentController extends Controller
 {
     public function index(Request $request)
     {
+        if ($request->user()?->isOwner()) {
+            if (Route::has('owner.analytics')) {
+                return redirect()->route('owner.analytics');
+            }
+
+            abort(403);
+        }
+
         $this->authorize('viewAny', Payment::class);
 
         $user = auth()->user();
@@ -496,6 +504,7 @@ class PaymentController extends Controller
             'transfer_datetime' => ['nullable', 'date'],
             'remarks' => ['nullable', 'string', 'max:1000'],
             'return_to_case' => ['nullable', 'boolean'],
+            'return_to' => ['nullable', 'string', 'max:2048'],
             'void' => ['nullable', 'boolean'],
             'void_reason' => ['nullable', 'string', 'max:255'],
         ]);
@@ -649,8 +658,13 @@ class PaymentController extends Controller
         }
 
         if ($request->boolean('return_to_case')) {
+            $routeParams = ['funeral_case' => $validated['funeral_case_id']];
+            if (!empty($validated['return_to'])) {
+                $routeParams['return_to'] = $validated['return_to'];
+            }
+
             return redirect()
-                ->route('funeral-cases.show', $validated['funeral_case_id'])
+                ->route('funeral-cases.show', $routeParams)
                 ->with('success', 'Payment recorded successfully.');
         }
 

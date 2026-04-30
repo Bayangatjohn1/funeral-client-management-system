@@ -48,7 +48,6 @@
                             <th class="text-left">Branch</th>
                             <th class="text-left">Position</th>
                             <th class="text-left">Contact</th>
-                            <th class="text-left">Temp Cross-Branch</th>
                             <th class="text-left">Status</th>
                             <th class="table-col-actions">Actions</th>
                         </tr>
@@ -62,9 +61,6 @@
                                 <td>{{ $user->branch->branch_name ?? '-' }}</td>
                                 <td class="table-secondary">{{ $user->position ?? '-' }}</td>
                                 <td>{{ $user->contact_number ?? '-' }}</td>
-                                <td class="table-secondary">
-                                    {{ $user->latestTemporaryPermission?->status_label ?? 'None' }}
-                                </td>
                                 <td>
                                     @if($user->is_active)
                                         <span class="status-badge status-badge-success">Active</span>
@@ -111,7 +107,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" class="table-system-empty">No users found.</td>
+                                <td colspan="8" class="table-system-empty">No users found.</td>
                             </tr>
                         @endforelse
                     </tbody>

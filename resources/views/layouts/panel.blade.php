@@ -21,35 +21,6 @@
 
     <title>@yield('page_title', 'Dashboard') - Sabangan Caguioa</title>
 
-    <style>
-        .flash-toast-warning {
-            position: fixed;
-            left: 50%;
-            top: 18px;
-            transform: translateX(-50%);
-            z-index: 1100;
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            padding: 12px 18px;
-            border-radius: 16px;
-            background: #fffbeb;
-            border: 1px solid #fde68a;
-            color: #92400e;
-            font-weight: 700;
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
-            opacity: 0;
-            transition: opacity 0.25s ease, transform 0.25s ease;
-        }
-        .flash-toast-warning.show {
-            opacity: 1;
-            transform: translate(-50%, 0);
-        }
-        .flash-toast-warning i {
-            font-size: 1.05rem;
-        }
-    </style>
-
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="panel-shell-body">
@@ -177,6 +148,7 @@
                 $filterBar = trim($__env->yieldContent('filter_bar'));
                 $authUser = auth()->user();
                 $authRole = $authUser->role ?? null;
+                $showTopbarNotifications = ! $authUser?->isOwner();
                 $notificationRouteName = match (true) {
                     $authUser?->isAdmin() => 'admin.reminders.index',
                     $authRole === 'staff' => 'staff.reminders.index',
@@ -187,7 +159,7 @@
                 $topbarNotifications = collect();
                 $notificationCounts = ['all' => 0, 'due' => 0, 'today' => 0, 'upcoming' => 0];
 
-                if (auth()->check()) {
+                if ($showTopbarNotifications && auth()->check()) {
                     $payload = app(\App\Support\TopbarNotificationBuilder::class)->forUser($authUser, $authRole);
                     $topbarNotifications = collect($payload['items'] ?? []);
                     $notificationCounts = array_merge($notificationCounts, $payload['counts'] ?? []);
@@ -225,6 +197,7 @@
                         @yield('header_actions')
                     @endif
 
+                    @if($showTopbarNotifications)
                     <div class="topbar-notification-wrap" data-notification>
                         <button
                             type="button"
@@ -364,6 +337,7 @@
                             </div>
                         </div>
                     </div>
+                    @endif
 
                 </div>
             </header>
@@ -381,6 +355,10 @@
         </div>
     </div>
 
+    @if(session('warning'))
+        <div class="flash-warning">{{ session('warning') }}</div>
+    @endif
+
     <script>
         (function () {
             const meta = {
@@ -392,6 +370,12 @@
 
             const toasts = [...document.querySelectorAll('.flash-success, .flash-error, .flash-info, .flash-warning')];
             if (!toasts.length) return;
+
+            const stack = document.createElement('div');
+            stack.className = 'flash-toast-stack';
+            stack.setAttribute('aria-live', 'polite');
+            stack.setAttribute('aria-atomic', 'true');
+            document.body.appendChild(stack);
 
             toasts.forEach((el, idx) => {
                 const type = Object.keys(meta).find((k) => el.classList.contains(k)) || 'flash-info';
@@ -416,11 +400,7 @@
                 el.appendChild(iconEl);
                 el.appendChild(body);
                 el.appendChild(closeBtn);
-
-                // Stack multiple toasts vertically
-                if (idx > 0) {
-                    el.style.top = (20 + idx * 52) + 'px';
-                }
+                stack.appendChild(el);
 
                 const dismiss = () => {
                     el.classList.remove('flash-show');
@@ -437,21 +417,6 @@
             });
         })();
     </script>
-
-    @if(session('warning'))
-        <div id="flashWarningToast" class="flash-toast-warning">
-            <i class="bi bi-exclamation-triangle-fill"></i>
-            <span>{{ session('warning') }}</span>
-        </div>
-        <script>
-            (function () {
-                const toast = document.getElementById('flashWarningToast');
-                if (!toast) return;
-                requestAnimationFrame(() => toast.classList.add('show'));
-                setTimeout(() => toast.classList.remove('show'), 4500);
-            })();
-        </script>
-    @endif
 
     <script>
         (function () {

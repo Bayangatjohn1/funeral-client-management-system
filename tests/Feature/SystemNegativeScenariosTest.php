@@ -24,7 +24,7 @@ class SystemNegativeScenariosTest extends TestCase
         $this->actingAs($staff)->get('/clients')->assertOk();
         $this->actingAs($staff)->get('/deceased')->assertRedirect(route('clients.index', absolute: false));
         $this->actingAs($staff)->get('/payments')->assertOk();
-        $this->actingAs($staff)->get('/intake/other')->assertStatus(302);
+        $this->actingAs($staff)->get('/intake/other')->assertForbidden();
         $this->actingAs($staff)->get('/other-branch-reports')->assertForbidden();
     }
 

@@ -181,15 +181,15 @@
             line-height: 1.55;
         }
 
-        .login-hero-slide {
+        .login-hero-panel {
             background:
-                radial-gradient(circle at 18% 24%, rgba(212, 163, 115, 0.34), transparent 34%),
-                radial-gradient(circle at 82% 18%, rgba(255, 255, 255, 0.14), transparent 28%),
-                linear-gradient(160deg, rgba(15, 23, 42, 0.94), rgba(34, 32, 29, 0.90));
+                radial-gradient(circle at 22% 18%, rgba(212, 163, 115, 0.22), transparent 32%),
+                radial-gradient(circle at 88% 14%, rgba(255, 255, 255, 0.12), transparent 26%),
+                linear-gradient(145deg, #0f172a 0%, #1e1a16 54%, #2a1607 100%);
         }
 
-        .login-hero-slide::before,
-        .login-hero-slide::after {
+        .login-hero-panel::before,
+        .login-hero-panel::after {
             content: "";
             position: absolute;
             inset: auto;
@@ -197,22 +197,54 @@
             pointer-events: none;
         }
 
-        .login-hero-slide::before {
+        .login-hero-panel::before {
             width: 20rem;
             height: 20rem;
             right: -4rem;
             top: -4rem;
-            background: rgba(140, 64, 4, 0.2);
+            background: rgba(156, 90, 26, 0.24);
             filter: blur(20px);
         }
 
-        .login-hero-slide::after {
+        .login-hero-panel::after {
             width: 16rem;
             height: 16rem;
             left: -3rem;
             bottom: -3rem;
             background: rgba(255, 255, 255, 0.08);
             filter: blur(18px);
+        }
+
+        .login-slide-visual {
+            min-height: 320px;
+            border: 1px solid rgba(255, 255, 255, 0.13);
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 28px 70px -34px rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(18px);
+        }
+
+        .login-hero-card {
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06));
+            box-shadow: 0 22px 50px -28px rgba(0, 0, 0, 0.85);
+        }
+
+        .login-slide {
+            pointer-events: none;
+        }
+
+        .login-slide.is-active {
+            pointer-events: auto;
+        }
+
+        @media (max-height: 760px) {
+            #hero-slider {
+                min-height: 500px;
+            }
+
+            .login-slide-visual {
+                min-height: 260px;
+            }
         }
     </style>
 </head>
@@ -237,63 +269,10 @@
 
 <div class="flex h-full w-full relative z-10">
 
-    <section class="hidden lg:flex lg:w-1/2 relative bg-slate-900 flex-col justify-between overflow-hidden">
-
-        <div id="hero-slider" class="absolute inset-0 w-full h-full z-0">
-            <div class="slide login-hero-slide absolute inset-0 w-full h-full opacity-100 transition-opacity duration-1000 ease-in-out">
-                <div class="absolute inset-0 bg-[linear-gradient(145deg,rgba(15,23,42,0.92),rgba(37,99,235,0.22))]"></div>
-                <div class="absolute right-16 top-16 h-44 w-44 rounded-[2rem] border border-white/15 bg-white/5 backdrop-blur-sm shadow-2xl"></div>
-                <div class="absolute right-28 top-28 h-24 w-24 rounded-3xl border border-white/10 bg-[#60a5fa]/20"></div>
-                <div class="absolute bottom-12 left-12 max-w-lg z-20">
-                    <span class="px-3 py-1 bg-[#2563eb] text-white text-[10px] font-medium uppercase tracking-widest rounded-md mb-4 inline-block shadow-sm">Our Services</span>
-                    <h3 class="text-4xl font-bold text-white font-heading leading-tight mb-3">Premium Viewing <br>Chapel Setup</h3>
-                    <p class="text-white/80 font-medium text-sm leading-relaxed">Providing a peaceful and dignified environment for families to honor the lives of their loved ones.</p>
-                </div>
-            </div>
-
-            <div class="slide login-hero-slide absolute inset-0 w-full h-full opacity-0 transition-opacity duration-1000 ease-in-out">
-                <div class="absolute inset-0 bg-[linear-gradient(145deg,rgba(22,28,45,0.88),rgba(8,47,73,0.22))]"></div>
-                <div class="absolute right-16 top-12 h-52 w-64 rounded-[2.25rem] border border-white/15 bg-white/5 backdrop-blur-md shadow-2xl"></div>
-                <div class="absolute right-24 top-20 flex gap-3">
-                    <div class="h-24 w-16 rounded-2xl bg-white/10 border border-white/10"></div>
-                    <div class="h-24 w-16 rounded-2xl bg-[#2563eb]/30 border border-[#60a5fa]/20"></div>
-                    <div class="h-24 w-16 rounded-2xl bg-white/10 border border-white/10"></div>
-                </div>
-                <div class="absolute bottom-12 left-12 max-w-lg z-20">
-                    <span class="px-3 py-1 bg-white text-[#2563eb] text-[10px] font-medium uppercase tracking-widest rounded-md mb-4 inline-block shadow-sm">Transport</span>
-                    <h3 class="text-4xl font-bold text-white font-heading leading-tight mb-3">State-of-the-art <br>Funeral Fleet</h3>
-                    <p class="text-white/80 font-medium text-sm leading-relaxed">Ensuring a solemn and respectful journey with our well-maintained and elegant vehicles.</p>
-                </div>
-            </div>
-
-            <div class="slide login-hero-slide absolute inset-0 w-full h-full opacity-0 transition-opacity duration-1000 ease-in-out">
-                <div class="absolute inset-0 bg-[linear-gradient(145deg,rgba(30,41,59,0.88),rgba(37,99,235,0.18))]"></div>
-                <div class="absolute right-16 top-16 w-72 rounded-[2rem] border border-white/15 bg-white/5 p-6 backdrop-blur-md shadow-2xl">
-                    <div class="flex items-center gap-4">
-                        <div class="h-14 w-14 rounded-2xl bg-[#2563eb]/30 border border-[#60a5fa]/30"></div>
-                        <div class="space-y-2">
-                            <div class="h-3 w-24 rounded-full bg-white/20"></div>
-                            <div class="h-3 w-32 rounded-full bg-white/10"></div>
-                        </div>
-                    </div>
-                    <div class="mt-6 space-y-3">
-                        <div class="h-3 rounded-full bg-white/10"></div>
-                        <div class="h-3 rounded-full bg-white/10"></div>
-                        <div class="h-3 w-3/4 rounded-full bg-white/10"></div>
-                    </div>
-                </div>
-                <div class="absolute bottom-12 left-12 max-w-lg z-20">
-                    <span class="px-3 py-1 bg-[#9C5A1A] text-white text-[10px] font-medium uppercase tracking-widest rounded-md mb-4 inline-block shadow-sm">Commitment</span>
-                    <h3 class="text-4xl font-bold text-white font-heading leading-tight mb-3">Compassionate & <br>Professional Care</h3>
-                    <p class="text-white/80 font-medium text-sm leading-relaxed">Our dedicated team is here to guide and support your family every step of the way.</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="absolute inset-0 bg-gradient-to-b from-slate-900/85 via-slate-900/30 to-slate-900/95 z-10 pointer-events-none"></div>
+    <section class="hidden lg:flex lg:w-1/2 relative login-hero-panel flex-col overflow-hidden">
 
         {{-- Top branding --}}
-        <div class="relative z-20 p-12">
+        <div class="relative z-20 px-12 pt-12 pb-8">
             <div class="flex items-center gap-5">
                 <div class="bg-white/10 backdrop-blur-md p-2 rounded-2xl border border-white/20 shadow-2xl">
                     <img src="{{ asset('images/login-logo.png') }}" alt="Logo" class="w-14 h-14 object-contain rounded-xl bg-white p-1">
@@ -308,12 +287,196 @@
             </div>
         </div>
 
-        {{-- Dots --}}
-        <div class="relative z-20 p-12 flex justify-end">
-            <div class="flex gap-3 bg-slate-900/30 backdrop-blur-sm px-4 py-3 rounded-full border border-white/10" id="slider-dots">
-                <button class="w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)] transition-all"></button>
-                <button class="w-2.5 h-2.5 rounded-full bg-white/30 hover:bg-white/60 transition-all"></button>
-                <button class="w-2.5 h-2.5 rounded-full bg-white/30 hover:bg-white/60 transition-all"></button>
+        <div class="relative z-20 flex flex-1 flex-col justify-center px-12 pb-12">
+            <div id="hero-slider" class="relative min-h-[560px]">
+                <article class="slide login-slide is-active absolute inset-0 flex flex-col justify-center opacity-100 transition-opacity duration-700 ease-in-out">
+                    <div class="login-slide-visual relative overflow-hidden rounded-[2rem] p-7">
+                        <div class="absolute inset-0 bg-[radial-gradient(circle_at_15%_12%,rgba(156,90,26,0.3),transparent_30%),linear-gradient(145deg,rgba(15,23,42,0.2),rgba(15,23,42,0.78))]"></div>
+                        <div class="relative grid h-full gap-5">
+                            <div class="login-hero-card rounded-3xl p-5">
+                                <div class="flex items-center justify-between gap-5">
+                                    <div>
+                                        <p class="text-[10px] font-medium uppercase tracking-[0.28em] text-white/55">Operations Overview</p>
+                                        <p class="mt-2 text-2xl font-semibold text-white">Today&apos;s branch activity</p>
+                                    </div>
+                                    <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#9C5A1A] text-white shadow-lg">
+                                        <i class="bi bi-speedometer2 text-xl"></i>
+                                    </div>
+                                </div>
+                                <div class="mt-6 grid grid-cols-3 gap-3">
+                                    <div class="rounded-2xl bg-white/10 p-4">
+                                        <p class="text-2xl font-semibold text-white">18</p>
+                                        <p class="mt-1 text-[11px] text-white/55">Active cases</p>
+                                    </div>
+                                    <div class="rounded-2xl bg-white/10 p-4">
+                                        <p class="text-2xl font-semibold text-white">6</p>
+                                        <p class="mt-1 text-[11px] text-white/55">Services</p>
+                                    </div>
+                                    <div class="rounded-2xl bg-white/10 p-4">
+                                        <p class="text-2xl font-semibold text-white">3</p>
+                                        <p class="mt-1 text-[11px] text-white/55">Branches</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-[1.1fr_0.9fr] gap-5">
+                                <div class="login-hero-card rounded-3xl p-5">
+                                    <div class="mb-4 flex items-center justify-between">
+                                        <span class="text-xs font-medium text-white/70">Case monitoring</span>
+                                        <span class="rounded-full bg-emerald-400/15 px-3 py-1 text-[10px] font-medium uppercase tracking-widest text-emerald-200">Live</span>
+                                    </div>
+                                    <div class="space-y-3">
+                                        <div class="h-3 w-full rounded-full bg-white/12"><div class="h-3 w-4/5 rounded-full bg-[#d4a373]"></div></div>
+                                        <div class="h-3 w-full rounded-full bg-white/12"><div class="h-3 w-2/3 rounded-full bg-white/50"></div></div>
+                                        <div class="h-3 w-full rounded-full bg-white/12"><div class="h-3 w-3/5 rounded-full bg-[#9C5A1A]"></div></div>
+                                    </div>
+                                </div>
+                                <div class="login-hero-card flex items-center justify-center rounded-3xl p-5">
+                                    <div class="relative h-28 w-36">
+                                        <div class="absolute bottom-2 left-2 h-16 w-28 rounded-2xl border border-white/20 bg-white/10"></div>
+                                        <div class="absolute bottom-8 left-0 h-12 w-20 rounded-t-2xl border border-white/20 bg-[#9C5A1A]/45"></div>
+                                        <div class="absolute bottom-0 left-8 h-5 w-5 rounded-full border border-white/30 bg-slate-950"></div>
+                                        <div class="absolute bottom-0 right-6 h-5 w-5 rounded-full border border-white/30 bg-slate-950"></div>
+                                        <div class="absolute right-1 top-3 h-9 w-9 rounded-full border border-[#d4a373]/50 bg-[#d4a373]/25"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-8 max-w-xl">
+                        <span class="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.26em] text-[#f3d8bd]">Branch Intelligence</span>
+                        <h2 class="mt-4 text-4xl font-bold leading-tight text-white font-heading">A calmer way to monitor daily funeral operations.</h2>
+                        <p class="mt-4 text-sm leading-7 text-white/72">View active cases, service schedules, and branch activity from one secure access point built for focused staff work.</p>
+                    </div>
+                </article>
+
+                <article class="slide login-slide absolute inset-0 flex flex-col justify-center opacity-0 transition-opacity duration-700 ease-in-out">
+                    <div class="login-slide-visual relative overflow-hidden rounded-[2rem] p-7">
+                        <div class="absolute inset-0 bg-[radial-gradient(circle_at_82%_16%,rgba(212,163,115,0.28),transparent_28%),linear-gradient(145deg,rgba(15,23,42,0.24),rgba(15,23,42,0.8))]"></div>
+                        <div class="relative grid h-full grid-cols-[0.95fr_1.05fr] gap-5">
+                            <div class="login-hero-card flex flex-col justify-between rounded-3xl p-5">
+                                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#9C5A1A] shadow-lg">
+                                    <i class="bi bi-calendar2-check text-xl"></i>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] font-medium uppercase tracking-[0.28em] text-white/55">Service Flow</p>
+                                    <p class="mt-2 text-2xl font-semibold leading-tight text-white">Coordinated schedules from intake to service.</p>
+                                </div>
+                            </div>
+                            <div class="space-y-4">
+                                <div class="login-hero-card rounded-3xl p-5">
+                                    <div class="flex items-center gap-4">
+                                        <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#9C5A1A]/55 text-white">
+                                            <i class="bi bi-truck-front text-xl"></i>
+                                        </div>
+                                        <div class="min-w-0 flex-1">
+                                            <p class="text-sm font-semibold text-white">Transport assignment</p>
+                                            <div class="mt-2 h-2 rounded-full bg-white/12"><div class="h-2 w-3/4 rounded-full bg-[#d4a373]"></div></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="login-hero-card rounded-3xl p-5">
+                                    <div class="flex items-center gap-4">
+                                        <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/12 text-white">
+                                            <i class="bi bi-clipboard2-pulse text-xl"></i>
+                                        </div>
+                                        <div class="min-w-0 flex-1">
+                                            <p class="text-sm font-semibold text-white">Preparation checklist</p>
+                                            <div class="mt-2 h-2 rounded-full bg-white/12"><div class="h-2 w-4/5 rounded-full bg-white/55"></div></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="login-hero-card rounded-3xl p-5">
+                                    <div class="flex items-center gap-4">
+                                        <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#d4a373]/25 text-[#f3d8bd]">
+                                            <i class="bi bi-building-check text-xl"></i>
+                                        </div>
+                                        <div class="min-w-0 flex-1">
+                                            <p class="text-sm font-semibold text-white">Branch handoff</p>
+                                            <div class="mt-2 h-2 rounded-full bg-white/12"><div class="h-2 w-2/3 rounded-full bg-[#9C5A1A]"></div></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-8 max-w-xl">
+                        <span class="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.26em] text-[#f3d8bd]">Service Coordination</span>
+                        <h2 class="mt-4 text-4xl font-bold leading-tight text-white font-heading">Keep every service detail visible and organized.</h2>
+                        <p class="mt-4 text-sm leading-7 text-white/72">Track transport, chapel preparation, and branch responsibilities with a polished workflow that supports timely decisions.</p>
+                    </div>
+                </article>
+
+                <article class="slide login-slide absolute inset-0 flex flex-col justify-center opacity-0 transition-opacity duration-700 ease-in-out">
+                    <div class="login-slide-visual relative overflow-hidden rounded-[2rem] p-7">
+                        <div class="absolute inset-0 bg-[radial-gradient(circle_at_30%_22%,rgba(255,255,255,0.14),transparent_28%),linear-gradient(145deg,rgba(15,23,42,0.2),rgba(15,23,42,0.82))]"></div>
+                        <div class="relative grid h-full grid-cols-[1.05fr_0.95fr] gap-5">
+                            <div class="login-hero-card rounded-3xl p-6">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-[10px] font-medium uppercase tracking-[0.28em] text-white/55">Secure Records</p>
+                                        <p class="mt-2 text-2xl font-semibold text-white">Access by role and branch</p>
+                                    </div>
+                                    <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-200">
+                                        <i class="bi bi-shield-lock text-xl"></i>
+                                    </div>
+                                </div>
+                                <div class="mt-7 space-y-4">
+                                    <div class="flex items-center gap-3 rounded-2xl bg-white/10 p-4">
+                                        <i class="bi bi-person-badge text-[#f3d8bd]"></i>
+                                        <span class="text-sm font-medium text-white/82">Staff login verification</span>
+                                    </div>
+                                    <div class="flex items-center gap-3 rounded-2xl bg-white/10 p-4">
+                                        <i class="bi bi-file-earmark-lock text-[#f3d8bd]"></i>
+                                        <span class="text-sm font-medium text-white/82">Protected case files</span>
+                                    </div>
+                                    <div class="flex items-center gap-3 rounded-2xl bg-white/10 p-4">
+                                        <i class="bi bi-clock-history text-[#f3d8bd]"></i>
+                                        <span class="text-sm font-medium text-white/82">Auditable activity trail</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="login-hero-card flex items-center justify-center rounded-3xl p-6">
+                                <div class="relative h-56 w-44 rounded-[2rem] border border-white/15 bg-slate-950/35 p-5 shadow-2xl">
+                                    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-[#9C5A1A] text-white shadow-lg">
+                                        <i class="bi bi-lock-fill text-2xl"></i>
+                                    </div>
+                                    <div class="mt-8 space-y-3">
+                                        <div class="h-3 rounded-full bg-white/20"></div>
+                                        <div class="h-3 rounded-full bg-white/12"></div>
+                                        <div class="h-3 w-2/3 rounded-full bg-white/12"></div>
+                                    </div>
+                                    <div class="absolute -right-5 bottom-8 rounded-2xl border border-emerald-300/20 bg-emerald-400/15 px-4 py-3 text-xs font-medium text-emerald-100 shadow-xl">
+                                        Verified
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-8 max-w-xl">
+                        <span class="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.26em] text-[#f3d8bd]">Access Control</span>
+                        <h2 class="mt-4 text-4xl font-bold leading-tight text-white font-heading">Protect sensitive records without slowing the team down.</h2>
+                        <p class="mt-4 text-sm leading-7 text-white/72">Role-aware access and monitored sessions help keep family, payment, and service records handled with care.</p>
+                    </div>
+                </article>
+            </div>
+
+            <div class="mt-2 flex items-center justify-between gap-6">
+                <div class="grid grid-cols-3 gap-3 text-white/68">
+                    <div class="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3">
+                        <p class="text-[10px] font-medium uppercase tracking-widest">Secure Access</p>
+                    </div>
+                    <div class="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3">
+                        <p class="text-[10px] font-medium uppercase tracking-widest">Case Monitoring</p>
+                    </div>
+                    <div class="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3">
+                        <p class="text-[10px] font-medium uppercase tracking-widest">Branch Ops</p>
+                    </div>
+                </div>
+                <div class="flex shrink-0 gap-3 bg-slate-950/25 backdrop-blur-sm px-4 py-3 rounded-full border border-white/10" id="slider-dots" aria-label="Hero slides">
+                    <button type="button" class="h-2.5 w-8 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.55)] transition-all" aria-label="Show branch intelligence slide"></button>
+                    <button type="button" class="h-2.5 w-2.5 rounded-full bg-white/30 hover:bg-white/60 transition-all" aria-label="Show service coordination slide"></button>
+                    <button type="button" class="h-2.5 w-2.5 rounded-full bg-white/30 hover:bg-white/60 transition-all" aria-label="Show access control slide"></button>
+                </div>
             </div>
         </div>
     </section>
@@ -359,7 +522,7 @@
                 <div class="group">
                     <div class="login-label-row">
                         <label for="email" class="login-form-label transition-colors group-focus-within:text-[#9C5A1A]">
-                            Username
+                            Email Address
                         </label>
                     </div>
                     <div class="login-field">
@@ -428,17 +591,24 @@
                 </div>
 
                 {{-- Remember me --}}
-                <div class="login-remember">
-                    <input
-                        id="remember"
-                        type="checkbox"
-                        name="remember"
-                        {{ old('remember') ? 'checked' : '' }}
-                        class="text-[#9C5A1A] bg-white focus:ring-[#9C5A1A] focus:ring-2 transition-all"
-                    >
-                    <label for="remember">
-                        Keep me signed in
-                    </label>
+                <div class="flex items-center justify-between gap-4">
+                    <div class="login-remember">
+                        <input
+                            id="remember"
+                            type="checkbox"
+                            name="remember"
+                            {{ old('remember') ? 'checked' : '' }}
+                            class="text-[#9C5A1A] bg-white focus:ring-[#9C5A1A] focus:ring-2 transition-all"
+                        >
+                        <label for="remember">
+                            Keep me signed in
+                        </label>
+                    </div>
+                    @if (Route::has('password.request'))
+                        <a href="{{ route('password.request') }}" class="text-sm font-medium text-[#9C5A1A] hover:text-[#6a3003] transition-colors">
+                            Forgot Password?
+                        </a>
+                    @endif
                 </div>
 
                 {{-- Primary button --}}
@@ -486,23 +656,38 @@
     document.addEventListener("DOMContentLoaded", () => {
         const slides = document.querySelectorAll(".slide");
         const dots = document.querySelectorAll("#slider-dots button");
+        const dotsWrap = document.getElementById("slider-dots");
         if (slides.length === 0) return;
+        if (slides.length <= 1 && dotsWrap) {
+            dotsWrap.classList.add("hidden");
+            return;
+        }
 
         let currentSlide = 0;
         const slideInterval = 5000;
+        let timer = null;
 
         function showSlide(index) {
             slides.forEach((slide, i) => {
-                slide.classList.remove("opacity-100", "z-10");
+                slide.classList.remove("opacity-100", "z-10", "is-active");
                 slide.classList.add("opacity-0", "z-0");
-                dots[i].classList.remove("bg-white", "shadow-[0_0_10px_rgba(255,255,255,0.8)]");
-                dots[i].classList.add("bg-white/30");
+
+                if (dots[i]) {
+                    dots[i].classList.remove("w-8", "bg-white", "shadow-[0_0_10px_rgba(255,255,255,0.55)]");
+                    dots[i].classList.add("w-2.5", "bg-white/30");
+                    dots[i].setAttribute("aria-current", "false");
+                }
             });
 
             slides[index].classList.remove("opacity-0", "z-0");
-            slides[index].classList.add("opacity-100", "z-10");
-            dots[index].classList.remove("bg-white/30");
-            dots[index].classList.add("bg-white", "shadow-[0_0_10px_rgba(255,255,255,0.8)]");
+            slides[index].classList.add("opacity-100", "z-10", "is-active");
+
+            if (dots[index]) {
+                dots[index].classList.remove("w-2.5", "bg-white/30");
+                dots[index].classList.add("w-8", "bg-white", "shadow-[0_0_10px_rgba(255,255,255,0.55)]");
+                dots[index].setAttribute("aria-current", "true");
+            }
+
             currentSlide = index;
         }
 
@@ -514,10 +699,13 @@
         dots.forEach((dot, index) => {
             dot.addEventListener('click', () => {
                 showSlide(index);
+                clearInterval(timer);
+                timer = setInterval(nextSlide, slideInterval);
             });
         });
 
-        setInterval(nextSlide, slideInterval);
+        showSlide(0);
+        timer = setInterval(nextSlide, slideInterval);
     });
 </script>
 </body>

@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use Carbon\Carbon;
 use App\Support\AuditLogger;
 
 class UserController extends Controller
@@ -19,11 +18,7 @@ class UserController extends Controller
     public function index()
     {
         $users = User::where('role', '!=', 'owner')
-            ->with([
-                'branch',
-                'latestTemporaryPermission',
-                'latestTemporaryPermission.branch',
-            ])
+            ->with('branch')
             ->latest()
             ->paginate(20)
             ->withQueryString();
@@ -98,18 +93,10 @@ class UserController extends Controller
 
         $user->load([
             'branch',
-            'latestTemporaryPermission',
-            'latestTemporaryPermission.branch',
         ]);
 
-        $activeTempPermission = $user->temporaryPermissions()
-            ->active()
-            ->latest('granted_at')
-            ->first();
-        $latestTempPermission = $user->latestTemporaryPermission;
-
         $branches = Branch::orderBy('branch_name')->get();
-        return view('admin.users.edit', compact('user', 'branches', 'activeTempPermission', 'latestTempPermission'));
+        return view('admin.users.edit', compact('user', 'branches'));
     }
 
     public function update(Request $request, User $user)
@@ -119,13 +106,7 @@ class UserController extends Controller
         $this->hydrateSplitNameFromLegacyName($request);
         $this->ensureRoleAssignmentAllowed($request, $user);
 
-        $validated = $request->validate([
-            ...$this->userValidationRules($request, $user),
-            'can_encode_any_branch' => 'nullable|boolean',
-            'grant_temp_access' => 'nullable|boolean',
-            'temp_allowed_branch_id' => 'nullable|exists:branches,id',
-            'temp_expires_at' => 'nullable|date|after_or_equal:today',
-        ], $this->userValidationMessages());
+        $validated = $request->validate($this->userValidationRules($request, $user), $this->userValidationMessages());
         $validated = $this->prepareValidatedUserAttributes($validated);
 
         $before = [
@@ -134,7 +115,6 @@ class UserController extends Controller
             'role' => $user->role,
             'admin_scope' => $user->admin_scope,
             'branch_id' => $user->branch_id,
-            'can_encode_any_branch' => $user->can_encode_any_branch,
         ];
 
         $isManagedMainAdmin = $user->isMainBranchAdmin();
@@ -147,9 +127,6 @@ class UserController extends Controller
             'contact_number' => $validated['contact_number'] ?? null,
             'position' => $validated['position'] ?? null,
             'address' => $validated['address'] ?? null,
-            'can_encode_any_branch' => $validated['role'] === 'staff'
-                ? $request->boolean('can_encode_any_branch')
-                : false,
         ];
 
         foreach (['first_name', 'middle_name', 'last_name', 'suffix'] as $column) {
@@ -164,8 +141,6 @@ class UserController extends Controller
 
         $user->update($updateAttributes);
 
-        $this->maybeGrantTemporaryPermission($request, $user);
-
         AuditLogger::log(
             action: 'user.updated',
             actionType: 'update',
@@ -179,7 +154,6 @@ class UserController extends Controller
                     'role' => $user->role,
                     'admin_scope' => $user->admin_scope,
                     'branch_id' => $user->branch_id,
-                    'can_encode_any_branch' => $user->can_encode_any_branch,
                 ],
             ],
             branchId: $user->branch_id
@@ -467,68 +441,6 @@ class UserController extends Controller
     private function validSuffixes(): array
     {
         return ['Jr.', 'Sr.', 'II', 'III', 'IV', 'V'];
-    }
-
-    private function maybeGrantTemporaryPermission(Request $request, User $user): void
-    {
-        if ($user->role !== 'staff') {
-            return;
-        }
-
-        $grant = $request->boolean('grant_temp_access');
-        $allowedBranchId = $request->input('temp_allowed_branch_id');
-
-        if (!$grant || !$allowedBranchId) {
-            // If admin unchecks while an active permission exists, deactivate it.
-            $user->temporaryPermissions()->active()->update(['is_active' => false]);
-            return;
-        }
-
-        $branch = Branch::where('id', $allowedBranchId)
-            ->where('is_active', true)
-            ->first();
-
-        if (!$branch) {
-            throw ValidationException::withMessages([
-                'temp_allowed_branch_id' => 'Selected branch is unavailable.',
-            ]);
-        }
-
-        if (strtoupper((string) $branch->branch_code) === 'BR001') {
-            throw ValidationException::withMessages([
-                'temp_allowed_branch_id' => 'Temporary cross-branch access must target a non-main branch.',
-            ]);
-        }
-
-        $expiresAt = $request->filled('temp_expires_at')
-            ? Carbon::parse($request->input('temp_expires_at'))->endOfDay()
-            : null;
-
-        // Ensure only one active permission at a time.
-        $user->temporaryPermissions()->active()->update(['is_active' => false]);
-
-        $permission = $user->temporaryPermissions()->create([
-            'allowed_branch_id' => $branch->id,
-            'granted_by' => auth()->id(),
-            'is_active' => true,
-            'is_used' => false,
-            'granted_at' => now(),
-            'expires_at' => $expiresAt,
-        ]);
-
-        AuditLogger::log(
-            action: 'permission.cross_branch.granted',
-            actionType: 'permission',
-            entityType: 'temporary_cross_branch_permission',
-            entityId: $permission->id,
-            metadata: [
-                'granted_to' => $user->id,
-                'allowed_branch_id' => $branch->id,
-                'expires_at' => $expiresAt?->toIso8601String(),
-            ],
-            branchId: $user->branch_id,
-            targetBranchId: $branch->id
-        );
     }
 
     private function ensureRoleAssignmentAllowed(Request $request, ?User $targetUser = null): void

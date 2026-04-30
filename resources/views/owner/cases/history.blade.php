@@ -60,7 +60,7 @@
                 @endphp
                 <tr
                     data-clickable-row
-                    data-row-href="{{ route('owner.cases.show', $case) }}"
+                    data-row-href="{{ route('owner.cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}"
                     tabindex="0"
                     role="link"
                     aria-label="Open full case details for {{ $case->case_code }}"
@@ -103,7 +103,7 @@
                     </td>
                     <td>
                         <a
-                            href="{{ route('owner.cases.show', $case) }}"
+                            href="{{ route('owner.cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}"
                             class="table-action-link"
                         >View Details</a>
                     </td>

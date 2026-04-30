@@ -289,6 +289,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff_or_admin', 'branch.scope
         ->buildFullList($dashboardBranchId, [], $today)
         ->whereIn('type', ['upcoming_service', 'upcoming_interment'])
         ->sortBy('sort_date')
+        ->unique('case_id')
         ->take(6)
         ->values();
 

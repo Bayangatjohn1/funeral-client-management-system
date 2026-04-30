@@ -6,27 +6,6 @@
 @section('content')
 
 @php
-    $latestTemp = $latestTempPermission ?? $user->latestTemporaryPermission;
-    $activeTemp = $activeTempPermission ?? ($user->temporaryPermissions()->active()->latest('granted_at')->first());
-
-    $isActiveTemp = $activeTemp
-        && !$activeTemp->is_used
-        && (!$activeTemp->expires_at || $activeTemp->expires_at->isFuture());
-
-    $defaultGrantChecked = (bool) old('grant_temp_access', $isActiveTemp ? 1 : 0);
-
-    $selectedBranch = old(
-        'temp_allowed_branch_id',
-        $isActiveTemp ? $activeTemp?->allowed_branch_id : ''
-    );
-
-    $selectedExpiry = old(
-        'temp_expires_at',
-        ($isActiveTemp && $activeTemp?->expires_at)
-            ? $activeTemp->expires_at->format('Y-m-d')
-            : ''
-    );
-
     $hasSplitUserNames = \Illuminate\Support\Facades\Schema::hasColumn('users', 'first_name')
         && \Illuminate\Support\Facades\Schema::hasColumn('users', 'last_name');
     $hasMiddleName = \Illuminate\Support\Facades\Schema::hasColumn('users', 'middle_name');
@@ -156,73 +135,6 @@
                     <div id="branch_hint" class="form-hint mt-1">Branch is required for staff and branch admin accounts.</div>
                 </div>
 
-                <div id="cross_branch_wrap" class="md:col-span-2 space-y-3 border border-amber-200 rounded-xl p-4 bg-amber-50 hidden">
-                    <div class="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                        <input type="hidden" name="grant_temp_access" value="0">
-
-                        <input
-                            type="checkbox"
-                            name="grant_temp_access"
-                            id="grant_temp_access"
-                            value="1"
-                            {{ $defaultGrantChecked ? 'checked' : '' }}
-                            class="h-4 w-4 rounded border-slate-300 text-[var(--brand-mid)] focus:ring-[var(--brand-mid)]"
-                        >
-
-                        <span>Grant Temporary Cross-Branch Access</span>
-                    </div>
-
-                    <div class="grid gap-3 md:grid-cols-2">
-                        <div>
-                            <label class="label-section mb-1">Allowed Branch</label>
-                            <select name="temp_allowed_branch_id" id="temp_allowed_branch_id" class="form-select">
-                                <option value="">Select branch</option>
-                                @foreach($branches as $branch)
-                                    @if(strtoupper($branch->branch_code) !== 'BR001')
-                                        <option value="{{ $branch->id }}" {{ (string) $selectedBranch === (string) $branch->id ? 'selected' : '' }}>
-                                            {{ $branch->branch_code }} - {{ $branch->branch_name }}
-                                        </option>
-                                    @endif
-                                @endforeach
-                            </select>
-                            @error('temp_allowed_branch_id')
-                                <div class="form-error">{{ $message }}</div>
-                            @enderror
-                        </div>
-
-                        <div>
-                            <label class="label-section mb-1">Expires At (optional)</label>
-                            <input
-                                type="date"
-                                name="temp_expires_at"
-                                id="temp_expires_at"
-                                value="{{ $selectedExpiry }}"
-                                class="form-input"
-                            >
-                            @error('temp_expires_at')
-                                <div class="form-error">{{ $message }}</div>
-                            @enderror
-                        </div>
-                    </div>
-
-                    <div class="text-[11px] text-slate-700 space-y-1">
-                        <p>Single-use permission; auto-consumed after one other-branch intake save.</p>
-
-                        @if($isActiveTemp && $activeTemp)
-                            <p class="font-semibold text-emerald-700">
-                                Current: {{ $activeTemp->status_label }}
-                                {{ $activeTemp->expires_at ? ' - Expires '.$activeTemp->expires_at->toFormattedDateString() : '' }}
-                            </p>
-                        @elseif($latestTemp)
-                            <p class="text-slate-600">
-                                Last permission: {{ $latestTemp->status_label }}
-                            </p>
-                        @else
-                            <p class="text-slate-500">No active temporary access.</p>
-                        @endif
-                    </div>
-                </div>
-
                 <div id="contact_wrap">
                     <label class="label-section">Contact Number</label>
                     <input
@@ -312,10 +224,6 @@
             const branchSelect = document.getElementById('branch_id');
             const form = document.getElementById('userEditForm');
             const positionSelect = document.getElementById('position');
-            const crossWrap = document.getElementById('cross_branch_wrap');
-            const grantCheckbox = document.getElementById('grant_temp_access');
-            const tempBranchSelect = document.getElementById('temp_allowed_branch_id');
-            const tempExpiresInput = document.getElementById('temp_expires_at');
             const branchHint = document.getElementById('branch_hint');
             const invalidClass = ['border-rose-300', 'bg-rose-50', 'focus:border-rose-500', 'focus:ring-rose-500'];
             const positions = {
@@ -363,44 +271,18 @@
                 positionSelect.dataset.selected = '';
             }
 
-            function syncCrossBranchState() {
-                const isStaff = roleSelect && roleSelect.value === 'staff';
+            function syncRoleState() {
                 const needsBranch = roleSelect && ['staff', 'admin'].includes(roleSelect.value);
-
-                if (crossWrap) {
-                    crossWrap.classList.toggle('hidden', !isStaff);
-                }
 
                 if (branchSelect) {
                     branchSelect.required = !!needsBranch;
                 }
 
                 if (branchHint) {
-                    if (isStaff) {
+                    if (roleSelect?.value === 'staff') {
                         branchHint.textContent = 'Branch is required for staff accounts.';
                     } else {
                         branchHint.textContent = 'Branch is required for branch admin accounts.';
-                    }
-                }
-
-                if (!isStaff && grantCheckbox) {
-                    grantCheckbox.checked = false;
-                }
-
-                const grantEnabled = isStaff && grantCheckbox && grantCheckbox.checked;
-
-                if (tempBranchSelect) {
-                    tempBranchSelect.disabled = !grantEnabled;
-                    tempBranchSelect.required = grantEnabled;
-                    if (!grantEnabled) {
-                        tempBranchSelect.value = '';
-                    }
-                }
-
-                if (tempExpiresInput) {
-                    tempExpiresInput.disabled = !grantEnabled;
-                    if (!grantEnabled) {
-                        tempExpiresInput.value = '';
                     }
                 }
 
@@ -456,11 +338,7 @@
             }
 
             if (roleSelect) {
-                roleSelect.addEventListener('change', syncCrossBranchState);
-            }
-
-            if (grantCheckbox) {
-                grantCheckbox.addEventListener('change', syncCrossBranchState);
+                roleSelect.addEventListener('change', syncRoleState);
             }
 
             if (form) {
@@ -470,7 +348,7 @@
                 });
             }
 
-            syncCrossBranchState();
+            syncRoleState();
         })();
     </script>
 </div>

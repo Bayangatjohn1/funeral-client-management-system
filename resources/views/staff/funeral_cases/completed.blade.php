@@ -124,7 +124,7 @@
                     <th class="text-left">Branch</th>
                     <th class="text-left">Client</th>
                     <th class="text-left">Deceased</th>
-                    <th class="text-left">Service / Interment Date</th>
+                    <th class="text-left">Interment Date</th>
                     @if($isOtherView)
                         <th class="text-left">Submitted By</th>
                         <th class="text-left">Submission Date</th>
@@ -145,7 +145,7 @@
                     <td>{{ $case->branch?->branch_code ?? '-' }}</td>
                     <td>{{ $case->client?->full_name ?? '-' }}</td>
                     <td>{{ $case->deceased?->full_name ?? '-' }}</td>
-                    <td>{{ $case->deceased?->interment_at?->format('Y-m-d H:i') ?? $case->deceased?->interment?->format('Y-m-d') ?? '-' }}</td>
+                    <td>{{ $case->interment_at?->format('Y-m-d h:i A') ?? '-' }}</td>
                     @if($isOtherView)
                         <td>{{ $case->reporter_name ?? '-' }}</td>
                         <td>{{ $case->reported_at?->format('Y-m-d H:i') ?? '-' }}</td>

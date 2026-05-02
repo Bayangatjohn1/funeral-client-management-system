@@ -152,7 +152,7 @@ class SystemNegativeScenariosTest extends TestCase
         $this->assertDatabaseCount('funeral_cases', 0);
     }
 
-    public function test_intake_rejects_interment_on_same_date_as_death(): void
+    public function test_intake_rejects_request_date_before_date_of_death(): void
     {
         $mainBranch = $this->createBranch('BR001', 'Main Branch');
         $staff = $this->createUser('staff', $mainBranch, true);
@@ -166,13 +166,16 @@ class SystemNegativeScenariosTest extends TestCase
             'deceased_name' => 'Deceased Date Rule',
             'deceased_address' => 'Sample Address',
             'died' => $deathDate,
+            'service_requested_at' => now()->subDay()->toDateString(),
             'funeral_service_at' => $deathDate,
             'interment_at' => now()->setTime(10, 0)->format('Y-m-d H:i:s'),
         ]));
 
+        // `service_requested_at` is audit-only; earlier request timestamps are allowed
+        // as long as the funeral timeline uses `died` → `funeral_service_at` → `interment_at`.
         $response->assertRedirect('/intake/main');
-        $response->assertSessionHasErrors('interment_at');
-        $this->assertDatabaseCount('funeral_cases', 0);
+        $response->assertSessionMissing('errors');
+        $this->assertDatabaseCount('funeral_cases', 1);
     }
 
     public function test_intake_rejects_future_date_of_death(): void

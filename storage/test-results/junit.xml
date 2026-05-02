@@ -1,0 +1,1461 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="C:\xampp\htdocs\funeral-system\phpunit.xml" tests="137" assertions="576" errors="0" failures="5" skipped="0" time="18.767134">
+    <testsuite name="Unit" tests="5" assertions="11" errors="0" failures="0" skipped="0" time="1.118149">
+      <testsuite name="Tests\Unit\CaseDiscountResolverTest" file="C:\xampp\htdocs\funeral-system\tests\Unit\CaseDiscountResolverTest.php" tests="4" assertions="10" errors="0" failures="0" skipped="0" time="1.041599">
+        <testcase name="test_returns_no_discount_when_no_senior_and_no_active_promo" file="C:\xampp\htdocs\funeral-system\tests\Unit\CaseDiscountResolverTest.php" line="12" class="Tests\Unit\CaseDiscountResolverTest" classname="Tests.Unit.CaseDiscountResolverTest" assertions="2" time="0.759573"/>
+        <testcase name="test_applies_senior_discount_when_eligible" file="C:\xampp\htdocs\funeral-system\tests\Unit\CaseDiscountResolverTest.php" line="25" class="Tests\Unit\CaseDiscountResolverTest" classname="Tests.Unit.CaseDiscountResolverTest" assertions="3" time="0.082705"/>
+        <testcase name="test_applies_promo_when_higher_than_senior" file="C:\xampp\htdocs\funeral-system\tests\Unit\CaseDiscountResolverTest.php" line="41" class="Tests\Unit\CaseDiscountResolverTest" classname="Tests.Unit.CaseDiscountResolverTest" assertions="3" time="0.124774"/>
+        <testcase name="test_no_stacking_uses_higher_discount_only" file="C:\xampp\htdocs\funeral-system\tests\Unit\CaseDiscountResolverTest.php" line="62" class="Tests\Unit\CaseDiscountResolverTest" classname="Tests.Unit.CaseDiscountResolverTest" assertions="2" time="0.074546"/>
+      </testsuite>
+      <testsuite name="Tests\Unit\ExampleTest" file="C:\xampp\htdocs\funeral-system\tests\Unit\ExampleTest.php" tests="1" assertions="1" errors="0" failures="0" skipped="0" time="0.076550">
+        <testcase name="test_that_true_is_true" file="C:\xampp\htdocs\funeral-system\tests\Unit\ExampleTest.php" line="12" class="Tests\Unit\ExampleTest" classname="Tests.Unit.ExampleTest" assertions="1" time="0.076550"/>
+      </testsuite>
+    </testsuite>
+    <testsuite name="Feature" tests="132" assertions="565" errors="0" failures="5" skipped="0" time="17.648985">
+      <testsuite name="Tests\Feature\AdminOwnerInputConsistencyTest" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminOwnerInputConsistencyTest.php" tests="5" assertions="18" errors="0" failures="0" skipped="0" time="2.354545">
+        <testcase name="test_admin_date_filter_options_are_consistent_on_desktop_and_mobile" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminOwnerInputConsistencyTest.php" line="14" class="Tests\Feature\AdminOwnerInputConsistencyTest" classname="Tests.Feature.AdminOwnerInputConsistencyTest" assertions="2" time="1.871438"/>
+        <testcase name="test_admin_filter_validation_handles_valid_and_invalid_values" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminOwnerInputConsistencyTest.php" line="26" class="Tests\Feature\AdminOwnerInputConsistencyTest" classname="Tests.Feature.AdminOwnerInputConsistencyTest" assertions="3" time="0.136006"/>
+        <testcase name="test_owner_dashboard_filter_validation_is_consistent" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminOwnerInputConsistencyTest.php" line="40" class="Tests\Feature\AdminOwnerInputConsistencyTest" classname="Tests.Feature.AdminOwnerInputConsistencyTest" assertions="3" time="0.120687"/>
+        <testcase name="test_owner_analytics_filter_validation_is_consistent" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminOwnerInputConsistencyTest.php" line="54" class="Tests\Feature\AdminOwnerInputConsistencyTest" classname="Tests.Feature.AdminOwnerInputConsistencyTest" assertions="3" time="0.095188"/>
+        <testcase name="test_owner_reporting_filters_validate_consistently_across_pages" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminOwnerInputConsistencyTest.php" line="68" class="Tests\Feature\AdminOwnerInputConsistencyTest" classname="Tests.Feature.AdminOwnerInputConsistencyTest" assertions="7" time="0.131227"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\AdminScopeAuthorizationTest" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php" tests="22" assertions="107" errors="0" failures="2" skipped="0" time="2.856872">
+        <testcase name="test_main_branch_admin_keeps_global_admin_access" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php" line="15" class="Tests\Feature\AdminScopeAuthorizationTest" classname="Tests.Feature.AdminScopeAuthorizationTest" assertions="4" time="0.203082"/>
+        <testcase name="test_legacy_main_branch_admin_without_scope_still_keeps_admin_access" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php" line="26" class="Tests\Feature\AdminScopeAuthorizationTest" classname="Tests.Feature.AdminScopeAuthorizationTest" assertions="2" time="0.094822"/>
+        <testcase name="test_branch_admin_is_sent_to_admin_dashboard_and_blocked_from_global_admin_modules" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php" line="40" class="Tests\Feature\AdminScopeAuthorizationTest" classname="Tests.Feature.AdminScopeAuthorizationTest" assertions="8" time="0.196545"/>
+        <testcase name="test_branch_admin_has_read_only_package_access_to_active_packages" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php" line="54" class="Tests\Feature\AdminScopeAuthorizationTest" classname="Tests.Feature.AdminScopeAuthorizationTest" assertions="7" time="0.129520"/>
+        <testcase name="test_branch_admin_cannot_submit_package_write_routes" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php" line="77" class="Tests\Feature\AdminScopeAuthorizationTest" classname="Tests.Feature.AdminScopeAuthorizationTest" assertions="7" time="0.089941"/>
+        <testcase name="test_branch_admin_main_intake_uses_assigned_branch_instead_of_br001" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php" line="104" class="Tests\Feature\AdminScopeAuthorizationTest" classname="Tests.Feature.AdminScopeAuthorizationTest" assertions="4" time="0.179482"/>
+        <testcase name="test_main_branch_admin_cannot_create_owner_accounts_or_assign_main_scope_through_user_management" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php" line="162" class="Tests\Feature\AdminScopeAuthorizationTest" classname="Tests.Feature.AdminScopeAuthorizationTest" assertions="10" time="0.077276"/>
+        <testcase name="test_main_branch_admin_can_create_branch_admin_but_new_admin_is_stored_with_branch_scope" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php" line="196" class="Tests\Feature\AdminScopeAuthorizationTest" classname="Tests.Feature.AdminScopeAuthorizationTest" assertions="3" time="0.293777"/>
+        <testcase name="test_main_admin_can_create_staff_account" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php" line="220" class="Tests\Feature\AdminScopeAuthorizationTest" classname="Tests.Feature.AdminScopeAuthorizationTest" assertions="3" time="0.120127">
+          <failure type="PHPUnit\Framework\ExpectationFailedException">Tests\Feature\AdminScopeAuthorizationTest::test_main_admin_can_create_staff_account&#13;
+Failed asserting that a row in the table [users] matches the attributes {
+    "email": "new.staff@gmail.com",
+    "role": "staff",
+    "branch_id": 2,
+    "admin_scope": null
+}.
+
+Found similar results: [
+    {
+        "email": "new.staff@gmail.com",
+        "role": "staff",
+        "branch_id": 1,
+        "admin_scope": null
+    }
+].
+&#13;
+C:\xampp\htdocs\funeral-system\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithDatabase.php:43
+C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php:236</failure>
+        </testcase>
+        <testcase name="test_create_user_rejects_invalid_email_format" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php" line="244" class="Tests\Feature\AdminScopeAuthorizationTest" classname="Tests.Feature.AdminScopeAuthorizationTest" assertions="4" time="0.086071"/>
+        <testcase name="test_create_user_rejects_email_with_invalid_domain" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php" line="262" class="Tests\Feature\AdminScopeAuthorizationTest" classname="Tests.Feature.AdminScopeAuthorizationTest" assertions="4" time="0.073588"/>
+        <testcase name="test_create_user_rejects_duplicate_email" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php" line="280" class="Tests\Feature\AdminScopeAuthorizationTest" classname="Tests.Feature.AdminScopeAuthorizationTest" assertions="4" time="0.075663"/>
+        <testcase name="test_create_user_accepts_valid_email_domain" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php" line="299" class="Tests\Feature\AdminScopeAuthorizationTest" classname="Tests.Feature.AdminScopeAuthorizationTest" assertions="3" time="0.095114"/>
+        <testcase name="test_update_user_allows_current_email_but_rejects_duplicate_email" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php" line="321" class="Tests\Feature\AdminScopeAuthorizationTest" classname="Tests.Feature.AdminScopeAuthorizationTest" assertions="6" time="0.107365"/>
+        <testcase name="test_created_staff_is_limited_to_assigned_branch" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php" line="354" class="Tests\Feature\AdminScopeAuthorizationTest" classname="Tests.Feature.AdminScopeAuthorizationTest" assertions="3" time="0.084762">
+          <failure type="PHPUnit\Framework\ExpectationFailedException">Tests\Feature\AdminScopeAuthorizationTest::test_created_staff_is_limited_to_assigned_branch&#13;
+Failed asserting that 1 matches expected 2.
+&#13;
+C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php:372</failure>
+        </testcase>
+        <testcase name="test_created_branch_admin_is_limited_to_assigned_branch" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php" line="379" class="Tests\Feature\AdminScopeAuthorizationTest" classname="Tests.Feature.AdminScopeAuthorizationTest" assertions="8" time="0.133512"/>
+        <testcase name="test_staff_cannot_access_any_admin_routes" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php" line="405" class="Tests\Feature\AdminScopeAuthorizationTest" classname="Tests.Feature.AdminScopeAuthorizationTest" assertions="6" time="0.101137"/>
+        <testcase name="test_branch_admin_is_blocked_from_other_branch_intake" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php" line="423" class="Tests\Feature\AdminScopeAuthorizationTest" classname="Tests.Feature.AdminScopeAuthorizationTest" assertions="2" time="0.078470"/>
+        <testcase name="test_main_admin_can_access_monitoring_modules" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php" line="433" class="Tests\Feature\AdminScopeAuthorizationTest" classname="Tests.Feature.AdminScopeAuthorizationTest" assertions="5" time="0.205000"/>
+        <testcase name="test_branch_admin_can_access_admin_monitoring_and_reminders" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php" line="445" class="Tests\Feature\AdminScopeAuthorizationTest" classname="Tests.Feature.AdminScopeAuthorizationTest" assertions="6" time="0.237432"/>
+        <testcase name="test_branch_admin_cannot_filter_admin_dashboard_to_another_branch" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php" line="459" class="Tests\Feature\AdminScopeAuthorizationTest" classname="Tests.Feature.AdminScopeAuthorizationTest" assertions="3" time="0.088860"/>
+        <testcase name="test_create_user_form_has_no_pre_filled_email_or_password" file="C:\xampp\htdocs\funeral-system\tests\Feature\AdminScopeAuthorizationTest.php" line="478" class="Tests\Feature\AdminScopeAuthorizationTest" classname="Tests.Feature.AdminScopeAuthorizationTest" assertions="5" time="0.105325"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\Auth\AuthenticationTest" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\AuthenticationTest.php" tests="8" assertions="35" errors="0" failures="0" skipped="0" time="0.810308">
+        <testcase name="test_login_screen_can_be_rendered" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\AuthenticationTest.php" line="14" class="Tests\Feature\Auth\AuthenticationTest" classname="Tests.Feature.Auth.AuthenticationTest" assertions="9" time="0.131074"/>
+        <testcase name="test_authenticated_users_are_redirected_away_from_login_screen" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\AuthenticationTest.php" line="29" class="Tests\Feature\Auth\AuthenticationTest" classname="Tests.Feature.Auth.AuthenticationTest" assertions="2" time="0.062663"/>
+        <testcase name="test_users_can_authenticate_using_the_login_screen" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\AuthenticationTest.php" line="38" class="Tests\Feature\Auth\AuthenticationTest" classname="Tests.Feature.Auth.AuthenticationTest" assertions="3" time="0.075514"/>
+        <testcase name="test_branch_admin_login_redirects_to_admin_dashboard" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\AuthenticationTest.php" line="51" class="Tests\Feature\Auth\AuthenticationTest" classname="Tests.Feature.Auth.AuthenticationTest" assertions="5" time="0.075446"/>
+        <testcase name="test_authenticated_dashboard_pages_are_sent_with_no_cache_headers" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\AuthenticationTest.php" line="75" class="Tests\Feature\Auth\AuthenticationTest" classname="Tests.Feature.Auth.AuthenticationTest" assertions="9" time="0.060305"/>
+        <testcase name="test_users_can_not_authenticate_with_invalid_password" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\AuthenticationTest.php" line="94" class="Tests\Feature\Auth\AuthenticationTest" classname="Tests.Feature.Auth.AuthenticationTest" assertions="1" time="0.270906"/>
+        <testcase name="test_users_can_logout" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\AuthenticationTest.php" line="106" class="Tests\Feature\Auth\AuthenticationTest" classname="Tests.Feature.Auth.AuthenticationTest" assertions="3" time="0.062427"/>
+        <testcase name="test_logged_out_users_can_no_longer_access_dashboard" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\AuthenticationTest.php" line="116" class="Tests\Feature\Auth\AuthenticationTest" classname="Tests.Feature.Auth.AuthenticationTest" assertions="3" time="0.071974"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\Auth\EmailVerificationTest" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\EmailVerificationTest.php" tests="3" assertions="6" errors="0" failures="0" skipped="0" time="0.286811">
+        <testcase name="test_email_verification_screen_can_be_rendered" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\EmailVerificationTest.php" line="16" class="Tests\Feature\Auth\EmailVerificationTest" classname="Tests.Feature.Auth.EmailVerificationTest" assertions="1" time="0.118243"/>
+        <testcase name="test_email_can_be_verified" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\EmailVerificationTest.php" line="25" class="Tests\Feature\Auth\EmailVerificationTest" classname="Tests.Feature.Auth.EmailVerificationTest" assertions="4" time="0.094525"/>
+        <testcase name="test_email_is_not_verified_with_invalid_hash" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\EmailVerificationTest.php" line="44" class="Tests\Feature\Auth\EmailVerificationTest" classname="Tests.Feature.Auth.EmailVerificationTest" assertions="1" time="0.074043"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\Auth\PasswordConfirmationTest" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\PasswordConfirmationTest.php" tests="3" assertions="4" errors="0" failures="0" skipped="0" time="0.424788">
+        <testcase name="test_confirm_password_screen_can_be_rendered" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\PasswordConfirmationTest.php" line="13" class="Tests\Feature\Auth\PasswordConfirmationTest" classname="Tests.Feature.Auth.PasswordConfirmationTest" assertions="1" time="0.087570"/>
+        <testcase name="test_password_can_be_confirmed" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\PasswordConfirmationTest.php" line="22" class="Tests\Feature\Auth\PasswordConfirmationTest" classname="Tests.Feature.Auth.PasswordConfirmationTest" assertions="2" time="0.066659"/>
+        <testcase name="test_password_is_not_confirmed_with_invalid_password" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\PasswordConfirmationTest.php" line="34" class="Tests\Feature\Auth\PasswordConfirmationTest" classname="Tests.Feature.Auth.PasswordConfirmationTest" assertions="1" time="0.270559"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\Auth\PasswordResetTest" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\PasswordResetTest.php" tests="4" assertions="8" errors="0" failures="0" skipped="0" time="0.958366">
+        <testcase name="test_reset_password_link_screen_can_be_rendered" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\PasswordResetTest.php" line="15" class="Tests\Feature\Auth\PasswordResetTest" classname="Tests.Feature.Auth.PasswordResetTest" assertions="1" time="0.097614"/>
+        <testcase name="test_reset_password_link_can_be_requested" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\PasswordResetTest.php" line="22" class="Tests\Feature\Auth\PasswordResetTest" classname="Tests.Feature.Auth.PasswordResetTest" assertions="1" time="0.272774"/>
+        <testcase name="test_reset_password_screen_can_be_rendered" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\PasswordResetTest.php" line="33" class="Tests\Feature\Auth\PasswordResetTest" classname="Tests.Feature.Auth.PasswordResetTest" assertions="2" time="0.292332"/>
+        <testcase name="test_password_can_be_reset_with_valid_token" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\PasswordResetTest.php" line="50" class="Tests\Feature\Auth\PasswordResetTest" classname="Tests.Feature.Auth.PasswordResetTest" assertions="4" time="0.295646"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\Auth\PasswordUpdateTest" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\PasswordUpdateTest.php" tests="2" assertions="8" errors="0" failures="0" skipped="0" time="0.167670">
+        <testcase name="test_password_can_be_updated" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\PasswordUpdateTest.php" line="14" class="Tests\Feature\Auth\PasswordUpdateTest" classname="Tests.Feature.Auth.PasswordUpdateTest" assertions="4" time="0.100648"/>
+        <testcase name="test_correct_password_must_be_provided_to_update_password" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\PasswordUpdateTest.php" line="34" class="Tests\Feature\Auth\PasswordUpdateTest" classname="Tests.Feature.Auth.PasswordUpdateTest" assertions="4" time="0.067023"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\Auth\RegistrationTest" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\RegistrationTest.php" tests="2" assertions="4" errors="0" failures="0" skipped="0" time="0.154836">
+        <testcase name="test_registration_screen_can_be_rendered" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\RegistrationTest.php" line="12" class="Tests\Feature\Auth\RegistrationTest" classname="Tests.Feature.Auth.RegistrationTest" assertions="1" time="0.086517"/>
+        <testcase name="test_new_users_can_register" file="C:\xampp\htdocs\funeral-system\tests\Feature\Auth\RegistrationTest.php" line="19" class="Tests\Feature\Auth\RegistrationTest" classname="Tests.Feature.Auth.RegistrationTest" assertions="3" time="0.068319"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\CompletePastIntermentsTest" file="C:\xampp\htdocs\funeral-system\tests\Feature\CompletePastIntermentsTest.php" tests="10" assertions="24" errors="0" failures="0" skipped="0" time="0.735411">
+        <testcase name="test_active_case_with_past_interment_datetime_becomes_completed" file="C:\xampp\htdocs\funeral-system\tests\Feature\CompletePastIntermentsTest.php" line="18" class="Tests\Feature\CompletePastIntermentsTest" classname="Tests.Feature.CompletePastIntermentsTest" assertions="2" time="0.088713"/>
+        <testcase name="test_active_case_with_todays_future_interment_time_stays_active" file="C:\xampp\htdocs\funeral-system\tests\Feature\CompletePastIntermentsTest.php" line="33" class="Tests\Feature\CompletePastIntermentsTest" classname="Tests.Feature.CompletePastIntermentsTest" assertions="2" time="0.066512"/>
+        <testcase name="test_active_case_with_todays_past_interment_time_becomes_completed" file="C:\xampp\htdocs\funeral-system\tests\Feature\CompletePastIntermentsTest.php" line="47" class="Tests\Feature\CompletePastIntermentsTest" classname="Tests.Feature.CompletePastIntermentsTest" assertions="2" time="0.073932"/>
+        <testcase name="test_active_case_with_future_interment_datetime_stays_active" file="C:\xampp\htdocs\funeral-system\tests\Feature\CompletePastIntermentsTest.php" line="61" class="Tests\Feature\CompletePastIntermentsTest" classname="Tests.Feature.CompletePastIntermentsTest" assertions="2" time="0.067810"/>
+        <testcase name="test_draft_case_with_past_interment_datetime_stays_draft" file="C:\xampp\htdocs\funeral-system\tests\Feature\CompletePastIntermentsTest.php" line="75" class="Tests\Feature\CompletePastIntermentsTest" classname="Tests.Feature.CompletePastIntermentsTest" assertions="2" time="0.069633"/>
+        <testcase name="test_cancelled_case_with_past_interment_datetime_stays_cancelled_when_supported" file="C:\xampp\htdocs\funeral-system\tests\Feature\CompletePastIntermentsTest.php" line="89" class="Tests\Feature\CompletePastIntermentsTest" classname="Tests.Feature.CompletePastIntermentsTest" assertions="2" time="0.068576"/>
+        <testcase name="test_completed_case_stays_completed" file="C:\xampp\htdocs\funeral-system\tests\Feature\CompletePastIntermentsTest.php" line="103" class="Tests\Feature\CompletePastIntermentsTest" classname="Tests.Feature.CompletePastIntermentsTest" assertions="2" time="0.066551"/>
+        <testcase name="test_active_case_with_todays_date_only_interment_becomes_completed" file="C:\xampp\htdocs\funeral-system\tests\Feature\CompletePastIntermentsTest.php" line="117" class="Tests\Feature\CompletePastIntermentsTest" classname="Tests.Feature.CompletePastIntermentsTest" assertions="2" time="0.071139"/>
+        <testcase name="test_payment_status_and_amounts_remain_unchanged" file="C:\xampp\htdocs\funeral-system\tests\Feature\CompletePastIntermentsTest.php" line="131" class="Tests\Feature\CompletePastIntermentsTest" classname="Tests.Feature.CompletePastIntermentsTest" assertions="5" time="0.074506"/>
+        <testcase name="test_artisan_command_completes_past_interments" file="C:\xampp\htdocs\funeral-system\tests\Feature\CompletePastIntermentsTest.php" line="153" class="Tests\Feature\CompletePastIntermentsTest" classname="Tests.Feature.CompletePastIntermentsTest" assertions="3" time="0.088039"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\DashboardAccessTest" file="C:\xampp\htdocs\funeral-system\tests\Feature\DashboardAccessTest.php" tests="5" assertions="25" errors="0" failures="0" skipped="0" time="0.554544">
+        <testcase name="test_admin_dashboard_renders_for_admin" file="C:\xampp\htdocs\funeral-system\tests\Feature\DashboardAccessTest.php" line="14" class="Tests\Feature\DashboardAccessTest" classname="Tests.Feature.DashboardAccessTest" assertions="2" time="0.140439"/>
+        <testcase name="test_owner_dashboard_renders_for_owner" file="C:\xampp\htdocs\funeral-system\tests\Feature\DashboardAccessTest.php" line="24" class="Tests\Feature\DashboardAccessTest" classname="Tests.Feature.DashboardAccessTest" assertions="6" time="0.079303"/>
+        <testcase name="test_staff_dashboard_renders_for_staff" file="C:\xampp\htdocs\funeral-system\tests\Feature\DashboardAccessTest.php" line="38" class="Tests\Feature\DashboardAccessTest" classname="Tests.Feature.DashboardAccessTest" assertions="3" time="0.108666"/>
+        <testcase name="test_dashboard_redirects_users_to_their_role_homepages" file="C:\xampp\htdocs\funeral-system\tests\Feature\DashboardAccessTest.php" line="50" class="Tests\Feature\DashboardAccessTest" classname="Tests.Feature.DashboardAccessTest" assertions="8" time="0.082771"/>
+        <testcase name="test_dashboard_routes_are_forbidden_for_wrong_roles" file="C:\xampp\htdocs\funeral-system\tests\Feature\DashboardAccessTest.php" line="82" class="Tests\Feature\DashboardAccessTest" classname="Tests.Feature.DashboardAccessTest" assertions="6" time="0.143365"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\ExampleTest" file="C:\xampp\htdocs\funeral-system\tests\Feature\ExampleTest.php" tests="1" assertions="2" errors="0" failures="0" skipped="0" time="0.080686">
+        <testcase name="test_the_application_returns_a_successful_response" file="C:\xampp\htdocs\funeral-system\tests\Feature\ExampleTest.php" line="13" class="Tests\Feature\ExampleTest" classname="Tests.Feature.ExampleTest" assertions="2" time="0.080686"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\FuneralServiceTimelineTest" file="C:\xampp\htdocs\funeral-system\tests\Feature\FuneralServiceTimelineTest.php" tests="2" assertions="8" errors="0" failures="0" skipped="0" time="0.204147">
+        <testcase name="test_funeral_service_same_day_as_death_is_allowed" file="C:\xampp\htdocs\funeral-system\tests\Feature\FuneralServiceTimelineTest.php" line="16" class="Tests\Feature\FuneralServiceTimelineTest" classname="Tests.Feature.FuneralServiceTimelineTest" assertions="3" time="0.115539"/>
+        <testcase name="test_funeral_service_before_date_of_death_is_rejected" file="C:\xampp\htdocs\funeral-system\tests\Feature\FuneralServiceTimelineTest.php" line="41" class="Tests\Feature\FuneralServiceTimelineTest" classname="Tests.Feature.FuneralServiceTimelineTest" assertions="5" time="0.088608"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\NameGenerationConsistencyTest" file="C:\xampp\htdocs\funeral-system\tests\Feature\NameGenerationConsistencyTest.php" tests="4" assertions="6" errors="0" failures="0" skipped="0" time="0.249376">
+        <testcase name="test_client_full_name_is_generated_from_normalized_parts" file="C:\xampp\htdocs\funeral-system\tests\Feature\NameGenerationConsistencyTest.php" line="16" class="Tests\Feature\NameGenerationConsistencyTest" classname="Tests.Feature.NameGenerationConsistencyTest" assertions="3" time="0.066525"/>
+        <testcase name="test_deceased_full_name_is_generated_from_normalized_parts" file="C:\xampp\htdocs\funeral-system\tests\Feature\NameGenerationConsistencyTest.php" line="42" class="Tests\Feature\NameGenerationConsistencyTest" classname="Tests.Feature.NameGenerationConsistencyTest" assertions="1" time="0.060152"/>
+        <testcase name="test_user_name_is_generated_when_first_and_last_name_are_the_write_source" file="C:\xampp\htdocs\funeral-system\tests\Feature\NameGenerationConsistencyTest.php" line="64" class="Tests\Feature\NameGenerationConsistencyTest" classname="Tests.Feature.NameGenerationConsistencyTest" assertions="1" time="0.056946"/>
+        <testcase name="test_user_manual_name_flow_is_preserved_when_only_name_is_submitted" file="C:\xampp\htdocs\funeral-system\tests\Feature\NameGenerationConsistencyTest.php" line="78" class="Tests\Feature\NameGenerationConsistencyTest" classname="Tests.Feature.NameGenerationConsistencyTest" assertions="1" time="0.065754"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\ProfileTest" file="C:\xampp\htdocs\funeral-system\tests\Feature\ProfileTest.php" tests="9" assertions="40" errors="0" failures="0" skipped="0" time="0.794284">
+        <testcase name="test_profile_page_is_displayed" file="C:\xampp\htdocs\funeral-system\tests\Feature\ProfileTest.php" line="14" class="Tests\Feature\ProfileTest" classname="Tests.Feature.ProfileTest" assertions="1" time="0.103746"/>
+        <testcase name="test_profile_page_hides_topbar_without_affecting_other_panel_pages" file="C:\xampp\htdocs\funeral-system\tests\Feature\ProfileTest.php" line="25" class="Tests\Feature\ProfileTest" classname="Tests.Feature.ProfileTest" assertions="5" time="0.122385"/>
+        <testcase name="test_profile_information_can_be_updated" file="C:\xampp\htdocs\funeral-system\tests\Feature\ProfileTest.php" line="52" class="Tests\Feature\ProfileTest" classname="Tests.Feature.ProfileTest" assertions="6" time="0.070837"/>
+        <testcase name="test_email_verification_status_is_unchanged_when_the_email_address_is_unchanged" file="C:\xampp\htdocs\funeral-system\tests\Feature\ProfileTest.php" line="74" class="Tests\Feature\ProfileTest" classname="Tests.Feature.ProfileTest" assertions="4" time="0.069644"/>
+        <testcase name="test_user_can_delete_their_account" file="C:\xampp\htdocs\funeral-system\tests\Feature\ProfileTest.php" line="92" class="Tests\Feature\ProfileTest" classname="Tests.Feature.ProfileTest" assertions="5" time="0.068336"/>
+        <testcase name="test_correct_password_must_be_provided_to_delete_account" file="C:\xampp\htdocs\funeral-system\tests\Feature\ProfileTest.php" line="110" class="Tests\Feature\ProfileTest" classname="Tests.Feature.ProfileTest" assertions="5" time="0.071327"/>
+        <testcase name="test_position_and_contact_number_can_be_updated" file="C:\xampp\htdocs\funeral-system\tests\Feature\ProfileTest.php" line="128" class="Tests\Feature\ProfileTest" classname="Tests.Feature.ProfileTest" assertions="5" time="0.070837"/>
+        <testcase name="test_protected_fields_cannot_be_changed_through_profile_update" file="C:\xampp\htdocs\funeral-system\tests\Feature\ProfileTest.php" line="147" class="Tests\Feature\ProfileTest" classname="Tests.Feature.ProfileTest" assertions="6" time="0.081578"/>
+        <testcase name="test_any_role_can_access_own_profile_page" file="C:\xampp\htdocs\funeral-system\tests\Feature\ProfileTest.php" line="180" class="Tests\Feature\ProfileTest" classname="Tests.Feature.ProfileTest" assertions="3" time="0.135595"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\ReportsModuleTest" file="C:\xampp\htdocs\funeral-system\tests\Feature\ReportsModuleTest.php" tests="13" assertions="44" errors="0" failures="0" skipped="0" time="1.193674">
+        <testcase name="test_staff_cannot_access_reports_routes" file="C:\xampp\htdocs\funeral-system\tests\Feature\ReportsModuleTest.php" line="29" class="Tests\Feature\ReportsModuleTest" classname="Tests.Feature.ReportsModuleTest" assertions="3" time="0.103823"/>
+        <testcase name="test_admin_and_owner_can_access_reports_index" file="C:\xampp\htdocs\funeral-system\tests\Feature\ReportsModuleTest.php" line="38" class="Tests\Feature\ReportsModuleTest" classname="Tests.Feature.ReportsModuleTest" assertions="2" time="0.121218"/>
+        <testcase name="test_old_owner_sales_route_redirects_to_central_reports_module" file="C:\xampp\htdocs\funeral-system\tests\Feature\ReportsModuleTest.php" line="44" class="Tests\Feature\ReportsModuleTest" classname="Tests.Feature.ReportsModuleTest" assertions="2" time="0.063148"/>
+        <testcase name="test_staff_cannot_access_old_owner_sales_route_or_csv_export" file="C:\xampp\htdocs\funeral-system\tests\Feature\ReportsModuleTest.php" line="53" class="Tests\Feature\ReportsModuleTest" classname="Tests.Feature.ReportsModuleTest" assertions="2" time="0.100523"/>
+        <testcase name="test_preview_filters_by_payment_status" file="C:\xampp\htdocs\funeral-system\tests\Feature\ReportsModuleTest.php" line="61" class="Tests\Feature\ReportsModuleTest" classname="Tests.Feature.ReportsModuleTest" assertions="3" time="0.092215"/>
+        <testcase name="test_preview_filters_by_branch_id" file="C:\xampp\htdocs\funeral-system\tests\Feature\ReportsModuleTest.php" line="76" class="Tests\Feature\ReportsModuleTest" classname="Tests.Feature.ReportsModuleTest" assertions="3" time="0.090029"/>
+        <testcase name="test_branch_admin_reports_are_forced_to_assigned_branch" file="C:\xampp\htdocs\funeral-system\tests\Feature\ReportsModuleTest.php" line="92" class="Tests\Feature\ReportsModuleTest" classname="Tests.Feature.ReportsModuleTest" assertions="4" time="0.092456"/>
+        <testcase name="test_branch_admin_print_and_csv_are_forced_to_assigned_branch" file="C:\xampp\htdocs\funeral-system\tests\Feature\ReportsModuleTest.php" line="110" class="Tests\Feature\ReportsModuleTest" classname="Tests.Feature.ReportsModuleTest" assertions="6" time="0.110272"/>
+        <testcase name="test_branch_admin_owner_analytics_is_forced_to_assigned_branch" file="C:\xampp\htdocs\funeral-system\tests\Feature\ReportsModuleTest.php" line="136" class="Tests\Feature\ReportsModuleTest" classname="Tests.Feature.ReportsModuleTest" assertions="4" time="0.094858"/>
+        <testcase name="test_branch_admin_audit_logs_are_forced_to_assigned_branch" file="C:\xampp\htdocs\funeral-system\tests\Feature\ReportsModuleTest.php" line="154" class="Tests\Feature\ReportsModuleTest" classname="Tests.Feature.ReportsModuleTest" assertions="4" time="0.076829"/>
+        <testcase name="test_invalid_date_range_returns_validation_error" file="C:\xampp\htdocs\funeral-system\tests\Feature\ReportsModuleTest.php" line="192" class="Tests\Feature\ReportsModuleTest" classname="Tests.Feature.ReportsModuleTest" assertions="3" time="0.073804"/>
+        <testcase name="test_owner_branch_analytics_returns_grouped_branch_rows" file="C:\xampp\htdocs\funeral-system\tests\Feature\ReportsModuleTest.php" line="202" class="Tests\Feature\ReportsModuleTest" classname="Tests.Feature.ReportsModuleTest" assertions="3" time="0.089097"/>
+        <testcase name="test_owner_can_export_branch_analytics_csv" file="C:\xampp\htdocs\funeral-system\tests\Feature\ReportsModuleTest.php" line="218" class="Tests\Feature\ReportsModuleTest" classname="Tests.Feature.ReportsModuleTest" assertions="5" time="0.085401"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\SystemFeatureSmokeTest" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemFeatureSmokeTest.php" tests="4" assertions="47" errors="0" failures="1" skipped="0" time="1.341497">
+        <testcase name="test_admin_management_features_work" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemFeatureSmokeTest.php" line="18" class="Tests\Feature\SystemFeatureSmokeTest" classname="Tests.Feature.SystemFeatureSmokeTest" assertions="12" time="0.404559">
+          <failure type="PHPUnit\Framework\ExpectationFailedException">Tests\Feature\SystemFeatureSmokeTest::test_admin_management_features_work&#13;
+Failed asserting that two strings are equal.&#13;
+&#13;
+The following errors occurred during the last request:
+
+Branch is required for staff and branch admin accounts.&#13;
+
+--- Expected
++++ Actual
+@@ @@
+-'http://127.0.0.1:8000/admin/users'
++'http://127.0.0.1:8000/admin/packages'
+&#13;
+C:\xampp\htdocs\funeral-system\vendor\laravel\framework\src\Illuminate\Testing\TestResponseAssert.php:45
+C:\xampp\htdocs\funeral-system\vendor\laravel\framework\src\Illuminate\Testing\TestResponse.php:431
+C:\xampp\htdocs\funeral-system\vendor\laravel\framework\src\Illuminate\Testing\TestResponse.php:205
+C:\xampp\htdocs\funeral-system\tests\Feature\SystemFeatureSmokeTest.php:66</failure>
+        </testcase>
+        <testcase name="test_staff_case_and_payment_features_work" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemFeatureSmokeTest.php" line="75" class="Tests\Feature\SystemFeatureSmokeTest" classname="Tests.Feature.SystemFeatureSmokeTest" assertions="16" time="0.603859"/>
+        <testcase name="test_owner_reporting_features_work" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemFeatureSmokeTest.php" line="122" class="Tests\Feature\SystemFeatureSmokeTest" classname="Tests.Feature.SystemFeatureSmokeTest" assertions="17" time="0.199117"/>
+        <testcase name="test_other_branch_report_access_depends_on_staff_scope" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemFeatureSmokeTest.php" line="189" class="Tests\Feature\SystemFeatureSmokeTest" classname="Tests.Feature.SystemFeatureSmokeTest" assertions="2" time="0.133962"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\SystemNegativeScenariosTest" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemNegativeScenariosTest.php" tests="11" assertions="57" errors="0" failures="1" skipped="0" time="0.997632">
+        <testcase name="test_non_main_staff_uses_assigned_branch_modules_only" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemNegativeScenariosTest.php" line="18" class="Tests\Feature\SystemNegativeScenariosTest" classname="Tests.Feature.SystemNegativeScenariosTest" assertions="6" time="0.142616"/>
+        <testcase name="test_admin_cannot_create_staff_user_without_branch_assignment" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemNegativeScenariosTest.php" line="31" class="Tests\Feature\SystemNegativeScenariosTest" classname="Tests.Feature.SystemNegativeScenariosTest" assertions="5" time="0.077300"/>
+        <testcase name="test_staff_cannot_create_case_with_mismatched_client_and_deceased" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemNegativeScenariosTest.php" line="47" class="Tests\Feature\SystemNegativeScenariosTest" classname="Tests.Feature.SystemNegativeScenariosTest" assertions="5" time="0.076394"/>
+        <testcase name="test_staff_cannot_create_duplicate_active_case_for_same_deceased" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemNegativeScenariosTest.php" line="68" class="Tests\Feature\SystemNegativeScenariosTest" classname="Tests.Feature.SystemNegativeScenariosTest" assertions="5" time="0.086550"/>
+        <testcase name="test_payment_rejects_overpayment_amount" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemNegativeScenariosTest.php" line="96" class="Tests\Feature\SystemNegativeScenariosTest" classname="Tests.Feature.SystemNegativeScenariosTest" assertions="8" time="0.109829"/>
+        <testcase name="test_intake_rejects_duplicate_client_in_same_branch" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemNegativeScenariosTest.php" line="133" class="Tests\Feature\SystemNegativeScenariosTest" classname="Tests.Feature.SystemNegativeScenariosTest" assertions="5" time="0.091001"/>
+        <testcase name="test_intake_rejects_request_date_before_date_of_death" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemNegativeScenariosTest.php" line="155" class="Tests\Feature\SystemNegativeScenariosTest" classname="Tests.Feature.SystemNegativeScenariosTest" assertions="3" time="0.082614">
+          <failure type="PHPUnit\Framework\ExpectationFailedException">Tests\Feature\SystemNegativeScenariosTest::test_intake_rejects_request_date_before_date_of_death&#13;
+Session has unexpected key [errors].
+Failed asserting that true is false.&#13;
+&#13;
+The following errors occurred during the last request:
+
+Backdated request entries must be clearly marked.&#13;
+Please provide a reason for a backdated request entry.
+&#13;
+C:\xampp\htdocs\funeral-system\vendor\laravel\framework\src\Illuminate\Testing\TestResponseAssert.php:45
+C:\xampp\htdocs\funeral-system\vendor\laravel\framework\src\Illuminate\Testing\TestResponse.php:1738
+C:\xampp\htdocs\funeral-system\tests\Feature\SystemNegativeScenariosTest.php:177</failure>
+        </testcase>
+        <testcase name="test_intake_rejects_future_date_of_death" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemNegativeScenariosTest.php" line="181" class="Tests\Feature\SystemNegativeScenariosTest" classname="Tests.Feature.SystemNegativeScenariosTest" assertions="5" time="0.090876"/>
+        <testcase name="test_intake_rejects_funeral_service_date_before_date_of_death" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemNegativeScenariosTest.php" line="198" class="Tests\Feature\SystemNegativeScenariosTest" classname="Tests.Feature.SystemNegativeScenariosTest" assertions="5" time="0.082187"/>
+        <testcase name="test_intake_rejects_invalid_client_contact_format" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemNegativeScenariosTest.php" line="216" class="Tests\Feature\SystemNegativeScenariosTest" classname="Tests.Feature.SystemNegativeScenariosTest" assertions="5" time="0.080317"/>
+        <testcase name="test_deceased_update_rejects_interment_on_same_date_as_death" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemNegativeScenariosTest.php" line="231" class="Tests\Feature\SystemNegativeScenariosTest" classname="Tests.Feature.SystemNegativeScenariosTest" assertions="5" time="0.077948"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\SystemRegressionGuardsTest" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php" tests="22" assertions="109" errors="0" failures="1" skipped="0" time="3.174266">
+        <testcase name="test_non_main_staff_cannot_view_other_branch_case_details_directly" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php" line="19" class="Tests\Feature\SystemRegressionGuardsTest" classname="Tests.Feature.SystemRegressionGuardsTest" assertions="1" time="0.126310"/>
+        <testcase name="test_owner_analytics_charts_exclude_unverified_cases" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php" line="41" class="Tests\Feature\SystemRegressionGuardsTest" classname="Tests.Feature.SystemRegressionGuardsTest" assertions="2" time="0.163870"/>
+        <testcase name="test_intake_blocks_duplicate_active_case_when_identity_matches_existing_record" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php" line="85" class="Tests\Feature\SystemRegressionGuardsTest" classname="Tests.Feature.SystemRegressionGuardsTest" assertions="6" time="0.095803"/>
+        <testcase name="test_admin_cannot_deactivate_main_branch" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php" line="121" class="Tests\Feature\SystemRegressionGuardsTest" classname="Tests.Feature.SystemRegressionGuardsTest" assertions="5" time="0.073327"/>
+        <testcase name="test_other_branch_intake_redirects_back_to_other_branch_reports" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php" line="135" class="Tests\Feature\SystemRegressionGuardsTest" classname="Tests.Feature.SystemRegressionGuardsTest" assertions="3" time="0.122892"/>
+        <testcase name="test_other_branch_reports_search_accepts_name_punctuation" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php" line="171" class="Tests\Feature\SystemRegressionGuardsTest" classname="Tests.Feature.SystemRegressionGuardsTest" assertions="2" time="0.166720"/>
+        <testcase name="test_active_cases_are_paginated_for_staff" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php" line="196" class="Tests\Feature\SystemRegressionGuardsTest" classname="Tests.Feature.SystemRegressionGuardsTest" assertions="2" time="0.410903"/>
+        <testcase name="test_payment_history_search_accepts_name_punctuation" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php" line="224" class="Tests\Feature\SystemRegressionGuardsTest" classname="Tests.Feature.SystemRegressionGuardsTest" assertions="2" time="0.135483"/>
+        <testcase name="test_branch_admin_payment_monitoring_forces_assigned_branch_scope" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php" line="256" class="Tests\Feature\SystemRegressionGuardsTest" classname="Tests.Feature.SystemRegressionGuardsTest" assertions="2" time="0.155707">
+          <failure type="PHPUnit\Framework\ExpectationFailedException">Tests\Feature\SystemRegressionGuardsTest::test_branch_admin_payment_monitoring_forces_assigned_branch_scope&#13;
+Failed asserting that '&lt;!DOCTYPE html&gt;\n
+&lt;html lang="en"&gt;\n
+&lt;head&gt;\n
+    &lt;meta charset="UTF-8" /&gt;\n
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1.0" /&gt;\n
+    &lt;meta name="csrf-token" content="3nPLHzRTv3V4zEsEYaITyNt5pWx4jMWHzRroLyvt"&gt;\n
+\n
+    &lt;script&gt;\n
+        (function () {\n
+            const stored = localStorage.getItem('app-theme');\n
+            const theme = stored === 'dark' || stored === 'light' ? stored : 'light';\n
+            document.documentElement.setAttribute('data-theme', theme);\n
+        })();\n
+    &lt;/script&gt;\n
+\n
+    &lt;link rel="preconnect" href="https://fonts.googleapis.com"&gt;\n
+    &lt;link rel="preconnect" href="https://fonts.gstatic.com" crossorigin&gt;\n
+    &lt;link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&amp;family=Syne:wght@700&amp;display=swap" rel="stylesheet"&gt;\n
+    &lt;link rel="icon" href="http://127.0.0.1:8000/images/login-logo.png" type="image/png"&gt;\n
+    &lt;link rel="shortcut icon" href="http://127.0.0.1:8000/images/login-logo.png" type="image/png"&gt;\n
+\n
+    &lt;title&gt;Payment Monitoring - Sabangan Caguioa&lt;/title&gt;\n
+\n
+    &lt;script type="module" src="http://[::1]:5173/@vite/client"&gt;&lt;/script&gt;&lt;link rel="stylesheet" href="http://[::1]:5173/resources/css/app.css" /&gt;&lt;script type="module" src="http://[::1]:5173/resources/js/app.js"&gt;&lt;/script&gt;&lt;/head&gt;\n
+&lt;body class="panel-shell-body"&gt;\n
+    &lt;script&gt;\n
+        (function () {\n
+            const desktopMedia = window.matchMedia('(min-width: 1024px)');\n
+            if (!desktopMedia.matches) return;\n
+\n
+            const collapseStorageKey = 'sidebar-collapsed';\n
+            let initialCollapsed = true;\n
+            try {\n
+                const stored = localStorage.getItem(collapseStorageKey);\n
+                initialCollapsed = stored === null ? true : stored === 'true';\n
+            } catch (error) {\n
+                initialCollapsed = true;\n
+            }\n
+\n
+            if (initialCollapsed) {\n
+                document.body.setAttribute('data-sidebar-collapsed', 'true');\n
+            }\n
+        })();\n
+    &lt;/script&gt;\n
+    \n
+    &lt;div id="globalLoadingIndicator" class="hidden"&gt;\n
+        &lt;div class="loading-pill"&gt;\n
+            &lt;div class="spin"&gt;&lt;/div&gt;\n
+            Processing...\n
+        &lt;/div&gt;\n
+    &lt;/div&gt;\n
+\n
+    &lt;div id="sidebarBackdrop" class="sidebar-backdrop"&gt;&lt;/div&gt;\n
+\n
+    &lt;div class="app-shell"&gt;\n
+        &lt;aside class="sidebar" id="appSidebar"&gt;\n
+            &lt;div class="sidebar-brand"&gt;\n
+                &lt;img src="http://127.0.0.1:8000/images/login-logo.png" alt="Sabangan Caguioa Logo"&gt;\n
+                &lt;div class="sidebar-brand-copy"&gt;\n
+                    &lt;div class="sidebar-brand-name"&gt;Sabangan Caguioa&lt;/div&gt;\n
+                    &lt;div class="sidebar-brand-sub"&gt;Funeral Home System&lt;/div&gt;\n
+                &lt;/div&gt;\n
+            &lt;/div&gt;\n
+\n
+            &lt;button\n
+                type="button"\n
+                id="desktopSidebarToggle"\n
+                class="sidebar-collapse-btn"\n
+                aria-label="Collapse sidebar"\n
+                aria-expanded="true"\n
+                aria-controls="appSidebar"\n
+            &gt;\n
+                &lt;i class="bi bi-layout-sidebar sidebar-collapse-glyph" aria-hidden="true"&gt;&lt;/i&gt;\n
+            &lt;/button&gt;\n
+\n
+            &lt;div class="sidebar-scroll"&gt;\n
+                &lt;nav class="sidebar-nav"&gt;\n
+                    &lt;div class="nav-section"&gt;\n
+    &lt;div class="nav-list"&gt;\n
+        &lt;a href="/admin" class="nav-link"&gt;\n
+            &lt;svg class="nav-link__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"&gt;\n
+                &lt;path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/&gt;\n
+            &lt;/svg&gt;\n
+            &lt;span&gt;Dashboard&lt;/span&gt;\n
+        &lt;/a&gt;\n
+    &lt;/div&gt;\n
+&lt;/div&gt;\n
+\n
+\n
+&lt;div class="nav-section"&gt;\n
+    &lt;p class="nav-group-label"&gt;Package Reference&lt;/p&gt;\n
+    &lt;div class="nav-list"&gt;\n
+        &lt;a href="http://127.0.0.1:8000/admin/packages" class="nav-link"&gt;\n
+            &lt;svg class="nav-link__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"&gt;\n
+                &lt;path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/&gt;\n
+            &lt;/svg&gt;\n
+            &lt;span&gt;Service Packages&lt;/span&gt;\n
+        &lt;/a&gt;\n
+    &lt;/div&gt;\n
+&lt;/div&gt;\n
+\n
+&lt;div class="nav-section"&gt;\n
+    &lt;p class="nav-group-label"&gt;Data Monitoring&lt;/p&gt;\n
+    &lt;div class="nav-list"&gt;\n
+        &lt;a href="http://127.0.0.1:8000/admin/cases" class="nav-link"&gt;\n
+            &lt;svg class="nav-link__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"&gt;\n
+                &lt;path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/&gt;\n
+            &lt;/svg&gt;\n
+            &lt;span&gt;Master Case Records&lt;/span&gt;\n
+        &lt;/a&gt;\n
+\n
+        &lt;a href="http://127.0.0.1:8000/admin/payments" class="nav-link active"&gt;\n
+            &lt;svg class="nav-link__icon active" fill="none" stroke="currentColor" viewBox="0 0 24 24"&gt;\n
+                &lt;path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h.01M11 15h2m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v10a2 2 0 002 2z"/&gt;\n
+            &lt;/svg&gt;\n
+            &lt;span&gt;Payment Monitoring&lt;/span&gt;\n
+        &lt;/a&gt;\n
+\n
+        &lt;a href="http://127.0.0.1:8000/reports" class="nav-link"&gt;\n
+            &lt;svg class="nav-link__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"&gt;\n
+                &lt;path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/&gt;\n
+            &lt;/svg&gt;\n
+            &lt;span&gt;Reports&lt;/span&gt;\n
+        &lt;/a&gt;\n
+\n
+            &lt;/div&gt;\n
+&lt;/div&gt;\n
+                &lt;/nav&gt;\n
+            &lt;/div&gt;\n
+\n
+            &lt;div class="sidebar-footer"&gt;\n
+                &lt;div class="sidebar-account-row"&gt;\n
+                    &lt;button\n
+                        type="button"\n
+                        class="profile-pill profile-pill-toggle"\n
+                        data-account-toggle\n
+                        aria-expanded="false"\n
+                        aria-haspopup="true"\n
+                        aria-label="Open account menu"\n
+                    &gt;\n
+                        &lt;div class="profile-avatar"&gt;\n
+                            V\n
+                        &lt;/div&gt;\n
+\n
+                        &lt;div class="profile-copy"&gt;\n
+                            &lt;div class="profile-name"&gt;Virgil Miller&lt;/div&gt;\n
+                            &lt;div class="profile-role"&gt;Branch Admin Account&lt;/div&gt;\n
+                        &lt;/div&gt;\n
+                        &lt;i class="bi bi-chevron-up profile-pill-caret" aria-hidden="true"&gt;&lt;/i&gt;\n
+                    &lt;/button&gt;\n
+                &lt;/div&gt;\n
+\n
+                &lt;div class="sidebar-account-dropdown" data-account-dropdown hidden&gt;\n
+                    &lt;div class="sidebar-account-dropdown__section"&gt;\n
+                        &lt;p class="sidebar-account-dropdown__label"&gt;Appearance&lt;/p&gt;\n
+                        &lt;button type="button" class="theme-toggle theme-toggle--sidebar" data-theme-toggle aria-label="Toggle color theme"&gt;\n
+                            &lt;span class="theme-toggle__meta"&gt;\n
+                                &lt;span class="theme-toggle__eyebrow"&gt;Theme&lt;/span&gt;\n
+                                &lt;span class="theme-toggle__value" data-theme-label&gt;Light&lt;/span&gt;\n
+                            &lt;/span&gt;\n
+\n
+                            &lt;span class="theme-toggle__switch" aria-hidden="true"&gt;\n
+                                &lt;span class="theme-toggle__sun"&gt;&lt;i class="bi bi-brightness-high-fill"&gt;&lt;/i&gt;&lt;/span&gt;\n
+                                &lt;span class="theme-toggle__moon"&gt;&lt;i class="bi bi-moon-stars-fill"&gt;&lt;/i&gt;&lt;/span&gt;\n
+                                &lt;span class="theme-toggle__thumb"&gt;&lt;/span&gt;\n
+                            &lt;/span&gt;\n
+                        &lt;/button&gt;\n
+                    &lt;/div&gt;\n
+\n
+                    &lt;div class="sidebar-account-dropdown__section"&gt;\n
+                        &lt;a href="http://127.0.0.1:8000/profile" class="sidebar-account-dropdown__logout" aria-label="My Profile"&gt;\n
+                            &lt;i class="bi bi-person-circle"&gt;&lt;/i&gt;\n
+                            &lt;span&gt;My Profile&lt;/span&gt;\n
+                        &lt;/a&gt;\n
+                    &lt;/div&gt;\n
+\n
+                    &lt;div class="sidebar-account-dropdown__section"&gt;\n
+                        &lt;form method="POST" action="http://127.0.0.1:8000/logout" class="sidebar-account-dropdown__logout-form"&gt;\n
+                            &lt;input type="hidden" name="_token" value="3nPLHzRTv3V4zEsEYaITyNt5pWx4jMWHzRroLyvt" autocomplete="off"&gt;                            &lt;button type="submit" class="sidebar-account-dropdown__logout" aria-label="Logout"&gt;\n
+                                &lt;i class="bi bi-box-arrow-right"&gt;&lt;/i&gt;\n
+                                &lt;span&gt;Logout&lt;/span&gt;\n
+                            &lt;/button&gt;\n
+                        &lt;/form&gt;\n
+                    &lt;/div&gt;\n
+                &lt;/div&gt;\n
+            &lt;/div&gt;\n
+        &lt;/aside&gt;\n
+\n
+        &lt;div class="main-area"&gt;\n
+            \n
+                        &lt;header class="topbar"&gt;\n
+                &lt;div class="topbar-leading"&gt;\n
+                    &lt;button\n
+                        type="button"\n
+                        id="mobileSidebarToggle"\n
+                        class="mobile-menu-btn"\n
+                        aria-label="Open navigation"\n
+                        aria-expanded="false"\n
+                        aria-controls="appSidebar"\n
+                    &gt;\n
+                        &lt;i class="bi bi-list"&gt;&lt;/i&gt;\n
+                    &lt;/button&gt;\n
+\n
+                    &lt;div class="topbar-heading"&gt;\n
+                        &lt;h1 class="topbar-title"&gt;Payment Monitoring&lt;/h1&gt;\n
+                                                    &lt;div class="topbar-desc"&gt;Review case payment summaries and recorded payment transactions.&lt;/div&gt;\n
+                                            &lt;/div&gt;\n
+                &lt;/div&gt;\n
+\n
+                &lt;div class="topbar-actions"&gt;\n
+                    \n
+                                        &lt;div class="topbar-notification-wrap" data-notification&gt;\n
+                        &lt;button\n
+                            type="button"\n
+                            class="topbar-notification "\n
+                            aria-label="Open reminders and schedule"\n
+                            aria-expanded="false"\n
+                            data-notification-toggle\n
+                        &gt;\n
+                            &lt;i class="bi bi-bell"&gt;&lt;/i&gt;\n
+                                                            &lt;span class="topbar-notification__count" aria-hidden="true"&gt;2&lt;/span&gt;\n
+                                                    &lt;/button&gt;\n
+\n
+                        &lt;div class="topbar-notification-menu" data-notification-menu hidden&gt;\n
+                            &lt;div class="topbar-notification-menu__head"&gt;\n
+                                &lt;div&gt;\n
+                                    &lt;strong&gt;Reminders &amp; Alerts&lt;/strong&gt;\n
+                                    &lt;small data-notification-summary&gt;2 active alerts need your attention&lt;/small&gt;\n
+                                &lt;/div&gt;\n
+                                                                    &lt;a href="http://127.0.0.1:8000/admin/reminders"&gt;View all &lt;i class="bi bi-arrow-up-right"&gt;&lt;/i&gt;&lt;/a&gt;\n
+                                                            &lt;/div&gt;\n
+\n
+                            &lt;div class="topbar-notification-menu__chips"&gt;\n
+                                &lt;button type="button" class="topbar-notification-chip is-active" data-notification-filter="all"&gt;\n
+                                    &lt;span class="topbar-notification-chip__dot"&gt;&lt;/span&gt;\n
+                                    &lt;span&gt;All&lt;/span&gt;\n
+                                    &lt;strong data-notification-count="all"&gt;2&lt;/strong&gt;\n
+                                &lt;/button&gt;\n
+                                &lt;button type="button" class="topbar-notification-chip" data-notification-filter="due"&gt;\n
+                                    &lt;span class="topbar-notification-chip__dot"&gt;&lt;/span&gt;\n
+                                    &lt;span&gt;Due&lt;/span&gt;\n
+                                    &lt;strong data-notification-count="due"&gt;1&lt;/strong&gt;\n
+                                &lt;/button&gt;\n
+                                &lt;button type="button" class="topbar-notification-chip" data-notification-filter="today"&gt;\n
+                                    &lt;span class="topbar-notification-chip__dot"&gt;&lt;/span&gt;\n
+                                    &lt;span&gt;Today&lt;/span&gt;\n
+                                    &lt;strong data-notification-count="today"&gt;0&lt;/strong&gt;\n
+                                &lt;/button&gt;\n
+                                &lt;button type="button" class="topbar-notification-chip" data-notification-filter="upcoming"&gt;\n
+                                    &lt;span class="topbar-notification-chip__dot"&gt;&lt;/span&gt;\n
+                                    &lt;span&gt;Upcoming&lt;/span&gt;\n
+                                    &lt;strong data-notification-count="upcoming"&gt;1&lt;/strong&gt;\n
+                                &lt;/button&gt;\n
+                            &lt;/div&gt;\n
+\n
+                            &lt;div class="topbar-notification-menu__list" data-notification-list&gt;\n
+                                                                    \n
+                                                                            &lt;a\n
+                                            href="http://127.0.0.1:8000/admin/reminders?tab=unpaid&amp;amp;alert_type=balance"\n
+                                            class="topbar-notification-card is-due"\n
+                                            data-notification-item\n
+                                            data-bucket="due"\n
+                                        &gt;\n
+                                            &lt;div class="topbar-notification-card__icon"&gt;&lt;i class="bi bi-credit-card-2-front"&gt;&lt;/i&gt;&lt;/div&gt;\n
+                                            &lt;div class="topbar-notification-card__content"&gt;\n
+                                                &lt;div class="topbar-notification-card__head"&gt;\n
+                                                    &lt;div class="topbar-notification-card__title"&gt;Balance Pending - PAY-BR002-001&lt;/div&gt;\n
+                                                    &lt;span class="topbar-notification-card__tag"&gt;Urgent&lt;/span&gt;\n
+                                                &lt;/div&gt;\n
+                                                &lt;div class="topbar-notification-card__text"&gt;Branch Two Payment Deceased - Branch Two Payment Client has unsettled balance. Immediate follow-up required.&lt;/div&gt;\n
+                                                &lt;div class="topbar-notification-card__meta"&gt;\n
+                                                    &lt;span class="topbar-notification-card__pill"&gt;Payment&lt;/span&gt;\n
+                                                    &lt;span&gt;May 02, 2026 12:00 AM&lt;/span&gt;\n
+                                                &lt;/div&gt;\n
+                                            &lt;/div&gt;\n
+                                        &lt;/a&gt;\n
+                                                                                                        \n
+                                                                            &lt;a\n
+                                            href="http://127.0.0.1:8000/admin/reminders?tab=upcoming&amp;amp;alert_type=upcoming_service"\n
+                                            class="topbar-notification-card is-upcoming"\n
+                                            data-notification-item\n
+                                            data-bucket="upcoming"\n
+                                        &gt;\n
+                                            &lt;div class="topbar-notification-card__icon"&gt;&lt;i class="bi bi-calendar-event"&gt;&lt;/i&gt;&lt;/div&gt;\n
+                                            &lt;div class="topbar-notification-card__content"&gt;\n
+                                                &lt;div class="topbar-notification-card__head"&gt;\n
+                                                    &lt;div class="topbar-notification-card__title"&gt;Upcoming funeral service - PAY-BR002-001&lt;/div&gt;\n
+                                                    &lt;span class="topbar-notification-card__tag"&gt;1 day&lt;/span&gt;\n
+                                                &lt;/div&gt;\n
+                                                &lt;div class="topbar-notification-card__text"&gt;Branch Two Payment Deceased - Branch Two Payment Client has upcoming schedule.&lt;/div&gt;\n
+                                                &lt;div class="topbar-notification-card__meta"&gt;\n
+                                                    &lt;span class="topbar-notification-card__pill"&gt;Schedule&lt;/span&gt;\n
+                                                    &lt;span&gt;May 02, 2026 12:00 AM&lt;/span&gt;\n
+                                                &lt;/div&gt;\n
+                                            &lt;/div&gt;\n
+                                        &lt;/a&gt;\n
+                                                                                                                                        &lt;div class="topbar-notification-empty" data-notification-empty hidden&gt;\n
+                                        No alerts match this filter.\n
+                                    &lt;/div&gt;\n
+                                                            &lt;/div&gt;\n
+\n
+                            &lt;div class="topbar-notification-menu__footer"&gt;\n
+                                &lt;button type="button" class="topbar-notification-footer-btn" data-notification-mark-read&gt;Mark all as read&lt;/button&gt;\n
+                                                                    &lt;a href="http://127.0.0.1:8000/admin/reminders" class="topbar-notification-footer-btn is-primary"&gt;Open Reminders &lt;i class="bi bi-arrow-up-right"&gt;&lt;/i&gt;&lt;/a&gt;\n
+                                                            &lt;/div&gt;\n
+                        &lt;/div&gt;\n
+                    &lt;/div&gt;\n
+                    \n
+                &lt;/div&gt;\n
+            &lt;/header&gt;\n
+\n
+                        \n
+            &lt;main class="page-content"&gt;\n
+                \n
+&lt;style&gt;\n
+    .pm-page { color: var(--ink); padding: 1.5rem var(--panel-content-inline, 1.5rem) 3rem; }\n
+    .pm-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin-bottom: 1rem; }\n
+    .pm-kpi { background: var(--card); border: 1px solid var(--border); border-radius: .5rem; padding: 1rem; }\n
+    .pm-kpi span { display:block; font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-muted); font-weight:700; }\n
+    .pm-kpi strong { display:block; margin-top:.35rem; font-size:1.25rem; font-weight:800; font-variant-numeric:tabular-nums; }\n
+    .pm-kpi .good { color:#15803d; }\n
+    .pm-kpi .warn { color:#b91c1c; }\n
+\n
+    .pm-toolbar-shell { background: var(--card); border:1px solid var(--border); border-radius:.75rem; padding:.75rem; margin-bottom:1rem; overflow:visible; }\n
+    .pm-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:.75rem; }\n
+    .pm-field { flex:1 1 11rem; min-width:10rem; }\n
+    .pm-field.branch { flex:1 1 15rem; }\n
+    .pm-field.branch-readonly { flex:0 1 18rem; min-width:14rem; max-width:18rem; }\n
+    .pm-field.search { flex:2 1 24rem; min-width:18rem; }\n
+    .pm-field.has-icon { position:relative; }\n
+    .pm-field.has-icon &gt; i { position:absolute; left:.85rem; top:50%; transform:translateY(-50%); color:var(--ink-muted); pointer-events:none; z-index:1; }\n
+    .pm-field.has-icon .pm-control { padding-left:2.35rem; }\n
+    .pm-control {\n
+        width:100%; height:2.75rem; border:1px solid var(--border); border-radius:.75rem;\n
+        background:#fff; color:var(--ink); font-size:.875rem; padding:0 .85rem;\n
+    }\n
+    .pm-control:disabled { background:var(--surface-muted); color:var(--ink-muted); opacity:1; }\n
+    .pm-readonly-control {\n
+        display:flex; align-items:center; min-height:2.75rem; height:2.75rem;\n
+        background:var(--surface-muted); color:var(--ink-muted); cursor:default;\n
+        white-space:nowrap; overflow:hidden; text-overflow:ellipsis;\n
+    }\n
+    .pm-actions { display:flex; gap:.75rem; flex:0 0 auto; align-items:center; }\n
+    .pm-btn {\n
+        height:2.75rem; border-radius:.75rem; border:1px solid var(--border); background:#fff;\n
+        color:var(--ink); padding:0 .95rem; display:inline-flex; align-items:center; gap:.45rem;\n
+        font-weight:700; font-size:.875rem; text-decoration:none;\n
+    }\n
+    .pm-btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }\n
+    .pm-hidden-date-fields { display:none; }\n
+    .pm-modal-backdrop { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.45); z-index:60; padding:1rem; }\n
+    .pm-modal-backdrop.open { display:flex; }\n
+    .pm-modal { width:min(100%,28rem); background:var(--card); border:1px solid var(--border); border-radius:1rem; box-shadow:0 20px 45px rgba(15,23,42,.22); overflow:hidden; }\n
+    .pm-modal-hd { display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:1rem 1.1rem; border-bottom:1px solid var(--border); }\n
+    .pm-modal-title { font-weight:900; }\n
+    .pm-modal-body { display:grid; gap:.8rem; padding:1rem 1.1rem; }\n
+    .pm-modal-ft { display:flex; justify-content:flex-end; gap:.65rem; padding:1rem 1.1rem; border-top:1px solid var(--border); }\n
+\n
+    .pm-tabs { display:flex; gap:.35rem; border-bottom:1px solid var(--border); margin:1rem 0; }\n
+    .pm-tab {\n
+        display:inline-flex; align-items:center; gap:.45rem; padding:.75rem .95rem; color:var(--ink-muted);\n
+        border-bottom:2px solid transparent; text-decoration:none; font-weight:800; font-size:.9rem;\n
+    }\n
+    .pm-tab.active { color:var(--accent); border-color:var(--accent); }\n
+\n
+    .pm-panel { background:var(--card); border:1px solid var(--border); border-radius:.75rem; overflow:hidden; }\n
+    .pm-money { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; font-weight:700; }\n
+    .pm-row-list { background:var(--card); }\n
+    .pm-case-row { display:grid; grid-template-columns:minmax(7rem,.65fr) minmax(0,1.8fr) minmax(12rem,.9fr) auto; gap:1rem; align-items:center; width:100%; padding:1rem; border:0; border-bottom:1px solid var(--border); background:transparent; color:inherit; text-align:left; }\n
+    .pm-case-row.is-toggle { cursor:pointer; }\n
+    .pm-case-row.is-toggle:hover { background:rgba(15,23,42,.025); }\n
+    .pm-case-row[aria-expanded="true"] .pm-chev { transform:rotate(180deg); }\n
+    .pm-row-main { min-width:0; }\n
+    .pm-row-title { font-weight:850; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }\n
+    .pm-row-meta { margin-top:.22rem; color:var(--ink-muted); font-size:.82rem; display:flex; gap:.4rem; flex-wrap:wrap; align-items:center; }\n
+    .pm-row-date { color:var(--ink-muted); font-size:.86rem; white-space:nowrap; }\n
+    .pm-row-actions { display:flex; align-items:center; justify-content:flex-end; gap:.65rem; min-width:max-content; }\n
+    .pm-row-link { display:inline-flex; align-items:center; gap:.4rem; color:var(--accent); font-weight:850; font-size:.84rem; text-decoration:none; background:transparent; border:0; padding:0; }\n
+    .pm-light-link { display:inline-flex; align-items:center; gap:.35rem; color:var(--ink-muted); font-weight:750; font-size:.84rem; text-decoration:none; background:transparent; border:0; padding:0; }\n
+    .pm-light-link:hover { color:var(--accent); }\n
+    .pm-icon-toggle { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; border:1px solid var(--border); border-radius:.6rem; background:#fff; color:var(--ink-muted); }\n
+    .pm-summary-detail { display:none; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.75rem; padding:.85rem 1rem 1rem; background:var(--surface-muted); border-bottom:1px solid var(--border); }\n
+    .pm-summary-detail.open { display:grid; }\n
+    .pm-summary-stat { background:var(--card); border:1px solid var(--border); border-radius:.75rem; padding:.75rem; min-width:0; }\n
+    .pm-summary-stat span { display:block; color:var(--ink-muted); font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }\n
+    .pm-summary-stat strong { display:block; margin-top:.25rem; color:var(--ink); font-size:.95rem; font-weight:900; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }\n
+    .pm-muted { color:var(--ink-muted); }\n
+    .pm-case { font-weight:800; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; }\n
+    .pm-name { font-weight:800; }\n
+    .pm-sub { margin-top:.15rem; font-size:.78rem; color:var(--ink-muted); }\n
+    .pm-status { display:inline-flex; align-items:center; border-radius:999px; padding:.22rem .58rem; font-size:.72rem; font-weight:800; }\n
+    .pm-status.is-paid { background:#dcfce7; color:#166534; }\n
+    .pm-status.is-partial { background:#fef3c7; color:#92400e; }\n
+    .pm-status.is-unpaid { background:#fee2e2; color:#991b1b; }\n
+    .pm-link { color:var(--accent); font-weight:800; text-decoration:none; white-space:nowrap; }\n
+    .pm-empty { padding:3rem 1rem; text-align:center; color:var(--ink-muted); font-weight:700; }\n
+    .pm-foot { padding:.85rem 1rem; border-top:1px solid var(--border); display:flex; justify-content:space-between; gap:.75rem; flex-wrap:wrap; align-items:center; }\n
+\n
+    .pm-trans-list { background:var(--card); }\n
+    .pm-trans-item { background:var(--card); border-bottom:1px solid var(--border); overflow:hidden; }\n
+    .pm-trans-row { width:100%; display:grid; grid-template-columns:minmax(7rem,.65fr) minmax(0,1.8fr) minmax(12rem,.9fr) auto; align-items:center; gap:1rem; padding:1rem; border:0; background:transparent; color:inherit; text-align:left; cursor:pointer; }\n
+    .pm-trans-main { min-width:0; }\n
+    .pm-trans-title { font-weight:850; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }\n
+    .pm-trans-meta { margin-top:.25rem; color:var(--ink-muted); font-size:.82rem; display:flex; gap:.45rem; flex-wrap:wrap; }\n
+    .pm-trans-money { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; min-width:0; }\n
+    .pm-trans-stat span { display:block; color:var(--ink-muted); font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }\n
+    .pm-trans-stat strong { display:block; margin-top:.2rem; font-size:.9rem; font-weight:900; font-variant-numeric:tabular-nums; white-space:nowrap; }\n
+    .pm-trans-side { display:flex; align-items:center; justify-content:flex-end; gap:.75rem; }\n
+    .pm-trans-count { color:var(--ink-muted); font-size:.78rem; font-weight:800; white-space:nowrap; }\n
+    .pm-expand-label { color:var(--accent); font-size:.82rem; font-weight:900; white-space:nowrap; }\n
+    .pm-chev { color:var(--ink-muted); transition:transform .16s ease; }\n
+    .pm-trans-row[aria-expanded="true"] .pm-chev { transform:rotate(180deg); }\n
+    .pm-detail { display:none; background:var(--surface-muted); padding:0 0 .75rem; }\n
+    .pm-detail.open { display:block; }\n
+    .pm-case-overview { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.75rem; padding:.85rem 1rem; background:var(--surface-muted); border-bottom:1px solid var(--border); }\n
+    .pm-detail-actions { display:flex; gap:.5rem; padding:.75rem 1rem 0; flex-wrap:wrap; }\n
+\n
+    .pm-txn-list { display:flex; flex-direction:column; gap:.5rem; padding:.75rem 1rem 0; }\n
+    .pm-txn-card { background:var(--card); border:1px solid var(--border); border-radius:.6rem; overflow:hidden; }\n
+    .pm-txn-hd { display:flex; justify-content:space-between; align-items:flex-start; padding:.85rem 1rem; gap:1rem; }\n
+    .pm-txn-info { min-width:0; flex:1 1 0; }\n
+    .pm-txn-rec { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:900; font-size:.92rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:24rem; color:var(--ink); }\n
+    .pm-txn-rec-label { display:block; margin-bottom:.16rem; color:var(--ink-muted); font-size:.65rem; font-family:inherit; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }\n
+    .pm-txn-sub { display:flex; flex-wrap:wrap; gap:.3rem; font-size:.78rem; color:var(--ink-muted); margin-top:.2rem; align-items:center; }\n
+    .pm-dot { color:var(--ink-muted); }\n
+    .pm-txn-right { display:flex; flex-direction:column; align-items:flex-end; gap:.2rem; flex-shrink:0; }\n
+    .pm-txn-amt { font-size:1rem; font-weight:900; font-variant-numeric:tabular-nums; white-space:nowrap; }\n
+    .pm-txn-bal { display:flex; flex-direction:column; align-items:flex-end; margin-top:.15rem; }\n
+    .pm-txn-bal-lbl { font-size:.65rem; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-muted); font-weight:700; }\n
+    .pm-txn-bal-val { font-size:.8rem; font-weight:700; font-variant-numeric:tabular-nums; color:var(--ink-muted); white-space:nowrap; }\n
+    .pm-txn-foot { padding:.1rem 1rem .55rem; display:flex; flex-wrap:wrap; align-items:center; gap:.35rem; font-size:.78rem; color:var(--ink-muted); }\n
+    .pm-txn-foot strong { color:var(--ink); font-weight:700; }\n
+    .pm-txn-tog {\n
+        display:inline-flex; align-items:center; gap:.3rem;\n
+        margin:0 1rem .55rem; padding:.28rem .6rem;\n
+        background:transparent; border:1px solid var(--border); border-radius:.4rem;\n
+        color:var(--ink-muted); font-size:.75rem; font-weight:700; cursor:pointer;\n
+    }\n
+    .pm-txn-tog:hover { background:var(--surface-muted); color:var(--ink); }\n
+    .pm-txn-tog[aria-expanded="true"] .pm-chev { transform:rotate(180deg); }\n
+    .pm-txn-det { border-top:1px solid var(--border); padding:.65rem 1rem .85rem; background:var(--surface-muted); }\n
+    .pm-txn-det-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(11rem,1fr)); gap:.5rem; }\n
+    .pm-txn-det-cell span { display:block; font-size:.65rem; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-muted); font-weight:700; margin-bottom:.2rem; }\n
+    .pm-txn-det-cell strong { font-size:.8rem; word-break:break-word; }\n
+    .pm-txn-det-full { grid-column:1/-1; }\n
+\n
+    html[data-theme='dark'] .pm-control,\n
+    html[data-theme='dark'] .pm-btn { background:#1e334f; color:#e2ecf9; }\n
+\n
+    @media (max-width: 900px) {\n
+        .pm-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }\n
+        .pm-summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }\n
+    }\n
+    @media (max-width: 640px) {\n
+        .pm-kpis { grid-template-columns:1fr; }\n
+        .pm-toolbar { flex-wrap:wrap; min-width:0; }\n
+        .pm-field, .pm-field.search, .pm-field.branch, .pm-field.branch-readonly, .pm-actions, .pm-actions .pm-btn { width:100%; flex-basis:100%; min-width:0; max-width:none; }\n
+        .pm-summary-top { flex-direction:column; }\n
+        .pm-summary-grid { grid-template-columns:1fr; }\n
+        .pm-summary-actions, .pm-summary-actions .pm-btn { width:100%; justify-content:center; }\n
+        .pm-case-row, .pm-trans-row { grid-template-columns:minmax(0,1fr); }\n
+        .pm-summary-detail, .pm-case-overview, .pm-trans-money { grid-template-columns:1fr 1fr; }\n
+        .pm-trans-side, .pm-row-actions { justify-content:flex-start; }\n
+        .pm-txn-hd { flex-direction:column; gap:.5rem; }\n
+        .pm-txn-right { align-items:flex-start; }\n
+    }\n
+&lt;/style&gt;\n
+\n
+&lt;div class="pm-page"&gt;\n
+        \n
+    &lt;div class="pm-kpis"&gt;\n
+        &lt;div class="pm-kpi"&gt;&lt;span&gt;Total Cases with Payments&lt;/span&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/div&gt;\n
+        &lt;div class="pm-kpi"&gt;&lt;span&gt;Total Payment Transactions&lt;/span&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/div&gt;\n
+        &lt;div class="pm-kpi"&gt;&lt;span&gt;Total Collected&lt;/span&gt;&lt;strong class="good"&gt;PHP 5,000.00&lt;/strong&gt;&lt;/div&gt;\n
+        &lt;div class="pm-kpi"&gt;&lt;span&gt;Outstanding Balance&lt;/span&gt;&lt;strong class="warn"&gt;PHP 15,000.00&lt;/strong&gt;&lt;/div&gt;\n
+    &lt;/div&gt;\n
+\n
+    &lt;div class="pm-toolbar-shell"&gt;\n
+        &lt;form id="pmFilterForm" method="GET" action="http://127.0.0.1:8000/payments/history" class="pm-toolbar"&gt;\n
+            &lt;input type="hidden" name="tab" value="summary"&gt;\n
+\n
+            &lt;div class="pm-field search has-icon"&gt;\n
+                &lt;i class="bi bi-search"&gt;&lt;/i&gt;\n
+                &lt;input class="pm-control" name="q" value="" placeholder="Search client, deceased, case no., payment record, accounting ref, transaction ref..." autocomplete="off"&gt;\n
+            &lt;/div&gt;\n
+\n
+                            &lt;div class="pm-field branch branch-readonly has-icon"&gt;\n
+                    &lt;i class="bi bi-building"&gt;&lt;/i&gt;\n
+                    &lt;div\n
+                        class="pm-control pm-readonly-control"\n
+                        role="status"\n
+                        title="BR002 - Branch Two"\n
+                        aria-label="Assigned Branch: BR002"\n
+                    &gt;\n
+                        Assigned Branch: BR002\n
+                    &lt;/div&gt;\n
+                &lt;/div&gt;\n
+            \n
+            &lt;div class="pm-field has-icon"&gt;\n
+                &lt;i class="bi bi-credit-card"&gt;&lt;/i&gt;\n
+                &lt;select name="payment_status" class="pm-control" title="Payment Status"&gt;\n
+                    &lt;option value=""&gt;All Payment Status&lt;/option&gt;\n
+                    &lt;option value="UNPAID" &gt;Unpaid&lt;/option&gt;\n
+                    &lt;option value="PARTIAL" &gt;Partial&lt;/option&gt;\n
+                    &lt;option value="PAID" &gt;Paid&lt;/option&gt;\n
+                &lt;/select&gt;\n
+            &lt;/div&gt;\n
+\n
+            &lt;div class="pm-field has-icon"&gt;\n
+                &lt;i class="bi bi-clipboard-check"&gt;&lt;/i&gt;\n
+                &lt;select name="case_status" class="pm-control" title="Case Status"&gt;\n
+                    &lt;option value=""&gt;All Case Status&lt;/option&gt;\n
+                    &lt;option value="DRAFT" &gt;Draft&lt;/option&gt;\n
+                    &lt;option value="ACTIVE" &gt;Active&lt;/option&gt;\n
+                    &lt;option value="COMPLETED" &gt;Completed&lt;/option&gt;\n
+                &lt;/select&gt;\n
+            &lt;/div&gt;\n
+\n
+            &lt;div class="pm-field has-icon"&gt;\n
+                &lt;i class="bi bi-wallet2"&gt;&lt;/i&gt;\n
+                &lt;select name="payment_method" class="pm-control" title="Payment Method"&gt;\n
+                    &lt;option value=""&gt;All Payment Methods&lt;/option&gt;\n
+                    &lt;option value="cash" &gt;Cash&lt;/option&gt;\n
+                    &lt;option value="bank_transfer" &gt;Bank Transfer&lt;/option&gt;\n
+                &lt;/select&gt;\n
+            &lt;/div&gt;\n
+\n
+            &lt;div class="pm-field has-icon"&gt;\n
+                &lt;i class="bi bi-calendar3"&gt;&lt;/i&gt;\n
+                &lt;select id="pmDateRange" name="date_preset" class="pm-control" title="Date Range"&gt;\n
+                    &lt;option value="all" selected&gt;All Payment Dates&lt;/option&gt;\n
+                    &lt;option value="today" &gt;Today&lt;/option&gt;\n
+                    &lt;option value="week" &gt;This Week&lt;/option&gt;\n
+                    &lt;option value="month" &gt;This Month&lt;/option&gt;\n
+                    &lt;option value="year" &gt;This Year&lt;/option&gt;\n
+                    &lt;option value="custom" &gt;Custom&lt;/option&gt;\n
+                &lt;/select&gt;\n
+            &lt;/div&gt;\n
+\n
+            &lt;div class="pm-hidden-date-fields"&gt;\n
+                &lt;input id="pmPaidFrom" type="date" name="paid_from" value=""&gt;\n
+                &lt;input id="pmPaidTo" type="date" name="paid_to" value=""&gt;\n
+            &lt;/div&gt;\n
+\n
+            &lt;div class="pm-actions"&gt;\n
+                &lt;a href="http://127.0.0.1:8000/payments/history" class="pm-btn"&gt;&lt;i class="bi bi-arrow-counterclockwise"&gt;&lt;/i&gt;&lt;span&gt;Reset&lt;/span&gt;&lt;/a&gt;\n
+            &lt;/div&gt;\n
+        &lt;/form&gt;\n
+    &lt;/div&gt;\n
+\n
+    &lt;div class="pm-tabs" role="tablist"&gt;\n
+        &lt;a class="pm-tab active" href="http://127.0.0.1:8000/payments/history?branch_id=1&amp;amp;tab=summary"&gt;\n
+            &lt;i class="bi bi-folder2-open"&gt;&lt;/i&gt; Case Payment Summary\n
+        &lt;/a&gt;\n
+        &lt;a class="pm-tab " href="http://127.0.0.1:8000/payments/history?branch_id=1&amp;amp;tab=transactions"&gt;\n
+            &lt;i class="bi bi-list-ul"&gt;&lt;/i&gt; Transaction History\n
+        &lt;/a&gt;\n
+    &lt;/div&gt;\n
+\n
+            &lt;div class="pm-panel"&gt;\n
+            &lt;div class="pm-row-list"&gt;\n
+                                                        &lt;button type="button" class="pm-case-row is-toggle" data-pm-summary-toggle="summary-case-2" aria-expanded="false"&gt;\n
+                        &lt;div class="pm-case"&gt;PAY-BR002-001&lt;/div&gt;\n
+                        &lt;div class="pm-row-main"&gt;\n
+                            &lt;div class="pm-row-title"&gt;Branch Two Payment Client &amp;ndash; Branch Two Payment Deceased&lt;/div&gt;\n
+                            &lt;div class="pm-row-meta"&gt;\n
+                                &lt;span&gt;BR002 · Branch Two&lt;/span&gt;\n
+                            &lt;/div&gt;\n
+                        &lt;/div&gt;\n
+                        &lt;div class="pm-row-date"&gt;Last payment: May 01, 2026 03:07 PM&lt;/div&gt;\n
+                        &lt;div class="pm-row-actions"&gt;\n
+                            &lt;span class="pm-status is-partial"&gt;P A R T I A L&lt;/span&gt;\n
+                            &lt;a class="pm-light-link" data-pm-stop-row-toggle href="http://127.0.0.1:8000/payments/history?branch_id=1&amp;amp;tab=transactions&amp;amp;q=PAY-BR002-001&amp;amp;open_case=PAY-BR002-001"&gt;\n
+                                &lt;i class="bi bi-list-ul"&gt;&lt;/i&gt;&lt;span&gt;View Transactions&lt;/span&gt;\n
+                            &lt;/a&gt;\n
+                            &lt;span class="pm-icon-toggle" aria-hidden="true"&gt;&lt;i class="bi bi-chevron-down pm-chev"&gt;&lt;/i&gt;&lt;/span&gt;\n
+                        &lt;/div&gt;\n
+                    &lt;/button&gt;\n
+                    &lt;div id="summary-case-2" class="pm-summary-detail"&gt;\n
+                        &lt;div class="pm-summary-stat"&gt;&lt;span&gt;Total Case Amount&lt;/span&gt;&lt;strong&gt;PHP 20,000.00&lt;/strong&gt;&lt;/div&gt;\n
+                        &lt;div class="pm-summary-stat"&gt;&lt;span&gt;Total Paid&lt;/span&gt;&lt;strong&gt;PHP 5,000.00&lt;/strong&gt;&lt;/div&gt;\n
+                        &lt;div class="pm-summary-stat"&gt;&lt;span&gt;Remaining Balance&lt;/span&gt;&lt;strong&gt;PHP 15,000.00&lt;/strong&gt;&lt;/div&gt;\n
+                        &lt;div class="pm-summary-stat"&gt;&lt;span&gt;Transactions&lt;/span&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/div&gt;\n
+                    &lt;/div&gt;\n
+                            &lt;/div&gt;\n
+                            &lt;div class="pm-foot"&gt;\n
+                    &lt;span class="pm-muted"&gt;Showing 1-1 of 1 cases&lt;/span&gt;\n
+                    &lt;nav role="navigation" aria-label="Pagination Navigation" class="table-paginator"&gt;\n
+    &lt;div class="table-paginator-meta"&gt;\n
+        Showing all 1 records\n
+    &lt;/div&gt;\n
+\n
+    &lt;div class="table-paginator-nav"&gt;\n
+                    &lt;span class="table-paginator-btn is-disabled" aria-disabled="true" title="First page"&gt;\n
+                &lt;i class="bi bi-chevron-double-left"&gt;&lt;/i&gt;\n
+            &lt;/span&gt;\n
+            &lt;span class="table-paginator-btn is-disabled" aria-disabled="true" title="Previous page"&gt;\n
+                &lt;i class="bi bi-chevron-left"&gt;&lt;/i&gt;\n
+            &lt;/span&gt;\n
+        \n
+                    &lt;span class="table-paginator-btn is-active" aria-current="page"&gt;1&lt;/span&gt;\n
+        \n
+                    &lt;span class="table-paginator-btn is-disabled" aria-disabled="true" title="Next page"&gt;\n
+                &lt;i class="bi bi-chevron-right"&gt;&lt;/i&gt;\n
+            &lt;/span&gt;\n
+            &lt;span class="table-paginator-btn is-disabled" aria-disabled="true" title="Last page"&gt;\n
+                &lt;i class="bi bi-chevron-double-right"&gt;&lt;/i&gt;\n
+            &lt;/span&gt;\n
+            &lt;/div&gt;\n
+&lt;/nav&gt;\n
+\n
+                &lt;/div&gt;\n
+                    &lt;/div&gt;\n
+    &lt;/div&gt;\n
+\n
+&lt;div id="pmDateModal" class="pm-modal-backdrop" aria-hidden="true"&gt;\n
+    &lt;div class="pm-modal" role="dialog" aria-modal="true" aria-labelledby="pmDateModalTitle"&gt;\n
+        &lt;div class="pm-modal-hd"&gt;\n
+            &lt;div class="pm-modal-title" id="pmDateModalTitle"&gt;Custom Payment Date Range&lt;/div&gt;\n
+            &lt;button type="button" class="pm-btn compact" data-pm-date-cancel aria-label="Close date range modal"&gt;&lt;i class="bi bi-x-lg"&gt;&lt;/i&gt;&lt;/button&gt;\n
+        &lt;/div&gt;\n
+        &lt;div class="pm-modal-body"&gt;\n
+            &lt;label&gt;\n
+                &lt;span class="pm-txn-rec-label"&gt;Date Range From&lt;/span&gt;\n
+                &lt;input id="pmModalPaidFrom" class="pm-control" type="date" value=""&gt;\n
+            &lt;/label&gt;\n
+            &lt;label&gt;\n
+                &lt;span class="pm-txn-rec-label"&gt;Date Range To&lt;/span&gt;\n
+                &lt;input id="pmModalPaidTo" class="pm-control" type="date" value=""&gt;\n
+            &lt;/label&gt;\n
+        &lt;/div&gt;\n
+        &lt;div class="pm-modal-ft"&gt;\n
+            &lt;button type="button" class="pm-btn" data-pm-date-cancel&gt;Cancel&lt;/button&gt;\n
+            &lt;button type="button" class="pm-btn primary" id="pmApplyCustomDates"&gt;Apply Date Range&lt;/button&gt;\n
+        &lt;/div&gt;\n
+    &lt;/div&gt;\n
+&lt;/div&gt;\n
+\n
+&lt;script&gt;\n
+(() =&gt; {\n
+    const form = document.getElementById('pmFilterForm');\n
+    const range = document.getElementById('pmDateRange');\n
+    const paidFrom = document.getElementById('pmPaidFrom');\n
+    const paidTo = document.getElementById('pmPaidTo');\n
+    const modal = document.getElementById('pmDateModal');\n
+    const modalFrom = document.getElementById('pmModalPaidFrom');\n
+    const modalTo = document.getElementById('pmModalPaidTo');\n
+    const applyCustomDates = document.getElementById('pmApplyCustomDates');\n
+    const openCase = new URLSearchParams(window.location.search).get('open_case');\n
+    let searchTimer = null;\n
+\n
+    const toDateValue = (date) =&gt; date.toISOString().slice(0, 10);\n
+    const submitFilters = () =&gt; form?.requestSubmit();\n
+\n
+    const setDateRange = (preset) =&gt; {\n
+        const now = new Date();\n
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());\n
+        let from = '';\n
+        let to = '';\n
+\n
+        if (preset === 'today') {\n
+            from = to = toDateValue(today);\n
+        } else if (preset === 'week') {\n
+            const day = today.getDay();\n
+            const diff = day === 0 ? -6 : 1 - day;\n
+            const start = new Date(today);\n
+            start.setDate(today.getDate() + diff);\n
+            const end = new Date(start);\n
+            end.setDate(start.getDate() + 6);\n
+            from = toDateValue(start);\n
+            to = toDateValue(end);\n
+        } else if (preset === 'month') {\n
+            from = toDateValue(new Date(today.getFullYear(), today.getMonth(), 1));\n
+            to = toDateValue(new Date(today.getFullYear(), today.getMonth() + 1, 0));\n
+        } else if (preset === 'year') {\n
+            from = toDateValue(new Date(today.getFullYear(), 0, 1));\n
+            to = toDateValue(new Date(today.getFullYear(), 11, 31));\n
+        }\n
+\n
+        if (paidFrom) paidFrom.value = from;\n
+        if (paidTo) paidTo.value = to;\n
+    };\n
+\n
+    const openDateModal = () =&gt; {\n
+        if (modalFrom &amp;&amp; paidFrom) modalFrom.value = paidFrom.value;\n
+        if (modalTo &amp;&amp; paidTo) modalTo.value = paidTo.value;\n
+        modal?.classList.add('open');\n
+        modal?.setAttribute('aria-hidden', 'false');\n
+        modalFrom?.focus();\n
+    };\n
+\n
+    const closeDateModal = () =&gt; {\n
+        modal?.classList.remove('open');\n
+        modal?.setAttribute('aria-hidden', 'true');\n
+    };\n
+\n
+    range?.addEventListener('change', () =&gt; {\n
+        if (range.value === 'custom') {\n
+            openDateModal();\n
+            return;\n
+        }\n
+\n
+        setDateRange(range.value);\n
+        submitFilters();\n
+    });\n
+\n
+    applyCustomDates?.addEventListener('click', () =&gt; {\n
+        if (paidFrom &amp;&amp; modalFrom) paidFrom.value = modalFrom.value;\n
+        if (paidTo &amp;&amp; modalTo) paidTo.value = modalTo.value;\n
+        closeDateModal();\n
+        submitFilters();\n
+    });\n
+\n
+    document.querySelectorAll('[data-pm-date-cancel]').forEach(button =&gt; {\n
+        button.addEventListener('click', () =&gt; {\n
+            closeDateModal();\n
+            if (range &amp;&amp; (!paidFrom?.value &amp;&amp; !paidTo?.value)) range.value = 'all';\n
+        });\n
+    });\n
+\n
+    modal?.addEventListener('click', event =&gt; {\n
+        if (event.target === modal) closeDateModal();\n
+    });\n
+\n
+    document.querySelectorAll('[data-pm-stop-row-toggle]').forEach(link =&gt; {\n
+        link.addEventListener('click', event =&gt; event.stopPropagation());\n
+    });\n
+\n
+    document.querySelectorAll('[data-pm-summary-toggle]').forEach(button =&gt; {\n
+        button.addEventListener('click', () =&gt; {\n
+            const target = document.getElementById(button.dataset.pmSummaryToggle);\n
+            if (!target) return;\n
+            const nextOpen = !target.classList.contains('open');\n
+            target.classList.toggle('open', nextOpen);\n
+            button.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');\n
+        });\n
+    });\n
+\n
+    document.querySelectorAll('[data-pm-transaction-toggle]').forEach(button =&gt; {\n
+        const target = document.getElementById(button.dataset.pmTransactionToggle);\n
+        const toggle = (forceOpen = null) =&gt; {\n
+            if (!target) return;\n
+            const nextOpen = forceOpen === null ? !target.classList.contains('open') : forceOpen;\n
+            target.classList.toggle('open', nextOpen);\n
+            button.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');\n
+        };\n
+\n
+        button.addEventListener('click', () =&gt; toggle());\n
+\n
+        if (openCase &amp;&amp; button.dataset.caseCode === openCase) {\n
+            toggle(true);\n
+        }\n
+    });\n
+\n
+    document.querySelectorAll('[data-pm-txn-det]').forEach(button =&gt; {\n
+        button.addEventListener('click', () =&gt; {\n
+            const target = document.getElementById(button.dataset.pmTxnDet);\n
+            if (!target) return;\n
+            const nextOpen = target.hidden;\n
+            target.hidden = !nextOpen;\n
+            button.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');\n
+        });\n
+    });\n
+\n
+    form?.querySelectorAll('select[name="branch_id"], select[name="payment_status"], select[name="case_status"], select[name="payment_method"]').forEach(control =&gt; {\n
+        control.addEventListener('change', submitFilters);\n
+    });\n
+\n
+    form?.querySelector('input[name="q"]')?.addEventListener('input', () =&gt; {\n
+        window.clearTimeout(searchTimer);\n
+        searchTimer = window.setTimeout(submitFilters, 450);\n
+    });\n
+})();\n
+&lt;/script&gt;\n
+            &lt;/main&gt;\n
+        &lt;/div&gt;\n
+    &lt;/div&gt;\n
+\n
+    \n
+    &lt;script&gt;\n
+        (function () {\n
+            const meta = {\n
+                'flash-success': { icon: 'bi-check-circle-fill',        colorClass: 'flash-icon-success' },\n
+                'flash-error':   { icon: 'bi-x-circle-fill',            colorClass: 'flash-icon-error'   },\n
+                'flash-info':    { icon: 'bi-info-circle-fill',          colorClass: 'flash-icon-info'    },\n
+                'flash-warning': { icon: 'bi-exclamation-triangle-fill', colorClass: 'flash-icon-warning' },\n
+            };\n
+\n
+            const toasts = [...document.querySelectorAll('.flash-success, .flash-error, .flash-info, .flash-warning')];\n
+            if (!toasts.length) return;\n
+\n
+            const stack = document.createElement('div');\n
+            stack.className = 'flash-toast-stack';\n
+            stack.setAttribute('aria-live', 'polite');\n
+            stack.setAttribute('aria-atomic', 'true');\n
+            document.body.appendChild(stack);\n
+\n
+            toasts.forEach((el, idx) =&gt; {\n
+                const type = Object.keys(meta).find((k) =&gt; el.classList.contains(k)) || 'flash-info';\n
+                const { icon, colorClass } = meta[type];\n
+\n
+                const text = el.textContent.trim();\n
+\n
+                const iconEl = document.createElement('i');\n
+                iconEl.className = `bi ${icon} flash-icon ${colorClass}`;\n
+\n
+                const body = document.createElement('span');\n
+                body.className = 'flash-body';\n
+                body.textContent = text;\n
+\n
+                const closeBtn = document.createElement('button');\n
+                closeBtn.type = 'button';\n
+                closeBtn.className = 'flash-close';\n
+                closeBtn.setAttribute('aria-label', 'Dismiss');\n
+                closeBtn.innerHTML = '&lt;i class="bi bi-x-lg"&gt;&lt;/i&gt;';\n
+\n
+                el.innerHTML = '';\n
+                el.appendChild(iconEl);\n
+                el.appendChild(body);\n
+                el.appendChild(closeBtn);\n
+                stack.appendChild(el);\n
+\n
+                const dismiss = () =&gt; {\n
+                    el.classList.remove('flash-show');\n
+                    el.classList.add('flash-dismiss');\n
+                    setTimeout(() =&gt; el.remove(), 250);\n
+                };\n
+\n
+                closeBtn.addEventListener('click', dismiss);\n
+                const timer = setTimeout(dismiss, 5000);\n
+                closeBtn.addEventListener('click', () =&gt; clearTimeout(timer));\n
+\n
+                // Trigger entrance after a micro-frame so CSS transition fires\n
+                requestAnimationFrame(() =&gt; requestAnimationFrame(() =&gt; el.classList.add('flash-show')));\n
+            });\n
+        })();\n
+    &lt;/script&gt;\n
+\n
+    &lt;script&gt;\n
+        (function () {\n
+            const toggle = document.getElementById('mobileSidebarToggle');\n
+            const backdrop = document.getElementById('sidebarBackdrop');\n
+            const sidebar = document.getElementById('appSidebar');\n
+            const desktopToggle = document.getElementById('desktopSidebarToggle');\n
+            const desktopMedia = window.matchMedia('(min-width: 1024px)');\n
+            const collapseStorageKey = 'sidebar-collapsed';\n
+            if (!backdrop || !sidebar) return;\n
+\n
+            const navLinks = sidebar.querySelectorAll('.nav-link');\n
+            navLinks.forEach((link) =&gt; {\n
+                const label = link.querySelector('span')?.textContent?.trim();\n
+                if (!label) return;\n
+                link.setAttribute('data-nav-label', label);\n
+                link.setAttribute('title', label);\n
+                link.setAttribute('aria-label', label);\n
+            });\n
+\n
+            const brandName = sidebar.querySelector('.sidebar-brand-name')?.textContent?.trim();\n
+            const brand = sidebar.querySelector('.sidebar-brand');\n
+            if (brand &amp;&amp; brandName) {\n
+                brand.setAttribute('title', brandName);\n
+                brand.setAttribute('aria-label', brandName);\n
+            }\n
+\n
+            const closeSidebar = () =&gt; {\n
+                document.body.removeAttribute('data-sidebar-open');\n
+                if (toggle) {\n
+                    toggle.setAttribute('aria-expanded', 'false');\n
+                }\n
+            };\n
+\n
+            const openSidebar = () =&gt; {\n
+                document.body.setAttribute('data-sidebar-open', 'true');\n
+                if (toggle) {\n
+                    toggle.setAttribute('aria-expanded', 'true');\n
+                }\n
+            };\n
+\n
+            const syncDesktopToggle = (collapsed) =&gt; {\n
+                if (!desktopToggle) return;\n
+                desktopToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');\n
+                desktopToggle.setAttribute('aria-label', collapsed ? 'Open sidebar' : 'Collapse sidebar');\n
+\n
+                const glyph = desktopToggle.querySelector('.sidebar-collapse-glyph');\n
+                if (!glyph) return;\n
+                glyph.classList.toggle('bi-layout-sidebar-inset', collapsed);\n
+                glyph.classList.toggle('bi-layout-sidebar', !collapsed);\n
+            };\n
+\n
+            const setDesktopCollapsed = (collapsed, persist = true) =&gt; {\n
+                if (!desktopMedia.matches) {\n
+                    document.body.removeAttribute('data-sidebar-collapsed');\n
+                    syncDesktopToggle(false);\n
+                    return;\n
+                }\n
+\n
+                if (collapsed) {\n
+                    document.body.setAttribute('data-sidebar-collapsed', 'true');\n
+                } else {\n
+                    document.body.removeAttribute('data-sidebar-collapsed');\n
+                }\n
+\n
+                syncDesktopToggle(collapsed);\n
+                if (persist) {\n
+                    localStorage.setItem(collapseStorageKey, collapsed ? 'true' : 'false');\n
+                }\n
+            };\n
+\n
+            const restoreDesktopCollapsed = () =&gt; {\n
+                const stored = localStorage.getItem(collapseStorageKey);\n
+                const initialCollapsed = stored === null ? true : stored === 'true';\n
+                setDesktopCollapsed(initialCollapsed, false);\n
+            };\n
+\n
+            if (toggle) {\n
+                toggle.addEventListener('click', () =&gt; {\n
+                    if (desktopMedia.matches) {\n
+                        const isCollapsed = document.body.getAttribute('data-sidebar-collapsed') === 'true';\n
+                        setDesktopCollapsed(!isCollapsed);\n
+                        return;\n
+                    }\n
+\n
+                    if (document.body.getAttribute('data-sidebar-open') === 'true') {\n
+                        closeSidebar();\n
+                        return;\n
+                    }\n
+                    openSidebar();\n
+                });\n
+            }\n
+\n
+            if (desktopToggle) {\n
+                desktopToggle.addEventListener('click', () =&gt; {\n
+                    if (!desktopMedia.matches) return;\n
+                    const isCollapsed = document.body.getAttribute('data-sidebar-collapsed') === 'true';\n
+                    setDesktopCollapsed(!isCollapsed);\n
+                });\n
+            }\n
+\n
+            restoreDesktopCollapsed();\n
+\n
+            backdrop.addEventListener('click', closeSidebar);\n
+\n
+            window.addEventListener('resize', () =&gt; {\n
+                if (desktopMedia.matches) {\n
+                    closeSidebar();\n
+                    restoreDesktopCollapsed();\n
+                    return;\n
+                }\n
+\n
+                document.body.removeAttribute('data-sidebar-collapsed');\n
+                syncDesktopToggle(false);\n
+            });\n
+\n
+            document.addEventListener('keydown', (event) =&gt; {\n
+                if (event.key === 'Escape') closeSidebar();\n
+            });\n
+\n
+            document.addEventListener('click', (event) =&gt; {\n
+                if (window.innerWidth &gt;= 1024) return;\n
+                const navLink = event.target.closest('.sidebar a[href]');\n
+                if (navLink) closeSidebar();\n
+            });\n
+        })();\n
+\n
+        (function () {\n
+            const navLinks = document.querySelectorAll('.sidebar .nav-link[href]');\n
+            if (!navLinks.length) return;\n
+\n
+            const prefetched = new Set();\n
+\n
+            const prefetch = (href) =&gt; {\n
+                if (!href || prefetched.has(href)) return;\n
+                prefetched.add(href);\n
+\n
+                const link = document.createElement('link');\n
+                link.rel = 'prefetch';\n
+                link.as = 'document';\n
+                link.href = href;\n
+                document.head.appendChild(link);\n
+            };\n
+\n
+            navLinks.forEach((link) =&gt; {\n
+                const href = link.getAttribute('href');\n
+                if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;\n
+\n
+                let absolute = '';\n
+                try {\n
+                    const target = new URL(href, window.location.href);\n
+                    if (target.origin !== window.location.origin) return;\n
+                    absolute = target.href;\n
+                } catch (error) {\n
+                    return;\n
+                }\n
+\n
+                const warm = () =&gt; prefetch(absolute);\n
+                link.addEventListener('mouseenter', warm, { once: true });\n
+                link.addEventListener('focus', warm, { once: true });\n
+                link.addEventListener('touchstart', warm, { once: true, passive: true });\n
+            });\n
+        })();\n
+\n
+        (function () {\n
+            const indicator = document.getElementById('globalLoadingIndicator');\n
+            if (!indicator) return;\n
+\n
+            let showTimer = null;\n
+            let safetyTimer = null;\n
+\n
+            function hideLoading() {\n
+                clearTimeout(showTimer);\n
+                showTimer = null;\n
+                clearTimeout(safetyTimer);\n
+                safetyTimer = null;\n
+                indicator.classList.add('hidden');\n
+            }\n
+\n
+            function showLoading() {\n
+                if (!indicator.classList.contains('hidden')) return;\n
+                indicator.classList.remove('hidden');\n
+                safetyTimer = setTimeout(hideLoading, 10000);\n
+            }\n
+\n
+            function scheduleLoading() {\n
+                hideLoading();\n
+                showTimer = setTimeout(showLoading, 120);\n
+            }\n
+\n
+            function isNormalLeftClick(e) {\n
+                return e.button === 0 &amp;&amp; !e.metaKey &amp;&amp; !e.ctrlKey &amp;&amp; !e.shiftKey &amp;&amp; !e.altKey;\n
+            }\n
+\n
+            document.addEventListener('click', function (e) {\n
+                const link = e.target.closest('a[href]');\n
+                if (!link || !isNormalLeftClick(e)) return;\n
+                if (link.target === '_blank' || link.hasAttribute('download')) return;\n
+\n
+                const href = link.getAttribute('href') || '';\n
+                if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) return;\n
+\n
+                const targetUrl = new URL(link.href, window.location.href);\n
+                if (targetUrl.origin !== window.location.origin) return;\n
+\n
+                setTimeout(function () {\n
+                    if (!e.defaultPrevented) scheduleLoading();\n
+                }, 0);\n
+            });\n
+\n
+            document.addEventListener('submit', function (e) {\n
+                setTimeout(function () {\n
+                    if (!e.defaultPrevented) scheduleLoading();\n
+                }, 0);\n
+            });\n
+\n
+            window.addEventListener('pageshow', hideLoading);\n
+            window.addEventListener('load', hideLoading);\n
+        })();\n
+\n
+        (function () {\n
+            const toggle = document.querySelector('[data-account-toggle]');\n
+            const menu = document.querySelector('[data-account-dropdown]');\n
+            if (!toggle || !menu) return;\n
+\n
+            const closeMenu = () =&gt; {\n
+                toggle.setAttribute('aria-expanded', 'false');\n
+                menu.hidden = true;\n
+            };\n
+\n
+            const openMenu = () =&gt; {\n
+                toggle.setAttribute('aria-expanded', 'true');\n
+                menu.hidden = false;\n
+            };\n
+\n
+            toggle.addEventListener('click', (event) =&gt; {\n
+                event.preventDefault();\n
+                if (menu.hidden) {\n
+                    openMenu();\n
+                } else {\n
+                    closeMenu();\n
+                }\n
+            });\n
+\n
+            document.addEventListener('click', (event) =&gt; {\n
+                if (!toggle.contains(event.target) &amp;&amp; !menu.contains(event.target)) {\n
+                    closeMenu();\n
+                }\n
+            });\n
+\n
+            document.addEventListener('keydown', (event) =&gt; {\n
+                if (event.key === 'Escape') {\n
+                    closeMenu();\n
+                }\n
+            });\n
+\n
+            document.addEventListener('panel-ui:reset', closeMenu);\n
+        })();\n
+\n
+        (function () {\n
+            const wrap = document.querySelector('[data-notification]');\n
+            const toggle = document.querySelector('[data-notification-toggle]');\n
+            const menu = document.querySelector('[data-notification-menu]');\n
+            if (!wrap || !toggle || !menu) return;\n
+            const filterButtons = [...menu.querySelectorAll('[data-notification-filter]')];\n
+            const cards = [...menu.querySelectorAll('[data-notification-item]')];\n
+            const emptyState = menu.querySelector('[data-notification-empty]') || menu.querySelector('.topbar-notification-empty');\n
+            const markReadBtn = menu.querySelector('[data-notification-mark-read]');\n
+            const countBadge = toggle.querySelector('.topbar-notification__count');\n
+            const countEls = [...menu.querySelectorAll('[data-notification-count]')];\n
+            const summary = menu.querySelector('[data-notification-summary]');\n
+\n
+            const updateVisibleState = (bucket = 'all') =&gt; {\n
+                cards.forEach((card) =&gt; {\n
+                    const cardBucket = card.getAttribute('data-bucket');\n
+                    const show = bucket === 'all' || bucket === cardBucket;\n
+                    card.hidden = !show;\n
+                });\n
+\n
+                const visibleCount = cards.filter((card) =&gt; !card.hidden).length;\n
+                if (emptyState) {\n
+                    emptyState.hidden = visibleCount &gt; 0;\n
+                }\n
+            };\n
+\n
+            filterButtons.forEach((button) =&gt; {\n
+                button.addEventListener('click', () =&gt; {\n
+                    const bucket = button.getAttribute('data-notification-filter') || 'all';\n
+                    filterButtons.forEach((btn) =&gt; btn.classList.remove('is-active'));\n
+                    button.classList.add('is-active');\n
+                    updateVisibleState(bucket);\n
+                });\n
+            });\n
+\n
+            if (markReadBtn) {\n
+                markReadBtn.addEventListener('click', () =&gt; {\n
+                    cards.forEach((card) =&gt; {\n
+                        card.hidden = true;\n
+                    });\n
+\n
+                    countEls.forEach((el) =&gt; {\n
+                        el.textContent = '0';\n
+                    });\n
+\n
+                    if (summary) {\n
+                        summary.textContent = '0 active alerts. All caught up.';\n
+                    }\n
+\n
+                    if (countBadge) {\n
+                        countBadge.remove();\n
+                    }\n
+\n
+                    filterButtons.forEach((btn) =&gt; btn.classList.remove('is-active'));\n
+                    const allBtn = filterButtons.find((btn) =&gt; btn.getAttribute('data-notification-filter') === 'all');\n
+                    if (allBtn) allBtn.classList.add('is-active');\n
+\n
+                    if (emptyState) {\n
+                        emptyState.textContent = 'All reminders are marked as read.';\n
+                        emptyState.hidden = false;\n
+                    }\n
+                });\n
+            }\n
+\n
+            const closeMenu = () =&gt; {\n
+                toggle.setAttribute('aria-expanded', 'false');\n
+                menu.hidden = true;\n
+            };\n
+\n
+            const openMenu = () =&gt; {\n
+                toggle.setAttribute('aria-expanded', 'true');\n
+                menu.hidden = false;\n
+            };\n
+\n
+            toggle.addEventListener('click', (event) =&gt; {\n
+                event.preventDefault();\n
+                if (menu.hidden) {\n
+                    openMenu();\n
+                } else {\n
+                    closeMenu();\n
+                }\n
+            });\n
+\n
+            document.addEventListener('click', (event) =&gt; {\n
+                if (!wrap.contains(event.target)) {\n
+                    closeMenu();\n
+                }\n
+            });\n
+\n
+            document.addEventListener('keydown', (event) =&gt; {\n
+                if (event.key === 'Escape') {\n
+                    closeMenu();\n
+                }\n
+            });\n
+\n
+            document.addEventListener('panel-ui:reset', closeMenu);\n
+\n
+            updateVisibleState('all');\n
+        })();\n
+\n
+        (function () {\n
+            const scroller = document.querySelector('.sidebar-scroll');\n
+            if (!scroller) return;\n
+            const key = 'sidebar-scroll-top';\n
+            const saved = localStorage.getItem(key);\n
+            if (saved) scroller.scrollTop = parseInt(saved, 10) || 0;\n
+            scroller.addEventListener('scroll', () =&gt; {\n
+                localStorage.setItem(key, String(scroller.scrollTop));\n
+            });\n
+        })();\n
+\n
+    &lt;/script&gt;\n
+&lt;/body&gt;\n
+&lt;/html&gt;\n
+' [UTF-8](length: 61980) contains "Assigned Branch: BR002 - Branch Two" [ASCII](length: 35).
+&#13;
+C:\xampp\htdocs\funeral-system\vendor\laravel\framework\src\Illuminate\Testing\TestResponseAssert.php:45
+C:\xampp\htdocs\funeral-system\vendor\laravel\framework\src\Illuminate\Testing\TestResponse.php:709
+C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php:318</failure>
+        </testcase>
+        <testcase name="test_main_admin_payment_monitoring_can_filter_all_branches" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php" line="325" class="Tests\Feature\SystemRegressionGuardsTest" classname="Tests.Feature.SystemRegressionGuardsTest" assertions="8" time="0.177176"/>
+        <testcase name="test_transaction_history_groups_multiple_payments_under_one_case" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php" line="384" class="Tests\Feature\SystemRegressionGuardsTest" classname="Tests.Feature.SystemRegressionGuardsTest" assertions="9" time="0.210754"/>
+        <testcase name="test_admin_master_cases_search_accepts_name_punctuation" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php" line="442" class="Tests\Feature\SystemRegressionGuardsTest" classname="Tests.Feature.SystemRegressionGuardsTest" assertions="2" time="0.130951"/>
+        <testcase name="test_owner_case_history_search_accepts_name_punctuation" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php" line="460" class="Tests\Feature\SystemRegressionGuardsTest" classname="Tests.Feature.SystemRegressionGuardsTest" assertions="2" time="0.099972"/>
+        <testcase name="test_other_branch_intake_page_shows_completed_and_full_payment_rules_up_front" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php" line="479" class="Tests\Feature\SystemRegressionGuardsTest" classname="Tests.Feature.SystemRegressionGuardsTest" assertions="9" time="0.102546"/>
+        <testcase name="test_main_branch_intake_supports_unpaid_case_creation" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php" line="498" class="Tests\Feature\SystemRegressionGuardsTest" classname="Tests.Feature.SystemRegressionGuardsTest" assertions="7" time="0.142939"/>
+        <testcase name="test_main_branch_intake_supports_partial_payment_case_creation" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php" line="523" class="Tests\Feature\SystemRegressionGuardsTest" classname="Tests.Feature.SystemRegressionGuardsTest" assertions="12" time="0.124783"/>
+        <testcase name="test_main_branch_intake_persists_extended_spec_fields" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php" line="559" class="Tests\Feature\SystemRegressionGuardsTest" classname="Tests.Feature.SystemRegressionGuardsTest" assertions="5" time="0.128878"/>
+        <testcase name="test_main_branch_intake_accepts_common_name_punctuation" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php" line="611" class="Tests\Feature\SystemRegressionGuardsTest" classname="Tests.Feature.SystemRegressionGuardsTest" assertions="4" time="0.110709"/>
+        <testcase name="test_main_branch_intake_auto_applies_pwd_discount_to_package_price_only" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php" line="632" class="Tests\Feature\SystemRegressionGuardsTest" classname="Tests.Feature.SystemRegressionGuardsTest" assertions="3" time="0.121109"/>
+        <testcase name="test_case_details_support_case_centered_payment_entry" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php" line="660" class="Tests\Feature\SystemRegressionGuardsTest" classname="Tests.Feature.SystemRegressionGuardsTest" assertions="15" time="0.146909"/>
+        <testcase name="test_other_branch_case_details_do_not_offer_add_payment_action" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php" line="713" class="Tests\Feature\SystemRegressionGuardsTest" classname="Tests.Feature.SystemRegressionGuardsTest" assertions="3" time="0.129250"/>
+        <testcase name="test_case_with_payments_cannot_be_deleted" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemRegressionGuardsTest.php" line="737" class="Tests\Feature\SystemRegressionGuardsTest" classname="Tests.Feature.SystemRegressionGuardsTest" assertions="5" time="0.097274"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\SystemSecurityComplianceTest" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemSecurityComplianceTest.php" tests="2" assertions="13" errors="0" failures="0" skipped="0" time="0.309275">
+        <testcase name="test_profile_routes_require_active_users" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemSecurityComplianceTest.php" line="14" class="Tests\Feature\SystemSecurityComplianceTest" classname="Tests.Feature.SystemSecurityComplianceTest" assertions="4" time="0.167625"/>
+        <testcase name="test_application_sends_baseline_security_headers" file="C:\xampp\htdocs\funeral-system\tests\Feature\SystemSecurityComplianceTest.php" line="27" class="Tests\Feature\SystemSecurityComplianceTest" classname="Tests.Feature.SystemSecurityComplianceTest" assertions="9" time="0.141650"/>
+      </testsuite>
+    </testsuite>
+  </testsuite>
+</testsuites>

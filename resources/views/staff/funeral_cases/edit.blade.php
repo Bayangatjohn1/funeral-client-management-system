@@ -311,8 +311,7 @@ html[data-theme='dark'] .ef-stat { background:rgba(255,255,255,.04); }
                 id="ef_interment"
                 name="interment_at"
                 value="{{ old('interment_at',
-                    $funeral_case->deceased?->interment_at?->format('Y-m-d\TH:i')
-                    ?? $funeral_case->deceased?->interment?->format('Y-m-d\T00:00')
+                    $funeral_case->interment_at?->format('Y-m-d\TH:i')
                 ) }}"
                 class="form-input w-full"
             >

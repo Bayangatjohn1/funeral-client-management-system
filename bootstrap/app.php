@@ -15,7 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         \App\Console\Commands\CompletePastInterments::class,
     ])
     ->withSchedule(function (Schedule $schedule): void {
-        $schedule->command('cases:complete-past-interments')->hourly();
+        $schedule->command('cases:complete-past-interments')->everyMinute();
     })
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);

@@ -2,21 +2,20 @@
 
 namespace App\Console\Commands;
 
-use App\Models\FuneralCase;
 use Illuminate\Console\Command;
+use App\Models\FuneralCase;
 
 class CompletePastInterments extends Command
 {
     protected $signature = 'cases:complete-past-interments';
+    protected $description = 'Auto-complete active funeral cases when the internment date is reached';
 
-    protected $description = 'Complete active funeral cases whose scheduled interment datetime has passed';
-
-    public function handle(): int
+    public function handle()
     {
-        $completed = FuneralCase::completePastInterments();
+        $count = FuneralCase::completePastInterments();
 
-        $this->info("Completed {$completed} past interment case(s).");
+        $this->info("Completed {$count} past interment case(s).");
 
-        return self::SUCCESS;
+        return 0;
     }
 }

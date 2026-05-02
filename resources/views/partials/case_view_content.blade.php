@@ -10,6 +10,17 @@
     $pkgCoffin     = $funeral_case->coffin_type               ?: ($pkg?->coffin_type ?? null);
     $isOtherBranch = ($funeral_case->entry_source ?? 'MAIN') === 'OTHER_BRANCH';
     $balanceDue    = (float) $funeral_case->balance_amount > 0;
+    $displayIntermentAt = $funeral_case->interment_at
+        ?? $funeral_case->deceased?->interment_at
+        ?? $funeral_case->serviceDetail?->internment_date
+        ?? $funeral_case->deceased?->interment;
+    $displayWakeDays = null;
+    if ($funeral_case->funeral_service_at && $displayIntermentAt) {
+        $displayWakeDays = $funeral_case->funeral_service_at
+            ->copy()
+            ->startOfDay()
+            ->diffInDays($displayIntermentAt->copy()->startOfDay()) + 1;
+    }
 
     // Smart date formatters — skip the time portion when it is midnight
     $fmtDate = fn($dt) => $dt ? $dt->format('M d, Y') : '—';
@@ -117,7 +128,7 @@
           <span class="cv-meta-value">{{ $funeral_case->branch?->branch_code ?? '—' }}{{ $funeral_case->branch?->branch_name ? ' — ' . $funeral_case->branch->branch_name : '' }}</span>
         </div>
         <div class="cv-meta-item">
-          <span class="cv-meta-label">Service Date</span>
+          <span class="cv-meta-label">Request Date</span>
           <span class="cv-meta-value">{{ $fmtDate($funeral_case->service_requested_at ?? $funeral_case->created_at) }}</span>
         </div>
         <div class="cv-meta-item">
@@ -175,14 +186,6 @@
           <div class="cv-field-value">{{ $funeral_case->deceased?->age ?? '—' }}</div>
         </div>
         <div class="cv-field">
-          <div class="cv-field-label">Wake Days</div>
-          <div class="cv-field-value">{{ $funeral_case->deceased?->wake_days ?? '—' }}</div>
-        </div>
-        <div class="cv-field">
-          <div class="cv-field-label">Interment</div>
-          <div class="cv-field-value">{{ $fmtDt($funeral_case->deceased?->interment_at) !== '—' ? $fmtDt($funeral_case->deceased?->interment_at) : $fmtDate($funeral_case->deceased?->interment) }}</div>
-        </div>
-        <div class="cv-field">
           <div class="cv-field-label">Cemetery</div>
           <div class="cv-field-value">{{ $funeral_case->deceased?->place_of_cemetery ?? '—' }}</div>
         </div>
@@ -209,7 +212,7 @@
   <div class="cv-card">
     <div class="cv-card-head">
       <div class="cv-card-icon"><i class="bi bi-box-seam"></i></div>
-      <span class="cv-card-title">Package &amp; Service</span>
+      <span class="cv-card-title">Package &amp; Service Schedule</span>
     </div>
     <div class="cv-fields cv-fields-2">
       <div class="cv-field {{ !$pkgCoffin && !$pkgPrice ? 'cv-field-full' : '' }}">
@@ -252,6 +255,14 @@
         <div class="cv-field-value">{{ $fmtDate($funeral_case->funeral_service_at) }}</div>
       </div>
       @endif
+      <div class="cv-field">
+        <div class="cv-field-label">Interment Date &amp; Time</div>
+        <div class="cv-field-value">{{ $fmtDt($displayIntermentAt) }}</div>
+      </div>
+      <div class="cv-field">
+        <div class="cv-field-label">Wake Duration</div>
+        <div class="cv-field-value">{{ $displayWakeDays ? $displayWakeDays . ' day(s)' : $fmtDate(null) }}</div>
+      </div>
     </div>
 
     @if($pkgInclusionItems || $pkgFreebieItems)
@@ -403,7 +414,7 @@
   </div>
 
   {{-- ── Record Source (OTHER_BRANCH cases) ── --}}
-  @if($isOtherBranch || $funeral_case->reportedBranch || $funeral_case->reporter_name)
+  @if($isOtherBranch || $funeral_case->reporter_name)
   <div class="cv-card">
     <div class="cv-card-head">
       <div class="cv-card-icon"><i class="bi bi-diagram-3"></i></div>
@@ -418,7 +429,7 @@
       @endif
       @if($funeral_case->reported_at)
       <div class="cv-field">
-        <div class="cv-field-label">Reported At</div>
+        <div class="cv-field-label">Report Submitted At</div>
         <div class="cv-field-value">{{ $fmtDt($funeral_case->reported_at) }}</div>
       </div>
       @endif

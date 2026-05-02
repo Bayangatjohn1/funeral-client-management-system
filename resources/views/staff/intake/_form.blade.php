@@ -1192,9 +1192,9 @@
                         </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                         <div>
-                            <label class="field-label">Wake Start Date <span class="text-rose-500">*</span></label>
+                            <label class="field-label">Funeral Service Date <span class="text-rose-500">*</span></label>
                             <div class="relative">
-                                <input type="text" name="funeral_service_at" id="funeral_service_at" value="{{ old('funeral_service_at') }}" data-label="wake start date" class="form-input pr-10 cursor-pointer" placeholder="e.g., January 2, 2026" autocomplete="off" required>
+                                <input type="text" name="funeral_service_at" id="funeral_service_at" value="{{ old('funeral_service_at') }}" data-label="funeral service date" class="form-input pr-10 cursor-pointer" placeholder="e.g., January 2, 2026" autocomplete="off" required>
                                 <span id="wake_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
                                     <i class="bi bi-calendar-event text-lg"></i>
                                 </span>
@@ -1203,7 +1203,7 @@
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                             <p id="funeral_service_at_error" class="mt-1 text-sm text-red-600 hidden"></p>
-                            <p class="text-xs text-slate-500 mt-1">Click to pick the first day of the wake.</p>
+                            <p class="text-xs text-slate-500 mt-1">Must be on or after the date of death.</p>
                         </div>
 
                         <div>
@@ -1227,7 +1227,7 @@
                         </div>
 
                         <div>
-                            <label class="field-label">Interment / Burial Schedule <span class="text-rose-500">*</span></label>
+                            <label class="field-label">Interment Date &amp; Time <span class="text-rose-500">*</span></label>
                             <div class="relative">
                                 <input type="text" name="interment_at" id="interment_at" value="{{ old('interment_at') }}" data-label="interment or burial date" class="form-input pr-10 cursor-pointer" placeholder="e.g., January 5, 2026 9:00 AM" autocomplete="off" required>
                                 <span id="inter_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
@@ -1237,7 +1237,7 @@
                             @error('interment_at')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
-                            <div id="interment_at_error" class="hidden text-xs font-bold text-rose-500 mt-1">Interment date cannot be earlier than the wake start date.</div>
+                            <div id="interment_at_error" class="hidden text-xs font-bold text-rose-500 mt-1">Interment date cannot be earlier than the funeral service date.</div>
                             <p class="text-xs text-slate-500 mt-1">Select burial date and time. Calendar opens on click.</p>
                         </div>
 
@@ -2157,11 +2157,13 @@
         if (died) died.max = today;
 
         if (funeral) {
+            // Prefer the date of death when constraining the earliest funeral service date
+            // so users can select the same day as the date of death.
             funeral.min = died?.value || '';
             if (wakePicker) wakePicker.set('minDate', died?.value || null);
         }
 
-        if (interPicker) {
+                if (interPicker) {
             interPicker.set('minDate', funeral?.value || died?.value || 'today');
         }
 
@@ -2292,7 +2294,7 @@
             reviewService.innerHTML = [
                 detailRow('Service Type', 'Burial (fixed)'),
                 detailRow('Wake Location', textOrDash(f.elements.wake_location?.value)),
-                detailRow('Wake Start Date', formatDateOnly(f.elements.funeral_service_at?.value)),
+                detailRow('Funeral Service Date', formatDateOnly(f.elements.funeral_service_at?.value)),
                 detailRow('Interment Date', formatDateTime(f.elements.interment_at?.value)),
                 detailRow('Place of Interment', textOrDash(f.elements.place_of_cemetery?.value)),
                 detailRow('Case Status', textOrDash(f.elements.case_status?.value)),
@@ -2431,7 +2433,7 @@
         const interRaw = getRawDateString(interment, interPicker);
         const wakeDate = getDateValue(funeral, wakePicker);
         const interDate = getDateValue(interment, interPicker);
-        const deathDate = getDateValue(died, diedPicker);
+        const requestDateValue = getDateValue(requestDate);
 
         funeral?.setCustomValidity('');
         interment?.setCustomValidity('');
@@ -2443,9 +2445,9 @@
 
         if (funeral) {
             if (!wakeRaw) {
-                if (mode === 'full') funeral.setCustomValidity('Wake start date is required.');
+                if (mode === 'full') funeral.setCustomValidity('Funeral service date is required.');
             } else if (!wakeDate) {
-                funeral.setCustomValidity('Please enter a valid wake start date.');
+                funeral.setCustomValidity('Please enter a valid funeral service date.');
             }
         }
 
@@ -2457,16 +2459,18 @@
             }
         }
 
-        if (deathDate && wakeDate) {
-            const deathOnly = new Date(deathDate.getFullYear(), deathDate.getMonth(), deathDate.getDate());
+        // Enforce funeral service not earlier than the date of death.
+        const deathDateValue = getDateValue(died, diedPicker);
+        if (deathDateValue && wakeDate) {
+            const deathOnly = new Date(deathDateValue.getFullYear(), deathDateValue.getMonth(), deathDateValue.getDate());
             const wakeOnly = new Date(wakeDate.getFullYear(), wakeDate.getMonth(), wakeDate.getDate());
             if (wakeOnly < deathOnly) {
-                funeral.setCustomValidity('Wake start date must be on or after the date of death.');
+                funeral.setCustomValidity('Funeral service date must be on or after the date of death.');
             }
         }
 
         if (wakeDate && interDate && interDate < wakeDate) {
-            interment.setCustomValidity('Interment date cannot be earlier than the wake start date.');
+            interment.setCustomValidity('Interment date cannot be earlier than the funeral service date.');
         }
 
         if (wakeRaw || mode === 'full') {
@@ -2694,8 +2698,8 @@
             }
 
             if (!wakeDate) {
-                funeral.setCustomValidity('Please enter a valid wake start date.');
-                setFieldError(funeral, wakeErr, 'Please enter a valid wake start date.', wakePicker?.altInput);
+                funeral.setCustomValidity('Please enter a valid funeral service date.');
+                setFieldError(funeral, wakeErr, 'Please enter a valid funeral service date.', wakePicker?.altInput);
                 wakePicker?.altInput?.focus();
                 return false;
             }
@@ -2707,21 +2711,22 @@
                 return false;
             }
 
-            if (deathDate) {
-                const deathOnly = new Date(deathDate.getFullYear(), deathDate.getMonth(), deathDate.getDate());
+            const deathDateValue = getDateValue(died, diedPicker);
+            if (deathDateValue) {
+                const deathOnly = new Date(deathDateValue.getFullYear(), deathDateValue.getMonth(), deathDateValue.getDate());
                 const wakeOnly = new Date(wakeDate.getFullYear(), wakeDate.getMonth(), wakeDate.getDate());
 
                 if (wakeOnly < deathOnly) {
-                    funeral.setCustomValidity('Wake start date must be on or after the date of death.');
-                    setFieldError(funeral, wakeErr, 'Wake start date must be on or after the date of death.', wakePicker?.altInput);
+                    funeral.setCustomValidity('Funeral service date must be on or after the date of death.');
+                    setFieldError(funeral, wakeErr, 'Funeral service date must be on or after the date of death.', wakePicker?.altInput);
                     wakePicker?.altInput?.focus();
                     return false;
                 }
             }
 
             if (interDate < wakeDate) {
-                interment.setCustomValidity('Interment date cannot be earlier than the wake start date.');
-                setFieldError(interment, intermentErr, 'Interment date cannot be earlier than the wake start date.', interPicker?.altInput);
+                interment.setCustomValidity('Interment date cannot be earlier than the funeral service date.');
+                setFieldError(interment, intermentErr, 'Interment date cannot be earlier than the funeral service date.', interPicker?.altInput);
                 interPicker?.altInput?.focus();
                 return false;
             }
@@ -3096,7 +3101,7 @@
             const invalidMessage = () => {
                 if (type === 'born') return 'Please enter a valid birthdate.';
                 if (type === 'died') return 'Please enter a valid date of death.';
-                if (type === 'wake') return 'Please enter a valid wake start date.';
+                if (type === 'wake') return 'Please enter a valid funeral service date.';
                 return 'Please enter a valid interment date and time.';
             };
 
@@ -3194,8 +3199,8 @@
                 const invalidTyped = (funeral.dataset.invalidTypedValue || '').trim();
 
                 if (invalidTyped || (raw && !selectedDates.length && Number.isNaN(Date.parse(raw)))) {
-                    funeral.setCustomValidity('Please enter a valid wake start date.');
-                    setFieldError(funeral, wakeErr, 'Please enter a valid wake start date.', instance.altInput);
+                    funeral.setCustomValidity('Please enter a valid funeral service date.');
+                    setFieldError(funeral, wakeErr, 'Please enter a valid funeral service date.', instance.altInput);
                     return;
                 }
 
@@ -3230,6 +3235,8 @@
             clickOpens: false,
             enableTime: true,
             defaultDate: interment?.value || null,
+            // Interment cannot be earlier than the funeral service; if no funeral
+            // date is set, use date of death as the earliest allowed date.
             minDate: funeral?.value || died?.value || 'today',
             ...pickerBaseOpts,
             onChange: () => {
@@ -3395,12 +3402,14 @@
                 setFieldError(died, diedErr, '', diedPicker?.altInput);
 
                 if (funeral && died.value) {
+                    // Prefer the date of death as the earliest funeral date.
                     funeral.min = died.value;
                     if (wakePicker) wakePicker.set('minDate', died.value);
 
                     const currentWake = getDateValue(funeral, wakePicker);
                     const deathDate = getDateValue(died, diedPicker);
-                    if (currentWake && deathDate && currentWake < deathDate) {
+                    const minWakeDate = deathDate;
+                    if (currentWake && minWakeDate && currentWake < minWakeDate) {
                         funeral.value = died.value;
                         wakePicker?.setDate(died.value, true);
                     }

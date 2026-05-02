@@ -340,7 +340,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'branch.scope'])->group(functio
     Route::post('payments/{payment}/void', [PaymentController::class, 'void'])->name('payments.void');
 });
 
-Route::middleware(['auth', 'no_cache', 'active', 'main_admin'])->prefix('admin')->group(function () {
+Route::middleware(['auth', 'no_cache', 'active', 'admin'])->prefix('admin')->group(function () {
     Route::get('/users', [UserController::class, 'index'])->name('admin.users.index');
     Route::get('/users/create', [UserController::class, 'create'])->name('admin.users.create');
     Route::post('/users', [UserController::class, 'store'])->name('admin.users.store');
@@ -354,7 +354,9 @@ Route::middleware(['auth', 'no_cache', 'active', 'main_admin'])->prefix('admin')
 
     // Optional: Reset Password
     Route::patch('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('admin.users.resetPassword');
+});
 
+Route::middleware(['auth', 'no_cache', 'active', 'main_admin'])->prefix('admin')->group(function () {
     // Branches
     Route::get('/branches', [BranchController::class, 'index'])->name('admin.branches.index');
     Route::get('/branches/create', [BranchController::class, 'create'])->name('admin.branches.create');

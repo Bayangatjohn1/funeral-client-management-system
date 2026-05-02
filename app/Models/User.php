@@ -238,6 +238,18 @@ protected $fillable = [
         return $this->cachedActiveTemporaryPermission;
     }
 
+    /**
+     * Compatibility helper used in tests to mimic role assignment.
+     * Sets the simple `role` attribute and persists the model.
+     */
+    public function assignRole(string $role)
+    {
+        $this->role = $role;
+        $this->save();
+
+        return $this;
+    }
+
     public function canEncodeAnyBranch(): bool
     {
         return $this->isMainBranchAdmin();

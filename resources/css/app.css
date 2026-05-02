@@ -815,6 +815,31 @@ html[data-theme='dark'] {
         font-weight: 400;
     }
 
+    .table-toolbar-select-wrap {
+        position: relative;
+        width: 100%;
+    }
+
+    .table-toolbar-select-wrap .table-toolbar-select,
+    .table-toolbar-select-wrap .table-toolbar-sort {
+        width: 100%;
+        padding-right: 36px;
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+    }
+
+    .table-toolbar-select-icon {
+        position: absolute;
+        top: 50%;
+        right: 14px;
+        transform: translateY(-50%);
+        color: #8b97a8;
+        font-size: 12px;
+        line-height: 1;
+        pointer-events: none;
+    }
+
     .table-toolbar-search::placeholder,
     .table-toolbar-select::placeholder,
     .table-toolbar-sort::placeholder {
@@ -1358,6 +1383,161 @@ html[data-theme='dark'] {
         color: #334155;
     }
 
+    .directory-page {
+        min-height: 100vh;
+        background: #eef2f1;
+    }
+
+    .directory-page .table-system-card {
+        overflow: visible;
+        border: 2px solid #b9c9c4;
+        border-radius: 14px;
+        background: #f7f9f8;
+    }
+
+    .directory-page .table-system-head {
+        border-bottom: 1px solid #b9c9c4;
+        border-radius: 12px 12px 0 0;
+        background: #eef4f2;
+    }
+
+    .directory-page .table-system-title {
+        color: #1d2f2b;
+    }
+
+    .directory-page .admin-table-head-copy {
+        color: #5f6f6a;
+    }
+
+    .directory-page .table-system-toolbar {
+        background: #eef4f2;
+        border-bottom: 1px solid #c7d5d1;
+    }
+
+    .directory-page .table-system-toolbar .table-toolbar-search,
+    .directory-page .table-system-toolbar .table-toolbar-select,
+    .directory-page .table-system-toolbar .table-toolbar-sort {
+        background: #fbfcfc;
+        border-color: #c7d2cf;
+        color: #233b35;
+    }
+
+    .directory-page .filter-actions {
+        min-height: 40px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        align-items: stretch;
+        padding: 2px;
+        gap: 2px;
+        flex-wrap: nowrap;
+        border: 1px solid #c4d1cd;
+        border-radius: 10px;
+        background: #e8efec;
+    }
+
+    .directory-page .btn-filter-reset,
+    .directory-page .table-system-toolbar .btn-secondary {
+        min-height: 34px;
+        height: 34px;
+        padding: 0 12px;
+        border-radius: 8px;
+        border-color: transparent;
+        box-shadow: none;
+        white-space: nowrap;
+    }
+
+    .directory-page .btn-filter-reset {
+        background: transparent;
+        color: #51645f;
+    }
+
+    .directory-page .btn-filter-reset:hover {
+        background: #f5f8f7;
+        border-color: transparent;
+        color: #213b35;
+    }
+
+    .directory-page .table-system-toolbar .btn-secondary {
+        background: #0f766e;
+        border-color: #0f766e;
+        color: #ffffff;
+    }
+
+    .directory-page .table-system-toolbar .btn-secondary:hover {
+        background: #115e59;
+        border-color: #115e59;
+        color: #ffffff;
+    }
+
+    .directory-item-card,
+    .directory-stat-card {
+        position: relative;
+        overflow: visible;
+        border-color: #c2d0cc !important;
+        background: #fbfcfc !important;
+        box-shadow: none !important;
+    }
+
+    .directory-item-card::before,
+    .directory-stat-card::before {
+        content: "";
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 3px;
+        background: #0f766e;
+        border-radius: 16px 16px 0 0;
+    }
+
+    .directory-item-card {
+        transition: transform 180ms ease, border-color 180ms ease;
+    }
+
+    .directory-item-card:hover {
+        transform: translateY(-2px);
+        border-color: #8bb8ad !important;
+    }
+
+    .directory-item-card:has(.row-action-menu.is-open) {
+        z-index: 80;
+    }
+
+    .directory-page .table-system-list {
+        border-top: 1px solid #c7d5d1;
+        background: #f7f9f8;
+    }
+
+    .directory-page .table-wrapper,
+    .directory-page .table-system-wrap {
+        background: #fbfcfc;
+    }
+
+    .directory-page .table-system-table thead tr {
+        background: #e6eeeb;
+    }
+
+    .directory-page .table-system-table tbody tr:hover {
+        background: #f0f5f3;
+    }
+
+    .directory-page .status-badge-success {
+        background: #d1fae5;
+        border-color: #a7f3d0;
+        color: #047857;
+    }
+
+    .directory-page .status-badge-danger {
+        background: #fee2e2;
+        border-color: #fecaca;
+        color: #b91c1c;
+    }
+
+    .directory-page .table-system-toolbar .table-toolbar-search:focus,
+    .directory-page .table-system-toolbar .table-toolbar-select:focus,
+    .directory-page .table-system-toolbar .table-toolbar-sort:focus {
+        border-color: #047857;
+        box-shadow: none;
+    }
+
     .table-system-quick-tabs {
         margin-top: 6px;
         gap: 6px;
@@ -1541,6 +1721,11 @@ html[data-theme='dark'] {
         align-items: center;
         justify-content: flex-end;
         gap: 6px;
+        z-index: 40;
+    }
+
+    .row-action-menu.is-open {
+        z-index: 120;
     }
 
     .row-action-trigger {
@@ -1578,7 +1763,7 @@ html[data-theme='dark'] {
         right: 0;
         top: calc(100% + 6px);
         min-width: 168px;
-        z-index: 30;
+        z-index: 130;
         border: 1px solid var(--border);
         border-radius: 8px;
         background: var(--card);
@@ -4254,11 +4439,110 @@ html[data-theme='dark'] .table-system-toolbar .table-toolbar-sort {
     color: #f8fbff;
 }
 
+html[data-theme='dark'] .table-toolbar-select-icon {
+    color: #b8c3d4;
+}
+
 html[data-theme='dark'] .table-system-toolbar .table-toolbar-search:focus,
 html[data-theme='dark'] .table-system-toolbar .table-toolbar-select:focus,
 html[data-theme='dark'] .table-system-toolbar .table-toolbar-sort:focus {
     border-color: #3b82f6;
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.22);
+}
+
+html[data-theme='dark'] .directory-page {
+    background: #17211f;
+}
+
+html[data-theme='dark'] .directory-page .table-system-card {
+    background: #1d2a27;
+    border-color: #4a6962;
+}
+
+html[data-theme='dark'] .directory-page .table-system-head {
+    background: #263a35;
+    border-bottom-color: #4a6962;
+    border-radius: 12px 12px 0 0;
+}
+
+html[data-theme='dark'] .directory-page .table-system-title {
+    color: #ecfdf5;
+}
+
+html[data-theme='dark'] .directory-page .admin-table-head-copy {
+    color: #a7c9bf;
+}
+
+html[data-theme='dark'] .directory-page .table-system-toolbar,
+html[data-theme='dark'] .directory-page .table-system-list {
+    background: #20302c;
+    border-color: #4a6962;
+}
+
+html[data-theme='dark'] .directory-item-card,
+html[data-theme='dark'] .directory-stat-card {
+    background: #22332f !important;
+    border-color: #426059 !important;
+    box-shadow: none !important;
+}
+
+html[data-theme='dark'] .directory-page .table-system-toolbar .table-toolbar-search,
+html[data-theme='dark'] .directory-page .table-system-toolbar .table-toolbar-select,
+html[data-theme='dark'] .directory-page .table-system-toolbar .table-toolbar-sort {
+    background: #172723;
+    border-color: #426059;
+    color: #ecfdf5;
+}
+
+html[data-theme='dark'] .directory-page .filter-actions {
+    background: #172723;
+    border-color: #426059;
+}
+
+html[data-theme='dark'] .directory-page .btn-filter-reset {
+    background: transparent;
+    border-color: transparent;
+    color: #b9d0ca;
+}
+
+html[data-theme='dark'] .directory-page .btn-filter-reset:hover {
+    background: #243631;
+    border-color: transparent;
+    color: #ecfdf5;
+}
+
+html[data-theme='dark'] .directory-page .table-system-toolbar .btn-secondary {
+    background: #14b8a6;
+    border-color: #14b8a6;
+    color: #062420;
+}
+
+html[data-theme='dark'] .directory-page .table-system-toolbar .btn-secondary:hover {
+    background: #5eead4;
+    border-color: #5eead4;
+    color: #062420;
+}
+
+html[data-theme='dark'] .directory-page .table-system-toolbar .table-toolbar-search:focus,
+html[data-theme='dark'] .directory-page .table-system-toolbar .table-toolbar-select:focus,
+html[data-theme='dark'] .directory-page .table-system-toolbar .table-toolbar-sort:focus {
+    border-color: #5eead4;
+    box-shadow: none;
+}
+
+html[data-theme='dark'] .directory-page .table-wrapper,
+html[data-theme='dark'] .directory-page .table-system-wrap,
+html[data-theme='dark'] .directory-page .table-base {
+    background: #1d2a27 !important;
+    border-color: #38504b !important;
+}
+
+html[data-theme='dark'] .directory-page .table-system-table thead tr {
+    background: #263a35;
+}
+
+html[data-theme='dark'] .directory-page .table-system-table tbody tr:hover {
+    background: #243631;
 }
 
 html[data-theme='dark'] .table-quick-tab {

@@ -37,18 +37,30 @@ class AdminScopeAuthorizationTest extends TestCase
         $this->assertTrue($admin->fresh()->isMainBranchAdmin());
     }
 
-    public function test_branch_admin_is_sent_to_admin_dashboard_and_blocked_from_global_admin_modules(): void
+    public function test_branch_admin_is_sent_to_admin_dashboard_and_can_manage_own_branch_users(): void
     {
         $branch = $this->createBranch('BR002', 'Branch Two');
         $branchAdmin = $this->createBranchAdmin($branch);
 
         $this->actingAs($branchAdmin)->get('/dashboard')->assertRedirect('/admin');
         $this->actingAs($branchAdmin)->get('/admin')->assertOk();
-        $this->actingAs($branchAdmin)->get('/admin/users')->assertForbidden();
+        $this->actingAs($branchAdmin)->get('/admin/users')->assertOk();
         $this->actingAs($branchAdmin)->get('/admin/branches')->assertForbidden();
         $this->actingAs($branchAdmin)->get('/admin/packages')->assertOk();
         $this->actingAs($branchAdmin)->get('/admin/reports/sales')->assertOk();
         $this->actingAs($branchAdmin)->get('/admin/audit-logs')->assertForbidden();
+    }
+
+    public function test_branch_admin_sidebar_shows_user_management_only(): void
+    {
+        $branch = $this->createBranch('BR002', 'Branch Two');
+        $branchAdmin = $this->createBranchAdmin($branch);
+
+        $this->actingAs($branchAdmin)
+            ->get('/admin')
+            ->assertOk()
+            ->assertSee('User Management')
+            ->assertDontSee('Branch Management');
     }
 
     public function test_branch_admin_has_read_only_package_access_to_active_packages(): void
@@ -399,7 +411,54 @@ class AdminScopeAuthorizationTest extends TestCase
 
         $this->actingAs($branchAdmin)->get('/dashboard')->assertRedirect('/admin');
         $this->actingAs($branchAdmin)->get('/admin')->assertOk();
-        $this->actingAs($branchAdmin)->get('/admin/users')->assertForbidden();
+        $this->actingAs($branchAdmin)->get('/admin/users')->assertOk();
+    }
+
+    public function test_branch_admin_can_create_staff_only_for_own_branch(): void
+    {
+        $branch = $this->createBranch('BR002', 'Branch Two');
+        $otherBranch = $this->createBranch('BR003', 'Branch Three');
+        $branchAdmin = $this->createBranchAdmin($branch);
+
+        $this->actingAs($branchAdmin)
+            ->post('/admin/users', [
+                'name' => 'Own Branch Staff',
+                'email' => 'own.branch.staff@gmail.com',
+                'password' => 'secret123',
+                'role' => 'staff',
+                'branch_id' => $otherBranch->id,
+            ])
+            ->assertRedirect(route('admin.users.index', absolute: false));
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'own.branch.staff@gmail.com',
+            'role' => 'staff',
+            'branch_id' => $branch->id,
+            'admin_scope' => null,
+        ]);
+    }
+
+    public function test_branch_admin_cannot_create_branch_admin_accounts(): void
+    {
+        $branch = $this->createBranch('BR002', 'Branch Two');
+        $otherBranch = $this->createBranch('BR003', 'Branch Three');
+        $branchAdmin = $this->createBranchAdmin($branch);
+
+        $this->actingAs($branchAdmin)
+            ->from('/admin/users/create')
+            ->post('/admin/users', [
+                'name' => 'Unauthorized Branch Admin',
+                'email' => 'unauthorized.branch.admin@gmail.com',
+                'password' => 'secret123',
+                'role' => 'admin',
+                'branch_id' => $otherBranch->id,
+            ])
+            ->assertRedirect('/admin/users/create')
+            ->assertSessionHasErrors('role');
+
+        $this->assertDatabaseMissing('users', [
+            'email' => 'unauthorized.branch.admin@gmail.com',
+        ]);
     }
 
     public function test_staff_cannot_access_any_admin_routes(): void

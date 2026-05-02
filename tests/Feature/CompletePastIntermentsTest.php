@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\Client;
 use App\Models\Deceased;
 use App\Models\FuneralCase;
+use App\Models\ServiceDetail;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -113,7 +114,7 @@ class CompletePastIntermentsTest extends TestCase
         $this->assertSame('COMPLETED', $case->refresh()->case_status);
     }
 
-    public function test_case_with_missing_interment_time_does_not_auto_complete(): void
+    public function test_active_case_with_todays_date_only_interment_becomes_completed(): void
     {
         $this->travelTo(Carbon::parse('2026-04-30 14:01:00'));
 
@@ -122,9 +123,9 @@ class CompletePastIntermentsTest extends TestCase
             'interment_at' => '2026-04-30 00:00:00',
         ]);
 
-        $this->assertSame(0, FuneralCase::completePastInterments());
+        $this->assertSame(1, FuneralCase::completePastInterments());
 
-        $this->assertSame('ACTIVE', $case->refresh()->case_status);
+        $this->assertSame('COMPLETED', $case->refresh()->case_status);
     }
 
     public function test_payment_status_and_amounts_remain_unchanged(): void
@@ -196,7 +197,7 @@ class CompletePastIntermentsTest extends TestCase
             'interment_at' => $overrides['interment_at'] ?? '2026-05-01 09:00:00',
         ]);
 
-        return FuneralCase::create(array_merge([
+        $case = FuneralCase::create(array_merge([
             'branch_id' => $branch->id,
             'client_id' => $client->id,
             'deceased_id' => $deceased->id,
@@ -219,5 +220,21 @@ class CompletePastIntermentsTest extends TestCase
             'entry_source' => 'MAIN',
             'verification_status' => 'VERIFIED',
         ], $overrides));
+
+        ServiceDetail::create([
+            'funeral_case_id' => $case->id,
+            'start_of_wake' => $case->funeral_service_at?->toDateString(),
+            'internment_date' => $case->interment_at?->toDateString(),
+            'wake_days' => null,
+            'wake_location' => $case->wake_location,
+            'cemetery_place' => null,
+            'case_status' => match ($case->case_status) {
+                'ACTIVE' => 'ongoing',
+                'COMPLETED' => 'completed',
+                default => 'pending',
+            },
+        ]);
+
+        return $case;
     }
 }

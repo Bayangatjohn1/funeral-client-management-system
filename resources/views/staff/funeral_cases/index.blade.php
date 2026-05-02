@@ -270,9 +270,7 @@
                         <tbody>
                             @forelse($cases as $case)
                                 @php
-                                    $serviceDate = $case->deceased?->interment_at
-                                        ?? $case->interment_at
-                                        ?? $case->deceased?->interment;
+                                    $intermentAt = $case->interment_at;
                                 @endphp
                                 <tr
                                     data-clickable-row
@@ -299,8 +297,8 @@
                                         <div class="table-secondary">{{ \Illuminate\Support\Str::limit($case->package?->name ?? $case->service_package ?? '-', 30) }}</div>
                                     </td>
                                     <td>
-                                        <div class="table-primary whitespace-nowrap">{{ $serviceDate ? $serviceDate->format('M d, Y') : '-' }}</div>
-                                        <div class="table-secondary">{{ $serviceDate && $serviceDate->format('H:i') !== '00:00' ? $serviceDate->format('h:i A') : 'Interment date' }}</div>
+                                        <div class="table-primary whitespace-nowrap">{{ $intermentAt ? $intermentAt->format('M d, Y') : '-' }}</div>
+                                        <div class="table-secondary">{{ $intermentAt ? $intermentAt->format('h:i A') : 'Interment time' }}</div>
                                     </td>
                                     <td class="table-col-number">
                                         <div class="table-primary whitespace-nowrap">{{ number_format((float) $case->total_amount, 2) }}</div>

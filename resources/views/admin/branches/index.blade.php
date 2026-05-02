@@ -5,7 +5,7 @@
 
 @section('content')
 <style>[x-cloak] { display: none !important; }</style>
-<div class="admin-table-page" x-data="branchCatalog()">
+<div class="admin-table-page directory-page" x-data="branchCatalog()">
 <div class="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-8 py-6">
 <div class="space-y-6">
 
@@ -19,26 +19,36 @@
     </div>
 @endif
 
-{{-- Summary stats --}}
-<div class="grid grid-cols-2 sm:grid-cols-4 gap-5">
-    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col gap-1.5">
-        <span class="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Total Branches</span>
-        <span class="text-2xl font-bold text-slate-900">{{ $totalBranches }}</span>
-    </div>
-    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col gap-1.5">
-        <span class="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Active</span>
-        <span class="text-2xl font-bold text-emerald-600">{{ $activeBranches }}</span>
-    </div>
-    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col gap-1.5">
-        <span class="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Total Records</span>
-        <span class="text-2xl font-bold text-slate-900">{{ number_format($totalRecords) }}</span>
-    </div>
-    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col gap-1.5">
-        <span class="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Main Branch</span>
-        <span class="text-lg font-bold text-slate-900 leading-tight truncate">
-            {{ $mainBranch?->branch_name ?? '—' }}
-        </span>
-    </div>
+@php
+    $highlightBranchId = request('highlight_branch');
+@endphp
+
+{{-- KPI insights --}}
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+    @foreach($branchKpis as $kpi)
+        <a
+            href="{{ $kpi['href'] }}"
+            class="group bg-white border border-slate-200 rounded-xl p-5 flex flex-col gap-4 transition-colors hover:border-[var(--brand-mid)] hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[var(--brand-mid)] focus:ring-offset-2"
+        >
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <span class="text-[11px] font-semibold uppercase tracking-widest text-slate-400">{{ $kpi['label'] }}</span>
+                    <div class="mt-2 text-3xl font-bold text-slate-900 leading-none truncate">{{ $kpi['value'] }}</div>
+                </div>
+                <span class="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-[var(--brand-mid)]">
+                    <i class="bi {{ $kpi['icon'] }}"></i>
+                </span>
+            </div>
+            <div class="space-y-1">
+                <p class="text-sm font-semibold text-slate-800 truncate">{{ $kpi['insight'] }}</p>
+                <p class="text-xs text-slate-500">{{ $kpi['comparison'] }}</p>
+            </div>
+            <div class="mt-auto inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-widest text-slate-400 group-hover:text-[var(--brand-mid)]">
+                {{ $kpi['action'] ?? 'View Details' }}
+                <i class="bi bi-arrow-right-short text-base leading-none"></i>
+            </div>
+        </a>
+    @endforeach
 </div>
 
 {{-- Main section card --}}
@@ -99,6 +109,10 @@
             data-search-debounce="400"
             style="grid-template-columns: minmax(260px, 2.2fr) repeat(2, minmax(150px, 1fr)) auto;"
         >
+            @if(request()->filled('branch_id'))
+                <input type="hidden" name="branch_id" value="{{ request('branch_id') }}">
+                <input type="hidden" name="highlight_branch" value="{{ request('highlight_branch', request('branch_id')) }}">
+            @endif
             <div class="table-toolbar-field">
                 <label class="table-toolbar-label">Search</label>
                 <input
@@ -113,19 +127,28 @@
             </div>
             <div class="table-toolbar-field">
                 <label class="table-toolbar-label">Status</label>
-                <select name="status" class="form-select table-toolbar-select" data-table-auto-submit>
-                    <option value="">All Status</option>
-                    <option value="active"   {{ request('status') === 'active'   ? 'selected' : '' }}>Active</option>
-                    <option value="inactive" {{ request('status') === 'inactive' ? 'selected' : '' }}>Inactive</option>
-                </select>
+                <div class="table-toolbar-select-wrap">
+                    <select name="status" class="form-select table-toolbar-select" data-table-auto-submit>
+                        <option value="">All Status</option>
+                        <option value="active"   {{ request('status') === 'active'   ? 'selected' : '' }}>Active</option>
+                        <option value="inactive" {{ request('status') === 'inactive' ? 'selected' : '' }}>Inactive</option>
+                    </select>
+                    <i class="bi bi-chevron-down table-toolbar-select-icon" aria-hidden="true"></i>
+                </div>
             </div>
             <div class="table-toolbar-field">
                 <label class="table-toolbar-label">Sort</label>
-                <select name="sort" class="form-select table-toolbar-sort" data-table-sort>
-                    <option value="code_asc"     {{ request('sort', 'code_asc') === 'code_asc'    ? 'selected' : '' }}>Branch ID</option>
-                    <option value="name_asc"     {{ request('sort') === 'name_asc'                 ? 'selected' : '' }}>Branch Name</option>
-                    <option value="records_desc" {{ request('sort') === 'records_desc'             ? 'selected' : '' }}>Records Encoded</option>
-                </select>
+                <div class="table-toolbar-select-wrap">
+                    <select name="sort" class="form-select table-toolbar-sort" data-table-sort>
+                        <option value="code_asc"     {{ request('sort', 'code_asc') === 'code_asc'    ? 'selected' : '' }}>Branch ID</option>
+                        <option value="name_asc"     {{ request('sort') === 'name_asc'                 ? 'selected' : '' }}>Branch Name</option>
+                        <option value="records_desc" {{ request('sort') === 'records_desc'             ? 'selected' : '' }}>Total Records</option>
+                        <option value="records_asc"  {{ request('sort') === 'records_asc'              ? 'selected' : '' }}>Lowest Records</option>
+                        <option value="revenue_desc" {{ request('sort') === 'revenue_desc'             ? 'selected' : '' }}>Highest Sales</option>
+                        <option value="revenue_asc"  {{ request('sort') === 'revenue_asc'              ? 'selected' : '' }}>Lowest Sales</option>
+                    </select>
+                    <i class="bi bi-chevron-down table-toolbar-select-icon" aria-hidden="true"></i>
+                </div>
             </div>
             <div class="table-toolbar-reset-wrap">
                 <span class="table-toolbar-label opacity-0 select-none" aria-hidden="true">Actions</span>
@@ -146,7 +169,15 @@
     {{-- ═══════════════════════════════════════════
          CARD VIEW
     ═══════════════════════════════════════════ --}}
-    <div x-show="view === 'card'" x-cloak class="p-6" style="border-top: 1px solid var(--border)">
+    <div
+        x-show="view === 'card'"
+        x-cloak
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0 translate-y-2"
+        x-transition:enter-end="opacity-100 translate-y-0"
+        class="mt-4 p-6"
+        style="border-top: 1px solid var(--border)"
+    >
 
         @if($branches->isEmpty())
             {{-- Empty state --}}
@@ -172,7 +203,16 @@
             {{-- Branch cards --}}
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 @foreach($branches as $branch)
-                <div class="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col">
+                @php
+                    $isHighlightedBranch = (string) $highlightBranchId === (string) $branch->id;
+                @endphp
+                <div
+                    class="directory-item-card bg-white border {{ $isHighlightedBranch ? 'border-[var(--brand-mid)] ring-2 ring-[var(--brand-mid)]/20' : 'border-slate-200' }} rounded-2xl transition-colors duration-200 flex flex-col cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--brand-mid)] focus:ring-offset-2"
+                    data-branch-card-href="{{ route('admin.cases.index', ['branch_id' => $branch->id]) }}"
+                    role="link"
+                    tabindex="0"
+                    aria-label="View master case records for {{ $branch->branch_name }}"
+                >
 
                     {{-- Card header: code badge + name + status --}}
                     <div class="p-5 flex items-start justify-between gap-3">
@@ -184,6 +224,11 @@
                                 @if($branch->isMain())
                                     <span class="inline-flex items-center rounded-lg bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5">
                                         <i class="bi bi-star-fill text-[8px] mr-1"></i>Main
+                                    </span>
+                                @endif
+                                @if($isHighlightedBranch)
+                                    <span class="inline-flex items-center rounded-lg bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5">
+                                        Highlighted
                                     </span>
                                 @endif
                             </div>
@@ -204,7 +249,7 @@
 
                     {{-- Records count --}}
                     <div class="px-5 pb-4 pt-4 border-t border-slate-100">
-                        <p class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Records Encoded</p>
+                        <p class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Total Records</p>
                         <p class="text-2xl font-bold text-slate-900 leading-none mt-0.5">{{ number_format($branch->funeral_cases_count) }}</p>
                     </div>
 
@@ -260,7 +305,14 @@
     {{-- ═══════════════════════════════════════════
          TABLE VIEW
     ═══════════════════════════════════════════ --}}
-    <div x-show="view === 'table'" x-cloak>
+    <div
+        x-show="view === 'table'"
+        x-cloak
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0 translate-y-2"
+        x-transition:enter-end="opacity-100 translate-y-0"
+        class="mt-4"
+    >
         <div class="table-system-list">
             <div class="table-wrapper table-system-wrap">
                 <table class="table-base table-system-table">
@@ -269,14 +321,17 @@
                             <th class="text-left">Branch ID</th>
                             <th class="text-left">Branch Name</th>
                             <th class="text-left">Address</th>
-                            <th class="text-left table-col-number">Total Records Encoded</th>
+                            <th class="text-left table-col-number">Total Records</th>
                             <th class="text-left">Status</th>
                             <th class="table-col-actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($branches as $branch)
-                            <tr>
+                            @php
+                                $isHighlightedBranch = (string) $highlightBranchId === (string) $branch->id;
+                            @endphp
+                            <tr class="{{ $isHighlightedBranch ? 'bg-amber-50' : '' }}">
                                 <td class="table-primary">
                                     {{ $branch->branch_code }}
                                     @if($branch->isMain())
@@ -348,7 +403,7 @@
 
 {{-- Branch create modal --}}
 <div id="branchCreateModalOverlay" class="fixed inset-0 hidden flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-200 font-ui-body" style="z-index: 1300;">
-    <div id="branchCreateModalSheet" class="relative w-[92vw] max-w-3xl max-h-[92vh] bg-white rounded-2xl shadow-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border border-slate-200 font-ui-body">
+    <div id="branchCreateModalSheet" class="relative w-[92vw] max-w-3xl max-h-[92vh] bg-white rounded-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border border-slate-200 font-ui-body">
         <div class="overflow-y-auto max-h-[84vh] bg-slate-50">
             <form id="branchCreateForm" method="POST" action="{{ route('admin.branches.store') }}" class="max-w-3xl w-full mx-auto">
                 @csrf
@@ -443,8 +498,8 @@
 
 {{-- Branch edit modal --}}
 <div id="branchModalOverlay" class="fixed inset-0 hidden flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-200 font-ui-body" style="z-index: 1300;">
-    <div id="branchModalSheet" class="relative w-[92vw] max-w-4xl max-h-[92vh] bg-white rounded-2xl shadow-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border border-slate-200 font-ui-body">
-        <button id="branchEditModalClose" type="button" class="absolute top-4 right-4 z-10 inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors focus:outline-none shadow-sm">
+    <div id="branchModalSheet" class="relative w-[92vw] max-w-4xl max-h-[92vh] bg-white rounded-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border border-slate-200 font-ui-body">
+        <button id="branchEditModalClose" type="button" class="absolute top-4 right-4 z-10 inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors focus:outline-none">
             <i class="bi bi-x-lg" style="font-size:.8rem"></i>
         </button>
         <div id="branchModalContent" class="overflow-y-auto max-h-[84vh] p-6 bg-slate-50">
@@ -487,6 +542,7 @@ function branchCatalog() {
     const createCancelBtn = document.getElementById('branchCreateModalCancel');
     const createStatusToggle = document.getElementById('branch_create_is_active');
     const createStatusPill   = document.getElementById('branch-create-status-pill');
+    const branchCards = [...document.querySelectorAll('[data-branch-card-href]')];
     const shouldOpenCreateModal = @json(old('form_context') === 'branch_create_modal');
     const branchNamePattern = /^[\p{L}\p{M}][\p{L}\p{M}\s'.&-]*$/u;
     const invalidClass = ['border-rose-300', 'bg-rose-50', 'focus:border-rose-500', 'focus:ring-rose-500'];
@@ -667,6 +723,35 @@ function branchCatalog() {
             e.preventDefault();
             showModal(editOverlay, editSheet);
             loadEditForm(link.dataset.url || link.href);
+        });
+    });
+
+    branchCards.forEach((card) => {
+        const openBranchCases = () => {
+            if (card.dataset.branchCardHref) {
+                window.location.href = card.dataset.branchCardHref;
+            }
+        };
+
+        card.addEventListener('click', (event) => {
+            if (event.target.closest('a, button, form, [data-row-menu]')) {
+                return;
+            }
+
+            openBranchCases();
+        });
+
+        card.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') {
+                return;
+            }
+
+            if (event.target.closest('a, button, form, [data-row-menu]')) {
+                return;
+            }
+
+            event.preventDefault();
+            openBranchCases();
         });
     });
 

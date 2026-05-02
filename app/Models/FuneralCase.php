@@ -186,7 +186,7 @@ class FuneralCase extends Model
     }
 
     /**
-     * Complete active cases whose scheduled interment datetime has passed.
+     * Complete active cases whose recorded interment datetime has passed.
      */
     public static function completePastInterments(?CarbonInterface $now = null): int
     {
@@ -198,13 +198,9 @@ class FuneralCase extends Model
             ->where('case_status', 'ACTIVE')
             ->whereNotNull('interment_at')
             ->where('interment_at', '<=', $now)
-            ->orderBy('id')
+            ->with('serviceDetail')
             ->chunkById(100, function ($cases) use ($now, $hasCompletedAt, &$completed) {
                 foreach ($cases as $case) {
-                    if (! $case->interment_at || $case->interment_at->isStartOfDay()) {
-                        continue;
-                    }
-
                     $attributes = ['case_status' => 'COMPLETED'];
 
                     if ($hasCompletedAt) {

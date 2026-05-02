@@ -163,11 +163,17 @@ class IntakeController extends Controller
         $this->mergeLegacyIntakeNameParts($request, 'client');
         $this->mergeLegacyIntakeNameParts($request, 'deceased');
 
+        // Funeral service (wake) must be on or after the date of death (business timeline).
         $wakeDateRules = ['required', 'date', 'after_or_equal:died'];
         $intermentDateRules = ['required', 'date', 'after_or_equal:funeral_service_at'];
 
         $validated = $request->validate([
+            // `service_requested_at` is an audit timestamp (encoding time) and not
+            // part of the real-world funeral event timeline. Only enforce that
+            // it's a valid date and not in the future.
             'service_requested_at' => 'required|date|before_or_equal:today',
+            'is_backdated_entry' => 'nullable|boolean',
+            'backdated_entry_reason' => 'required_if:is_backdated_entry,1|nullable|string|max:500',
             'client_first_name'  => FieldRules::namePart(),
             'client_last_name'   => FieldRules::namePart(),
             'client_middle_name' => FieldRules::namePart(false),
@@ -266,8 +272,10 @@ class IntakeController extends Controller
             'died.date_format' => 'Please enter a valid date of death.',
             'died.after_or_equal' => 'Date of death cannot be earlier than date of birth.',
             'died.before_or_equal' => 'Date of death cannot be in the future.',
+            // No longer validating `service_requested_at` relative to death here.
             'funeral_service_at.after_or_equal' => 'Funeral service date must be on or after the date of death.',
-            'interment_at.after_or_equal' => 'Interment date cannot be earlier than the wake start date.',
+            'interment_at.after_or_equal' => 'Interment date must be on or after the funeral service date.',
+            'backdated_entry_reason.required_if' => 'Please provide a reason for a backdated request entry.',
             'paid_at.after_or_equal' => 'Paid date/time must be on or after date of death.',
             'reported_at.before_or_equal' => 'Reported date/time cannot be in the future.',
             'confirm_review' => 'You must confirm that the information is correct before saving.',
@@ -281,9 +289,19 @@ class IntakeController extends Controller
             return $response;
         }
 
+        if (
+            !($validated['is_backdated_entry'] ?? false)
+            && Carbon::parse($validated['service_requested_at'])->lt(today())
+        ) {
+            return back()->withErrors([
+                'is_backdated_entry' => 'Backdated request entries must be clearly marked.',
+                'backdated_entry_reason' => 'Please provide a reason for a backdated request entry.',
+            ])->withInput();
+        }
+
         if (!$this->isIntermentAfterDeathDate($validated['died'] ?? null, $validated['interment_at'] ?? null)) {
             return back()->withErrors([
-                'interment_at' => 'Interment date must be after the date of death.',
+                'interment_at' => 'Interment date must be on or after the date of death.',
             ])->withInput();
         }
 
@@ -773,6 +791,11 @@ class IntakeController extends Controller
                         'entry_source' => $funeralCase->entry_source,
                         'package_id' => $funeralCase->package_id,
                         'service_package' => $funeralCase->service_package,
+                        'service_requested_at' => $funeralCase->service_requested_at?->toDateString(),
+                        'funeral_service_at' => $funeralCase->funeral_service_at?->toDateString(),
+                        'interment_at' => $funeralCase->interment_at?->toDateTimeString(),
+                        'is_backdated_entry' => (bool) ($validated['is_backdated_entry'] ?? false),
+                        'backdated_entry_reason' => $validated['backdated_entry_reason'] ?? null,
                         'total_amount' => $funeralCase->total_amount,
                         'total_paid' => $funeralCase->total_paid,
                         'balance_amount' => $funeralCase->balance_amount,
@@ -903,7 +926,7 @@ class IntakeController extends Controller
             $diedDate = Carbon::parse($died)->startOfDay();
             $intermentDate = Carbon::parse($intermentAt)->startOfDay();
 
-            return $intermentDate->greaterThan($diedDate);
+            return $intermentDate->greaterThanOrEqualTo($diedDate);
         } catch (\Throwable $e) {
             return false;
         }

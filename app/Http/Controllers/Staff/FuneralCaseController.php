@@ -117,7 +117,8 @@ class FuneralCaseController extends Controller
             ])
             ->with([
                 'client:id,full_name,contact_number',
-                'deceased:id,full_name,interment_at,interment',
+                'deceased:id,full_name',
+                'serviceDetail:id,funeral_case_id,internment_date',
                 'branch:id,branch_code,branch_name',
             ])
             ->where('branch_id', $operationalBranchId)
@@ -185,19 +186,12 @@ class FuneralCaseController extends Controller
         $intermentTo = $request->query('interment_to');
         $query->when($intermentFrom || $intermentTo, function ($intermentQuery) use ($intermentFrom, $intermentTo) {
             $intermentQuery->where(function ($outer) use ($intermentFrom, $intermentTo) {
-                $outer->where(function ($caseDate) use ($intermentFrom, $intermentTo) {
+                $outer->whereHas('serviceDetail', function ($caseDate) use ($intermentFrom, $intermentTo) {
                     if ($intermentFrom) {
-                        $caseDate->whereDate('interment_at', '>=', $intermentFrom);
+                        $caseDate->whereDate('internment_date', '>=', $intermentFrom);
                     }
                     if ($intermentTo) {
-                        $caseDate->whereDate('interment_at', '<=', $intermentTo);
-                    }
-                })->orWhereHas('deceased', function ($deceasedDate) use ($intermentFrom, $intermentTo) {
-                    if ($intermentFrom) {
-                        $deceasedDate->whereRaw('DATE(COALESCE(interment_at, interment)) >= ?', [$intermentFrom]);
-                    }
-                    if ($intermentTo) {
-                        $deceasedDate->whereRaw('DATE(COALESCE(interment_at, interment)) <= ?', [$intermentTo]);
+                        $caseDate->whereDate('internment_date', '<=', $intermentTo);
                     }
                 });
             });
@@ -320,8 +314,8 @@ class FuneralCaseController extends Controller
         return [
             'newest' => 'Newest First',
             'oldest' => 'Oldest First',
-            'service_date_asc' => 'Service Date: Earliest',
-            'service_date_desc' => 'Service Date: Latest',
+            'service_date_asc' => 'Funeral Service Date: Earliest',
+            'service_date_desc' => 'Funeral Service Date: Latest',
             'total_desc' => 'Total Amount: High to Low',
             'total_asc' => 'Total Amount: Low to High',
             'balance_desc' => 'Balance: High to Low',
@@ -473,13 +467,15 @@ class FuneralCaseController extends Controller
                 'balance_amount',
                 'payment_status',
                 'case_status',
+                'interment_at',
                 'reporter_name',
                 'reported_at',
                 'verification_status',
             ])
             ->with([
                 'client:id,full_name',
-                'deceased:id,full_name,interment_at,interment',
+                'deceased:id,full_name',
+                'serviceDetail:id,funeral_case_id,internment_date',
                 'branch:id,branch_code',
             ])
             ->where('entry_source', 'OTHER_BRANCH')
@@ -558,7 +554,7 @@ class FuneralCaseController extends Controller
             abort(403);
         }
 
-        $funeral_case->load(['client', 'deceased', 'branch', 'reportedBranch', 'encodedBy', 'payments.recordedBy', 'payments.encodedBy', 'package']);
+        $funeral_case->load(['client', 'deceased', 'branch', 'reportedBranch', 'encodedBy', 'payments.recordedBy', 'payments.encodedBy', 'package', 'serviceDetail']);
 
         return view('staff.funeral_cases.show', compact('funeral_case'));
     }
@@ -596,6 +592,26 @@ class FuneralCaseController extends Controller
             'deceased_id' => 'required|exists:deceased,id',
             'package_id' => 'required|integer|exists:packages,id',
             'case_status' => 'required|in:DRAFT,ACTIVE,COMPLETED',
+            'date_of_death' => 'nullable|date|before_or_equal:today',
+            // `service_requested_at` is an audit timestamp and not part of the
+            // real-world event ordering. Only validate its format and that it's
+            // not in the future.
+            'service_requested_at' => 'nullable|date|before_or_equal:today',
+            // Enforce funeral service to be on or after the date of death.
+            'funeral_service_at' => 'nullable|date|after_or_equal:date_of_death',
+            'interment_at' => 'nullable|date|after_or_equal:funeral_service_at',
+            'is_backdated_entry' => 'nullable|boolean',
+            'backdated_entry_reason' => 'required_if:is_backdated_entry,1|nullable|string|max:500',
+        ], [
+            'date_of_death.required' => 'Date of death is required.',
+            'date_of_death.before_or_equal' => 'Date of death cannot be in the future.',
+            'service_requested_at.required' => 'Request date is required.',
+            'service_requested_at.before_or_equal' => 'Request date cannot be in the future.',
+            'funeral_service_at.required' => 'Funeral service date is required.',
+            'funeral_service_at.after_or_equal' => 'Funeral service date must be on or after the date of death.',
+            'interment_at.required' => 'Interment date and time is required.',
+            'interment_at.after_or_equal' => 'Interment date must be on or after the funeral service date.',
+            'backdated_entry_reason.required_if' => 'Please provide a reason for a backdated request entry.',
         ]);
 
         $operationalBranchId = (int) (auth()->user()->operationalBranchId() ?? 0);
@@ -622,6 +638,17 @@ class FuneralCaseController extends Controller
         }
 
         $entrySource = 'MAIN';
+        $dateOfDeath = !empty($validated['date_of_death'])
+            ? Carbon::parse($validated['date_of_death'])->toDateString()
+            : ($deceased->died?->toDateString() ?? $deceased->date_of_death?->toDateString());
+        if (!$dateOfDeath) {
+            return back()->withErrors(['date_of_death' => 'Date of death is required.'])->withInput();
+        }
+
+        $deceased->forceFill([
+            'died' => $dateOfDeath,
+            'date_of_death' => $dateOfDeath,
+        ])->save();
 
         $subtotal = (float) $package->price;
         $discountPayload = app(CaseDiscountResolver::class)
@@ -629,9 +656,54 @@ class FuneralCaseController extends Controller
         $discount = (float) $discountPayload['discount_amount'];
         $total = round(max($subtotal - $discount, 0), 2);
         $payment = $this->computePaymentFields($total, 0);
-        $serviceRequestedAt = now()->toDateString();
+        $serviceRequestedAt = !empty($validated['service_requested_at'])
+            ? Carbon::parse($validated['service_requested_at'])->toDateString()
+            : now()->toDateString();
+        if (
+            !empty($validated['service_requested_at'])
+            && Carbon::parse($serviceRequestedAt)->lt(today())
+            && !($validated['is_backdated_entry'] ?? false)
+        ) {
+            return back()->withErrors([
+                'is_backdated_entry' => 'Backdated request entries must be clearly marked.',
+                'backdated_entry_reason' => 'Please provide a reason for a backdated request entry.',
+            ])->withInput();
+        }
+
         $wakeLocation = $this->resolveLegacyWakeLocation($client);
-        $funeralServiceAt = $this->resolveLegacyFuneralServiceDate($deceased, $serviceRequestedAt);
+        // Determine funeral service date only from explicit event fields (do not
+        // default to `service_requested_at`). Prefer provided `funeral_service_at`,
+        // otherwise try known deceased interment dates. If none available, require
+        // the caller to provide a funeral_service_at.
+        $funeralServiceAt = null;
+        if (!empty($validated['funeral_service_at'])) {
+            $funeralServiceAt = Carbon::parse($validated['funeral_service_at'])->toDateString();
+        } elseif ($deceased->interment_at) {
+            $funeralServiceAt = $deceased->interment_at->toDateString();
+        } elseif ($deceased->interment) {
+            $funeralServiceAt = $deceased->interment->toDateString();
+        }
+
+        if (!$funeralServiceAt) {
+            return back()->withErrors([
+                'funeral_service_at' => 'Funeral service date is required.',
+            ])->withInput();
+        }
+
+        if (Carbon::parse($funeralServiceAt)->lt(Carbon::parse($dateOfDeath))) {
+            return back()->withErrors([
+                'funeral_service_at' => 'Funeral service date must be on or after the date of death.',
+            ])->withInput();
+        }
+
+        $intermentAt = !empty($validated['interment_at'])
+            ? Carbon::parse($validated['interment_at'])
+            : ($deceased->interment_at ?: null);
+        if ($intermentAt && $intermentAt->lt(Carbon::parse($funeralServiceAt)->startOfDay())) {
+            return back()->withErrors([
+                'interment_at' => 'Interment date must be on or after the funeral service date.',
+            ])->withInput();
+        }
 
         $hasDuplicateOpenCase = FuneralCase::query()
             ->where('branch_id', $client->branch_id)
@@ -666,6 +738,7 @@ class FuneralCaseController extends Controller
                     'coffin_type'      => $package->coffin_type,
                     'wake_location'    => $wakeLocation,
                     'funeral_service_at' => $funeralServiceAt,
+                    'interment_at' => $intermentAt,
                     'subtotal_amount'  => $subtotal,
                     'discount_type'    => $discountPayload['discount_type'],
                     'discount_value_type' => $discountPayload['discount_value_type'],
@@ -690,7 +763,7 @@ class FuneralCaseController extends Controller
                 ServiceDetail::create([
                     'funeral_case_id' => $case->id,
                     'start_of_wake'   => $funeralServiceAt,
-                    'internment_date' => null,
+                    'internment_date' => $intermentAt?->toDateString(),
                     'wake_days'       => null,
                     'wake_location'   => $wakeLocation,
                     'cemetery_place'  => null,
@@ -737,6 +810,11 @@ class FuneralCaseController extends Controller
                 'payment_status' => $case->payment_status,
                 'entry_source'   => $case->entry_source,
                 'package_id'     => $case->package_id,
+                'service_requested_at' => $case->service_requested_at?->toDateString(),
+                'funeral_service_at' => $case->funeral_service_at?->toDateString(),
+                'interment_at' => $case->interment_at?->toDateTimeString(),
+                'is_backdated_entry' => (bool) ($validated['is_backdated_entry'] ?? false),
+                'backdated_entry_reason' => $validated['backdated_entry_reason'] ?? null,
             ],
             (int) $case->branch_id,
             null,
@@ -806,6 +884,22 @@ class FuneralCaseController extends Controller
             'deceased_id' => 'required|exists:deceased,id',
             'package_id' => 'required|integer|exists:packages,id',
             'case_status' => 'required|in:DRAFT,ACTIVE,COMPLETED',
+            'date_of_death' => 'required|date|before_or_equal:today',
+            'service_requested_at' => 'required|date|before_or_equal:today',
+            'funeral_service_at' => 'required|date|after_or_equal:date_of_death',
+            'interment_at' => 'required|date|after_or_equal:funeral_service_at',
+            'is_backdated_entry' => 'nullable|boolean',
+            'backdated_entry_reason' => 'required_if:is_backdated_entry,1|nullable|string|max:500',
+        ], [
+            'date_of_death.required' => 'Date of death is required.',
+            'date_of_death.before_or_equal' => 'Date of death cannot be in the future.',
+            'service_requested_at.required' => 'Request date is required.',
+            'service_requested_at.before_or_equal' => 'Request date cannot be in the future.',
+            'funeral_service_at.required' => 'Funeral service date is required.',
+            'funeral_service_at.after_or_equal' => 'Funeral service date must be on or after the date of death.',
+            'interment_at.required' => 'Interment date and time is required.',
+            'interment_at.after_or_equal' => 'Interment date must be on or after the funeral service date.',
+            'backdated_entry_reason.required_if' => 'Please provide a reason for a backdated request entry.',
         ]);
 
         $client = Client::find($validated['client_id']);
@@ -836,10 +930,28 @@ class FuneralCaseController extends Controller
             ->resolve($package, $this->resolveDeceasedAge($deceased), $subtotal, now());
         $discount = (float) $discountPayload['discount_amount'];
         $total = round(max($subtotal - $discount, 0), 2);
-        $serviceRequestedAt = $funeral_case->service_requested_at?->toDateString() ?: now()->toDateString();
+        $originalRequestDate = $funeral_case->service_requested_at?->toDateString();
+        $serviceRequestedAt = Carbon::parse($validated['service_requested_at'])->toDateString();
+        if (
+            $serviceRequestedAt !== $originalRequestDate
+            && Carbon::parse($serviceRequestedAt)->lt(today())
+            && !($validated['is_backdated_entry'] ?? false)
+        ) {
+            return back()->withErrors([
+                'is_backdated_entry' => 'Backdated request entries must be clearly marked.',
+                'backdated_entry_reason' => 'Please provide a reason for a backdated request entry.',
+            ])->withInput();
+        }
+
+        $dateOfDeath = Carbon::parse($validated['date_of_death'])->toDateString();
+        $deceased->forceFill([
+            'died' => $dateOfDeath,
+            'date_of_death' => $dateOfDeath,
+        ])->save();
+
         $wakeLocation = $funeral_case->wake_location ?: $this->resolveLegacyWakeLocation($client);
-        $funeralServiceAt = $funeral_case->funeral_service_at?->toDateString()
-            ?: $this->resolveLegacyFuneralServiceDate($deceased, $serviceRequestedAt);
+        $funeralServiceAt = Carbon::parse($validated['funeral_service_at'])->toDateString();
+        $intermentAt = Carbon::parse($validated['interment_at']);
 
         $payment = $this->computePaymentFields($total, (float) $funeral_case->total_paid);
         $hasDuplicateOpenCase = FuneralCase::query()
@@ -862,6 +974,9 @@ class FuneralCaseController extends Controller
             'balance_amount',
             'package_id',
             'branch_id',
+            'service_requested_at',
+            'funeral_service_at',
+            'interment_at',
         ];
         $beforeValues = [];
         foreach ($trackFields as $field) {
@@ -878,6 +993,7 @@ class FuneralCaseController extends Controller
             'service_requested_at' => $serviceRequestedAt,
             'wake_location' => $wakeLocation,
             'funeral_service_at' => $funeralServiceAt,
+            'interment_at' => $intermentAt,
             'subtotal_amount' => $subtotal,
             'discount_type' => $discountPayload['discount_type'],
             'discount_value_type' => $discountPayload['discount_value_type'],
@@ -895,6 +1011,21 @@ class FuneralCaseController extends Controller
             'verified_at' => now(),
             'verification_note' => 'Auto-verified main-branch case update.',
         ]);
+
+        $funeral_case->serviceDetail()->updateOrCreate(
+            ['funeral_case_id' => $funeral_case->id],
+            [
+                'start_of_wake' => $funeralServiceAt,
+                'internment_date' => $intermentAt?->toDateString(),
+                'wake_location' => $wakeLocation,
+                'cemetery_place' => $request->input('place_of_cemetery'),
+                'case_status' => match ($funeral_case->case_status) {
+                    'ACTIVE' => 'ongoing',
+                    'COMPLETED' => 'completed',
+                    default => 'pending',
+                },
+            ]
+        );
 
         $changes = [];
         foreach ($trackFields as $field) {
@@ -925,6 +1056,8 @@ class FuneralCaseController extends Controller
                 'payment_status' => $funeral_case->payment_status,
                 'entry_source' => $funeral_case->entry_source,
                 'package_id' => $funeral_case->package_id,
+                'is_backdated_entry' => (bool) ($validated['is_backdated_entry'] ?? false),
+                'backdated_entry_reason' => $validated['backdated_entry_reason'] ?? null,
                 'changes' => $changes,
             ],
             (int) $funeral_case->branch_id,

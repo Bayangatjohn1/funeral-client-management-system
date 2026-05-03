@@ -221,8 +221,8 @@
                         <i class="bi bi-cash-stack text-base"></i>
                     </div>
                     <div>
-                        <div class="text-sm font-bold" style="color:var(--ink)">Record Payment</div>
-                        <div class="text-xs mt-0.5" style="color:var(--ink-muted)">Log payment details from accounting reference.</div>
+                        <div class="text-sm font-bold" style="color:var(--ink)">Record a Case Payment</div>
+                        <div class="text-xs mt-0.5" style="color:var(--ink-muted)">Choose a case, enter the received amount, then verify the payment preview before saving.</div>
                     </div>
                 </div>
                 <button type="button" id="closePaymentFormTop" class="inline-flex items-center justify-center w-9 h-9 rounded-xl transition-colors focus:outline-none shadow-sm" style="background:var(--card);border:1px solid var(--border);color:var(--ink-muted)">
@@ -341,7 +341,7 @@
                 <div class="list-card-title">Open Cases</div>
                 <div class="list-card-copy">
                     @if($canRecordPayment ?? false)
-                        Click any row to record a payment, or use the button to open the form manually.
+                        Start by clicking a case row with a remaining balance. You can also open a blank payment form manually.
                     @else
                         Review cases with remaining balances. Payment recording is limited to assigned staff.
                     @endif
@@ -351,7 +351,7 @@
                 <div>
                     <button id="openPaymentForm" type="button" class="payments-record-action">
                         <i class="bi bi-cash-stack text-base"></i>
-                        Record Payment
+                        Record New Payment
                     </button>
                 </div>
             @endif
@@ -375,7 +375,7 @@
                 <tbody>
                 @forelse($openCases as $case)
                     <tr
-                        @if($canRecordPayment ?? false) data-open-payment-case="{{ $case->id }}" title="Click to record payment for this case" @endif
+                        @if($canRecordPayment ?? false) data-open-payment-case="{{ $case->id }}" title="Click to open the payment form for this case" @endif
                         class="hover:bg-slate-50 transition-colors {{ ($canRecordPayment ?? false) ? 'cursor-pointer' : '' }}"
                     >
                         <td class="font-mono font-bold text-slate-800">{{ $case->case_code }}</td>

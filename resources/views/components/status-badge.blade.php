@@ -5,7 +5,7 @@
 
 @php
     $text = trim((string) ($label ?? $status ?? '-'));
-    $normalized = strtoupper($text);
+    $normalized = strtoupper(trim((string) ($status ?? $text)));
 
     if (in_array($normalized, ['PAID', 'COMPLETED', 'APPROVED', 'VERIFIED'], true)) {
         $variant = 'status-badge-success';

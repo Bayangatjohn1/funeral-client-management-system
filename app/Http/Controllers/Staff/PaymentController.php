@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\FuneralCase;
 use App\Models\Payment;
 use App\Support\AuditLogger;
+use App\Support\Payments\PaymentDetails;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -243,7 +244,7 @@ class PaymentController extends Controller
             'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
             'payment_status' => ['nullable', 'in:PAID,PARTIAL,UNPAID'],
             'case_status' => ['nullable', 'in:DRAFT,ACTIVE,COMPLETED'],
-            'payment_method' => ['nullable', 'in:cash,bank_transfer'],
+            'payment_method' => ['nullable', 'in:cash,cashless,bank_transfer'],
             'status_after_payment' => ['nullable', 'in:PAID,PARTIAL,UNPAID'],
             'sort' => ['nullable', 'in:asc,desc'],
             'tab' => ['nullable', 'in:summary,transactions'],
@@ -287,6 +288,7 @@ class PaymentController extends Controller
                     ->orWhereHas('payments', function ($paymentQuery) use ($q) {
                         $paymentQuery->where('payment_record_no', 'like', "%{$q}%")
                             ->orWhere('receipt_number', 'like', "%{$q}%")
+                            ->orWhere('receipt_or_no', 'like', "%{$q}%")
                             ->orWhere('accounting_reference_no', 'like', "%{$q}%")
                             ->orWhere('transaction_reference_no', 'like', "%{$q}%")
                             ->orWhere('reference_number', 'like', "%{$q}%");
@@ -316,8 +318,19 @@ class PaymentController extends Controller
             ->when($paymentMethod, function ($query) use ($paymentMethod) {
                 $query->whereHas('payments', function ($paymentQuery) use ($paymentMethod) {
                     $paymentQuery->where(function ($methodQuery) use ($paymentMethod) {
-                        $methodQuery->where('payment_method', $paymentMethod)
-                            ->orWhere('payment_mode', $paymentMethod);
+                        if ($paymentMethod === 'cashless') {
+                            $methodQuery->where('payment_method', 'cashless')
+                                ->orWhere('payment_method', 'bank_transfer')
+                                ->orWhere('payment_mode', 'bank_transfer');
+                        } elseif ($paymentMethod === 'cash') {
+                            $methodQuery->where('payment_method', 'cash')
+                                ->orWhere(function ($legacy) {
+                                    $legacy->whereNull('payment_method')->where('payment_mode', 'cash');
+                                });
+                        } else {
+                            $methodQuery->where('payment_method', $paymentMethod)
+                                ->orWhere('payment_mode', $paymentMethod);
+                        }
                     });
                 });
             });
@@ -326,8 +339,19 @@ class PaymentController extends Controller
             ->whereIn('funeral_case_id', (clone $caseFilter)->select('id'))
             ->when($paymentMethod, function ($query) use ($paymentMethod) {
                 $query->where(function ($methodQuery) use ($paymentMethod) {
-                    $methodQuery->where('payment_method', $paymentMethod)
-                        ->orWhere('payment_mode', $paymentMethod);
+                    if ($paymentMethod === 'cashless') {
+                        $methodQuery->where('payment_method', 'cashless')
+                            ->orWhere('payment_method', 'bank_transfer')
+                            ->orWhere('payment_mode', 'bank_transfer');
+                    } elseif ($paymentMethod === 'cash') {
+                        $methodQuery->where('payment_method', 'cash')
+                            ->orWhere(function ($legacy) {
+                                $legacy->whereNull('payment_method')->where('payment_mode', 'cash');
+                            });
+                    } else {
+                        $methodQuery->where('payment_method', $paymentMethod)
+                            ->orWhere('payment_mode', $paymentMethod);
+                    }
                 });
             })
             ->when($paidFromDate, fn ($query) => $query->where('paid_at', '>=', $paidFromDate))
@@ -369,8 +393,21 @@ class PaymentController extends Controller
                             'receipt_number',
                             'payment_record_no',
                             'accounting_reference_no',
+                            'receipt_or_no',
                             'payment_method',
+                            'cashless_type',
+                            'bank_name',
+                            'other_bank_name',
+                            'wallet_provider',
+                            'account_name',
+                            'mobile_number',
                             'payment_mode',
+                            'reference_number',
+                            'approval_code',
+                            'card_type',
+                            'terminal_provider',
+                            'payment_channel',
+                            'payment_notes',
                             'bank_or_channel',
                             'other_bank_or_channel',
                             'transaction_reference_no',
@@ -406,8 +443,20 @@ class PaymentController extends Controller
                     'receipt_number',
                     'payment_record_no',
                     'accounting_reference_no',
+                    'receipt_or_no',
                     'payment_method',
+                    'cashless_type',
+                    'bank_name',
+                    'other_bank_name',
+                    'wallet_provider',
+                    'account_name',
+                    'mobile_number',
                     'payment_mode',
+                    'approval_code',
+                    'card_type',
+                    'terminal_provider',
+                    'payment_channel',
+                    'payment_notes',
                     'bank_or_channel',
                     'other_bank_or_channel',
                     'transaction_reference_no',
@@ -427,8 +476,19 @@ class PaymentController extends Controller
                 ->with(['recordedBy:id,name', 'encodedBy:id,name'])
                 ->when($paymentMethod, function ($paymentQuery) use ($paymentMethod) {
                     $paymentQuery->where(function ($methodQuery) use ($paymentMethod) {
-                        $methodQuery->where('payment_method', $paymentMethod)
-                            ->orWhere('payment_mode', $paymentMethod);
+                        if ($paymentMethod === 'cashless') {
+                            $methodQuery->where('payment_method', 'cashless')
+                                ->orWhere('payment_method', 'bank_transfer')
+                                ->orWhere('payment_mode', 'bank_transfer');
+                        } elseif ($paymentMethod === 'cash') {
+                            $methodQuery->where('payment_method', 'cash')
+                                ->orWhere(function ($legacy) {
+                                    $legacy->whereNull('payment_method')->where('payment_mode', 'cash');
+                                });
+                        } else {
+                            $methodQuery->where('payment_method', $paymentMethod)
+                                ->orWhere('payment_mode', $paymentMethod);
+                        }
                     });
                 })
                 ->when($paidFromDate, fn ($paymentQuery) => $paymentQuery->where('paid_at', '>=', $paidFromDate))
@@ -490,27 +550,55 @@ class PaymentController extends Controller
     {
         $this->authorize('create', Payment::class);
 
-        $validated = $request->validate([
+        $validated = $request->validate(array_merge([
             'funeral_case_id' => ['required', 'exists:funeral_cases,id'],
-            'paid_at' => ['required', 'date'],
-            'amount_paid' => ['required', 'numeric', 'gt:0'],
-            'payment_method' => ['required', Rule::in(['cash', 'bank_transfer'])],
-            'accounting_reference_no' => ['required', 'string', 'max:100'],
-            'received_by' => ['required', 'string', 'max:120'],
-            'bank_or_channel' => ['nullable', 'required_if:payment_method,bank_transfer', Rule::in(['BDO', 'BPI', 'Metrobank', 'Landbank', 'Security Bank', 'UnionBank', 'RCBC', 'PNB', 'China Bank', 'EastWest Bank', 'AUB', 'GCash', 'Maya', 'Other'])],
-            'other_bank_or_channel' => ['nullable', 'required_if:bank_or_channel,Other', 'string', 'max:100'],
-            'transaction_reference_no' => ['nullable', 'required_if:payment_method,bank_transfer', 'string', 'max:100'],
-            'sender_name' => ['nullable', 'string', 'max:120'],
-            'transfer_datetime' => ['nullable', 'date'],
-            'remarks' => ['nullable', 'string', 'max:1000'],
+            'paid_at' => PaymentDetails::dateRules(),
+            'amount_paid' => PaymentDetails::amountRules(),
+            'receipt_or_no' => ['nullable', 'string', 'max:100', 'not_regex:/<[^>]*>|[<>]/'],
+            'accounting_reference_no' => ['nullable', 'string', 'max:100', 'not_regex:/<[^>]*>|[<>]/'],
+            'received_by' => ['nullable', 'string', 'max:120', 'not_regex:/<[^>]*>|[<>]/'],
+            'remarks' => ['nullable', 'string', 'max:255', 'not_regex:/<[^>]*>|[<>]/'],
             'return_to_case' => ['nullable', 'boolean'],
             'return_to' => ['nullable', 'string', 'max:2048'],
             'void' => ['nullable', 'boolean'],
             'void_reason' => ['nullable', 'string', 'max:255'],
-        ]);
+        ], PaymentDetails::rules()), PaymentDetails::messages());
+
+        $receiptOrNo = trim((string) ($validated['receipt_or_no'] ?? $validated['accounting_reference_no'] ?? ''));
+        $receiptOrNo = $receiptOrNo === '' ? null : $receiptOrNo;
+
+        $paymentDetails = PaymentDetails::normalize($request);
+        $paymentDetailErrors = PaymentDetails::validateNormalized($paymentDetails);
+        if ($paymentDetailErrors !== []) {
+            return back()->withErrors($paymentDetailErrors)->withInput();
+        }
+
+        $precheckCase = FuneralCase::whereKey($validated['funeral_case_id'])
+            ->whereIn('branch_id', $this->paymentWriteBranchIds($request->user()))
+            ->first();
+
+        if ($precheckCase) {
+            $amountPaid = round((float) $validated['amount_paid'], 2);
+            $remainingBalance = round((float) $precheckCase->balance_amount, 2);
+            $paidAt = Carbon::parse($validated['paid_at']);
+
+            if ($amountPaid > $remainingBalance) {
+                $message = 'Amount cannot exceed the remaining balance of ₱' . number_format($remainingBalance, 2) . '.';
+                return back()->withErrors([
+                    'amount_paid' => $message,
+                    'payment' => $message,
+                ])->withInput();
+            }
+
+            if ($precheckCase->created_at && $paidAt->lt($precheckCase->created_at)) {
+                return back()->withErrors([
+                    'paid_at' => 'Date received cannot be before the case creation date.',
+                ])->withInput();
+            }
+        }
 
         try {
-            DB::transaction(function () use ($validated) {
+            DB::transaction(function () use ($validated, $paymentDetails, $receiptOrNo) {
                 $user = auth()->user();
                 $branchScopeIds = $this->paymentWriteBranchIds($user);
 
@@ -557,14 +645,8 @@ class PaymentController extends Controller
                 $status = $newPaid <= 0 ? 'UNPAID' : ($balance > 0 ? 'PARTIAL' : 'PAID');
                 $paidAt = Carbon::parse($validated['paid_at']);
 
-                $paymentMethod = $validated['payment_method'];
-                $isBankTransfer = $paymentMethod === 'bank_transfer';
-                $transactionReferenceNo = $isBankTransfer ? ($validated['transaction_reference_no'] ?? null) : null;
-                $bankOrChannel = $isBankTransfer ? ($validated['bank_or_channel'] ?? null) : null;
-                $otherBankOrChannel = $isBankTransfer && ($bankOrChannel === 'Other')
-                    ? ($validated['other_bank_or_channel'] ?? null)
-                    : null;
-                $transferDateTime = $isBankTransfer && !empty($validated['transfer_datetime'])
+                $isCashless = $paymentDetails['payment_method'] === 'cashless';
+                $transferDateTime = $isCashless && !empty($validated['transfer_datetime'])
                     ? Carbon::parse($validated['transfer_datetime'])
                     : null;
 
@@ -572,22 +654,34 @@ class PaymentController extends Controller
                     'funeral_case_id'  => $funeralCase->id,
                     'branch_id'        => $funeralCase->branch_id,
                     'payment_record_no' => Payment::nextPaymentRecordNumber($paidAt),
-                    'accounting_reference_no' => $validated['accounting_reference_no'],
-                    'method'           => strtoupper($paymentMethod), // mirrors payment_mode; ENUM widened in migration 400001
-                    'payment_mode'     => $paymentMethod,
-                    'payment_method'   => $paymentMethod,
-                    'reference_number' => $transactionReferenceNo,
-                    'bank_or_channel'  => $bankOrChannel,
-                    'other_bank_or_channel' => $otherBankOrChannel,
-                    'transaction_reference_no' => $transactionReferenceNo,
-                    'sender_name'      => $isBankTransfer ? ($validated['sender_name'] ?? null) : null,
+                    'accounting_reference_no' => $receiptOrNo,
+                    'receipt_or_no'     => $receiptOrNo,
+                    'method'           => $paymentDetails['legacy_method'],
+                    'payment_mode'     => $paymentDetails['legacy_payment_mode'],
+                    'payment_method'   => $paymentDetails['payment_method'],
+                    'cashless_type'    => $paymentDetails['cashless_type'],
+                    'bank_name'        => $paymentDetails['bank_name'],
+                    'other_bank_name'  => $paymentDetails['other_bank_name'],
+                    'wallet_provider'  => $paymentDetails['wallet_provider'],
+                    'account_name'     => $paymentDetails['account_name'],
+                    'mobile_number'    => $paymentDetails['mobile_number'],
+                    'reference_number' => $paymentDetails['reference_number'],
+                    'approval_code'    => $paymentDetails['approval_code'],
+                    'card_type'        => $paymentDetails['card_type'],
+                    'terminal_provider' => $paymentDetails['terminal_provider'],
+                    'payment_channel'  => $paymentDetails['payment_channel'],
+                    'payment_notes'    => $paymentDetails['payment_notes'],
+                    'bank_or_channel'  => $paymentDetails['legacy_bank_or_channel'],
+                    'other_bank_or_channel' => $paymentDetails['legacy_other_bank_or_channel'],
+                    'transaction_reference_no' => $paymentDetails['legacy_transaction_reference_no'],
+                    'sender_name'      => $paymentDetails['legacy_sender_name'],
                     'transfer_datetime' => $transferDateTime,
                     'amount'           => $amountPaid,
                     'balance_after_payment'        => $balance,
                     'payment_status_after_payment' => $status,
                     'paid_date'    => $paidAt->toDateString(),
                     'paid_at'      => $paidAt,
-                    'received_by'  => $validated['received_by'],
+                    'received_by'  => $validated['received_by'] ?? null,
                     'encoded_by'   => $user->id,
                     'recorded_by'  => $user->id,
                     'remarks'      => $validated['remarks'] ?? null,
@@ -614,8 +708,14 @@ class PaymentController extends Controller
                         'case_id' => $funeralCase->id,
                         'amount' => $amountPaid,
                         'payment_record_no' => $payment->payment_record_no,
-                        'accounting_reference_no' => $payment->accounting_reference_no,
+                        'receipt_or_no' => $payment->receipt_or_no,
                         'payment_method' => $payment->payment_method,
+                        'cashless_type' => $payment->cashless_type,
+                        'bank_name' => $payment->bank_name,
+                        'wallet_provider' => $payment->wallet_provider,
+                        'reference_number' => $payment->reference_number,
+                        'approval_code' => $payment->approval_code,
+                        'payment_channel' => $payment->payment_channel,
                         'payment_status_after' => $status,
                         'entry_source' => $funeralCase->entry_source,
                         'changes' => [

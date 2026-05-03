@@ -1,7 +1,7 @@
 @extends('layouts.panel')
 
 @section('page_title', 'Master Case Records')
-@section('page_desc', 'Monitor branch activity, payment health, and verification status from one admin worklist.')
+@section('page_desc', 'Monitor branch activity, case status, and payment health from one admin worklist.')
 
 @section('content')
 <div class="admin-table-page">
@@ -10,8 +10,7 @@
         $resolvedDatePreset = $datePreset ?? 'ANY';
         $isCustomDate = $resolvedDatePreset === 'CUSTOM';
         $sort = $sort ?? 'newest';
-        $secondaryFiltersActive = filled($verificationStatus ?? null)
-            || filled($paymentStatus ?? null)
+        $secondaryFiltersActive = filled($paymentStatus ?? null)
             || $sort !== 'newest'
             || $resolvedDatePreset !== 'ANY'
             || filled($intermentFrom ?? null)
@@ -20,7 +19,6 @@
             filled($q ?? null),
             filled($branchId ?? null),
             filled($caseStatus ?? null),
-            filled($verificationStatus ?? null),
             filled($paymentStatus ?? null),
             $sort !== 'newest',
             $resolvedDatePreset !== 'ANY',
@@ -35,6 +33,43 @@
             'CUSTOM' => 'Custom Range',
             default => 'Any Time',
         };
+        $adminMasterChips = collect();
+        if ($isBranchAdmin && $branchId) {
+            $adminBranch = $branches->firstWhere('id', (int) $branchId) ?? $branches->first();
+            $adminMasterChips->push([
+                'icon' => 'bi-lock-fill',
+                'label' => 'Branch: ' . ($adminBranch ? trim(($adminBranch->branch_code ?? '') . ' - ' . ($adminBranch->branch_name ?? '')) : 'Assigned Branch'),
+                'locked' => true,
+            ]);
+        } elseif (filled($branchId)) {
+            $adminBranch = $branches->firstWhere('id', (int) $branchId);
+            $adminMasterChips->push([
+                'icon' => 'bi-building',
+                'label' => 'Branch: ' . ($adminBranch ? trim(($adminBranch->branch_code ?? '') . ' - ' . ($adminBranch->branch_name ?? '')) : 'Selected Branch'),
+            ]);
+        }
+        if (filled($q ?? null)) {
+            $adminMasterChips->push(['icon' => 'bi-search', 'label' => 'Search: ' . $q]);
+        }
+        if (filled($caseStatus ?? null)) {
+            $adminMasterChips->push(['icon' => 'bi-clipboard-check', 'label' => 'Case: ' . \Illuminate\Support\Str::headline(strtolower($caseStatus))]);
+        }
+        if (filled($paymentStatus ?? null)) {
+            $adminMasterChips->push(['icon' => 'bi-wallet2', 'label' => 'Payment: ' . \Illuminate\Support\Str::headline(strtolower($paymentStatus))]);
+        }
+        if (filled(request('service_type'))) {
+            $adminMasterChips->push(['icon' => 'bi-tag', 'label' => 'Service: ' . request('service_type')]);
+        }
+        if (filled(request('package_id'))) {
+            $selectedPackage = ($packages ?? collect())->firstWhere('id', (int) request('package_id'));
+            $adminMasterChips->push(['icon' => 'bi-box', 'label' => 'Package: ' . ($selectedPackage?->name ?? 'Selected Package')]);
+        }
+        if ($resolvedDatePreset !== 'ANY') {
+            $adminMasterChips->push(['icon' => 'bi-calendar3', 'label' => 'Date: ' . $presetLabel]);
+        }
+        if (filled($intermentFrom ?? null) || filled($intermentTo ?? null)) {
+            $adminMasterChips->push(['icon' => 'bi-calendar-event', 'label' => 'Interment: ' . (($intermentFrom ?? null) ?: 'Start') . ' - ' . (($intermentTo ?? null) ?: 'Today')]);
+        }
     @endphp
     <style>
         .admin-master-toolbar-row-primary {
@@ -119,15 +154,6 @@
     @endif
 
     <section class="table-system-card admin-table-card">
-        <div class="table-system-head">
-            <div class="admin-table-head-row">
-                <div>
-                    <h2 class="table-system-title">All Recorded Cases</h2>
-                    <p class="admin-table-head-copy">Monitor branch activity, payment health, and verification status from one admin worklist.</p>
-                </div>
-            </div>
-        </div>
-
         <div class="table-system-toolbar admin-table-toolbar">
             @include('partials.case_filter_toolbar', [
                 'action' => route('admin.cases.index'),
@@ -144,9 +170,10 @@
                 'serviceTypes' => $serviceTypes ?? collect(),
                 'packages' => $packages ?? collect(),
                 'encoders' => $encoders ?? collect(),
-                'showVerificationStatus' => true,
+                'showVerificationStatus' => false,
                 'showPackage' => true,
                 'showEncodedBy' => true,
+                'showInlineChips' => false,
                 'hiddenInputs' => array_filter(['sort' => request('sort')], fn ($value) => filled($value)),
             ])
 
@@ -205,15 +232,6 @@
 
                 <div id="admin-master-more-filters" class="admin-master-more-filters @if(!$secondaryFiltersActive) hidden @endif" data-more-filters-panel>
                     <div class="admin-master-toolbar-row admin-master-toolbar-row-bottom">
-                        <div class="table-toolbar-field">
-                            <select name="verification_status" class="table-toolbar-select" data-table-auto-submit>
-                                <option value="">All Verification</option>
-                                <option value="PENDING" {{ ($verificationStatus ?? null) === 'PENDING' ? 'selected' : '' }}>Pending Review</option>
-                                <option value="VERIFIED" {{ ($verificationStatus ?? null) === 'VERIFIED' ? 'selected' : '' }}>Verified</option>
-                                <option value="DISPUTED" {{ ($verificationStatus ?? null) === 'DISPUTED' ? 'selected' : '' }}>Disputed</option>
-                            </select>
-                        </div>
-
                         <div class="table-toolbar-field">
                             <select name="payment_status" class="table-toolbar-select" data-table-auto-submit>
                                 <option value="">All Payment Status</option>
@@ -280,9 +298,34 @@
             </form>
         </div>
 
+        <div class="case-records-master-chip-row">
+            <div class="case-compact-inline-chips case-records-quick-chips" aria-label="Applied branch and filters">
+                @forelse($adminMasterChips as $chip)
+                    <span class="case-compact-chip {{ !empty($chip['locked']) ? 'case-compact-chip-locked' : '' }}">
+                        <i class="bi {{ $chip['icon'] }}"></i>{{ $chip['label'] }}
+                    </span>
+                @empty
+                    <span class="case-compact-chip">
+                        <i class="bi bi-funnel"></i>All records
+                    </span>
+                @endforelse
+            </div>
+        </div>
+
         <div class="table-system-list">
             <div class="table-wrapper table-system-wrap">
-                <table class="table-base table-system-table admin-master-table">
+                <table class="table-base table-system-table admin-master-table records-worklist-table">
+                    <colgroup>
+                        <col class="records-col-case">
+                        <col class="records-col-branch">
+                        <col class="records-col-family">
+                        <col class="records-col-service">
+                        <col class="records-col-schedule">
+                        <col class="records-col-financials">
+                        <col class="records-col-case-status">
+                        <col class="records-col-payment-status">
+                        <col class="records-col-actions">
+                    </colgroup>
                     <thead>
                         <tr>
                             <th class="text-left">Case</th>
@@ -291,49 +334,24 @@
                             <th class="text-left">Service</th>
                             <th class="text-left">Interment</th>
                             <th class="table-col-number">Financials</th>
-                            <th class="text-left">Review</th>
+                            <th class="table-status-col">Case Status</th>
+                            <th class="table-status-col table-payment-status-col">Payment Status</th>
                             <th class="table-col-actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                     @forelse($cases as $case)
                         @php
-                            $verificationStatusValue = strtoupper((string) ($case->verification_status ?? 'VERIFIED'));
                             $isOtherBranch = $case->entry_source === 'OTHER_BRANCH';
-
-                            if (!$isOtherBranch) {
-                                $verificationLabel = 'Auto-Verified';
-                                $verificationClass = 'status-badge status-badge-info';
-                            } elseif ($verificationStatusValue === 'PENDING') {
-                                $verificationLabel = 'Pending Review';
-                                $verificationClass = 'status-badge status-badge-warning';
-                            } elseif ($verificationStatusValue === 'DISPUTED') {
-                                $verificationLabel = 'Manual Review';
-                                $verificationClass = 'status-badge status-badge-danger';
-                            } else {
-                                $verificationLabel = 'Manual Review';
-                                $verificationClass = 'status-badge status-badge-success';
-                            }
-
-                            $caseStatusClass = match ($case->case_status) {
-                                'COMPLETED' => 'status-badge status-badge-success',
-                                'ACTIVE' => 'status-badge status-badge-warning',
-                                'DRAFT' => 'status-badge status-badge-neutral',
-                                default => 'status-badge status-badge-neutral',
-                            };
-
-                            $paymentStatusClass = match ($case->payment_status) {
-                                'PAID' => 'status-badge status-badge-success',
-                                'PARTIAL' => 'status-badge status-badge-warning',
-                                'UNPAID' => 'status-badge status-badge-danger',
-                                default => 'status-badge status-badge-neutral',
-                            };
+                            $needsAttention = $case->payment_status === 'UNPAID'
+                                || (float) $case->balance_amount > 0;
                             $intermentDate = $case->interment_at
                                 ?? $case->deceased?->interment_at
                                 ?? $case->deceased?->interment;
                         @endphp
 
                         <tr
+                            class="{{ $needsAttention ? 'row-needs-attention' : '' }}"
                             data-clickable-row
                             data-row-href="{{ route('funeral-cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}"
                             tabindex="0"
@@ -341,7 +359,7 @@
                             aria-label="Open full case details for {{ $case->case_code }}"
                         >
                             <td>
-                                <div class="table-primary whitespace-nowrap">{{ $case->case_code }}</div>
+                                <div class="table-primary whitespace-nowrap records-case-code">{{ $case->case_code }}</div>
                                 <div class="table-secondary">Encoded {{ $case->created_at?->format('M d, Y') }}</div>
                             </td>
                             <td>
@@ -361,40 +379,17 @@
                                 <div class="table-secondary">{{ $intermentDate && $intermentDate->format('H:i') !== '00:00' ? $intermentDate->format('h:i A') : 'Scheduled date' }}</div>
                             </td>
                             <td class="table-col-number">
-                                <div class="table-primary whitespace-nowrap">{{ number_format((float) $case->total_amount, 2) }}</div>
-                                <div class="table-secondary whitespace-nowrap">Paid {{ number_format((float) $case->total_paid, 2) }} &middot; Bal {{ number_format((float) $case->balance_amount, 2) }}</div>
+                                <div class="table-primary table-financial-total whitespace-nowrap">{{ number_format((float) $case->total_amount, 2) }}</div>
+                                <div class="table-secondary table-financial-breakdown whitespace-nowrap">Paid {{ number_format((float) $case->total_paid, 2) }} &middot; Bal {{ number_format((float) $case->balance_amount, 2) }}</div>
                             </td>
-                            <td>
-                                <div class="flex flex-wrap gap-1.5">
-                                    <span class="{{ $verificationClass }}">{{ $verificationLabel }}</span>
-                                    <span class="{{ $caseStatusClass }}">{{ \Illuminate\Support\Str::headline(strtolower((string) $case->case_status)) }}</span>
-                                    <span class="{{ $paymentStatusClass }}">{{ \Illuminate\Support\Str::headline(strtolower((string) $case->payment_status)) }}</span>
-                                </div>
+                            <td class="table-status-cell">
+                                <x-status-badge :status="$case->case_status" :label="\Illuminate\Support\Str::headline(strtolower((string) $case->case_status))" />
+                            </td>
+                            <td class="table-status-cell table-payment-status-cell">
+                                <x-status-badge :status="$case->payment_status" :label="\Illuminate\Support\Str::headline(strtolower((string) $case->payment_status))" class="table-payment-status-badge" />
                             </td>
                             <td class="table-col-actions">
                                 <div class="table-row-actions">
-                                    @if(!$isOtherBranch)
-                                        <a
-                                            class="action-chip action-chip-primary table-row-actions-visible"
-                                            href="{{ route('funeral-cases.edit', $case) }}"
-                                            data-no-row-click
-                                        >
-                                            <i class="bi bi-pencil-square"></i>
-                                            <span>Edit</span>
-                                        </a>
-                                    @else
-                                        <button
-                                            type="button"
-                                            class="action-chip table-row-actions-visible"
-                                            data-verify-panel-toggle
-                                            data-verify-panel-target="verify-panel-{{ $case->id }}"
-                                            data-no-row-click
-                                        >
-                                            <i class="bi bi-shield-check"></i>
-                                            <span>Review</span>
-                                        </button>
-                                    @endif
-
                                     <div class="row-action-menu" data-row-menu>
                                         <button
                                             type="button"
@@ -428,15 +423,6 @@
                                         </a>
 
                                         @if(!$isOtherBranch)
-                                            <a
-                                                class="row-action-item"
-                                                data-row-menu-item
-                                                href="{{ route('funeral-cases.edit', $case) }}"
-                                            >
-                                                <i class="bi bi-pencil-square"></i>
-                                                <span>Edit case</span>
-                                            </a>
-
                                             <form method="POST" action="{{ route('funeral-cases.destroy', $case) }}">
                                                 @csrf
                                                 @method('DELETE')
@@ -453,29 +439,7 @@
                                         @else
                                             <span class="row-action-item opacity-60 cursor-default">
                                                 <i class="bi bi-lock"></i>
-                                                <span>Edit locked (Other Branch)</span>
-                                            </span>
-                                            <span class="row-action-item opacity-60 cursor-default">
-                                                <i class="bi bi-lock"></i>
                                                 <span>Delete locked (Other Branch)</span>
-                                            </span>
-                                        @endif
-
-                                        @if($isOtherBranch)
-                                            <button
-                                                type="button"
-                                                class="row-action-item"
-                                                data-row-menu-item
-                                                data-verify-panel-toggle
-                                                data-verify-panel-target="verify-panel-{{ $case->id }}"
-                                            >
-                                                <i class="bi bi-shield-check"></i>
-                                                <span>Review verification</span>
-                                            </button>
-                                        @else
-                                            <span class="row-action-item opacity-60 cursor-default">
-                                                <i class="bi bi-check2-circle"></i>
-                                                <span>Auto-verified record</span>
                                             </span>
                                         @endif
                                         </div>
@@ -483,30 +447,9 @@
                                 </div>
                             </td>
                         </tr>
-
-                        @if($isOtherBranch)
-                            <tr id="verify-panel-{{ $case->id }}" class="hidden">
-                                <td colspan="8" class="!py-0">
-                                    <div class="admin-master-inline-review">
-                                        <form method="POST" action="{{ route('admin.cases.verification', $case) }}" class="admin-master-inline-review-form">
-                                            @csrf
-                                            @method('PATCH')
-                                            <select name="verification_status" class="form-select text-xs">
-                                                <option value="VERIFIED">Mark Verified</option>
-                                                <option value="DISPUTED">Mark Disputed</option>
-                                            </select>
-                                            <input type="text" name="verification_note" class="form-input text-xs" placeholder="Verification note (required for disputed)">
-                                            <button class="btn btn-primary-custom btn-sm bg-[var(--brand-mid)] border-[var(--brand-mid)] hover:bg-[var(--brand-hover)] hover:border-[var(--brand-hover)] text-white" type="submit">
-                                                Save Review
-                                            </button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                        @endif
                     @empty
                         <tr>
-                            <td colspan="8" class="table-system-empty">No case records found.</td>
+                            <td colspan="9" class="table-system-empty">No case records found.</td>
                         </tr>
                     @endforelse
                     </tbody>
@@ -540,23 +483,6 @@
 </div>
 
 <script>
-    (() => {
-        const toggles = document.querySelectorAll('[data-verify-panel-toggle]');
-        if (!toggles.length) return;
-
-        toggles.forEach((toggle) => {
-            toggle.addEventListener('click', () => {
-                const targetId = toggle.getAttribute('data-verify-panel-target');
-                if (!targetId) return;
-
-                const row = document.getElementById(targetId);
-                if (!row) return;
-
-                row.classList.toggle('hidden');
-            });
-        });
-    })();
-
     (() => {
         const toggle = document.querySelector('[data-more-filters-toggle]');
         const panel = document.querySelector('[data-more-filters-panel]');

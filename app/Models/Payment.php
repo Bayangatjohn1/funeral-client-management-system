@@ -15,12 +15,24 @@ class Payment extends Model
         'receipt_number',
         'payment_record_no',
         'accounting_reference_no',
+        'receipt_or_no',
         'funeral_case_id',
         'branch_id',
         'method',          // legacy ENUM('CASH'); kept for backward compat
-        'payment_mode',    // canonical: cash | bank_transfer (Phase 1+)
+        'payment_mode',    // legacy/canonical compat: cash | bank_transfer
         'payment_method',
+        'cashless_type',
+        'bank_name',
+        'other_bank_name',
+        'wallet_provider',
+        'account_name',
+        'mobile_number',
         'reference_number', // required when payment_mode = bank_transfer
+        'approval_code',
+        'card_type',
+        'terminal_provider',
+        'payment_channel',
+        'payment_notes',
         'bank_or_channel',
         'other_bank_or_channel',
         'transaction_reference_no',

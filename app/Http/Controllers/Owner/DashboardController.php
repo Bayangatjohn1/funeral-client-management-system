@@ -378,6 +378,52 @@ class DashboardController extends Controller
             ];
         }
 
+        $allAnalyticsCases = (clone $base)
+            ->with(['branch:id,branch_code,branch_name', 'client:id,full_name,first_name,last_name', 'deceased:id,full_name,first_name,last_name'])
+            ->latest('created_at')
+            ->get()
+            ->map(function (FuneralCase $case) {
+                $totalPaid = (float) ($case->total_paid ?? 0);
+                $balance = (float) ($case->balance_amount ?? 0);
+                $serviceAmount = match (true) {
+                    $totalPaid > 0 && $balance <= 0 => $totalPaid,
+                    $totalPaid > 0 && $balance > 0 => $totalPaid + $balance,
+                    $totalPaid <= 0 && $balance > 0 => $balance,
+                    default => 0.0,
+                };
+                $paymentStatus = match (true) {
+                    $totalPaid > 0 && $balance <= 0 => 'PAID',
+                    $totalPaid > 0 && $balance > 0 => 'PARTIAL',
+                    $totalPaid <= 0 && $balance > 0 => 'UNPAID',
+                    default => $case->payment_status ?: 'UNPAID',
+                };
+                $collectionStatus = $balance > 0 ? 'OUTSTANDING' : 'COLLECTED';
+
+                return [
+                    'caseCode' => $case->case_number ?: $case->case_code,
+                    'branchId' => $case->branch_id ? (int) $case->branch_id : null,
+                    'branchCode' => (string) ($case->branch?->branch_code ?? ''),
+                    'branchName' => (string) ($case->branch?->branch_name ?? ''),
+                    'client' => $case->client?->full_name ?: trim(implode(' ', array_filter([
+                        $case->client?->first_name,
+                        $case->client?->last_name,
+                    ]))) ?: '-',
+                    'deceased' => $case->deceased?->full_name ?: trim(implode(' ', array_filter([
+                        $case->deceased?->first_name,
+                        $case->deceased?->last_name,
+                    ]))) ?: '-',
+                    'caseStatus' => $case->case_status ?: '-',
+                    'paymentStatus' => $paymentStatus,
+                    'collectionStatus' => $collectionStatus,
+                    'caseDate' => optional($case->created_at)->toDateString(),
+                    'caseDateLabel' => optional($case->created_at)->format('M d, Y') ?: '-',
+                    'totalAmount' => $serviceAmount,
+                    'totalPaid' => $totalPaid,
+                    'balanceAmount' => $balance,
+                ];
+            })
+            ->values();
+
         return view('owner.analytics', compact(
             'branches',
             'branchId',
@@ -391,7 +437,8 @@ class DashboardController extends Controller
             'totalOutstanding',
             'statusCounts',
             'casesPerBranch',
-            'chart'
+            'chart',
+            'allAnalyticsCases'
         ));
     }
 

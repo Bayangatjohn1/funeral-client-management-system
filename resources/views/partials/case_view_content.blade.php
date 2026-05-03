@@ -6,7 +6,16 @@
     $pkgFreebieItems = $funeral_case->custom_package_freebies
         ? \App\Models\Package::parseLegacyItems($funeral_case->custom_package_freebies)
         : ($pkg?->freebieNames() ?? []);
-    $pkgPrice      = $funeral_case->custom_package_price      ?: ($pkg?->price       ?? null);
+    $customPackagePrice = $funeral_case->custom_package_name
+        ? (float) ($funeral_case->custom_package_price ?? 0)
+        : null;
+    $tablePackagePrice = $pkg?->price !== null ? (float) $pkg->price : null;
+    $derivedPackagePrice = $funeral_case->subtotal_amount !== null
+        ? max((float) $funeral_case->subtotal_amount - (float) ($funeral_case->additional_service_amount ?? 0), 0)
+        : null;
+    $pkgPrice = $customPackagePrice
+        ?? ($tablePackagePrice && $tablePackagePrice > 0 ? $tablePackagePrice : null)
+        ?? ($derivedPackagePrice && $derivedPackagePrice > 0 ? $derivedPackagePrice : null);
     $pkgCoffin     = $funeral_case->coffin_type               ?: ($pkg?->coffin_type ?? null);
     $isOtherBranch = ($funeral_case->entry_source ?? 'MAIN') === 'OTHER_BRANCH';
     $balanceDue    = (float) $funeral_case->balance_amount > 0;
@@ -390,15 +399,20 @@
               </div>
               <div>
                 <div class="cv-txn-lbl">Payment Method</div>
-                <div class="cv-txn-val">{{ ($pmt->payment_method ?? $pmt->payment_mode) === 'bank_transfer' ? 'Bank Transfer' : 'Cash' }}</div>
+                <div class="cv-txn-val">
+                  {{ \App\Support\Payments\PaymentDetails::label($pmt) }}
+                  @if(\App\Support\Payments\PaymentDetails::referenceLabel($pmt))
+                    <div style="font-size:11px;color:#64748b;font-weight:600;">{{ \App\Support\Payments\PaymentDetails::referenceLabel($pmt) }}</div>
+                  @endif
+                </div>
               </div>
               <div>
                 <div class="cv-txn-lbl">Payment Date &amp; Time</div>
                 <div class="cv-txn-val">{{ $fmtDt($pmt->paid_at) !== '—' ? $fmtDt($pmt->paid_at) : $fmtDate($pmt->paid_date) }}</div>
               </div>
               <div>
-                <div class="cv-txn-lbl">Accounting Reference No.</div>
-                <div class="cv-txn-val">{{ $pmt->accounting_reference_no ?? '—' }}</div>
+                <div class="cv-txn-lbl">Receipt / OR No.</div>
+                <div class="cv-txn-val">{{ $pmt->receipt_or_no ?: ($pmt->accounting_reference_no ?? '—') }}</div>
               </div>
               <div>
                 <div class="cv-txn-lbl">Encoded By</div>

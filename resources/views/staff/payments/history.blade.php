@@ -236,7 +236,7 @@
                         title="{{ trim(($assignedBranch->branch_code ?? 'Assigned Branch') . ' - ' . ($assignedBranch->branch_name ?? '')) }}"
                         aria-label="Assigned Branch: {{ $assignedBranch->branch_code ?? 'Assigned Branch' }}"
                     >
-                        Assigned Branch: {{ $assignedBranch->branch_code ?? 'Assigned Branch' }}
+                        Assigned Branch: {{ $assignedBranch->branch_code ?? 'Assigned Branch' }}{{ $assignedBranch->branch_name ? ' - ' . $assignedBranch->branch_name : '' }}
                     </div>
                 </div>
             @endif
@@ -266,7 +266,7 @@
                 <select name="payment_method" class="pm-control" title="Payment Method">
                     <option value="">All Payment Methods</option>
                     <option value="cash" @selected(($paymentMethod ?? '') === 'cash')>Cash</option>
-                    <option value="bank_transfer" @selected(($paymentMethod ?? '') === 'bank_transfer')>Bank Transfer</option>
+                    <option value="cashless" @selected(($paymentMethod ?? '') === 'cashless')>Cashless</option>
                 </select>
             </div>
 
@@ -384,8 +384,9 @@
                                 @forelse($casePayments as $payment)
                                     @php
                                         $method = $payment->payment_method ?: $payment->payment_mode ?: 'cash';
-                                        $isBank = $method === 'bank_transfer';
-                                        $methodLabel = $isBank ? 'Bank Transfer' : 'Cash';
+                                        $cashlessType = $payment->cashless_type ?: ($method === 'bank_transfer' || $payment->payment_mode === 'bank_transfer' ? 'bank_transfer' : null);
+                                        $isCashless = $method === 'cashless' || $cashlessType;
+                                        $methodLabel = \App\Support\Payments\PaymentDetails::label($payment);
                                         $channel = $payment->bank_or_channel === 'Other'
                                             ? ($payment->other_bank_or_channel ?: 'Other')
                                             : ($payment->bank_or_channel ?: null);
@@ -394,10 +395,9 @@
                                         $balanceLabel = $hasBalSnap ? 'Balance After Payment' : 'Current Balance';
                                         $balanceValue = $hasBalSnap ? $payment->balance_after_payment : $case->balance_amount;
                                         $txnDetId = 'txnd-' . $payment->id;
-                                        $txnRef = $payment->transaction_reference_no ?: $payment->reference_number ?: null;
-                                        $acctRef = $payment->accounting_reference_no ?: null;
+                                        $txnRef = $payment->reference_number ?: $payment->transaction_reference_no ?: null;
+                                        $refLabel = \App\Support\Payments\PaymentDetails::referenceLabel($payment);
                                         $remarks = $payment->remarks ?: null;
-                                        $receivedBy = $payment->received_by ?: null;
                                         $encodedBy = $payment->encodedBy?->name ?? $payment->recordedBy?->name ?? null;
                                         $senderName = $payment->sender_name ?: null;
                                         $statusAfter = $payment->payment_status_after_payment ?? null;
@@ -410,6 +410,10 @@
                                                 <div class="pm-txn-rec">{{ $recordNo ?? '—' }}</div>
                                                 <div class="pm-txn-sub">
                                                     <span>{{ $methodLabel }}</span>
+                                                    @if($refLabel)
+                                                        <span class="pm-dot">&middot;</span>
+                                                        <span>{{ $refLabel }}</span>
+                                                    @endif
                                                     <span class="pm-dot">&middot;</span>
                                                     <span>{{ $paidAt?->format('M d, Y h:i A') ?? 'Not provided' }}</span>
                                                 </div>
@@ -425,11 +429,9 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        @if($encodedBy || $receivedBy)
+                                        @if($encodedBy)
                                             <div class="pm-txn-foot">
-                                                @if($encodedBy)<span>Encoded by <strong>{{ $encodedBy }}</strong></span>@endif
-                                                @if($encodedBy && $receivedBy)<span class="pm-dot">&middot;</span>@endif
-                                                @if($receivedBy)<span>Received by <strong>{{ $receivedBy }}</strong></span>@endif
+                                                <span>Encoded by <strong>{{ $encodedBy }}</strong></span>
                                             </div>
                                         @endif
                                         <button type="button" class="pm-txn-tog" data-pm-txn-det="{{ $txnDetId }}" aria-expanded="false">
@@ -440,10 +442,6 @@
                                                 <div class="pm-txn-det-cell">
                                                     <span>Payment Record No.</span>
                                                     <strong>{{ $recordNo ?? 'Not provided' }}</strong>
-                                                </div>
-                                                <div class="pm-txn-det-cell">
-                                                    <span>Accounting Reference No.</span>
-                                                    <strong>{{ $acctRef ?: 'Not provided' }}</strong>
                                                 </div>
                                                 <div class="pm-txn-det-cell">
                                                     <span>Payment Method</span>
@@ -465,18 +463,14 @@
                                                     <span>Encoded By</span>
                                                     <strong>{{ $encodedBy ?: 'Not provided' }}</strong>
                                                 </div>
-                                                <div class="pm-txn-det-cell">
-                                                    <span>Received By</span>
-                                                    <strong>{{ $receivedBy ?: 'Not provided' }}</strong>
-                                                </div>
-                                                @if($isBank)
+                                                @if($isCashless)
                                                     <div class="pm-txn-det-cell">
-                                                        <span>Bank / Payment Channel</span>
-                                                        <strong>{{ $channel ?: 'Not provided' }}</strong>
+                                                        <span>Cashless Type</span>
+                                                        <strong>{{ $cashlessType ? \Illuminate\Support\Str::headline(str_replace('_', ' ', $cashlessType)) : 'Not provided' }}</strong>
                                                     </div>
                                                     <div class="pm-txn-det-cell">
-                                                        <span>Transaction Reference No.</span>
-                                                        <strong>{{ $txnRef ?: 'Not provided' }}</strong>
+                                                        <span>{{ $payment->approval_code ? 'Approval Code' : 'Reference No.' }}</span>
+                                                        <strong>{{ $payment->approval_code ?: ($txnRef ?: 'Not provided') }}</strong>
                                                     </div>
                                                 @endif
                                                 @if($senderName)

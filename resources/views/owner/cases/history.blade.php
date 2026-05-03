@@ -5,13 +5,45 @@
 
 @section('content')
 <div class="owner-page-shell">
+@php
+    $ownerHistoryChips = collect();
+    if (filled($branchId ?? null)) {
+        $ownerBranch = ($branches ?? collect())->firstWhere('id', (int) $branchId);
+        $ownerHistoryChips->push([
+            'icon' => 'bi-building',
+            'label' => 'Branch: ' . ($ownerBranch ? trim(($ownerBranch->branch_code ?? '') . ' - ' . ($ownerBranch->branch_name ?? '')) : 'Selected Branch'),
+        ]);
+    }
+    if (filled(request('q'))) {
+        $ownerHistoryChips->push(['icon' => 'bi-search', 'label' => 'Search: ' . request('q')]);
+    }
+    if (filled(request('case_status'))) {
+        $ownerHistoryChips->push(['icon' => 'bi-clipboard-check', 'label' => 'Case: ' . \Illuminate\Support\Str::headline(strtolower(request('case_status')))]);
+    }
+    if (filled(request('payment_status'))) {
+        $ownerHistoryChips->push(['icon' => 'bi-wallet2', 'label' => 'Payment: ' . \Illuminate\Support\Str::headline(strtolower(request('payment_status')))]);
+    }
+    if (filled(request('service_type'))) {
+        $ownerHistoryChips->push(['icon' => 'bi-tag', 'label' => 'Service: ' . request('service_type')]);
+    }
+    if (filled(request('package_id'))) {
+        $selectedPackage = ($packages ?? collect())->firstWhere('id', (int) request('package_id'));
+        $ownerHistoryChips->push(['icon' => 'bi-box', 'label' => 'Package: ' . ($selectedPackage?->name ?? 'Selected Package')]);
+    }
+    if (filled($datePreset ?? null)) {
+        $ownerHistoryChips->push(['icon' => 'bi-calendar3', 'label' => 'Date: ' . \Illuminate\Support\Str::headline(strtolower((string) $datePreset))]);
+    }
+    if (filled($intermentFrom ?? null) || filled($intermentTo ?? null)) {
+        $ownerHistoryChips->push(['icon' => 'bi-calendar-event', 'label' => 'Interment: ' . (($intermentFrom ?? null) ?: 'Start') . ' - ' . (($intermentTo ?? null) ?: 'Today')]);
+    }
+@endphp
 @if($errors->any())
     <div class="flash-error">
         {{ $errors->first() }}
     </div>
 @endif
 
-<div class="filter-panel mb-5">
+<div class="filter-panel owner-history-filter-panel">
     @include('partials.case_filter_toolbar', [
         'action' => route('owner.history'),
         'resetUrl' => route('owner.history'),
@@ -28,19 +60,27 @@
         'showVerificationStatus' => false,
         'showPackage' => true,
         'showEncodedBy' => false,
+        'showInlineChips' => false,
     ])
 </div>
 
-<div class="list-card">
-    <div class="list-card-header">
-        <div>
-            <div class="list-card-title">Global Case Timeline</div>
-            <div class="list-card-copy">Track completed case records, branch output, and payment health across the business.</div>
-        </div>
+<div class="case-records-master-chip-row owner-history-chip-row">
+    <div class="case-compact-inline-chips case-records-quick-chips" aria-label="Applied branch and filters">
+        @forelse($ownerHistoryChips as $chip)
+            <span class="case-compact-chip">
+                <i class="bi {{ $chip['icon'] }}"></i>{{ $chip['label'] }}
+            </span>
+        @empty
+            <span class="case-compact-chip">
+                <i class="bi bi-funnel"></i>All records
+            </span>
+        @endforelse
     </div>
+</div>
 
+<div class="list-card">
     <div class="table-wrapper rounded-none border-0">
-        <table class="table-base table-system-table text-sm">
+        <table class="table-base table-system-table owner-history-table text-sm">
             <thead>
                 <tr>
                     <th class="text-left">Case</th>
@@ -49,8 +89,8 @@
                     <th class="text-left">Service</th>
                     <th class="text-left">Interment</th>
                     <th class="text-left">Payment</th>
-                    <th class="text-left">Status</th>
-                    <th class="text-left">Action</th>
+                    <th class="table-status-col text-left">Case Status</th>
+                    <th class="table-status-col table-payment-status-col text-left">Payment Status</th>
                 </tr>
             </thead>
             <tbody>
@@ -89,23 +129,11 @@
                         <div class="table-primary whitespace-nowrap">{{ number_format((float) $case->total_amount, 2) }}</div>
                         <div class="table-secondary whitespace-nowrap">Paid {{ number_format((float) $case->total_paid, 2) }} &middot; Bal {{ number_format((float) $case->balance_amount, 2) }}</div>
                     </td>
-                    <td>
-                        <span class="{{
-                            $case->payment_status === 'PAID'
-                                ? 'status-pill-success'
-                                : ($case->payment_status === 'PARTIAL' ? 'status-pill-warning' : 'status-pill-danger')
-                        }}">
-                            {{ $case->payment_status }}
-                        </span>
-                        <div class="mt-1">
-                            <x-status-badge :status="$case->case_status" />
-                        </div>
+                    <td class="table-status-cell">
+                        <x-status-badge :status="$case->case_status" :label="\Illuminate\Support\Str::headline(strtolower((string) $case->case_status))" />
                     </td>
-                    <td>
-                        <a
-                            href="{{ route('owner.cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}"
-                            class="table-action-link"
-                        >View Details</a>
+                    <td class="table-status-cell table-payment-status-cell">
+                        <x-status-badge :status="$case->payment_status" :label="\Illuminate\Support\Str::headline(strtolower((string) $case->payment_status))" />
                     </td>
                 </tr>
             @empty

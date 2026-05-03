@@ -685,8 +685,6 @@ class SystemRegressionGuardsTest extends TestCase
                 'paid_at' => now()->format('Y-m-d H:i:s'),
                 'amount_paid' => 10000,
                 'payment_method' => 'cash',
-                'accounting_reference_no' => 'OR-CASE-001',
-                'received_by' => 'Accounting Staff',
                 'return_to_case' => 1,
             ])
             ->assertRedirect(route('funeral-cases.show', $case, absolute: false));
@@ -701,12 +699,297 @@ class SystemRegressionGuardsTest extends TestCase
         $this->assertSame($case->id, $payment->funeral_case_id);
         $this->assertNotNull($payment->payment_record_no);
         $this->assertNotNull($payment->receipt_number);
+        $this->assertNull($payment->accounting_reference_no);
+        $this->assertNull($payment->receipt_or_no);
+        $this->assertNull($payment->received_by);
         $this->assertSame('PARTIAL', $payment->payment_status_after_payment);
         $this->assertEquals(5000.0, (float) $payment->balance_after_payment);
 
         $this->assertDatabaseHas('payments', [
             'funeral_case_id' => $case->id,
             'amount' => 10000,
+        ]);
+    }
+
+    public function test_cashless_bank_transfer_payment_saves_normalized_details(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $staff = $this->createUser('staff', $mainBranch, true);
+        $package = $this->createPackage();
+        $client = $this->createClient($mainBranch, 'Cashless Client');
+        $deceased = $this->createDeceased($mainBranch, $client, 'Cashless Deceased');
+        $case = $this->createCase($mainBranch, $client, $deceased, $package, [
+            'case_code' => 'FC3101',
+            'total_amount' => 20000,
+            'total_paid' => 0,
+            'balance_amount' => 20000,
+            'payment_status' => 'UNPAID',
+            'case_status' => 'ACTIVE',
+        ]);
+
+        $this->actingAs($staff)->post('/payments/pay', [
+            'funeral_case_id' => $case->id,
+            'paid_at' => now()->format('Y-m-d H:i:s'),
+            'amount_paid' => 5000,
+            'payment_method' => 'cashless',
+            'cashless_type' => 'bank_transfer',
+            'bank_name' => 'BPI',
+            'reference_number' => 'TXN-001',
+            'receipt_or_no' => 'OR-CASHLESS-001',
+            'received_by' => 'Accounting Staff',
+        ])->assertRedirect('/payments');
+
+        $this->assertDatabaseHas('payments', [
+            'funeral_case_id' => $case->id,
+            'payment_method' => 'cashless',
+            'cashless_type' => 'bank_transfer',
+            'bank_name' => 'BPI',
+            'reference_number' => 'TXN-001',
+            'transaction_reference_no' => 'TXN-001',
+            'receipt_or_no' => 'OR-CASHLESS-001',
+            'accounting_reference_no' => 'OR-CASHLESS-001',
+            'payment_mode' => 'bank_transfer',
+        ]);
+    }
+
+    public function test_cashless_wallet_payment_requires_reference_and_sets_provider(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $staff = $this->createUser('staff', $mainBranch, true);
+        $package = $this->createPackage();
+        $client = $this->createClient($mainBranch, 'Wallet Client');
+        $deceased = $this->createDeceased($mainBranch, $client, 'Wallet Deceased');
+        $case = $this->createCase($mainBranch, $client, $deceased, $package, [
+            'case_code' => 'FC3102',
+            'total_amount' => 20000,
+            'total_paid' => 0,
+            'balance_amount' => 20000,
+            'payment_status' => 'UNPAID',
+            'case_status' => 'ACTIVE',
+        ]);
+
+        $this->actingAs($staff)->from('/payments')->post('/payments/pay', [
+            'funeral_case_id' => $case->id,
+            'paid_at' => now()->format('Y-m-d H:i:s'),
+            'amount_paid' => 2500,
+            'payment_method' => 'cashless',
+            'cashless_type' => 'gcash',
+            'accounting_reference_no' => 'OR-GCASH-001',
+            'received_by' => 'Accounting Staff',
+        ])->assertRedirect('/payments')
+            ->assertSessionHasErrors('reference_number');
+
+        $this->actingAs($staff)->post('/payments/pay', [
+            'funeral_case_id' => $case->id,
+            'paid_at' => now()->format('Y-m-d H:i:s'),
+            'amount_paid' => 2500,
+            'payment_method' => 'cashless',
+            'cashless_type' => 'gcash',
+            'reference_number' => '1234567890123',
+            'accounting_reference_no' => 'OR-GCASH-002',
+            'received_by' => 'Accounting Staff',
+        ])->assertRedirect('/payments');
+
+        $this->assertDatabaseHas('payments', [
+            'funeral_case_id' => $case->id,
+            'payment_method' => 'cashless',
+            'cashless_type' => 'gcash',
+            'wallet_provider' => 'GCash',
+            'reference_number' => '1234567890123',
+        ]);
+    }
+
+    public function test_cashless_bank_transfer_other_bank_requires_bank_name(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $staff = $this->createUser('staff', $mainBranch, true);
+        $package = $this->createPackage();
+        $client = $this->createClient($mainBranch, 'Other Bank Client');
+        $deceased = $this->createDeceased($mainBranch, $client, 'Other Bank Deceased');
+        $case = $this->createCase($mainBranch, $client, $deceased, $package, [
+            'case_code' => 'FC3103',
+            'total_amount' => 20000,
+            'total_paid' => 0,
+            'balance_amount' => 20000,
+            'payment_status' => 'UNPAID',
+            'case_status' => 'ACTIVE',
+        ]);
+
+        $this->actingAs($staff)->from('/payments')->post('/payments/pay', [
+            'funeral_case_id' => $case->id,
+            'paid_at' => now()->format('Y-m-d H:i:s'),
+            'amount_paid' => 5000,
+            'payment_method' => 'cashless',
+            'cashless_type' => 'bank_transfer',
+            'bank_name' => 'Other Bank',
+            'reference_number' => 'TXN-OTHER-001',
+            'accounting_reference_no' => 'OR-OTHERBANK-001',
+            'received_by' => 'Accounting Staff',
+        ])->assertRedirect('/payments')
+            ->assertSessionHasErrors('other_bank_name');
+    }
+
+    public function test_card_and_other_cashless_validation_require_tracking_fields(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $staff = $this->createUser('staff', $mainBranch, true);
+        $package = $this->createPackage();
+        $client = $this->createClient($mainBranch, 'Card Client');
+        $deceased = $this->createDeceased($mainBranch, $client, 'Card Deceased');
+        $case = $this->createCase($mainBranch, $client, $deceased, $package, [
+            'case_code' => 'FC3104',
+            'total_amount' => 20000,
+            'total_paid' => 0,
+            'balance_amount' => 20000,
+            'payment_status' => 'UNPAID',
+            'case_status' => 'ACTIVE',
+        ]);
+
+        $basePayload = [
+            'funeral_case_id' => $case->id,
+            'paid_at' => now()->format('Y-m-d H:i:s'),
+            'amount_paid' => 1000,
+            'payment_method' => 'cashless',
+            'accounting_reference_no' => 'OR-CARD-001',
+            'received_by' => 'Accounting Staff',
+        ];
+
+        $this->actingAs($staff)->from('/payments')->post('/payments/pay', array_merge($basePayload, [
+            'cashless_type' => 'card',
+        ]))->assertRedirect('/payments')
+            ->assertSessionHasErrors('approval_code');
+
+        $this->actingAs($staff)->from('/payments')->post('/payments/pay', array_merge($basePayload, [
+            'cashless_type' => 'other',
+            'reference_number' => 'PWN-001',
+        ]))->assertRedirect('/payments')
+            ->assertSessionHasErrors('payment_channel');
+    }
+
+    public function test_payment_backend_rejects_strict_invalid_payment_inputs(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $staff = $this->createUser('staff', $mainBranch, true);
+        $package = $this->createPackage();
+        $client = $this->createClient($mainBranch, 'Strict Validation Client');
+        $deceased = $this->createDeceased($mainBranch, $client, 'Strict Validation Deceased');
+        $case = $this->createCase($mainBranch, $client, $deceased, $package, [
+            'case_code' => 'FC3105',
+            'total_amount' => 20000,
+            'total_paid' => 0,
+            'balance_amount' => 20000,
+            'payment_status' => 'UNPAID',
+            'case_status' => 'ACTIVE',
+            'created_at' => now()->subDay(),
+        ]);
+
+        $basePayload = [
+            'funeral_case_id' => $case->id,
+            'paid_at' => now()->format('Y-m-d H:i:s'),
+            'amount_paid' => '1000.00',
+            'payment_method' => 'cash',
+            'accounting_reference_no' => 'OR-STRICT-001',
+            'received_by' => 'Accounting Staff',
+        ];
+
+        foreach ([
+            ['amount_paid' => 'abc', 'error' => 'amount_paid'],
+            ['amount_paid' => '-100', 'error' => 'amount_paid'],
+            ['amount_paid' => '0', 'error' => 'amount_paid'],
+            ['amount_paid' => '1000.999', 'error' => 'amount_paid'],
+            ['amount_paid' => '25000', 'error' => 'amount_paid'],
+            ['paid_at' => now()->addDay()->format('Y-m-d H:i:s'), 'error' => 'paid_at'],
+            ['payment_method' => 'BANK_TRANSFER', 'error' => 'payment_method'],
+            ['reference_number' => str_repeat('A', 61), 'error' => 'reference_number'],
+            ['payment_method' => 'cashless', 'cashless_type' => 'gcash', 'reference_number' => '!@#@', 'error' => 'reference_number'],
+        ] as $casePayload) {
+            $payload = $basePayload;
+            $error = $casePayload['error'];
+            unset($casePayload['error']);
+
+            $this->actingAs($staff)
+                ->from('/payments')
+                ->post('/payments/pay', array_merge($payload, $casePayload))
+                ->assertRedirect('/payments')
+                ->assertSessionHasErrors($error);
+        }
+
+        $this->actingAs($staff)->from('/payments')->post('/payments/pay', array_merge($basePayload, [
+            'payment_method' => 'cashless',
+            'cashless_type' => 'gcash',
+            'reference_number' => 'GCASH-1234',
+            'mobile_number' => '0917ABC4567',
+        ]))->assertRedirect('/payments')
+            ->assertSessionHasErrors('mobile_number');
+
+        foreach (['<script>alert(1)</script>', '1232', 'juan123', 'Juan@Dela'] as $invalidAccountName) {
+            $this->actingAs($staff)->from('/payments')->post('/payments/pay', array_merge($basePayload, [
+                'payment_method' => 'cashless',
+                'cashless_type' => 'bank_transfer',
+                'bank_name' => 'BPI',
+                'reference_number' => 'TXN-1234',
+                'account_name' => $invalidAccountName,
+            ]))->assertRedirect('/payments')
+                ->assertSessionHasErrors('account_name');
+        }
+    }
+
+    public function test_valid_card_and_mobile_payment_inputs_are_saved_normalized(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $staff = $this->createUser('staff', $mainBranch, true);
+        $package = $this->createPackage();
+        $client = $this->createClient($mainBranch, 'Valid Strict Client');
+        $deceased = $this->createDeceased($mainBranch, $client, 'Valid Strict Deceased');
+        $case = $this->createCase($mainBranch, $client, $deceased, $package, [
+            'case_code' => 'FC3106',
+            'total_amount' => 20000,
+            'total_paid' => 0,
+            'balance_amount' => 20000,
+            'payment_status' => 'UNPAID',
+            'case_status' => 'ACTIVE',
+        ]);
+
+        $this->actingAs($staff)->post('/payments/pay', [
+            'funeral_case_id' => $case->id,
+            'paid_at' => now()->format('Y-m-d H:i:s'),
+            'amount_paid' => '1000.50',
+            'payment_method' => 'cashless',
+            'cashless_type' => 'gcash',
+            'reference_number' => 'GCASH/ABC-123',
+            'account_name' => 'Juan Dela Cruz',
+            'mobile_number' => '+639171234567',
+            'accounting_reference_no' => 'OR-VALID-001',
+            'received_by' => 'Accounting Staff',
+        ])->assertRedirect('/payments');
+
+        $this->assertDatabaseHas('payments', [
+            'funeral_case_id' => $case->id,
+            'mobile_number' => '09171234567',
+            'account_name' => 'Juan Dela Cruz',
+            'reference_number' => 'GCASH/ABC-123',
+            'amount' => 1000.50,
+        ]);
+
+        $this->actingAs($staff)->post('/payments/pay', [
+            'funeral_case_id' => $case->id,
+            'paid_at' => now()->format('Y-m-d H:i:s'),
+            'amount_paid' => '500.00',
+            'payment_method' => 'cashless',
+            'cashless_type' => 'card',
+            'approval_code' => 'AUTH-001',
+            'card_type' => 'credit',
+            'terminal_provider' => 'Terminal 1',
+            'accounting_reference_no' => 'OR-VALID-002',
+            'received_by' => 'Accounting Staff',
+        ])->assertRedirect('/payments');
+
+        $this->assertDatabaseHas('payments', [
+            'funeral_case_id' => $case->id,
+            'cashless_type' => 'card',
+            'approval_code' => 'AUTH-001',
+            'card_type' => 'credit',
+            'terminal_provider' => 'Terminal 1',
         ]);
     }
 

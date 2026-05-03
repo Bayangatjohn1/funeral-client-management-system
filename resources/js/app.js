@@ -349,11 +349,67 @@ function initClickableRecordRows() {
     });
 }
 
+function initCaseRecordTabTransitions() {
+    window.addEventListener('popstate', () => {
+        if (document.querySelector('.records-page .case-records-tabs')) {
+            window.location.reload();
+        }
+    });
+
+    document.addEventListener('click', async (event) => {
+        const link = event.target.closest('.case-records-tabs a[href]');
+        if (!link) return;
+        if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+        const currentCard = link.closest('.table-system-card');
+        const currentPage = link.closest('.records-page');
+        if (!currentCard || !currentPage) return;
+        const currentTableSection = currentCard.querySelector('.table-system-list');
+        if (!currentTableSection) return;
+
+        const targetUrl = new URL(link.href, window.location.href);
+        if (targetUrl.origin !== window.location.origin || targetUrl.href === window.location.href) return;
+
+        event.preventDefault();
+
+        currentTableSection.classList.add('case-records-tab-loading');
+
+        try {
+            const response = await fetch(targetUrl.href, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+            });
+
+            if (!response.ok) throw new Error(`Tab request failed: ${response.status}`);
+
+            const html = await response.text();
+            const nextDocument = new DOMParser().parseFromString(html, 'text/html');
+            const nextCard = nextDocument.querySelector('.records-page .table-system-card');
+            if (!nextCard) throw new Error('Case records card not found in response.');
+
+            await new Promise((resolve) => window.setTimeout(resolve, 140));
+            currentCard.replaceWith(nextCard);
+            window.history.pushState({}, '', targetUrl.href);
+            initTableToolbarBehavior();
+            initCaseCompactFilters();
+
+            const nextTableSection = nextCard.querySelector('.table-system-list');
+            nextTableSection?.classList.add('case-records-tab-enter');
+            requestAnimationFrame(() => {
+                nextTableSection?.classList.remove('case-records-tab-enter');
+            });
+        } catch (error) {
+            window.location.href = targetUrl.href;
+        }
+    });
+}
+
 initTheme();
 initRowActionMenus();
 initTableToolbarBehavior();
 initCaseCompactFilters();
 initClickableRecordRows();
+initCaseRecordTabTransitions();
 
 window.Alpine = Alpine;
 

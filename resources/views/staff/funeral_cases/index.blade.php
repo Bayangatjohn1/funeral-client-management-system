@@ -17,6 +17,35 @@
         $selectedDateRange = 'custom';
     }
     $openWizard = request()->boolean('open_wizard') && $isActiveTab;
+    $resetUrl = route('funeral-cases.index', ['tab' => $activeTab, 'record_scope' => $recordScope]);
+    $caseRecordsBranchLabel = $operationalBranch
+        ? trim(($operationalBranch->branch_code ?? '') . ' - ' . ($operationalBranch->branch_name ?? ''))
+        : 'Assigned Branch';
+    $caseRecordsChips = collect([
+        ['icon' => 'bi-lock-fill', 'label' => 'Branch: ' . $caseRecordsBranchLabel, 'locked' => true],
+    ]);
+    if (filled(request('q'))) {
+        $caseRecordsChips->push(['icon' => 'bi-search', 'label' => 'Search: ' . request('q')]);
+    }
+    if (filled(request('payment_status'))) {
+        $caseRecordsChips->push(['icon' => 'bi-wallet2', 'label' => 'Payment: ' . \Illuminate\Support\Str::headline(strtolower(request('payment_status')))]);
+    }
+    if (filled(request('case_status'))) {
+        $caseRecordsChips->push(['icon' => 'bi-clipboard-check', 'label' => 'Case: ' . \Illuminate\Support\Str::headline(strtolower(request('case_status')))]);
+    }
+    if (filled(request('service_type'))) {
+        $caseRecordsChips->push(['icon' => 'bi-tag', 'label' => 'Service: ' . request('service_type')]);
+    }
+    if (filled(request('package_id'))) {
+        $selectedPackage = ($packages ?? collect())->firstWhere('id', (int) request('package_id'));
+        $caseRecordsChips->push(['icon' => 'bi-box', 'label' => 'Package: ' . ($selectedPackage?->name ?? 'Selected Package')]);
+    }
+    if (filled($datePreset ?? null)) {
+        $caseRecordsChips->push(['icon' => 'bi-calendar3', 'label' => 'Encoded: ' . \Illuminate\Support\Str::headline(strtolower((string) $datePreset))]);
+    }
+    if (filled($intermentFrom ?? null) || filled($intermentTo ?? null)) {
+        $caseRecordsChips->push(['icon' => 'bi-calendar-event', 'label' => 'Interment: ' . (($intermentFrom ?? null) ?: 'Start') . ' - ' . (($intermentTo ?? null) ?: 'Today')]);
+    }
 
     $activeTabUrl = route('funeral-cases.index', array_filter([
         'tab' => 'active',
@@ -87,26 +116,6 @@
     @endif
 
     <section class="table-system-card">
-        <div class="table-system-head">
-            <div class="table-quick-tabs mt-3" role="tablist" aria-label="Case record tabs">
-                <a
-                    href="{{ $activeTabUrl }}"
-                    role="tab"
-                    aria-selected="{{ $isActiveTab ? 'true' : 'false' }}"
-                    class="table-quick-tab {{ $isActiveTab ? 'table-quick-tab-active' : '' }}"
-                >
-                    Active Cases
-                </a>
-                <a
-                    href="{{ $completedTabUrl }}"
-                    role="tab"
-                    aria-selected="{{ $isActiveTab ? 'false' : 'true' }}"
-                    class="table-quick-tab {{ $isActiveTab ? '' : 'table-quick-tab-active' }}"
-                >
-                    Completed Cases
-                </a>
-            </div>
-        </div>
 
         @if($openWizard)
             <div class="p-4 md:p-5">
@@ -119,10 +128,10 @@
                 @include('staff.intake._form')
             </div>
         @else
-            <div class="table-system-toolbar">
+            <div class="table-system-toolbar case-records-controls">
                 @include('partials.case_filter_toolbar', [
                     'action' => route('funeral-cases.index'),
-                    'resetUrl' => route('funeral-cases.index', ['tab' => $activeTab, 'record_scope' => $recordScope]),
+                    'resetUrl' => $resetUrl,
                     'branchMode' => 'locked',
                     'assignedBranch' => $operationalBranch ?? null,
                     'branchId' => $operationalBranch?->id ?? auth()->user()?->branch_id,
@@ -138,11 +147,14 @@
                     'showVerificationStatus' => false,
                     'showPackage' => true,
                     'showEncodedBy' => false,
+                    'showBranchChip' => true,
+                    'showInlineChips' => false,
                 ])
 
                 <form id="caseRecordsFilterForm" method="GET" action="{{ route('funeral-cases.index') }}" class="table-toolbar hidden" data-table-toolbar data-search-debounce="400">
                     <input type="hidden" name="tab" value="{{ $activeTab }}">
                     <input type="hidden" name="record_scope" value="{{ $recordScope }}">
+                    <input type="hidden" name="branch_id" value="{{ $operationalBranch?->id ?? auth()->user()?->branch_id }}">
 
                     <div class="table-toolbar-field">
                         <label for="case-record-search" class="table-toolbar-label">Search</label>
@@ -230,7 +242,31 @@
                     </div>
                 </form>
 
-                <div class="table-quick-tabs table-system-quick-tabs">
+            </div>
+
+            <div class="case-records-tabs-row">
+                <div class="table-quick-tabs case-records-tabs" role="tablist" aria-label="Case record tabs">
+                    <a
+                        href="{{ $activeTabUrl }}"
+                        role="tab"
+                        aria-selected="{{ $isActiveTab ? 'true' : 'false' }}"
+                        class="table-quick-tab {{ $isActiveTab ? 'table-quick-tab-active' : '' }}"
+                    >
+                        Active Cases
+                    </a>
+                    <a
+                        href="{{ $completedTabUrl }}"
+                        role="tab"
+                        aria-selected="{{ $isActiveTab ? 'false' : 'true' }}"
+                        class="table-quick-tab {{ $isActiveTab ? '' : 'table-quick-tab-active' }}"
+                    >
+                        Completed Cases
+                    </a>
+                </div>
+            </div>
+
+            <div class="case-records-quick-row">
+                <div class="table-quick-tabs table-system-quick-tabs" aria-label="Quick filters">
                     @foreach(($quickFilterOptions ?? []) as $filterKey => $filterLabel)
                         <a
                             href="{{ route('funeral-cases.index', array_filter(array_merge(request()->except(['page', 'quick_filter', 'open_wizard']), ['quick_filter' => $filterKey]), fn ($value) => !is_null($value) && $value !== '')) }}"
@@ -238,6 +274,14 @@
                         >
                             {{ $filterLabel }}
                         </a>
+                    @endforeach
+                </div>
+
+                <div class="case-compact-inline-chips case-records-quick-chips" aria-label="Applied branch and filters">
+                    @foreach($caseRecordsChips as $chip)
+                        <span class="case-compact-chip {{ !empty($chip['locked']) ? 'case-compact-chip-locked' : '' }}">
+                            <i class="bi {{ $chip['icon'] }}"></i>{{ $chip['label'] }}
+                        </span>
                     @endforeach
                 </div>
             </div>
@@ -255,7 +299,17 @@
                 </div>
 
                 <div class="table-wrapper table-system-wrap">
-                    <table class="table-base table-system-table">
+                    <table class="table-base table-system-table case-records-table records-worklist-table">
+                        <colgroup>
+                            <col class="records-col-case">
+                            <col class="records-col-family">
+                            <col class="records-col-service">
+                            <col class="records-col-schedule">
+                            <col class="records-col-financials">
+                            <col class="records-col-case-status">
+                            <col class="records-col-payment-status">
+                            <col class="records-col-actions">
+                        </colgroup>
                         <thead>
                             <tr>
                                 <th class="text-left">Case</th>
@@ -263,16 +317,24 @@
                                 <th class="text-left">Service</th>
                                 <th class="text-left">Schedule</th>
                                 <th class="table-col-number">Financials</th>
-                                <th class="text-left">Status</th>
+                                <th class="table-status-col">Case Status</th>
+                                <th class="table-status-col table-payment-status-col">Payment Status</th>
                                 <th class="table-col-actions">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             @forelse($cases as $case)
                                 @php
-                                    $intermentAt = $case->interment_at;
+                                    $intermentAt = $case->interment_at
+                                        ?? $case->serviceDetail?->internment_date;
+                                    if (is_string($intermentAt)) {
+                                        $intermentAt = \Carbon\Carbon::parse($intermentAt);
+                                    }
+                                    $needsAttention = $case->payment_status === 'UNPAID'
+                                        || (float) $case->balance_amount > 0;
                                 @endphp
                                 <tr
+                                    class="{{ $needsAttention ? 'row-needs-attention' : '' }}"
                                     data-clickable-row
                                     data-row-href="{{ route('funeral-cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}"
                                     tabindex="0"
@@ -280,7 +342,7 @@
                                     aria-label="Open case details for {{ $case->case_code }}"
                                 >
                                     <td>
-                                        <div class="table-primary whitespace-nowrap">{{ $case->case_code }}</div>
+                                        <div class="table-primary whitespace-nowrap records-case-code">{{ $case->case_code }}</div>
                                         <div class="table-secondary">{{ $case->branch?->branch_code ?? 'Assigned Branch' }} &middot; Encoded {{ $case->created_at?->format('M d, Y') }}</div>
                                     </td>
                                     <td>
@@ -301,29 +363,19 @@
                                         <div class="table-secondary">{{ $intermentAt ? $intermentAt->format('h:i A') : 'Interment time' }}</div>
                                     </td>
                                     <td class="table-col-number">
-                                        <div class="table-primary whitespace-nowrap">{{ number_format((float) $case->total_amount, 2) }}</div>
-                                        <div class="table-secondary whitespace-nowrap">Paid {{ number_format((float) $case->total_paid, 2) }} &middot; Bal {{ number_format((float) $case->balance_amount, 2) }}</div>
+                                        <div class="table-primary table-financial-total whitespace-nowrap">{{ number_format((float) $case->total_amount, 2) }}</div>
+                                        <div class="table-secondary table-financial-breakdown whitespace-nowrap">Paid {{ number_format((float) $case->total_paid, 2) }} &middot; Bal {{ number_format((float) $case->balance_amount, 2) }}</div>
                                     </td>
-                                    <td>
-                                        <div class="flex flex-wrap gap-1.5">
-                                            <x-status-badge :status="$case->case_status" />
-                                            <x-status-badge :status="$case->payment_status" />
-                                        </div>
+                                    <td class="table-status-cell">
+                                        <x-status-badge :status="$case->case_status" :label="\Illuminate\Support\Str::headline(strtolower((string) $case->case_status))" />
+                                    </td>
+                                    <td class="table-status-cell table-payment-status-cell">
+                                        <x-status-badge :status="$case->payment_status" :label="\Illuminate\Support\Str::headline(strtolower((string) $case->payment_status))" class="table-payment-status-badge" />
                                     </td>
 
                                     <td class="table-col-actions">
                                         <div class="table-row-actions">
-                                            @if($isActiveTab)
-                                                <a
-                                                    href="{{ route('funeral-cases.edit', $case) }}"
-                                                    class="action-chip action-chip-primary open-edit-modal table-row-actions-visible"
-                                                    data-url="{{ route('funeral-cases.edit', $case) }}"
-                                                    data-no-row-click
-                                                >
-                                                    <i class="bi bi-pencil-square"></i>
-                                                    <span>Update</span>
-                                                </a>
-                                            @else
+                                            @unless($isActiveTab)
                                                 <a
                                                     href="{{ route('payments.history', ['q' => $case->case_code]) }}"
                                                     class="action-chip table-row-actions-visible"
@@ -332,7 +384,7 @@
                                                     <i class="bi bi-clock-history"></i>
                                                     <span>Payments</span>
                                                 </a>
-                                            @endif
+                                            @endunless
                                             <div class="row-action-menu" data-row-menu>
                                                 <button
                                                     type="button"
@@ -357,17 +409,7 @@
                                                         <span>Open details</span>
                                                     </a>
 
-                                                    @if($isActiveTab)
-                                                        <a
-                                                            href="{{ route('funeral-cases.edit', $case) }}"
-                                                            class="row-action-item open-edit-modal"
-                                                            data-row-menu-item
-                                                            data-url="{{ route('funeral-cases.edit', $case) }}"
-                                                        >
-                                                            <i class="bi bi-pencil-square"></i>
-                                                            <span>Update Status</span>
-                                                        </a>
-                                                    @else
+                                                    @unless($isActiveTab)
                                                         <a
                                                             href="{{ route('payments.history', ['q' => $case->case_code]) }}"
                                                             class="row-action-item"
@@ -376,19 +418,8 @@
                                                             <i class="bi bi-clock-history"></i>
                                                             <span>Payment Monitoring</span>
                                                         </a>
-                                                    @endif
+                                                    @endunless
 
-                                                    @if(auth()->user()?->can('create', \App\Models\Payment::class) && (int) $case->branch_id === (int) (auth()->user()?->branch_id ?? 0) && (float) $case->balance_amount > 0)
-                                                        <a
-                                                            href="{{ route('payments.index', ['case_id' => $case->id, 'open_payment' => 1]) }}"
-                                                            class="row-action-item"
-                                                            data-row-menu-item
-                                                            title="Record a payment for this case"
-                                                        >
-                                                            <i class="bi bi-cash-stack"></i>
-                                                            <span>Record Payment</span>
-                                                        </a>
-                                                    @endif
                                                 </div>
                                             </div>
                                         </div>
@@ -396,7 +427,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="table-system-empty">
+                                    <td colspan="8" class="table-system-empty">
                                         No case records found.
                                     </td>
                                 </tr>

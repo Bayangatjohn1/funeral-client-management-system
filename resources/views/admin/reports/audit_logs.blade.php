@@ -201,8 +201,9 @@
                                                             'amount' => 'Amount',
                                                             'receipt_number' => 'Payment Record No.',
                                                             'payment_record_no' => 'Payment Record No.',
-                                                            'reference_no' => 'Accounting Reference No.',
-                                                            'accounting_reference_no' => 'Accounting Reference No.',
+                                                            'reference_no' => 'Receipt / OR No.',
+                                                            'accounting_reference_no' => 'Receipt / OR No.',
+                                                            'receipt_or_no' => 'Receipt / OR No.',
                                                             'reason' => 'Reason',
                                                         ];
                                                         $label = $labelMap[$key] ?? Str::headline(str_replace('_', ' ', $key));

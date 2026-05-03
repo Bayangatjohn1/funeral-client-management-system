@@ -1,6 +1,53 @@
 {{-- NOTE: Keep input names/ids; JS summary and PaymentController depend on them. --}}
 <style>
     .pf-shell { display: flex; flex-direction: column; gap: 1.25rem; }
+    .pf-guide {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: .75rem;
+        border: 1px solid #dbe7f5;
+        border-radius: 18px;
+        background: #f8fbff;
+        padding: .85rem;
+    }
+    .pf-guide-step {
+        display: flex;
+        align-items: flex-start;
+        gap: .7rem;
+        border-radius: 14px;
+        background: #ffffff;
+        border: 1px solid #e6eef8;
+        padding: .85rem;
+        min-width: 0;
+    }
+    .pf-guide-num,
+    .pf-section-index {
+        width: 1.65rem;
+        height: 1.65rem;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        background: #1b3358;
+        color: #ffffff;
+        font-size: .72rem;
+        font-weight: 950;
+        line-height: 1;
+    }
+    .pf-guide-title {
+        color: #0d1f38;
+        font-size: .82rem;
+        font-weight: 950;
+        line-height: 1.25;
+    }
+    .pf-guide-copy {
+        margin-top: .18rem;
+        color: #64748b;
+        font-size: .72rem;
+        font-weight: 650;
+        line-height: 1.35;
+    }
     .pf-section {
         border: 1px solid #e2e8f0;
         border-radius: 18px;
@@ -249,6 +296,10 @@
     .pf-btn:disabled { opacity: .45; pointer-events: none; transform: none; box-shadow: none; }
 
     html[data-theme='dark'] .pf-section { background: #102033; border-color: #243954; }
+    html[data-theme='dark'] .pf-guide { background: #102033; border-color: #243954; }
+    html[data-theme='dark'] .pf-guide-step { background: #152035; border-color: #2a3f5f; }
+    html[data-theme='dark'] .pf-guide-title { color: #e2ecf9; }
+    html[data-theme='dark'] .pf-guide-copy { color: #8fabca; }
     html[data-theme='dark'] .pf-section-head { background: linear-gradient(180deg, #13263d 0%, #102033 100%); border-color: #243954; }
     html[data-theme='dark'] .pf-section-title { color: #e2ecf9; }
     html[data-theme='dark'] .pf-section-sub,
@@ -273,11 +324,13 @@
     html[data-theme='dark'] .pf-btn.secondary { background: #152035; border-color: #2a3f5f; color: #d8ecff; }
 
     @media (max-width: 900px) {
+        .pf-guide,
         .pf-grid.two,
         .pf-grid.three,
         .pf-summary-grid { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 640px) {
+        .pf-guide { grid-template-columns: 1fr; padding: .95rem; }
         .pf-section-head { padding: .95rem; }
         .pf-section-body { padding: .95rem; }
         .pf-grid.two,
@@ -302,17 +355,41 @@
     <form method="POST" action="{{ route('payments.store') }}" id="paymentForm" class="pf-shell">
         @csrf
 
+        <div class="pf-guide" aria-label="Payment recording steps">
+            <div class="pf-guide-step">
+                <span class="pf-guide-num">1</span>
+                <div>
+                    <div class="pf-guide-title">Select the case</div>
+                    <div class="pf-guide-copy">Pick the case first so the form can show the current balance and maximum receivable amount.</div>
+                </div>
+            </div>
+            <div class="pf-guide-step">
+                <span class="pf-guide-num">2</span>
+                <div>
+                    <div class="pf-guide-title">Enter payment details</div>
+                    <div class="pf-guide-copy">Choose Cash or Cashless, then enter the amount received, date, and required transaction details.</div>
+                </div>
+            </div>
+            <div class="pf-guide-step">
+                <span class="pf-guide-num">3</span>
+                <div>
+                    <div class="pf-guide-title">Check the preview</div>
+                    <div class="pf-guide-copy">Review the new paid amount, balance, and payment status before saving.</div>
+                </div>
+            </div>
+        </div>
+
         <section class="pf-section">
             <div class="pf-section-head">
-                <div class="pf-section-icon"><i class="bi bi-folder2-open"></i></div>
+                <div class="pf-section-index">1</div>
                 <div>
-                    <h3 class="pf-section-title">Case to Receive Payment</h3>
-                    <div class="pf-section-sub">Choose the active funeral case first so the current balance and payment limit can be shown.</div>
+                    <h3 class="pf-section-title">Select Case</h3>
+                    <div class="pf-section-sub">Start here. The selected case controls the balance, payment limit, and status preview.</div>
                 </div>
             </div>
             <div class="pf-section-body">
                 <div class="pf-field">
-                    <label class="pf-label" for="funeral_case_id">Funeral Case <span class="pf-required">*</span></label>
+                    <label class="pf-label" for="funeral_case_id">Start Here: Funeral Case <span class="pf-required">*</span></label>
                     @php
                         $preselectCase  = $preselectCase ?? null;
                         $prefillCaseId  = old('funeral_case_id', $preselectCase->id ?? null);
@@ -320,7 +397,7 @@
                     @endphp
                     <div class="pf-control-wrap">
                         <select name="funeral_case_id" id="funeral_case_id" class="pf-input pf-select" required>
-                            <option value="">Select case number or client name</option>
+                            <option value="">Choose a case with remaining balance</option>
                             @foreach($openCases as $case)
                                 <option
                                     value="{{ $case->id }}"
@@ -342,7 +419,7 @@
                         </select>
                         <span class="pf-control-icon"><i class="bi bi-chevron-down"></i></span>
                     </div>
-                    <p class="pf-help soft">Only open cases with remaining payable balance are available here.</p>
+                    <p class="pf-help soft">Only open cases with remaining payable balance are listed. You may also click an open case row behind this form to preselect it.</p>
                 </div>
 
                 <div id="pf_case_snapshot" class="pf-snapshot hidden">
@@ -364,10 +441,10 @@
 
         <section class="pf-section">
             <div class="pf-section-head">
-                <div class="pf-section-icon"><i class="bi bi-cash-coin"></i></div>
+                <div class="pf-section-index">2</div>
                 <div>
-                    <h3 class="pf-section-title">Payment Details</h3>
-                    <div class="pf-section-sub">Enter how much was received, when it was received, and the basic tracking reference.</div>
+                    <h3 class="pf-section-title">Enter Payment Received</h3>
+                    <div class="pf-section-sub">Choose the payment method, then enter the exact amount, date received, and optional receipt number.</div>
                 </div>
             </div>
             <div class="pf-section-body">
@@ -377,14 +454,15 @@
                         <div class="pf-control-wrap">
                             <select name="payment_method" id="payment_method" class="pf-input pf-select" required>
                                 <option value="cash" {{ old('payment_method', 'cash') === 'cash' ? 'selected' : '' }}>Cash</option>
-                                <option value="bank_transfer" {{ old('payment_method') === 'bank_transfer' ? 'selected' : '' }}>Bank Transfer</option>
+                                <option value="cashless" {{ in_array(old('payment_method'), ['cashless', 'bank_transfer'], true) ? 'selected' : '' }}>Cashless</option>
                             </select>
                             <span class="pf-control-icon"><i class="bi bi-chevron-down"></i></span>
                         </div>
+                        <p class="pf-help soft">Choose Cash for physical payment. Choose Cashless for bank transfer, GCash, Maya, card, or other channels.</p>
                     </div>
 
                     <div class="pf-field">
-                        <label class="pf-label" for="payment_record_no_display">Payment Record No.</label>
+                        <label class="pf-label" for="payment_record_no_display">Internal Payment Record No.</label>
                         <input type="text" id="payment_record_no_display" value="Generated after saving" class="pf-input" readonly>
                         <p class="pf-help soft">System-generated internal payment tracking number.</p>
                     </div>
@@ -403,11 +481,12 @@
                                 id="amount_paid"
                                 value="{{ old('amount_paid') }}"
                                 class="pf-amount-input"
-                                placeholder="Enter payment amount"
+                                placeholder="0.00"
                                 required
                             >
                         </div>
-                        <p id="pf_amount_hint" class="pf-help soft">Select a case to see the remaining balance.</p>
+                        <p id="pf_amount_hint" class="pf-help soft">Choose a case first. This amount cannot exceed the remaining balance.</p>
+                        <p id="pf_amount_formatted" class="pf-help" style="font-weight:800;color:#334155;">₱0.00</p>
                     </div>
 
                     <div class="pf-field">
@@ -420,89 +499,160 @@
                             class="pf-input"
                             required
                         >
+                        <p class="pf-help soft">Use the actual date and time the payment was received. Future dates are not allowed.</p>
+                    </div>
+                </div>
+
+                <div class="pf-grid two" style="margin-top:1rem;">
+                    <div class="pf-field">
+                        <label class="pf-label" for="receipt_or_no">Receipt / OR No.</label>
+                        <input type="text" name="receipt_or_no" id="receipt_or_no" value="{{ old('receipt_or_no', old('accounting_reference_no')) }}" class="pf-input" maxlength="100" placeholder="Optional receipt or OR number">
+                        <p class="pf-help soft">Optional. Leave this blank if no receipt or OR has been issued yet.</p>
                     </div>
                 </div>
             </div>
         </section>
 
-        <section class="pf-section">
+        <section id="pf_cashless_fields" class="pf-section hidden">
             <div class="pf-section-head">
-                <div class="pf-section-icon"><i class="bi bi-receipt"></i></div>
+                <div class="pf-section-index">3</div>
                 <div>
-                    <h3 class="pf-section-title">Accounting Information</h3>
-                    <div class="pf-section-sub">Use the official accounting or OR reference and the personnel who received the payment.</div>
-                </div>
-            </div>
-            <div class="pf-section-body">
-                <div class="pf-grid two">
-                    <div class="pf-field">
-                        <label class="pf-label" for="accounting_reference_no">Accounting / OR Reference No. <span class="pf-required">*</span></label>
-                        <input type="text" name="accounting_reference_no" id="accounting_reference_no" value="{{ old('accounting_reference_no') }}" class="pf-input" maxlength="100" placeholder="e.g., OR-000123 or accounting reference" required>
-                        <p class="pf-help soft">Reference from accounting, official receipt, bank, or e-wallet record.</p>
-                    </div>
-                    <div class="pf-field">
-                        <label class="pf-label" for="received_by">Received By <span class="pf-required">*</span></label>
-                        <input type="text" name="received_by" id="received_by" value="{{ old('received_by') }}" class="pf-input" maxlength="120" placeholder="Name of accounting personnel" required>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section id="pf_bank_fields" class="pf-section hidden">
-            <div class="pf-section-head">
-                <div class="pf-section-icon"><i class="bi bi-bank"></i></div>
-                <div>
-                    <h3 class="pf-section-title">Bank Transfer Details</h3>
-                    <div class="pf-section-sub">These fields are required only when the payment method is Bank Transfer.</div>
+                    <h3 class="pf-section-title">Cashless Details</h3>
+                    <div class="pf-section-sub">This section appears only for Cashless payments. Select the channel before entering the reference details.</div>
                 </div>
             </div>
             <div class="pf-section-body">
                 <div class="pf-bank-box">
                     <div class="pf-grid two">
                         <div class="pf-field">
-                            <label class="pf-label" for="bank_or_channel">Bank / Payment Channel <span class="pf-required">*</span></label>
+                            <label class="pf-label" for="cashless_type">Cashless Type <span class="pf-required">*</span></label>
                             <div class="pf-control-wrap">
-                                <select name="bank_or_channel" id="bank_or_channel" class="pf-input pf-select">
-                                    <option value="">Select bank or payment channel</option>
-                                    @foreach(['BDO', 'BPI', 'Metrobank', 'Landbank', 'Security Bank', 'UnionBank', 'RCBC', 'PNB', 'China Bank', 'EastWest Bank', 'AUB', 'GCash', 'Maya', 'Other'] as $channel)
-                                        <option value="{{ $channel }}" {{ old('bank_or_channel') === $channel ? 'selected' : '' }}>{{ $channel }}</option>
-                                    @endforeach
+                                <select name="cashless_type" id="cashless_type" class="pf-input pf-select">
+                                    <option value="">Select cashless type</option>
+                                    <option value="bank_transfer" {{ old('cashless_type', old('payment_method') === 'bank_transfer' ? 'bank_transfer' : null) === 'bank_transfer' ? 'selected' : '' }}>Bank Transfer</option>
+                                    <option value="gcash" {{ old('cashless_type') === 'gcash' ? 'selected' : '' }}>GCash</option>
+                                    <option value="maya" {{ old('cashless_type') === 'maya' ? 'selected' : '' }}>Maya</option>
+                                    <option value="card" {{ old('cashless_type') === 'card' ? 'selected' : '' }}>Card</option>
+                                    <option value="other" {{ old('cashless_type') === 'other' ? 'selected' : '' }}>Other</option>
                                 </select>
                                 <span class="pf-control-icon"><i class="bi bi-chevron-down"></i></span>
                             </div>
                         </div>
+                    </div>
 
-                        <div class="pf-field">
-                            <label class="pf-label" for="transaction_reference_no">Transaction Reference No. <span class="pf-required">*</span></label>
-                            <input type="text" name="transaction_reference_no" id="transaction_reference_no" value="{{ old('transaction_reference_no') }}" class="pf-input" maxlength="100" placeholder="Reference number from bank or app">
+                    <div data-cashless-panel="bank_transfer" class="cashless-panel hidden">
+                        <div class="pf-grid two" style="margin-top:1rem;">
+                            <div class="pf-field">
+                                <label class="pf-label" for="bank_name">Bank Name <span class="pf-required">*</span></label>
+                                <div class="pf-control-wrap">
+                                    <select name="bank_name" id="bank_name" class="pf-input pf-select">
+                                        <option value="">Select bank</option>
+                                        @foreach(['BDO', 'BPI', 'Metrobank', 'Landbank', 'Security Bank', 'UnionBank', 'RCBC', 'PNB', 'China Bank', 'Other Bank'] as $bank)
+                                            <option value="{{ $bank }}" {{ old('bank_name', old('bank_or_channel') === 'Other' ? 'Other Bank' : old('bank_or_channel')) === $bank ? 'selected' : '' }}>{{ $bank }}</option>
+                                        @endforeach
+                                    </select>
+                                    <span class="pf-control-icon"><i class="bi bi-chevron-down"></i></span>
+                                </div>
+                            </div>
+                            <div class="pf-field">
+                                <label class="pf-label" for="account_name">Account Name</label>
+                                <input type="text" name="account_name" id="account_name" value="{{ old('account_name', old('sender_name')) }}" class="pf-input" maxlength="100" placeholder="Name shown on transfer record">
+                            </div>
+                        </div>
+                        <div id="pf_other_bank_wrap" class="hidden" style="margin-top:1rem;">
+                            <label class="pf-label" for="other_bank_name">Other Bank Name <span class="pf-required">*</span></label>
+                            <input type="text" name="other_bank_name" id="other_bank_name" value="{{ old('other_bank_name', old('other_bank_or_channel')) }}" class="pf-input" maxlength="100" placeholder="Enter bank name">
                         </div>
                     </div>
 
-                    <div id="pf_other_channel_wrap" class="hidden" style="margin-top:1rem;">
-                        <label class="pf-label" for="other_bank_or_channel">Other Bank / Channel Name <span class="pf-required">*</span></label>
-                        <input type="text" name="other_bank_or_channel" id="other_bank_or_channel" value="{{ old('other_bank_or_channel') }}" class="pf-input" maxlength="100" placeholder="Enter bank, app, or payment channel name">
+                    <div data-cashless-panel="gcash" class="cashless-panel hidden">
+                        <input type="hidden" name="wallet_provider" id="wallet_provider" value="{{ old('wallet_provider') }}">
+                        <div class="pf-grid two" style="margin-top:1rem;">
+                            <div class="pf-field">
+                                <label class="pf-label" for="gcash_account_name">GCash Account Name</label>
+                                <input type="text" id="gcash_account_name" data-account-name-field value="{{ old('account_name') }}" class="pf-input" maxlength="100" placeholder="Optional">
+                            </div>
+                            <div class="pf-field">
+                                <label class="pf-label" for="gcash_mobile_number">GCash Mobile Number</label>
+                                <input type="text" id="gcash_mobile_number" data-mobile-number-field value="{{ old('mobile_number') }}" class="pf-input" maxlength="30" placeholder="Optional">
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="pf-grid two" style="margin-top:1rem;">
-                        <div class="pf-field">
-                            <label class="pf-label" for="sender_name">Sender / Account Name</label>
-                            <input type="text" name="sender_name" id="sender_name" value="{{ old('sender_name') }}" class="pf-input" maxlength="120" placeholder="Name shown on transfer record">
-                        </div>
-                        <div class="pf-field">
-                            <label class="pf-label" for="transfer_datetime">Transfer Date &amp; Time</label>
-                            <input type="datetime-local" name="transfer_datetime" id="transfer_datetime" value="{{ old('transfer_datetime') }}" class="pf-input">
+                    <div data-cashless-panel="maya" class="cashless-panel hidden">
+                        <div class="pf-grid two" style="margin-top:1rem;">
+                            <div class="pf-field">
+                                <label class="pf-label" for="maya_account_name">Maya Account Name</label>
+                                <input type="text" id="maya_account_name" data-account-name-field value="{{ old('account_name') }}" class="pf-input" maxlength="100" placeholder="Optional">
+                            </div>
+                            <div class="pf-field">
+                                <label class="pf-label" for="maya_mobile_number">Maya Mobile Number</label>
+                                <input type="text" id="maya_mobile_number" data-mobile-number-field value="{{ old('mobile_number') }}" class="pf-input" maxlength="30" placeholder="Optional">
+                            </div>
                         </div>
                     </div>
+
+                    <div data-cashless-panel="card" class="cashless-panel hidden">
+                        <div class="pf-grid two" style="margin-top:1rem;">
+                            <div class="pf-field">
+                                <label class="pf-label" for="card_type">Card Type</label>
+                                <div class="pf-control-wrap">
+                                    <select name="card_type" id="card_type" class="pf-input pf-select">
+                                        <option value="">Select card type</option>
+                                        <option value="debit" {{ old('card_type') === 'debit' ? 'selected' : '' }}>Debit</option>
+                                        <option value="credit" {{ old('card_type') === 'credit' ? 'selected' : '' }}>Credit</option>
+                                    </select>
+                                    <span class="pf-control-icon"><i class="bi bi-chevron-down"></i></span>
+                                </div>
+                            </div>
+                            <div class="pf-field">
+                                <label class="pf-label" for="terminal_provider">Terminal / Provider</label>
+                                <input type="text" name="terminal_provider" id="terminal_provider" value="{{ old('terminal_provider') }}" class="pf-input" maxlength="80" placeholder="Optional">
+                            </div>
+                            <div class="pf-field">
+                                <label class="pf-label" for="approval_code">Approval Code</label>
+                                <input type="text" name="approval_code" id="approval_code" value="{{ old('approval_code') }}" class="pf-input" maxlength="40" placeholder="Required if no reference no.">
+                            </div>
+                            <div class="pf-field">
+                                <label class="pf-label">Reference No.</label>
+                                <p class="pf-help soft">Card payments need either approval code or reference number.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div data-cashless-panel="other" class="cashless-panel hidden">
+                        <div class="pf-grid two" style="margin-top:1rem;">
+                            <div class="pf-field">
+                                <label class="pf-label" for="payment_channel_other">Payment Channel <span class="pf-required">*</span></label>
+                                <input type="text" id="payment_channel_other" data-payment-channel-field value="{{ old('payment_channel') }}" class="pf-input" maxlength="100" placeholder="e.g., PalawanPay">
+                            </div>
+                            <div class="pf-field">
+                                <label class="pf-label" for="payment_notes">Notes</label>
+                                <input type="text" name="payment_notes" id="payment_notes" value="{{ old('payment_notes') }}" class="pf-input" maxlength="255" placeholder="Optional">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="pf_cashless_tracking" class="pf-grid two" style="margin-top:1rem;">
+                        <div class="pf-field">
+                            <label class="pf-label" for="reference_number">Reference No. <span class="pf-required">*</span></label>
+                            <input type="text" name="reference_number" id="reference_number" value="{{ old('reference_number', old('transaction_reference_no')) }}" class="pf-input" maxlength="100" placeholder="Reference number from bank, wallet, or channel">
+                        </div>
+                    </div>
+
+                    <input type="hidden" name="mobile_number" id="mobile_number" value="{{ old('mobile_number') }}">
+                    <input type="hidden" name="payment_channel" id="payment_channel" value="{{ old('payment_channel') }}">
+                    <input type="hidden" name="transaction_reference_no" id="transaction_reference_no" value="{{ old('transaction_reference_no') }}">
                 </div>
             </div>
         </section>
 
         <section class="pf-section">
             <div class="pf-section-head">
-                <div class="pf-section-icon"><i class="bi bi-chat-left-text"></i></div>
+                <div class="pf-section-index">4</div>
                 <div>
-                    <h3 class="pf-section-title">Notes &amp; Preview</h3>
-                    <div class="pf-section-sub">Add optional remarks and review the expected payment status after saving.</div>
+                    <h3 class="pf-section-title">Check Result Before Saving</h3>
+                    <div class="pf-section-sub">Add optional remarks, then verify the paid amount, remaining balance, and new payment status.</div>
                 </div>
             </div>
             <div class="pf-section-body">
@@ -542,7 +692,7 @@
 
         <div class="pf-note">
             <i class="bi bi-info-circle text-slate-500 text-base flex-shrink-0 mt-0.5"></i>
-            <div>Payments are recorded for monitoring only. Official receipt issuance remains under accounting.</div>
+            <div>Before saving, make sure the selected case, amount received, payment method, date received, and transaction details are correct.</div>
         </div>
 
         <div class="pf-actions">
@@ -559,19 +709,28 @@
 
 <script>
 (function () {
+    const form          = document.getElementById('paymentForm');
     const caseSelect    = document.getElementById('funeral_case_id');
     const amountInput   = document.getElementById('amount_paid');
     const paymentMethod = document.getElementById('payment_method');
-    const bankFields    = document.getElementById('pf_bank_fields');
-    const bankOrChannel = document.getElementById('bank_or_channel');
-    const otherWrap     = document.getElementById('pf_other_channel_wrap');
-    const otherChannel  = document.getElementById('other_bank_or_channel');
-    const transactionRef= document.getElementById('transaction_reference_no');
+    const cashlessFields = document.getElementById('pf_cashless_fields');
+    const cashlessType   = document.getElementById('cashless_type');
+    const bankName       = document.getElementById('bank_name');
+    const otherBankWrap  = document.getElementById('pf_other_bank_wrap');
+    const otherBankName  = document.getElementById('other_bank_name');
+    const referenceNo    = document.getElementById('reference_number');
+    const approvalCode   = document.getElementById('approval_code');
+    const walletProvider = document.getElementById('wallet_provider');
+    const accountName    = document.getElementById('account_name');
+    const mobileNumber   = document.getElementById('mobile_number');
+    const paymentChannel = document.getElementById('payment_channel');
+    const transactionRef = document.getElementById('transaction_reference_no');
     const snapshot      = document.getElementById('pf_case_snapshot');
     const snapTotal     = document.getElementById('pf_snap_total');
     const snapPaid      = document.getElementById('pf_snap_paid');
     const snapBalance   = document.getElementById('pf_snap_balance');
     const amountHint    = document.getElementById('pf_amount_hint');
+    const amountFormatted = document.getElementById('pf_amount_formatted');
 
     const newPaymentDisplay  = document.getElementById('new_payment_display');
     const newTotalPaidDisplay= document.getElementById('new_total_paid_display');
@@ -636,6 +795,7 @@
         newTotalPaidDisplay.textContent = fmt(newTotalPaid);
         newBalanceDisplay.textContent   = fmt(newBalance);
         newStatusDisplay.innerHTML      = statusPill(status);
+        if (amountFormatted) amountFormatted.textContent = `₱${fmt(toNum(amountInput?.value))}`;
 
         if (amountHint) {
             amountHint.textContent = balance > 0
@@ -645,20 +805,160 @@
     }
 
     function updatePaymentMethodFields() {
-        const isBank = paymentMethod?.value === 'bank_transfer';
-        if (bankFields) bankFields.classList.toggle('hidden', !isBank);
-        if (bankOrChannel) bankOrChannel.required = isBank;
-        if (transactionRef) transactionRef.required = isBank;
+        const isCashless = paymentMethod?.value === 'cashless';
+        const type = cashlessType?.value || '';
+        if (cashlessFields) cashlessFields.classList.toggle('hidden', !isCashless);
+        if (cashlessType) cashlessType.required = isCashless;
+        if (!isCashless) {
+            if (cashlessType) cashlessType.value = '';
+            if (bankName) bankName.value = '';
+            if (otherBankName) otherBankName.value = '';
+            if (referenceNo) referenceNo.value = '';
+            if (approvalCode) approvalCode.value = '';
+            if (walletProvider) walletProvider.value = '';
+            if (accountName) accountName.value = '';
+            if (mobileNumber) mobileNumber.value = '';
+            if (paymentChannel) paymentChannel.value = '';
+            if (transactionRef) transactionRef.value = '';
+        }
 
-        const isOther = isBank && bankOrChannel?.value === 'Other';
-        if (otherWrap) otherWrap.classList.toggle('hidden', !isOther);
-        if (otherChannel) otherChannel.required = isOther;
+        document.querySelectorAll('.cashless-panel').forEach(panel => {
+            panel.classList.toggle('hidden', !isCashless || panel.dataset.cashlessPanel !== type);
+        });
+
+        if (bankName) bankName.required = isCashless && type === 'bank_transfer';
+        const isOtherBank = isCashless && type === 'bank_transfer' && bankName?.value === 'Other Bank';
+        if (otherBankWrap) otherBankWrap.classList.toggle('hidden', !isOtherBank);
+        if (otherBankName) otherBankName.required = isOtherBank;
+
+        const needsReference = isCashless && ['bank_transfer', 'gcash', 'maya', 'other'].includes(type);
+        if (referenceNo) referenceNo.required = needsReference;
+        if (approvalCode) approvalCode.required = false;
+
+        const activeAccount = document.querySelector(`[data-cashless-panel="${type}"] [data-account-name-field]`);
+        const activeMobile = document.querySelector(`[data-cashless-panel="${type}"] [data-mobile-number-field]`);
+        const activeChannel = document.querySelector(`[data-cashless-panel="${type}"] [data-payment-channel-field]`);
+        if (accountName && activeAccount) accountName.value = activeAccount.value;
+        if (mobileNumber) mobileNumber.value = activeMobile ? activeMobile.value : '';
+        if (paymentChannel) paymentChannel.value = activeChannel ? activeChannel.value : '';
+        if (walletProvider) walletProvider.value = type === 'gcash' ? 'GCash' : (type === 'maya' ? 'Maya' : '');
+        if (transactionRef && referenceNo) transactionRef.value = referenceNo.value;
+    }
+
+    function fail(field, message) {
+        if (!field) return false;
+        field.setCustomValidity(message);
+        field.reportValidity();
+        field.focus();
+        return false;
+    }
+
+    const validReferencePattern = /^[A-Za-z0-9 _/-]+$/;
+    const validAccountNamePattern = /^(?=.*[\p{L}])[\p{L}\p{M} .'-]+$/u;
+    function validateReferenceValue(field, required = false) {
+        const value = (field?.value || '').trim();
+        if (required && !value) return fail(field, 'Reference number is required.');
+        if (!value) return true;
+        if (value.length < 4 || value.length > 60) return fail(field, 'Reference number must be 4 to 60 characters.');
+        if (!validReferencePattern.test(value)) return fail(field, 'Reference number contains invalid characters.');
+        field.setCustomValidity('');
+        return true;
+    }
+    function validateAccountNameValue(field) {
+        const value = (field?.value || '').trim();
+        if (!value) return true;
+        if (value.length < 2 || value.length > 100) return fail(field, 'Account name must be between 2 and 100 characters.');
+        if (!validAccountNamePattern.test(value)) return fail(field, 'Account name should contain letters only and must not include numbers or special characters.');
+        field.setCustomValidity('');
+        return true;
+    }
+
+    function clearCashlessValidity() {
+        [
+            cashlessType,
+            bankName,
+            otherBankName,
+            accountName,
+            referenceNo,
+            approvalCode,
+            ...document.querySelectorAll('[data-account-name-field], [data-mobile-number-field], [data-payment-channel-field]'),
+        ].forEach(field => field?.setCustomValidity?.(''));
+    }
+
+    function validateCashlessDetails() {
+        updatePaymentMethodFields();
+        clearCashlessValidity();
+
+        if (paymentMethod?.value !== 'cashless') return true;
+
+        const type = cashlessType?.value || '';
+        const ref = (referenceNo?.value || '').trim();
+        const approval = (approvalCode?.value || '').trim();
+        const activeChannel = document.querySelector(`[data-cashless-panel="${type}"] [data-payment-channel-field]`);
+        const activeAccount = document.querySelector(`[data-cashless-panel="${type}"] [data-account-name-field]`);
+
+        if (!type) return fail(cashlessType, 'Please select a cashless type.');
+        if (type === 'bank_transfer') {
+            if (!(bankName?.value || '').trim()) return fail(bankName, 'Please select the bank name.');
+            if (bankName.value === 'Other Bank' && !(otherBankName?.value || '').trim()) {
+                return fail(otherBankName, 'Please enter the other bank name.');
+            }
+            if (!validateAccountNameValue(accountName)) return false;
+            if (!validateReferenceValue(referenceNo, true)) return false;
+        }
+        if (type === 'gcash' || type === 'maya') {
+            if (!validateAccountNameValue(activeAccount)) return false;
+            if (!validateReferenceValue(referenceNo, true)) return false;
+        }
+        if (type === 'card' && !approval && !ref) {
+            return fail(approvalCode, 'Please enter the approval code or reference number.');
+        }
+        if (type === 'card' && ref && !validateReferenceValue(referenceNo, false)) return false;
+        if (type === 'other') {
+            if (!(activeChannel?.value || '').trim()) return fail(activeChannel, 'Please enter the payment channel.');
+            if (!validateReferenceValue(referenceNo, true)) return false;
+        }
+
+        return true;
     }
 
     if (caseSelect) caseSelect.addEventListener('change', updateSummary);
     if (amountInput) amountInput.addEventListener('input', updateSummary);
     if (paymentMethod) paymentMethod.addEventListener('change', updatePaymentMethodFields);
-    if (bankOrChannel) bankOrChannel.addEventListener('change', updatePaymentMethodFields);
+    if (cashlessType) cashlessType.addEventListener('change', updatePaymentMethodFields);
+    if (bankName) bankName.addEventListener('change', updatePaymentMethodFields);
+    if (accountName) {
+        accountName.addEventListener('input', () => {
+            accountName.setCustomValidity('');
+            updatePaymentMethodFields();
+        });
+        accountName.addEventListener('blur', () => validateAccountNameValue(accountName));
+    }
+    if (referenceNo) {
+        referenceNo.addEventListener('input', () => {
+            referenceNo.setCustomValidity('');
+            updatePaymentMethodFields();
+        });
+        referenceNo.addEventListener('blur', () => validateReferenceValue(referenceNo, false));
+    }
+    document.querySelectorAll('[data-account-name-field], [data-mobile-number-field], [data-payment-channel-field]').forEach(field => {
+        field.addEventListener('input', () => {
+            field.setCustomValidity('');
+            updatePaymentMethodFields();
+        });
+    });
+    document.querySelectorAll('[data-account-name-field]').forEach(field => {
+        field.addEventListener('blur', () => validateAccountNameValue(field));
+    });
+    if (approvalCode) approvalCode.addEventListener('input', () => {
+        approvalCode.setCustomValidity('');
+        referenceNo?.setCustomValidity('');
+    });
+    form?.addEventListener('submit', (event) => {
+        if (!validateCashlessDetails()) {
+            event.preventDefault();
+        }
+    });
 
     updateSummary();
     updatePaymentMethodFields();

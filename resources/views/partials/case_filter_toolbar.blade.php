@@ -11,6 +11,8 @@
     $showPackage = $showPackage ?? false;
     $showEncodedBy = $showEncodedBy ?? false;
     $showInterment = $showInterment ?? true;
+    $showBranchChip = $showBranchChip ?? true;
+    $showInlineChips = $showInlineChips ?? true;
     $branchLabel = 'All Branches';
     if ($branchMode === 'locked') {
         $branchLabel = $assignedBranch
@@ -62,7 +64,7 @@
     if (filled(request('q'))) {
         $filterChips->push(['icon' => 'bi-search', 'label' => 'Search: ' . request('q')]);
     }
-    if ($branchMode === 'locked' || filled($branchId)) {
+    if ($showBranchChip && ($branchMode === 'locked' || filled($branchId))) {
         $filterChips->push(['icon' => $branchMode === 'locked' ? 'bi-lock-fill' : 'bi-building', 'label' => 'Branch: ' . $branchLabel]);
     }
     if ($dateLabel) {
@@ -95,6 +97,41 @@
     @foreach(($hiddenInputs ?? []) as $name => $value)
         <input type="hidden" name="{{ $name }}" value="{{ $value }}">
     @endforeach
+
+    <div class="case-compact-search-row">
+        @if($showSearch)
+            <div class="case-compact-field case-compact-search-field">
+                <label>Search</label>
+                <input name="q" value="{{ request('q') }}" class="case-compact-input" placeholder="Search case, client, or deceased...">
+            </div>
+        @endif
+
+        @if($showInlineChips)
+            <div class="case-compact-inline-chips" aria-label="Applied branch and filters">
+                @if($branchMode === 'locked' || filled($branchId))
+                    <span class="case-compact-chip case-compact-chip-locked">
+                        <i class="bi {{ $branchMode === 'locked' ? 'bi-lock-fill' : 'bi-building' }}"></i>
+                        Branch: {{ $branchLabel }}
+                    </span>
+                @endif
+
+                @foreach($filterChips->reject(fn ($chip) => str_starts_with($chip['label'], 'Branch:')) as $chip)
+                    <span class="case-compact-chip"><i class="bi {{ $chip['icon'] }}"></i>{{ $chip['label'] }}</span>
+                @endforeach
+            </div>
+        @endif
+
+        <div class="case-compact-actions">
+            <a href="{{ $resetUrl }}" class="case-compact-reset">
+                <i class="bi bi-arrow-counterclockwise"></i>
+                <span>Reset</span>
+            </a>
+            <button type="submit" class="case-compact-apply">
+                <i class="bi bi-funnel"></i>
+                <span>Apply</span>
+            </button>
+        </div>
+    </div>
 
     <div class="case-compact-filter-bar" role="group" aria-label="Case record filters">
         <div class="case-compact-branch" title="{{ $branchMode === 'locked' ? 'Assigned Branch' : 'Branch' }}">
@@ -254,33 +291,4 @@
         @endif
     </div>
 
-    <div class="case-compact-search-row">
-        @if($showSearch)
-            <div class="case-compact-field case-compact-search-field">
-                <label>Search</label>
-                <input name="q" value="{{ request('q') }}" class="case-compact-input" placeholder="Search case, client, or deceased...">
-            </div>
-        @endif
-
-        <div class="case-compact-actions">
-            <a href="{{ $resetUrl }}" class="case-compact-reset">
-                <i class="bi bi-arrow-counterclockwise"></i>
-                <span>Reset</span>
-            </a>
-            <button type="submit" class="case-compact-apply">
-                <i class="bi bi-funnel"></i>
-                <span>Apply</span>
-            </button>
-        </div>
-    </div>
-
-    
-
-    @if($filterChips->isNotEmpty())
-        <div class="case-compact-chips" aria-label="Active filters">
-            @foreach($filterChips as $chip)
-                <span class="case-compact-chip"><i class="bi {{ $chip['icon'] }}"></i>{{ $chip['label'] }}</span>
-            @endforeach
-        </div>
-    @endif
 </form>

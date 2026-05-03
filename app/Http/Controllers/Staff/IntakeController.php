@@ -12,6 +12,7 @@ use App\Models\Payment;
 use App\Models\ServiceDetail;
 use App\Support\AuditLogger;
 use App\Support\Discount\CaseDiscountResolver;
+use App\Support\Payments\PaymentDetails;
 use App\Support\Validation\FieldRules;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -160,6 +161,9 @@ class IntakeController extends Controller
             $digitsOnly = preg_replace('/\D+/', '', (string) $request->input('client_contact_number'));
             $request->merge(['client_contact_number' => $digitsOnly]);
         }
+        if ($request->boolean('mark_as_paid') && ! $request->filled('payment_method')) {
+            $request->merge(['payment_method' => 'cash']);
+        }
         $this->mergeLegacyIntakeNameParts($request, 'client');
         $this->mergeLegacyIntakeNameParts($request, 'deceased');
 
@@ -167,7 +171,7 @@ class IntakeController extends Controller
         $wakeDateRules = ['required', 'date', 'after_or_equal:died'];
         $intermentDateRules = ['required', 'date', 'after_or_equal:funeral_service_at'];
 
-        $validated = $request->validate([
+        $validated = $request->validate(array_merge([
             // `service_requested_at` is an audit timestamp (encoding time) and not
             // part of the real-world funeral event timeline. Only enforce that
             // it's a valid date and not in the future.
@@ -246,10 +250,10 @@ class IntakeController extends Controller
 
             'mark_as_paid' => 'nullable|boolean',
             'payment_type' => 'required_if:mark_as_paid,1|in:FULL,PARTIAL',
-            'paid_at' => 'required_if:mark_as_paid,1|date|after_or_equal:died',
-            'amount_paid' => 'required_if:mark_as_paid,1|numeric|min:0.01',
+            'paid_at' => ['required_if:mark_as_paid,1', 'date', 'before_or_equal:now', 'after_or_equal:died'],
+            'amount_paid' => ['required_if:mark_as_paid,1', 'regex:/^\d+(\.\d{1,2})?$/', 'numeric', 'gt:0'],
             'confirm_review' => 'nullable|boolean',
-        ], [
+        ], PaymentDetails::rules()), array_merge(PaymentDetails::messages(), [
             'service_requested_at.required' => 'Request date is required.',
             'service_requested_at.before_or_equal' => 'Request date cannot be in the future.',
             'client_first_name.regex'  => FieldRules::nameRegexMessage('Client first name'),
@@ -276,10 +280,17 @@ class IntakeController extends Controller
             'funeral_service_at.after_or_equal' => 'Funeral service date must be on or after the date of death.',
             'interment_at.after_or_equal' => 'Interment date must be on or after the funeral service date.',
             'backdated_entry_reason.required_if' => 'Please provide a reason for a backdated request entry.',
-            'paid_at.after_or_equal' => 'Paid date/time must be on or after date of death.',
+            'paid_at.after_or_equal' => 'Date received cannot be before the case creation date.',
             'reported_at.before_or_equal' => 'Reported date/time cannot be in the future.',
             'confirm_review' => 'You must confirm that the information is correct before saving.',
-        ]);
+        ]));
+        $paymentDetails = PaymentDetails::normalize($request);
+        if ($request->boolean('mark_as_paid')) {
+            $paymentDetailErrors = PaymentDetails::validateNormalized($paymentDetails);
+            if ($paymentDetailErrors !== []) {
+                return back()->withErrors($paymentDetailErrors)->withInput();
+            }
+        }
         $validated['service_type'] = 'Burial';
         $validated = $this->normalizeIntakeNameParts($validated);
         if ($response = $this->rejectDuplicateIntakeNameParts($validated, 'client')) {
@@ -549,7 +560,7 @@ class IntakeController extends Controller
             $amountPaid = round((float) $validated['amount_paid'], 2);
             if (!$allowOverpayment && $amountPaid > $total) {
                 return back()->withErrors([
-                    'payment' => "Amount paid cannot exceed total due ({$total}).",
+                    'amount_paid' => 'Amount cannot exceed the remaining balance of ₱' . number_format($total, 2) . '.',
                 ])->withInput();
             }
 
@@ -664,6 +675,7 @@ class IntakeController extends Controller
                 $verifiedAt,
                 $verificationNote,
                 $initialPaymentType,
+                $paymentDetails,
             ) {
                 $client = Client::create([
                     'branch_id'   => $branchId,
@@ -813,9 +825,25 @@ class IntakeController extends Controller
                         'funeral_case_id'  => $funeralCase->id,
                         'branch_id'        => $branchId,
                         'payment_record_no' => Payment::nextPaymentRecordNumber($paidAt),
-                        'method'           => 'CASH',
-                        'payment_mode'     => 'cash',
-                        'payment_method'   => 'cash',
+                        'method'           => $paymentDetails['legacy_method'],
+                        'payment_mode'     => $paymentDetails['legacy_payment_mode'],
+                        'payment_method'   => $paymentDetails['payment_method'],
+                        'cashless_type'    => $paymentDetails['cashless_type'],
+                        'bank_name'        => $paymentDetails['bank_name'],
+                        'other_bank_name'  => $paymentDetails['other_bank_name'],
+                        'wallet_provider'  => $paymentDetails['wallet_provider'],
+                        'account_name'     => $paymentDetails['account_name'],
+                        'mobile_number'    => $paymentDetails['mobile_number'],
+                        'reference_number' => $paymentDetails['reference_number'],
+                        'approval_code'    => $paymentDetails['approval_code'],
+                        'card_type'        => $paymentDetails['card_type'],
+                        'terminal_provider' => $paymentDetails['terminal_provider'],
+                        'payment_channel'  => $paymentDetails['payment_channel'],
+                        'payment_notes'    => $paymentDetails['payment_notes'],
+                        'bank_or_channel'  => $paymentDetails['legacy_bank_or_channel'],
+                        'other_bank_or_channel' => $paymentDetails['legacy_other_bank_or_channel'],
+                        'transaction_reference_no' => $paymentDetails['legacy_transaction_reference_no'],
+                        'sender_name'      => $paymentDetails['legacy_sender_name'],
                         'amount'           => round((float) $validated['amount_paid'], 2),
                         'balance_after_payment'        => $initialBalance,
                         'payment_status_after_payment' => $initialPaymentStatus,
@@ -838,6 +866,13 @@ class IntakeController extends Controller
                             'case_id' => $funeralCase->id,
                             'amount' => $payment->amount,
                             'payment_record_no' => $payment->payment_record_no,
+                            'payment_method' => $payment->payment_method,
+                            'cashless_type' => $payment->cashless_type,
+                            'bank_name' => $payment->bank_name,
+                            'wallet_provider' => $payment->wallet_provider,
+                            'reference_number' => $payment->reference_number,
+                            'approval_code' => $payment->approval_code,
+                            'payment_channel' => $payment->payment_channel,
                             'payment_status_after' => $payment->payment_status_after_payment,
                             'entry_source' => $funeralCase->entry_source,
                             'changes' => [

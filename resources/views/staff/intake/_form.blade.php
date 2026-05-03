@@ -1361,20 +1361,114 @@
                                         <label class="field-label text-xs">Payment Method</label>
                                         <div class="bpay-tab-group">
                                             <label class="payment-method-card cursor-pointer">
-                                                <input type="radio" name="payment_method" value="CASH" class="payment-method-radio sr-only" {{ old('payment_method', 'CASH') === 'CASH' ? 'checked' : '' }}>
+                                                <input type="radio" name="payment_method" value="cash" class="payment-method-radio sr-only" {{ old('payment_method', 'cash') === 'cash' || old('payment_method') === 'CASH' ? 'checked' : '' }}>
                                                 <span class="flex items-center gap-2 text-sm font-bold text-slate-700"><i class="bi bi-cash-coin"></i> Cash</span>
                                             </label>
                                             <label class="payment-method-card cursor-pointer">
-                                                <input type="radio" name="payment_method" value="BANK_TRANSFER" class="payment-method-radio sr-only" {{ old('payment_method') === 'BANK_TRANSFER' ? 'checked' : '' }}>
-                                                <span class="flex items-center gap-2 text-sm font-bold text-slate-700"><i class="bi bi-bank"></i> Bank Transfer</span>
+                                                <input type="radio" name="payment_method" value="cashless" class="payment-method-radio sr-only" {{ in_array(old('payment_method'), ['cashless', 'bank_transfer', 'BANK_TRANSFER'], true) ? 'checked' : '' }}>
+                                                <span class="flex items-center gap-2 text-sm font-bold text-slate-700"><i class="bi bi-wallet2"></i> Cashless</span>
                                             </label>
                                         </div>
                                     </div>
 
-                                    {{-- Bank reference (visible only when Bank Transfer is selected) --}}
-                                    <div id="bank_reference_wrap" class="hidden">
-                                        <label class="field-label">Transaction / Reference No.</label>
-                                        <input type="text" name="bank_reference" id="bank_reference" value="{{ old('bank_reference') }}" data-label="bank reference" class="form-input" placeholder="e.g. TXN-20240101-001">
+                                    <div id="cash_reference_wrap">
+                                        <label class="field-label">Receipt / Reference No. <span class="text-slate-400 font-medium">(optional)</span></label>
+                                        <input type="text" name="reference_number" id="cash_reference_number" value="{{ old('reference_number') }}" data-label="receipt reference" class="form-input" placeholder="Optional receipt or reference number">
+                                    </div>
+
+                                    <div id="cashless_details_wrap" class="hidden space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                        <div>
+                                            <label class="field-label">Cashless Type</label>
+                                            <select name="cashless_type" id="cashless_type" class="form-input">
+                                                <option value="">Select cashless type</option>
+                                                <option value="bank_transfer" {{ old('cashless_type', in_array(old('payment_method'), ['bank_transfer', 'BANK_TRANSFER'], true) ? 'bank_transfer' : null) === 'bank_transfer' ? 'selected' : '' }}>Bank Transfer</option>
+                                                <option value="gcash" {{ old('cashless_type') === 'gcash' ? 'selected' : '' }}>GCash</option>
+                                                <option value="maya" {{ old('cashless_type') === 'maya' ? 'selected' : '' }}>Maya</option>
+                                                <option value="card" {{ old('cashless_type') === 'card' ? 'selected' : '' }}>Card</option>
+                                                <option value="other" {{ old('cashless_type') === 'other' ? 'selected' : '' }}>Other</option>
+                                            </select>
+                                        </div>
+
+                                        <div data-intake-cashless-panel="bank_transfer" class="intake-cashless-panel hidden grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label class="field-label">Bank Name</label>
+                                                <select name="bank_name" id="bank_name" class="form-input">
+                                                    <option value="">Select bank</option>
+                                                    @foreach(['BDO', 'BPI', 'Metrobank', 'Landbank', 'Security Bank', 'UnionBank', 'RCBC', 'PNB', 'China Bank', 'Other Bank'] as $bank)
+                                                        <option value="{{ $bank }}" {{ old('bank_name') === $bank ? 'selected' : '' }}>{{ $bank }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="field-label">Account Name</label>
+                                                <input type="text" name="account_name" id="account_name" value="{{ old('account_name') }}" class="form-input" maxlength="120" placeholder="Optional">
+                                            </div>
+                                            <div id="other_bank_name_wrap" class="hidden md:col-span-2">
+                                                <label class="field-label">Other Bank Name</label>
+                                                <input type="text" name="other_bank_name" id="other_bank_name" value="{{ old('other_bank_name') }}" class="form-input" maxlength="100">
+                                            </div>
+                                        </div>
+
+                                        <div data-intake-cashless-panel="gcash" class="intake-cashless-panel hidden grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label class="field-label">GCash Account Name</label>
+                                                <input type="text" data-intake-account-name-field value="{{ old('account_name') }}" class="form-input" maxlength="120" placeholder="Optional">
+                                            </div>
+                                            <div>
+                                                <label class="field-label">GCash Mobile Number</label>
+                                                <input type="text" data-intake-mobile-number-field value="{{ old('mobile_number') }}" class="form-input" maxlength="30" placeholder="Optional">
+                                            </div>
+                                        </div>
+
+                                        <div data-intake-cashless-panel="maya" class="intake-cashless-panel hidden grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label class="field-label">Maya Account Name</label>
+                                                <input type="text" data-intake-account-name-field value="{{ old('account_name') }}" class="form-input" maxlength="120" placeholder="Optional">
+                                            </div>
+                                            <div>
+                                                <label class="field-label">Maya Mobile Number</label>
+                                                <input type="text" data-intake-mobile-number-field value="{{ old('mobile_number') }}" class="form-input" maxlength="30" placeholder="Optional">
+                                            </div>
+                                        </div>
+
+                                        <div data-intake-cashless-panel="card" class="intake-cashless-panel hidden grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label class="field-label">Card Type</label>
+                                                <select name="card_type" id="card_type" class="form-input">
+                                                    <option value="">Select card type</option>
+                                                    <option value="debit" {{ old('card_type') === 'debit' ? 'selected' : '' }}>Debit</option>
+                                                    <option value="credit" {{ old('card_type') === 'credit' ? 'selected' : '' }}>Credit</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="field-label">Terminal / Provider</label>
+                                                <input type="text" name="terminal_provider" id="terminal_provider" value="{{ old('terminal_provider') }}" class="form-input" maxlength="80" placeholder="Optional">
+                                            </div>
+                                            <div>
+                                                <label class="field-label">Approval Code</label>
+                                                <input type="text" name="approval_code" id="approval_code" value="{{ old('approval_code') }}" class="form-input" maxlength="40">
+                                            </div>
+                                        </div>
+
+                                        <div data-intake-cashless-panel="other" class="intake-cashless-panel hidden grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label class="field-label">Payment Channel</label>
+                                                <input type="text" data-intake-payment-channel-field value="{{ old('payment_channel') }}" class="form-input" maxlength="100" placeholder="e.g. PalawanPay">
+                                            </div>
+                                            <div>
+                                                <label class="field-label">Notes</label>
+                                                <input type="text" name="payment_notes" value="{{ old('payment_notes') }}" class="form-input" maxlength="255" placeholder="Optional">
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label class="field-label">Reference No.</label>
+                                            <input type="text" id="reference_number" value="{{ old('reference_number', old('bank_reference')) }}" data-label="reference number" class="form-input" placeholder="e.g. TXN-20240101-001">
+                                        </div>
+                                        <input type="hidden" name="wallet_provider" id="wallet_provider" value="{{ old('wallet_provider') }}">
+                                        <input type="hidden" name="mobile_number" id="mobile_number" value="{{ old('mobile_number') }}">
+                                        <input type="hidden" name="payment_channel" id="payment_channel" value="{{ old('payment_channel') }}">
+                                        <input type="hidden" name="bank_reference" id="bank_reference" value="{{ old('bank_reference') }}">
                                     </div>
 
                                     @if(!$isOtherEntryMode)
@@ -1414,6 +1508,7 @@
                                             <p class="text-[11px] font-medium text-blue-500 mt-1.5" id="payment_amount_hint">
                                                 {{ $isOtherEntryMode ? 'Must equal full amount' : 'Enter amount received' }}
                                             </p>
+                                            <p class="text-[11px] font-bold text-slate-600 mt-1" id="payment_amount_formatted">₱0.00</p>
                                         </div>
                                         <div>
                                             <label class="field-label">Date Received</label>
@@ -1481,8 +1576,40 @@
 
                                     <div class="border-t border-slate-100 pt-3 space-y-2 text-xs">
                                         <div class="flex justify-between items-center gap-2 text-slate-500">
-                                            <span>Current Payment</span>
+                                            <span>Payment Status</span>
                                             <span class="font-bold text-slate-700 whitespace-nowrap">&#8369;&nbsp;<span id="summary_payment_status_dummy" class="hidden"></span><span id="summary_payment_status" class="font-bold">UNPAID</span></span>
+                                        </div>
+                                        <div class="flex justify-between items-start gap-3 text-slate-500">
+                                            <span>Payment Method</span>
+                                            <span id="summary_payment_method" class="font-bold text-slate-800 text-right">Not recorded</span>
+                                        </div>
+                                        <div id="summary_bank_row" class="hidden flex justify-between items-start gap-3 text-slate-500">
+                                            <span>Bank</span>
+                                            <span id="summary_payment_bank" class="font-bold text-slate-800 text-right">-</span>
+                                        </div>
+                                        <div id="summary_account_row" class="hidden flex justify-between items-start gap-3 text-slate-500">
+                                            <span>Account Name</span>
+                                            <span id="summary_payment_account" class="font-bold text-slate-800 text-right break-words">-</span>
+                                        </div>
+                                        <div id="summary_mobile_row" class="hidden flex justify-between items-start gap-3 text-slate-500">
+                                            <span>Mobile No.</span>
+                                            <span id="summary_payment_mobile" class="font-bold text-slate-800 text-right">-</span>
+                                        </div>
+                                        <div id="summary_channel_row" class="hidden flex justify-between items-start gap-3 text-slate-500">
+                                            <span id="summary_channel_label">Payment Channel</span>
+                                            <span id="summary_payment_channel" class="font-bold text-slate-800 text-right break-words">-</span>
+                                        </div>
+                                        <div id="summary_reference_row" class="hidden flex justify-between items-start gap-3 text-slate-500">
+                                            <span id="summary_reference_label">Reference No.</span>
+                                            <span id="summary_payment_reference" class="font-bold text-slate-800 text-right break-all">-</span>
+                                        </div>
+                                        <div id="summary_notes_row" class="hidden flex justify-between items-start gap-3 text-slate-500">
+                                            <span>Notes</span>
+                                            <span id="summary_payment_notes" class="font-bold text-slate-800 text-right break-words">-</span>
+                                        </div>
+                                        <div class="flex justify-between items-start gap-3 text-slate-500">
+                                            <span>Paid Amount</span>
+                                            <span class="font-bold text-slate-800 whitespace-nowrap">&#8369;&nbsp;<span id="summary_paid_amount">0.00</span></span>
                                         </div>
                                         <div class="flex justify-between items-center gap-2 text-slate-500">
                                             <span>Remaining Balance</span>
@@ -1663,11 +1790,28 @@
     const summaryTax = document.getElementById('summary_tax');
     const summaryTotal = document.getElementById('summary_total');
     const summaryStatus = document.getElementById('summary_payment_status');
+    const summaryPaymentMethod = document.getElementById('summary_payment_method');
+    const summaryBankRow = document.getElementById('summary_bank_row');
+    const summaryPaymentBank = document.getElementById('summary_payment_bank');
+    const summaryAccountRow = document.getElementById('summary_account_row');
+    const summaryPaymentAccount = document.getElementById('summary_payment_account');
+    const summaryMobileRow = document.getElementById('summary_mobile_row');
+    const summaryPaymentMobile = document.getElementById('summary_payment_mobile');
+    const summaryChannelRow = document.getElementById('summary_channel_row');
+    const summaryChannelLabel = document.getElementById('summary_channel_label');
+    const summaryPaymentChannel = document.getElementById('summary_payment_channel');
+    const summaryReferenceRow = document.getElementById('summary_reference_row');
+    const summaryReferenceLabel = document.getElementById('summary_reference_label');
+    const summaryPaymentReference = document.getElementById('summary_payment_reference');
+    const summaryNotesRow = document.getElementById('summary_notes_row');
+    const summaryPaymentNotes = document.getElementById('summary_payment_notes');
+    const summaryPaidAmount = document.getElementById('summary_paid_amount');
     const summaryBalance = document.getElementById('summary_balance');
 
     const paymentStatusPreview = document.getElementById('payment_status_preview');
     const paymentPaidPreview = document.getElementById('payment_paid_preview');
     const paymentBalancePreview = document.getElementById('payment_balance_preview');
+    const paymentAmountFormatted = document.getElementById('payment_amount_formatted');
 
     const reviewClient = document.getElementById('review_client');
     const reviewDeceased = document.getElementById('review_deceased');
@@ -2083,6 +2227,68 @@
         return { packagePrice, additional, subtotal, disc, tax, total, paid, balance, status, rate };
     };
 
+    const paymentMethodSummary = () => {
+        const clean = (value) => normalizeText(value || '');
+        const refPattern = /^[A-Za-z0-9 _/-]+$/;
+        const accountPattern = /^(?=.*[\p{L}])[\p{L}\p{M} .'-]+$/u;
+        const refState = (value, required = false) => {
+            const ref = clean(value);
+            if (!ref) return required ? { value: 'Not provided', invalid: false } : { value: '', invalid: false };
+            if (ref.length < 4 || ref.length > 60 || !refPattern.test(ref)) {
+                return { value: 'Invalid reference number', invalid: true };
+            }
+            return { value: ref, invalid: false };
+        };
+        const accountState = (field) => {
+            const value = clean(field?.value);
+            if (!value) return '';
+            if (value.length < 2 || value.length > 100 || !accountPattern.test(value)) return '';
+            return value;
+        };
+
+        if (!payNow()) return { method: 'Not recorded', bank: '', account: '', mobile: '', channelLabel: 'Payment Channel', channel: '', referenceLabel: 'Reference No.', reference: '', referenceInvalid: false, notes: '' };
+        const selected = payMethodRadios.find(r => r.checked)?.value || 'cash';
+        if (selected !== 'cashless') {
+            const ref = refState(cashReferenceNumber?.value, false);
+            return {
+                method: 'Cash',
+                bank: '',
+                account: '',
+                mobile: '',
+                channelLabel: 'Payment Channel',
+                channel: '',
+                referenceLabel: 'Receipt / Reference No.',
+                reference: ref.value,
+                referenceInvalid: ref.invalid,
+                notes: '',
+            };
+        }
+
+        const type = cashlessType?.value || '';
+        const ref = refState(referenceNumber?.value, ['bank_transfer', 'gcash', 'maya', 'other'].includes(type));
+        const approval = document.getElementById('approval_code')?.value?.trim() || '';
+        const cardType = document.getElementById('card_type')?.value || '';
+        const terminal = clean(document.getElementById('terminal_provider')?.value);
+        const activeAccount = document.querySelector(`[data-intake-cashless-panel="${type}"] [data-intake-account-name-field]`);
+        const activeMobile = document.querySelector(`[data-intake-cashless-panel="${type}"] [data-intake-mobile-number-field]`);
+        const activeChannel = document.querySelector(`[data-intake-cashless-panel="${type}"] [data-intake-payment-channel-field]`);
+        const paymentNotes = clean(document.querySelector(`[data-intake-cashless-panel="${type}"] [name="payment_notes"]`)?.value);
+
+        if (type === 'bank_transfer') {
+            const bank = bankName?.value === 'Other Bank' ? (clean(otherBankName?.value) || 'Not selected') : (bankName?.value || 'Not selected');
+            return { method: 'Bank Transfer', bank, account: accountState(accountName), mobile: '', channelLabel: 'Payment Channel', channel: '', referenceLabel: 'Reference No.', reference: ref.value, referenceInvalid: ref.invalid, notes: '' };
+        }
+        if (type === 'gcash') return { method: 'GCash', bank: '', account: accountState(activeAccount), mobile: clean(activeMobile?.value), channelLabel: 'Payment Channel', channel: '', referenceLabel: 'Reference No.', reference: ref.value, referenceInvalid: ref.invalid, notes: '' };
+        if (type === 'maya') return { method: 'Maya', bank: '', account: accountState(activeAccount), mobile: clean(activeMobile?.value), channelLabel: 'Payment Channel', channel: '', referenceLabel: 'Reference No.', reference: ref.value, referenceInvalid: ref.invalid, notes: '' };
+        if (type === 'card') {
+            const approvalState = refState(approval, false);
+            const referenceValue = approval ? approvalState.value : ref.value;
+            return { method: 'Card', bank: '', account: '', mobile: '', channelLabel: cardType ? 'Card Type' : 'Terminal / Provider', channel: cardType ? cardType.charAt(0).toUpperCase() + cardType.slice(1) : terminal, referenceLabel: approval ? 'Approval Code' : 'Reference No.', reference: referenceValue, referenceInvalid: approval ? approvalState.invalid : ref.invalid, notes: terminal && cardType ? `Terminal / Provider: ${terminal}` : '' };
+        }
+        if (type === 'other') return { method: 'Other', bank: '', account: '', mobile: '', channelLabel: 'Payment Channel', channel: clean(activeChannel?.value) || 'Not selected', referenceLabel: 'Reference No.', reference: ref.value, referenceInvalid: ref.invalid, notes: paymentNotes };
+        return { method: 'Cashless', bank: '', account: '', mobile: '', channelLabel: 'Payment Channel', channel: '', referenceLabel: 'Reference No.', reference: '', referenceInvalid: false, notes: '' };
+    };
+
     const syncRequestDate = () => {
         if (!requestDateDisplay || !requestDate?.value) return;
         requestDateDisplay.textContent = formatDateOnly(requestDate.value);
@@ -2326,6 +2532,7 @@
             reviewPayment.innerHTML = [
                 detailRow('Payment Recorded', payNow() ? 'Yes' : 'No'),
                 detailRow('Payment Type', isOtherEntryMode ? 'FULL (Required)' : (payType() || '-')),
+                detailRow('Payment Method', paymentMethodSummary().method),
                 detailRow('Amount Paid', `PHP ${fmt(t.paid)}`),
                 detailRow('Remaining Balance', `PHP ${fmt(t.balance)}`),
                 detailRow('Payment Date', formatDateTime(paidAt?.value)),
@@ -2497,6 +2704,27 @@
         if (summaryTax) summaryTax.textContent = fmt(t.tax);
         if (summaryTotal) summaryTotal.textContent = fmt(t.total);
         if (summaryStatus) summaryStatus.textContent = t.status;
+        if (summaryPaidAmount) summaryPaidAmount.textContent = fmt(t.paid);
+        const paymentSummary = paymentMethodSummary();
+        if (summaryPaymentMethod) summaryPaymentMethod.textContent = paymentSummary.method;
+        if (summaryBankRow) summaryBankRow.classList.toggle('hidden', !paymentSummary.bank);
+        if (summaryPaymentBank) summaryPaymentBank.textContent = paymentSummary.bank || '-';
+        if (summaryAccountRow) summaryAccountRow.classList.toggle('hidden', !paymentSummary.account);
+        if (summaryPaymentAccount) summaryPaymentAccount.textContent = paymentSummary.account || '-';
+        if (summaryMobileRow) summaryMobileRow.classList.toggle('hidden', !paymentSummary.mobile);
+        if (summaryPaymentMobile) summaryPaymentMobile.textContent = paymentSummary.mobile || '-';
+        if (summaryChannelRow) summaryChannelRow.classList.toggle('hidden', !paymentSummary.channel);
+        if (summaryChannelLabel) summaryChannelLabel.textContent = paymentSummary.channelLabel || 'Payment Channel';
+        if (summaryPaymentChannel) summaryPaymentChannel.textContent = paymentSummary.channel || '-';
+        if (summaryReferenceRow) summaryReferenceRow.classList.toggle('hidden', !paymentSummary.reference);
+        if (summaryReferenceLabel) summaryReferenceLabel.textContent = paymentSummary.referenceLabel;
+        if (summaryPaymentReference) {
+            summaryPaymentReference.textContent = paymentSummary.reference || '-';
+            summaryPaymentReference.classList.toggle('text-amber-600', !!paymentSummary.referenceInvalid);
+            summaryPaymentReference.classList.toggle('text-slate-800', !paymentSummary.referenceInvalid);
+        }
+        if (summaryNotesRow) summaryNotesRow.classList.toggle('hidden', !paymentSummary.notes);
+        if (summaryPaymentNotes) summaryPaymentNotes.textContent = paymentSummary.notes || '-';
         if (summaryBalance) summaryBalance.textContent = fmt(t.balance);
 
         if (taxAmountDisplay) taxAmountDisplay.value = `PHP ${fmt(t.tax)}`;
@@ -2508,6 +2736,7 @@
         if (paymentStatusPreview) paymentStatusPreview.textContent = t.status;
         if (paymentPaidPreview) paymentPaidPreview.textContent = fmt(t.paid);
         if (paymentBalancePreview) paymentBalancePreview.textContent = fmt(t.balance);
+        if (paymentAmountFormatted) paymentAmountFormatted.textContent = `₱${fmt(num(amountPaid?.value))}`;
 
         if (payHint) {
             payHint.textContent = payType() === 'FULL'
@@ -2749,6 +2978,10 @@
             if (!paidAt?.value) {
                 paidAt.setCustomValidity('Please select payment date.');
                 paidAt.reportValidity();
+                return false;
+            }
+
+            if (!validatePaymentMethodDetails()) {
                 return false;
             }
 
@@ -3522,17 +3755,170 @@
 
     const payMethodRadios = [...document.querySelectorAll('.payment-method-radio')];
     const payMethodCards  = [...document.querySelectorAll('.payment-method-card')];
-    const bankRefWrap     = document.getElementById('bank_reference_wrap');
+    const cashReferenceWrap = document.getElementById('cash_reference_wrap');
+    const cashReferenceNumber = document.getElementById('cash_reference_number');
+    const cashlessWrap    = document.getElementById('cashless_details_wrap');
+    const cashlessType    = document.getElementById('cashless_type');
+    const bankName        = document.getElementById('bank_name');
+    const otherBankWrap   = document.getElementById('other_bank_name_wrap');
+    const otherBankName   = document.getElementById('other_bank_name');
+    const referenceNumber = document.getElementById('reference_number');
+    const bankReference   = document.getElementById('bank_reference');
+    const walletProvider  = document.getElementById('wallet_provider');
+    const accountName     = document.getElementById('account_name');
+    const mobileNumber    = document.getElementById('mobile_number');
+    const paymentChannel  = document.getElementById('payment_channel');
 
     function syncPayMethod() {
         const selected = payMethodRadios.find(r => r.checked)?.value;
         payMethodCards.forEach(card => {
             card.classList.toggle('active-tab', !!card.querySelector('.payment-method-radio')?.checked);
         });
-        if (bankRefWrap) bankRefWrap.classList.toggle('hidden', selected !== 'BANK_TRANSFER');
+        const isCashless = selected === 'cashless';
+        const type = cashlessType?.value || '';
+        if (cashReferenceWrap) cashReferenceWrap.classList.toggle('hidden', isCashless);
+        if (cashlessWrap) cashlessWrap.classList.toggle('hidden', !isCashless);
+        if (cashlessType) cashlessType.required = isCashless;
+        if (!isCashless) {
+            if (cashlessType) cashlessType.value = '';
+            if (bankName) bankName.value = '';
+            if (otherBankName) otherBankName.value = '';
+            if (referenceNumber) referenceNumber.value = '';
+            if (walletProvider) walletProvider.value = '';
+            if (accountName) accountName.value = '';
+            if (mobileNumber) mobileNumber.value = '';
+            if (paymentChannel) paymentChannel.value = '';
+            if (bankReference) bankReference.value = '';
+        }
+        document.querySelectorAll('.intake-cashless-panel').forEach(panel => {
+            panel.classList.toggle('hidden', !isCashless || panel.dataset.intakeCashlessPanel !== type);
+        });
+        if (bankName) bankName.required = isCashless && type === 'bank_transfer';
+        const isOtherBank = isCashless && type === 'bank_transfer' && bankName?.value === 'Other Bank';
+        if (otherBankWrap) otherBankWrap.classList.toggle('hidden', !isOtherBank);
+        if (otherBankName) otherBankName.required = isOtherBank;
+        if (referenceNumber) referenceNumber.required = isCashless && ['bank_transfer', 'gcash', 'maya', 'other'].includes(type);
+        if (isCashless && cashReferenceNumber && referenceNumber) cashReferenceNumber.value = referenceNumber.value;
+        if (bankReference && referenceNumber) bankReference.value = referenceNumber.value;
+
+        const activeAccount = document.querySelector(`[data-intake-cashless-panel="${type}"] [data-intake-account-name-field]`);
+        const activeMobile = document.querySelector(`[data-intake-cashless-panel="${type}"] [data-intake-mobile-number-field]`);
+        const activeChannel = document.querySelector(`[data-intake-cashless-panel="${type}"] [data-intake-payment-channel-field]`);
+        if (accountName && activeAccount) accountName.value = activeAccount.value;
+        if (mobileNumber) mobileNumber.value = activeMobile ? activeMobile.value : '';
+        if (paymentChannel) paymentChannel.value = activeChannel ? activeChannel.value : '';
+        if (walletProvider) walletProvider.value = type === 'gcash' ? 'GCash' : (type === 'maya' ? 'Maya' : '');
     }
 
-    payMethodRadios.forEach(r => r.addEventListener('change', syncPayMethod));
+    const clearPaymentMethodValidity = () => {
+        [
+            cashlessType,
+            bankName,
+            otherBankName,
+            referenceNumber,
+            document.getElementById('approval_code'),
+            ...document.querySelectorAll('[data-intake-account-name-field], [data-intake-mobile-number-field], [data-intake-payment-channel-field]'),
+        ].forEach(clearFieldMessage);
+    };
+
+    const validReferencePattern = /^[A-Za-z0-9 _/-]+$/;
+    const validAccountNamePattern = /^(?=.*[\p{L}])[\p{L}\p{M} .'-]+$/u;
+    const validateReferenceValue = (field, required = false) => {
+        const value = normalizeText(field?.value);
+        if (required && !value) return showFieldError(field, 'Reference number is required.');
+        if (!value) return true;
+        if (value.length < 4 || value.length > 60) return showFieldError(field, 'Reference number must be 4 to 60 characters.');
+        if (!validReferencePattern.test(value)) return showFieldError(field, 'Reference number contains invalid characters.');
+        clearFieldMessage(field);
+        return true;
+    };
+    const validateAccountNameValue = (field) => {
+        const value = normalizeText(field?.value);
+        if (!value) return true;
+        if (value.length < 2 || value.length > 100) return showFieldError(field, 'Account name must be between 2 and 100 characters.');
+        if (!validAccountNamePattern.test(value)) return showFieldError(field, 'Account name should contain letters only and must not include numbers or special characters.');
+        clearFieldMessage(field);
+        return true;
+    };
+
+    const validatePaymentMethodDetails = () => {
+        syncPayMethod();
+        clearPaymentMethodValidity();
+
+        const selected = payMethodRadios.find(r => r.checked)?.value || 'cash';
+        if (selected !== 'cashless') return true;
+
+        const type = cashlessType?.value || '';
+        const ref = (referenceNumber?.value || '').trim();
+        const approval = (document.getElementById('approval_code')?.value || '').trim();
+        const activeChannel = document.querySelector(`[data-intake-cashless-panel="${type}"] [data-intake-payment-channel-field]`);
+        const activeAccount = document.querySelector(`[data-intake-cashless-panel="${type}"] [data-intake-account-name-field]`);
+
+        if (!type) return showFieldError(cashlessType, 'Please select a cashless type.');
+        if (type === 'bank_transfer') {
+            if (!(bankName?.value || '').trim()) return showFieldError(bankName, 'Please select the bank name.');
+            if (bankName.value === 'Other Bank' && !(otherBankName?.value || '').trim()) {
+                return showFieldError(otherBankName, 'Please enter the other bank name.');
+            }
+            if (!validateAccountNameValue(accountName)) return false;
+            if (!validateReferenceValue(referenceNumber, true)) return false;
+        }
+        if ((type === 'gcash' || type === 'maya') && !ref) {
+            return showFieldError(referenceNumber, 'Please enter the wallet reference number.');
+        }
+        if ((type === 'gcash' || type === 'maya')) {
+            if (!validateAccountNameValue(activeAccount)) return false;
+            if (!validateReferenceValue(referenceNumber, true)) return false;
+        }
+        if (type === 'card' && !approval && !ref) {
+            return showFieldError(document.getElementById('approval_code'), 'Please enter the approval code or reference number.');
+        }
+        if (type === 'card' && ref && !validateReferenceValue(referenceNumber, false)) return false;
+        if (type === 'other') {
+            if (!(activeChannel?.value || '').trim()) return showFieldError(activeChannel, 'Please enter the payment channel.');
+            if (!validateReferenceValue(referenceNumber, true)) return false;
+        }
+
+        return true;
+    };
+
+    const syncPaymentAndRender = () => {
+        syncPayMethod();
+        render();
+    };
+
+    payMethodRadios.forEach(r => r.addEventListener('change', syncPaymentAndRender));
+    cashlessType?.addEventListener('change', syncPaymentAndRender);
+    bankName?.addEventListener('change', syncPaymentAndRender);
+    otherBankName?.addEventListener('input', syncPaymentAndRender);
+    cashReferenceNumber?.addEventListener('input', render);
+    referenceNumber?.addEventListener('input', () => {
+        syncPayMethod();
+        clearFieldMessage(referenceNumber);
+        render();
+    });
+    referenceNumber?.addEventListener('blur', () => {
+        validateReferenceValue(referenceNumber, false);
+        render();
+    });
+    document.querySelectorAll('[data-intake-account-name-field], [data-intake-mobile-number-field], [data-intake-payment-channel-field]').forEach(field => {
+        field.addEventListener('input', syncPaymentAndRender);
+    });
+    document.querySelectorAll('[data-intake-account-name-field]').forEach(field => {
+        field.addEventListener('blur', () => {
+            validateAccountNameValue(field);
+            render();
+        });
+    });
+    document.getElementById('approval_code')?.addEventListener('input', () => {
+        clearPaymentMethodValidity();
+        render();
+    });
+    document.getElementById('card_type')?.addEventListener('change', render);
+    document.getElementById('terminal_provider')?.addEventListener('input', render);
+    document.querySelectorAll('[name="payment_notes"]').forEach(field => {
+        field.addEventListener('input', render);
+    });
     syncPayMethod();
 
     pkgRadios.forEach((radio) => {

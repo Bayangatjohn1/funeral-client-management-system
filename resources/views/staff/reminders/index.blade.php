@@ -37,8 +37,8 @@
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.08em;
-        color: #334155;
-        background: #f8fafc;
+        color: #333333;
+        background: #FAFAF7;
     }
 
     .reminders-back-btn:hover {
@@ -62,7 +62,7 @@
 
     .reminders-filter-note {
         font-size: 11px;
-        color: #94a3b8;
+        color: #7A8076;
         margin-top: 6px;
     }
 
@@ -88,20 +88,20 @@
     }
 
     .reminders-tab.is-active {
-        background: #0f172a;
-        border-color: #0f172a;
+        background: #3E4A3D;
+        border-color: #3E4A3D;
         color: #ffffff;
     }
 
     .reminders-tab.is-idle {
         background: #ffffff;
-        color: #475569;
+        color: #5F685F;
     }
 
     .reminders-tab.is-idle:hover {
         border-color: #c9d7e6;
-        color: #334155;
-        background: #f8fafc;
+        color: #333333;
+        background: #FAFAF7;
     }
 
     .reminders-empty {
@@ -490,7 +490,7 @@
 
                                 <a
                                     href="{{ route('funeral-cases.show', ['funeral_case' => $item['case_id'], 'return_to' => request()->fullUrl()]) }}"
-                                    class="px-3 py-2 text-[11px] font-bold uppercase tracking-widest rounded-lg bg-slate-900 text-white hover:bg-[#9C5A1A] transition-colors"
+                                    class="px-3 py-2 text-[11px] font-bold uppercase tracking-widest rounded-lg bg-slate-900 text-white hover:bg-[#3E4A3D] transition-colors"
                                 >
                                     View Details
                                 </a>

@@ -43,8 +43,8 @@
     .pm-kpi { background: var(--card); border: 1px solid var(--border); border-radius: .5rem; padding: 1rem; }
     .pm-kpi span { display:block; font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-muted); font-weight:700; }
     .pm-kpi strong { display:block; margin-top:.35rem; font-size:1.25rem; font-weight:800; font-variant-numeric:tabular-nums; }
-    .pm-kpi .good { color:#15803d; }
-    .pm-kpi .warn { color:#b91c1c; }
+    .pm-kpi .good { color:#6F8A6D; }
+    .pm-kpi .warn { color:#9E4B3F; }
 
     .pm-toolbar-shell { background: var(--card); border:1px solid var(--border); border-radius:.75rem; padding:.75rem; margin-bottom:1rem; overflow:visible; }
     .pm-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:.75rem; }
@@ -116,7 +116,7 @@
     .pm-status { display:inline-flex; align-items:center; border-radius:999px; padding:.22rem .58rem; font-size:.72rem; font-weight:800; }
     .pm-status.is-paid { background:#dcfce7; color:#166534; }
     .pm-status.is-partial { background:#fef3c7; color:#92400e; }
-    .pm-status.is-unpaid { background:#fee2e2; color:#991b1b; }
+    .pm-status.is-unpaid { background:#fee2e2; color:#7F3A32; }
     .pm-link { color:var(--accent); font-weight:800; text-decoration:none; white-space:nowrap; }
     .pm-empty { padding:3rem 1rem; text-align:center; color:var(--ink-muted); font-weight:700; }
     .pm-foot { padding:.85rem 1rem; border-top:1px solid var(--border); display:flex; justify-content:space-between; gap:.75rem; flex-wrap:wrap; align-items:center; }

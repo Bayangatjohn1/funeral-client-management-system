@@ -46,7 +46,7 @@
 
         #reports label {
             font-size: 10px;
-            color: #334155;
+            color: #333333;
         }
 
         #reports input,
@@ -54,7 +54,7 @@
             border: 0 !important;
             padding: 0 !important;
             font-size: 12px !important;
-            color: #0f172a;
+            color: #3E4A3D;
             background: transparent !important;
             appearance: none;
         }
@@ -67,7 +67,7 @@
 
         th,
         td {
-            border: 1px solid #cbd5e1 !important;
+            border: 1px solid #C9C5BB !important;
             padding: 4px 6px !important;
             white-space: normal !important;
             word-break: break-word;
@@ -99,7 +99,7 @@
     <form method="GET" action="{{ route('owner.sales.index') }}" class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
         <div>
             <label class="block text-sm font-medium mb-1">Branch</label>
-            <select name="branch_id" class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#9C5A1A]">
+            <select name="branch_id" class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3E4A3D]">
                 <option value="">All Branches</option>
                 @foreach($branches as $branch)
                     <option value="{{ $branch->id }}" {{ (string) $filters['branch_id'] === (string) $branch->id ? 'selected' : '' }}>
@@ -110,22 +110,22 @@
         </div>
         <div>
             <label class="block text-sm font-medium mb-1">Date From</label>
-            <input type="date" name="date_from" value="{{ $filters['date_from'] }}" class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#9C5A1A]">
+            <input type="date" name="date_from" value="{{ $filters['date_from'] }}" class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3E4A3D]">
         </div>
         <div>
             <label class="block text-sm font-medium mb-1">Date To</label>
-            <input type="date" name="date_to" value="{{ $filters['date_to'] }}" class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#9C5A1A]">
+            <input type="date" name="date_to" value="{{ $filters['date_to'] }}" class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3E4A3D]">
         </div>
         <div>
             <label class="block text-sm font-medium mb-1">Interment From</label>
-            <input type="date" name="interment_from" value="{{ $filters['interment_from'] ?? '' }}" class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#9C5A1A]">
+            <input type="date" name="interment_from" value="{{ $filters['interment_from'] ?? '' }}" class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3E4A3D]">
         </div>
         <div>
             <label class="block text-sm font-medium mb-1">Interment To</label>
-            <input type="date" name="interment_to" value="{{ $filters['interment_to'] ?? '' }}" class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#9C5A1A]">
+            <input type="date" name="interment_to" value="{{ $filters['interment_to'] ?? '' }}" class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3E4A3D]">
         </div>
         <div class="flex gap-2 no-print">
-            <button class="px-3 py-2 rounded text-sm bg-[#9C5A1A] text-white hover:bg-[#7A440F]">Apply</button>
+            <button class="px-3 py-2 rounded text-sm bg-[#3E4A3D] text-white hover:bg-[#7A440F]">Apply</button>
             <a href="{{ route('owner.sales.index') }}" class="border px-3 py-2 rounded text-sm">Reset</a>
         </div>
         <div class="flex gap-2 no-print">
@@ -196,7 +196,7 @@
                     <span>{{ number_format($row['sales'], 2) }}</span>
                 </div>
                 <div class="w-full h-3 rounded bg-slate-100">
-                    <div class="h-3 rounded bg-[#9C5A1A]" style="width: {{ max(2, $width) }}%"></div>
+                    <div class="h-3 rounded bg-[#3E4A3D]" style="width: {{ max(2, $width) }}%"></div>
                 </div>
             </div>
         @endforeach

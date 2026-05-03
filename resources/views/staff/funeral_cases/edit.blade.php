@@ -47,7 +47,7 @@
 
 .ef-alert {
     padding:9px 20px; font-size:12px; font-weight:600;
-    background:#fef2f2; border-bottom:1px solid #fecaca; color:#991b1b;
+    background:#fef2f2; border-bottom:1px solid #fecaca; color:#7F3A32;
     display:flex; align-items:center; gap:6px;
 }
 
@@ -72,7 +72,7 @@
 }
 .ef-label-note { font-size:9px; font-weight:400; text-transform:none; letter-spacing:0; color:var(--ink-muted); opacity:.75; }
 .ef-req { color:#e11d48; margin-left:1px; }
-.ef-err { font-size:11px; color:#b91c1c; margin-top:3px; display:flex; align-items:center; gap:3px; }
+.ef-err { font-size:11px; color:#9E4B3F; margin-top:3px; display:flex; align-items:center; gap:3px; }
 
 .ef-preview {
     display:grid; grid-template-columns:repeat(3,1fr); gap:8px;
@@ -87,7 +87,7 @@
 .ef-stat-val { font-size:14px; font-weight:800; color:var(--ink); font-variant-numeric:tabular-nums; }
 .ef-stat-sub { font-size:9px; color:var(--ink-muted); margin-top:1px; }
 .ef-stat.s-green .ef-stat-lbl,
-.ef-stat.s-green .ef-stat-val { color:#15803d; }
+.ef-stat.s-green .ef-stat-val { color:#6F8A6D; }
 .ef-stat.s-amber .ef-stat-lbl,
 .ef-stat.s-amber .ef-stat-val { color:#b45309; }
 

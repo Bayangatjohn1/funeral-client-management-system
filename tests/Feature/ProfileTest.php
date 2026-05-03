@@ -22,7 +22,7 @@ class ProfileTest extends TestCase
         $response->assertOk();
     }
 
-    public function test_profile_page_hides_topbar_without_affecting_other_panel_pages(): void
+    public function test_staff_dashboard_uses_dashboard_header_without_layout_topbar(): void
     {
         $branch = Branch::create([
             'branch_code' => 'BR001',
@@ -46,7 +46,32 @@ class ProfileTest extends TestCase
         $this->actingAs($user)
             ->get('/staff')
             ->assertOk()
-            ->assertSee('<header class="topbar">', false);
+            ->assertDontSee('<header class="topbar">', false)
+            ->assertSee('staff-header-card', false)
+            ->assertSee('topbar-notification', false);
+    }
+
+    public function test_staff_non_dashboard_pages_use_inline_header_without_notification_bell(): void
+    {
+        $branch = Branch::create([
+            'branch_code' => 'BR001',
+            'branch_name' => 'Main Branch',
+            'address' => 'Test Address',
+            'is_active' => true,
+        ]);
+
+        $user = User::factory()->create([
+            'role' => 'staff',
+            'branch_id' => $branch->id,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->get('/funeral-cases?tab=active&record_scope=main')
+            ->assertOk()
+            ->assertDontSee('<header class="topbar">', false)
+            ->assertSee('panel-page-header', false)
+            ->assertDontSee('<div class="topbar-notification-wrap"', false);
     }
 
     public function test_profile_information_can_be_updated(): void

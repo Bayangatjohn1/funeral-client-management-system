@@ -2,6 +2,7 @@
 
 @section('page_title', 'Staff Dashboard')
 @section('page_desc', 'Daily operations and follow-up center')
+@section('hide_layout_topbar', '1')
 
 @section('content')
 @php
@@ -23,7 +24,7 @@
 
 <style>
     .staff-dashboard-v2 {
-        color: #0f172a;
+        color: #3E4A3D;
         display: flex;
         flex-direction: column;
         gap: 1.15rem;
@@ -76,6 +77,13 @@
         flex-wrap: wrap;
     }
 
+    .staff-header-title-group {
+        display: flex;
+        align-items: flex-start;
+        gap: .85rem;
+        min-width: 0;
+    }
+
     .staff-title {
         font-family: var(--font-heading);
         font-size: 1.8rem;
@@ -87,7 +95,7 @@
 
     .staff-subtitle {
         margin-top: .35rem;
-        color: #64748b;
+        color: #5F685F;
         font-size: .98rem;
     }
 
@@ -115,16 +123,16 @@
         align-items: center;
         gap: .42rem;
         border: 1px solid #d7dde6;
-        background: #f8fafc;
+        background: #FAFAF7;
         border-radius: .75rem;
         padding: .52rem .74rem;
         font-size: .9rem;
-        color: #64748b;
+        color: #5F685F;
         white-space: nowrap;
     }
 
     .staff-pill i {
-        color: #2563eb;
+        color: #3E4A3D;
         font-size: .86rem;
     }
 
@@ -259,7 +267,7 @@
 
     .staff-card-head {
         padding: 1rem 1.1rem;
-        border-bottom: 1px solid #e2e8f0;
+        border-bottom: 1px solid #C9C5BB;
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
@@ -286,12 +294,12 @@
         margin: 0;
         font-size: 1.05rem;
         line-height: 1.15;
-        color: #0f172a;
+        color: #3E4A3D;
     }
 
     .staff-card-head p {
         margin: .12rem 0 0;
-        color: #64748b;
+        color: #5F685F;
         font-size: .92rem;
     }
 
@@ -345,12 +353,12 @@
 
     .staff-card-tabs-bar {
         padding: .6rem 1.1rem 0;
-        border-bottom: 1px solid #e2e8f0;
+        border-bottom: 1px solid #C9C5BB;
     }
 
     .staff-card-head--compact {
         padding: .1rem 0 .6rem;
-        border-bottom: 1px solid #e2e8f0;
+        border-bottom: 1px solid #C9C5BB;
     }
 
     .staff-card--month {
@@ -368,15 +376,15 @@
         text-align: left;
         font-size: .73rem;
         letter-spacing: .08em;
-        color: #64748b;
-        border-bottom: 1px solid #e2e8f0;
+        color: #5F685F;
+        border-bottom: 1px solid #C9C5BB;
         padding: .7rem .95rem;
-        background: #f8fafc;
+        background: #FAFAF7;
         white-space: nowrap;
     }
 
     .staff-table td {
-        border-bottom: 1px solid #e2e8f0;
+        border-bottom: 1px solid #C9C5BB;
         padding: .78rem .95rem;
         vertical-align: middle;
         font-size: .95rem;
@@ -393,7 +401,7 @@
     }
 
     .staff-muted {
-        color: #64748b;
+        color: #5F685F;
         font-size: .88rem;
     }
 
@@ -411,13 +419,13 @@
     .status-pill.active {
         background: #dcfce7;
         border-color: #bbf7d0;
-        color: #047857;
+        color: #4F6F4D;
     }
 
     .status-pill.completed {
         background: #f1f5f9;
-        border-color: #e2e8f0;
-        color: #475569;
+        border-color: #C9C5BB;
+        color: #5F685F;
     }
 
     .status-pill.draft {
@@ -429,7 +437,7 @@
     .status-pill.unpaid {
         background: #fee2e2;
         border-color: #fecaca;
-        color: #b91c1c;
+        color: #9E4B3F;
     }
 
     .staff-money {
@@ -450,7 +458,7 @@
         gap: .8rem;
         padding: .7rem .68rem;
         border-radius: .8rem;
-        border: 1px solid #e2e8f0;
+        border: 1px solid #C9C5BB;
         background: #fcfdff;
         min-width: 0;
         flex-wrap: wrap;
@@ -466,7 +474,7 @@
     }
 
     .staff-list-row strong {
-        color: #0f172a;
+        color: #3E4A3D;
         font-size: 1rem;
         display: block;
         line-height: 1.2;
@@ -474,7 +482,7 @@
     }
 
     .staff-list-row small {
-        color: #64748b;
+        color: #5F685F;
         font-size: .89rem;
         overflow-wrap: anywhere;
     }
@@ -486,7 +494,7 @@
         border-radius: .62rem;
         border: 1px solid #111827;
         background: #0b1118;
-        color: #f8fafc;
+        color: #FAFAF7;
         font-size: .83rem;
         font-weight: 700;
         padding: .4rem .72rem;
@@ -508,7 +516,7 @@
 
     .staff-attention-pill.danger {
         background: #fee2e2;
-        color: #b91c1c;
+        color: #9E4B3F;
         border-color: #fecaca;
     }
 
@@ -519,21 +527,21 @@
     }
 
     .staff-attention-pill.info {
-        background: #e2e8f0;
-        color: #334155;
-        border-color: #cbd5e1;
+        background: #C9C5BB;
+        color: #333333;
+        border-color: #C9C5BB;
     }
 
     .staff-empty {
         text-align: center;
-        color: #64748b;
+        color: #5F685F;
         padding: 1.2rem .9rem;
     }
 
     .staff-empty i {
         display: block;
         font-size: 1.45rem;
-        color: #94a3b8;
+        color: #7A8076;
         margin-bottom: .25rem;
     }
 
@@ -542,7 +550,7 @@
         min-width: 3.2rem;
         border-radius: .72rem;
         border: 1px solid #d9e2ec;
-        background: #f8fafc;
+        background: #FAFAF7;
         text-align: center;
         padding: .35rem .15rem;
     }
@@ -551,13 +559,13 @@
         display: block;
         font-size: 1.02rem;
         line-height: 1.1;
-        color: #0f172a;
+        color: #3E4A3D;
     }
 
     .staff-upcoming-date span {
         font-size: .73rem;
         text-transform: uppercase;
-        color: #64748b;
+        color: #5F685F;
     }
 
     .staff-monthly-list {
@@ -571,9 +579,9 @@
         align-items: center;
         justify-content: space-between;
         gap: .7rem;
-        border-top: 1px solid #e2e8f0;
+        border-top: 1px solid #C9C5BB;
         padding: .72rem 0;
-        color: #475569;
+        color: #5F685F;
     }
 
     .staff-monthly-list li:first-child {
@@ -581,7 +589,7 @@
     }
 
     .staff-monthly-list strong {
-        color: #0f172a;
+        color: #3E4A3D;
     }
 
     .staff-monthly-list strong.good {
@@ -589,11 +597,11 @@
     }
 
     .staff-monthly-list strong.warn {
-        color: #b91c1c;
+        color: #9E4B3F;
     }
 
     .recent-cases-pagination {
-        border-top: 1px solid #e2e8f0;
+        border-top: 1px solid #C9C5BB;
         padding: .5rem .8rem;
     }
 
@@ -679,8 +687,195 @@
         }
     }
 
+    /* Botanical Suite light-theme coverage */
+    .staff-dashboard-v2 {
+        color: var(--color-text-primary);
+    }
+
+    .staff-card,
+    .staff-header-card,
+    .staff-list-row,
+    .staff-upcoming-date {
+        background: var(--color-bg-surface);
+        border-color: var(--color-border);
+    }
+
+    .staff-header-card {
+        background: linear-gradient(180deg, var(--color-bg-surface) 0%, var(--color-bg-muted) 100%);
+    }
+
+    .staff-title,
+    .staff-card-head h3,
+    .staff-list-row strong,
+    .staff-monthly-list strong,
+    .staff-upcoming-date strong,
+    .staff-action-card.is-light .title {
+        color: var(--color-text-primary);
+    }
+
+    .staff-subtitle,
+    .staff-card-head p,
+    .staff-muted,
+    .staff-list-row small,
+    .staff-monthly-list li,
+    .staff-upcoming-date span,
+    .staff-empty,
+    .staff-action-card.is-light .desc {
+        color: var(--color-text-secondary);
+    }
+
+    .staff-branch-chip {
+        color: var(--color-primary);
+        background: rgba(139, 154, 139, .18);
+        border: 1px solid rgba(139, 154, 139, .35);
+    }
+
+    .staff-pill,
+    .staff-tabs,
+    .staff-action-card.is-light .icon {
+        background: var(--color-bg-muted);
+        border-color: var(--color-border);
+        color: var(--color-text-secondary);
+    }
+
+    .staff-pill i,
+    .staff-link,
+    .staff-table-code {
+        color: var(--color-primary);
+    }
+
+    .staff-link:hover {
+        color: var(--color-primary-hover);
+    }
+
+    .staff-action-card {
+        border-color: var(--color-border);
+    }
+
+    .staff-action-card:hover {
+        border-color: var(--color-border-strong);
+        box-shadow: 0 14px 26px rgba(62, 74, 61, .10);
+    }
+
+    .staff-action-card.is-dark {
+        background: linear-gradient(180deg, var(--color-primary) 0%, var(--color-primary-active) 100%);
+        border-color: var(--color-primary);
+        color: var(--color-bg-surface);
+    }
+
+    .staff-action-card.is-dark .icon,
+    .staff-action-card.is-green .icon {
+        background: rgba(250, 250, 247, .16);
+        color: var(--color-bg-surface);
+    }
+
+    .staff-action-card.is-dark .title,
+    .staff-action-card.is-dark .desc,
+    .staff-action-card.is-green .title,
+    .staff-action-card.is-green .desc {
+        color: var(--color-bg-surface);
+    }
+
+    .staff-action-card.is-green {
+        background: linear-gradient(180deg, var(--color-success) 0%, #5D785C 100%);
+        border-color: var(--color-success);
+        color: var(--color-bg-surface);
+    }
+
+    .staff-action-card.is-light {
+        background: linear-gradient(180deg, var(--color-bg-surface) 0%, var(--color-bg-muted) 100%);
+        border-color: var(--color-border);
+        color: var(--color-text-primary);
+    }
+
+    .staff-action-card.is-light .icon {
+        color: var(--color-primary);
+    }
+
+    .staff-tab-btn {
+        color: var(--color-text-secondary);
+    }
+
+    .staff-tab-btn:hover {
+        color: var(--color-primary);
+        background: rgba(139, 154, 139, .16);
+    }
+
+    .staff-tab-btn.is-active {
+        background: var(--color-primary);
+        color: var(--color-bg-surface);
+        box-shadow: inset 0 0 0 1px var(--color-primary-active);
+    }
+
+    .staff-card-head,
+    .staff-card-tabs-bar,
+    .staff-card-head--compact,
+    .staff-table thead th,
+    .staff-table td,
+    .recent-cases-pagination,
+    .staff-monthly-list li {
+        border-color: var(--color-border);
+    }
+
+    .staff-table thead th {
+        background: var(--color-bg-muted);
+        color: var(--color-text-secondary);
+    }
+
+    .staff-table tbody tr:hover td {
+        background: var(--color-bg-muted);
+    }
+
+    .status-pill.active {
+        background: rgba(111, 138, 109, .16);
+        border-color: rgba(111, 138, 109, .35);
+        color: #4F6F4D;
+    }
+
+    .status-pill.completed,
+    .staff-attention-pill.info {
+        background: var(--color-bg-muted);
+        border-color: var(--color-border);
+        color: var(--color-text-secondary);
+    }
+
+    .status-pill.draft,
+    .staff-attention-pill.warning {
+        background: rgba(184, 121, 86, .16);
+        border-color: rgba(184, 121, 86, .35);
+        color: #8A5638;
+    }
+
+    .status-pill.unpaid,
+    .staff-attention-pill.danger {
+        background: rgba(158, 75, 63, .16);
+        border-color: rgba(158, 75, 63, .35);
+        color: #7F3A32;
+    }
+
+    .staff-money,
+    .staff-monthly-list strong.good {
+        color: var(--color-success);
+    }
+
+    .staff-monthly-list strong.warn {
+        color: var(--color-danger);
+    }
+
+    .staff-balance-cta {
+        background: var(--color-primary);
+        border-color: var(--color-primary);
+        color: var(--color-bg-surface);
+    }
+
+    .staff-balance-cta:hover {
+        background: var(--color-primary-hover);
+        border-color: var(--color-primary-hover);
+        color: #ffffff;
+    }
+
     html[data-theme='dark'] .staff-dashboard-v2 {
-        color: #e2e8f0;
+        color: #C9C5BB;
     }
 
     html[data-theme='dark'] .staff-card,
@@ -840,7 +1035,7 @@
     html[data-theme='dark'] .status-pill.completed {
         background: rgba(148, 163, 184, .15);
         border-color: rgba(148, 163, 184, .3);
-        color: #cbd5e1;
+        color: #C9C5BB;
     }
 
     html[data-theme='dark'] .status-pill.draft {
@@ -868,12 +1063,25 @@
 <div class="staff-dashboard-v2">
     <section class="staff-header-card">
         <div class="staff-header-main">
-            <div>
-                <h1 class="staff-title">Good morning, {{ $staffFirstName }}</h1>
-                <p class="staff-subtitle">Your daily workspace - <span class="staff-branch-chip">{{ $branchLabel }}</span></p>
+            <div class="staff-header-title-group">
+                <button
+                    type="button"
+                    id="mobileSidebarToggle"
+                    class="mobile-menu-btn"
+                    aria-label="Open navigation"
+                    aria-expanded="false"
+                    aria-controls="appSidebar"
+                >
+                    <i class="bi bi-list"></i>
+                </button>
+                <div>
+                    <h1 class="staff-title">Good morning, {{ $staffFirstName }}</h1>
+                    <p class="staff-subtitle">Your daily workspace - <span class="staff-branch-chip">{{ $branchLabel }}</span></p>
+                </div>
             </div>
             <div class="staff-tools">
                 <div class="staff-pill"><i class="bi bi-calendar3"></i> {{ $todayLabel }}</div>
+                @include('partials.topbar-notifications')
             </div>
         </div>
 
@@ -1094,7 +1302,7 @@
                             <p>Unpaid or partial cases</p>
                         </div>
                         @if($outstandingCases->isEmpty())
-                            <span class="staff-pill" style="padding:.3rem .62rem; color:#047857; border-color:#bbf7d0; background:#dcfce7;">
+                            <span class="staff-pill" style="padding:.3rem .62rem; color:#4F6F4D; border-color:#bbf7d0; background:#dcfce7;">
                                 <i class="bi bi-check2"></i> All settled
                             </span>
                         @endif
@@ -1108,7 +1316,7 @@
                                     <small>{{ $case->client->full_name ?? 'No client record' }}</small>
                                 </div>
                                 <div class="text-right">
-                                    <div class="staff-money" style="color:#b91c1c;">&#8369; {{ number_format((float) $case->balance_amount, 2) }}</div>
+                                    <div class="staff-money" style="color:#9E4B3F;">&#8369; {{ number_format((float) $case->balance_amount, 2) }}</div>
                                     <a href="{{ route('payments.index') }}" class="staff-balance-cta">Record Payment</a>
                                 </div>
                             </div>

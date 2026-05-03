@@ -48,7 +48,7 @@
 @endif
 
 @if(session('summary'))
-    <div class="mb-4 rounded border border-slate-200 bg-white p-4 text-sm text-slate-700">
+    <div class="mb-4 rounded border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-4 text-sm text-[var(--color-text-secondary)]">
         <div class="font-semibold mb-2">Last Saved Summary</div>
         <div>Package: {{ session('summary.package') }}</div>
         <div>Subtotal: {{ number_format(session('summary.subtotal'), 2) }}</div>

@@ -331,7 +331,7 @@
         font-weight: 900;
         letter-spacing: .12em;
         text-transform: uppercase;
-        color: #64748b;
+        color: #5F685F;
     }
     .intake-section-kicker i { color: #1b3358; font-size: 13px; }
     .intake-name-grid {
@@ -365,8 +365,8 @@
         top: 50%;
         width: 8px;
         height: 8px;
-        border-right: 2px solid #94a3b8;
-        border-bottom: 2px solid #94a3b8;
+        border-right: 2px solid #7A8076;
+        border-bottom: 2px solid #7A8076;
         transform: translateY(-65%) rotate(45deg);
         pointer-events: none;
     }
@@ -390,7 +390,7 @@
     /* ── Subsection soft ── */
     .subsection-soft {
         border: 1px solid #e4e8ef; border-radius: 12px;
-        background: linear-gradient(180deg,#f8fafc 0%,#f1f5f9 100%);
+        background: linear-gradient(180deg,#FAFAF7 0%,#f1f5f9 100%);
         box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
     }
 
@@ -452,15 +452,15 @@
     .pkg-promo-badge { display: inline-block; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; background: #d1fae5; color: #065f46; padding: 3px 8px; border-radius: 999px; margin-bottom: 10px; }
 
     .pkg-features-list { list-style: none; padding: 0; margin: 14px 0 0; border-top: 1px solid #f0f3f8; padding-top: 14px; display: flex; flex-direction: column; gap: 7px; }
-    .pkg-feature-item { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; font-weight: 500; color: #334155; line-height: 1.45; }
+    .pkg-feature-item { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; font-weight: 500; color: #333333; line-height: 1.45; }
     .pkg-feature-check { color: #059669; font-weight: 900; flex-shrink: 0; margin-top: 1px; }
-    .pkg-feature-plus { color: #d97706; font-weight: 900; flex-shrink: 0; font-size: 13px; line-height: 1; }
+    .pkg-feature-plus { color: #B87956; font-weight: 900; flex-shrink: 0; font-size: 13px; line-height: 1; }
 
     .pkg-card-footer { padding: 0 22px 20px; }
     .pkg-select-btn {
         width: 100%; padding: 10px 16px; border-radius: 10px;
         font-size: 13px; font-weight: 700; text-align: center;
-        border: 1.5px solid #d0d9e8; background: #fff; color: #334155;
+        border: 1.5px solid #d0d9e8; background: #fff; color: #333333;
         transition: all .18s ease; display: flex; align-items: center; justify-content: center; gap: 6px;
         pointer-events: none; user-select: none;
     }
@@ -506,7 +506,7 @@
     .bpay-tab-group .payment-type-card,
     .bpay-tab-group .payment-method-card { border: 0 !important; border-radius: 0 !important; box-shadow: none !important; transform: none !important; flex: 1; display: flex; align-items: center; justify-content: center; padding: 11px 0; }
     .bpay-tab-group .payment-type-card:hover,
-    .bpay-tab-group .payment-method-card:hover { transform: none !important; box-shadow: none !important; background: #f8fafc; border: 0 !important; }
+    .bpay-tab-group .payment-method-card:hover { transform: none !important; box-shadow: none !important; background: #FAFAF7; border: 0 !important; }
     .bpay-tab-group .payment-type-card + .payment-type-card,
     .bpay-tab-group .payment-method-card + .payment-method-card { border-left: 1.5px solid #e4e8ef !important; }
     .bpay-tab-group .payment-type-card.bg-slate-50,
@@ -574,13 +574,13 @@
     #wizardNext:hover:not(:disabled) { background: linear-gradient(135deg,#142846 0%,#19305a 100%) !important; box-shadow: 0 6px 20px rgba(27,51,88,.42) !important; transform: translateY(-1px); }
     #saveIntakeRecord {
         padding: 10px 28px !important; border-radius: 10px !important;
-        background: linear-gradient(135deg,#047857 0%,#059669 100%) !important;
+        background: linear-gradient(135deg,#4F6F4D 0%,#059669 100%) !important;
         font-size: 13px !important; font-weight: 700 !important; color: #ffffff !important;
         border: none !important;
         box-shadow: 0 4px 14px rgba(5,150,105,.3) !important;
         transition: all .18s ease !important; min-width: 160px !important;
     }
-    #saveIntakeRecord:hover:not(:disabled) { background: linear-gradient(135deg,#036348 0%,#047857 100%) !important; box-shadow: 0 6px 20px rgba(5,150,105,.42) !important; transform: translateY(-1px); }
+    #saveIntakeRecord:hover:not(:disabled) { background: linear-gradient(135deg,#036348 0%,#4F6F4D 100%) !important; box-shadow: 0 6px 20px rgba(5,150,105,.42) !important; transform: translateY(-1px); }
     #saveIntakeRecord:disabled { opacity: .5; transform: none !important; }
 
     /* ── Flatpickr ── */
@@ -609,6 +609,239 @@
     .flatpickr-time { border-top: 1px solid #e4e8ef !important; margin-top: 8px !important; padding-top: 10px !important; }
     .flatpickr-time input,.flatpickr-time .flatpickr-am-pm { border-radius: 8px !important; font-weight: 700 !important; }
     .flatpickr-calendar.open { margin-top: 12px !important; }
+
+    /* Botanical Suite light-theme coverage */
+    .intake-root,
+    .intake-form-wrapper {
+        background: var(--color-bg-page) !important;
+        color: var(--color-text-primary);
+    }
+
+    .intake-top-shell,
+    .wizard-steps-shell,
+    .wizard-panel,
+    .footer-action-bar,
+    .intake-field-section,
+    .package-card,
+    .pkg-premium-card,
+    .payment-type-card,
+    .flatpickr-calendar {
+        background: var(--color-bg-surface) !important;
+        border-color: var(--color-border) !important;
+    }
+
+    .intake-progress-rail,
+    .subsection-soft,
+    .wizard-tab:hover .wz-body,
+    .wizard-tab.active-step .wz-body,
+    .form-input[readonly],
+    .form-input.cursor-not-allowed,
+    .flatpickr-current-month .flatpickr-monthDropdown-months,
+    .flatpickr-current-month input.cur-year,
+    .flatpickr-prev-month:hover,
+    .flatpickr-next-month:hover,
+    .flatpickr-day:hover {
+        background: var(--color-bg-muted) !important;
+        border-color: var(--color-border) !important;
+    }
+
+    .intake-progress-fill {
+        background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-accent) 100%) !important;
+    }
+
+    .intake-brand-logo,
+    .section-heading-icon,
+    .wizard-tab.active-step .wizard-step-number,
+    .wizard-tab.completed-step .wizard-step-number,
+    .pkg-badge-recommended,
+    .bpay-tab-group .payment-method-card.active-tab,
+    .bpay-tab-group .payment-type-card.active-tab {
+        background: var(--color-primary) !important;
+        border-color: var(--color-primary) !important;
+        color: #ffffff !important;
+        box-shadow: 0 4px 14px rgba(62, 74, 61, .24) !important;
+    }
+
+    .intake-brand-name,
+    .section-title-text h3,
+    .pkg-section-title,
+    .pkg-name,
+    .pkg-price,
+    .flatpickr-current-month,
+    .flatpickr-current-month .flatpickr-monthDropdown-months,
+    .flatpickr-current-month input.cur-year,
+    .flatpickr-day {
+        color: var(--color-text-primary) !important;
+    }
+
+    .intake-meta-label,
+    .intake-draft-label,
+    .wizard-steps-group-label,
+    .wizard-tab .wz-sub,
+    .section-title-text p,
+    .field-label,
+    .pkg-section-sub,
+    .pkg-tier-label,
+    .pkg-price-note,
+    .intake-field-help,
+    .flatpickr-weekday,
+    .flatpickr-prev-month,
+    .flatpickr-next-month {
+        color: var(--color-text-secondary) !important;
+    }
+
+    .intake-meta-value,
+    .branch-toggle,
+    .wizard-tab .wizard-step-label,
+    .intake-section-kicker,
+    .pkg-feature-item {
+        color: var(--color-text-primary) !important;
+    }
+
+    .branch-toggle:hover,
+    .intake-section-kicker i,
+    .wizard-tab.active-step .wizard-step-label,
+    .wizard-tab.active-step .wz-sub,
+    .pkg-card-featured .pkg-select-btn,
+    .flatpickr-day.today {
+        color: var(--color-primary) !important;
+    }
+
+    .wizard-tab .wizard-step-number,
+    .pkg-features-list,
+    .bpay-tab-group,
+    .bpay-tab-group .payment-type-card + .payment-type-card,
+    .bpay-tab-group .payment-method-card + .payment-method-card,
+    .flatpickr-months,
+    .flatpickr-time {
+        border-color: var(--color-border) !important;
+    }
+
+    .wizard-tab .wizard-step-number {
+        background: var(--color-bg-surface) !important;
+        color: var(--color-text-muted) !important;
+    }
+
+    .wizard-tab .wz-line,
+    .wizard-tab.completed-step .wz-line {
+        background: var(--color-border) !important;
+    }
+
+    .form-input,
+    .form-textarea {
+        background: var(--color-bg-surface) !important;
+        border-color: var(--color-border) !important;
+        color: var(--color-text-primary) !important;
+        box-shadow: 0 1px 3px rgba(62, 74, 61, .05) !important;
+    }
+
+    .form-input:focus,
+    .form-textarea:focus,
+    .flatpickr-current-month .flatpickr-monthDropdown-months:focus,
+    .flatpickr-current-month input.cur-year:focus {
+        border-color: var(--color-primary) !important;
+        background: var(--color-bg-surface) !important;
+        box-shadow: 0 0 0 4px rgba(62, 74, 61, .14) !important;
+    }
+
+    .form-input::placeholder,
+    .form-textarea::placeholder,
+    .intake-root input::placeholder,
+    .intake-root textarea::placeholder {
+        color: var(--color-text-muted) !important;
+    }
+
+    .package-card:hover,
+    .pkg-premium-card:hover,
+    .pkg-card-featured,
+    .payment-type-card:hover,
+    .pkg-premium-card:has(.package-radio:checked) {
+        border-color: var(--color-primary) !important;
+        box-shadow: 0 8px 24px rgba(62, 74, 61, .13) !important;
+    }
+
+    .package-card.selected,
+    .pkg-premium-card:has(.package-radio:checked) {
+        background: rgba(139, 154, 139, .14) !important;
+    }
+
+    .package-card.selected .check-dot,
+    .pkg-premium-card:has(.package-radio:checked) .pkg-select-btn,
+    #mark_as_paid_toggle input:checked ~ div:first-of-type,
+    .flatpickr-day.selected,
+    .flatpickr-day.startRange,
+    .flatpickr-day.endRange {
+        background: var(--color-primary) !important;
+        border-color: var(--color-primary) !important;
+        color: #ffffff !important;
+    }
+
+    .pkg-select-btn {
+        background: var(--color-bg-surface) !important;
+        border-color: var(--color-border) !important;
+        color: var(--color-text-primary) !important;
+    }
+
+    .pkg-card-custom .pkg-select-btn,
+    .pkg-card-custom:has(.package-radio:checked) .pkg-select-btn {
+        border-color: var(--color-warning) !important;
+        color: #ffffff !important;
+        background: var(--color-warning) !important;
+    }
+
+    .pkg-promo-badge {
+        background: rgba(111, 138, 109, .16) !important;
+        color: #4F6F4D !important;
+    }
+
+    .pkg-feature-check {
+        color: var(--color-success) !important;
+    }
+
+    .pkg-feature-plus {
+        color: var(--color-warning) !important;
+    }
+
+    .bpay-tab-group .payment-type-card:hover,
+    .bpay-tab-group .payment-method-card:hover,
+    .bpay-tab-group .payment-type-card.bg-slate-50,
+    .bpay-tab-group .payment-type-card.border-slate-800 {
+        background: var(--color-bg-muted) !important;
+    }
+
+    .lock-overlay {
+        background: rgba(232, 228, 220, .88) !important;
+    }
+
+    #intake_lock_overlay .bg-white {
+        background: var(--color-bg-surface) !important;
+        border-color: var(--color-border) !important;
+        color: var(--color-text-primary) !important;
+    }
+
+    #wizardPrev {
+        background: var(--color-bg-surface) !important;
+        border-color: var(--color-border) !important;
+        color: var(--color-primary) !important;
+    }
+
+    #wizardPrev:hover:not(:disabled) {
+        background: var(--color-bg-muted) !important;
+        border-color: var(--color-border-strong) !important;
+        color: var(--color-primary-hover) !important;
+    }
+
+    #wizardNext,
+    #saveIntakeRecord {
+        background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-active) 100%) !important;
+        box-shadow: 0 4px 14px rgba(62, 74, 61, .26) !important;
+    }
+
+    #wizardNext:hover:not(:disabled),
+    #saveIntakeRecord:hover:not(:disabled) {
+        background: linear-gradient(135deg, var(--color-primary-hover) 0%, var(--color-primary-active) 100%) !important;
+        box-shadow: 0 6px 20px rgba(62, 74, 61, .34) !important;
+    }
 
     /* ── Dark mode ── */
     html[data-theme='dark'] .panel-shell-body,
@@ -1677,7 +1910,7 @@
                 </button>
 
                 <div class="flex-1 sm:flex-none sm:ml-auto">
-                    <button type="button" id="wizardNext" class="w-full sm:w-auto sm:min-w-[190px] px-8 py-3 rounded-xl bg-slate-900 text-white text-sm font-bold transition-all hover:bg-[#2563eb] hover:-translate-y-0.5">
+                    <button type="button" id="wizardNext" class="w-full sm:w-auto sm:min-w-[190px] px-8 py-3 rounded-xl bg-slate-900 text-white text-sm font-bold transition-all hover:bg-[#3E4A3D] hover:-translate-y-0.5">
                         Continue
                     </button>
 

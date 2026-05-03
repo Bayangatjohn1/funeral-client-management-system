@@ -1,28 +1,30 @@
 /* Global Design System (shared across Staff / Admin / Owner) */
+/* Botanical Suite Theme */
 
 :root {
   /* Primary */
-  --primary: #22324A;
-  --primary-hover: #1A2636;
+  --primary: #3E4A3D;          /* Moss Charcoal */
+  --primary-hover: #2D372D;
 
   /* Accent */
-  --accent: #9C5A1A;
+  --accent: #8B9A8B;            /* Soft Sage */
 
   /* Background */
-  --bg: #F7F8FA;
-  --card: #FFFFFF;
+  --bg: #E8E4DC;                /* Warm Stone (page) */
+  --card: #FAFAF7;              /* Porcelain (cards/forms/tables/modals) */
+  --surface-muted: #F3F0E8;
 
   /* Borders */
-  --border: #E6EAF0;
+  --border: #C9C5BB;            /* Stone Border */
 
   /* Text */
-  --text-main: #1F2A37;
-  --text-secondary: #6B7280;
+  --text-main: #333333;         /* Obsidian Rose */
+  --text-secondary: #5F685F;    /* Slate Olive */
 
   /* Status */
-  --success: #22C55E;
-  --warning: #F5B942;
-  --danger: #EF4444;
+  --success: #8B9A8B;           /* Soft Sage */
+  --warning: #B87956;           /* Clay */
+  --danger: #9E4B3F;            /* Muted Brick */
 }
 
 body {
@@ -38,7 +40,7 @@ body {
   border-radius: 16px;
   padding: 20px;
   margin-bottom: 24px;
-  box-shadow: 0 8px 20px rgba(34, 50, 74, 0.05);
+  box-shadow: 0 8px 20px rgba(62, 74, 61, 0.06);
 }
 
 /* Buttons */
@@ -47,7 +49,7 @@ body {
   align-items: center;
   gap: 8px;
   background: var(--primary);
-  color: #fff;
+  color: #FAFAF7;
   border: none;
   padding: 10px 16px;
   border-radius: 10px;
@@ -58,7 +60,7 @@ body {
 
 .btn-primary-custom:hover {
   background: var(--primary-hover);
-  box-shadow: 0 8px 18px rgba(34, 50, 74, 0.18);
+  box-shadow: 0 8px 18px rgba(62, 74, 61, 0.18);
   transform: translateY(-1px);
 }
 
@@ -66,7 +68,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #fff;
+  background: var(--card);
   border: 1px solid var(--border);
   color: var(--text-main);
   padding: 10px 16px;
@@ -97,13 +99,13 @@ body {
   font-size: 14px;
   color: var(--text-main);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
-  background: #fff;
+  background: var(--card);
 }
 
 .input-custom:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(34, 50, 74, 0.12);
+  box-shadow: 0 0 0 2px rgba(62, 74, 61, 0.18);
 }
 
 /* Tables */
@@ -118,7 +120,7 @@ body {
   font-size: 12px;
   color: var(--text-secondary);
   padding: 12px;
-  background: #f1f3f7;
+  background: var(--surface-muted);
 }
 
 .table-custom td {
@@ -128,13 +130,13 @@ body {
 }
 
 .table-custom tr:hover td {
-  background: #F9FAFB;
+  background: var(--surface-muted);
 }
 
 /* Status badges */
 .badge-success {
-  background: #DCFCE7;
-  color: #166534;
+  background: rgba(139, 154, 139, 0.16);
+  color: #3E4A3D;
   padding: 4px 10px;
   border-radius: 999px;
   font-weight: 600;
@@ -142,8 +144,8 @@ body {
 }
 
 .badge-warning {
-  background: #FEF3C7;
-  color: #92400E;
+  background: rgba(184, 121, 86, 0.14);
+  color: #8C5A3F;
   padding: 4px 10px;
   border-radius: 999px;
   font-weight: 600;
@@ -151,8 +153,8 @@ body {
 }
 
 .badge-danger {
-  background: #FEE2E2;
-  color: #991B1B;
+  background: rgba(158, 75, 63, 0.12);
+  color: #9E4B3F;
   padding: 4px 10px;
   border-radius: 999px;
   font-weight: 600;
@@ -161,7 +163,7 @@ body {
 
 /* Dashboard stat cards */
 .stat-card {
-  background: #fff;
+  background: var(--card);
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 16px;
@@ -194,7 +196,7 @@ body {
 
 .rank-badge {
   background: var(--primary);
-  color: #fff;
+  color: #FAFAF7;
   padding: 6px 10px;
   border-radius: 10px;
   font-weight: 700;
@@ -205,13 +207,13 @@ body {
 /* Sidebar active */
 .sidebar .active {
   background: var(--primary);
-  color: #fff !important;
+  color: #FAFAF7 !important;
   border-radius: 10px;
 }
 
 /* Tabs */
 .tab-active {
   background: var(--primary);
-  color: #fff;
+  color: #FAFAF7;
   border-radius: 999px;
 }

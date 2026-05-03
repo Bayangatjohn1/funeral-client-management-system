@@ -82,6 +82,59 @@ class SystemRegressionGuardsTest extends TestCase
             });
     }
 
+    public function test_owner_dashboard_sales_include_partial_and_unpaid_gross_amounts(): void
+    {
+        $branch = $this->createBranch('BR001', 'Main Branch');
+        $owner = $this->createUser('owner');
+        $package = $this->createPackage();
+        $paidClient = $this->createClient($branch, 'Owner Gross Paid Client');
+        $paidDeceased = $this->createDeceased($branch, $paidClient, 'Owner Gross Paid Deceased');
+        $partialClient = $this->createClient($branch, 'Owner Gross Partial Client');
+        $partialDeceased = $this->createDeceased($branch, $partialClient, 'Owner Gross Partial Deceased');
+        $unpaidClient = $this->createClient($branch, 'Owner Gross Unpaid Client');
+        $unpaidDeceased = $this->createDeceased($branch, $unpaidClient, 'Owner Gross Unpaid Deceased');
+
+        $this->createCase($branch, $paidClient, $paidDeceased, $package, [
+            'case_code' => 'GROSS-PAID',
+            'total_amount' => 10000,
+            'total_paid' => 10000,
+            'balance_amount' => 0,
+            'payment_status' => 'PAID',
+            'verification_status' => 'VERIFIED',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->createCase($branch, $partialClient, $partialDeceased, $package, [
+            'case_code' => 'GROSS-PARTIAL',
+            'total_amount' => 15000,
+            'total_paid' => 5000,
+            'balance_amount' => 10000,
+            'payment_status' => 'PARTIAL',
+            'verification_status' => 'VERIFIED',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->createCase($branch, $unpaidClient, $unpaidDeceased, $package, [
+            'case_code' => 'GROSS-UNPAID',
+            'total_amount' => 20000,
+            'total_paid' => 0,
+            'balance_amount' => 20000,
+            'payment_status' => 'UNPAID',
+            'verification_status' => 'VERIFIED',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($owner)
+            ->get('/owner?range=THIS_MONTH&branch_id=' . $branch->id)
+            ->assertOk()
+            ->assertViewHas('totalSales', 45000.0)
+            ->assertViewHas('totalCollected', 15000.0)
+            ->assertViewHas('totalOutstanding', 30000.0);
+    }
+
     public function test_intake_blocks_duplicate_active_case_when_identity_matches_existing_record(): void
     {
         $mainBranch = $this->createBranch('BR001', 'Main Branch');

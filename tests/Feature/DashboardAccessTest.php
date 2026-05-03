@@ -19,6 +19,9 @@ class DashboardAccessTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Admin Dashboard');
+        $response->assertDontSee('<header class="topbar">', false);
+        $response->assertSee('admin-dashboard-greeting', false);
+        $response->assertSee('topbar-notification', false);
     }
 
     public function test_owner_dashboard_renders_for_owner(): void
@@ -44,6 +47,9 @@ class DashboardAccessTest extends TestCase
 
         $response->assertOk()
             ->assertSee('Staff Dashboard')
+            ->assertDontSee('<header class="topbar">', false)
+            ->assertSee('staff-header-card', false)
+            ->assertSee('topbar-notification', false)
             ->assertSee('data-theme-toggle', false);
     }
 

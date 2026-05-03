@@ -315,11 +315,14 @@
     display: flex;
     flex-direction: column;
     gap: 20px;
+    color: var(--ink);
 }
 
 .prof-shell .card,
 .prof-overlay .card {
     box-shadow: none;
+    background: var(--card);
+    border-color: var(--border);
 }
 
 /* ── Hero card ──────────────────────────────────────────── */
@@ -329,11 +332,13 @@
     z-index: 30;
     padding: 0;
     overflow: hidden;
+    background: var(--card);
+    border-color: var(--border);
 }
 
 .prof-banner {
     height: 64px;
-    background: linear-gradient(130deg, var(--brand) 0%, #28456e 60%, #1e3557 100%);
+    background: linear-gradient(130deg, #3E4A3D 0%, #344033 58%, #2F3A2E 100%);
 }
 html[data-theme='dark'] .prof-banner {
     background: linear-gradient(130deg, #182234 0%, #1b2f4a 100%);
@@ -355,7 +360,7 @@ html[data-theme='dark'] .prof-banner {
     width: 68px;
     height: 68px;
     border-radius: 50%;
-    background: linear-gradient(145deg, #7a3502 0%, #b06520 100%);
+    background: linear-gradient(145deg, #3E4A3D 0%, #2F3A2E 100%);
     color: #fff;
     font-size: 26px;
     font-family: var(--font-heading);
@@ -417,15 +422,15 @@ html[data-theme='dark'] .prof-banner {
 }
 
 .prof-pw-btn {
-    background: var(--brand-soft);
-    border-color: transparent;
+    background: rgba(139, 154, 139, 0.18);
+    border-color: rgba(139, 154, 139, 0.35);
     color: var(--brand);
     font-weight: 600;
 }
 .prof-pw-btn:hover {
-    background: var(--border);
+    background: var(--surface-muted);
     border-color: var(--border-strong);
-    color: var(--ink);
+    color: var(--brand-hover);
 }
 
 /* ── Section cards ──────────────────────────────────────── */
@@ -442,7 +447,12 @@ html[data-theme='dark'] .prof-banner {
     gap: 20px;
 }
 
-.prof-section-card { padding: 0; overflow: hidden; }
+.prof-section-card {
+    padding: 0;
+    overflow: hidden;
+    background: var(--card);
+    border-color: var(--border);
+}
 
 .prof-section-head {
     display: flex;
@@ -457,7 +467,8 @@ html[data-theme='dark'] .prof-banner {
     width: 30px;
     height: 30px;
     border-radius: 8px;
-    background: var(--brand-soft);
+    background: rgba(139, 154, 139, 0.18);
+    border: 1px solid rgba(139, 154, 139, 0.32);
     color: var(--brand);
     font-size: 13px;
     display: flex;
@@ -486,6 +497,7 @@ html[data-theme='dark'] .prof-banner {
 .prof-field {
     padding: 18px 24px;
     border-bottom: 1px solid var(--border);
+    background: var(--card);
 }
 
 .prof-field:nth-child(odd):not(.prof-field-span) {
@@ -559,7 +571,7 @@ html[data-theme='dark'] .prof-banner {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0,0,0,.55);
+    background: rgba(62, 74, 61, .42);
     backdrop-filter: blur(3px);
     -webkit-backdrop-filter: blur(3px);
     z-index: 1300;
@@ -582,7 +594,7 @@ html[data-theme='dark'] .prof-banner {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 20px;
-    box-shadow: none;
+    box-shadow: 0 24px 70px rgba(62, 74, 61, .18);
     overflow: hidden;
     transform-origin: center;
     transition: transform .18s ease, opacity .18s ease;
@@ -611,7 +623,11 @@ html[data-theme='dark'] .prof-banner {
     transition: background .12s, color .12s;
     box-shadow: none;
 }
-.prof-modal-close:hover { background: var(--surface-muted); color: var(--ink); }
+.prof-modal-close:hover {
+    background: var(--surface-muted);
+    border-color: var(--border-strong);
+    color: var(--brand);
+}
 
 .prof-modal-head {
     display: flex;
@@ -640,6 +656,25 @@ html[data-theme='dark'] .prof-banner {
 
 .prof-modal-form { padding: 22px; }
 
+.prof-modal-form .form-input {
+    background: var(--card);
+    border-color: var(--border);
+    color: var(--ink);
+}
+
+.prof-modal-form .form-input:hover {
+    border-color: var(--border-strong);
+}
+
+.prof-modal-form .form-input:focus {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px rgba(62, 74, 61, .18);
+}
+
+.prof-modal-form .form-input::placeholder {
+    color: var(--ink-muted);
+}
+
 .prof-form-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -659,13 +694,13 @@ html[data-theme='dark'] .prof-banner {
 }
 
 .prof-submit-btn {
-    background: var(--brand-mid);
-    border-color: var(--brand-mid);
+    background: var(--brand);
+    border-color: var(--brand);
     color: #fff;
 }
 .prof-submit-btn:hover {
-    background: #7f4412;
-    border-color: #7f4412;
+    background: var(--brand-hover);
+    border-color: var(--brand-hover);
     box-shadow: none;
 }
 

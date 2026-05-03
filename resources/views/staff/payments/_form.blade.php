@@ -43,13 +43,13 @@
     }
     .pf-guide-copy {
         margin-top: .18rem;
-        color: #64748b;
+        color: #5F685F;
         font-size: .72rem;
         font-weight: 650;
         line-height: 1.35;
     }
     .pf-section {
-        border: 1px solid #e2e8f0;
+        border: 1px solid #C9C5BB;
         border-radius: 18px;
         background: #ffffff;
         box-shadow: 0 10px 28px rgba(15, 23, 42, .05);
@@ -61,7 +61,7 @@
         gap: .85rem;
         padding: 1rem 1.1rem;
         border-bottom: 1px solid #edf2f7;
-        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        background: linear-gradient(180deg, #ffffff 0%, #FAFAF7 100%);
     }
     .pf-section-icon {
         width: 2.25rem;
@@ -76,7 +76,7 @@
         flex: 0 0 auto;
     }
     .pf-section-title { margin: 0; color: #0d1f38; font-size: .98rem; font-weight: 900; line-height: 1.2; }
-    .pf-section-sub { margin-top: .18rem; color: #64748b; font-size: .78rem; font-weight: 600; line-height: 1.35; }
+    .pf-section-sub { margin-top: .18rem; color: #5F685F; font-size: .78rem; font-weight: 600; line-height: 1.35; }
     .pf-section-body { padding: 1.1rem; }
     .pf-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
     .pf-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -115,7 +115,7 @@
         outline: none;
         background: #fafcff;
     }
-    .pf-input[readonly] { background: #f8fafc; color: #64748b; }
+    .pf-input[readonly] { background: #FAFAF7; color: #5F685F; }
     .pf-input::placeholder { color: #a8b6c7; font-weight: 500; }
     .pf-select {
         appearance: none;
@@ -139,13 +139,13 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #94a3b8;
+        color: #7A8076;
         font-size: .78rem;
         line-height: 1;
     }
     .pf-control-wrap:focus-within .pf-control-icon { color: #1b3358; }
-    .pf-help { margin-top: .45rem; color: #64748b; font-size: .72rem; font-weight: 600; line-height: 1.35; }
-    .pf-help.soft { color: #94a3b8; }
+    .pf-help { margin-top: .45rem; color: #5F685F; font-size: .72rem; font-weight: 600; line-height: 1.35; }
+    .pf-help.soft { color: #7A8076; }
     .pf-amount-wrap {
         display: flex;
         align-items: stretch;
@@ -193,13 +193,13 @@
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: .75rem;
         border-radius: 14px;
-        border: 1px solid #e2e8f0;
-        background: #f8fafc;
+        border: 1px solid #C9C5BB;
+        background: #FAFAF7;
         padding: .85rem;
         margin-top: .9rem;
     }
     .pf-snapshot-item { padding: .35rem .5rem; }
-    .pf-snapshot-label { color: #64748b; font-size: .7rem; font-weight: 800; margin-bottom: .2rem; }
+    .pf-snapshot-label { color: #5F685F; font-size: .7rem; font-weight: 800; margin-bottom: .2rem; }
     .pf-snapshot-value { color: #0d1f38; font-size: .95rem; font-weight: 950; font-variant-numeric: tabular-nums; }
     .pf-snapshot-value.good { color: #047857; }
     .pf-snapshot-value.warn { color: #be123c; }
@@ -208,7 +208,7 @@
     .pf-summary-card {
         border-radius: 14px;
         border: 1.5px solid #e4e8ef;
-        background: #f8fafc;
+        background: #FAFAF7;
         padding: .85rem .95rem;
         min-width: 0;
     }
@@ -249,7 +249,7 @@
     .pf-bank-box {
         border-radius: 16px;
         border: 1px solid #dbe5f0;
-        background: #f8fafc;
+        background: #FAFAF7;
         padding: 1rem;
     }
     .pf-note {
@@ -257,10 +257,10 @@
         align-items: flex-start;
         gap: .65rem;
         border-radius: 14px;
-        border: 1px solid #e2e8f0;
-        background: #f8fafc;
+        border: 1px solid #C9C5BB;
+        background: #FAFAF7;
         padding: .85rem 1rem;
-        color: #475569;
+        color: #5F685F;
         font-size: .78rem;
         font-weight: 650;
         line-height: 1.45;
@@ -284,8 +284,8 @@
         font-weight: 850;
         transition: transform .18s, box-shadow .18s, background .18s, color .18s;
     }
-    .pf-btn.secondary { border: 1px solid #dbe3ee; background: #fff; color: #475569; }
-    .pf-btn.secondary:hover { background: #f8fafc; color: #0f172a; }
+    .pf-btn.secondary { border: 1px solid #dbe3ee; background: #fff; color: #5F685F; }
+    .pf-btn.secondary:hover { background: #FAFAF7; color: #0f172a; }
     .pf-btn.primary {
         border: 1px solid #1b3358;
         background: linear-gradient(135deg, #1b3358, #21476f);
@@ -486,7 +486,7 @@
                             >
                         </div>
                         <p id="pf_amount_hint" class="pf-help soft">Choose a case first. This amount cannot exceed the remaining balance.</p>
-                        <p id="pf_amount_formatted" class="pf-help" style="font-weight:800;color:#334155;">₱0.00</p>
+                        <p id="pf_amount_formatted" class="pf-help" style="font-weight:800;color:#333333;">₱0.00</p>
                     </div>
 
                     <div class="pf-field">

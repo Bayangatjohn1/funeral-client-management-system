@@ -218,10 +218,10 @@
                     content.appendChild(script);
                 });
             } else {
-                content.innerHTML = `<div style="padding:20px;font-size:13px;color:#b91c1c;">Unable to load case details.</div>`;
+                content.innerHTML = `<div style="padding:20px;font-size:13px;color:#9E4B3F;">Unable to load case details.</div>`;
             }
         } catch {
-            content.innerHTML = `<div style="padding:20px;font-size:13px;color:#b91c1c;">Network error. Please try again.</div>`;
+            content.innerHTML = `<div style="padding:20px;font-size:13px;color:#9E4B3F;">Network error. Please try again.</div>`;
         }
     };
 

@@ -270,6 +270,7 @@ class ReportController extends Controller
     {
         $query = FuneralCase::query()
             ->select('branch_id')
+            ->where('verification_status', 'VERIFIED')
             ->selectRaw('COUNT(*) as total_cases')
             ->selectRaw("SUM(CASE WHEN payment_status = 'PAID' THEN 1 ELSE 0 END) as paid_cases")
             ->selectRaw("SUM(CASE WHEN payment_status = 'PARTIAL' THEN 1 ELSE 0 END) as partial_cases")

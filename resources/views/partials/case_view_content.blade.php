@@ -74,12 +74,12 @@
   .cv-stat         { border:1px solid var(--border); border-radius:9px; padding:10px 8px; text-align:center; background:var(--surface-panel); }
   .cv-stat-lbl     { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-muted); margin-bottom:3px; }
   .cv-stat-val     { font-size:14px; font-weight:800; color:var(--ink); font-variant-numeric:tabular-nums; }
-  .cv-stat.s-paid .cv-stat-lbl { color:#15803d; }
-  .cv-stat.s-paid .cv-stat-val { color:#15803d; }
-  .cv-stat.s-due .cv-stat-lbl  { color:#b91c1c; }
-  .cv-stat.s-due .cv-stat-val  { color:#b91c1c; }
-  .cv-stat.s-ok .cv-stat-lbl   { color:#15803d; }
-  .cv-stat.s-ok .cv-stat-val   { color:#15803d; }
+  .cv-stat.s-paid .cv-stat-lbl { color:#6F8A6D; }
+  .cv-stat.s-paid .cv-stat-val { color:#6F8A6D; }
+  .cv-stat.s-due .cv-stat-lbl  { color:#9E4B3F; }
+  .cv-stat.s-due .cv-stat-val  { color:#9E4B3F; }
+  .cv-stat.s-ok .cv-stat-lbl   { color:#6F8A6D; }
+  .cv-stat.s-ok .cv-stat-val   { color:#6F8A6D; }
   /* financial breakdown */
   .cv-fin-grid     { display:grid; grid-template-columns:1fr 1fr; padding:0 16px 12px; }
   .cv-fin-item     { padding:5px 0; border-bottom:1px solid var(--border); }
@@ -277,12 +277,12 @@
     @if($pkgInclusionItems || $pkgFreebieItems)
     <div class="cv-pkg-pair">
       <div class="cv-pkg-box">
-        <div class="cv-pkg-box-head"><i class="bi bi-check2-circle" style="color:#15803d"></i>Inclusions</div>
+        <div class="cv-pkg-box-head"><i class="bi bi-check2-circle" style="color:#6F8A6D"></i>Inclusions</div>
         @if($pkgInclusionItems)
           <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px;">
             @foreach($pkgInclusionItems as $item)
               <li style="display:flex;align-items:flex-start;gap:5px;font-size:12px;color:var(--ink);">
-                <i class="bi bi-dot" style="color:#15803d;font-size:15px;line-height:1.2;flex-shrink:0;"></i>{{ $item }}
+                <i class="bi bi-dot" style="color:#6F8A6D;font-size:15px;line-height:1.2;flex-shrink:0;"></i>{{ $item }}
               </li>
             @endforeach
           </ul>
@@ -291,12 +291,12 @@
         @endif
       </div>
       <div class="cv-pkg-box">
-        <div class="cv-pkg-box-head"><i class="bi bi-gift" style="color:#d97706"></i>Freebies</div>
+        <div class="cv-pkg-box-head"><i class="bi bi-gift" style="color:#B87956"></i>Freebies</div>
         @if($pkgFreebieItems)
           <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px;">
             @foreach($pkgFreebieItems as $item)
               <li style="display:flex;align-items:flex-start;gap:5px;font-size:12px;color:var(--ink);">
-                <i class="bi bi-dot" style="color:#d97706;font-size:15px;line-height:1.2;flex-shrink:0;"></i>{{ $item }}
+                <i class="bi bi-dot" style="color:#B87956;font-size:15px;line-height:1.2;flex-shrink:0;"></i>{{ $item }}
               </li>
             @endforeach
           </ul>
@@ -402,7 +402,7 @@
                 <div class="cv-txn-val">
                   {{ \App\Support\Payments\PaymentDetails::label($pmt) }}
                   @if(\App\Support\Payments\PaymentDetails::referenceLabel($pmt))
-                    <div style="font-size:11px;color:#64748b;font-weight:600;">{{ \App\Support\Payments\PaymentDetails::referenceLabel($pmt) }}</div>
+                    <div style="font-size:11px;color:#5F685F;font-weight:600;">{{ \App\Support\Payments\PaymentDetails::referenceLabel($pmt) }}</div>
                   @endif
                 </div>
               </div>

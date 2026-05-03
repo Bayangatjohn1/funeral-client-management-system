@@ -37,13 +37,13 @@
     $partialPct = $statusTotal > 0 ? round(($partialCases / $statusTotal) * 100, 1) : 0;
     $statusGradient = $statusTotal > 0
         ? sprintf(
-            'conic-gradient(#169a6d 0%% %.2f%%, #c17821 %.2f%% %.2f%%, #b42318 %.2f%% 100%%)',
+            'conic-gradient(#6F8A6D 0%% %.2f%%, #c17821 %.2f%% %.2f%%, #b42318 %.2f%% 100%%)',
             $paidPct,
             $paidPct,
             $paidPct + $partialPct,
             $paidPct + $partialPct
         )
-        : 'conic-gradient(#e2e8f0 0% 100%)';
+        : 'conic-gradient(#C9C5BB 0% 100%)';
 
     $chartRows = $branchSales->take(4)->values();
     $chartPeak = max(1, (float) $chartRows->max('sales'), (float) $chartRows->max('collected'), (float) $chartRows->max('outstanding'));
@@ -154,8 +154,8 @@
     }
 
     .sales-ref-page .topbar-actions .btn-dark {
-        background: #0f172a;
-        border-color: #0f172a;
+        background: #3E4A3D;
+        border-color: #3E4A3D;
         color: #fff;
     }
 
@@ -194,8 +194,8 @@
     .sales-ref-page .filter-apply {
         min-height: 36px;
         border-radius: 9px;
-        border: 1px solid #0f172a;
-        background: #0f172a;
+        border: 1px solid #3E4A3D;
+        background: #3E4A3D;
         color: #fff;
         font-size: 12px;
         font-weight: 500;
@@ -257,7 +257,7 @@
     }
     .sales-kpi:last-child { border-right:0; }
     .sales-kpi .k-label { font-size:11px; color:#8b97a8; font-weight:600; }
-    .sales-kpi .k-value { margin-top:6px; font-size:26px; font-weight:700; line-height:1.05; color:#0f172a; white-space:normal; overflow-wrap:anywhere; font-family: var(--font-heading); }
+    .sales-kpi .k-value { margin-top:6px; font-size:26px; font-weight:700; line-height:1.05; color:#3E4A3D; white-space:normal; overflow-wrap:anywhere; font-family: var(--font-heading); }
     .sales-kpi .k-copy { margin-top:4px; font-size:11px; color:#8b97a8; }
     .sales-kpi .k-money { font-size:18px; letter-spacing:0; white-space:normal; overflow-wrap:anywhere; font-weight:700; font-family: var(--font-heading); }
     .sales-kpi .k-paid { color:#14986c; }
@@ -278,13 +278,13 @@
     .sales-panel h3 { margin:0; font-size:16px; font-weight:700; }
     .sales-panel p { margin:3px 0 10px; color:#8b97a8; font-size:12px; }
 
-    .sales-bars { display:grid; grid-template-columns:repeat(4,minmax(80px,1fr)); gap:12px; min-height:190px; align-items:end; padding:8px; border-radius:10px; background:linear-gradient(180deg,#fff,#f8fafc); flex:1; }
+    .sales-bars { display:grid; grid-template-columns:repeat(4,minmax(80px,1fr)); gap:12px; min-height:190px; align-items:end; padding:8px; border-radius:10px; background:linear-gradient(180deg,#fff,#FAFAF7); flex:1; }
     .sales-bars-col { display:grid; gap:8px; justify-items:center; }
     .sales-stack { display:flex; align-items:end; gap:6px; height:140px; }
     .sales-stack i { width:15px; border-radius:6px 6px 3px 3px; min-height:4px; display:block; }
-    .s1 { background:#d8dde6; } .s2 { background:#169a6d; } .s3 { background:#e5b9bc; }
-    .sales-bars-label { font-size:12px; color:#64748b; }
-    .sales-legend { margin-top:10px; display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:#64748b; }
+    .s1 { background:#D8D1C5; } .s2 { background:#6F8A6D; } .s3 { background:#E0CFC9; }
+    .sales-bars-label { font-size:12px; color:#5F685F; }
+    .sales-legend { margin-top:10px; display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:#5F685F; }
     .sales-legend span { display:inline-flex; align-items:center; gap:6px; }
     .sales-dot { width:10px; height:10px; border-radius:999px; }
 
@@ -292,10 +292,10 @@
     .sales-donut { width:156px; height:156px; border-radius:999px; background:var(--donut); position:relative; }
     .sales-donut:after { content:""; position:absolute; inset:27px; border-radius:999px; background:#fff; box-shadow:inset 0 0 0 1px #ecf1f7; }
     .sales-donut-mid { position:absolute; inset:0; z-index:1; display:grid; place-items:center; text-align:center; }
-    .sales-donut-mid strong { font-size:20px; color:#0f172a; line-height:1; font-weight:700; }
+    .sales-donut-mid strong { font-size:20px; color:#3E4A3D; line-height:1; font-weight:700; }
     .sales-donut-mid span { font-size:12px; color:#8b97a8; }
     .sales-donut-legend { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
-    .sales-donut-legend span { border:1px solid #e2e8f0; border-radius:999px; padding:2px 8px; font-size:12px; color:#4b5563; display:inline-flex; gap:5px; align-items:center; }
+    .sales-donut-legend span { border:1px solid #C9C5BB; border-radius:999px; padding:2px 8px; font-size:12px; color:#5F685F; display:inline-flex; gap:5px; align-items:center; }
 
     .sales-branch-head {
         display:flex;
@@ -345,7 +345,7 @@
         width:100%;
         align-items:center;
     }
-    .sales-bname { display:inline-flex; align-items:center; gap:8px; font-family: var(--font-heading); font-weight:700; color:#0f172a; font-size:16px; }
+    .sales-bname { display:inline-flex; align-items:center; gap:8px; font-family: var(--font-heading); font-weight:700; color:#3E4A3D; font-size:16px; }
     .sales-bdot { width:11px; height:11px; border-radius:999px; }
     .sales-branch-right {
         display:flex;
@@ -398,7 +398,7 @@
     .sales-line i { display:block; height:100%; border-radius:inherit; }
     .r1 i { background:#179a6f; } .r2 i { background:#5ec89a; } .r3 i { background:#9ac2ea; }
 
-    .sales-detail details>summary { list-style:none; cursor:pointer; display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid #ebf1f7; font-weight:700; color:#0f172a; font-size:16px; }
+    .sales-detail details>summary { list-style:none; cursor:pointer; display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid #ebf1f7; font-weight:700; color:#3E4A3D; font-size:16px; }
     .sales-detail details>summary::-webkit-details-marker { display:none; }
     .sales-detail .table-wrapper {
         padding:0 10px 10px;
@@ -437,7 +437,7 @@
     .sales-detail td:first-child {
         width:26%;
     }
-    .sales-detail .total-row td { background:#f8fafc; font-weight:700; }
+    .sales-detail .total-row td { background:#FAFAF7; font-weight:700; }
 
     .sales-branch,
     .sales-detail {
@@ -629,9 +629,9 @@
                 @endforelse
             </div>
             <div class="sales-legend">
-                <span><i class="sales-dot" style="background:#d8dde6;"></i>Total Sales</span>
-                <span><i class="sales-dot" style="background:#169a6d;"></i>Collected</span>
-                <span><i class="sales-dot" style="background:#e5b9bc;"></i>Outstanding</span>
+                <span><i class="sales-dot" style="background:#D8D1C5;"></i>Total Sales</span>
+                <span><i class="sales-dot" style="background:#6F8A6D;"></i>Collected</span>
+                <span><i class="sales-dot" style="background:#E0CFC9;"></i>Outstanding</span>
             </div>
         </article>
 
@@ -643,7 +643,7 @@
                     <div class="sales-donut-mid"><div><strong>{{ number_format($totalCases) }}</strong><span>Total Cases</span></div></div>
                 </div>
                 <div class="sales-donut-legend">
-                    <span><i class="sales-dot" style="background:#169a6d;"></i>Paid {{ number_format($paidCases) }}</span>
+                    <span><i class="sales-dot" style="background:#6F8A6D;"></i>Paid {{ number_format($paidCases) }}</span>
                     <span><i class="sales-dot" style="background:#c17821;"></i>Partial {{ number_format($partialCases) }}</span>
                     <span><i class="sales-dot" style="background:#b42318;"></i>Unpaid {{ number_format($unpaidCases) }}</span>
                 </div>
@@ -674,7 +674,7 @@
                             <div class="sales-bmetrics">
                                 <div><strong>{{ number_format($row['cases']) }}</strong><span>Cases</span></div>
                                 <div><strong>PHP {{ number_format($row['sales'], 0) }}</strong><span>Sales</span></div>
-                                <div><strong style="color:#169a6d;">PHP {{ number_format($row['collected'], 0) }}</strong><span>Collected</span></div>
+                                <div><strong style="color:#6F8A6D;">PHP {{ number_format($row['collected'], 0) }}</strong><span>Collected</span></div>
                                 <div><strong style="color:#b42318;">PHP {{ number_format($row['outstanding'], 0) }}</strong><span>Outstanding</span></div>
                             </div>
                             <div class="sales-pillrow">

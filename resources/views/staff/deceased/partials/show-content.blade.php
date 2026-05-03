@@ -242,7 +242,7 @@
 
         .print-card {
             break-inside: avoid;
-            border: 1px solid #e2e8f0 !important;
+            border: 1px solid #C9C5BB !important;
             margin-bottom: 1.5rem !important;
         }
 

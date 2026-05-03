@@ -840,7 +840,7 @@ class DashboardController extends Controller
             ->selectRaw("SUM(CASE WHEN payment_status = 'PAID' THEN 1 ELSE 0 END) as paid_cases")
             ->selectRaw("SUM(CASE WHEN payment_status = 'PARTIAL' THEN 1 ELSE 0 END) as partial_cases")
             ->selectRaw("SUM(CASE WHEN payment_status = 'UNPAID' THEN 1 ELSE 0 END) as unpaid_cases")
-            ->selectRaw("COALESCE(SUM(CASE WHEN payment_status = 'PAID' THEN total_amount ELSE 0 END), 0) as total_sales")
+            ->selectRaw('COALESCE(SUM(total_amount), 0) as total_sales')
             ->selectRaw('COALESCE(SUM(total_paid), 0) as total_collected')
             ->selectRaw('COALESCE(SUM(balance_amount), 0) as total_outstanding');
     }

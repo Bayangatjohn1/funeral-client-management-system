@@ -60,7 +60,7 @@
             font-weight: 500;
             letter-spacing: 0.12em;
             text-transform: uppercase;
-            color: #64748b;
+            color: var(--color-text-secondary);
             margin-bottom: 0.5rem;
             line-height: 1;
         }
@@ -86,7 +86,7 @@
             left: 16px;
             top: 50%;
             transform: translateY(-50%);
-            color: #94a3b8;
+            color: var(--color-text-muted);
             font-size: 0.95rem;
             line-height: 1;
             display: inline-flex;
@@ -115,6 +115,20 @@
             line-height: 1.2;
         }
 
+        .login-field-input:hover {
+            border-color: var(--color-border-strong) !important;
+        }
+
+        .login-field-input:focus {
+            border-color: var(--color-primary) !important;
+            box-shadow: 0 0 0 3px var(--color-focus-ring) !important;
+        }
+
+        .login-field-input:disabled {
+            background: var(--color-bg-muted) !important;
+            color: var(--color-text-muted) !important;
+        }
+
         .login-field-input.password-input {
             padding-right: 82px;
         }
@@ -124,8 +138,8 @@
             right: 10px;
             top: 50%;
             transform: translateY(-50%);
-            color: #64748b;
-            background: #e2e8f0;
+            color: var(--color-text-secondary);
+            background: var(--color-bg-muted);
             border-radius: 0.5rem;
             width: 34px;
             height: 30px;
@@ -136,8 +150,8 @@
         }
 
         .login-toggle-btn:hover {
-            color: #1f2937;
-            background: #cbd5e1;
+            color: var(--color-primary);
+            background: var(--color-border);
         }
 
         .login-toggle-btn i {
@@ -159,23 +173,24 @@
             margin: 0;
             padding: 0;
             border-radius: 4px;
-            border: 1px solid #cbd5e1;
+            border: 1px solid var(--color-border);
             flex-shrink: 0;
             cursor: pointer;
+            accent-color: var(--color-primary);
         }
 
         .login-remember label {
             margin: 0;
             font-size: 14px;
             font-weight: 400;
-            color: #475569;
+            color: var(--color-text-secondary);
             cursor: pointer;
         }
 
         .login-footer-note {
             font-size: 11px;
             font-weight: 400;
-            color: #94a3b8;
+            color: var(--color-text-muted);
             letter-spacing: 0.1em;
             text-transform: uppercase;
             line-height: 1.55;
@@ -183,9 +198,9 @@
 
         .login-hero-panel {
             background:
-                radial-gradient(circle at 22% 18%, rgba(212, 163, 115, 0.22), transparent 32%),
-                radial-gradient(circle at 88% 14%, rgba(255, 255, 255, 0.12), transparent 26%),
-                linear-gradient(145deg, #0f172a 0%, #1e1a16 54%, #2a1607 100%);
+                radial-gradient(circle at 22% 18%, rgba(139, 154, 139, 0.20), transparent 32%),
+                radial-gradient(circle at 88% 14%, rgba(255, 255, 255, 0.10), transparent 26%),
+                linear-gradient(145deg, #2F3A2E 0%, #3E4A3D 54%, #344033 100%);
         }
 
         .login-hero-panel::before,
@@ -202,7 +217,7 @@
             height: 20rem;
             right: -4rem;
             top: -4rem;
-            background: rgba(156, 90, 26, 0.24);
+            background: rgba(184, 121, 86, 0.22);
             filter: blur(20px);
         }
 
@@ -248,10 +263,10 @@
         }
     </style>
 </head>
-<body class="login-page font-sans text-slate-900 antialiased h-screen overflow-hidden bg-white relative">
+<body class="login-page font-sans antialiased h-screen overflow-hidden relative" style="background: var(--color-bg-page); color: var(--color-text-primary);">
 
 {{-- Subtle background glow --}}
-<div class="absolute right-0 top-0 w-1/2 h-full bg-gradient-to-bl from-[#9C5A1A]/5 to-transparent pointer-events-none z-0"></div>
+<div class="absolute right-0 top-0 w-1/2 h-full bg-gradient-to-bl from-[#3E4A3D]/5 to-transparent pointer-events-none z-0"></div>
 
 <div class="absolute right-4 top-4 z-30 sm:right-6 sm:top-6">
     <button type="button" class="theme-toggle" data-theme-toggle aria-label="Toggle color theme">
@@ -280,7 +295,7 @@
                 <div>
                     <h1 class="text-3xl font-bold text-white font-heading tracking-tight drop-shadow-lg">Sabangan Caguioa</h1>
                     <div class="flex items-center gap-2 mt-1">
-                        <div class="w-6 h-1 bg-[#9C5A1A] rounded-full shadow-sm"></div>
+                        <div class="w-6 h-1 bg-[#B87956] rounded-full shadow-sm"></div>
                         <p class="text-[11px] font-medium text-white/80 uppercase tracking-widest drop-shadow-md">Funeral Home System</p>
                     </div>
                 </div>
@@ -299,7 +314,7 @@
                                         <p class="text-[10px] font-medium uppercase tracking-[0.28em] text-white/55">Operations Overview</p>
                                         <p class="mt-2 text-2xl font-semibold text-white">Today&apos;s branch activity</p>
                                     </div>
-                                    <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#9C5A1A] text-white shadow-lg">
+                                    <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#B87956] text-white shadow-lg">
                                         <i class="bi bi-speedometer2 text-xl"></i>
                                     </div>
                                 </div>
@@ -325,25 +340,25 @@
                                         <span class="rounded-full bg-emerald-400/15 px-3 py-1 text-[10px] font-medium uppercase tracking-widest text-emerald-200">Live</span>
                                     </div>
                                     <div class="space-y-3">
-                                        <div class="h-3 w-full rounded-full bg-white/12"><div class="h-3 w-4/5 rounded-full bg-[#d4a373]"></div></div>
+                                        <div class="h-3 w-full rounded-full bg-white/12"><div class="h-3 w-4/5 rounded-full bg-[#8B9A8B]"></div></div>
                                         <div class="h-3 w-full rounded-full bg-white/12"><div class="h-3 w-2/3 rounded-full bg-white/50"></div></div>
-                                        <div class="h-3 w-full rounded-full bg-white/12"><div class="h-3 w-3/5 rounded-full bg-[#9C5A1A]"></div></div>
+                                        <div class="h-3 w-full rounded-full bg-white/12"><div class="h-3 w-3/5 rounded-full bg-[#B87956]"></div></div>
                                     </div>
                                 </div>
                                 <div class="login-hero-card flex items-center justify-center rounded-3xl p-5">
                                     <div class="relative h-28 w-36">
                                         <div class="absolute bottom-2 left-2 h-16 w-28 rounded-2xl border border-white/20 bg-white/10"></div>
-                                        <div class="absolute bottom-8 left-0 h-12 w-20 rounded-t-2xl border border-white/20 bg-[#9C5A1A]/45"></div>
+                                        <div class="absolute bottom-8 left-0 h-12 w-20 rounded-t-2xl border border-white/20 bg-[#B87956]/45"></div>
                                         <div class="absolute bottom-0 left-8 h-5 w-5 rounded-full border border-white/30 bg-slate-950"></div>
                                         <div class="absolute bottom-0 right-6 h-5 w-5 rounded-full border border-white/30 bg-slate-950"></div>
-                                        <div class="absolute right-1 top-3 h-9 w-9 rounded-full border border-[#d4a373]/50 bg-[#d4a373]/25"></div>
+                                        <div class="absolute right-1 top-3 h-9 w-9 rounded-full border border-[#8B9A8B]/50 bg-[#8B9A8B]/25"></div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div class="mt-8 max-w-xl">
-                        <span class="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.26em] text-[#f3d8bd]">Branch Intelligence</span>
+                        <span class="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.26em] text-[#E8ECE6]">Branch Intelligence</span>
                         <h2 class="mt-4 text-4xl font-bold leading-tight text-white font-heading">A calmer way to monitor daily funeral operations.</h2>
                         <p class="mt-4 text-sm leading-7 text-white/72">View active cases, service schedules, and branch activity from one secure access point built for focused staff work.</p>
                     </div>
@@ -354,7 +369,7 @@
                         <div class="absolute inset-0 bg-[radial-gradient(circle_at_82%_16%,rgba(212,163,115,0.28),transparent_28%),linear-gradient(145deg,rgba(15,23,42,0.24),rgba(15,23,42,0.8))]"></div>
                         <div class="relative grid h-full grid-cols-[0.95fr_1.05fr] gap-5">
                             <div class="login-hero-card flex flex-col justify-between rounded-3xl p-5">
-                                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#9C5A1A] shadow-lg">
+                                <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#B87956] shadow-lg">
                                     <i class="bi bi-calendar2-check text-xl"></i>
                                 </div>
                                 <div>
@@ -365,12 +380,12 @@
                             <div class="space-y-4">
                                 <div class="login-hero-card rounded-3xl p-5">
                                     <div class="flex items-center gap-4">
-                                        <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#9C5A1A]/55 text-white">
+                                        <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#B87956]/55 text-white">
                                             <i class="bi bi-truck-front text-xl"></i>
                                         </div>
                                         <div class="min-w-0 flex-1">
                                             <p class="text-sm font-semibold text-white">Transport assignment</p>
-                                            <div class="mt-2 h-2 rounded-full bg-white/12"><div class="h-2 w-3/4 rounded-full bg-[#d4a373]"></div></div>
+                                            <div class="mt-2 h-2 rounded-full bg-white/12"><div class="h-2 w-3/4 rounded-full bg-[#8B9A8B]"></div></div>
                                         </div>
                                     </div>
                                 </div>
@@ -387,12 +402,12 @@
                                 </div>
                                 <div class="login-hero-card rounded-3xl p-5">
                                     <div class="flex items-center gap-4">
-                                        <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#d4a373]/25 text-[#f3d8bd]">
+                                        <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#8B9A8B]/25 text-[#E8ECE6]">
                                             <i class="bi bi-building-check text-xl"></i>
                                         </div>
                                         <div class="min-w-0 flex-1">
                                             <p class="text-sm font-semibold text-white">Branch handoff</p>
-                                            <div class="mt-2 h-2 rounded-full bg-white/12"><div class="h-2 w-2/3 rounded-full bg-[#9C5A1A]"></div></div>
+                                            <div class="mt-2 h-2 rounded-full bg-white/12"><div class="h-2 w-2/3 rounded-full bg-[#B87956]"></div></div>
                                         </div>
                                     </div>
                                 </div>
@@ -400,7 +415,7 @@
                         </div>
                     </div>
                     <div class="mt-8 max-w-xl">
-                        <span class="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.26em] text-[#f3d8bd]">Service Coordination</span>
+                        <span class="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.26em] text-[#E8ECE6]">Service Coordination</span>
                         <h2 class="mt-4 text-4xl font-bold leading-tight text-white font-heading">Keep every service detail visible and organized.</h2>
                         <p class="mt-4 text-sm leading-7 text-white/72">Track transport, chapel preparation, and branch responsibilities with a polished workflow that supports timely decisions.</p>
                     </div>
@@ -422,22 +437,22 @@
                                 </div>
                                 <div class="mt-7 space-y-4">
                                     <div class="flex items-center gap-3 rounded-2xl bg-white/10 p-4">
-                                        <i class="bi bi-person-badge text-[#f3d8bd]"></i>
+                                        <i class="bi bi-person-badge text-[#E8ECE6]"></i>
                                         <span class="text-sm font-medium text-white/82">Staff login verification</span>
                                     </div>
                                     <div class="flex items-center gap-3 rounded-2xl bg-white/10 p-4">
-                                        <i class="bi bi-file-earmark-lock text-[#f3d8bd]"></i>
+                                        <i class="bi bi-file-earmark-lock text-[#E8ECE6]"></i>
                                         <span class="text-sm font-medium text-white/82">Protected case files</span>
                                     </div>
                                     <div class="flex items-center gap-3 rounded-2xl bg-white/10 p-4">
-                                        <i class="bi bi-clock-history text-[#f3d8bd]"></i>
+                                        <i class="bi bi-clock-history text-[#E8ECE6]"></i>
                                         <span class="text-sm font-medium text-white/82">Auditable activity trail</span>
                                     </div>
                                 </div>
                             </div>
                             <div class="login-hero-card flex items-center justify-center rounded-3xl p-6">
                                 <div class="relative h-56 w-44 rounded-[2rem] border border-white/15 bg-slate-950/35 p-5 shadow-2xl">
-                                    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-[#9C5A1A] text-white shadow-lg">
+                                    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-[#B87956] text-white shadow-lg">
                                         <i class="bi bi-lock-fill text-2xl"></i>
                                     </div>
                                     <div class="mt-8 space-y-3">
@@ -453,7 +468,7 @@
                         </div>
                     </div>
                     <div class="mt-8 max-w-xl">
-                        <span class="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.26em] text-[#f3d8bd]">Access Control</span>
+                        <span class="inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.26em] text-[#E8ECE6]">Access Control</span>
                         <h2 class="mt-4 text-4xl font-bold leading-tight text-white font-heading">Protect sensitive records without slowing the team down.</h2>
                         <p class="mt-4 text-sm leading-7 text-white/72">Role-aware access and monitored sessions help keep family, payment, and service records handled with care.</p>
                     </div>
@@ -485,31 +500,31 @@
         <div class="w-full min-h-screen lg:min-h-full flex items-center justify-center px-6 py-8 sm:px-10 sm:py-10 lg:px-12">
 
             {{-- Bordered form container --}}
-            <div class="w-full max-w-[500px] bg-white border border-slate-200 rounded-[2rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] hover:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.12)] p-8 sm:p-10 animate-float-up relative transition-shadow duration-300">
+            <div class="w-full max-w-[500px] rounded-[2rem] shadow-[0_20px_50px_-12px_rgba(62,74,61,0.10)] hover:shadow-[0_25px_60px_-15px_rgba(62,74,61,0.14)] p-8 sm:p-10 animate-float-up relative transition-shadow duration-300" style="background: var(--color-bg-surface); border: 1px solid var(--color-border);">
 
             {{-- Decorative accent line --}}
-            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1.5 bg-gradient-to-r from-[#9C5A1A] to-[#c76512] rounded-b-full"></div>
+            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1.5 rounded-b-full" style="background: linear-gradient(to right, var(--color-primary), var(--color-accent));"></div>
 
             {{-- Mobile logo --}}
             <div class="flex lg:hidden items-center gap-4 mb-8 pt-4">
-                <img src="{{ asset('images/login-logo.png') }}" alt="Logo" class="w-12 h-12 rounded-lg border border-slate-200 p-1 shadow-sm">
+                <img src="{{ asset('images/login-logo.png') }}" alt="Logo" class="w-12 h-12 rounded-lg p-1 shadow-sm" style="border: 1px solid var(--color-border);">
                 <div>
-                    <h1 class="text-xl font-bold text-slate-900 font-heading tracking-tight">Sabangan Caguioa</h1>
-                    <p class="text-[11px] font-medium text-[#9C5A1A] uppercase tracking-widest mt-0.5">System Portal</p>
+                    <h1 class="text-xl font-bold font-heading tracking-tight" style="color: var(--color-text-primary);">Sabangan Caguioa</h1>
+                    <p class="text-[11px] font-medium uppercase tracking-widest mt-0.5" style="color: var(--color-primary);">System Portal</p>
                 </div>
             </div>
 
             {{-- Welcome header --}}
             <div class="mb-9 text-center lg:text-left pt-2">
-                <h2 class="text-2xl sm:text-3xl font-bold font-heading mb-2 tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-slate-800 to-[#9C5A1A]">
+                <h2 class="text-2xl sm:text-3xl font-bold font-heading mb-2 tracking-tight" style="color: var(--color-text-primary);">
                     Welcome Back
                 </h2>
-                <p class="text-sm font-medium text-slate-500">Enter your credentials to securely manage operations.</p>
+                <p class="text-sm font-medium" style="color: var(--color-text-secondary);">Enter your credentials to securely manage operations.</p>
             </div>
 
             @if (session('status'))
-                <div class="bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-sm px-4 py-3 mb-6 font-medium flex items-center gap-3 shadow-sm">
-                    <i class="bi bi-check-circle-fill text-emerald-500 text-lg"></i>
+                <div class="auth-success rounded-xl text-sm mb-6 font-medium flex items-center gap-3 shadow-sm">
+                    <i class="bi bi-check-circle-fill text-lg" style="color: var(--color-success);"></i>
                     {{ session('status') }}
                 </div>
             @endif
@@ -521,12 +536,12 @@
                 {{-- Email input --}}
                 <div class="group">
                     <div class="login-label-row">
-                        <label for="email" class="login-form-label transition-colors group-focus-within:text-[#9C5A1A]">
+                        <label for="email" class="login-form-label transition-colors group-focus-within:text-[var(--color-primary)]">
                             Email Address
                         </label>
                     </div>
                     <div class="login-field">
-                        <span class="login-field-icon transition-colors group-focus-within:text-[#9C5A1A]">
+                        <span class="login-field-icon transition-colors group-focus-within:text-[var(--color-primary)]">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                 <circle cx="12" cy="8" r="4"></circle>
                                 <path d="M4 20c0-3.2 3.6-5.5 8-5.5s8 2.3 8 5.5"></path>
@@ -540,12 +555,13 @@
                             required
                             autofocus
                             autocomplete="username"
-                            class="login-field-input w-full bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-sm text-slate-900 focus:bg-white focus:border-[#9C5A1A] focus:ring-4 focus:ring-[#9C5A1A]/10 transition-all outline-none shadow-sm"
+                            class="login-field-input w-full rounded-xl text-sm transition-all outline-none shadow-sm"
+                            style="background: var(--color-bg-surface); border: 1px solid var(--color-border); color: var(--color-text-primary);"
                             placeholder="name@example.com"
                         >
                     </div>
                     @error('email')
-                        <p class="mt-2 text-[11px] font-medium text-red-500 flex items-center gap-1">
+                        <p class="mt-2 text-[11px] font-medium flex items-center gap-1" style="color: var(--color-danger);">
                             <i class="bi bi-exclamation-circle"></i> {{ $message }}
                         </p>
                     @enderror
@@ -554,12 +570,12 @@
                 {{-- Password input --}}
                 <div class="group">
                     <div class="login-label-row">
-                        <label for="password" class="login-form-label transition-colors group-focus-within:text-[#9C5A1A]">
+                        <label for="password" class="login-form-label transition-colors group-focus-within:text-[var(--color-primary)]">
                             Password
                         </label>
                     </div>
                     <div class="login-field">
-                        <span class="login-field-icon transition-colors group-focus-within:text-[#9C5A1A]">
+                        <span class="login-field-icon transition-colors group-focus-within:text-[var(--color-primary)]">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                 <rect x="5" y="11" width="14" height="10" rx="2"></rect>
                                 <path d="M8 11V8a4 4 0 118 0v3"></path>
@@ -571,7 +587,8 @@
                             name="password"
                             required
                             autocomplete="current-password"
-                            class="login-field-input password-input w-full bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-sm text-slate-900 focus:bg-white focus:border-[#9C5A1A] focus:ring-4 focus:ring-[#9C5A1A]/10 transition-all outline-none shadow-sm"
+                            class="login-field-input password-input w-full rounded-xl text-sm transition-all outline-none shadow-sm"
+                            style="background: var(--color-bg-surface); border: 1px solid var(--color-border); color: var(--color-text-primary);"
                             placeholder="Enter your password"
                         >
                         <button
@@ -584,7 +601,7 @@
                         </button>
                     </div>
                     @error('password')
-                        <p class="mt-2 text-[11px] font-medium text-red-500 flex items-center gap-1">
+                        <p class="mt-2 text-[11px] font-medium flex items-center gap-1" style="color: var(--color-danger);">
                             <i class="bi bi-exclamation-circle"></i> {{ $message }}
                         </p>
                     @enderror
@@ -598,14 +615,15 @@
                             type="checkbox"
                             name="remember"
                             {{ old('remember') ? 'checked' : '' }}
-                            class="text-[#9C5A1A] bg-white focus:ring-[#9C5A1A] focus:ring-2 transition-all"
+                            class="transition-all"
+                            style="accent-color: var(--color-primary);"
                         >
                         <label for="remember">
                             Keep me signed in
                         </label>
                     </div>
                     @if (Route::has('password.request'))
-                        <a href="{{ route('password.request') }}" class="text-sm font-medium text-[#9C5A1A] hover:text-[#6a3003] transition-colors">
+                        <a href="{{ route('password.request') }}" class="text-sm font-medium transition-colors" style="color: var(--color-primary);" onmouseover="this.style.color='var(--color-primary-hover)'" onmouseout="this.style.color='var(--color-primary)'">
                             Forgot Password?
                         </a>
                     @endif
@@ -615,7 +633,10 @@
                 <div class="pt-3">
                     <button
                         type="submit"
-                        class="group w-full inline-flex items-center justify-center px-6 py-3.5 bg-[#9C5A1A] border border-transparent rounded-xl font-medium text-sm text-white uppercase tracking-widest hover:bg-[#6a3003] hover:shadow-[0_10px_20px_-10px_rgba(140,64,4,0.6)] hover:-translate-y-0.5 focus:outline-none focus:ring-4 focus:ring-[#9C5A1A]/30 active:scale-95 transition-all duration-300"
+                        class="group w-full inline-flex items-center justify-center px-6 py-3.5 border border-transparent rounded-xl font-medium text-sm uppercase tracking-widest hover:-translate-y-0.5 focus:outline-none active:scale-95 transition-all duration-300"
+                        style="background: var(--color-primary); color: #FAFAF7;"
+                        onmouseover="this.style.background='var(--color-primary-hover)'; this.style.boxShadow='0 10px 20px -10px rgba(62, 74, 61, 0.5)'"
+                        onmouseout="this.style.background='var(--color-primary)'; this.style.boxShadow=''"
                     >
                         Sign In
                     </button>
@@ -623,7 +644,7 @@
             </form>
 
             {{-- Inner footer --}}
-            <div class="mt-10 text-center pt-8 border-t border-slate-100">
+            <div class="mt-10 text-center pt-8" style="border-top: 1px solid var(--color-border);">
                 <p class="login-footer-note">
                     &copy; {{ date('Y') }} Sabangan Caguioa <br>
                     Secure access monitored

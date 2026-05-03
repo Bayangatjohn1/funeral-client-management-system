@@ -207,11 +207,22 @@ class ReportsModuleTest extends TestCase
 
         $this->case($main, ['case_code' => 'MAIN-001', 'payment_status' => 'PAID', 'total_amount' => 10000, 'total_paid' => 10000, 'balance_amount' => 0]);
         $this->case($other, ['case_code' => 'OTHER-001', 'payment_status' => 'PARTIAL', 'total_amount' => 15000, 'total_paid' => 5000, 'balance_amount' => 10000]);
+        $this->case($main, [
+            'case_code' => 'PENDING-001',
+            'payment_status' => 'PAID',
+            'total_amount' => 99999,
+            'total_paid' => 99999,
+            'balance_amount' => 0,
+            'verification_status' => 'PENDING',
+        ]);
 
         $response = $this->actingAs($owner)->getJson('/reports/preview?report_type=owner_branch_analytics');
 
         $response->assertOk()
             ->assertJsonPath('summary.total_cases', 2)
+            ->assertJsonPath('summary.gross_amount', 25000)
+            ->assertJsonPath('summary.collected_amount', 15000)
+            ->assertJsonPath('summary.remaining_balance', 10000)
             ->assertJsonCount(2, 'rows');
     }
 

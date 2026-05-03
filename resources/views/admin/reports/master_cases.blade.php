@@ -107,21 +107,21 @@
             gap: 12px;
             flex-wrap: wrap;
             font-size: 12px;
-            color: #64748b;
+            color: #5F685F;
         }
 
         .admin-master-active-summary strong {
-            color: #1f2937;
+            color: #333333;
             font-weight: 700;
         }
 
         .admin-master-active-summary a {
-            color: #334155;
+            color: #333333;
             font-weight: 600;
         }
 
         .admin-master-active-summary a:hover {
-            color: #0f172a;
+            color: #3E4A3D;
             text-decoration: underline;
         }
 
@@ -642,10 +642,10 @@
                         content.appendChild(script);
                     });
                 } else {
-                    content.innerHTML = `<div style="padding:20px;font-size:13px;color:#b91c1c;">Unable to load case details.</div>`;
+                    content.innerHTML = `<div style="padding:20px;font-size:13px;color:#9E4B3F;">Unable to load case details.</div>`;
                 }
             } catch {
-                content.innerHTML = `<div style="padding:20px;font-size:13px;color:#b91c1c;">Network error. Please try again.</div>`;
+                content.innerHTML = `<div style="padding:20px;font-size:13px;color:#9E4B3F;">Network error. Please try again.</div>`;
             }
         };
 

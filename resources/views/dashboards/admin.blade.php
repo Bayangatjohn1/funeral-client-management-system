@@ -2,13 +2,338 @@
 
 @section('page_title', 'Admin Dashboard')
 @section('page_desc', 'Monitor branch operations, case activity, payments, and system status.')
+@section('hide_layout_topbar', '1')
 
 @section('header_actions')
 @endsection
 
 @section('content')
+@php
+    $adminFirstName = \Illuminate\Support\Str::of(auth()->user()->name ?? 'Admin')->trim()->explode(' ')->first();
+    $adminTodayLabel = now()->format('l, F j, Y');
+    $adminBranch = auth()->user()?->branch;
+    $adminSubtitle = auth()->user()?->isMainBranchAdmin()
+        ? 'Managing all branch operations'
+        : 'Managing branch operations - ' . trim(($adminBranch?->branch_code ?? 'BR') . ' - ' . ($adminBranch?->branch_name ?? 'Assigned Branch'));
+@endphp
+<style>
+    html:not([data-theme='dark']) .admin-dashboard-shell {
+        color: var(--color-text-primary);
+    }
+
+    .admin-dashboard-shell,
+    .admin-dashboard-shell * {
+        min-width: 0;
+    }
+
+    .admin-dashboard-shell .card-custom,
+    .admin-dashboard-shell .stat-card,
+    .admin-dashboard-shell .admin-top-controls,
+    .admin-dashboard-shell > .bg-white,
+    .admin-dashboard-shell .admin-section-block .bg-transparent {
+        border-radius: clamp(18px, 1.8vw, 28px) !important;
+    }
+
+    .admin-dashboard-shell .admin-top-controls {
+        align-items: center;
+    }
+
+    .admin-dashboard-greeting {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+        padding: 1.1rem 1.25rem;
+        border: 1px solid var(--color-border);
+        border-radius: clamp(18px, 1.8vw, 28px);
+        background: linear-gradient(180deg, var(--color-bg-surface) 0%, var(--color-bg-muted) 100%);
+    }
+
+    .admin-dashboard-greeting__title {
+        display: flex;
+        align-items: flex-start;
+        gap: .85rem;
+        min-width: 0;
+    }
+
+    .admin-dashboard-greeting h1 {
+        margin: 0;
+        font-family: var(--font-heading);
+        font-size: clamp(1.45rem, 2.3vw, 2rem);
+        line-height: 1.1;
+        color: var(--color-text-primary);
+        letter-spacing: 0;
+    }
+
+    .admin-dashboard-greeting p {
+        margin: .4rem 0 0;
+        color: var(--color-text-secondary);
+        font-size: .98rem;
+    }
+
+    .admin-dashboard-greeting__tools {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: .6rem;
+        flex-wrap: wrap;
+    }
+
+    .admin-dashboard-date-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .42rem;
+        min-height: 38px;
+        border: 1px solid var(--color-border);
+        background: var(--color-bg-surface);
+        border-radius: .75rem;
+        padding: .52rem .74rem;
+        font-size: .9rem;
+        color: var(--color-text-secondary);
+        white-space: nowrap;
+    }
+
+    .admin-dashboard-date-pill i {
+        color: var(--color-primary);
+    }
+
+    .admin-dashboard-shell .admin-top-controls-form select {
+        min-height: 40px;
+    }
+
+    .admin-dashboard-shell .admin-section-block {
+        width: 100%;
+    }
+
+    .admin-dashboard-shell .admin-section-block > .card-custom,
+    .admin-dashboard-shell .admin-section-block > .bg-white {
+        height: 100%;
+    }
+
+    .admin-dashboard-shell .stat-card {
+        min-height: 152px;
+        justify-content: space-between;
+    }
+
+    .admin-dashboard-shell .stat-value {
+        line-height: 1.08;
+        word-break: break-word;
+    }
+
+    .admin-dashboard-shell .admin-section-block h3,
+    .admin-dashboard-shell .admin-section-block h4,
+    .admin-dashboard-shell .admin-section-block h5,
+    .admin-dashboard-shell .admin-section-block p {
+        overflow-wrap: anywhere;
+    }
+
+    .admin-dashboard-shell .admin-section-block .rounded-\[2\.5rem\],
+    .admin-dashboard-shell .admin-section-block .card-custom {
+        min-height: 220px;
+    }
+
+    .admin-dashboard-shell .admin-section-block .grid > .stat-card {
+        min-height: 152px;
+    }
+
+    .admin-dashboard-shell .admin-section-block .flex.items-center.justify-between.p-4 {
+        min-height: 86px;
+    }
+
+    .admin-dashboard-shell .admin-section-block .bg-transparent.border {
+        min-height: 112px;
+        background-color: var(--color-bg-surface);
+    }
+
+    @media (max-width: 767px) {
+        .admin-dashboard-shell {
+            padding-inline: 12px;
+        }
+
+        .admin-dashboard-shell .admin-top-controls-form,
+        .admin-dashboard-shell .admin-top-controls-form select,
+        .admin-dashboard-shell .admin-top-controls-actions,
+        .admin-dashboard-shell .admin-top-controls-actions a {
+            width: 100% !important;
+        }
+
+        .admin-dashboard-shell .admin-section-block .rounded-\[2\.5rem\],
+        .admin-dashboard-shell .admin-section-block .card-custom,
+        .admin-dashboard-shell > .bg-white {
+            border-radius: 20px !important;
+            padding: 20px !important;
+        }
+
+        .admin-dashboard-shell .stat-card {
+            min-height: 132px;
+            padding: 14px;
+        }
+
+        .admin-dashboard-greeting {
+            padding: .95rem;
+        }
+
+        .admin-dashboard-greeting__tools {
+            width: 100%;
+            justify-content: flex-start;
+        }
+
+        .admin-dashboard-shell h4.text-5xl,
+        .admin-dashboard-shell h4.text-6xl {
+            font-size: clamp(2rem, 10vw, 3rem) !important;
+            line-height: 1.05;
+        }
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-top-controls,
+    html:not([data-theme='dark']) .admin-dashboard-shell .card-custom,
+    html:not([data-theme='dark']) .admin-dashboard-shell .stat-card,
+    html:not([data-theme='dark']) .admin-dashboard-shell .bg-white {
+        background-color: var(--color-bg-surface) !important;
+        border-color: var(--color-border) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .bg-slate-50,
+    html:not([data-theme='dark']) .admin-dashboard-shell .bg-slate-100,
+    html:not([data-theme='dark']) .admin-dashboard-shell .hover\:bg-slate-50:hover,
+    html:not([data-theme='dark']) .admin-dashboard-shell .hover\:bg-slate-100:hover {
+        background-color: var(--color-bg-muted) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .border-slate-100,
+    html:not([data-theme='dark']) .admin-dashboard-shell .border-slate-200,
+    html:not([data-theme='dark']) .admin-dashboard-shell .border-slate-200\/60 {
+        border-color: var(--color-border) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .text-slate-900,
+    html:not([data-theme='dark']) .admin-dashboard-shell .text-slate-800,
+    html:not([data-theme='dark']) .admin-dashboard-shell .hover\:text-slate-900:hover {
+        color: var(--color-text-primary) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .text-slate-700,
+    html:not([data-theme='dark']) .admin-dashboard-shell .text-slate-500,
+    html:not([data-theme='dark']) .admin-dashboard-shell .text-slate-400,
+    html:not([data-theme='dark']) .admin-dashboard-shell .text-slate-300 {
+        color: var(--color-text-secondary) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .text-emerald-600,
+    html:not([data-theme='dark']) .admin-dashboard-shell .text-emerald-500,
+    html:not([data-theme='dark']) .admin-dashboard-shell .text-emerald-400 {
+        color: var(--color-success) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .text-amber-600,
+    html:not([data-theme='dark']) .admin-dashboard-shell .text-amber-500,
+    html:not([data-theme='dark']) .admin-dashboard-shell .text-amber-400 {
+        color: var(--color-warning) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .text-red-700,
+    html:not([data-theme='dark']) .admin-dashboard-shell .text-red-600 {
+        color: var(--color-danger) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .bg-red-50 {
+        background-color: rgba(158, 75, 63, .12) !important;
+        border-color: rgba(158, 75, 63, .35) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .bg-emerald-50 {
+        background-color: rgba(111, 138, 109, .16) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .bg-blue-50,
+    html:not([data-theme='dark']) .admin-dashboard-shell .ring-blue-50 {
+        background-color: rgba(139, 154, 139, .16) !important;
+        --tw-ring-color: rgba(139, 154, 139, .16) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .text-blue-500 {
+        color: var(--color-primary) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .from-slate-900,
+    html:not([data-theme='dark']) .admin-dashboard-shell .via-slate-800,
+    html:not([data-theme='dark']) .admin-dashboard-shell .to-slate-900 {
+        --tw-gradient-from: var(--color-primary) var(--tw-gradient-from-position) !important;
+        --tw-gradient-via: var(--color-primary-hover) var(--tw-gradient-via-position) !important;
+        --tw-gradient-to: var(--color-primary-active) var(--tw-gradient-to-position) !important;
+        border-color: var(--color-primary-active) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell [class*="from-[#22324A]"],
+    html:not([data-theme='dark']) .admin-dashboard-shell [class*="to-[#1A2636]"] {
+        --tw-gradient-from: var(--color-primary) var(--tw-gradient-from-position) !important;
+        --tw-gradient-to: var(--color-accent) var(--tw-gradient-to-position) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .rank-badge {
+        background: var(--color-bg-muted);
+        border-color: var(--color-border);
+        color: var(--color-primary);
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-top-controls select,
+    html:not([data-theme='dark']) .admin-dashboard-shell .input-custom {
+        background-color: var(--color-bg-surface);
+        border-color: var(--color-border);
+        color: var(--color-text-primary);
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-top-controls select:focus,
+    html:not([data-theme='dark']) .admin-dashboard-shell .input-custom:focus {
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 3px rgba(62, 74, 61, .18);
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .stat-card > .w-9,
+    html:not([data-theme='dark']) .admin-dashboard-shell .w-12.h-12.rounded-2xl,
+    html:not([data-theme='dark']) .admin-dashboard-shell .w-16.h-16 {
+        background-color: var(--color-bg-muted) !important;
+        border-color: var(--color-border) !important;
+        color: var(--color-primary) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .shadow-2xl,
+    html:not([data-theme='dark']) .admin-dashboard-shell .shadow-sm,
+    html:not([data-theme='dark']) .admin-dashboard-shell .hover\:shadow-sm:hover,
+    html:not([data-theme='dark']) .admin-dashboard-shell .hover\:shadow-md:hover {
+        box-shadow: 0 10px 28px rgba(62, 74, 61, .08) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .absolute.left-\[23px\] {
+        background-color: var(--color-border) !important;
+    }
+</style>
+
 <div class="dashboard-fit-page">
 <div class="admin-dashboard-shell w-full space-y-6 antialiased text-slate-900 animate-float-up">
+    <section class="admin-dashboard-greeting">
+        <div class="admin-dashboard-greeting__title">
+            <button
+                type="button"
+                id="mobileSidebarToggle"
+                class="mobile-menu-btn"
+                aria-label="Open navigation"
+                aria-expanded="false"
+                aria-controls="appSidebar"
+            >
+                <i class="bi bi-list"></i>
+            </button>
+            <div>
+                <h1>Good morning, {{ $adminFirstName }}</h1>
+                <p>{{ $adminSubtitle }}</p>
+            </div>
+        </div>
+        <div class="admin-dashboard-greeting__tools">
+            <div class="admin-dashboard-date-pill"><i class="bi bi-calendar3"></i> {{ $adminTodayLabel }}</div>
+            @include('partials.topbar-notifications')
+        </div>
+    </section>
 
     @if($errors->any())
         <div class="bg-red-50 border border-red-100 p-4 text-red-700 rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center gap-3 shadow-sm">
@@ -66,7 +391,7 @@
         {{-- Collected Amount (Dark Premium) --}}
         <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-slate-800 rounded-[2.5rem] p-8 lg:p-10 shadow-2xl relative overflow-hidden group flex flex-col justify-between min-h-[220px]">
             {{-- Abstract Background Elements --}}
-            <div class="absolute -right-10 top-0 w-64 h-64 bg-gradient-to-bl from-[#9C5A1A]/30 to-transparent rounded-full blur-3xl group-hover:bg-[#9C5A1A]/40 transition-all duration-700"></div>
+            <div class="absolute -right-10 top-0 w-64 h-64 bg-gradient-to-bl from-[#3E4A3D]/30 to-transparent rounded-full blur-3xl group-hover:bg-[#3E4A3D]/40 transition-all duration-700"></div>
             <div class="absolute right-10 bottom-10 opacity-10 transform group-hover:scale-110 group-hover:rotate-12 transition-all duration-700">
                 <i class="bi bi-shield-check text-9xl text-white"></i>
             </div>
@@ -193,7 +518,7 @@
                                 <span class="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">{{ $branchCode }}</span>
                                 <span class="text-xs font-black text-slate-900 truncate pr-4">{{ $branchName }}</span>
                             </div>
-                            <span class="text-lg font-black text-[#9C5A1A] font-heading">{{ $count }}</span>
+                            <span class="text-lg font-black text-[#3E4A3D] font-heading">{{ $count }}</span>
                         </div>
                         <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
                             <div class="h-full rounded-full bg-gradient-to-r from-[#22324A] to-[#1A2636] transition-all duration-1000 w-0 group-hover:brightness-110 relative" style="width: {{ $width }}%">
@@ -234,7 +559,7 @@
                     $mockupLogs = [
                         ['time' => '10 mins ago', 'user' => 'Admin Juan', 'action' => 'Approved package void request for Case #1029', 'icon' => 'bi-shield-check', 'color' => 'text-emerald-500', 'bg' => 'bg-emerald-50', 'ring' => 'ring-emerald-50'],
                         ['time' => '1 hour ago', 'user' => 'Staff Maria', 'action' => 'Encoded initial payment (₱15,000) for Case #1030', 'icon' => 'bi-cash-stack', 'color' => 'text-blue-500', 'bg' => 'bg-blue-50', 'ring' => 'ring-blue-50'],
-                        ['time' => '3 hours ago', 'user' => 'Owner', 'action' => 'Updated Executive Package pricing matrix', 'icon' => 'bi-tags-fill', 'color' => 'text-[#9C5A1A]', 'bg' => 'bg-[#9C5A1A]/10', 'ring' => 'ring-[#9C5A1A]/5'],
+                        ['time' => '3 hours ago', 'user' => 'Owner', 'action' => 'Updated Executive Package pricing matrix', 'icon' => 'bi-tags-fill', 'color' => 'text-[#3E4A3D]', 'bg' => 'bg-[#3E4A3D]/10', 'ring' => 'ring-[#3E4A3D]/5'],
                         ['time' => 'Yesterday', 'user' => 'Staff Pedro', 'action' => 'Created new intake record for Deceased: Dela Cruz', 'icon' => 'bi-file-earmark-plus-fill', 'color' => 'text-slate-500', 'bg' => 'bg-slate-100', 'ring' => 'ring-slate-50'],
                     ];
                 @endphp

@@ -30,12 +30,12 @@
             if (!desktopMedia.matches) return;
 
             const collapseStorageKey = 'sidebar-collapsed';
-            let initialCollapsed = true;
+            let initialCollapsed = false;
             try {
                 const stored = localStorage.getItem(collapseStorageKey);
-                initialCollapsed = stored === null ? true : stored === 'true';
+                initialCollapsed = stored === null ? false : stored === 'true';
             } catch (error) {
-                initialCollapsed = true;
+                initialCollapsed = false;
             }
 
             if (initialCollapsed) {
@@ -141,13 +141,17 @@
 
         <div class="main-area">
             @php
-                $hideLayoutTopbar = trim($__env->yieldContent('hide_layout_topbar')) === '1';
+                $explicitHideLayoutTopbar = trim($__env->yieldContent('hide_layout_topbar')) === '1';
                 $pageDesc = trim($__env->yieldContent('page_desc'));
                 $topbarActions = trim($__env->yieldContent('topbar_actions'));
                 $legacyHeaderActions = trim($__env->yieldContent('header_actions'));
                 $filterBar = trim($__env->yieldContent('filter_bar'));
                 $authUser = auth()->user();
                 $authRole = $authUser->role ?? null;
+                $isStaffAdminChrome = $authUser && ($authUser?->isAdmin() || $authRole === 'staff');
+                $isStaffAdminDashboard = request()->is('staff') || request()->is('admin');
+                $hideLayoutTopbar = $explicitHideLayoutTopbar || $isStaffAdminChrome;
+                $showInlinePageHeader = $isStaffAdminChrome && ! $isStaffAdminDashboard && ! $explicitHideLayoutTopbar;
                 $showTopbarNotifications = ! $authUser?->isOwner();
                 $notificationRouteName = match (true) {
                     $authUser?->isAdmin() => 'admin.reminders.index',
@@ -349,7 +353,52 @@
             @endif
             @endunless
 
+            @if($hideLayoutTopbar && ! $showInlinePageHeader && ! $isStaffAdminDashboard)
+                <button
+                    type="button"
+                    id="mobileSidebarToggle"
+                    class="mobile-menu-btn panel-floating-menu-btn"
+                    aria-label="Open navigation"
+                    aria-expanded="false"
+                    aria-controls="appSidebar"
+                >
+                    <i class="bi bi-list"></i>
+                </button>
+            @endif
+
             <main class="page-content">
+                @if($showInlinePageHeader)
+                    <div class="panel-page-header">
+                        <div class="panel-page-header__leading">
+                            <button
+                                type="button"
+                                id="mobileSidebarToggle"
+                                class="mobile-menu-btn"
+                                aria-label="Open navigation"
+                                aria-expanded="false"
+                                aria-controls="appSidebar"
+                            >
+                                <i class="bi bi-list"></i>
+                            </button>
+                            <div class="panel-page-header__copy">
+                                <h1>@yield('page_title', 'Dashboard')</h1>
+                                @if($pageDesc !== '')
+                                    <p>@yield('page_desc')</p>
+                                @endif
+                            </div>
+                        </div>
+
+                        @if($topbarActions !== '' || $legacyHeaderActions !== '')
+                            <div class="panel-page-header__actions">
+                                @if($topbarActions !== '')
+                                    @yield('topbar_actions')
+                                @else
+                                    @yield('header_actions')
+                                @endif
+                            </div>
+                        @endif
+                    </div>
+                @endif
                 @yield('content')
             </main>
         </div>
@@ -490,7 +539,7 @@
 
             const restoreDesktopCollapsed = () => {
                 const stored = localStorage.getItem(collapseStorageKey);
-                const initialCollapsed = stored === null ? true : stored === 'true';
+                const initialCollapsed = stored === null ? false : stored === 'true';
                 setDesktopCollapsed(initialCollapsed, false);
             };
 
@@ -585,56 +634,69 @@
             const indicator = document.getElementById('globalLoadingIndicator');
             if (!indicator) return;
 
-            let showTimer = null;
-            let safetyTimer = null;
-
             function hideLoading() {
-                clearTimeout(showTimer);
-                showTimer = null;
-                clearTimeout(safetyTimer);
-                safetyTimer = null;
                 indicator.classList.add('hidden');
+                document.documentElement.classList.remove('page-nav-transition');
             }
 
-            function showLoading() {
-                if (!indicator.classList.contains('hidden')) return;
-                indicator.classList.remove('hidden');
-                safetyTimer = setTimeout(hideLoading, 10000);
-            }
-
-            function scheduleLoading() {
+            function startPageTransition() {
                 hideLoading();
-                showTimer = setTimeout(showLoading, 120);
+                document.documentElement.classList.add('page-nav-transition');
             }
 
             function isNormalLeftClick(e) {
                 return e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
             }
 
-            document.addEventListener('click', function (e) {
-                const link = e.target.closest('a[href]');
-                if (!link || !isNormalLeftClick(e)) return;
-                if (link.target === '_blank' || link.hasAttribute('download')) return;
+            function shouldIgnoreNavigationLink(link, e) {
+                if (!link || !isNormalLeftClick(e)) return true;
+                if (link.target === '_blank' || link.hasAttribute('download')) return true;
 
                 const href = link.getAttribute('href') || '';
-                if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
+                return !href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:');
+            }
 
+            function isSameOriginLink(link) {
+                try {
+                    return new URL(link.href, window.location.href).origin === window.location.origin;
+                } catch (error) {
+                    return false;
+                }
+            }
+
+            function startNavTransition(link) {
                 const targetUrl = new URL(link.href, window.location.href);
-                if (targetUrl.origin !== window.location.origin) return;
+                if (targetUrl.href === window.location.href) return false;
 
-                setTimeout(function () {
-                    if (!e.defaultPrevented) scheduleLoading();
-                }, 0);
+                startPageTransition();
+                window.setTimeout(() => {
+                    window.location.href = targetUrl.href;
+                }, 140);
+
+                return true;
+            }
+
+            document.addEventListener('click', function (e) {
+                const link = e.target.closest('a[href]');
+                if (shouldIgnoreNavigationLink(link, e)) return;
+                if (!isSameOriginLink(link)) return;
+
+                if (startNavTransition(link)) {
+                    e.preventDefault();
+                }
             });
 
             document.addEventListener('submit', function (e) {
                 setTimeout(function () {
-                    if (!e.defaultPrevented) scheduleLoading();
+                    if (!e.defaultPrevented) startPageTransition();
                 }, 0);
             });
 
             window.addEventListener('pageshow', hideLoading);
-            window.addEventListener('load', hideLoading);
+            window.addEventListener('load', function () {
+                document.documentElement.classList.remove('page-nav-transition');
+                hideLoading();
+            });
         })();
 
         (function () {

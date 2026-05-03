@@ -1812,6 +1812,191 @@
     }
 }
 
+html:not([data-theme='dark']) .ba-shell {
+    color: var(--ink);
+    background: var(--surface);
+}
+
+html:not([data-theme='dark']) .ba-card,
+html:not([data-theme='dark']) .ba-kpi-tile,
+html:not([data-theme='dark']) .ba-chart-frame,
+html:not([data-theme='dark']) .ba-compare-card,
+html:not([data-theme='dark']) .ba-drilldown,
+html:not([data-theme='dark']) .ba-insight-card,
+html:not([data-theme='dark']) .ba-drill-kpi {
+    background: var(--card);
+    border-color: var(--border);
+    box-shadow: var(--shadow-sm);
+}
+
+html:not([data-theme='dark']) .ba-title,
+html:not([data-theme='dark']) .ba-panel-title,
+html:not([data-theme='dark']) .ba-kpi-value,
+html:not([data-theme='dark']) .ba-insight-value,
+html:not([data-theme='dark']) .ba-collection-metric strong,
+html:not([data-theme='dark']) .ba-branch-kpi-card strong,
+html:not([data-theme='dark']) .ba-compare-table td,
+html:not([data-theme='dark']) .ba-context-chip,
+html:not([data-theme='dark']) .ba-breakdown-row {
+    color: var(--ink);
+}
+
+html:not([data-theme='dark']) .ba-filter-label,
+html:not([data-theme='dark']) .ba-subtitle,
+html:not([data-theme='dark']) .ba-panel-subtitle,
+html:not([data-theme='dark']) .ba-panel-note,
+html:not([data-theme='dark']) .ba-chart-helper,
+html:not([data-theme='dark']) .ba-kpi-label,
+html:not([data-theme='dark']) .ba-insight-label,
+html:not([data-theme='dark']) .ba-insight-note,
+html:not([data-theme='dark']) .ba-context-muted,
+html:not([data-theme='dark']) .ba-pop-field-label,
+html:not([data-theme='dark']) .ba-pop-label,
+html:not([data-theme='dark']) .ba-compare-table th,
+html:not([data-theme='dark']) .ba-empty-cell,
+html:not([data-theme='dark']) .ba-collection-metric span,
+html:not([data-theme='dark']) .ba-branch-kpi-card span,
+html:not([data-theme='dark']) .ba-breakdown-count,
+html:not([data-theme='dark']) .ba-breakdown-percent,
+html:not([data-theme='dark']) .ba-empty-state span {
+    color: var(--ink-muted);
+}
+
+html:not([data-theme='dark']) .ba-seg-item,
+html:not([data-theme='dark']) .ba-date-btn,
+html:not([data-theme='dark']) .ba-date-clear,
+html:not([data-theme='dark']) .ba-date-popover,
+html:not([data-theme='dark']) .ba-branch-select-wrap,
+html:not([data-theme='dark']) .ba-tab-btn,
+html:not([data-theme='dark']) .ba-pop-input,
+html:not([data-theme='dark']) .ba-pop-reset,
+html:not([data-theme='dark']) .ba-panel-note,
+html:not([data-theme='dark']) .ba-context-chip,
+html:not([data-theme='dark']) .ba-compare-title,
+html:not([data-theme='dark']) .ba-drilldown-actionbar,
+html:not([data-theme='dark']) .ba-clear-filters,
+html:not([data-theme='dark']) .ba-row-filter-btn,
+html:not([data-theme='dark']) .ba-collection-metric,
+html:not([data-theme='dark']) .ba-branch-kpi-card,
+html:not([data-theme='dark']) .ba-empty-state,
+html:not([data-theme='dark']) .ba-status-badge {
+    background: var(--surface-muted);
+    border-color: var(--border);
+    color: var(--ink-muted);
+}
+
+html:not([data-theme='dark']) .ba-seg-item:hover,
+html:not([data-theme='dark']) .ba-date-btn:hover,
+html:not([data-theme='dark']) .ba-tab-btn:hover,
+html:not([data-theme='dark']) .ba-pop-reset:hover,
+html:not([data-theme='dark']) .ba-clear-filters:hover,
+html:not([data-theme='dark']) .ba-row-filter-btn:hover {
+    background: var(--card);
+    border-color: var(--border-strong);
+    color: var(--ink);
+}
+
+html:not([data-theme='dark']) .ba-seg-item.active,
+html:not([data-theme='dark']) .ba-date-btn.active,
+html:not([data-theme='dark']) .ba-tab-btn.active,
+html:not([data-theme='dark']) .ba-pop-apply,
+html:not([data-theme='dark']) .ba-master-records-btn,
+html:not([data-theme='dark']) .ba-ranking-row.is-selected .ba-row-filter-btn {
+    background: var(--brand);
+    border-color: var(--brand);
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(62, 74, 61, 0.18);
+}
+
+html:not([data-theme='dark']) .ba-master-records-btn:hover {
+    background: var(--brand-hover);
+}
+
+html:not([data-theme='dark']) .ba-chart-frame:hover {
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-md);
+}
+
+html:not([data-theme='dark']) .ba-compare-table th,
+html:not([data-theme='dark']) .ba-compare-title {
+    background: var(--surface-muted);
+}
+
+html:not([data-theme='dark']) .ba-compare-table td,
+html:not([data-theme='dark']) .ba-compare-table th,
+html:not([data-theme='dark']) .ba-breakdown-row {
+    border-bottom-color: var(--border);
+}
+
+html:not([data-theme='dark']) .ba-compare-table tbody tr:hover {
+    background: rgba(139, 154, 139, 0.12);
+}
+
+html:not([data-theme='dark']) .ba-ranking-row.is-selected {
+    background: rgba(139, 154, 139, 0.16);
+    box-shadow: inset 3px 0 0 var(--brand);
+}
+
+html:not([data-theme='dark']) .ba-ranking-row.is-selected:hover {
+    background: rgba(139, 154, 139, 0.20);
+}
+
+html:not([data-theme='dark']) .ba-insight-card.tone-blue,
+html:not([data-theme='dark']) .ba-kpi-revenue {
+    background: rgba(139, 154, 139, 0.14);
+    border-color: rgba(139, 154, 139, 0.34);
+}
+
+html:not([data-theme='dark']) .ba-insight-card.tone-green,
+html:not([data-theme='dark']) .ba-kpi-outstanding.is-zero,
+html:not([data-theme='dark']) .ba-paid,
+html:not([data-theme='dark']) .ba-status-badge.status-positive,
+html:not([data-theme='dark']) .ba-active-filter-chip.filter-positive {
+    background: rgba(111, 138, 109, 0.14);
+    border-color: rgba(111, 138, 109, 0.35);
+    color: #4F6F4D;
+}
+
+html:not([data-theme='dark']) .ba-insight-card.tone-amber,
+html:not([data-theme='dark']) .ba-kpi-outstanding,
+html:not([data-theme='dark']) .ba-partial,
+html:not([data-theme='dark']) .ba-status-badge.status-warning,
+html:not([data-theme='dark']) .ba-active-filter-chip.filter-warning {
+    background: rgba(184, 121, 86, 0.14);
+    border-color: rgba(184, 121, 86, 0.30);
+    color: var(--warning);
+}
+
+html:not([data-theme='dark']) .ba-insight-card.tone-red,
+html:not([data-theme='dark']) .ba-unpaid,
+html:not([data-theme='dark']) .ba-status-badge.status-danger,
+html:not([data-theme='dark']) .ba-active-filter-chip.filter-danger {
+    background: rgba(158, 75, 63, 0.12);
+    border-color: rgba(158, 75, 63, 0.26);
+    color: var(--danger);
+}
+
+html:not([data-theme='dark']) .ba-ongoing,
+html:not([data-theme='dark']) .ba-active-filter-chip,
+html:not([data-theme='dark']) .ba-global-filterbar,
+html:not([data-theme='dark']) .ba-tab-context {
+    background: rgba(139, 154, 139, 0.14);
+    border-color: rgba(139, 154, 139, 0.34);
+    color: var(--brand);
+}
+
+html:not([data-theme='dark']) .ba-status-dot.status-positive {
+    background: #6F8A6D;
+}
+
+html:not([data-theme='dark']) .ba-status-dot.status-warning {
+    background: #B87956;
+}
+
+html:not([data-theme='dark']) .ba-status-dot.status-danger {
+    background: #9E4B3F;
+}
+
 html[data-theme='dark'] .ba-shell {
     color: #e2ecf9;
     background: #102033;
@@ -2046,8 +2231,21 @@ html[data-theme='dark'] .ba-head-row-nav {
         : barRawLabels;
 
     const isDark = document.documentElement.dataset.theme === 'dark';
-    const gridColor = isDark ? 'rgba(138, 167, 197, 0.18)' : 'rgba(100, 116, 139, 0.18)';
-    const textColor = isDark ? '#cfe0f5' : '#334155';
+    const chartTheme = {
+        primary: '#3E4A3D',
+        secondary: '#8B9A8B',
+        success: '#6F8A6D',
+        warning: '#B87956',
+        danger: '#9E4B3F',
+        neutral: '#7A8076',
+        surface: '#FAFAF7',
+        border: '#C9C5BB',
+        text: '#333333',
+        textMuted: '#5F685F',
+        grid: '#D8D1C5',
+    };
+    const gridColor = isDark ? 'rgba(138, 167, 197, 0.18)' : 'rgba(216, 209, 197, 0.78)';
+    const textColor = isDark ? '#cfe0f5' : chartTheme.textMuted;
 
     const money = new Intl.NumberFormat('en-PH', {
         style: 'currency',
@@ -2824,14 +3022,14 @@ html[data-theme='dark'] .ba-head-row-nav {
     const branchBarColor = (ctx, color) => {
         const branchCode = branchMeta[ctx.dataIndex]?.code;
         return analyticsFilters.branchCode && branchCode !== analyticsFilters.branchCode
-            ? fadeHex(color, 0.28)
+            ? fadeHex(color, 0.40)
             : color;
     };
 
     const periodBarColor = (ctx, color) => {
         const period = parsePeriodFromLabel(periodLabels[ctx.dataIndex]);
         return analyticsFilters.revenuePeriod && period?.label !== analyticsFilters.revenuePeriod.label
-            ? fadeHex(color, 0.28)
+            ? fadeHex(color, 0.40)
             : color;
     };
 
@@ -2849,9 +3047,12 @@ html[data-theme='dark'] .ba-head-row-nav {
                 },
             },
             tooltip: {
-                backgroundColor: isDark ? '#10253a' : '#0f172a',
-                titleColor: '#fff',
-                bodyColor: '#fff',
+                backgroundColor: isDark ? '#10253a' : chartTheme.surface,
+                titleColor: isDark ? '#fff' : chartTheme.text,
+                bodyColor: isDark ? '#fff' : chartTheme.text,
+                borderColor: isDark ? '#315f9b' : chartTheme.border,
+                borderWidth: 1,
+                displayColors: true,
             },
         },
     };
@@ -2904,8 +3105,8 @@ html[data-theme='dark'] .ba-head-row-nav {
                             type: 'bar',
                             label: 'Total Service Amount',
                             data: payload.bar.revenue ?? [],
-                            backgroundColor: (ctx) => branchBarColor(ctx, '#1E293B'),
-                            borderColor: (ctx) => branchBarColor(ctx, '#1E293B'),
+                            backgroundColor: (ctx) => branchBarColor(ctx, chartTheme.primary),
+                            borderColor: (ctx) => branchBarColor(ctx, chartTheme.primary),
                             borderWidth: 1,
                             borderRadius: 6,
                             yAxisID: 'yRevenue',
@@ -2914,8 +3115,8 @@ html[data-theme='dark'] .ba-head-row-nav {
                             type: 'bar',
                             label: 'Total Cases',
                             data: payload.bar.volume ?? [],
-                            backgroundColor: (ctx) => branchBarColor(ctx, '#3B82F6'),
-                            borderColor: (ctx) => branchBarColor(ctx, '#3B82F6'),
+                            backgroundColor: (ctx) => branchBarColor(ctx, chartTheme.secondary),
+                            borderColor: (ctx) => branchBarColor(ctx, chartTheme.secondary),
                             borderWidth: 1,
                             borderRadius: 6,
                             yAxisID: 'yCases',
@@ -3010,8 +3211,8 @@ html[data-theme='dark'] .ba-head-row-nav {
                         type: 'bar',
                         label: 'Total Service Amount',
                         data: periodServiceAmounts,
-                        backgroundColor: (ctx) => periodBarColor(ctx, '#1E293B'),
-                        borderColor: (ctx) => periodBarColor(ctx, '#1E293B'),
+                        backgroundColor: (ctx) => periodBarColor(ctx, chartTheme.primary),
+                        borderColor: (ctx) => periodBarColor(ctx, chartTheme.primary),
                         borderWidth: 1,
                         borderRadius: 6,
                         yAxisID: 'yRevenue',
@@ -3020,8 +3221,8 @@ html[data-theme='dark'] .ba-head-row-nav {
                         type: 'bar',
                         label: 'Total Cases',
                         data: periodCases,
-                        backgroundColor: (ctx) => periodBarColor(ctx, '#3B82F6'),
-                        borderColor: (ctx) => periodBarColor(ctx, '#3B82F6'),
+                        backgroundColor: (ctx) => periodBarColor(ctx, chartTheme.secondary),
+                        borderColor: (ctx) => periodBarColor(ctx, chartTheme.secondary),
                         borderWidth: 1,
                         borderRadius: 6,
                         yAxisID: 'yCases',
@@ -3111,13 +3312,13 @@ html[data-theme='dark'] .ba-head-row-nav {
                         data: [summary.status.paid, summary.status.partial, summary.status.unpaid],
                         backgroundColor: (ctx) => {
                             const statuses = ['PAID', 'PARTIAL', 'UNPAID'];
-                            const colors = ['#16a34a', '#d97706', '#dc2626'];
+                            const colors = [chartTheme.success, chartTheme.warning, chartTheme.danger];
                             const index = ctx.dataIndex ?? 0;
                             return analyticsFilters.paymentStatus && statuses[index] !== analyticsFilters.paymentStatus
-                                ? fadeHex(colors[index], 0.28)
+                                ? fadeHex(colors[index], 0.40)
                                 : colors[index];
                         },
-                        borderColor: isDark ? '#17283b' : '#fff',
+                        borderColor: isDark ? '#17283b' : chartTheme.surface,
                         borderWidth: 2,
                         hoverOffset: 6,
                     },
@@ -3153,8 +3354,8 @@ html[data-theme='dark'] .ba-head-row-nav {
                     {
                         label: 'Total Service Amount',
                         data: payload.line.data ?? [],
-                        borderColor: '#2563eb',
-                        backgroundColor: 'rgba(37, 99, 235, 0.10)',
+                        borderColor: chartTheme.primary,
+                        backgroundColor: 'rgba(62, 74, 61, 0.14)',
                         borderWidth: 2.5,
                         fill: true,
                         tension: 0.32,
@@ -3166,8 +3367,8 @@ html[data-theme='dark'] .ba-head-row-nav {
                         pointBackgroundColor: (ctx) => {
                             const period = parsePeriodFromLabel((payload.line.labels ?? [])[ctx.dataIndex]);
                             return analyticsFilters.revenuePeriod && analyticsFilters.revenuePeriod.label !== period?.label
-                                ? fadeHex('#2563eb', 0.28)
-                                : '#2563eb';
+                                ? fadeHex(chartTheme.primary, 0.40)
+                                : chartTheme.primary;
                         },
                     },
                 ],
@@ -3230,10 +3431,10 @@ html[data-theme='dark'] .ba-head-row-nav {
                         data: [summary.totalCollected, summary.totalOutstanding, summary.totalSales],
                         backgroundColor: (ctx) => {
                             const statuses = ['COLLECTED', 'OUTSTANDING', null];
-                            const colors = ['#15803d', '#b91c1c', '#334155'];
+                            const colors = [chartTheme.success, chartTheme.warning, chartTheme.primary];
                             const index = ctx.dataIndex ?? 0;
                             return analyticsFilters.collectionStatus && statuses[index] !== analyticsFilters.collectionStatus
-                                ? fadeHex(colors[index], 0.28)
+                                ? fadeHex(colors[index], 0.40)
                                 : colors[index];
                         },
                         borderRadius: 6,

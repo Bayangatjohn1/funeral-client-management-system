@@ -40,22 +40,44 @@
 
 <style>
     .pm-page { color: var(--ink); padding: 12px var(--panel-content-inline, 20px) 20px; }
-    .pm-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin-bottom: 1rem; }
-    .pm-kpi { background: var(--card); border: 1px solid var(--border); border-radius: .5rem; padding: 1rem; }
-    .pm-kpi span { display:block; font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-muted); font-weight:700; }
-    .pm-kpi strong { display:block; margin-top:.35rem; font-size:1.25rem; font-weight:800; font-variant-numeric:tabular-nums; }
-    .pm-kpi .good { color:#6F8A6D; }
-    .pm-kpi .warn { color:#9E4B3F; }
+    .pm-kpis { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:.75rem; margin-bottom:1rem; }
+    .pm-kpi {
+        background:#FAFAF7; border:1px solid #C9C5BB; border-radius:.6rem;
+        padding:.85rem 1rem; display:flex; flex-direction:column; gap:0;
+        text-decoration:none; color:#333333;
+    }
+    .pm-kpi-label {
+        display:block; font-size:.68rem; text-transform:uppercase; letter-spacing:.05em;
+        color:#5F685F; font-weight:700; line-height:1.3;
+    }
+    .pm-kpi-value {
+        display:block; margin:.25rem 0 .15rem; font-size:1.2rem;
+        font-weight:800; font-variant-numeric:tabular-nums; color:#333333;
+    }
+    .pm-kpi-value.good { color:#6F8A6D; }
+    .pm-kpi-value.warn { color:#B87956; }
+    .pm-kpi-desc {
+        display:block; font-size:.7rem; color:#5F685F; font-weight:500;
+        line-height:1.35; margin-top:.05rem;
+    }
+    .pm-kpi.is-link { cursor:pointer; transition:background .13s ease, border-color .13s ease; }
+    .pm-kpi.is-link:hover { background:#F3F0E8; border-color:#3E4A3D; }
+    .pm-kpi-footer {
+        display:block; font-size:.68rem; color:#3E4A3D; font-weight:700;
+        margin-top:.45rem; letter-spacing:.01em;
+    }
 
     .pm-toolbar-shell { background: var(--card); border:1px solid var(--border); border-radius:.75rem; padding:.7rem; margin-bottom:1rem; overflow:visible; }
-    .pm-toolbar { display:flex; flex-wrap:nowrap; align-items:center; gap:.55rem; }
-    .pm-field { flex:1 1 9.5rem; min-width:0; }
-    .pm-field.branch { flex:1.15 1 13rem; }
+    .pm-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:.55rem; }
+    .pm-field { flex:1 1 8rem; min-width:0; }
+    .pm-field.branch { flex:1.5 1 11rem; }
     .pm-field.branch-readonly { flex:0 1 18rem; min-width:14rem; max-width:18rem; }
-    .pm-field.search { flex:1.75 1 16rem; min-width:12rem; }
+    .pm-field.search { flex:2 1 15rem; min-width:12rem; }
     .pm-field.has-icon { position:relative; }
     .pm-field.has-icon > i { position:absolute; left:.85rem; top:50%; transform:translateY(-50%); color:var(--ink-muted); pointer-events:none; z-index:1; }
     .pm-field.has-icon .pm-control { padding-left:2.35rem; }
+    .pm-field.has-icon select.pm-control { -webkit-appearance:none; appearance:none; padding-right:2.2rem; }
+    .pm-sel-chev { position:absolute; right:.72rem; top:50%; transform:translateY(-50%); color:var(--ink-muted); pointer-events:none; font-size:.72rem; z-index:1; }
     .pm-control {
         width:100%; height:2.65rem; border:1px solid var(--border); border-radius:.75rem;
         background:#fff; color:var(--ink); font-size:.82rem; padding:0 .72rem;
@@ -89,7 +111,8 @@
     }
     .pm-tab.active { color:var(--accent); border-color:var(--accent); }
 
-    .pm-panel { background:var(--card); border:1px solid var(--border); border-radius:.75rem; overflow:visible; }
+    .pm-panel { background:var(--card); border:1px solid var(--border); border-radius:.75rem; overflow:hidden; display:flex; flex-direction:column; }
+    .pm-records-body { flex:1 1 auto; min-height:0; overflow-y:auto; max-height:calc(100vh - 320px); }
     .pm-money { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; font-weight:700; }
     .pm-row-list { background:var(--card); }
     .pm-case-row { display:grid; grid-template-columns:minmax(7rem,.65fr) minmax(0,1.8fr) minmax(12rem,.9fr) auto; gap:1rem; align-items:center; width:100%; padding:1rem; border:0; border-bottom:1px solid var(--border); background:transparent; color:inherit; text-align:left; }
@@ -121,9 +144,9 @@
     .pm-link { color:var(--accent); font-weight:800; text-decoration:none; white-space:nowrap; }
     .pm-empty { padding:3rem 1rem; text-align:center; color:var(--ink-muted); font-weight:700; }
     .pm-foot {
-        position: sticky;
-        bottom: 0;
-        z-index: 25;
+        flex-shrink:0;
+        position:relative;
+        z-index:2;
         padding:.7rem .85rem;
         border-top:1px solid var(--border);
         background:var(--card);
@@ -196,18 +219,19 @@
     html[data-theme='dark'] .pm-btn { background:#1e334f; color:#e2ecf9; }
 
     @media (max-width: 1100px) {
-        .pm-toolbar { flex-wrap:wrap; }
-        .pm-field, .pm-field.search, .pm-field.branch { flex:1 1 13rem; min-width:12rem; }
+        .pm-field, .pm-field.search, .pm-field.branch { flex:1 1 11rem; min-width:10rem; }
         .pm-actions { margin-left:0; }
     }
     @media (max-width: 900px) {
         .pm-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
         .pm-summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+        .pm-records-body { max-height:calc(100vh - 360px); }
     }
     @media (max-width: 640px) {
         .pm-kpis { grid-template-columns:1fr; }
         .pm-toolbar { flex-wrap:wrap; min-width:0; }
         .pm-field, .pm-field.search, .pm-field.branch, .pm-field.branch-readonly, .pm-actions, .pm-actions .pm-btn { width:100%; flex-basis:100%; min-width:0; max-width:none; }
+        .pm-records-body { max-height:calc(100vh - 420px); }
         .pm-foot .table-paginator { align-items:flex-start; gap:.7rem; }
         .pm-summary-top { flex-direction:column; }
         .pm-summary-grid { grid-template-columns:1fr; }
@@ -228,12 +252,37 @@
         <div class="flash-error">{{ $errors->first() }}</div>
     @endif
 
+    @if(!$isStaff)
     <div class="pm-kpis">
-        <div class="pm-kpi"><span>Total Cases with Payments</span><strong>{{ number_format($totalCasesWithPayments ?? 0) }}</strong></div>
-        <div class="pm-kpi"><span>Total Payment Transactions</span><strong>{{ number_format($paymentRecordsCount ?? 0) }}</strong></div>
-        <div class="pm-kpi"><span>Total Collected</span><strong class="good">PHP {{ number_format((float) ($totalCollected ?? 0), 2) }}</strong></div>
-        <div class="pm-kpi"><span>Outstanding Balance</span><strong class="warn">PHP {{ number_format((float) ($totalOutstanding ?? 0), 2) }}</strong></div>
+        {{-- Total Cases With Payments — links to Case Payment Summary tab --}}
+        <a href="{{ route($monitoringRoute, $tabQuery('summary')) }}" class="pm-kpi is-link">
+            <span class="pm-kpi-label">Total Cases with Payments</span>
+            <strong class="pm-kpi-value">{{ number_format($totalCasesWithPayments ?? 0) }}</strong>
+            <span class="pm-kpi-desc">Cases with at least one recorded payment.</span>
+            <span class="pm-kpi-footer">View details →</span>
+        </a>
+        {{-- Total Payment Transactions — links to Transaction History tab --}}
+        <a href="{{ route($monitoringRoute, $tabQuery('transactions')) }}" class="pm-kpi is-link">
+            <span class="pm-kpi-label">Total Payment Transactions</span>
+            <strong class="pm-kpi-value">{{ number_format($paymentRecordsCount ?? 0) }}</strong>
+            <span class="pm-kpi-desc">All recorded payment entries.</span>
+            <span class="pm-kpi-footer">View details →</span>
+        </a>
+        {{-- Total Collected — links to Transaction History tab --}}
+        <a href="{{ route($monitoringRoute, $tabQuery('transactions')) }}" class="pm-kpi is-link">
+            <span class="pm-kpi-label">Total Collected</span>
+            <strong class="pm-kpi-value good">PHP {{ number_format((float) ($totalCollected ?? 0), 2) }}</strong>
+            <span class="pm-kpi-desc">Actual money received from recorded payments.</span>
+            <span class="pm-kpi-footer">View details →</span>
+        </a>
+        {{-- Outstanding Balance — non-clickable; no combined UNPAID+PARTIAL filter exists --}}
+        <div class="pm-kpi">
+            <span class="pm-kpi-label">Outstanding Balance</span>
+            <strong class="pm-kpi-value warn">PHP {{ number_format((float) ($totalOutstanding ?? 0), 2) }}</strong>
+            <span class="pm-kpi-desc">Remaining unpaid balance.</span>
+        </div>
     </div>
+    @endif
 
     <div class="pm-tabs" role="tablist">
         <a class="pm-tab {{ $activeTab === 'summary' ? 'active' : '' }}" href="{{ route($monitoringRoute, $tabQuery('summary')) }}">
@@ -264,6 +313,7 @@
                             </option>
                         @endforeach
                     </select>
+                    <i class="bi bi-chevron-down pm-sel-chev"></i>
                 </div>
             @elseif(!$isStaff && $assignedBranch)
                 <div class="pm-field branch branch-readonly has-icon">
@@ -282,42 +332,46 @@
             <div class="pm-field has-icon">
                 <i class="bi bi-credit-card"></i>
                 <select name="payment_status" class="pm-control" title="Payment Status">
-                    <option value="">All Payment Status</option>
+                    <option value="">All Status</option>
                     <option value="UNPAID" @selected($paymentStatus === 'UNPAID')>Unpaid</option>
                     <option value="PARTIAL" @selected($paymentStatus === 'PARTIAL')>Partial</option>
                     <option value="PAID" @selected($paymentStatus === 'PAID')>Paid</option>
                 </select>
+                <i class="bi bi-chevron-down pm-sel-chev"></i>
             </div>
 
             <div class="pm-field has-icon">
                 <i class="bi bi-clipboard-check"></i>
                 <select name="case_status" class="pm-control" title="Case Status">
-                    <option value="">All Case Status</option>
+                    <option value="">All Cases</option>
                     <option value="DRAFT" @selected(($caseStatus ?? '') === 'DRAFT')>Draft</option>
                     <option value="ACTIVE" @selected(($caseStatus ?? '') === 'ACTIVE')>Active</option>
                     <option value="COMPLETED" @selected(($caseStatus ?? '') === 'COMPLETED')>Completed</option>
                 </select>
+                <i class="bi bi-chevron-down pm-sel-chev"></i>
             </div>
 
             <div class="pm-field has-icon">
                 <i class="bi bi-wallet2"></i>
                 <select name="payment_method" class="pm-control" title="Payment Method">
-                    <option value="">All Payment Methods</option>
+                    <option value="">All Methods</option>
                     <option value="cash" @selected(($paymentMethod ?? '') === 'cash')>Cash</option>
                     <option value="cashless" @selected(($paymentMethod ?? '') === 'cashless')>Cashless</option>
                 </select>
+                <i class="bi bi-chevron-down pm-sel-chev"></i>
             </div>
 
             <div class="pm-field has-icon">
                 <i class="bi bi-calendar3"></i>
                 <select id="pmDateRange" name="date_preset" class="pm-control" title="Date Range">
-                    <option value="all" @selected($dateRange === 'all' || $dateRange === 'any')>All Payment Dates</option>
+                    <option value="all" @selected($dateRange === 'all' || $dateRange === 'any')>All Dates</option>
                     <option value="today" @selected($dateRange === 'today')>Today</option>
                     <option value="week" @selected($dateRange === 'week')>This Week</option>
                     <option value="month" @selected($dateRange === 'month')>This Month</option>
                     <option value="year" @selected($dateRange === 'year')>This Year</option>
                     <option value="custom" @selected($dateRange === 'custom')>Custom</option>
                 </select>
+                <i class="bi bi-chevron-down pm-sel-chev"></i>
             </div>
 
             <div class="pm-hidden-date-fields">
@@ -333,6 +387,7 @@
 
     @if($activeTab === 'summary')
         <div class="pm-panel">
+            <div class="pm-records-body">
             <div class="pm-row-list">
                 @forelse($paymentCases as $case)
                     @php
@@ -366,6 +421,7 @@
                     <div class="pm-empty">{{ $emptyMessage }}</div>
                 @endforelse
             </div>
+            </div>{{-- /.pm-records-body --}}
             @if($paymentCases->total() > 0)
                 <div class="pm-foot">
                     {{ $paymentCases->onEachSide(1)->links('components.pagination.table') }}
@@ -374,6 +430,7 @@
         </div>
     @else
         <div class="pm-panel">
+            <div class="pm-records-body">
             <div class="pm-trans-list">
                 @forelse($transactionCases as $case)
                     @php
@@ -531,6 +588,7 @@
                     <div class="pm-empty">{{ $emptyMessage }}</div>
                 @endforelse
             </div>
+            </div>{{-- /.pm-records-body --}}
             @if($transactionCases->total() > 0)
                 <div class="pm-foot">
                     {{ $transactionCases->onEachSide(1)->links('components.pagination.table') }}

@@ -128,16 +128,23 @@
         color: #fff;
         font-size: 0.92rem;
         font-weight: 700;
-        transition: background-color 0.18s ease, border-color 0.18s ease;
+        cursor: pointer;
+        transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
     }
 
     .payments-record-action:hover {
-        background: #1d4ed8;
-        border-color: #1d4ed8;
+        background: #2D372D;
+        border-color: #2D372D;
     }
 
-    .payments-record-action:focus {
+    .payments-record-action:focus-visible {
         outline: none;
+        box-shadow: 0 0 0 3px rgba(62,74,61,0.18);
+        border-color: #3E4A3D;
+    }
+
+    .payments-record-action:active {
+        transform: scale(0.97);
     }
 
     .payments-unified-card .table-wrapper {
@@ -219,7 +226,7 @@
         <div class="payment-modal-sheet rounded-2xl overflow-hidden" style="border:1px solid var(--border);background:var(--card);box-shadow:0 25px 60px rgba(0,0,0,0.22)">
             <div class="flex items-center justify-between px-6 py-5" style="border-bottom:1px solid var(--border);background:var(--surface-muted)">
                 <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-xl bg-[#1b3358] text-white flex items-center justify-center flex-shrink-0 shadow-md">
+                    <div class="w-9 h-9 rounded-xl bg-[#3E4A3D] text-white flex items-center justify-center flex-shrink-0 shadow-md">
                         <i class="bi bi-cash-stack text-base"></i>
                     </div>
                     <div>
@@ -411,7 +418,7 @@
         </div>
 
         <div class="payments-pagination">
-            {{ $openCases->links() }}
+            @if($openCases->hasPages()){{ $openCases->links() }}@endif
         </div>
 
         <div class="payments-meta-section">

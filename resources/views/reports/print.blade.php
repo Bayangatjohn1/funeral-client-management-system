@@ -107,7 +107,9 @@
 @php
     $money = fn ($value) => '₱' . number_format((float) $value, 2);
     $number = fn ($value) => number_format((float) $value);
-    $columns = [
+    // When a drill-down metric is active the controller passes $drilldownColumns;
+    // otherwise use the standard column map for the report type.
+    $standardColumns = [
         'sales' => [
             'case_no' => 'Case No.', 'client' => 'Client', 'deceased' => 'Deceased', 'branch' => 'Branch',
             'package' => 'Package', 'service_type' => 'Service Type', 'total_amount' => 'Total Amount',
@@ -129,8 +131,11 @@
             'unpaid_cases' => 'Unpaid Cases', 'gross_amount' => 'Gross Amount', 'collected_amount' => 'Collected Amount',
             'remaining_balance' => 'Remaining Balance',
         ],
-    ][$reportType] ?? [];
-    $moneyColumns = ['total_amount', 'total_paid', 'balance', 'gross_amount', 'collected_amount', 'remaining_balance'];
+    ];
+    $columns = (isset($drilldownColumns) && $drilldownColumns)
+        ? $drilldownColumns
+        : ($standardColumns[$reportType] ?? []);
+    $moneyColumns  = ['total_amount', 'total_paid', 'balance', 'gross_amount', 'collected_amount', 'remaining_balance', 'amount_paid'];
     $numberColumns = ['total_cases', 'paid_cases', 'partial_cases', 'unpaid_cases'];
     $orderedFilterKeys = ['branch', 'branch_id', 'date_from', 'date_to', 'interment_from', 'interment_to'];
     $orderedFilters = collect($orderedFilterKeys)

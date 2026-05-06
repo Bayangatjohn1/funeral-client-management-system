@@ -42,30 +42,46 @@
     .pm-page { color: var(--ink); padding: 12px var(--panel-content-inline, 20px) 20px; }
     .pm-kpis { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:.75rem; margin-bottom:1rem; }
     .pm-kpi {
-        background:#FAFAF7; border:1px solid #C9C5BB; border-radius:.6rem;
-        padding:.85rem 1rem; display:flex; flex-direction:column; gap:0;
+        background:#FAFAF7; border:1.5px solid #C9C5BB; border-radius:.625rem;
+        display:flex; flex-direction:column;
         text-decoration:none; color:#333333;
     }
+    .pm-kpi-inner {
+        display:flex; align-items:center; gap:.75rem;
+        padding:.7rem 1rem; flex:1;
+    }
+    .pm-kpi-icon {
+        width:2rem; height:2rem; border-radius:7px; flex-shrink:0;
+        display:inline-flex; align-items:center; justify-content:center;
+        font-size:.82rem; background:rgba(62,74,61,0.10); color:#3E4A3D;
+    }
+    .pm-kpi-body {
+        flex:1; min-width:0; display:flex; flex-direction:column; gap:.08rem;
+    }
     .pm-kpi-label {
-        display:block; font-size:.68rem; text-transform:uppercase; letter-spacing:.05em;
-        color:#5F685F; font-weight:700; line-height:1.3;
+        display:block; font-size:.65rem; text-transform:uppercase; letter-spacing:.06em;
+        color:#5F685F; font-weight:700; line-height:1.3; white-space:nowrap;
     }
     .pm-kpi-value {
-        display:block; margin:.25rem 0 .15rem; font-size:1.2rem;
-        font-weight:800; font-variant-numeric:tabular-nums; color:#333333;
+        display:block; font-size:1.15rem; line-height:1.15;
+        font-weight:800; font-variant-numeric:tabular-nums; color:#222222;
     }
     .pm-kpi-value.good { color:#6F8A6D; }
     .pm-kpi-value.warn { color:#B87956; }
     .pm-kpi-desc {
-        display:block; font-size:.7rem; color:#5F685F; font-weight:500;
-        line-height:1.35; margin-top:.05rem;
+        display:block; font-size:.63rem; color:#7A8577; font-weight:500;
+        line-height:1.3; margin-top:.1rem; white-space:nowrap;
+        overflow:hidden; text-overflow:ellipsis;
+    }
+    .pm-kpi-action {
+        font-size:.62rem; font-weight:700; color:#5F685F;
+        text-transform:uppercase; letter-spacing:.07em;
+        white-space:nowrap; flex-shrink:0;
+        opacity:0; transition:opacity .15s ease;
     }
     .pm-kpi.is-link { cursor:pointer; transition:background .13s ease, border-color .13s ease; }
-    .pm-kpi.is-link:hover { background:#F3F0E8; border-color:#3E4A3D; }
-    .pm-kpi-footer {
-        display:block; font-size:.68rem; color:#3E4A3D; font-weight:700;
-        margin-top:.45rem; letter-spacing:.01em;
-    }
+    .pm-kpi.is-link:hover { background:#F3F0E8; border-color:#3E4A3D; box-shadow:0 2px 6px rgba(62,74,61,.09); }
+    .pm-kpi.is-link:hover .pm-kpi-action { opacity:1; }
 
     .pm-toolbar-shell { background: var(--card); border:1px solid var(--border); border-radius:.75rem; padding:.7rem; margin-bottom:1rem; overflow:visible; }
     .pm-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:.55rem; }
@@ -117,7 +133,8 @@
     .pm-row-list { background:var(--card); }
     .pm-case-row { display:grid; grid-template-columns:minmax(7rem,.65fr) minmax(0,1.8fr) minmax(12rem,.9fr) auto; gap:1rem; align-items:center; width:100%; padding:1rem; border:0; border-bottom:1px solid var(--border); background:transparent; color:inherit; text-align:left; }
     .pm-case-row.is-toggle { cursor:pointer; }
-    .pm-case-row.is-toggle:hover { background:rgba(15,23,42,.025); }
+    .pm-case-row.is-toggle:hover { background:#F3F0E8; }
+    .pm-case-row.is-toggle:focus-visible { outline:none; box-shadow:inset 0 0 0 2px rgba(62,74,61,0.25); }
     .pm-case-row[aria-expanded="true"] .pm-chev { transform:rotate(180deg); }
     .pm-row-main { min-width:0; }
     .pm-row-title { font-weight:850; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -256,30 +273,50 @@
     <div class="pm-kpis">
         {{-- Total Cases With Payments — links to Case Payment Summary tab --}}
         <a href="{{ route($monitoringRoute, $tabQuery('summary')) }}" class="pm-kpi is-link">
-            <span class="pm-kpi-label">Total Cases with Payments</span>
-            <strong class="pm-kpi-value">{{ number_format($totalCasesWithPayments ?? 0) }}</strong>
-            <span class="pm-kpi-desc">Cases with at least one recorded payment.</span>
-            <span class="pm-kpi-footer">View details →</span>
+            <div class="pm-kpi-inner">
+                <span class="pm-kpi-icon"><i class="bi bi-folder-check"></i></span>
+                <div class="pm-kpi-body">
+                    <span class="pm-kpi-label">Cases with Payments</span>
+                    <strong class="pm-kpi-value">{{ number_format($totalCasesWithPayments ?? 0) }}</strong>
+                    <span class="pm-kpi-desc">Cases with at least one payment</span>
+                </div>
+                <span class="pm-kpi-action">View <i class="bi bi-arrow-right-short"></i></span>
+            </div>
         </a>
         {{-- Total Payment Transactions — links to Transaction History tab --}}
         <a href="{{ route($monitoringRoute, $tabQuery('transactions')) }}" class="pm-kpi is-link">
-            <span class="pm-kpi-label">Total Payment Transactions</span>
-            <strong class="pm-kpi-value">{{ number_format($paymentRecordsCount ?? 0) }}</strong>
-            <span class="pm-kpi-desc">All recorded payment entries.</span>
-            <span class="pm-kpi-footer">View details →</span>
+            <div class="pm-kpi-inner">
+                <span class="pm-kpi-icon"><i class="bi bi-receipt"></i></span>
+                <div class="pm-kpi-body">
+                    <span class="pm-kpi-label">Payment Transactions</span>
+                    <strong class="pm-kpi-value">{{ number_format($paymentRecordsCount ?? 0) }}</strong>
+                    <span class="pm-kpi-desc">All recorded payment entries</span>
+                </div>
+                <span class="pm-kpi-action">View <i class="bi bi-arrow-right-short"></i></span>
+            </div>
         </a>
         {{-- Total Collected — links to Transaction History tab --}}
         <a href="{{ route($monitoringRoute, $tabQuery('transactions')) }}" class="pm-kpi is-link">
-            <span class="pm-kpi-label">Total Collected</span>
-            <strong class="pm-kpi-value good">PHP {{ number_format((float) ($totalCollected ?? 0), 2) }}</strong>
-            <span class="pm-kpi-desc">Actual money received from recorded payments.</span>
-            <span class="pm-kpi-footer">View details →</span>
+            <div class="pm-kpi-inner">
+                <span class="pm-kpi-icon" style="background:rgba(111,138,109,0.12);color:#6F8A6D;"><i class="bi bi-cash-stack"></i></span>
+                <div class="pm-kpi-body">
+                    <span class="pm-kpi-label">Total Collected</span>
+                    <strong class="pm-kpi-value good">&#8369;{{ number_format((float) ($totalCollected ?? 0), 2) }}</strong>
+                    <span class="pm-kpi-desc">Actual money received</span>
+                </div>
+                <span class="pm-kpi-action">View <i class="bi bi-arrow-right-short"></i></span>
+            </div>
         </a>
         {{-- Outstanding Balance — non-clickable; no combined UNPAID+PARTIAL filter exists --}}
         <div class="pm-kpi">
-            <span class="pm-kpi-label">Outstanding Balance</span>
-            <strong class="pm-kpi-value warn">PHP {{ number_format((float) ($totalOutstanding ?? 0), 2) }}</strong>
-            <span class="pm-kpi-desc">Remaining unpaid balance.</span>
+            <div class="pm-kpi-inner">
+                <span class="pm-kpi-icon" style="background:rgba(184,121,86,0.12);color:#B87956;"><i class="bi bi-exclamation-circle"></i></span>
+                <div class="pm-kpi-body">
+                    <span class="pm-kpi-label">Outstanding Balance</span>
+                    <strong class="pm-kpi-value warn">&#8369;{{ number_format((float) ($totalOutstanding ?? 0), 2) }}</strong>
+                    <span class="pm-kpi-desc">Remaining unpaid balance</span>
+                </div>
+            </div>
         </div>
     </div>
     @endif
@@ -422,7 +459,7 @@
                 @endforelse
             </div>
             </div>{{-- /.pm-records-body --}}
-            @if($paymentCases->total() > 0)
+            @if($paymentCases->hasPages())
                 <div class="pm-foot">
                     {{ $paymentCases->onEachSide(1)->links('components.pagination.table') }}
                 </div>
@@ -589,7 +626,7 @@
                 @endforelse
             </div>
             </div>{{-- /.pm-records-body --}}
-            @if($transactionCases->total() > 0)
+            @if($transactionCases->hasPages())
                 <div class="pm-foot">
                     {{ $transactionCases->onEachSide(1)->links('components.pagination.table') }}
                 </div>

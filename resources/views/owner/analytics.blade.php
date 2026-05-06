@@ -581,15 +581,15 @@
 
 .ba-seg-item:hover,
 .ba-date-btn:hover {
-    border-color: #9fb0c5;
-    color: #0f172a;
-    background: #f8fafc;
+    border-color: #3E4A3D;
+    color: #3E4A3D;
+    background: #F3F0E8;
 }
 
 .ba-seg-item.active,
 .ba-date-btn.active {
-    background: #0f172a;
-    border-color: #0f172a;
+    background: #3E4A3D;
+    border-color: #3E4A3D;
     color: #fff;
 }
 
@@ -635,8 +635,9 @@
 }
 
 .ba-date-clear:hover {
-    border-color: #9fb0c5;
-    color: #0f172a;
+    border-color: #3E4A3D;
+    color: #3E4A3D;
+    background: #F3F0E8;
 }
 
 .ba-date-popover {
@@ -694,7 +695,8 @@
 
 .ba-pop-input:focus {
     outline: none;
-    border-color: #94a3b8;
+    border-color: #3E4A3D;
+    box-shadow: 0 0 0 2px rgba(62,74,61,0.18);
     background: #fff;
 }
 
@@ -704,11 +706,16 @@
     border: 0;
     border-radius: 8px;
     height: 34px;
-    background: #0f172a;
+    background: #3E4A3D;
     color: #fff;
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.ba-pop-apply:hover {
+    background: #2D372D;
 }
 
 .ba-pop-actions {
@@ -734,8 +741,9 @@
 }
 
 .ba-pop-reset:hover {
-    border-color: #9fb0c5;
-    color: #0f172a;
+    border-color: #3E4A3D;
+    color: #3E4A3D;
+    background: #F3F0E8;
 }
 
 .ba-branch-form {
@@ -944,9 +952,9 @@
 }
 
 .ba-global-clear:hover {
-    background: #f8fafc;
-    border-color: #9fb0c5;
-    color: #0f172a;
+    background: #F3F0E8;
+    border-color: #3E4A3D;
+    color: #3E4A3D;
 }
 
 .ba-tab-context {
@@ -955,29 +963,31 @@
     justify-content: space-between;
     gap: 0.6rem;
     flex-wrap: wrap;
-    border: 1px solid #dbeafe;
+    border: 1px solid rgba(62,74,61,0.22);
     border-radius: 12px;
-    background: #eff6ff;
-    color: #1d4ed8;
+    background: #F3F0E8;
+    color: #3E4A3D;
     padding: 0.55rem 0.7rem;
     font-size: 12px;
     font-weight: 700;
 }
 
 .ba-tab-context button {
-    border: 1px solid #bfdbfe;
+    border: 1px solid rgba(62,74,61,0.30);
     background: #fff;
-    color: #1d4ed8;
+    color: #3E4A3D;
     border-radius: 8px;
     height: 28px;
     padding: 0 0.55rem;
     font-size: 11px;
     font-weight: 800;
     cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .ba-tab-context button:hover {
-    background: #f8fbff;
+    background: #F3F0E8;
+    border-color: #3E4A3D;
 }
 
 .ba-head-row {
@@ -1069,17 +1079,17 @@
 }
 
 .ba-tab-btn:hover {
-    color: #0f172a;
-    border-color: #9fb0c5;
-    background: #f8fafc;
-    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.04);
+    color: #3E4A3D;
+    border-color: #3E4A3D;
+    background: #F3F0E8;
+    box-shadow: 0 6px 16px rgba(62, 74, 61, 0.06);
 }
 
 .ba-tab-btn.active {
-    background: #0f172a;
-    border-color: #0f172a;
+    background: #3E4A3D;
+    border-color: #3E4A3D;
     color: #fff;
-    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.16);
+    box-shadow: 0 8px 20px rgba(62, 74, 61, 0.18);
 }
 
 .ba-panel {
@@ -1133,8 +1143,8 @@
 }
 
 .ba-chart-frame:hover {
-    border-color: #cbd5e1;
-    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+    border-color: #3E4A3D;
+    box-shadow: 0 10px 26px rgba(62, 74, 61, 0.08);
 }
 
 .ba-chart-frame canvas {
@@ -1172,13 +1182,47 @@
 
 .ba-insight-card.is-clickable {
     cursor: pointer;
-    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .ba-insight-card.is-clickable:hover {
+    background: #F3F0E8;
+    border-color: #3E4A3D;
+    box-shadow: 0 6px 18px rgba(62, 74, 61, 0.12);
     transform: translateY(-1px);
-    border-color: #bfdbfe;
-    box-shadow: 0 10px 24px rgba(30, 64, 175, 0.08);
+}
+
+/* Revenue insight card — selected (active period) state */
+#baRevenueInsights .ba-insight-card.is-selected {
+    border-color: #3E4A3D !important;
+    box-shadow: inset 0 0 0 2px #3E4A3D, 0 4px 12px rgba(62, 74, 61, 0.10) !important;
+}
+
+/* Keyboard focus + pressed state for clickable insight cards */
+.ba-insight-card.is-clickable:focus-visible {
+    outline: none;
+    border-color: #3E4A3D;
+    box-shadow: 0 0 0 3px rgba(62, 74, 61, 0.18);
+}
+
+.ba-insight-card.is-clickable:active {
+    transform: scale(0.97);
+    box-shadow: none;
+}
+
+/* Non-clickable insight cards: default cursor, no hover effect */
+.ba-insight-card:not(.is-clickable) {
+    cursor: default;
+}
+
+/* "View details →" hint shown on clickable revenue cards */
+.ba-insight-hint {
+    color: #3E4A3D;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    margin-top: 1px;
+    opacity: 0.75;
 }
 
 .ba-insight-label {
@@ -1321,6 +1365,12 @@
 
 .ba-ranking-row {
     cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.ba-ranking-row:focus-visible td {
+    outline: 2px solid #3E4A3D;
+    outline-offset: -2px;
 }
 
 .ba-ranking-row.is-selected {
@@ -1346,14 +1396,14 @@
 }
 
 .ba-row-filter-btn:hover {
-    background: #f8fafc;
-    border-color: #9fb0c5;
-    color: #0f172a;
+    background: #F3F0E8;
+    border-color: #3E4A3D;
+    color: #3E4A3D;
 }
 
 .ba-ranking-row.is-selected .ba-row-filter-btn {
-    background: #0f172a;
-    border-color: #0f172a;
+    background: #3E4A3D;
+    border-color: #3E4A3D;
     color: #fff;
 }
 
@@ -1494,19 +1544,20 @@
 }
 
 .ba-master-records-btn {
-    border: 1px solid #0f172a;
-    background: #0f172a;
+    border: 1px solid #3E4A3D;
+    background: #3E4A3D;
     color: #fff;
 }
 
 .ba-clear-filters:hover {
-    border-color: #9fb0c5;
-    color: #0f172a;
-    background: #f8fafc;
+    border-color: #3E4A3D;
+    color: #3E4A3D;
+    background: #F3F0E8;
 }
 
 .ba-master-records-btn:hover {
-    background: #1e293b;
+    background: #2D372D;
+    border-color: #2D372D;
 }
 
 .ba-active-filters {
@@ -2474,10 +2525,11 @@ html[data-theme='dark'] .ba-head-row-nav {
         if (!target) return;
 
         target.innerHTML = cards.map((card, index) => `
-            <article class="ba-insight-card tone-${card.tone || 'blue'} ${card.onClick ? 'is-clickable' : ''}" data-insight-index="${index}" ${card.onClick ? 'role="button" tabindex="0"' : ''}>
+            <article class="ba-insight-card tone-${card.tone || 'blue'} ${card.onClick ? 'is-clickable' : ''} ${card.isSelected ? 'is-selected' : ''}" data-insight-index="${index}" ${card.onClick ? 'role="button" tabindex="0"' : ''}>
                 <span class="ba-insight-label">${escapeHtml(card.label)}</span>
                 <strong class="ba-insight-value">${escapeHtml(card.value)}</strong>
                 <span class="ba-insight-note">${escapeHtml(card.note || '')}</span>
+                ${card.hint ? `<span class="ba-insight-hint" aria-hidden="true">${escapeHtml(card.hint)}</span>` : ''}
             </article>
         `).join('');
 
@@ -2593,6 +2645,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                 note: branchDisplay(topRevenue),
                 tone: 'blue',
                 onClick: topRevenue?.code ? () => handleBranchClick(topRevenue.code) : null,
+                hint: topRevenue?.code ? 'View details →' : null,
             },
             {
                 label: 'Most Active Branch',
@@ -2600,6 +2653,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                 note: branchDisplay(mostActive),
                 tone: 'blue',
                 onClick: mostActive?.code ? () => handleBranchClick(mostActive.code) : null,
+                hint: mostActive?.code ? 'View details →' : null,
             },
             {
                 label: 'Highest Average per Case',
@@ -2607,6 +2661,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                 note: branchDisplay(highestAverage),
                 tone: 'blue',
                 onClick: highestAverage?.code ? () => handleBranchClick(highestAverage.code) : null,
+                hint: highestAverage?.code ? 'View details →' : null,
             },
             {
                 label: 'Needs Attention',
@@ -2616,6 +2671,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                 note: branchDisplay(needsAttention),
                 tone: 'amber',
                 onClick: needsAttention?.code ? () => handleBranchClick(needsAttention.code) : null,
+                hint: needsAttention?.code ? 'View details →' : null,
             },
         ]);
 
@@ -2629,6 +2685,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                 note: `${shortMoney(paymentRows.PAID.amount)} fully paid`,
                 tone: 'green',
                 onClick: () => handlePaymentStatusClick('PAID'),
+                hint: 'View details →',
             },
             {
                 label: 'Partial Payment Cases',
@@ -2636,6 +2693,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                 note: `${shortMoney(paymentRows.PARTIAL.balance)} balance`,
                 tone: 'amber',
                 onClick: () => handlePaymentStatusClick('PARTIAL'),
+                hint: 'View details →',
             },
             {
                 label: 'Unpaid Cases',
@@ -2643,6 +2701,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                 note: `${shortMoney(paymentRows.UNPAID.balance)} outstanding`,
                 tone: 'red',
                 onClick: () => handlePaymentStatusClick('UNPAID'),
+                hint: 'View details →',
             },
             {
                 label: 'Outstanding Balance',
@@ -2650,6 +2709,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                 note: `${number.format(needsFollowUpCount)} cases need follow-up`,
                 tone: needsFollowUpBalance > 0 ? 'amber' : 'green',
                 onClick: needsFollowUpBalance > 0 ? () => handlePaymentStatusClick(paymentRows.PARTIAL.count > 0 ? 'PARTIAL' : 'UNPAID') : null,
+                hint: needsFollowUpBalance > 0 ? 'View details →' : null,
             },
             {
                 label: 'Needs Follow-up',
@@ -2657,6 +2717,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                 note: `${shortMoney(needsFollowUpBalance)} still open`,
                 tone: needsFollowUpCount > 0 ? 'red' : 'green',
                 onClick: needsFollowUpCount > 0 ? () => handlePaymentStatusClick(paymentRows.UNPAID.count > 0 ? 'UNPAID' : 'PARTIAL') : null,
+                hint: needsFollowUpCount > 0 ? 'View details →' : null,
             },
         ]);
 
@@ -2667,6 +2728,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                 value: shortMoney(revenueRows.total),
                 note: 'For selected range',
                 tone: 'blue',
+                // Non-clickable: no onClick, no hint, never selected
             },
             {
                 label: 'Peak Revenue Period',
@@ -2674,6 +2736,8 @@ html[data-theme='dark'] .ba-head-row-nav {
                 note: revenueRows.peak ? shortMoney(revenueRows.peak.revenue) : 'No revenue yet',
                 tone: 'blue',
                 onClick: revenueRows.peak?.period ? () => handleRevenuePeriodClick(revenueRows.peak.period) : null,
+                isSelected: !!revenueRows.peak?.period && analyticsFilters.revenuePeriod?.label === revenueRows.peak?.period?.label,
+                hint: revenueRows.peak?.period ? 'View details →' : null,
             },
             {
                 label: 'Lowest Revenue Period',
@@ -2681,18 +2745,22 @@ html[data-theme='dark'] .ba-head-row-nav {
                 note: revenueRows.lowest ? shortMoney(revenueRows.lowest.revenue) : 'No revenue yet',
                 tone: 'amber',
                 onClick: revenueRows.lowest?.period ? () => handleRevenuePeriodClick(revenueRows.lowest.period) : null,
+                isSelected: !!revenueRows.lowest?.period && analyticsFilters.revenuePeriod?.label === revenueRows.lowest?.period?.label,
+                hint: revenueRows.lowest?.period ? 'View details →' : null,
             },
             {
                 label: 'Average Revenue per Period',
                 value: shortMoney(revenueRows.average),
                 note: `${number.format(revenueRows.rows.length)} periods included`,
                 tone: 'blue',
+                // Non-clickable: no onClick, no hint, never selected
             },
             {
                 label: 'Revenue Trend',
                 value: 'No comparison',
                 note: 'No comparison available.',
                 tone: 'blue',
+                // Non-clickable: no onClick, no hint, never selected
             },
         ]);
 
@@ -2704,6 +2772,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                 note: `${collectionRows.collectionRate.toFixed(1)}% collection rate`,
                 tone: 'green',
                 onClick: () => handleCollectionStatusClick('COLLECTED'),
+                hint: 'View details →',
             },
             {
                 label: 'Outstanding Amount',
@@ -2711,12 +2780,14 @@ html[data-theme='dark'] .ba-head-row-nav {
                 note: `${number.format(collectionRows.outstandingCases)} cases open`,
                 tone: collectionRows.outstanding > 0 ? 'amber' : 'green',
                 onClick: collectionRows.outstanding > 0 ? () => handleCollectionStatusClick('OUTSTANDING') : null,
+                hint: collectionRows.outstanding > 0 ? 'View details →' : null,
             },
             {
                 label: 'Collection Rate',
                 value: `${collectionRows.collectionRate.toFixed(1)}%`,
                 note: 'Collected vs collectible',
                 tone: collectionRows.collectionRate >= 80 ? 'green' : 'amber',
+                // Non-clickable: informational only
             },
             {
                 label: 'Cases Needing Collection',
@@ -2724,6 +2795,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                 note: 'Not fully collected',
                 tone: collectionRows.outstandingCases > 0 ? 'amber' : 'green',
                 onClick: collectionRows.outstandingCases > 0 ? () => handleCollectionStatusClick('OUTSTANDING') : null,
+                hint: collectionRows.outstandingCases > 0 ? 'View details →' : null,
             },
             {
                 label: 'Collection Risk',
@@ -2731,6 +2803,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                 note: `${number.format(collectionRows.outstandingCases)} affected cases`,
                 tone: collectionRows.outstanding > 0 ? 'red' : 'green',
                 onClick: collectionRows.outstanding > 0 ? () => handleCollectionStatusClick('OUTSTANDING') : null,
+                hint: collectionRows.outstanding > 0 ? 'View details →' : null,
             },
         ]);
     };
@@ -2837,12 +2910,22 @@ html[data-theme='dark'] .ba-head-row-nav {
         if (!body) return;
 
         if (!cases.length) {
+            const onlyPeriodFilter = analyticsFilters.revenuePeriod
+                && !analyticsFilters.branchCode
+                && !analyticsFilters.paymentStatus
+                && !analyticsFilters.collectionStatus;
+            const emptyTitle = onlyPeriodFilter
+                ? 'No revenue records found for this period.'
+                : 'No cases match the selected filters.';
+            const emptyHint = onlyPeriodFilter
+                ? 'There are no cases recorded for the selected revenue period.'
+                : 'Try clearing filters or selecting a different chart item.';
             body.innerHTML = `
                 <tr>
                     <td colspan="9" class="ba-empty-cell">
                         <div class="ba-empty-state">
-                            <strong>No cases match the selected filters.</strong>
-                            <span>Try clearing filters or selecting a different chart item.</span>
+                            <strong>${emptyTitle}</strong>
+                            <span>${emptyHint}</span>
                         </div>
                     </td>
                 </tr>

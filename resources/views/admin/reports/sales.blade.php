@@ -203,8 +203,8 @@
     }
 
     .sales-ref-page .filter-apply:hover {
-        background: #111c33;
-        border-color: #111c33;
+        background: #2D372D;
+        border-color: #2D372D;
     }
 
     .sales-ref-page .filter-sep {

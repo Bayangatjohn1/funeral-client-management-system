@@ -332,9 +332,18 @@ class IntakeController extends Controller
             ])->withInput();
         }
 
-        if ($schedule['interment']->lt($schedule['funeral_service'])) {
+        if ($schedule['interment']->copy()->startOfDay()->lt($schedule['funeral_service']->copy()->startOfDay())) {
             return back()->withErrors([
-                'interment_at' => 'Interment date/time cannot be before the funeral service date/time.',
+                'interment_at' => 'Interment date cannot be before the funeral service date.',
+            ])->withInput();
+        }
+
+        if (
+            $schedule['interment']->isSameDay($schedule['funeral_service'])
+            && $schedule['interment']->lt($schedule['funeral_service'])
+        ) {
+            return back()->withErrors([
+                'interment_at' => 'Interment time cannot be before the funeral service time.',
             ])->withInput();
         }
 

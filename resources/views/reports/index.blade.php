@@ -12,6 +12,7 @@
         previewUrl: @js(route('reports.preview')),
         printUrl: @js(route('reports.print')),
         csvUrl: @js(route('reports.exportCsv')),
+        drilldownUrl: @js(route('reports.ownerDrilldown')),
         branches: @js($branches),
         packages: @js($packages),
         users: @js($users),
@@ -193,6 +194,93 @@
             .reports-filter-grid .reports-field { flex: 1 1 150px; }
             .reports-advanced-filter-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
+        /* ── Branch summary strip (shown above drill-down records) ── */
+        .reports-branch-strip {
+            margin: 10px 16px 0;
+            border: 1px solid #C9C5BB;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .reports-branch-strip-head {
+            display: flex; align-items: center; gap: 6px;
+            padding: 7px 12px; background: #FAFAF7; border-bottom: 1px solid #C9C5BB;
+            font-size: 10.5px; font-weight: 800; color: #5F685F; text-transform: uppercase; letter-spacing: .04em;
+        }
+        .reports-branch-strip-table { width: 100%; border-collapse: collapse; }
+        .reports-branch-strip-table th {
+            padding: 6px 11px; background: #FAFAF7; border-bottom: 1px solid #edf2f7;
+            font-size: 10px; font-weight: 800; color: #5F685F; text-transform: uppercase;
+            letter-spacing: .04em; text-align: left; white-space: nowrap;
+        }
+        .reports-branch-strip-table td {
+            padding: 7px 11px; border-bottom: 1px solid #edf2f7; font-size: 12px; color: #333333;
+        }
+        .reports-branch-strip-table tbody tr:last-child td { border-bottom: none; }
+        .reports-branch-strip-table .reports-cell-number { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        /* ── Metric card drill-down ── */
+        .reports-metric {
+            cursor: pointer;
+            transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .reports-metric:hover:not(.is-selected) {
+            border-color: #7A8076;
+            background: rgba(139, 154, 139, 0.06);
+        }
+        .reports-metric.is-selected {
+            border-color: #3E4A3D !important;
+            background: rgba(139, 154, 139, 0.15) !important;
+            box-shadow: 0 0 0 2px rgba(62, 74, 61, 0.12);
+        }
+        .reports-metric-hint {
+            position: absolute;
+            bottom: 7px;
+            right: 10px;
+            font-size: 9.5px;
+            font-weight: 800;
+            letter-spacing: .03em;
+            color: #5F685F;
+            opacity: 0;
+            transition: opacity .16s ease;
+            pointer-events: none;
+            text-transform: uppercase;
+        }
+        .reports-metric:hover .reports-metric-hint { opacity: 1; }
+        .reports-metric.is-selected .reports-metric-hint { opacity: 0; }
+        /* ── Drill-down active-filter banner ── */
+        .reports-drill-banner {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 12px 16px 0;
+            padding: 10px 14px;
+            border-radius: 10px;
+            background: rgba(139, 154, 139, 0.10);
+            border: 1px solid #C9C5BB;
+            color: #3E4A3D;
+            font-size: 12.5px;
+        }
+        .reports-drill-banner-icon { color: #3E4A3D; font-size: 14px; flex: 0 0 auto; }
+        .reports-drill-banner-text { flex: 1 1 auto; min-width: 0; font-weight: 700; }
+        .reports-drill-banner-hint { font-weight: 400; color: #5F685F; }
+        .reports-drill-clear {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11.5px;
+            font-weight: 800;
+            color: #5F685F;
+            background: #fff;
+            border: 1px solid #C9C5BB;
+            border-radius: 8px;
+            padding: 5px 11px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: border-color .16s ease, color .16s ease;
+            flex: 0 0 auto;
+        }
+        .reports-drill-clear:hover { border-color: #3E4A3D; color: #3E4A3D; }
         @media (max-width: 720px) {
             .reports-page { padding: 10px var(--panel-content-inline, 16px) 16px; }
             .reports-config-toolbar > .reports-field,
@@ -448,12 +536,18 @@
         </div>
         <div class="reports-summary-grid">
             <template x-for="card in summaryCards()" :key="card.label">
-                <article class="reports-metric">
+                <article
+                    class="reports-metric"
+                    :class="{ 'is-selected': hasPreview && selectedMetric === card.key }"
+                    @click="selectMetric(card.key)"
+                    :title="hasPreview ? 'Click to drill down into ' + card.label : ''"
+                >
                     <div class="reports-metric-icon"><i :class="`bi ${card.icon}`"></i></div>
                     <div>
                         <div class="reports-metric-label" x-text="card.label"></div>
                         <div class="reports-metric-value" x-text="card.value"></div>
                     </div>
+                    <span class="reports-metric-hint" x-show="hasPreview">View details</span>
                 </article>
             </template>
         </div>
@@ -462,15 +556,36 @@
     <section class="reports-card">
         <div class="reports-preview-head">
             <div>
-                <h2 class="reports-card-title">Report Preview</h2>
-                <div class="reports-card-copy" x-text="reportTypes[reportType] || 'Select a report type'"></div>
+                <h2 class="reports-card-title" x-text="selectedMetric ? 'Report Preview — ' + metricDrillLabel() : 'Report Preview'"></h2>
+                <div class="reports-card-copy" x-text="selectedMetric ? metricDrillHint() : (reportTypes[reportType] || 'Select a report type')"></div>
                 <div class="reports-preview-meta" x-show="hasPreview && filterChips().length" x-cloak>
                     <template x-for="chip in filterChips()" :key="chip">
                         <span class="reports-chip" x-text="chip"></span>
                     </template>
                 </div>
             </div>
-            <div class="reports-chip" x-show="hasPreview" x-text="`${rows.length} row${rows.length === 1 ? '' : 's'}`"></div>
+            <div
+                class="reports-chip"
+                x-show="hasPreview"
+                x-text="(selectedMetric && reportType === 'owner_branch_analytics')
+                    ? (drilldownLoading ? 'Loading...' : `${drillDownRows().length} record${drillDownRows().length === 1 ? '' : 's'}`)
+                    : (selectedMetric
+                        ? `${drillDownRows().length} of ${rows.length} row${rows.length === 1 ? '' : 's'}`
+                        : `${rows.length} row${rows.length === 1 ? '' : 's'}`)"
+            ></div>
+        </div>
+
+        {{-- Active metric drill-down banner --}}
+        <div class="reports-drill-banner" x-show="hasPreview && selectedMetric" x-cloak>
+            <i class="bi bi-funnel-fill reports-drill-banner-icon"></i>
+            <div class="reports-drill-banner-text">
+                <span x-text="metricDrillLabel()"></span>
+                <span class="reports-drill-banner-hint" x-text="' — ' + metricDrillHint()"></span>
+            </div>
+            <button type="button" class="reports-drill-clear" @click="clearMetric()">
+                <i class="bi bi-x-lg"></i>
+                Clear Selection
+            </button>
         </div>
 
         <template x-if="error">
@@ -513,33 +628,99 @@
             </div>
         </template>
 
-        <template x-if="!loading && rows.length > 0">
-            <div class="reports-table-wrap">
-                <table class="reports-table">
-                    <thead>
-                        <tr>
-                            <template x-for="column in columns()" :key="column.key">
-                                <th :class="isNumericColumn(column.key) ? 'reports-cell-number' : ''" x-text="column.label"></th>
-                            </template>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <template x-for="(row, index) in rows" :key="index">
+        {{-- Drilldown fetch in progress --}}
+        <template x-if="drilldownLoading && selectedMetric">
+            <div class="reports-state">
+                <div>
+                    <div class="reports-loading-dot"></div>
+                    <div class="reports-state-title" x-text="'Loading ' + metricDrillLabel() + ' records...'"></div>
+                    <div class="reports-state-copy">Fetching records from the server.</div>
+                </div>
+            </div>
+        </template>
+
+        {{-- Empty state when metric drill-down returns nothing --}}
+        <template x-if="!loading && !drilldownLoading && hasPreview && rows.length > 0 && drillDownRows().length === 0 && selectedMetric">
+            <div class="reports-state">
+                <div>
+                    <div class="reports-state-icon"><i class="bi bi-funnel"></i></div>
+                    <div class="reports-state-title">No matching records.</div>
+                    <div class="reports-state-copy">No matching records found for this metric under the selected filters.</div>
+                </div>
+            </div>
+        </template>
+
+        {{-- Branch summary strip + drill-down records table --}}
+        <template x-if="!loading && !drilldownLoading && drillDownRows().length > 0">
+            <div>
+                {{-- Compact branch summary strip (only for owner analytics drilldown) --}}
+                <template x-if="reportType === 'owner_branch_analytics' && selectedMetric && branchSummaryRows().length > 0">
+                    <div class="reports-branch-strip">
+                        <div class="reports-branch-strip-head">
+                            <i class="bi bi-building"></i>
+                            Branch Summary
+                        </div>
+                        <div style="overflow-x: auto;">
+                            <table class="reports-branch-strip-table">
+                                <thead>
+                                    <tr>
+                                        <th>Branch</th>
+                                        <th class="reports-cell-number">Total Cases</th>
+                                        <th class="reports-cell-number">Paid</th>
+                                        <th class="reports-cell-number">Partial</th>
+                                        <th class="reports-cell-number">Unpaid</th>
+                                        <th class="reports-cell-number">Gross Amount</th>
+                                        <th class="reports-cell-number">Collected</th>
+                                        <th class="reports-cell-number">Remaining Balance</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="(br, i) in branchSummaryRows()" :key="i">
+                                        <tr>
+                                            <td x-text="br.branch"></td>
+                                            <td class="reports-cell-number" x-text="number(br.total_cases)"></td>
+                                            <td class="reports-cell-number" x-text="number(br.paid_cases)"></td>
+                                            <td class="reports-cell-number" x-text="number(br.partial_cases)"></td>
+                                            <td class="reports-cell-number" x-text="number(br.unpaid_cases)"></td>
+                                            <td class="reports-cell-number" x-text="money(br.gross_amount)"></td>
+                                            <td class="reports-cell-number" x-text="money(br.collected_amount)"></td>
+                                            <td class="reports-cell-number" x-text="money(br.remaining_balance)"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </template>
+
+                {{-- Main drill-down / normal records table --}}
+                <div class="reports-table-wrap" :style="selectedMetric && reportType === 'owner_branch_analytics' ? 'margin-top: 10px;' : ''">
+                    <table class="reports-table">
+                        <thead>
                             <tr>
                                 <template x-for="column in columns()" :key="column.key">
-                                    <td :class="isNumericColumn(column.key) ? 'reports-cell-number' : ''">
-                                        <template x-if="isStatusColumn(column.key)">
-                                            <span :class="statusClass(row[column.key])" x-text="formatStatus(row[column.key])"></span>
-                                        </template>
-                                        <template x-if="!isStatusColumn(column.key)">
-                                            <span x-text="displayCell(row, column)"></span>
-                                        </template>
-                                    </td>
+                                    <th :class="isNumericColumn(column.key) ? 'reports-cell-number' : ''" x-text="column.label"></th>
                                 </template>
                             </tr>
-                        </template>
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            <template x-for="(row, index) in drillDownRows()" :key="index">
+                                <tr>
+                                    <template x-for="column in columns()" :key="column.key">
+                                        <td :class="isNumericColumn(column.key) ? 'reports-cell-number' : ''">
+                                            <template x-if="isStatusColumn(column.key)">
+                                                <span :class="statusClass(row[column.key])" x-text="formatStatus(row[column.key])"></span>
+                                            </template>
+                                            <template x-if="!isStatusColumn(column.key)">
+                                                <span x-text="displayCell(row, column)"></span>
+                                            </template>
+                                        </td>
+                                    </template>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </template>
     </section>
@@ -581,6 +762,10 @@ function reportsModule(config) {
         loading: false,
         error: '',
         hasPreview: false,
+        selectedMetric: null,
+        drilldownRows: [],
+        drilldownLoading: false,
+        drilldownMode: 'cases',
         datePreset: '',
         customRangeOpen: false,
         advancedFiltersOpen: false,
@@ -660,6 +845,10 @@ function reportsModule(config) {
             this.loading = true;
             this.error = '';
             this.hasPreview = true;
+            this.selectedMetric = null;
+            this.drilldownRows = [];
+            this.drilldownLoading = false;
+            this.drilldownMode = 'cases';
             try {
                 const response = await window.axios.get(config.previewUrl, { params: this.params() });
                 this.reportType = response.data.report_type;
@@ -680,13 +869,19 @@ function reportsModule(config) {
         },
         openPrint() {
             if (!this.rows.length) return;
-            const query = new URLSearchParams(this.params()).toString();
-            window.open(`${config.printUrl}?${query}`, '_blank', 'noopener');
+            const params = { ...this.params() };
+            if (this.selectedMetric && this.reportType === 'owner_branch_analytics') {
+                params.metric = this.selectedMetric;
+            }
+            window.open(`${config.printUrl}?${new URLSearchParams(params)}`, '_blank', 'noopener');
         },
         openCsv() {
             if (!this.rows.length) return;
-            const query = new URLSearchParams(this.params()).toString();
-            window.location.href = `${config.csvUrl}?${query}`;
+            const params = { ...this.params() };
+            if (this.selectedMetric && this.reportType === 'owner_branch_analytics') {
+                params.metric = this.selectedMetric;
+            }
+            window.location.href = `${config.csvUrl}?${new URLSearchParams(params)}`;
         },
         resetFilters() {
             const reportType = this.filters.report_type || config.defaultReportType;
@@ -698,6 +893,10 @@ function reportsModule(config) {
             this.datePreset = '';
             this.customRangeOpen = false;
             this.advancedFiltersOpen = false;
+            this.selectedMetric = null;
+            this.drilldownRows = [];
+            this.drilldownLoading = false;
+            this.drilldownMode = 'cases';
             if (this.isOwnerAnalytics()) {
                 this.selectDatePreset('TODAY');
             } else {
@@ -724,6 +923,10 @@ function reportsModule(config) {
             this.datePreset = '';
             this.customRangeOpen = false;
             this.advancedFiltersOpen = false;
+            this.selectedMetric = null;
+            this.drilldownRows = [];
+            this.drilldownLoading = false;
+            this.drilldownMode = 'cases';
             if (this.isOwnerAnalytics()) {
                 this.selectDatePreset('TODAY');
                 return;
@@ -833,6 +1036,10 @@ function reportsModule(config) {
             return chips;
         },
         columns() {
+            // In owner analytics drilldown mode return the drill-down-specific columns
+            if (this.reportType === 'owner_branch_analytics' && this.selectedMetric) {
+                return this.drilldownColumns();
+            }
             const allColumns = {
                 sales: [
                     ['case_no', 'Case No.'], ['client', 'Client'], ['deceased', 'Deceased'], ['branch', 'Branch'],
@@ -861,24 +1068,24 @@ function reportsModule(config) {
         summaryCards() {
             const money = (value) => this.money(value || 0);
             if (this.reportType === 'audit_logs') {
-                return [{ label: 'Total Records', value: this.number(this.summary.total_records || 0), icon: 'bi-list-check' }];
+                return [{ label: 'Total Records', value: this.number(this.summary.total_records || 0), icon: 'bi-list-check', key: 'total_records' }];
             }
             if (this.reportType === 'owner_branch_analytics') {
                 return [
-                    { label: 'Total Cases', value: this.number(this.summary.total_cases || 0), icon: 'bi-folder2-open' },
-                    { label: 'Paid Cases', value: this.number(this.summary.paid_cases || 0), icon: 'bi-check-circle' },
-                    { label: 'Partial Cases', value: this.number(this.summary.partial_cases || 0), icon: 'bi-hourglass-split' },
-                    { label: 'Unpaid Cases', value: this.number(this.summary.unpaid_cases || 0), icon: 'bi-exclamation-circle' },
-                    { label: 'Gross Amount', value: money(this.summary.gross_amount), icon: 'bi-cash-stack' },
-                    { label: 'Collected Amount', value: money(this.summary.collected_amount), icon: 'bi-wallet2' },
-                    { label: 'Remaining Balance', value: money(this.summary.remaining_balance), icon: 'bi-receipt' },
+                    { label: 'Total Cases',       value: this.number(this.summary.total_cases || 0),       icon: 'bi-folder2-open',      key: 'total_cases' },
+                    { label: 'Paid Cases',         value: this.number(this.summary.paid_cases || 0),        icon: 'bi-check-circle',       key: 'paid_cases' },
+                    { label: 'Partial Cases',      value: this.number(this.summary.partial_cases || 0),     icon: 'bi-hourglass-split',    key: 'partial_cases' },
+                    { label: 'Unpaid Cases',       value: this.number(this.summary.unpaid_cases || 0),      icon: 'bi-exclamation-circle', key: 'unpaid_cases' },
+                    { label: 'Gross Amount',       value: money(this.summary.gross_amount),                 icon: 'bi-cash-stack',         key: 'gross_amount' },
+                    { label: 'Collected Amount',   value: money(this.summary.collected_amount),             icon: 'bi-wallet2',            key: 'collected_amount' },
+                    { label: 'Remaining Balance',  value: money(this.summary.remaining_balance),            icon: 'bi-receipt',            key: 'remaining_balance' },
                 ];
             }
             return [
-                { label: 'Total Records', value: this.number(this.summary.total_records || 0), icon: 'bi-list-check' },
-                { label: 'Gross Amount', value: money(this.summary.gross_amount), icon: 'bi-cash-stack' },
-                { label: 'Collected Amount', value: money(this.summary.collected_amount), icon: 'bi-wallet2' },
-                { label: 'Remaining Balance', value: money(this.summary.remaining_balance), icon: 'bi-receipt' },
+                { label: 'Total Records',      value: this.number(this.summary.total_records || 0), icon: 'bi-list-check',  key: 'total_records' },
+                { label: 'Gross Amount',       value: money(this.summary.gross_amount),             icon: 'bi-cash-stack',  key: 'gross_amount' },
+                { label: 'Collected Amount',   value: money(this.summary.collected_amount),         icon: 'bi-wallet2',     key: 'collected_amount' },
+                { label: 'Remaining Balance',  value: money(this.summary.remaining_balance),        icon: 'bi-receipt',     key: 'remaining_balance' },
             ];
         },
         filterChips() {
@@ -896,7 +1103,7 @@ function reportsModule(config) {
             return ['payment_status', 'case_status', 'verification_status', 'status'].includes(key);
         },
         moneyColumns() {
-            return ['total_amount', 'total_paid', 'balance', 'gross_amount', 'collected_amount', 'remaining_balance'];
+            return ['total_amount', 'total_paid', 'balance', 'gross_amount', 'collected_amount', 'remaining_balance', 'amount_paid'];
         },
         countColumns() {
             return ['total_cases', 'paid_cases', 'partial_cases', 'unpaid_cases'];
@@ -918,6 +1125,127 @@ function reportsModule(config) {
         },
         number(value) {
             return new Intl.NumberFormat('en-PH').format(Number(value || 0));
+        },
+
+        // ── Metric drill-down ─────────────────────────────────────────────
+        async selectMetric(key) {
+            if (!this.hasPreview) return;
+            // Toggle off if same card is clicked again
+            if (this.selectedMetric === key) {
+                this.clearMetric();
+                return;
+            }
+            this.selectedMetric = key;
+            this.drilldownRows = [];
+            this.drilldownMode = 'cases';
+            // Owner analytics: fetch real case/payment records from backend
+            if (this.reportType === 'owner_branch_analytics') {
+                await this.fetchDrilldown(key);
+            }
+        },
+        async fetchDrilldown(metric) {
+            this.drilldownLoading = true;
+            try {
+                const response = await window.axios.get(config.drilldownUrl, {
+                    params: { ...this.params(), metric },
+                });
+                this.drilldownRows = response.data.rows || [];
+                this.drilldownMode = response.data.mode || 'cases';
+            } catch (_err) {
+                this.drilldownRows = [];
+                this.drilldownMode = 'cases';
+            } finally {
+                this.drilldownLoading = false;
+            }
+        },
+        clearMetric() {
+            this.selectedMetric = null;
+            this.drilldownRows = [];
+            this.drilldownLoading = false;
+            this.drilldownMode = 'cases';
+        },
+        drillDownRows() {
+            if (!this.selectedMetric) return this.rows;
+
+            // Owner analytics: use server-fetched case/payment records
+            if (this.reportType === 'owner_branch_analytics') {
+                return this.drilldownRows;
+            }
+
+            // Other report types: client-side filter on the already-loaded rows
+            const key = this.selectedMetric;
+            if (key === 'total_cases' || key === 'total_records') return this.rows;
+            if (key === 'paid_cases')    return this.rows.filter(r => String(r.payment_status || '').toUpperCase() === 'PAID');
+            if (key === 'partial_cases') return this.rows.filter(r => String(r.payment_status || '').toUpperCase() === 'PARTIAL');
+            if (key === 'unpaid_cases')  return this.rows.filter(r => String(r.payment_status || '').toUpperCase() === 'UNPAID');
+            if (key === 'gross_amount')      return this.rows.filter(r => Number(r.total_amount || 0) > 0);
+            if (key === 'collected_amount')  return this.rows.filter(r => Number(r.total_paid   || 0) > 0);
+            if (key === 'remaining_balance') return this.rows.filter(r => Number(r.balance       || 0) > 0);
+            return this.rows;
+        },
+        // Filtered branch summary rows for the compact strip shown above drill-down records
+        branchSummaryRows() {
+            if (!this.selectedMetric || this.reportType !== 'owner_branch_analytics') return [];
+            const key = this.selectedMetric;
+            if (key === 'total_cases') return this.rows;
+            const colMap = {
+                paid_cases: 'paid_cases', partial_cases: 'partial_cases', unpaid_cases: 'unpaid_cases',
+                gross_amount: 'gross_amount', collected_amount: 'collected_amount', remaining_balance: 'remaining_balance',
+            };
+            const col = colMap[key];
+            return col ? this.rows.filter(r => Number(r[col] || 0) > 0) : this.rows;
+        },
+        // Columns for the drill-down table (differs from normal branch analytics columns)
+        drilldownColumns() {
+            if (this.drilldownMode === 'payments') {
+                return [
+                    { key: 'payment_record_no', label: 'Payment Record No.' },
+                    { key: 'case_no',           label: 'Case No.' },
+                    { key: 'branch',            label: 'Branch' },
+                    { key: 'client_deceased',   label: 'Client / Deceased' },
+                    { key: 'payment_method',    label: 'Payment Method' },
+                    { key: 'amount_paid',       label: 'Amount Paid' },
+                    { key: 'payment_date',      label: 'Payment Date' },
+                ];
+            }
+            return [
+                { key: 'case_no',           label: 'Case No.' },
+                { key: 'branch',            label: 'Branch' },
+                { key: 'client',            label: 'Client' },
+                { key: 'deceased',          label: 'Deceased' },
+                { key: 'service',           label: 'Service' },
+                { key: 'payment_status',    label: 'Payment Status' },
+                { key: 'gross_amount',      label: 'Gross Amount' },
+                { key: 'collected_amount',  label: 'Collected Amount' },
+                { key: 'remaining_balance', label: 'Remaining Balance' },
+                { key: 'last_payment_date', label: 'Last Payment Date' },
+            ];
+        },
+        metricDrillLabel() {
+            const map = {
+                total_cases:       'Total Cases',
+                total_records:     'Total Records',
+                paid_cases:        'Paid Cases',
+                partial_cases:     'Partial Cases',
+                unpaid_cases:      'Unpaid Cases',
+                gross_amount:      'Gross Amount',
+                collected_amount:  'Collected Amount',
+                remaining_balance: 'Remaining Balance',
+            };
+            return map[this.selectedMetric] || '';
+        },
+        metricDrillHint() {
+            const map = {
+                total_cases:       'Showing all case records for the selected filters.',
+                total_records:     'Showing all records for the selected filters.',
+                paid_cases:        'Showing paid case records for the selected filters.',
+                partial_cases:     'Showing partial case records for the selected filters.',
+                unpaid_cases:      'Showing unpaid case records for the selected filters.',
+                gross_amount:      'Showing case records contributing to gross amount.',
+                collected_amount:  'Showing payment records contributing to collected amount.',
+                remaining_balance: 'Showing case records with remaining unpaid balances.',
+            };
+            return map[this.selectedMetric] || '';
         },
     };
 }

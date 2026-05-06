@@ -4,8 +4,99 @@
 @section('page_desc', 'Manage branch details, status, and branch-wide settings.')
 
 @section('content')
-<style>[x-cloak] { display: none !important; }</style>
-<div class="admin-table-page directory-page" x-data="branchCatalog()">
+<style>[x-cloak] { display: none !important; }
+.branch-kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+}
+@media (max-width: 1024px) {
+    .branch-kpi-strip { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+    .branch-kpi-strip { grid-template-columns: 1fr; }
+}
+.branch-kpi-card {
+    display: block;
+    background: #FAFAF7;
+    border: 1.5px solid #C9C5BB;
+    border-radius: 10px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.branch-kpi-card:hover {
+    background: #F3F0E8;
+    border-color: #3E4A3D;
+    box-shadow: 0 2px 6px rgba(62,74,61,0.09);
+}
+.branch-kpi-card__inner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.7rem 1rem;
+}
+.branch-kpi-card__icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.82rem;
+    flex-shrink: 0;
+    background: rgba(62,74,61,0.10);
+    color: #3E4A3D;
+}
+.branch-kpi-card__body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.08rem;
+}
+.branch-kpi-card__label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #5F685F;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    line-height: 1.3;
+}
+.branch-kpi-card__value {
+    font-size: 1.15rem;
+    font-weight: 800;
+    line-height: 1.15;
+    color: #222222;
+    font-variant-numeric: tabular-nums;
+}
+.branch-kpi-card__desc {
+    font-size: 0.63rem;
+    color: #7A8577;
+    font-weight: 500;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 0.1rem;
+}
+.branch-kpi-card__action {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #5F685F;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    white-space: nowrap;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+.branch-kpi-card:hover .branch-kpi-card__action {
+    opacity: 1;
+}
+</style>
+<div class="admin-table-page directory-page admin-catalog-page branch-management-page" x-data="branchCatalog()">
 <div class="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-8 py-6">
 <div class="space-y-6">
 
@@ -24,28 +115,17 @@
 @endphp
 
 {{-- KPI insights --}}
-<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+<div class="branch-kpi-strip">
     @foreach($branchKpis as $kpi)
-        <a
-            href="{{ $kpi['href'] }}"
-            class="group bg-white border border-slate-200 rounded-xl p-4 flex flex-col gap-3 transition-colors hover:border-[var(--brand-mid)] hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[var(--brand-mid)] focus:ring-offset-2"
-        >
-            <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                    <span class="text-[11px] font-semibold uppercase tracking-widest text-slate-400">{{ $kpi['label'] }}</span>
-                    <div class="mt-2 text-3xl font-bold text-slate-900 leading-none truncate">{{ $kpi['value'] }}</div>
+        <a href="{{ $kpi['href'] }}" class="branch-kpi-card" title="{{ $kpi['label'] }}: {{ $kpi['value'] }}">
+            <div class="branch-kpi-card__inner">
+                <span class="branch-kpi-card__icon"><i class="bi {{ $kpi['icon'] }}"></i></span>
+                <div class="branch-kpi-card__body">
+                    <span class="branch-kpi-card__label">{{ $kpi['label'] }}</span>
+                    <span class="branch-kpi-card__value">{{ $kpi['value'] }}</span>
+                    <span class="branch-kpi-card__desc">{{ $kpi['insight'] }}</span>
                 </div>
-                <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-[var(--brand-mid)]">
-                    <i class="bi {{ $kpi['icon'] }}"></i>
-                </span>
-            </div>
-            <div class="space-y-1">
-                <p class="text-xs font-semibold text-slate-800 truncate">{{ $kpi['insight'] }}</p>
-                <p class="text-xs text-slate-500">{{ $kpi['comparison'] }}</p>
-            </div>
-            <div class="mt-auto inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-widest text-slate-400 group-hover:text-[var(--brand-mid)]">
-                {{ $kpi['action'] ?? 'View Details' }}
-                <i class="bi bi-arrow-right-short text-base leading-none"></i>
+                <span class="branch-kpi-card__action">{{ $kpi['action'] ?? 'View' }} <i class="bi bi-arrow-right-short"></i></span>
             </div>
         </a>
     @endforeach
@@ -296,7 +376,7 @@
 
             {{-- Card view pagination --}}
             <div class="table-system-pagination branch-card-pagination">
-                {{ $branches->links() }}
+                @if($branches->hasPages()){{ $branches->links() }}@endif
             </div>
         @endif
     </div>
@@ -390,7 +470,7 @@
                 </table>
             </div>
             <div class="table-system-pagination">
-                {{ $branches->links() }}
+                @if($branches->hasPages()){{ $branches->links() }}@endif
             </div>
         </div>
     </div>

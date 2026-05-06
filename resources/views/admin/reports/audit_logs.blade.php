@@ -257,7 +257,7 @@
             </div>
 
             <div class="table-system-pagination">
-                {{ $logs->links() }}
+                @if($logs->hasPages()){{ $logs->links() }}@endif
             </div>
         </div>
     </section>

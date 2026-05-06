@@ -42,8 +42,15 @@
     }
 
     .reminders-back-btn:hover {
-        background: #f1f5f9;
-        border-color: #cfdbe8;
+        background: #F3F0E8;
+        border-color: #3E4A3D;
+        cursor: pointer;
+    }
+
+    .reminders-back-btn:focus-visible {
+        outline: none;
+        border-color: #3E4A3D;
+        box-shadow: 0 0 0 3px rgba(62,74,61,0.18);
     }
 
     .reminders-filter-grid {
@@ -99,9 +106,20 @@
     }
 
     .reminders-tab.is-idle:hover {
-        border-color: #c9d7e6;
-        color: #333333;
-        background: #FAFAF7;
+        border-color: #3E4A3D;
+        color: #3E4A3D;
+        background: #F3F0E8;
+        cursor: pointer;
+    }
+
+    .reminders-tab.is-active {
+        cursor: default;
+    }
+
+    .reminders-tab:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(62,74,61,0.18);
+        border-color: #3E4A3D;
     }
 
     .reminders-empty {
@@ -127,8 +145,8 @@
     }
 
     .reminders-item:hover {
-        border-color: #d2deeb;
-        background: #fcfdff;
+        border-color: #C9C5BB;
+        background: #F3F0E8;
     }
 
     .reminders-item-main {

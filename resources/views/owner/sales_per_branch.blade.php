@@ -250,7 +250,7 @@
 </div>
 
 <div class="mt-4 no-print">
-    {{ $cases->links() }}
+    @if($cases->hasPages()){{ $cases->links() }}@endif
 </div>
 </div>
 

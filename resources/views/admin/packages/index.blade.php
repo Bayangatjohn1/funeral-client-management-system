@@ -10,7 +10,7 @@
     $isMainAdmin = $currentUser?->isMainAdmin() ?? false;
 @endphp
 <style>[x-cloak] { display: none !important; }</style>
-<div class="admin-table-page" x-data="pkgCatalog()">
+<div class="admin-table-page admin-catalog-page package-management-page" x-data="pkgCatalog()">
 <div class="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-8 py-6">
 <div class="space-y-6">
 
@@ -19,24 +19,142 @@
 @endif
 
 {{-- Summary stats --}}
-<div class="grid grid-cols-2 sm:grid-cols-4 gap-5">
-    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col gap-1.5">
-        <span class="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Total Packages</span>
-        <span class="text-2xl font-bold text-slate-900">{{ $totalPackages }}</span>
-    </div>
-    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col gap-1.5">
-        <span class="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Active</span>
-        <span class="text-2xl font-bold text-emerald-600">{{ $activePackages }}</span>
-    </div>
-    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col gap-1.5">
-        <span class="text-[11px] font-semibold uppercase tracking-widest text-slate-400">With Promo</span>
-        <span class="text-2xl font-bold text-amber-500">{{ $promoPackages }}</span>
-    </div>
-    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col gap-1.5">
-        <span class="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Highest Price</span>
-        <span class="text-2xl font-bold text-slate-900">&#8369;{{ number_format($highestPrice, 2) }}</span>
-    </div>
+@php
+    $isPromoFiltered   = request('promo') === 'with_promo';
+    $isPriceSorted     = request('sort') === 'price_desc';
+    $isNoFilter        = !request()->hasAny(['q', 'status', 'promo', 'sort']);
+@endphp
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+    {{-- Total Packages — clickable: clears all filters --}}
+    <a href="{{ route('admin.packages.index') }}" class="pkg-stat-card {{ $isNoFilter ? 'pkg-stat-card--active' : '' }}" title="View all packages">
+        <div class="pkg-stat-card__inner">
+            <span class="pkg-stat-card__icon" style="background:rgba(62,74,61,0.10);color:#3E4A3D;"><i class="bi bi-box-seam"></i></span>
+            <div class="pkg-stat-card__body">
+                <span class="pkg-stat-card__label">Total Packages</span>
+                <span class="pkg-stat-card__value" style="color:#333333;">{{ $totalPackages }}</span>
+                <span class="pkg-stat-card__desc">All service packages</span>
+            </div>
+            <span class="pkg-stat-card__action">View all</span>
+        </div>
+    </a>
+
+    {{-- With Promo — clickable: filters promo=with_promo --}}
+    <a href="{{ route('admin.packages.index', ['promo' => 'with_promo']) }}" class="pkg-stat-card {{ $isPromoFiltered ? 'pkg-stat-card--active' : '' }}" title="Filter packages with active promos">
+        <div class="pkg-stat-card__inner">
+            <span class="pkg-stat-card__icon" style="background:rgba(184,121,86,0.12);color:#B87956;"><i class="bi bi-tag-fill"></i></span>
+            <div class="pkg-stat-card__body">
+                <span class="pkg-stat-card__label">With Promo</span>
+                <span class="pkg-stat-card__value" style="color:#B87956;">{{ $promoPackages }}</span>
+                <span class="pkg-stat-card__desc">Packages with active promos</span>
+            </div>
+            <span class="pkg-stat-card__action">Filter promos</span>
+        </div>
+    </a>
+
+    {{-- Highest Price — clickable: sorts by price_desc --}}
+    <a href="{{ route('admin.packages.index', ['sort' => 'price_desc']) }}" class="pkg-stat-card {{ $isPriceSorted ? 'pkg-stat-card--active' : '' }}" title="Sort by highest price">
+        <div class="pkg-stat-card__inner">
+            <span class="pkg-stat-card__icon" style="background:rgba(62,74,61,0.10);color:#3E4A3D;"><i class="bi bi-arrow-up-circle"></i></span>
+            <div class="pkg-stat-card__body">
+                <span class="pkg-stat-card__label">Highest Price</span>
+                <span class="pkg-stat-card__value" style="color:#333333;">&#8369;{{ number_format($highestPrice, 2) }}</span>
+                <span class="pkg-stat-card__desc">Most expensive package</span>
+            </div>
+            <span class="pkg-stat-card__action">Sort highest</span>
+        </div>
+    </a>
+
 </div>
+
+<style>
+.pkg-stat-card {
+    display: flex;
+    flex-direction: column;
+    background: #FAFAF7;
+    border: 1.5px solid #C9C5BB;
+    border-radius: 10px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.pkg-stat-card:hover {
+    background: #F3F0E8;
+    border-color: #3E4A3D;
+    box-shadow: 0 2px 6px rgba(62,74,61,0.09);
+}
+.pkg-stat-card--active {
+    background: rgba(139,154,139,0.15);
+    border-color: #3E4A3D;
+}
+.pkg-stat-card--active:hover {
+    background: rgba(139,154,139,0.22);
+}
+.pkg-stat-card__inner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.7rem 1rem;
+    flex: 1;
+}
+.pkg-stat-card__icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.82rem;
+    flex-shrink: 0;
+}
+.pkg-stat-card__body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.08rem;
+}
+.pkg-stat-card__label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #5F685F;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    line-height: 1.3;
+}
+.pkg-stat-card__value {
+    font-size: 1.15rem;
+    font-weight: 800;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+}
+.pkg-stat-card__desc {
+    font-size: 0.63rem;
+    color: #7A8577;
+    font-weight: 500;
+    line-height: 1.3;
+    margin-top: 0.1rem;
+}
+.pkg-stat-card__action {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #5F685F;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    white-space: nowrap;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+.pkg-stat-card:hover .pkg-stat-card__action,
+.pkg-stat-card--active .pkg-stat-card__action {
+    opacity: 1;
+}
+.pkg-stat-card--active .pkg-stat-card__action {
+    color: #3E4A3D;
+}
+</style>
 
 {{-- Main card --}}
 <section class="table-system-card admin-table-card">
@@ -366,6 +484,14 @@
                                         <i class="bi bi-pencil-square"></i>
                                         <span>Edit Package</span>
                                     </a>
+                                    <form method="POST" action="{{ route('admin.packages.toggleActive', $package) }}">
+                                        @csrf
+                                        @method('PATCH')
+                                        <button class="row-action-item" type="submit" data-row-menu-item>
+                                            <i class="bi bi-toggle-{{ $package->is_active ? 'off' : 'on' }}"></i>
+                                            <span>{{ $package->is_active ? 'Deactivate Package' : 'Activate Package' }}</span>
+                                        </button>
+                                    </form>
                                 </div>
                             </div>
                         @endif
@@ -376,7 +502,7 @@
 
             {{-- Card view pagination --}}
             <div class="table-system-pagination directory-card-pagination">
-                {{ $packages->links() }}
+                @if($packages->hasPages()){{ $packages->links() }}@endif
             </div>
         @endif
     </div>
@@ -499,6 +625,14 @@
                                                 <i class="bi bi-pencil-square"></i>
                                                 <span>Edit Package</span>
                                             </a>
+                                            <form method="POST" action="{{ route('admin.packages.toggleActive', $package) }}">
+                                                @csrf
+                                                @method('PATCH')
+                                                <button class="row-action-item" type="submit" data-row-menu-item>
+                                                    <i class="bi bi-toggle-{{ $package->is_active ? 'off' : 'on' }}"></i>
+                                                    <span>{{ $package->is_active ? 'Deactivate Package' : 'Activate Package' }}</span>
+                                                </button>
+                                            </form>
                                         </div>
                                     </div>
                                 </td>
@@ -513,7 +647,7 @@
                 </table>
             </div>
             <div class="table-system-pagination">
-                {{ $packages->links() }}
+                @if($packages->hasPages()){{ $packages->links() }}@endif
             </div>
         </div>
     </div>

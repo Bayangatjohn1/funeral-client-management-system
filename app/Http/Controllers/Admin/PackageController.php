@@ -390,6 +390,27 @@ class PackageController extends Controller
         }
     }
 
+    public function toggleActive(Package $package)
+    {
+        $this->ensureCanManagePackages();
+
+        $package->is_active = !$package->is_active;
+        $package->save();
+
+        AuditLogger::log(
+            action: $package->is_active ? 'package.activated' : 'package.deactivated',
+            actionType: 'status_change',
+            entityType: 'package',
+            entityId: $package->id,
+            metadata: [
+                'package_name' => $package->package_name,
+                'to' => $package->is_active ? 'active' : 'inactive',
+            ],
+        );
+
+        return back()->with('success', 'Package status updated.');
+    }
+
     private function resolvePromoPayload(Request $request, array $validated): array
     {
         $promoActive = $request->boolean('promo_is_active');

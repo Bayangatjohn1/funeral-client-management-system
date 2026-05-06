@@ -29,7 +29,7 @@
         align-items: center;
         justify-content: center;
         flex: 0 0 auto;
-        background: #1b3358;
+        background: #3E4A3D;
         color: #ffffff;
         font-size: .72rem;
         font-weight: 950;
@@ -71,8 +71,8 @@
         align-items: center;
         justify-content: center;
         color: #ffffff;
-        background: #1b3358;
-        box-shadow: 0 8px 18px rgba(27, 51, 88, .22);
+        background: #3E4A3D;
+        box-shadow: 0 8px 18px rgba(62, 74, 61, .18);
         flex: 0 0 auto;
     }
     .pf-section-title { margin: 0; color: #0d1f38; font-size: .98rem; font-weight: 900; line-height: 1.2; }
@@ -110,10 +110,10 @@
         box-sizing: border-box;
     }
     .pf-input:focus {
-        border-color: #1b3358;
-        box-shadow: 0 0 0 4px rgba(27,51,88,.09);
+        border-color: #3E4A3D;
+        box-shadow: 0 0 0 3px rgba(62,74,61,.18);
         outline: none;
-        background: #fafcff;
+        background: #fff;
     }
     .pf-input[readonly] { background: #FAFAF7; color: #5F685F; }
     .pf-input::placeholder { color: #a8b6c7; font-weight: 500; }
@@ -143,7 +143,7 @@
         font-size: .78rem;
         line-height: 1;
     }
-    .pf-control-wrap:focus-within .pf-control-icon { color: #1b3358; }
+    .pf-control-wrap:focus-within .pf-control-icon { color: #3E4A3D; }
     .pf-help { margin-top: .45rem; color: #5F685F; font-size: .72rem; font-weight: 600; line-height: 1.35; }
     .pf-help.soft { color: #7A8076; }
     .pf-amount-wrap {
@@ -158,16 +158,16 @@
         overflow: hidden;
     }
     .pf-amount-wrap:focus-within {
-        border-color: #1b3358;
-        box-shadow: 0 0 0 4px rgba(27,51,88,.09);
-        background: #fafcff;
+        border-color: #3E4A3D;
+        box-shadow: 0 0 0 3px rgba(62,74,61,.18);
+        background: #fff;
     }
     .pf-amount-prefix {
         padding: 0 14px;
         font-size: .95rem;
         font-weight: 900;
         color: #4d6480;
-        background: #f4f7fb;
+        background: #F3F0E8;
         border-right: 1.5px solid #dde4ee;
         display: flex;
         align-items: center;
@@ -213,7 +213,7 @@
         min-width: 0;
     }
     .pf-summary-card.accent-green { border-color: #a7f3d0; background: #f0fdf4; }
-    .pf-summary-card.accent-navy { border-color: #1b3358; background: #1b3358; color: #fff; }
+    .pf-summary-card.accent-navy { border-color: #3E4A3D; background: #3E4A3D; color: #fff; }
     .pf-summary-label {
         font-size: 0.6rem;
         font-weight: 900;
@@ -285,14 +285,14 @@
         transition: transform .18s, box-shadow .18s, background .18s, color .18s;
     }
     .pf-btn.secondary { border: 1px solid #dbe3ee; background: #fff; color: #5F685F; }
-    .pf-btn.secondary:hover { background: #FAFAF7; color: #0f172a; }
+    .pf-btn.secondary:hover { background: #F3F0E8; border-color: #3E4A3D; color: #3E4A3D; }
     .pf-btn.primary {
-        border: 1px solid #1b3358;
-        background: linear-gradient(135deg, #1b3358, #21476f);
+        border: 1px solid #2D372D;
+        background: linear-gradient(135deg, #3E4A3D, #2D372D);
         color: #fff;
-        box-shadow: 0 10px 22px rgba(27,51,88,.25);
+        box-shadow: 0 10px 22px rgba(62,74,61,.20);
     }
-    .pf-btn.primary:hover { transform: translateY(-1px); box-shadow: 0 14px 28px rgba(27,51,88,.32); }
+    .pf-btn.primary:hover { transform: translateY(-1px); box-shadow: 0 14px 28px rgba(62,74,61,.28); }
     .pf-btn:disabled { opacity: .45; pointer-events: none; transform: none; box-shadow: none; }
 
     html[data-theme='dark'] .pf-section { background: #102033; border-color: #243954; }
@@ -320,7 +320,7 @@
     html[data-theme='dark'] .pf-summary-label { color: #7a9cc0; }
     html[data-theme='dark'] .pf-snapshot-value,
     html[data-theme='dark'] .pf-summary-value { color: #d8ecff; }
-    html[data-theme='dark'] .pf-summary-card.accent-navy { background: #1b3358; border-color: #2a4f80; }
+    html[data-theme='dark'] .pf-summary-card.accent-navy { background: #3E4A3D; border-color: #2a4f80; }
     html[data-theme='dark'] .pf-btn.secondary { background: #152035; border-color: #2a3f5f; color: #d8ecff; }
 
     @media (max-width: 900px) {

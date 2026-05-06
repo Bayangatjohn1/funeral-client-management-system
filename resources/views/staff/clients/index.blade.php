@@ -166,7 +166,7 @@
     </div>
 
     <div class="table-system-pagination">
-        {{ $clients->links() }}
+        @if($clients->hasPages()){{ $clients->links() }}@endif
     </div>
 </section>
 

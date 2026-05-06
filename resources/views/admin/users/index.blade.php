@@ -246,7 +246,7 @@
             </div>
 
             <div class="table-system-pagination directory-card-pagination">
-                {{ $users->links() }}
+                @if($users->hasPages()){{ $users->links() }}@endif
             </div>
         @endif
     </div>
@@ -332,7 +332,7 @@
                 </table>
             </div>
             <div class="table-system-pagination">
-                {{ $users->links() }}
+                @if($users->hasPages()){{ $users->links() }}@endif
             </div>
         </div>
     </div>

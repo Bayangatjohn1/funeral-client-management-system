@@ -70,6 +70,7 @@ Route::middleware(['auth', 'no_cache', 'active'])->group(function () {
     Route::get('/reports/print', [ReportController::class, 'print'])->name('reports.print');
     Route::get('/reports/export-pdf', [ReportController::class, 'exportPdf'])->name('reports.exportPdf');
     Route::get('/reports/export-csv', [ReportController::class, 'exportCsv'])->name('reports.exportCsv');
+    Route::get('/reports/owner-drilldown', [ReportController::class, 'ownerDrilldown'])->name('reports.ownerDrilldown');
 });
 
 Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->get('/admin', function (Request $request) {
@@ -453,6 +454,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->pref
     Route::get('/packages/{package}/edit', [PackageController::class, 'edit'])->name('admin.packages.edit');
     Route::put('/packages/{package}', [PackageController::class, 'update'])->name('admin.packages.update');
     Route::patch('/packages/{package}/quick-price', [PackageController::class, 'quickUpdatePrice'])->name('admin.packages.quickPrice');
+    Route::patch('/packages/{package}/toggle-active', [PackageController::class, 'toggleActive'])->name('admin.packages.toggleActive');
 
     // Monitoring
     Route::get('/cases', [AdminReportController::class, 'masterCases'])->name('admin.cases.index');

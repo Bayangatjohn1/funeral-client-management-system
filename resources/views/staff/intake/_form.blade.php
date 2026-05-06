@@ -1811,8 +1811,8 @@
                             @error('interment_time')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
-                            <div id="interment_at_error" class="hidden text-xs font-bold text-rose-500 mt-1">Interment date/time cannot be before the funeral service date/time.</div>
-                            <p id="interment_schedule_warning" class="hidden text-xs font-bold text-amber-600 mt-1">Funeral service and interment are usually on the same day. Please confirm if the interment is scheduled on a different date.</p>
+                            <div id="interment_at_error" class="hidden text-xs font-bold text-rose-500 mt-1">Interment date cannot be before the funeral service date.</div>
+                            <p id="interment_schedule_warning" class="hidden text-xs font-bold text-amber-600 mt-1">Funeral service and interment are usually on the same day. Please confirm if interment is scheduled on a different date.</p>
                             <p class="text-xs text-slate-500 mt-1">Date and time of burial, cremation, or interment.</p>
                         </div>
 
@@ -2368,6 +2368,8 @@
     let wakePicker = null;
     let wakeStartPicker = null;
     let interPicker = null;
+    let isAutoSyncingIntermentDate = false;
+    if (interment) interment.dataset.autoFilled = interment.value ? '0' : '';
 
     const senior = document.getElementById('senior_citizen_status');
     const seniorIdWrap = document.getElementById('senior_id_wrap');
@@ -2956,6 +2958,49 @@
         return Number.isNaN(parsed) ? null : new Date(parsed);
     };
 
+    const dateOnly = (date) => {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    };
+
+    const sameDate = (first, second) => {
+        const firstOnly = dateOnly(first);
+        const secondOnly = dateOnly(second);
+        return !!firstOnly && !!secondOnly && firstOnly.getTime() === secondOnly.getTime();
+    };
+
+    const markIntermentDateManual = () => {
+        if (!interment || isAutoSyncingIntermentDate) return;
+        interment.dataset.autoFilled = '0';
+    };
+
+    const syncIntermentDateFromFuneral = () => {
+        if (!funeral || !interment) return;
+
+        const serviceRaw = (funeral.value || '').trim();
+        if (!serviceRaw) return;
+
+        const intermentRaw = (interment.value || '').trim();
+        const shouldAutoFill = interment.dataset.autoFilled === '1' || (!intermentRaw && interment.dataset.autoFilled !== '0');
+        if (!shouldAutoFill) return;
+
+        isAutoSyncingIntermentDate = true;
+        interment.dataset.autoFilled = '1';
+        interment.dataset.userTyped = '0';
+        interment.dataset.lastTypedValue = '';
+        interment.dataset.invalidTypedValue = '';
+
+        if (interPicker) {
+            interPicker.setDate(serviceRaw, false, 'Y-m-d');
+        } else {
+            interment.value = serviceRaw;
+        }
+
+        interment.setCustomValidity('');
+        setFieldError(interment, intermentErr, '', interPicker?.altInput);
+        isAutoSyncingIntermentDate = false;
+    };
+
     const syncAge = () => {
         const birth = getDateValue(born, bornPicker);
         const death = getDateValue(died, diedPicker);
@@ -3479,15 +3524,17 @@
             funeral.setCustomValidity('Funeral service date/time cannot be before the wake start date/time.');
         }
 
-        if (funeralDateTime && intermentDateTime && intermentDateTime < funeralDateTime) {
-            interment.setCustomValidity('Interment date/time cannot be before the funeral service date/time.');
-        }
-
         if (wakeDate && interDate) {
-            const serviceOnly = new Date(wakeDate.getFullYear(), wakeDate.getMonth(), wakeDate.getDate());
-            const interOnly = new Date(interDate.getFullYear(), interDate.getMonth(), interDate.getDate());
-            if (interOnly > serviceOnly) {
+            const serviceOnly = dateOnly(wakeDate);
+            const interOnly = dateOnly(interDate);
+
+            if (interOnly < serviceOnly) {
+                interment.setCustomValidity('Interment date cannot be before the funeral service date.');
+            } else if (interOnly > serviceOnly) {
                 intermentWarning?.classList.remove('hidden');
+            } else if (funeralTime?.value && intermentTime?.value && intermentDateTime && funeralDateTime && intermentDateTime < funeralDateTime) {
+                interment.setCustomValidity('Interment time cannot be before the funeral service time.');
+                intermentTime?.setCustomValidity('Interment time cannot be before the funeral service time.');
             }
         }
 
@@ -3798,9 +3845,19 @@
                 return false;
             }
 
-            if (intermentDateTime < funeralDateTime) {
-                interment.setCustomValidity('Interment date/time cannot be before the funeral service date/time.');
-                setFieldError(interment, intermentErr, 'Interment date/time cannot be before the funeral service date/time.', interPicker?.altInput);
+            const serviceOnly = dateOnly(wakeDate);
+            const interOnly = dateOnly(interDate);
+            if (interOnly < serviceOnly) {
+                interment.setCustomValidity('Interment date cannot be before the funeral service date.');
+                setFieldError(interment, intermentErr, 'Interment date cannot be before the funeral service date.', interPicker?.altInput);
+                interPicker?.altInput?.focus();
+                return false;
+            }
+
+            if (sameDate(wakeDate, interDate) && intermentDateTime < funeralDateTime) {
+                interment.setCustomValidity('Interment time cannot be before the funeral service time.');
+                intermentTime?.setCustomValidity('Interment time cannot be before the funeral service time.');
+                setFieldError(interment, intermentErr, 'Interment time cannot be before the funeral service time.', interPicker?.altInput);
                 interPicker?.altInput?.focus();
                 return false;
             }
@@ -4022,6 +4079,8 @@
 
     [wakeStart, wakeStartTime, funeral, funeralTime, interment, intermentTime, requestDate].forEach((element) => {
         element?.addEventListener('change', () => {
+            if (element === funeral) syncIntermentDateFromFuneral();
+            if (element === interment) markIntermentDateManual();
             computeWakeDays();
             validateWakeInterment('full');
             syncDateConstraints();
@@ -4030,12 +4089,14 @@
     });
 
     funeral?.addEventListener('change', () => {
+        syncIntermentDateFromFuneral();
         computeWakeDays();
         validateWakeInterment('full');
         render();
     });
 
     interment?.addEventListener('change', () => {
+        markIntermentDateManual();
         computeWakeDays();
         validateWakeInterment('full');
         render();
@@ -4073,6 +4134,7 @@
     });
 
     interment?.addEventListener('input', () => {
+        markIntermentDateManual();
         const raw = getRawDateString(interment, interPicker);
         if (!raw) {
             interment.setCustomValidity('');
@@ -4207,6 +4269,7 @@
 
             visible.addEventListener('input', () => {
                 const raw = visible.value.trim();
+                if (type === 'interment') markIntermentDateManual();
                 input.dataset.userTyped = '1';
                 input.dataset.lastTypedValue = raw;
 
@@ -4331,6 +4394,7 @@
                     interPicker.set('minDate', selectedDates[0]);
                 }
 
+                syncIntermentDateFromFuneral();
                 computeWakeDays();
                 validateWakeInterment('full');
                 render();
@@ -4378,6 +4442,7 @@
             minDate: funeral?.value || wakeStart?.value || requestDate?.value || 'today',
             ...pickerBaseOpts,
             onChange: () => {
+                markIntermentDateManual();
                 interment.dataset.userTyped = '0';
                 interment.dataset.lastTypedValue = '';
                 interment.setCustomValidity('');
@@ -4574,6 +4639,7 @@
         rememberTypedValue(wakeStartPicker, wakeStart, wakeStartErr, 'wake_start');
         rememberTypedValue(wakePicker, funeral, wakeErr, 'wake');
         rememberTypedValue(interPicker, interment, intermentErr, 'interment');
+        syncIntermentDateFromFuneral();
     }
 
     computeWakeDays();

@@ -1883,12 +1883,12 @@ html[data-theme='dark'] {
     }
 
     .directory-item-card {
-        transition: transform 180ms ease, border-color 180ms ease;
+        transition: box-shadow 180ms ease, border-color 180ms ease;
     }
 
     .directory-item-card:hover {
-        transform: translateY(-2px);
         border-color: var(--accent-soft) !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     }
 
     .directory-item-card:has(.row-action-menu.is-open) {
@@ -1903,19 +1903,19 @@ html[data-theme='dark'] {
     .directory-page .directory-card-view,
     .directory-page .branch-directory-card-view {
         display: flex;
-        flex: 0 0 auto;
+        flex: 1 1 auto;
         min-height: 0;
         flex-direction: column;
         border-top: 1px solid var(--border);
         background: var(--card);
-        overflow: visible;
-        padding: 14px;
+        overflow-y: auto;
+        padding: 20px;
     }
 
     .directory-page .directory-card-pagination,
     .directory-page .branch-card-pagination {
         position: static;
-        margin: 14px -14px -14px;
+        margin: 20px -20px -20px;
         border-bottom-left-radius: 12px;
         border-bottom-right-radius: 12px;
         box-shadow: none;
@@ -2395,6 +2395,10 @@ html[data-theme='dark'] {
         margin-top: auto;
     }
 
+    .table-system-pagination:not(:has(nav)) {
+        display: none;
+    }
+
     .table-paginator {
         display: flex;
         align-items: center;
@@ -2622,6 +2626,45 @@ html[data-theme='dark'] {
 
     .admin-table-card .admin-master-table {
         min-width: 1240px;
+    }
+
+    .admin-catalog-page {
+        height: auto;
+        min-height: calc(100vh - var(--topbar-h));
+        overflow: visible;
+    }
+
+    .admin-catalog-page .admin-table-card {
+        flex: 0 0 auto;
+    }
+
+    .admin-catalog-page .directory-card-view,
+    .admin-catalog-page .branch-directory-card-view {
+        display: flex;
+        flex: 0 0 auto;
+        min-height: 0;
+        flex-direction: column;
+        border-top: 1px solid var(--border);
+        background: var(--card);
+        overflow: visible;
+        padding: 14px;
+    }
+
+    .admin-catalog-page .directory-card-pagination,
+    .admin-catalog-page .branch-card-pagination {
+        margin: 14px -14px -14px;
+        border-bottom-left-radius: 12px;
+        border-bottom-right-radius: 12px;
+        box-shadow: none;
+    }
+
+    .admin-catalog-page .table-system-list {
+        flex: 0 0 auto;
+        overflow: visible;
+    }
+
+    .admin-catalog-page .table-system-wrap {
+        flex: 0 0 auto;
     }
 
     .admin-table-toolbar .table-toolbar {

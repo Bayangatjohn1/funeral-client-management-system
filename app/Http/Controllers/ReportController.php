@@ -63,22 +63,64 @@ class ReportController extends Controller
         ]);
     }
 
+    public function ownerDrilldown(Request $request)
+    {
+        $this->authorizeReports('owner_branch_analytics');
+
+        $metric = $request->input('metric');
+        if (! in_array($metric, $this->validDrilldownMetrics(), true)) {
+            return response()->json(['error' => 'Invalid metric.'], 422);
+        }
+
+        $request->validate([
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
+            'date_from' => ['nullable', 'date'],
+            'date_to'   => ['nullable', 'date'],
+        ]);
+
+        $branchScope = $this->reportBranchScope($request);
+        $data = $this->resolveOwnerDrilldownData($request, $branchScope, $metric);
+
+        return response()->json([
+            'rows'   => $data['rows'],
+            'mode'   => $data['mode'],
+            'metric' => $metric,
+        ]);
+    }
+
     public function print(Request $request)
     {
         $this->authorizeReports($request->input('report_type'));
 
-        $validated = $this->validateReportRequest($request);
-        $branchScope = $this->reportBranchScope($request);
-        $data = $this->resolveReportData($request, $branchScope);
+        $validated    = $this->validateReportRequest($request);
+        $branchScope  = $this->reportBranchScope($request);
+        $metric       = $request->input('metric');
+        $isDrilldown  = $validated['report_type'] === self::REPORT_OWNER_BRANCH_ANALYTICS
+                        && in_array($metric, $this->validDrilldownMetrics(), true);
+
+        if ($isDrilldown) {
+            $drillData       = $this->resolveOwnerDrilldownData($request, $branchScope, $metric);
+            $rows            = $drillData['rows'];
+            $summary         = $this->getDrilldownSummary($drillData);
+            $drilldownCols   = $drillData['columns'];
+        } else {
+            $data            = $this->resolveReportData($request, $branchScope);
+            $rows            = $data['rows'];
+            $summary         = $this->getSummary($data['rows'], $validated['report_type']);
+            $drilldownCols   = null;
+        }
+
+        $titleSuffix = $isDrilldown ? ' — ' . $this->metricLabel($metric) : '';
 
         return view('reports.print', [
-            'reportType' => $validated['report_type'],
-            'reportTitle' => $this->reportTitle($validated['report_type']),
-            'rows' => $data['rows'],
-            'summary' => $this->getSummary($data['rows'], $validated['report_type']),
-            'filters' => $this->presentFilters($validated, $branchScope),
-            'generatedBy' => auth()->user(),
-            'generatedAt' => now(),
+            'reportType'       => $validated['report_type'],
+            'reportTitle'      => $this->reportTitle($validated['report_type']) . $titleSuffix,
+            'rows'             => $rows,
+            'summary'          => $summary,
+            'filters'          => $this->presentFilters($validated, $branchScope),
+            'generatedBy'      => auth()->user(),
+            'generatedAt'      => now(),
+            'drilldownColumns' => $drilldownCols,
         ]);
     }
 
@@ -91,17 +133,29 @@ class ReportController extends Controller
     {
         $this->authorizeReports($request->input('report_type'));
 
-        $validated = $this->validateReportRequest($request);
+        $validated   = $this->validateReportRequest($request);
         $branchScope = $this->reportBranchScope($request);
-        $data = $this->resolveReportData($request, $branchScope);
-        $columns = $this->reportColumns($validated['report_type']);
-        $fileName = $validated['report_type'] . '-' . now()->format('Ymd-His') . '.csv';
+        $metric      = $request->input('metric');
+        $isDrilldown = $validated['report_type'] === self::REPORT_OWNER_BRANCH_ANALYTICS
+                       && in_array($metric, $this->validDrilldownMetrics(), true);
 
-        return response()->streamDownload(function () use ($data, $columns) {
+        if ($isDrilldown) {
+            $drillData = $this->resolveOwnerDrilldownData($request, $branchScope, $metric);
+            $rows      = $drillData['rows'];
+            $columns   = $drillData['columns'];
+            $fileName  = $validated['report_type'] . '-' . $metric . '-' . now()->format('Ymd-His') . '.csv';
+        } else {
+            $data     = $this->resolveReportData($request, $branchScope);
+            $rows     = $data['rows'];
+            $columns  = $this->reportColumns($validated['report_type']);
+            $fileName = $validated['report_type'] . '-' . now()->format('Ymd-His') . '.csv';
+        }
+
+        return response()->streamDownload(function () use ($rows, $columns) {
             $handle = fopen('php://output', 'w');
             fputcsv($handle, array_values($columns));
 
-            foreach ($data['rows'] as $row) {
+            foreach ($rows as $row) {
                 fputcsv($handle, array_map(
                     fn ($key) => $row[$key] ?? '',
                     array_keys($columns)
@@ -319,6 +373,180 @@ class ReportController extends Controller
 
         return ['rows' => $rows];
     }
+
+    // ── Owner analytics drill-down ─────────────────────────────────────────
+
+    private function validDrilldownMetrics(): array
+    {
+        return ['total_cases', 'paid_cases', 'partial_cases', 'unpaid_cases', 'gross_amount', 'collected_amount', 'remaining_balance'];
+    }
+
+    private function resolveOwnerDrilldownData(Request $request, array $branchScope, string $metric): array
+    {
+        if ($metric === 'collected_amount') {
+            $rows = $this->getOwnerDrilldownPayments($request, $branchScope);
+            return ['rows' => $rows, 'mode' => 'payments', 'columns' => $this->ownerDrilldownPaymentColumns()];
+        }
+
+        $rows = $this->getOwnerDrilldownCases($request, $branchScope, $metric);
+        return ['rows' => $rows, 'mode' => 'cases', 'columns' => $this->ownerDrilldownCaseColumns()];
+    }
+
+    private function getOwnerDrilldownCases(Request $request, array $branchScope, string $metric): \Illuminate\Support\Collection
+    {
+        $query = FuneralCase::with(['branch:id,branch_code,branch_name', 'client', 'deceased'])
+            ->where('verification_status', 'VERIFIED')
+            ->latest('created_at');
+
+        $this->applyReportBranchScope($query, $request, $branchScope);
+
+        [$startAt, $endAt] = $this->parseDateBounds(
+            $request->filled('date_from') ? $request->input('date_from') : null,
+            $request->filled('date_to') ? $request->input('date_to') : null,
+        );
+        if ($startAt) {
+            $query->where('created_at', '>=', $startAt);
+        }
+        if ($endAt) {
+            $query->where('created_at', '<=', $endAt);
+        }
+
+        match ($metric) {
+            'paid_cases'        => $query->where('payment_status', 'PAID'),
+            'partial_cases'     => $query->where('payment_status', 'PARTIAL'),
+            'unpaid_cases'      => $query->where('payment_status', 'UNPAID'),
+            'gross_amount'      => $query->where('total_amount', '>', 0),
+            'remaining_balance' => $query->where('balance_amount', '>', 0),
+            default             => null, // total_cases: all verified cases in scope
+        };
+
+        return $query->get()->map(fn (FuneralCase $case) => [
+            'case_no'           => $case->case_number ?: $case->case_code,
+            'branch'            => $this->branchName($case->branch),
+            'client'            => $this->personName($case->client),
+            'deceased'          => $this->personName($case->deceased),
+            'service'           => $case->service_type ?: '-',
+            'payment_status'    => $case->payment_status ?: '-',
+            'gross_amount'      => (float) $case->total_amount,
+            'collected_amount'  => (float) $case->total_paid,
+            'remaining_balance' => (float) $case->balance_amount,
+            'last_payment_date' => $this->formatDate($case->paid_at),
+        ])->values();
+    }
+
+    private function getOwnerDrilldownPayments(Request $request, array $branchScope): \Illuminate\Support\Collection
+    {
+        $query = \App\Models\Payment::with([
+                'funeralCase:id,case_number,case_code,branch_id',
+                'funeralCase.branch:id,branch_code,branch_name',
+                'funeralCase.client',
+                'funeralCase.deceased',
+            ])
+            ->where(fn ($q) => $q->where('status', 'VALID')->orWhereNull('status'))
+            ->latest('paid_at');
+
+        // Apply branch scope on the payments table
+        if ($branchScope['forced_branch_id'] ?? null) {
+            $query->where('branch_id', (int) $branchScope['forced_branch_id']);
+        } elseif (($branchScope['can_select_all'] ?? false) && $request->filled('branch_id')) {
+            $query->where('branch_id', (int) $request->input('branch_id'));
+        }
+
+        // Date filter on paid_at
+        [$startAt, $endAt] = $this->parseDateBounds(
+            $request->filled('date_from') ? $request->input('date_from') : null,
+            $request->filled('date_to') ? $request->input('date_to') : null,
+        );
+        if ($startAt) {
+            $query->where('paid_at', '>=', $startAt);
+        }
+        if ($endAt) {
+            $query->where('paid_at', '<=', $endAt);
+        }
+
+        // Only payments for VERIFIED cases
+        $query->whereHas('funeralCase', fn ($q) => $q->where('verification_status', 'VERIFIED'));
+
+        return $query->get()->map(function (\App\Models\Payment $pay) {
+            $client   = $this->personName($pay->funeralCase?->client);
+            $deceased = $this->personName($pay->funeralCase?->deceased);
+            $parts    = array_filter([$client !== '-' ? $client : null, $deceased !== '-' ? $deceased : null]);
+
+            return [
+                'payment_record_no' => $pay->payment_record_no ?: ($pay->receipt_number ?: '-'),
+                'case_no'           => $pay->funeralCase?->case_number ?: ($pay->funeralCase?->case_code ?? '-'),
+                'branch'            => $this->branchName($pay->funeralCase?->branch),
+                'client_deceased'   => implode(' / ', $parts) ?: '-',
+                'payment_method'    => $pay->payment_method ?: ($pay->payment_mode ?: ($pay->method ?? '-')),
+                'amount_paid'       => (float) $pay->amount,
+                'payment_date'      => $this->formatDate($pay->paid_at ?? $pay->paid_date),
+                'status'            => $pay->status ?? 'VALID',
+            ];
+        })->values();
+    }
+
+    private function ownerDrilldownCaseColumns(): array
+    {
+        return [
+            'case_no'           => 'Case No.',
+            'branch'            => 'Branch',
+            'client'            => 'Client',
+            'deceased'          => 'Deceased',
+            'service'           => 'Service',
+            'payment_status'    => 'Payment Status',
+            'gross_amount'      => 'Gross Amount',
+            'collected_amount'  => 'Collected Amount',
+            'remaining_balance' => 'Remaining Balance',
+            'last_payment_date' => 'Last Payment Date',
+        ];
+    }
+
+    private function ownerDrilldownPaymentColumns(): array
+    {
+        return [
+            'payment_record_no' => 'Payment Record No.',
+            'case_no'           => 'Case No.',
+            'branch'            => 'Branch',
+            'client_deceased'   => 'Client / Deceased',
+            'payment_method'    => 'Payment Method',
+            'amount_paid'       => 'Amount Paid',
+            'payment_date'      => 'Payment Date',
+        ];
+    }
+
+    private function getDrilldownSummary(array $drillData): array
+    {
+        $rows = collect($drillData['rows']);
+
+        if ($drillData['mode'] === 'payments') {
+            return [
+                'total_records'   => $rows->count(),
+                'amount_paid'     => (float) $rows->sum('amount_paid'),
+            ];
+        }
+
+        return [
+            'total_records'    => $rows->count(),
+            'gross_amount'     => (float) $rows->sum('gross_amount'),
+            'collected_amount' => (float) $rows->sum('collected_amount'),
+            'remaining_balance' => (float) $rows->sum('remaining_balance'),
+        ];
+    }
+
+    private function metricLabel(string $metric): string
+    {
+        return [
+            'total_cases'       => 'Total Cases',
+            'paid_cases'        => 'Paid Cases',
+            'partial_cases'     => 'Partial Cases',
+            'unpaid_cases'      => 'Unpaid Cases',
+            'gross_amount'      => 'Gross Amount',
+            'collected_amount'  => 'Collected Amount',
+            'remaining_balance' => 'Remaining Balance',
+        ][$metric] ?? $metric;
+    }
+
+    // ── End drill-down ─────────────────────────────────────────────────────
 
     private function getSummary($data, string $reportType): array
     {

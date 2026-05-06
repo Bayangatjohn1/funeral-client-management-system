@@ -92,9 +92,30 @@ function initRowActionMenus() {
     const triggerSelector = '[data-row-menu-trigger]';
     const itemSelector = '[data-row-menu-item]';
 
+    const positionDropdown = (menu) => {
+        const trigger = menu.querySelector(triggerSelector);
+        const dropdown = menu.querySelector('.row-action-dropdown');
+        if (!trigger || !dropdown) return;
+        const rect = trigger.getBoundingClientRect();
+        dropdown.style.position = 'fixed';
+        dropdown.style.top = (rect.bottom + 6) + 'px';
+        dropdown.style.right = (window.innerWidth - rect.right) + 'px';
+        dropdown.style.left = 'auto';
+    };
+
+    const clearDropdownPosition = (menu) => {
+        const dropdown = menu.querySelector('.row-action-dropdown');
+        if (!dropdown) return;
+        dropdown.style.position = '';
+        dropdown.style.top = '';
+        dropdown.style.right = '';
+        dropdown.style.left = '';
+    };
+
     const closeMenu = (menu) => {
         if (!menu) return;
         menu.classList.remove('is-open');
+        clearDropdownPosition(menu);
         const trigger = menu.querySelector(triggerSelector);
         if (trigger) {
             trigger.setAttribute('aria-expanded', 'false');
@@ -122,6 +143,7 @@ function initRowActionMenus() {
             } else {
                 menu.classList.add('is-open');
                 trigger.setAttribute('aria-expanded', 'true');
+                positionDropdown(menu);
             }
             return;
         }

@@ -193,7 +193,7 @@
     </div>
 
     <div class="table-system-pagination">
-        {{ $deceaseds->links() }}
+        @if($deceaseds->hasPages()){{ $deceaseds->links() }}@endif
     </div>
 </section>
 

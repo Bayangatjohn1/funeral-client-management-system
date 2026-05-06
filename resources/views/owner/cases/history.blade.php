@@ -147,7 +147,7 @@
 </div>
 
 <div class="mt-4">
-    {{ $cases->links() }}
+    @if($cases->hasPages()){{ $cases->links() }}@endif
 </div>
 
 {{-- Case view modal --}}

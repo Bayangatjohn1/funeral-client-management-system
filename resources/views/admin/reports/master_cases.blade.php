@@ -457,7 +457,7 @@
             </div>
 
             <div class="table-system-pagination">
-                {{ $cases->links() }}
+                @if($cases->hasPages()){{ $cases->links() }}@endif
             </div>
         </div>
     </section>

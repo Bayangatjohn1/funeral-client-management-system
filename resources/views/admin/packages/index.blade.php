@@ -663,123 +663,81 @@
         <button id="packageModalClose" type="button" class="absolute top-4 right-4 z-10 inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors focus:outline-none shadow-sm">
             <i class="bi bi-x-lg" style="font-size:.8rem"></i>
         </button>
-        <div id="packageModalContent" class="overflow-y-auto max-h-[84vh] p-0 bg-white">
+        <div id="packageModalContent" class="overflow-y-auto max-h-[84vh]" style="padding:1.5rem 2rem;">
             <div class="flex flex-col items-center justify-center py-16 gap-3">
-                <div class="w-7 h-7 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin"></div>
-                <span class="text-sm text-slate-400">Loading...</span>
+                <div class="w-6 h-6 rounded-full animate-spin" style="border:2px solid #e2e8f0;border-top-color:#475569"></div>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-// Package catalog: card/table view toggle persisted in localStorage
-function pkgCatalog() {
-    return {
-        view: 'card',
-        init() {
-            const saved = localStorage.getItem('pkg_view');
-            if (saved === 'card' || saved === 'table') this.view = saved;
-        },
-        setView(v) {
-            this.view = v;
-            localStorage.setItem('pkg_view', v);
-        },
-    };
-}
+    function pkgCatalog() {
+        return {
+            view: localStorage.getItem('pkg-view') || 'card',
+            setView(v) {
+                this.view = v;
+                localStorage.setItem('pkg-view', v);
+            },
+        };
+    }
 
-// Package create/edit modal
-(() => {
-    const overlay = document.getElementById('packageModalOverlay');
-    const sheet   = document.getElementById('packageModalSheet');
-    const content = document.getElementById('packageModalContent');
-    const closeBtn = document.getElementById('packageModalClose');
-    const links = [...document.querySelectorAll('[data-package-modal-trigger]')];
+    (function () {
+        const overlay  = document.getElementById('packageModalOverlay');
+        const sheet    = document.getElementById('packageModalSheet');
+        const content  = document.getElementById('packageModalContent');
+        const closeBtn = document.getElementById('packageModalClose');
+        if (!overlay || !sheet || !content) return;
 
-    const normalizeEmbeddedForm = (form) => {
-        form.classList.remove('mx-auto', 'max-w-4xl', 'max-w-3xl');
-        form.classList.add('w-full');
-        form.querySelectorAll('.modal-shell-card').forEach((card) => {
-            card.classList.remove('rounded-2xl', 'border', 'border-slate-200', 'shadow-sm');
-            card.classList.add('rounded-none', 'border-0', 'shadow-none', 'bg-transparent');
-        });
-    };
+        function openModal() {
+            overlay.classList.remove('hidden');
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                overlay.style.opacity = '1';
+                sheet.classList.remove('scale-95', 'opacity-0');
+                sheet.classList.add('scale-100', 'opacity-100');
+            }));
+        }
 
-    const lockScroll = () => {
-        document.documentElement.classList.add('overflow-hidden');
-        document.body.classList.add('overflow-hidden');
-    };
-    const unlockScroll = () => {
-        document.documentElement.classList.remove('overflow-hidden');
-        document.body.classList.remove('overflow-hidden');
-    };
+        function closeModal() {
+            sheet.classList.add('scale-95', 'opacity-0');
+            sheet.classList.remove('scale-100', 'opacity-100');
+            overlay.style.opacity = '0';
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+                content.innerHTML = '';
+            }, 200);
+        }
 
-    const show = () => {
-        overlay.classList.remove('hidden');
-        lockScroll();
-        requestAnimationFrame(() => {
-            sheet.classList.remove('scale-95', 'opacity-0');
-            sheet.classList.add('scale-100', 'opacity-100');
-            overlay.classList.add('opacity-100');
-        });
-    };
-
-    const hide = () => {
-        sheet.classList.add('scale-95', 'opacity-0');
-        sheet.classList.remove('scale-100', 'opacity-100');
-        overlay.classList.remove('opacity-100');
-        setTimeout(() => {
-            overlay.classList.add('hidden');
-            unlockScroll();
-            content.innerHTML = `
-                <div class="flex flex-col items-center justify-center py-16 gap-3">
-                    <div class="w-7 h-7 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin"></div>
-                    <span class="text-sm text-slate-400">Loading...</span>
-                </div>`;
-        }, 180);
-    };
-
-    const load = async (url) => {
-        content.innerHTML = `
-            <div class="flex items-center justify-center py-8 text-slate-500 gap-2 text-sm">
-                <i class="bi bi-arrow-repeat animate-spin"></i>
-                <span>Loading...</span>
-            </div>`;
-        try {
-            const res  = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-            const html = await res.text();
-            const doc  = new DOMParser().parseFromString(html, 'text/html');
-            const form = doc.querySelector('#packageCreateForm, #packageEditForm');
-            if (form) {
-                content.innerHTML = form.outerHTML;
-                const embeddedForm = content.querySelector('#packageCreateForm, #packageEditForm');
-                if (embeddedForm) normalizeEmbeddedForm(embeddedForm);
-                [...doc.querySelectorAll('script')].forEach((old) => {
+        async function loadModal(url) {
+            openModal();
+            content.innerHTML = '<div class="flex flex-col items-center justify-center py-16 gap-3"><div class="w-6 h-6 rounded-full animate-spin" style="border:2px solid #e2e8f0;border-top-color:#475569"></div></div>';
+            try {
+                const res  = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                const html = await res.text();
+                const doc  = (new DOMParser()).parseFromString(html, 'text/html');
+                const main = doc.querySelector('.page-content') || doc.body;
+                content.innerHTML = main.innerHTML;
+                content.querySelectorAll('script').forEach(old => {
                     const s = document.createElement('script');
-                    if (old.src) s.src = old.src; else s.textContent = old.textContent;
+                    s.textContent = old.textContent;
                     content.appendChild(s);
                 });
-            } else {
-                content.innerHTML = html;
+            } catch (err) {
+                content.innerHTML = '<p class="text-center text-rose-600 py-10 text-sm font-semibold">Failed to load. Please try again.</p>';
             }
-        } catch {
-            content.innerHTML = `<div class="p-4 text-sm text-rose-600">Unable to load content.</div>`;
         }
-    };
 
-    links.forEach((link) => {
-        link.addEventListener('click', (e) => {
+        document.addEventListener('click', function (e) {
+            const trigger = e.target.closest('[data-package-modal-trigger]');
+            if (!trigger) return;
             e.preventDefault();
-            show();
-            load(link.dataset.url || link.href);
+            const url = trigger.dataset.url || trigger.getAttribute('href');
+            if (url) loadModal(url);
         });
-    });
 
-    if (closeBtn) closeBtn.addEventListener('click', hide);
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) hide(); });
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !overlay.classList.contains('hidden')) hide();
-    });
-})();
+        closeBtn?.addEventListener('click', closeModal);
+        overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+    })();
 </script>
 @endsection

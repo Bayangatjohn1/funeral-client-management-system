@@ -124,9 +124,7 @@
         </div>
     @endif
 
-    <section class="table-system-card">
-
-        @if($openWizard)
+    @if($openWizard)
             <div class="p-4 md:p-5">
                 @php
                     $showCancelButton = false;
@@ -137,6 +135,7 @@
                 @include('staff.intake._form')
             </div>
         @else
+            <div class="case-records-top-wrapper">
             <div class="table-system-toolbar case-records-controls">
                 @include('partials.case_filter_toolbar', [
                     'action' => route('funeral-cases.index'),
@@ -274,7 +273,7 @@
                 </div>
             </div>
 
-            <div class="case-records-quick-row">
+            <div class="case-records-quick-row case-records-quick-row--last">
                 <div class="table-quick-tabs table-system-quick-tabs" aria-label="Quick filters">
                     @foreach(($quickFilterOptions ?? []) as $filterKey => $filterLabel)
                         <a
@@ -294,6 +293,7 @@
                     @endforeach
                 </div>
             </div>
+            </div>{{-- /.case-records-top-wrapper --}}
 
             <div class="table-system-list">
                 <div class="table-system-list-header">
@@ -384,16 +384,6 @@
 
                                     <td class="table-col-actions">
                                         <div class="table-row-actions">
-                                            @unless($isActiveTab)
-                                                <a
-                                                    href="{{ route('payments.history', ['q' => $case->case_code]) }}"
-                                                    class="action-chip table-row-actions-visible"
-                                                    data-no-row-click
-                                                >
-                                                    <i class="bi bi-clock-history"></i>
-                                                    <span>Payments</span>
-                                                </a>
-                                            @endunless
                                             <div class="row-action-menu" data-row-menu>
                                                 <button
                                                     type="button"
@@ -450,7 +440,6 @@
                 @if($cases->hasPages()){{ $cases->links() }}@endif
             </div>
         @endif
-    </section>
 
     <div id="caseEditOverlay" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-200 panel-overlay-content">
         <div id="caseEditSheet" class="relative w-[90vw] max-w-4xl max-h-[94vh] rounded-2xl shadow-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0" style="background:var(--card);border:1px solid var(--border)">
@@ -620,6 +609,25 @@
             if (event.key === 'Escape' && overlay && !overlay.classList.contains('hidden')) {
                 hideShell();
             }
+        });
+    })();
+
+    // Case records tab switcher — instant visual feedback on click
+    (function () {
+        const tabList = document.querySelector('.case-records-tabs[role="tablist"]');
+        if (!tabList) return;
+
+        tabList.addEventListener('click', function (e) {
+            const clicked = e.target.closest('.table-quick-tab');
+            if (!clicked || clicked.classList.contains('table-quick-tab-active')) return;
+
+            // Swap active class immediately so transition fires before navigation
+            tabList.querySelectorAll('.table-quick-tab').forEach(function (tab) {
+                tab.classList.remove('table-quick-tab-active');
+                tab.setAttribute('aria-selected', 'false');
+            });
+            clicked.classList.add('table-quick-tab-active');
+            clicked.setAttribute('aria-selected', 'true');
         });
     })();
 </script>

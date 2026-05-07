@@ -9,6 +9,7 @@
         : null);
 
     $initialSelectedBranchId = old('branch_id', $defaultBranchId ?? auth()->user()->branch_id);
+    $oldSelectedAddOns = array_map('strval', (array) old('selected_add_ons', []));
 @endphp
 
 <div class="intake-root w-full p-0 m-0 text-slate-800 font-sans border-0 shadow-none rounded-none">
@@ -1489,6 +1490,12 @@
 
                                 $inclusionItems = $pkg->inclusionNames();
                                 $freebieItems = $pkg->freebieNames();
+                                $activeAddOns = $pkg->activeAddOns->map(fn ($addOn) => [
+                                    'id' => $addOn->id,
+                                    'name' => $addOn->name,
+                                    'description' => $addOn->description,
+                                    'price' => (float) $addOn->price,
+                                ])->values();
                             @endphp
 
                             <div class="package-card-item {{ $isFeatured ? 'pkg-featured-item' : '' }}">
@@ -1509,6 +1516,7 @@
                                         data-promo-label="{{ $pkg->promo_label }}"
                                         data-inclusions="{{ e(implode("\n", $inclusionItems)) }}"
                                         data-freebies="{{ e(implode("\n", $freebieItems)) }}"
+                                        data-add-ons="{{ e($activeAddOns->toJson()) }}"
                                         {{ (string) old('package_id') === (string) $pkg->id ? 'checked' : '' }}
                                         required
                                     >
@@ -1532,6 +1540,15 @@
                                                     </li>
                                                 @endforeach
                                             </ul>
+                                        @endif
+                                        @if($activeAddOns->isNotEmpty())
+                                            <div class="mt-3 rounded-lg border border-slate-200 bg-white/70 px-3 py-2 text-[11px] font-semibold text-slate-600">
+                                                <div class="text-[10px] font-black uppercase tracking-widest text-[#5F685F]">Optional Add-ons Available</div>
+                                                <div class="mt-1">
+                                                    Optional Add-ons:
+                                                    {{ $activeAddOns->pluck('name')->take(3)->join(', ') }}{{ $activeAddOns->count() > 3 ? ', Show more' : '' }}
+                                                </div>
+                                            </div>
                                         @endif
                                     </div>
 
@@ -1559,6 +1576,7 @@
                                         data-price="0"
                                         data-inclusions=""
                                         data-freebies=""
+                                        data-add-ons="[]"
                                     >
 
                                     <div class="pkg-card-body">
@@ -1639,6 +1657,20 @@
                                 <li class="text-slate-400 italic">Package freebies will appear here.</li>
                             </ul>
                         </div>
+                    </div>
+
+                    <div id="optional_add_ons_section" class="hidden mt-5 rounded-xl border border-[#C9C5BB] bg-[#FAFAF7] p-5">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <h5 class="text-[10px] font-black uppercase tracking-widest text-[#5F685F] mb-1">
+                                    <i class="bi bi-plus-square mr-1"></i> Optional Add-ons
+                                </h5>
+                                <p class="text-xs font-medium text-[#5F685F]">These are paid options and are added on top of the base package price.</p>
+                            </div>
+                            <div class="text-sm font-black text-[#333333]">&#8369; <span id="selected_add_ons_total">0.00</span></div>
+                        </div>
+                        <div id="optional_add_ons_list" class="mt-4 space-y-2"></div>
+                        @error('selected_add_ons') <div class="mt-2 text-xs font-bold text-[#9E4B3F]">{{ $message }}</div> @enderror
                     </div>
 
                     <div class="mt-8 pt-8 border-t border-slate-200">
@@ -2156,6 +2188,11 @@
                                     </div>
 
                                     <div class="flex justify-between items-center gap-2">
+                                        <span class="text-slate-500">Selected Add-ons</span>
+                                        <span class="font-bold text-slate-900 whitespace-nowrap">&#8369;&nbsp;<span id="summary_add_ons">0.00</span></span>
+                                    </div>
+
+                                    <div class="flex justify-between items-center gap-2">
                                         <span class="text-emerald-600 text-xs">Discount (<span id="summary_discount_source">None</span>)</span>
                                         <span class="font-bold text-emerald-600 whitespace-nowrap">&#8722;&nbsp;&#8369;&nbsp;<span id="summary_discount">0.00</span></span>
                                     </div>
@@ -2393,6 +2430,10 @@
 
     const inclusions = document.getElementById('selected_package_inclusions');
     const freebies = document.getElementById('selected_package_freebies');
+    const optionalAddOnsSection = document.getElementById('optional_add_ons_section');
+    const optionalAddOnsList = document.getElementById('optional_add_ons_list');
+    const selectedAddOnsTotal = document.getElementById('selected_add_ons_total');
+    const oldSelectedAddOns = new Set(@json($oldSelectedAddOns));
 
     const addAmt = document.getElementById('additional_service_amount');
     const taxRate = document.getElementById('tax_rate');
@@ -2413,6 +2454,7 @@
 
     const summaryPackage = document.getElementById('summary_package_price');
     const summaryAdd = document.getElementById('summary_additional');
+    const summaryAddOns = document.getElementById('summary_add_ons');
     const summarySubtotal = document.getElementById('summary_subtotal');
     const summaryDiscountSource = document.getElementById('summary_discount_source');
     const summaryDiscount = document.getElementById('summary_discount');
@@ -2483,6 +2525,22 @@
     const payType = () => payTypeRadios.find((radio) => radio.checked)?.value || document.getElementById('payment_type')?.value || '';
     const list = (value) => String(value || '').split(/\r?\n|,|;/).map((item) => item.trim()).filter(Boolean);
     const textOrDash = (value) => String(value || '').trim() || '-';
+    const parseAddOns = (radio = pkg()) => {
+        try {
+            const parsed = JSON.parse(radio?.dataset?.addOns || '[]');
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+            return [];
+        }
+    };
+    const checkedAddOns = () => [...document.querySelectorAll('.optional-add-on-checkbox:checked')]
+        .map((checkbox) => ({
+            id: checkbox.value,
+            name: checkbox.dataset.name || '',
+            description: checkbox.dataset.description || '',
+            price: num(checkbox.dataset.price),
+        }));
+    const addOnsTotal = () => checkedAddOns().reduce((sum, addOn) => sum + num(addOn.price), 0);
 
     const formatDateOnly = (value) => {
         if (!value) return '-';
@@ -2854,8 +2912,9 @@
 
     const totals = () => {
         const packagePrice = num(pkgAmount?.value);
+        const selectedAddOns = addOnsTotal();
         const additional = num(addAmt?.value);
-        const subtotal = packagePrice + additional;
+        const subtotal = packagePrice + selectedAddOns + additional;
         const disc = discount();
         const taxableBase = Math.max(subtotal - Math.min(disc.amount, subtotal), 0);
         const rate = Math.max(0, Math.min(num(taxRate?.value), 100));
@@ -2870,7 +2929,7 @@
         const balance = Math.max(total - paid, 0);
         const status = !payNow() || paid <= 0 ? 'UNPAID' : paid < total ? 'PARTIAL' : 'PAID';
 
-        return { packagePrice, additional, subtotal, disc, tax, total, paid, balance, status, rate };
+        return { packagePrice, selectedAddOns, additional, subtotal, disc, tax, total, paid, balance, status, rate };
     };
 
     const paymentMethodSummary = () => {
@@ -3108,6 +3167,32 @@
                 .join('') || '<li class="text-slate-400 italic">Package freebies and notes will appear here.</li>';
         }
 
+        const addOns = parseAddOns(selected);
+        if (optionalAddOnsSection) optionalAddOnsSection.classList.toggle('hidden', !selected || selected === customPkgRadio);
+        if (optionalAddOnsList) {
+            if (!selected || selected === customPkgRadio) {
+                optionalAddOnsList.innerHTML = '';
+            } else if (addOns.length === 0) {
+                optionalAddOnsList.innerHTML = '<div class="rounded-lg border border-[#C9C5BB] bg-white px-3 py-2 text-sm text-[#5F685F]">No optional add-ons available for this package.</div>';
+            } else {
+                optionalAddOnsList.innerHTML = addOns.map((addOn) => {
+                    const checked = oldSelectedAddOns.has(String(addOn.id)) ? 'checked' : '';
+                    return `
+                        <label class="flex items-start gap-3 rounded-lg border border-[#C9C5BB] bg-white px-3 py-3 text-sm text-[#333333] hover:bg-[#F3F0E8]">
+                            <input type="checkbox" name="selected_add_ons[]" value="${escapeHtml(addOn.id)}" ${checked} class="optional-add-on-checkbox mt-1 h-4 w-4 rounded border-[#C9C5BB] text-[#3E4A3D] focus:ring-[#3E4A3D]" data-name="${escapeHtml(addOn.name)}" data-description="${escapeHtml(addOn.description || '')}" data-price="${escapeHtml(addOn.price)}">
+                            <span class="min-w-0 flex-1">
+                                <span class="flex flex-wrap items-baseline justify-between gap-2">
+                                    <span class="font-bold">${escapeHtml(addOn.name)}</span>
+                                    <span class="font-black">&#8369; ${fmt(addOn.price)}</span>
+                                </span>
+                                ${addOn.description ? `<span class="mt-1 block text-xs font-medium text-[#5F685F]">${escapeHtml(addOn.description)}</span>` : ''}
+                            </span>
+                        </label>`;
+                }).join('');
+            }
+        }
+        if (selectedAddOnsTotal) selectedAddOnsTotal.textContent = fmt(addOnsTotal());
+
         syncPreferredPackage();
 
         const isCustomSelected = selected === customPkgRadio;
@@ -3202,16 +3287,22 @@
         }
 
         if (reviewPackage) {
+            const selectedAddOnRows = checkedAddOns();
             reviewPackage.innerHTML = [
                 detailRow('Selected Package', selected?.dataset?.name || '-'),
                 detailRow('Package Price', `PHP ${fmt(t.packagePrice)}`),
                 detailRow('Inclusions', list(selected?.dataset.inclusions).join(', ') || '-'),
                 detailRow('Freebies / Notes', list(selected?.dataset.freebies).join(', ') || '-'),
+                detailRow('Optional Add-ons', selectedAddOnRows.length
+                    ? selectedAddOnRows.map((addOn) => `${addOn.name} x1 - PHP ${fmt(addOn.price)}`).join(', ')
+                    : 'No optional add-ons selected.'),
             ].join('');
         }
 
         if (reviewBilling) {
             reviewBilling.innerHTML = [
+                detailRow('Package Price', `PHP ${fmt(t.packagePrice)}`),
+                detailRow('Add-ons Total', `PHP ${fmt(t.selectedAddOns)}`),
                 detailRow('Additional Services', textOrDash(additionalServices?.value)),
                 detailRow('Additional Charges', `PHP ${fmt(t.additional)}`),
                 detailRow('Discount Type', t.disc.type),
@@ -3559,6 +3650,8 @@
         const t = totals();
 
         if (summaryPackage) summaryPackage.textContent = fmt(t.packagePrice);
+        if (summaryAddOns) summaryAddOns.textContent = fmt(t.selectedAddOns);
+        if (selectedAddOnsTotal) selectedAddOnsTotal.textContent = fmt(t.selectedAddOns);
         if (summaryAdd) summaryAdd.textContent = fmt(t.additional);
         if (summarySubtotal) summarySubtotal.textContent = fmt(t.subtotal);
         if (summaryDiscountSource) summaryDiscountSource.textContent = t.disc.source;
@@ -4911,6 +5004,13 @@
             render();
         });
     }
+
+    optionalAddOnsList?.addEventListener('change', (event) => {
+        if (!event.target.matches('.optional-add-on-checkbox')) return;
+        oldSelectedAddOns.clear();
+        checkedAddOns().forEach((addOn) => oldSelectedAddOns.add(String(addOn.id)));
+        render();
+    });
 
     prefPkg?.addEventListener('input', () => {
         syncPreferredPackage();

@@ -72,6 +72,16 @@ class Package extends Model
         return $this->packageFreebies();
     }
 
+    public function packageAddOns()
+    {
+        return $this->hasMany(\App\Models\PackageAddOn::class)->orderBy('id');
+    }
+
+    public function activeAddOns()
+    {
+        return $this->packageAddOns()->where('is_active', true);
+    }
+
     public function inclusionNames(): array
     {
         return $this->normalizedItemNames('packageInclusions', 'inclusion_name', $this->attributes['inclusions'] ?? null);

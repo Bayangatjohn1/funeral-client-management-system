@@ -15,7 +15,7 @@ class PackageController extends Controller
         $this->ensureCanViewPackages();
 
         $user = $request->user();
-        $query = Package::query()->with(['packageInclusions', 'packageFreebies']);
+        $query = Package::query()->with(['packageInclusions', 'packageFreebies', 'packageAddOns']);
 
         if ($user->isBranchAdmin()) {
             $query->where('is_active', true);
@@ -89,10 +89,11 @@ class PackageController extends Controller
         $validated = $request->validate($this->packageValidationRules(), $this->packageValidationMessages());
         $inclusions = $this->cleanPackageItems($validated['inclusions'] ?? []);
         $freebies = $this->cleanPackageItems($validated['freebies'] ?? []);
+        $addOns = $this->cleanAddOns($validated['add_ons'] ?? []);
 
         $promoPayload = $this->resolvePromoPayload($request, $validated);
 
-        $package = DB::transaction(function () use ($request, $validated, $promoPayload, $inclusions, $freebies) {
+        $package = DB::transaction(function () use ($request, $validated, $promoPayload, $inclusions, $freebies, $addOns) {
             $package = Package::create([
                 'name' => $validated['name'],
                 'coffin_type' => $validated['coffin_type'],
@@ -109,6 +110,7 @@ class PackageController extends Controller
             ]);
 
             $this->syncPackageItems($package, $inclusions, $freebies);
+            $this->syncPackageAddOns($package, $addOns);
 
             return $package;
         });
@@ -141,7 +143,7 @@ class PackageController extends Controller
     {
         $this->ensureCanManagePackages();
 
-        $package->load(['packageInclusions', 'packageFreebies']);
+        $package->load(['packageInclusions', 'packageFreebies', 'packageAddOns']);
 
         return view('admin.packages.edit', compact('package'));
     }
@@ -154,6 +156,7 @@ class PackageController extends Controller
         $validated = $request->validate($this->packageValidationRules(), $this->packageValidationMessages());
         $inclusions = $this->cleanPackageItems($validated['inclusions'] ?? []);
         $freebies = $this->cleanPackageItems($validated['freebies'] ?? []);
+        $addOns = $this->cleanAddOns($validated['add_ons'] ?? []);
 
         $promoPayload = $this->resolvePromoPayload($request, $validated);
 
@@ -163,7 +166,7 @@ class PackageController extends Controller
             'promo_is_active' => $package->promo_is_active,
         ];
 
-        DB::transaction(function () use ($request, $package, $validated, $promoPayload, $inclusions, $freebies) {
+        DB::transaction(function () use ($request, $package, $validated, $promoPayload, $inclusions, $freebies, $addOns) {
             $package->update([
                 'name' => $validated['name'],
                 'coffin_type' => $validated['coffin_type'],
@@ -180,6 +183,7 @@ class PackageController extends Controller
             ]);
 
             $this->syncPackageItems($package, $inclusions, $freebies);
+            $this->syncPackageAddOns($package, $addOns);
         });
 
         AuditLogger::log(
@@ -257,6 +261,12 @@ class PackageController extends Controller
             'inclusions.*' => ['nullable', 'string', 'max:255', $this->mustContainLetterRule('Inclusion must include valid description text.')],
             'freebies' => ['nullable', 'array'],
             'freebies.*' => ['nullable', 'string', 'max:255', $this->mustContainLetterRule('Freebie must include valid description text.')],
+            'add_ons' => ['nullable', 'array'],
+            'add_ons.*.id' => ['nullable', 'integer', 'exists:package_add_ons,id'],
+            'add_ons.*.name' => ['nullable', 'required_with:add_ons.*.price', 'string', 'min:2', 'max:100'],
+            'add_ons.*.description' => ['nullable', 'string', 'max:255'],
+            'add_ons.*.price' => ['nullable', 'required_with:add_ons.*.name', 'numeric', 'min:0'],
+            'add_ons.*.is_active' => ['nullable', 'boolean'],
             'promo_label' => ['nullable', 'string', 'max:120'],
             'promo_value_type' => 'nullable|in:AMOUNT,PERCENT',
             'promo_value' => 'nullable|numeric|min:0',
@@ -280,6 +290,13 @@ class PackageController extends Controller
             'inclusions.min' => 'At least one inclusion is required.',
             'inclusions.*.max' => 'Inclusion must include valid description text.',
             'freebies.*.max' => 'Freebie must include valid description text.',
+            'add_ons.*.name.required_with' => 'Add-on name is required.',
+            'add_ons.*.name.min' => 'Add-on name must be between 2 and 100 characters.',
+            'add_ons.*.name.max' => 'Add-on name must be between 2 and 100 characters.',
+            'add_ons.*.description.max' => 'Add-on description must not exceed 255 characters.',
+            'add_ons.*.price.required_with' => 'Add-on price is required.',
+            'add_ons.*.price.numeric' => 'Add-on price must be a valid amount.',
+            'add_ons.*.price.min' => 'Add-on price cannot be negative.',
             'promo_value.numeric' => 'Promo value must be a valid amount.',
             'promo_value.min' => 'Promo value cannot be negative.',
             'promo_ends_at.after_or_equal' => 'Promo end date must be on or after the start date.',
@@ -313,6 +330,24 @@ class PackageController extends Controller
                     $value
                 );
             }
+        }
+
+        if ($request->has('add_ons') && is_array($request->input('add_ons'))) {
+            $trimmed['add_ons'] = collect($request->input('add_ons'))
+                ->map(function ($row) {
+                    if (! is_array($row)) {
+                        return $row;
+                    }
+
+                    foreach (['name', 'description'] as $field) {
+                        if (array_key_exists($field, $row)) {
+                            $row[$field] = trim(preg_replace('/\s+/', ' ', (string) $row[$field]));
+                        }
+                    }
+
+                    return $row;
+                })
+                ->all();
         }
 
         if ($trimmed !== []) {
@@ -370,6 +405,62 @@ class PackageController extends Controller
                 'sort_order' => $index,
             ]);
         }
+    }
+
+    private function cleanAddOns(array $rows): array
+    {
+        return collect($rows)
+            ->filter(fn ($row) => is_array($row))
+            ->map(function (array $row) {
+                return [
+                    'id' => isset($row['id']) && is_numeric($row['id']) ? (int) $row['id'] : null,
+                    'name' => trim((string) ($row['name'] ?? '')),
+                    'description' => trim((string) ($row['description'] ?? '')),
+                    'price' => round((float) ($row['price'] ?? 0), 2),
+                    'is_active' => filter_var($row['is_active'] ?? true, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false,
+                ];
+            })
+            ->filter(fn ($row) => $row['name'] !== '' || (string) $row['description'] !== '' || (float) $row['price'] > 0)
+            ->values()
+            ->all();
+    }
+
+    private function syncPackageAddOns(Package $package, array $addOns): void
+    {
+        $keptIds = [];
+
+        foreach ($addOns as $row) {
+            $payload = [
+                'name' => $row['name'],
+                'description' => $row['description'] !== '' ? $row['description'] : null,
+                'price' => $row['price'],
+                'is_active' => (bool) $row['is_active'],
+            ];
+
+            if (! empty($row['id'])) {
+                $addOn = $package->packageAddOns()->whereKey($row['id'])->first();
+                if ($addOn) {
+                    $addOn->update($payload);
+                    $keptIds[] = $addOn->id;
+                    continue;
+                }
+            }
+
+            $addOn = $package->packageAddOns()->create($payload);
+            $keptIds[] = $addOn->id;
+        }
+
+        $package->packageAddOns()
+            ->whereNotIn('id', $keptIds ?: [0])
+            ->get()
+            ->each(function ($addOn) {
+                if ($addOn->caseAddOns()->exists()) {
+                    $addOn->update(['is_active' => false]);
+                    return;
+                }
+
+                $addOn->delete();
+            });
     }
 
     private function ensureCanViewPackages(): void

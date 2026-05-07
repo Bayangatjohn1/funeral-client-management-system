@@ -241,7 +241,7 @@ class DashboardController extends Controller
             abort(404);
         }
 
-        $funeral_case->load(['branch', 'client', 'deceased', 'reportedBranch', 'encodedBy', 'payments.recordedBy', 'package']);
+        $funeral_case->load(['branch', 'client', 'deceased', 'reportedBranch', 'encodedBy', 'payments.recordedBy', 'package.packageInclusions', 'package.packageFreebies', 'caseAddOns', 'serviceDetail']);
 
         return view('owner.cases.show', compact('funeral_case'));
     }

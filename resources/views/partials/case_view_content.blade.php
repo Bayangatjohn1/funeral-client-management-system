@@ -1,21 +1,32 @@
 @php
     $pkg           = $funeral_case->package ?? null;
-    $pkgInclusionItems = $funeral_case->custom_package_inclusions
+    $pkgInclusionItems = $funeral_case->package_inclusions_snapshot
+        ? \App\Models\Package::parseLegacyItems($funeral_case->package_inclusions_snapshot)
+        : ($funeral_case->custom_package_inclusions
         ? \App\Models\Package::parseLegacyItems($funeral_case->custom_package_inclusions)
-        : ($pkg?->inclusionNames() ?? []);
-    $pkgFreebieItems = $funeral_case->custom_package_freebies
+        : ($pkg?->inclusionNames() ?? []));
+    $pkgFreebieItems = $funeral_case->package_freebies_snapshot
+        ? \App\Models\Package::parseLegacyItems($funeral_case->package_freebies_snapshot)
+        : ($funeral_case->custom_package_freebies
         ? \App\Models\Package::parseLegacyItems($funeral_case->custom_package_freebies)
-        : ($pkg?->freebieNames() ?? []);
+        : ($pkg?->freebieNames() ?? []));
     $customPackagePrice = $funeral_case->custom_package_name
         ? (float) ($funeral_case->custom_package_price ?? 0)
         : null;
+    $snapshotPackagePrice = $funeral_case->package_price_snapshot !== null ? (float) $funeral_case->package_price_snapshot : null;
     $tablePackagePrice = $pkg?->price !== null ? (float) $pkg->price : null;
     $derivedPackagePrice = $funeral_case->subtotal_amount !== null
-        ? max((float) $funeral_case->subtotal_amount - (float) ($funeral_case->additional_service_amount ?? 0), 0)
+        ? max((float) $funeral_case->subtotal_amount - (float) ($funeral_case->add_ons_total_amount ?? 0) - (float) ($funeral_case->additional_service_amount ?? 0), 0)
         : null;
-    $pkgPrice = $customPackagePrice
+    $pkgPrice = $snapshotPackagePrice
+        ?? $customPackagePrice
         ?? ($tablePackagePrice && $tablePackagePrice > 0 ? $tablePackagePrice : null)
         ?? ($derivedPackagePrice && $derivedPackagePrice > 0 ? $derivedPackagePrice : null);
+    $displayPackageName = $funeral_case->package_name_snapshot ?: ($funeral_case->service_package ?? $pkg?->name ?? 'Not available');
+    $caseAddOns = $funeral_case->caseAddOns ?? collect();
+    $addOnsTotal = $funeral_case->add_ons_total_amount !== null
+        ? (float) $funeral_case->add_ons_total_amount
+        : (float) $caseAddOns->sum('line_total');
     $pkgCoffin     = $funeral_case->coffin_type               ?: ($pkg?->coffin_type ?? null);
     $isOtherBranch = ($funeral_case->entry_source ?? 'MAIN') === 'OTHER_BRANCH';
     $balanceDue    = (float) $funeral_case->balance_amount > 0;
@@ -88,6 +99,8 @@
   @media(min-width:520px) { .cv-pkg-pair { grid-template-columns:1fr 1fr; } }
   .cv-pkg-box      { border:1px solid var(--border); border-radius:9px; padding:10px 13px; background:var(--surface-panel); }
   .cv-pkg-box-head { display:flex; align-items:center; gap:5px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-muted); margin-bottom:6px; }
+  .cv-addon-list   { display:flex; flex-direction:column; gap:7px; padding:0 16px 12px; }
+  .cv-addon-row    { border:1px solid var(--border); border-radius:9px; padding:10px 14px; background:var(--surface-panel); display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
   /* payment transactions */
   .cv-txn-list     { display:flex; flex-direction:column; gap:7px; padding:0 16px 12px; }
   .cv-txn          { border:1px solid var(--border); border-radius:9px; padding:10px 14px; background:var(--card); }
@@ -222,7 +235,7 @@
     <div class="cv-fields cv-fields-2">
       <div class="cv-field {{ !$pkgCoffin && !$pkgPrice ? 'cv-field-full' : '' }}">
         <div class="cv-field-label">Package</div>
-        <div class="cv-field-value">{{ $funeral_case->service_package ?? $pkg?->name ?? '—' }}</div>
+        <div class="cv-field-value">{{ $displayPackageName }}</div>
       </div>
       @if($pkgCoffin)
       <div class="cv-field">
@@ -307,12 +320,40 @@
     </div>
     @endif
 
-    @if($funeral_case->additional_services)
+    <div class="cv-addon-list">
+      @if($caseAddOns->isNotEmpty())
+        @foreach($caseAddOns as $addOn)
+          <div class="cv-addon-row">
+            <div>
+              <div class="cv-field-label">Selected Add-on</div>
+              <div class="cv-field-value" style="margin-top:1px;">{{ $addOn->add_on_name_snapshot }}</div>
+              @if($addOn->add_on_description_snapshot)
+                <div style="font-size:11px;color:var(--ink-muted);font-weight:500;margin-top:2px;">{{ $addOn->add_on_description_snapshot }}</div>
+              @endif
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div class="cv-field-label">Qty {{ $addOn->quantity }}</div>
+              <div class="cv-field-value" style="margin-top:1px;font-variant-numeric:tabular-nums;">&#8369; {{ number_format((float) $addOn->line_total, 2) }}</div>
+              <div style="font-size:11px;color:var(--ink-muted);font-weight:600;">&#8369; {{ number_format((float) $addOn->add_on_price_snapshot, 2) }} each</div>
+            </div>
+          </div>
+        @endforeach
+      @else
+        <div class="cv-addon-row">
+          <div>
+            <div class="cv-field-label">Selected Add-ons</div>
+            <div class="cv-field-value"><em>No optional add-ons selected.</em></div>
+          </div>
+        </div>
+      @endif
+    </div>
+
+    @if($funeral_case->additional_services || (float) ($funeral_case->additional_service_amount ?? 0) > 0)
     <div style="padding:0 16px 12px;">
       <div style="border:1px solid var(--border);border-radius:9px;padding:10px 14px;background:var(--surface-panel);display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
         <div>
-          <div class="cv-field-label">Additional Services</div>
-          <div class="cv-field-value" style="margin-top:1px;">{{ $funeral_case->additional_services }}</div>
+          <div class="cv-field-label">Manual Extras</div>
+          <div class="cv-field-value" style="margin-top:1px;">{{ $funeral_case->additional_services ?: 'No description provided.' }}</div>
         </div>
         @if($funeral_case->additional_service_amount)
         <div style="text-align:right;flex-shrink:0;">
@@ -348,6 +389,18 @@
     </div>
 
     <div class="cv-fin-grid">
+      <div class="cv-fin-item">
+        <div class="cv-field-label">Package Price</div>
+        <div class="cv-field-value" style="font-variant-numeric:tabular-nums;">&#8369; {{ number_format((float) ($pkgPrice ?? 0), 2) }}</div>
+      </div>
+      <div class="cv-fin-item">
+        <div class="cv-field-label">Add-ons Total</div>
+        <div class="cv-field-value" style="font-variant-numeric:tabular-nums;">&#8369; {{ number_format($addOnsTotal, 2) }}</div>
+      </div>
+      <div class="cv-fin-item">
+        <div class="cv-field-label">Additional Charges</div>
+        <div class="cv-field-value" style="font-variant-numeric:tabular-nums;">&#8369; {{ number_format((float) ($funeral_case->additional_service_amount ?? 0), 2) }}</div>
+      </div>
       <div class="cv-fin-item">
         <div class="cv-field-label">Subtotal</div>
         <div class="cv-field-value" style="font-variant-numeric:tabular-nums;">₱ {{ number_format((float) ($funeral_case->subtotal_amount ?? $funeral_case->total_amount), 2) }}</div>

@@ -537,7 +537,7 @@ class FuneralCaseController extends Controller
 
     public function show(FuneralCase $funeral_case)
     {
-        $funeral_case->load(['client', 'deceased', 'branch', 'reportedBranch', 'encodedBy', 'payments.recordedBy', 'payments.encodedBy', 'package', 'serviceDetail']);
+        $funeral_case->load(['client', 'deceased', 'branch', 'reportedBranch', 'encodedBy', 'payments.recordedBy', 'payments.encodedBy', 'package.packageInclusions', 'package.packageFreebies', 'caseAddOns', 'serviceDetail']);
 
         return view('staff.funeral_cases.show', compact('funeral_case'));
     }

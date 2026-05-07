@@ -18,6 +18,13 @@ class FuneralCase extends Model
         'client_id',
         'deceased_id',
         'package_id',
+        'package_name_snapshot',
+        'package_price_snapshot',
+        'package_description_snapshot',
+        'package_inclusions_snapshot',
+        'package_freebies_snapshot',
+        'package_promo_snapshot',
+        'package_discount_snapshot',
         'case_number',  // sequential INT per branch (Phase 1+)
         'case_code',
         'service_type',
@@ -45,6 +52,7 @@ class FuneralCase extends Model
         'embalming_notes',
         'additional_services',
         'additional_service_amount',
+        'add_ons_total_amount',
         'subtotal_amount',
         'discount_type',
         'discount_value_type',
@@ -82,7 +90,10 @@ class FuneralCase extends Model
         'embalming_at' => 'datetime',
         'deleted_at' => 'datetime',
         'additional_service_amount' => 'decimal:2',
+        'add_ons_total_amount' => 'decimal:2',
         'custom_package_price' => 'decimal:2',
+        'package_price_snapshot' => 'decimal:2',
+        'package_discount_snapshot' => 'decimal:2',
         'subtotal_amount' => 'decimal:2',
         'discount_value' => 'decimal:2',
         'discount_amount' => 'decimal:2',
@@ -145,6 +156,11 @@ class FuneralCase extends Model
     public function payments()
     {
         return $this->hasMany(\App\Models\Payment::class);
+    }
+
+    public function caseAddOns()
+    {
+        return $this->hasMany(\App\Models\CaseAddOn::class);
     }
 
     public function encodedBy()

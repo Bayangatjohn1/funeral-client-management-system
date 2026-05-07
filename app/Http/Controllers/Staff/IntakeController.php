@@ -8,6 +8,7 @@ use App\Models\Client;
 use App\Models\Deceased;
 use App\Models\FuneralCase;
 use App\Models\Package;
+use App\Models\PackageAddOn;
 use App\Models\Payment;
 use App\Models\ServiceDetail;
 use App\Support\AuditLogger;
@@ -93,7 +94,7 @@ class IntakeController extends Controller
         $operationalBranchId = (int) ($user->operationalBranchId() ?? $user->branch_id ?? 0);
         $canEncodeAnyBranch = $user->canEncodeAnyBranch();
 
-        $packages = Package::with(['packageInclusions', 'packageFreebies'])
+        $packages = Package::with(['packageInclusions', 'packageFreebies', 'activeAddOns'])
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
@@ -246,6 +247,8 @@ class IntakeController extends Controller
             'custom_package_freebies' => 'exclude_unless:package_id,custom|nullable|string|max:1000',
             'additional_services' => 'nullable|string|max:1000',
             'additional_service_amount' => 'nullable|numeric|min:0',
+            'selected_add_ons' => 'nullable|array',
+            'selected_add_ons.*' => 'integer|distinct',
             'reporter_name' => FieldRules::personName(false),
             'reporter_contact' => 'nullable|string|max:50|regex:/^[0-9]+$/',
             'reported_at' => 'nullable|date|before_or_equal:now',
@@ -292,6 +295,10 @@ class IntakeController extends Controller
             'paid_at.after_or_equal' => 'Date received cannot be before the case creation date.',
             'reported_at.before_or_equal' => 'Reported date/time cannot be in the future.',
             'confirm_review' => 'You must confirm that the information is correct before saving.',
+            'additional_service_amount.numeric' => 'Additional charges must be a valid amount.',
+            'additional_service_amount.min' => 'Additional charges cannot be negative.',
+            'selected_add_ons.*.integer' => 'Selected add-on is invalid.',
+            'selected_add_ons.*.distinct' => 'Duplicate add-ons are not allowed.',
         ]));
         $paymentDetails = PaymentDetails::normalize($request);
         if ($request->boolean('mark_as_paid')) {
@@ -420,7 +427,7 @@ class IntakeController extends Controller
 
         $package = null;
         if (!$isCustomPackage) {
-            $package = Package::with(['packageInclusions', 'packageFreebies'])
+            $package = Package::with(['packageInclusions', 'packageFreebies', 'activeAddOns'])
                 ->where('id', $selectedPackageId)
                 ->where('is_active', true)
                 ->first();
@@ -533,7 +540,21 @@ class IntakeController extends Controller
         $coffinType = $isCustomPackage ? 'CUSTOM' : $package->coffin_type;
         $packagePrice = round((float) ($isCustomPackage ? $validated['custom_package_price'] : $package->price), 2);
         $additionalServiceAmount = round((float) ($validated['additional_service_amount'] ?? 0), 2);
-        $subtotal = round($packagePrice + $additionalServiceAmount, 2);
+        if ($additionalServiceAmount > 0 && trim((string) ($validated['additional_services'] ?? '')) === '') {
+            return back()->withErrors([
+                'additional_services' => 'Description of extras is required when additional charges are entered.',
+            ])->withInput();
+        }
+
+        [$selectedAddOns, $addOnsTotal, $addOnErrors] = $this->resolveSelectedAddOns(
+            $validated['selected_add_ons'] ?? [],
+            $selectedPackageId
+        );
+        if ($addOnErrors !== []) {
+            return back()->withErrors($addOnErrors)->withInput();
+        }
+
+        $subtotal = round($packagePrice + $addOnsTotal + $additionalServiceAmount, 2);
         $age = $this->resolveAge($validated['born'] ?? null, $validated['died'] ?? null);
         if ($age === null) {
             return back()->withErrors([
@@ -684,8 +705,11 @@ class IntakeController extends Controller
                 $branchId,
                 $selectedPackageId,
                 $isCustomPackage,
+                $package,
                 $servicePackageName,
                 $packagePrice,
+                $selectedAddOns,
+                $addOnsTotal,
                 $coffinType,
                 $subtotal,
                 $additionalServiceAmount,
@@ -761,6 +785,23 @@ class IntakeController extends Controller
                     'client_id'   => $client->id,
                     'deceased_id' => $deceased->id,
                     'package_id'  => $selectedPackageId,
+                    'package_name_snapshot' => $servicePackageName,
+                    'package_price_snapshot' => $packagePrice,
+                    'package_description_snapshot' => null,
+                    'package_inclusions_snapshot' => $isCustomPackage
+                        ? ($validated['custom_package_inclusions'] ?? null)
+                        : implode("\n", $package?->inclusionNames() ?? []),
+                    'package_freebies_snapshot' => $isCustomPackage
+                        ? ($validated['custom_package_freebies'] ?? null)
+                        : implode("\n", $package?->freebieNames() ?? []),
+                    'package_promo_snapshot' => $package && $package->promo_is_active
+                        ? json_encode([
+                            'label' => $package->promo_label,
+                            'value_type' => $package->promo_value_type,
+                            'value' => $package->promo_value,
+                        ])
+                        : null,
+                    'package_discount_snapshot' => $discountAmount,
                     'case_number' => FuneralCase::nextCaseNumber($branchId),
                     'case_code'   => $this->nextCaseCode($branchId),
                     'custom_package_name'        => $isCustomPackage ? $servicePackageName : null,
@@ -788,6 +829,7 @@ class IntakeController extends Controller
                     'embalming_notes' => $validated['embalming_notes'] ?? null,
                     'additional_services' => $validated['additional_services'] ?? null,
                     'additional_service_amount' => $additionalServiceAmount,
+                    'add_ons_total_amount' => $addOnsTotal,
                     'subtotal_amount' => $subtotal,
                     'discount_type' => $discountPayload['discount_type'],
                     'discount_value_type' => $discountPayload['discount_value_type'],
@@ -831,6 +873,17 @@ class IntakeController extends Controller
                         default     => 'pending',
                     },
                 ]);
+
+                foreach ($selectedAddOns as $selectedAddOn) {
+                    $funeralCase->caseAddOns()->create([
+                        'package_add_on_id' => $selectedAddOn->id,
+                        'add_on_name_snapshot' => $selectedAddOn->name,
+                        'add_on_description_snapshot' => $selectedAddOn->description,
+                        'add_on_price_snapshot' => $selectedAddOn->price,
+                        'quantity' => 1,
+                        'line_total' => round((float) $selectedAddOn->price, 2),
+                    ]);
+                }
 
                 AuditLogger::log(
                     action: 'case.created',
@@ -972,6 +1025,49 @@ class IntakeController extends Controller
         }
 
         return $redirectResponse;
+    }
+
+    private function resolveSelectedAddOns(array $selectedIds, ?int $packageId): array
+    {
+        $selectedIds = collect($selectedIds)
+            ->filter(fn ($id) => $id !== null && $id !== '')
+            ->map(fn ($id) => (int) $id)
+            ->values();
+
+        if ($selectedIds->isEmpty()) {
+            return [collect(), 0.00, []];
+        }
+
+        if (! $packageId) {
+            return [collect(), 0.00, ['selected_add_ons' => 'Selected add-on is invalid.']];
+        }
+
+        if ($selectedIds->duplicates()->isNotEmpty()) {
+            return [collect(), 0.00, ['selected_add_ons' => 'Duplicate add-ons are not allowed.']];
+        }
+
+        $addOns = PackageAddOn::whereIn('id', $selectedIds)
+            ->where('package_id', $packageId)
+            ->get()
+            ->keyBy('id');
+
+        if ($addOns->count() !== $selectedIds->count()) {
+            return [collect(), 0.00, ['selected_add_ons' => 'Selected add-on does not belong to the selected package.']];
+        }
+
+        $inactive = $addOns->first(fn ($addOn) => ! $addOn->is_active);
+        if ($inactive) {
+            return [collect(), 0.00, ['selected_add_ons' => 'Selected add-on is no longer available.']];
+        }
+
+        $ordered = $selectedIds->map(fn ($id) => $addOns->get($id))->filter()->values();
+        $total = round($ordered->sum(fn ($addOn) => (float) $addOn->price), 2);
+
+        if ($total < 0) {
+            return [collect(), 0.00, ['selected_add_ons' => 'Unable to calculate add-ons total. Please review selected add-ons.']];
+        }
+
+        return [$ordered, $total, []];
     }
 
     private function resolveAge(?string $born, ?string $died): ?int

@@ -135,6 +135,50 @@ class Package extends Model
         return self::parseLegacyItems($fallback);
     }
 
+    /**
+     * True only when the promo toggle is ON and the current time falls within
+     * the configured start/end window. Use this everywhere the UI or logic
+     * needs to know whether a promo is actually live right now.
+     */
+    public function getIsPromoEffectiveAttribute(): bool
+    {
+        if (!$this->promo_is_active || !$this->promo_value_type || !$this->promo_value) {
+            return false;
+        }
+
+        $now = now();
+
+        if ($this->promo_starts_at && $now->lt($this->promo_starts_at)) {
+            return false;
+        }
+
+        if ($this->promo_ends_at && $now->gt($this->promo_ends_at)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Promo toggle is ON but the end date has already passed — effectively expired.
+     */
+    public function getIsPromoExpiredAttribute(): bool
+    {
+        return $this->promo_is_active
+            && $this->promo_ends_at !== null
+            && now()->gt($this->promo_ends_at);
+    }
+
+    /**
+     * Promo toggle is ON but the start date hasn't arrived yet — scheduled/pending.
+     */
+    public function getIsPromoScheduledAttribute(): bool
+    {
+        return $this->promo_is_active
+            && $this->promo_starts_at !== null
+            && now()->lt($this->promo_starts_at);
+    }
+
     public function funeralCases()
     {
         return $this->hasMany(\App\Models\FuneralCase::class);

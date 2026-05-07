@@ -39,13 +39,15 @@ class ReminderController extends Controller
         ];
 
         $reminders = $reminderService->buildFullList($branchId, $filters);
-        $activeTab = $request->query('tab', 'today');
+        $activeTab = $request->query('tab', 'all');
+
+        // Count unique cases per tab (not raw reminder entries) to avoid inflated numbers.
         $counts = [
-            'today' => $reminders->whereIn('type', ['service_today', 'interment_today'])->count(),
-            'upcoming' => $reminders->whereIn('type', ['upcoming_service', 'upcoming_interment'])->count(),
-            'unpaid' => $reminders->where('type', 'balance')->count(),
-            'warnings' => $reminders->where('type', 'schedule_warning')->count(),
-            'all' => $reminders->count(),
+            'all'      => $reminders->pluck('case_id')->unique()->count(),
+            'today'    => $reminders->whereIn('type', ['service_today', 'interment_today'])->pluck('case_id')->unique()->count(),
+            'upcoming' => $reminders->whereIn('type', ['upcoming_service', 'upcoming_interment'])->pluck('case_id')->unique()->count(),
+            'warnings' => $reminders->where('type', 'schedule_warning')->pluck('case_id')->unique()->count(),
+            'unpaid'   => $reminders->where('type', 'balance')->pluck('case_id')->unique()->count(),
         ];
 
         return view('staff.reminders.index', [

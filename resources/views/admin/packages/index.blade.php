@@ -395,22 +395,45 @@
                     {{-- Promo --}}
                     <div class="px-5 pb-4">
                         @if($package->promo_is_active && $package->promo_value_type && $package->promo_value)
-                            <span class="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-2.5 py-1 text-xs font-semibold">
-                                <i class="bi bi-tag-fill text-[10px]"></i>
-                                {{ $package->promo_label ?: 'Promo Active' }}
-                                &mdash;
-                                @if($package->promo_value_type === 'PERCENT')
-                                    {{ number_format((float) $package->promo_value, 2) }}% off
-                                @else
-                                    &#8369;{{ number_format((float) $package->promo_value, 2) }} off
-                                @endif
-                            </span>
-                            @if($package->promo_starts_at || $package->promo_ends_at)
-                                <p class="text-[11px] text-slate-400 mt-1.5 ml-0.5">
-                                    {{ $package->promo_starts_at?->format('M d, Y') ?? '—' }}
-                                    &ndash;
-                                    {{ $package->promo_ends_at?->format('M d, Y') ?? 'Ongoing' }}
+                            @if($package->is_promo_expired)
+                                {{-- Toggle is on but end date has passed --}}
+                                <span class="inline-flex items-center gap-1.5 bg-slate-100 text-slate-500 border border-slate-200 rounded-full px-2.5 py-1 text-xs font-semibold">
+                                    <i class="bi bi-tag text-[10px]"></i>
+                                    {{ $package->promo_label ?: 'Promo' }} — Expired
+                                </span>
+                                <p class="text-[11px] text-red-400 mt-1.5 ml-0.5">
+                                    <i class="bi bi-clock-history"></i>
+                                    Ended {{ $package->promo_ends_at->format('M d, Y') }}
                                 </p>
+                            @elseif($package->is_promo_scheduled)
+                                {{-- Toggle is on but start date hasn't arrived yet --}}
+                                <span class="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-full px-2.5 py-1 text-xs font-semibold">
+                                    <i class="bi bi-tag text-[10px]"></i>
+                                    {{ $package->promo_label ?: 'Promo' }} — Scheduled
+                                </span>
+                                <p class="text-[11px] text-slate-400 mt-1.5 ml-0.5">
+                                    <i class="bi bi-calendar-event"></i>
+                                    Starts {{ $package->promo_starts_at->format('M d, Y') }}
+                                </p>
+                            @else
+                                {{-- Promo is live --}}
+                                <span class="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-2.5 py-1 text-xs font-semibold">
+                                    <i class="bi bi-tag-fill text-[10px]"></i>
+                                    {{ $package->promo_label ?: 'Promo Active' }}
+                                    &mdash;
+                                    @if($package->promo_value_type === 'PERCENT')
+                                        {{ number_format((float) $package->promo_value, 2) }}% off
+                                    @else
+                                        &#8369;{{ number_format((float) $package->promo_value, 2) }} off
+                                    @endif
+                                </span>
+                                @if($package->promo_starts_at || $package->promo_ends_at)
+                                    <p class="text-[11px] text-slate-400 mt-1.5 ml-0.5">
+                                        {{ $package->promo_starts_at?->format('M d, Y') ?? '—' }}
+                                        &ndash;
+                                        {{ $package->promo_ends_at?->format('M d, Y') ?? 'Ongoing' }}
+                                    </p>
+                                @endif
                             @endif
                         @else
                             <span class="text-xs text-slate-400">No active promo</span>
@@ -579,17 +602,37 @@
                             </td>
                             <td>
                                 @if($package->promo_is_active && $package->promo_value_type && $package->promo_value)
-                                    <div class="text-xs font-semibold text-emerald-700">{{ $package->promo_label ?: 'Promo' }}</div>
-                                    <div class="table-secondary">
-                                        {{ $package->promo_value_type === 'PERCENT'
-                                            ? number_format((float) $package->promo_value, 2) . '%'
-                                            : number_format((float) $package->promo_value, 2) }}
-                                    </div>
-                                    <div class="text-[11px] text-slate-500">
-                                        {{ $package->promo_starts_at?->format('Y-m-d H:i') ?? 'No start' }}
-                                        &ndash;
-                                        {{ $package->promo_ends_at?->format('Y-m-d H:i') ?? 'No end' }}
-                                    </div>
+                                    @if($package->is_promo_expired)
+                                        <div class="text-xs font-semibold text-slate-400">
+                                            {{ $package->promo_label ?: 'Promo' }}
+                                            <span class="text-red-400 ml-1">— Expired</span>
+                                        </div>
+                                        <div class="text-[11px] text-red-400 mt-0.5">
+                                            <i class="bi bi-clock-history"></i>
+                                            Ended {{ $package->promo_ends_at->format('M d, Y') }}
+                                        </div>
+                                    @elseif($package->is_promo_scheduled)
+                                        <div class="text-xs font-semibold text-blue-600">
+                                            {{ $package->promo_label ?: 'Promo' }}
+                                            <span class="ml-1">— Scheduled</span>
+                                        </div>
+                                        <div class="text-[11px] text-slate-500 mt-0.5">
+                                            <i class="bi bi-calendar-event"></i>
+                                            Starts {{ $package->promo_starts_at->format('M d, Y') }}
+                                        </div>
+                                    @else
+                                        <div class="text-xs font-semibold text-emerald-700">{{ $package->promo_label ?: 'Promo' }}</div>
+                                        <div class="table-secondary">
+                                            {{ $package->promo_value_type === 'PERCENT'
+                                                ? number_format((float) $package->promo_value, 2) . '%'
+                                                : number_format((float) $package->promo_value, 2) }}
+                                        </div>
+                                        <div class="text-[11px] text-slate-500">
+                                            {{ $package->promo_starts_at?->format('M d, Y') ?? 'No start' }}
+                                            &ndash;
+                                            {{ $package->promo_ends_at?->format('M d, Y') ?? 'Ongoing' }}
+                                        </div>
+                                    @endif
                                 @else
                                     <span class="table-secondary">No active promo</span>
                                 @endif

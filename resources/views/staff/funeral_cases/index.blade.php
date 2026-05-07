@@ -408,6 +408,17 @@
                                                         <span>Open details</span>
                                                     </a>
 
+                                                    @if(($case->entry_source ?? 'MAIN') !== 'OTHER_BRANCH')
+                                                        <a
+                                                            href="{{ route('funeral-cases.edit', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}"
+                                                            class="row-action-item"
+                                                            data-row-menu-item
+                                                        >
+                                                            <i class="bi bi-pencil"></i>
+                                                            <span>Edit case</span>
+                                                        </a>
+                                                    @endif
+
                                                     @unless($isActiveTab)
                                                         <a
                                                             href="{{ route('payments.history', ['q' => $case->case_code]) }}"

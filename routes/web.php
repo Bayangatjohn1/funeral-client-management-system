@@ -458,6 +458,8 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->pref
 
     // Monitoring
     Route::get('/cases', [AdminReportController::class, 'masterCases'])->name('admin.cases.index');
+    Route::get('/cases/{funeral_case}/edit', [AdminReportController::class, 'editCase'])->name('admin.cases.edit');
+    Route::put('/cases/{funeral_case}', [AdminReportController::class, 'updateCase'])->name('admin.cases.update');
     Route::patch('/cases/{funeral_case}/verification', [AdminReportController::class, 'updateVerification'])->name('admin.cases.verification');
     Route::get('/payments', [PaymentController::class, 'history'])->name('admin.payments.index');
     Route::get('/payment-monitoring', [PaymentController::class, 'history'])->name('admin.payment-monitoring');

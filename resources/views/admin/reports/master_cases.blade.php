@@ -422,26 +422,14 @@
                                             <span>Open full details</span>
                                         </a>
 
-                                        @if(!$isOtherBranch)
-                                            <form method="POST" action="{{ route('funeral-cases.destroy', $case) }}">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button
-                                                    type="submit"
-                                                    class="row-action-item text-red-600"
-                                                    data-row-menu-item
-                                                    onclick="return confirm('Delete this case? Cases with payment records cannot be deleted.')"
-                                                >
-                                                    <i class="bi bi-trash3"></i>
-                                                    <span>Delete case</span>
-                                                </button>
-                                            </form>
-                                        @else
-                                            <span class="row-action-item opacity-60 cursor-default">
-                                                <i class="bi bi-lock"></i>
-                                                <span>Delete locked (Other Branch)</span>
-                                            </span>
-                                        @endif
+                                        <a
+                                            href="{{ route('admin.cases.edit', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}"
+                                            class="row-action-item"
+                                            data-row-menu-item
+                                        >
+                                            <i class="bi bi-pencil"></i>
+                                            <span>Edit case</span>
+                                        </a>
                                         </div>
                                     </div>
                                 </div>

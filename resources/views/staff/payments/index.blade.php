@@ -110,6 +110,7 @@
         border-top: 1px solid var(--border);
         display: flex;
         flex-direction: column;
+        flex: 1;
         min-height: 0;
     }
 
@@ -151,6 +152,10 @@
         border: 0;
         border-radius: 0;
         box-shadow: none;
+        padding: 12px var(--panel-content-inline);
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
     }
 
     .payments-meta-section {

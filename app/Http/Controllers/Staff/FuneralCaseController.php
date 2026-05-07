@@ -874,7 +874,7 @@ class FuneralCaseController extends Controller
             'client_id' => 'required|exists:clients,id',
             'deceased_id' => 'required|exists:deceased,id',
             'package_id' => 'required|integer|exists:packages,id',
-            'case_status' => 'required|in:DRAFT,ACTIVE,COMPLETED',
+            'case_status' => 'required|in:ACTIVE,COMPLETED',
             'date_of_death' => 'required|date|before_or_equal:today',
             'service_requested_at' => 'required|date|before_or_equal:today',
             'wake_start_date' => 'nullable|date',
@@ -885,6 +885,7 @@ class FuneralCaseController extends Controller
             'interment_time' => 'nullable|date_format:H:i',
             'is_backdated_entry' => 'nullable|boolean',
             'backdated_entry_reason' => 'required_if:is_backdated_entry,1|nullable|string|max:500',
+            'notes' => 'nullable|string|max:1000',
         ], [
             'date_of_death.required' => 'Date of death is required.',
             'date_of_death.before_or_equal' => 'Date of death cannot be in the future.',
@@ -996,6 +997,18 @@ class FuneralCaseController extends Controller
             ])->withInput();
         }
 
+        // Block manual completion if the interment date has not been reached yet.
+        // Case status is set to COMPLETED automatically once the interment date passes.
+        if ($validated['case_status'] === 'COMPLETED') {
+            $intermentCheck = $intermentAt ?? $funeral_case->interment_at;
+            if ($intermentCheck && $intermentCheck->copy()->startOfDay()->isFuture()) {
+                return back()->withErrors([
+                    'case_status' => 'Case cannot be manually set to Completed before the interment date ('
+                        . $intermentCheck->format('M d, Y') . '). The status will update automatically once that date is reached.',
+                ])->withInput();
+            }
+        }
+
         $trackFields = [
             'case_status',
             'payment_status',
@@ -1104,6 +1117,7 @@ class FuneralCaseController extends Controller
                 'package_id' => $funeral_case->package_id,
                 'is_backdated_entry' => (bool) ($validated['is_backdated_entry'] ?? false),
                 'backdated_entry_reason' => $validated['backdated_entry_reason'] ?? null,
+                'note' => $validated['notes'] ?? null,
                 'changes' => $changes,
             ],
             (int) $funeral_case->branch_id,
@@ -1133,7 +1147,12 @@ class FuneralCaseController extends Controller
             );
         }
 
-        return redirect()->route('funeral-cases.index')->with('success', 'Funeral case updated successfully.');
+        $returnTo = $request->input('return_to');
+        $redirectTarget = ($returnTo && str_starts_with($returnTo, url('/')))
+            ? $returnTo
+            : route('funeral-cases.index');
+
+        return redirect()->to($redirectTarget)->with('success', 'Funeral case updated successfully.');
     }
 
     public function destroy(FuneralCase $funeral_case)

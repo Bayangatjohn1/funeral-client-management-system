@@ -133,31 +133,43 @@ class ReminderService
     }
 
     /**
-     * Identify conflict days per schedule type (funeral/interment).
+     * Identify conflict days per schedule type and record which cases share each date.
+     * Returns a map of date → [case summaries] for dates that have more than one case.
      */
     private function mapConflicts(Collection $cases): array
     {
-        $funeralCounts = [];
-        $intermentCounts = [];
+        $funeralMap   = [];
+        $intermentMap = [];
 
         foreach ($cases as $case) {
-            $funeralDate = $case->funeral_service_at?->toDateString();
+            $funeralDate   = $case->funeral_service_at?->toDateString();
             $intermentDate = $case->interment_at?->toDateString();
 
             if ($funeralDate) {
-                $funeralCounts[$funeralDate] = ($funeralCounts[$funeralDate] ?? 0) + 1;
+                $funeralMap[$funeralDate][] = [
+                    'case_id'     => $case->id,
+                    'case_code'   => $case->case_code,
+                    'client_name' => $case->client?->full_name ?? 'N/A',
+                    'time'        => $case->funeral_service_at?->format('h:i A'),
+                ];
             }
             if ($intermentDate) {
-                $intermentCounts[$intermentDate] = ($intermentCounts[$intermentDate] ?? 0) + 1;
+                $intermentMap[$intermentDate][] = [
+                    'case_id'     => $case->id,
+                    'case_code'   => $case->case_code,
+                    'client_name' => $case->client?->full_name ?? 'N/A',
+                    'time'        => $case->interment_at?->format('h:i A'),
+                ];
             }
         }
 
-        $funeralConflictDays = collect($funeralCounts)->filter(fn ($count) => $count > 1)->keys()->all();
-        $intermentConflictDays = collect($intermentCounts)->filter(fn ($count) => $count > 1)->keys()->all();
+        // Keep only dates that have more than one case (actual conflicts).
+        $funeralConflicts   = array_filter($funeralMap,   fn ($list) => count($list) > 1);
+        $intermentConflicts = array_filter($intermentMap, fn ($list) => count($list) > 1);
 
         return [
-            'funeral' => $funeralConflictDays,
-            'interment' => $intermentConflictDays,
+            'funeral'   => $funeralConflicts,   // ['2026-05-12' => [...case summaries...]]
+            'interment' => $intermentConflicts,
         ];
     }
 
@@ -194,13 +206,33 @@ class ReminderService
             }
 
             if ($isActive) {
-                $funeralDateStr = $case->funeral_service_at?->toDateString();
+                $funeralDateStr   = $case->funeral_service_at?->toDateString();
                 $intermentDateStr = $case->interment_at?->toDateString();
-                if ($funeralDateStr && in_array($funeralDateStr, $conflicts['funeral'], true)) {
-                    $items->push($this->formatReminder($case, 'schedule_warning', 'Similar Schedule Warning', 'warning', $case->funeral_service_at));
+
+                if ($funeralDateStr && isset($conflicts['funeral'][$funeralDateStr])) {
+                    // Other cases on the same funeral service date (exclude self)
+                    $conflictingCases = array_values(array_filter(
+                        $conflicts['funeral'][$funeralDateStr],
+                        fn ($c) => $c['case_id'] !== $case->id
+                    ));
+                    $items->push($this->formatReminder(
+                        $case, 'schedule_warning', 'Similar Schedule Warning', 'warning',
+                        $case->funeral_service_at, false,
+                        ['type' => 'service', 'date' => $funeralDateStr, 'cases' => $conflictingCases]
+                    ));
                 }
-                if ($intermentDateStr && in_array($intermentDateStr, $conflicts['interment'], true)) {
-                    $items->push($this->formatReminder($case, 'schedule_warning', 'Similar Schedule Warning', 'warning', $case->interment_at));
+
+                if ($intermentDateStr && isset($conflicts['interment'][$intermentDateStr])) {
+                    // Other cases on the same interment date (exclude self)
+                    $conflictingCases = array_values(array_filter(
+                        $conflicts['interment'][$intermentDateStr],
+                        fn ($c) => $c['case_id'] !== $case->id
+                    ));
+                    $items->push($this->formatReminder(
+                        $case, 'schedule_warning', 'Similar Schedule Warning', 'warning',
+                        $case->interment_at, false,
+                        ['type' => 'interment', 'date' => $intermentDateStr, 'cases' => $conflictingCases]
+                    ));
                 }
             }
 
@@ -256,7 +288,8 @@ class ReminderService
         string $label,
         string $severity,
         ?Carbon $date = null,
-        bool $isScheduleCard = false
+        bool $isScheduleCard = false,
+        ?array $conflict = null   // ['type' => 'service|interment', 'date' => 'Y-m-d', 'cases' => [...]]
     ): array {
         $severityRank = match ($severity) {
             'danger' => 4,
@@ -266,17 +299,18 @@ class ReminderService
         };
 
         return [
-            'case' => $case,
-            'case_id' => $case->id,
-            'case_code' => $case->case_code,
-            'deceased_name' => $case->deceased?->full_name ?? 'N/A',
-            'type' => $type,
-            'label' => $label,
-            'severity' => $severity,
-            'severity_rank' => $severityRank,
-            'date' => $date,
-            'sort_date' => $date?->copy() ?? now(),
+            'case'             => $case,
+            'case_id'          => $case->id,
+            'case_code'        => $case->case_code,
+            'deceased_name'    => $case->deceased?->full_name ?? 'N/A',
+            'type'             => $type,
+            'label'            => $label,
+            'severity'         => $severity,
+            'severity_rank'    => $severityRank,
+            'date'             => $date,
+            'sort_date'        => $date?->copy() ?? now(),
             'is_schedule_card' => $isScheduleCard,
+            'conflict'         => $conflict,  // null for non-warning types
         ];
     }
 }

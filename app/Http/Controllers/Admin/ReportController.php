@@ -4,10 +4,13 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
+use App\Models\Client;
+use App\Models\Deceased;
 use App\Models\FuneralCase;
 use App\Models\Package;
 use App\Models\User;
 use App\Support\AuditLogger;
+use App\Support\Discount\CaseDiscountResolver;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -155,6 +158,261 @@ class ReportController extends Controller
             'packages',
             'encoders'
         ));
+    }
+
+    public function editCase(Request $request, FuneralCase $funeral_case)
+    {
+        $user = $request->user();
+        $scopeBranchIds = $user->branchScopeIds();
+
+        if (!in_array($funeral_case->branch_id, $scopeBranchIds)) {
+            abort(403, 'This case is outside your admin scope.');
+        }
+
+        $funeral_case->load(['client', 'deceased', 'branch', 'package', 'encodedBy']);
+
+        $packages = Package::where('is_active', true)->orderBy('name')->get();
+
+        $intermentPassed = $funeral_case->interment_at
+            && $funeral_case->interment_at->copy()->startOfDay()->isPast();
+
+        return view('admin.cases.edit', [
+            'funeral_case'    => $funeral_case,
+            'packages'        => $packages,
+            'intermentPassed' => $intermentPassed,
+            'returnTo'        => $request->query('return_to', route('admin.cases.index')),
+        ]);
+    }
+
+    public function updateCase(Request $request, FuneralCase $funeral_case)
+    {
+        $user = $request->user();
+        $scopeBranchIds = $user->branchScopeIds();
+
+        if (!in_array($funeral_case->branch_id, $scopeBranchIds)) {
+            abort(403, 'This case is outside your admin scope.');
+        }
+
+        $validated = $request->validate([
+            // Client fields
+            'client_full_name'     => ['nullable', 'string', 'max:255'],
+            'client_contact'       => ['nullable', 'string', 'max:50'],
+            'client_relationship'  => ['nullable', 'string', 'max:100'],
+            'client_address'       => ['nullable', 'string', 'max:500'],
+            // Deceased fields
+            'deceased_full_name'   => ['required', 'string', 'max:255'],
+            'date_of_birth'        => ['nullable', 'date'],
+            'date_of_death'        => ['nullable', 'date', 'before_or_equal:today'],
+            'age'                  => ['nullable', 'integer', 'min:0', 'max:150'],
+            'deceased_address'     => ['nullable', 'string', 'max:500'],
+            'place_of_cemetery'    => ['nullable', 'string', 'max:255'],
+            // Service & Package
+            'package_id'           => ['required', 'integer', 'exists:packages,id'],
+            'wake_location'        => ['nullable', 'string', 'max:255'],
+            'wake_start_date'      => ['nullable', 'date'],
+            'wake_start_time'      => ['nullable', 'date_format:H:i'],
+            'funeral_service_at'   => ['nullable', 'date'],
+            'funeral_service_time' => ['nullable', 'date_format:H:i'],
+            'interment_at'         => ['nullable', 'date'],
+            'interment_time'       => ['nullable', 'date_format:H:i'],
+            'additional_services'  => ['nullable', 'string', 'max:1000'],
+            // Case Management
+            'case_status'          => ['required', 'in:ACTIVE,COMPLETED'],
+            // Admin audit note
+            'admin_note'           => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $client  = $funeral_case->client;
+        $deceased = $funeral_case->deceased;
+
+        // ── Interment check: block manual COMPLETED if interment hasn't passed ──
+        if ($validated['case_status'] === 'COMPLETED') {
+            $intermentCheck = isset($validated['interment_at']) && $validated['interment_at']
+                ? Carbon::parse($validated['interment_at'])
+                : $funeral_case->interment_at;
+            if ($intermentCheck && $intermentCheck->copy()->startOfDay()->isFuture()) {
+                return back()->withErrors([
+                    'case_status' => 'Case cannot be manually set to Completed before the interment date ('
+                        . $intermentCheck->format('M d, Y') . '). The status will update automatically once that date is reached.',
+                ])->withInput();
+            }
+        }
+
+        // ── Package & pricing ───────────────────────────────────────────────────
+        $package = Package::where('id', $validated['package_id'])
+            ->where('is_active', true)
+            ->first();
+        if (!$package) {
+            return back()->withErrors(['package_id' => 'Selected package is unavailable or inactive.'])->withInput();
+        }
+
+        $subtotal = (float) $package->price;
+
+        // Resolve age for discount check
+        $deceasedAge = null;
+        if (filled($validated['age'] ?? null)) {
+            $deceasedAge = (int) $validated['age'];
+        } elseif ($deceased) {
+            $dob = filled($validated['date_of_birth'] ?? null) ? Carbon::parse($validated['date_of_birth']) : $deceased->born;
+            $dod = filled($validated['date_of_death'] ?? null) ? Carbon::parse($validated['date_of_death']) : $deceased->died;
+            if ($dob && $dod) {
+                $deceasedAge = (int) $dob->diffInYears($dod);
+            } elseif ($deceased->age !== null) {
+                $deceasedAge = (int) $deceased->age;
+            }
+        }
+
+        $discountPayload = app(CaseDiscountResolver::class)
+            ->resolve($package, $deceasedAge, $subtotal, now());
+        $discount = (float) $discountPayload['discount_amount'];
+        $total    = round(max($subtotal - $discount, 0), 2);
+
+        // ── Payment fields ──────────────────────────────────────────────────────
+        $totalPaid = round(max((float) $funeral_case->total_paid, 0), 2);
+        if ($total <= 0) {
+            $payment = ['total_paid' => 0.0, 'balance' => 0.0, 'status' => 'PAID'];
+        } elseif ($totalPaid >= $total) {
+            $payment = ['total_paid' => $total, 'balance' => 0.0, 'status' => 'PAID'];
+        } elseif ($totalPaid > 0) {
+            $payment = ['total_paid' => $totalPaid, 'balance' => round($total - $totalPaid, 2), 'status' => 'PARTIAL'];
+        } else {
+            $payment = ['total_paid' => 0.0, 'balance' => $total, 'status' => 'UNPAID'];
+        }
+
+        // ── Schedule fields ─────────────────────────────────────────────────────
+        $intermentAt = isset($validated['interment_at']) && $validated['interment_at']
+            ? Carbon::parse($validated['interment_at'])
+            : $funeral_case->interment_at;
+        if ($intermentAt && isset($validated['interment_time']) && $validated['interment_time']) {
+            [$h, $m] = explode(':', $validated['interment_time']);
+            $intermentAt->setTime((int) $h, (int) $m, 0);
+        }
+
+        $funeralServiceAt = isset($validated['funeral_service_at']) && $validated['funeral_service_at']
+            ? Carbon::parse($validated['funeral_service_at'])->toDateString()
+            : $funeral_case->funeral_service_at?->toDateString();
+
+        $wakeStartDate = isset($validated['wake_start_date']) && $validated['wake_start_date']
+            ? Carbon::parse($validated['wake_start_date'])->toDateString()
+            : $funeral_case->wake_start_date?->toDateString();
+
+        $wakeDays = null;
+        if ($wakeStartDate && $funeralServiceAt) {
+            $diff = Carbon::parse($wakeStartDate)->diffInDays(Carbon::parse($funeralServiceAt), false);
+            $wakeDays = $diff >= 0 ? (int) $diff : null;
+        }
+
+        $wakeLocation = filled($validated['wake_location'] ?? null)
+            ? $validated['wake_location']
+            : ($funeral_case->wake_location ?: 'Not specified');
+
+        // ── Update client ───────────────────────────────────────────────────────
+        if ($client) {
+            $clientData = [
+                'contact_number'           => $validated['client_contact'] ?? $client->contact_number,
+                'relationship_to_deceased' => $validated['client_relationship'] ?? $client->relationship_to_deceased,
+                'relationship'             => $validated['client_relationship'] ?? $client->relationship,
+                'address'                  => $validated['client_address'] ?? $client->address,
+            ];
+            if (filled($validated['client_full_name'] ?? null)) {
+                $clientData['full_name'] = $validated['client_full_name'];
+            }
+            $client->update($clientData);
+        }
+
+        // ── Update deceased ─────────────────────────────────────────────────────
+        if ($deceased) {
+            $deceasedData = [
+                'full_name'        => $validated['deceased_full_name'],
+                'age'              => $validated['age'] ?? $deceased->age,
+                'address'          => $validated['deceased_address'] ?? $deceased->address,
+                'place_of_cemetery' => $validated['place_of_cemetery'] ?? $deceased->place_of_cemetery,
+            ];
+            if (filled($validated['date_of_birth'] ?? null)) {
+                $deceasedData['born'] = $validated['date_of_birth'];
+            }
+            if (filled($validated['date_of_death'] ?? null)) {
+                $deceasedData['died']          = $validated['date_of_death'];
+                $deceasedData['date_of_death'] = $validated['date_of_death'];
+            }
+            if ($intermentAt) {
+                $deceasedData['interment']    = $intermentAt->toDateString();
+                $deceasedData['interment_at'] = $intermentAt;
+            }
+            if ($wakeDays !== null) {
+                $deceasedData['wake_days'] = $wakeDays;
+            }
+            $deceased->forceFill($deceasedData)->save();
+        }
+
+        // ── Update funeral case ─────────────────────────────────────────────────
+        $funeral_case->update([
+            'package_id'           => $package->id,
+            'service_package'      => $package->name,
+            'coffin_type'          => $package->coffin_type,
+            'wake_location'        => $wakeLocation,
+            'wake_start_date'      => $wakeStartDate,
+            'wake_start_time'      => isset($validated['wake_start_time']) ? $validated['wake_start_time'] : $funeral_case->wake_start_time,
+            'funeral_service_at'   => $funeralServiceAt,
+            'funeral_service_time' => isset($validated['funeral_service_time']) ? $validated['funeral_service_time'] : $funeral_case->funeral_service_time,
+            'interment_at'         => $intermentAt,
+            'interment_time'       => isset($validated['interment_time']) ? $validated['interment_time'] : $funeral_case->interment_time,
+            'subtotal_amount'      => $subtotal,
+            'discount_type'        => $discountPayload['discount_type'],
+            'discount_value_type'  => $discountPayload['discount_value_type'],
+            'discount_value'       => $discountPayload['discount_value'],
+            'discount_amount'      => $discount,
+            'discount_note'        => $discountPayload['discount_note'],
+            'total_amount'         => $total,
+            'total_paid'           => $payment['total_paid'],
+            'balance_amount'       => $payment['balance'],
+            'payment_status'       => $payment['status'],
+            'case_status'          => $validated['case_status'],
+            'additional_services'  => $validated['additional_services'] ?? $funeral_case->additional_services,
+            'verification_status'  => 'VERIFIED',
+            'verified_by'          => $user->id,
+            'verified_at'          => now(),
+            'verification_note'    => 'Admin case update by ' . $user->name . '.',
+        ]);
+
+        // ── Update service detail ───────────────────────────────────────────────
+        $funeral_case->serviceDetail()->updateOrCreate(
+            ['funeral_case_id' => $funeral_case->id],
+            [
+                'start_of_wake'   => $wakeStartDate ?? $funeralServiceAt,
+                'internment_date' => $intermentAt?->toDateString(),
+                'wake_location'   => $wakeLocation,
+                'wake_days'       => $wakeDays,
+                'cemetery_place'  => $validated['place_of_cemetery'] ?? $deceased?->place_of_cemetery,
+                'case_status'     => match ($funeral_case->case_status) {
+                    'ACTIVE'     => 'ongoing',
+                    'COMPLETED'  => 'completed',
+                    default      => 'pending',
+                },
+            ]
+        );
+
+        AuditLogger::log(
+            action: 'case.admin_updated',
+            actionType: 'update',
+            entityType: 'funeral_case',
+            entityId: $funeral_case->id,
+            metadata: [
+                'case_code'   => $funeral_case->case_code,
+                'updated_by'  => $user->name,
+                'case_status' => $funeral_case->case_status,
+                'package'     => $package->name,
+                'note'        => $validated['admin_note'] ?? null,
+            ],
+            branchId: $funeral_case->branch_id
+        );
+
+        $returnTo = $request->input('return_to');
+        $redirect = ($returnTo && str_starts_with($returnTo, url('/')))
+            ? $returnTo
+            : route('admin.cases.index');
+
+        return redirect()->to($redirect)->with('success', 'Case record updated successfully.');
     }
 
     public function updateVerification(Request $request, FuneralCase $funeral_case)

@@ -1887,9 +1887,7 @@
                                 </div>
                             @else
                                 <select name="case_status" id="case_status" data-label="case status" class="form-input" required>
-                                    <option value="DRAFT" {{ old('case_status', 'ACTIVE') === 'DRAFT' ? 'selected' : '' }}>Pending</option>
-                                    <option value="ACTIVE" {{ old('case_status', 'ACTIVE') === 'ACTIVE' ? 'selected' : '' }}>Ongoing</option>
-                                    <option value="COMPLETED" {{ old('case_status') === 'COMPLETED' ? 'selected' : '' }}>Completed</option>
+                                    <option value="ACTIVE" selected>Ongoing</option>
                                 </select>
                             @endif
                         </div>

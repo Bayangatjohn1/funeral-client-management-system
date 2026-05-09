@@ -22,7 +22,7 @@
     }
 @endphp
 
-<div class="owner-page-shell">
+<div class="owner-page-shell owner-case-details-shell">
 
     @if(session('success'))
         <div class="flash-success">{{ session('success') }}</div>

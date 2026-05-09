@@ -1900,6 +1900,27 @@ html[data-theme='dark'] {
         background: var(--card);
     }
 
+    .directory-page .directory-card-view,
+    .directory-page .branch-directory-card-view {
+        display: flex;
+        flex: 0 0 auto;
+        min-height: 0;
+        flex-direction: column;
+        border-top: 1px solid var(--border);
+        background: var(--card);
+        overflow: visible;
+        padding: 14px;
+    }
+
+    .directory-page .directory-card-pagination,
+    .directory-page .branch-card-pagination {
+        position: static;
+        margin: 14px -14px -14px;
+        border-bottom-left-radius: 12px;
+        border-bottom-right-radius: 12px;
+        box-shadow: none;
+    }
+
     .directory-page .table-wrapper,
     .directory-page .table-system-wrap {
         background: var(--card);
@@ -2469,8 +2490,29 @@ html[data-theme='dark'] {
         width: 100%;
         max-width: none;
         margin: 0;
-        padding: 0;
+        padding: 12px var(--panel-content-inline) 20px;
         overflow: hidden;
+        box-sizing: border-box;
+    }
+
+    .admin-table-page > .mx-auto {
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .admin-table-page > .mx-auto > .space-y-6 {
+        width: 100%;
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
     }
 
     .owner-page-shell {
@@ -2524,7 +2566,17 @@ html[data-theme='dark'] {
         margin-top: 0.75rem;
     }
 
+    .owner-page-shell.owner-case-details-shell {
+        height: auto;
+        min-height: calc(100vh - var(--topbar-h));
+        overflow: visible;
+    }
+
     @media (max-width: 1023px) {
+        .admin-table-page {
+            padding: 10px var(--panel-content-inline) 16px;
+        }
+
         .owner-page-shell {
             padding: 10px var(--panel-content-inline) 16px;
         }
@@ -3845,6 +3897,10 @@ body[data-sidebar-collapsed="true"] .sidebar-logout-btn {
 .topbar-notification-wrap {
     position: relative;
     isolation: isolate;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
 }
 
 .panel-page-header {
@@ -3913,6 +3969,51 @@ body[data-sidebar-collapsed="true"] .sidebar-logout-btn {
     justify-content: center;
     text-decoration: none;
     transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.staff-tools .topbar-notification-wrap,
+.admin-dashboard-greeting__tools .topbar-notification-wrap {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    z-index: 1300;
+}
+
+.staff-tools,
+.admin-dashboard-greeting,
+.admin-dashboard-greeting__tools {
+    position: relative;
+    overflow: visible;
+}
+
+.staff-tools,
+.admin-dashboard-greeting__tools {
+    z-index: 1300;
+}
+
+.admin-dashboard-greeting {
+    z-index: 1200;
+}
+
+.staff-tools .topbar-notification,
+.admin-dashboard-greeting__tools .topbar-notification {
+    width: 40px;
+    height: 40px;
+    border-radius: .75rem;
+    background: #FAFAF7;
+    border-color: #C9C5BB;
+    color: #3E4A3D;
+    box-shadow: 0 8px 18px rgba(62, 74, 61, .08);
+}
+
+.staff-tools .topbar-notification i,
+.admin-dashboard-greeting__tools .topbar-notification i {
+    font-size: 17px;
+}
+
+.staff-tools .topbar-notification-menu,
+.admin-dashboard-greeting__tools .topbar-notification-menu {
+    z-index: 1600;
 }
 
 html:not([data-theme='dark']) .topbar-notification {
@@ -4558,7 +4659,7 @@ html.page-nav-transition .nav-link {
 .admin-dashboard-shell {
     flex: 1;
     min-height: calc(100vh - var(--topbar-h));
-    padding: 14px var(--panel-content-inline) 20px;
+    padding: 0 var(--panel-content-inline) 20px;
 }
 
 .admin-top-controls {

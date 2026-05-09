@@ -115,7 +115,9 @@
     .staff-tools {
         display: flex;
         align-items: center;
+        justify-content: flex-end;
         gap: .6rem;
+        flex-wrap: wrap;
     }
 
     .staff-pill {

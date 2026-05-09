@@ -143,8 +143,7 @@
         x-transition:enter="transition ease-out duration-200"
         x-transition:enter-start="opacity-0 translate-y-2"
         x-transition:enter-end="opacity-100 translate-y-0"
-        class="mt-4 p-6"
-        style="border-top: 1px solid var(--border)"
+        class="directory-card-view"
     >
         @if($users->isEmpty())
             <div class="flex flex-col items-center justify-center py-16 gap-3 text-center">
@@ -246,7 +245,7 @@
                 @endforeach
             </div>
 
-            <div class="mt-6">
+            <div class="table-system-pagination directory-card-pagination">
                 {{ $users->links() }}
             </div>
         @endif

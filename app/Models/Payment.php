@@ -74,7 +74,8 @@ class Payment extends Model
     {
         $year = $paidAt->format('Y');
 
-        $latest = static::withTrashed()
+        $latest = static::withoutGlobalScope('branch_scope')
+            ->withTrashed()
             ->where('payment_record_no', 'like', "PAY-{$year}-%")
             ->lockForUpdate()
             ->orderByDesc('payment_record_no')

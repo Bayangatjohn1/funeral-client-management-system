@@ -298,24 +298,39 @@ html[data-theme='dark'] .ef-stat { background:rgba(255,255,255,.04); }
                 class="form-input w-full"
                 min="0" max="365"
                 placeholder="Number of days"
+                readonly
             >
+            <p class="text-xs text-slate-500 mt-1">Wake days are calculated from Wake Start Date to Funeral Service Date.</p>
             @error('wake_days')
                 <div class="ef-err">{{ $message }}</div>
             @enderror
         </div>
 
         <div>
-            <label class="ef-label" for="ef_interment">Interment Date &amp; Time</label>
+            <label class="ef-label" for="ef_interment">Interment Date</label>
             <input
-                type="datetime-local"
+                type="date"
                 id="ef_interment"
                 name="interment_at"
-                value="{{ old('interment_at',
-                    $funeral_case->interment_at?->format('Y-m-d\TH:i')
-                ) }}"
+                value="{{ old('interment_at', $funeral_case->interment_at?->format('Y-m-d')) }}"
                 class="form-input w-full"
             >
             @error('interment_at')
+                <div class="ef-err">{{ $message }}</div>
+            @enderror
+            <p class="text-xs text-slate-500 mt-1">Date and time of burial, cremation, or interment.</p>
+        </div>
+
+        <div>
+            <label class="ef-label" for="ef_interment_time">Interment Time</label>
+            <input
+                type="time"
+                id="ef_interment_time"
+                name="interment_time"
+                value="{{ old('interment_time', $funeral_case->interment_time ? substr($funeral_case->interment_time, 0, 5) : '') }}"
+                class="form-input w-full"
+            >
+            @error('interment_time')
                 <div class="ef-err">{{ $message }}</div>
             @enderror
         </div>
@@ -410,6 +425,35 @@ html[data-theme='dark'] .ef-stat { background:rgba(255,255,255,.04); }
         </div>
 
         <div>
+            <label class="ef-label" for="ef_wake_start_date">Wake Start Date</label>
+            <input
+                type="date"
+                id="ef_wake_start_date"
+                name="wake_start_date"
+                value="{{ old('wake_start_date', $funeral_case->wake_start_date?->format('Y-m-d')) }}"
+                class="form-input w-full"
+            >
+            @error('wake_start_date')
+                <div class="ef-err">{{ $message }}</div>
+            @enderror
+            <p class="text-xs text-slate-500 mt-1">First day and time of the wake or viewing period.</p>
+        </div>
+
+        <div>
+            <label class="ef-label" for="ef_wake_start_time">Wake Start Time</label>
+            <input
+                type="time"
+                id="ef_wake_start_time"
+                name="wake_start_time"
+                value="{{ old('wake_start_time', $funeral_case->wake_start_time ? substr($funeral_case->wake_start_time, 0, 5) : '') }}"
+                class="form-input w-full"
+            >
+            @error('wake_start_time')
+                <div class="ef-err">{{ $message }}</div>
+            @enderror
+        </div>
+
+        <div>
             <label class="ef-label" for="ef_svc_date">Funeral Service Date</label>
             <input
                 type="date"
@@ -421,20 +465,37 @@ html[data-theme='dark'] .ef-stat { background:rgba(255,255,255,.04); }
             @error('funeral_service_at')
                 <div class="ef-err">{{ $message }}</div>
             @enderror
+            <p class="text-xs text-slate-500 mt-1">Date and time of the funeral service, mass, ceremony, or final service.</p>
         </div>
 
         <div>
-            <label class="ef-label" for="ef_req_date">Service Request Date</label>
+            <label class="ef-label" for="ef_svc_time">Funeral Service Time</label>
             <input
-                type="date"
-                id="ef_req_date"
-                name="service_requested_at"
-                value="{{ old('service_requested_at', $funeral_case->service_requested_at?->format('Y-m-d')) }}"
+                type="time"
+                id="ef_svc_time"
+                name="funeral_service_time"
+                value="{{ old('funeral_service_time', $funeral_case->funeral_service_time ? substr($funeral_case->funeral_service_time, 0, 5) : '') }}"
                 class="form-input w-full"
             >
+            @error('funeral_service_time')
+                <div class="ef-err">{{ $message }}</div>
+            @enderror
+        </div>
+
+        <div>
+            <label class="ef-label" for="ef_req_date">Request Date / Date Recorded</label>
+            @php
+                $requestDateRecorded = $funeral_case->service_requested_at ?? $funeral_case->created_at ?? now();
+            @endphp
+            <input type="hidden" id="ef_req_date" name="service_requested_at" value="{{ $requestDateRecorded->format('Y-m-d') }}">
+            <div class="form-input w-full bg-slate-50 text-slate-700 font-semibold cursor-not-allowed flex items-center gap-2" aria-readonly="true">
+                <i class="bi bi-calendar-check text-slate-500"></i>
+                <span>{{ $requestDateRecorded->format('F d, Y') }}</span>
+            </div>
             @error('service_requested_at')
                 <div class="ef-err">{{ $message }}</div>
             @enderror
+            <p class="text-xs text-slate-500 mt-1">This is the date the case was recorded in the system.</p>
         </div>
 
         <div class="ef-full">
@@ -557,6 +618,9 @@ html[data-theme='dark'] .ef-stat { background:rgba(255,255,255,.04); }
     const discSrcEl  = document.getElementById('ef_discount_src');
     const discCard   = document.getElementById('ef_discount_card');
     const totalEl    = document.getElementById('ef_total');
+    const wakeStartDateInput = document.getElementById('ef_wake_start_date');
+    const funeralDateInput = document.getElementById('ef_svc_date');
+    const wakeDaysInput = document.getElementById('ef_wake_days');
 
     const fmt = n => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -622,6 +686,15 @@ html[data-theme='dark'] .ef-stat { background:rgba(255,255,255,.04); }
     ageInput?.addEventListener('input',   render);
     dobInput?.addEventListener('change',  () => { autoFillAge(); render(); });
     dodInput?.addEventListener('change',  () => { autoFillAge(); render(); });
+    [wakeStartDateInput, funeralDateInput].forEach((input) => {
+        input?.addEventListener('change', () => {
+            if (!wakeDaysInput || !wakeStartDateInput?.value || !funeralDateInput?.value) return;
+            const wakeDate = new Date(`${wakeStartDateInput.value}T00:00:00`);
+            const serviceDate = new Date(`${funeralDateInput.value}T00:00:00`);
+            const diffDays = Math.floor((serviceDate - wakeDate) / 86400000);
+            wakeDaysInput.value = diffDays >= 0 ? diffDays : '';
+        });
+    });
 
     render();
 })();

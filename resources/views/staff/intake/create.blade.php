@@ -1,6 +1,7 @@
 @extends('layouts.panel')
 
 @section('page_title', ($entryMode ?? null) === 'other' ? 'Case Intake - Other Branch' : 'Case Intake - Main Branch')
+@section('hide_layout_topbar', '1')
 
 @push('styles')
 <style>
@@ -32,6 +33,9 @@
         background: transparent !important;
         min-height: calc(100vh - var(--topbar-h));
     }
+    /* Keep the intake workspace clean by removing the layout page heading. */
+    .topbar-heading,
+    .panel-page-header { display: none !important; }
 </style>
 @endpush
 
@@ -68,11 +72,12 @@
 @php
     $intakeErrorField = $errors->any() ? array_key_first($errors->toArray()) : null;
     $intakeErrorStep = match ($intakeErrorField) {
-        'service_requested_at', 'branch_id', 'client_name', 'client_relationship', 'client_contact_number', 'client_email',
+        'branch_id', 'client_name', 'client_relationship', 'client_contact_number', 'client_email',
         'client_valid_id_type', 'client_valid_id_number', 'client_address', 'reporter_name', 'reporter_contact', 'reported_at' => 1,
         'deceased_name', 'deceased_address', 'born', 'died', 'gender', 'civil_status', 'senior_citizen_status',
         'senior_citizen_id_number', 'pwd_status', 'pwd_id_number', 'deceased_photo' => 2,
-        'wake_location', 'funeral_service_at', 'interment_at', 'wake_days', 'place_of_cemetery', 'case_status' => 3,
+        'service_requested_at', 'wake_location', 'wake_start_date', 'wake_start_time', 'funeral_service_at',
+        'funeral_service_time', 'interment_at', 'interment_time', 'wake_days', 'place_of_cemetery', 'case_status' => 3,
         'package_id' => 4,
         'additional_services', 'additional_service_amount' => 5,
         'mark_as_paid', 'payment_type', 'paid_at', 'amount_paid', 'payment' => 6,

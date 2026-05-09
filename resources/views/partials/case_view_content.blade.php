@@ -23,19 +23,15 @@
         ?? $funeral_case->deceased?->interment_at
         ?? $funeral_case->serviceDetail?->internment_date
         ?? $funeral_case->deceased?->interment;
-    $displayWakeDays = null;
-    if ($funeral_case->funeral_service_at && $displayIntermentAt) {
-        $displayWakeDays = $funeral_case->funeral_service_at
-            ->copy()
-            ->startOfDay()
-            ->diffInDays($displayIntermentAt->copy()->startOfDay()) + 1;
-    }
+    $displayWakeDays = $funeral_case->deceased?->wake_days;
 
     // Smart date formatters — skip the time portion when it is midnight
     $fmtDate = fn($dt) => $dt ? $dt->format('M d, Y') : '—';
     $fmtDt   = fn($dt) => $dt
         ? ($dt->format('H:i') === '00:00' ? $dt->format('M d, Y') : $dt->format('M d, Y · H:i'))
         : '—';
+    $fmtTime = fn($time) => $time ? \Carbon\Carbon::parse($time)->format('h:i A') : 'Time not set';
+    $fmtSchedule = fn($date, $time) => ($date ? $date->format('M d, Y') : 'Not set') . ' at ' . $fmtTime($time);
 @endphp
 
 <div id="caseViewContent">
@@ -258,19 +254,23 @@
         <div class="cv-field-value">{{ $funeral_case->wake_location }}</div>
       </div>
       @endif
+      <div class="cv-field">
+        <div class="cv-field-label">Wake Start Date &amp; Time</div>
+        <div class="cv-field-value">{{ $fmtSchedule($funeral_case->wake_start_date, $funeral_case->wake_start_time) }}</div>
+      </div>
       @if($funeral_case->funeral_service_at)
       <div class="cv-field">
-        <div class="cv-field-label">Funeral Service Date</div>
-        <div class="cv-field-value">{{ $fmtDate($funeral_case->funeral_service_at) }}</div>
+        <div class="cv-field-label">Funeral Service Date &amp; Time</div>
+        <div class="cv-field-value">{{ $fmtSchedule($funeral_case->funeral_service_at, $funeral_case->funeral_service_time) }}</div>
       </div>
       @endif
       <div class="cv-field">
         <div class="cv-field-label">Interment Date &amp; Time</div>
-        <div class="cv-field-value">{{ $fmtDt($displayIntermentAt) }}</div>
+        <div class="cv-field-value">{{ $fmtSchedule($displayIntermentAt, $funeral_case->interment_time ?? $displayIntermentAt?->format('H:i:s')) }}</div>
       </div>
       <div class="cv-field">
         <div class="cv-field-label">Wake Duration</div>
-        <div class="cv-field-value">{{ $displayWakeDays ? $displayWakeDays . ' day(s)' : $fmtDate(null) }}</div>
+        <div class="cv-field-value">{{ $displayWakeDays !== null ? $displayWakeDays . ' day(s)' : $fmtDate(null) }}</div>
       </div>
     </div>
 

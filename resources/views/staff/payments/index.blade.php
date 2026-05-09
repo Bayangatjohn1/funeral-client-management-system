@@ -12,12 +12,14 @@
         min-height: 100%;
         height: 100%;
         width: 100%;
+        box-sizing: border-box;
+        padding: 0 var(--panel-content-inline) 20px;
     }
 
     .payments-unified-card {
         background: var(--card);
         border: 1px solid var(--border);
-        border-radius: 0;
+        border-radius: 14px;
         box-shadow: none;
         overflow: hidden;
         display: flex;

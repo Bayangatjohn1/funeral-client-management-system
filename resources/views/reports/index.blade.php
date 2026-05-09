@@ -30,22 +30,13 @@
 >
     <style>
         [x-cloak] { display: none !important; }
-        .reports-page { max-width: 1480px; margin: 0 auto; padding: 18px; display: grid; gap: 16px; }
-        .reports-hero,
+        .reports-page { max-width: none; margin: 0; padding: 12px var(--panel-content-inline, 20px) 20px; display: grid; gap: 14px; }
         .reports-card {
             background: var(--card);
             border: 1px solid var(--border);
             border-radius: 14px;
             box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
         }
-        .reports-hero { padding: 22px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
-        .reports-hero-main { display: flex; align-items: center; gap: 14px; min-width: 0; }
-        .reports-hero-icon {
-            width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center;
-            background: #eef2ff; color: #1e3a8a; font-size: 22px; flex: 0 0 auto;
-        }
-        .reports-title { margin: 0; color: var(--ink); font-family: var(--font-heading); font-size: 25px; font-weight: 700; letter-spacing: 0; }
-        .reports-subtitle { margin-top: 4px; color: var(--ink-muted); font-size: 13px; }
         .reports-role-badge {
             display: inline-flex; align-items: center; gap: 8px; border: 1px solid #dbe4ef; background: #FAFAF7;
             color: #333333; border-radius: 999px; padding: 7px 12px; font-size: 12px; font-weight: 700; white-space: nowrap;
@@ -53,17 +44,27 @@
         .reports-card-head { padding: 16px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 12px; align-items: center; }
         .reports-card-title { margin: 0; font-family: var(--font-heading); color: var(--ink); font-size: 18px; font-weight: 700; }
         .reports-card-copy { margin-top: 3px; color: var(--ink-muted); font-size: 12px; }
-        .reports-config-form { padding: 18px; display: grid; gap: 16px; }
-        .reports-config-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-        .reports-config-toolbar > .reports-field { width: min(100%, 360px); gap: 0; }
+        .reports-config-form { padding: 14px; display: grid; gap: 12px; }
+        .reports-config-toolbar { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; min-width: 0; }
+        .reports-config-toolbar > .reports-field { flex: 0 0 260px; width: 260px; gap: 0; position: relative; }
         .reports-config-toolbar > .reports-field .reports-label,
         .reports-config-toolbar > .reports-field .reports-help { display: none; }
-        .reports-config-toolbar .reports-analytics-filter { flex: 1 1 680px; min-width: 0; }
+        .reports-config-toolbar .reports-analytics-filter { flex: 1 1 auto; min-width: 0; }
         .reports-filter-grid {
-            display: flex; flex-wrap: wrap; gap: 10px; align-items: center; flex: 1 1 720px; min-width: 0;
+            display: flex; flex-wrap: nowrap; gap: 8px; align-items: center; flex: 1 1 auto; min-width: 0;
         }
-        .reports-filter-grid .reports-field { position: relative; width: auto; min-width: 154px; max-width: 240px; flex: 0 1 auto; gap: 0; }
-        .reports-filter-grid .reports-field.reports-field-wide { min-width: 210px; max-width: 300px; }
+        .reports-filter-grid [x-cloak] { display: none !important; }
+        .reports-advanced-filter-row {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 8px;
+            width: 100%;
+            margin-top: -2px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border);
+        }
+        .reports-filter-grid .reports-field { position: relative; width: auto; min-width: 0; max-width: none; flex: 1 1 122px; gap: 0; }
+        .reports-filter-grid .reports-field.reports-field-wide { flex: 1.35 1 170px; min-width: 0; max-width: none; }
         .reports-filter-grid .reports-label {
             position: absolute; top: -7px; left: 10px; z-index: 1; background: var(--card); padding: 0 5px;
             font-size: 9px; line-height: 1; color: #5F685F;
@@ -72,20 +73,20 @@
         .reports-label { color: var(--ink-muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
         .reports-help { color: var(--ink-muted); font-size: 11px; line-height: 1.35; }
         .reports-input {
-            width: 100%; min-height: 42px; border: 1px solid #dbe4ef; border-radius: 10px; background: var(--card);
-            color: var(--ink); padding: 9px 11px; font-size: 13px; outline: none; transition: border-color .16s ease, box-shadow .16s ease;
+            width: 100%; min-height: 40px; border: 1px solid #dbe4ef; border-radius: 10px; background: var(--card);
+            color: var(--ink); padding: 8px 10px; font-size: 12.5px; outline: none; transition: border-color .16s ease, box-shadow .16s ease;
         }
         .reports-input:focus { border-color: #3E4A3D; box-shadow: 0 0 0 3px rgba(37, 99, 235, .14); }
         .reports-actions {
-            display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center;
-            border-top: 1px solid var(--border); padding-top: 16px;
+            display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center;
+            border-top: 1px solid var(--border); padding-top: 12px;
         }
         .reports-action-chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-width: 0; }
         .reports-action-chips .reports-chip { display: inline-flex; align-items: center; gap: 6px; }
-        .reports-action-buttons { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; margin-left: auto; }
+        .reports-action-buttons { display: flex; flex-wrap: nowrap; gap: 8px; justify-content: flex-end; margin-left: auto; }
         .reports-btn {
-            min-height: 40px; border-radius: 10px; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center;
-            gap: 8px; font-size: 13px; font-weight: 800; border: 1px solid transparent; transition: opacity .16s ease, transform .16s ease, background .16s ease;
+            min-height: 38px; border-radius: 10px; padding: 0 12px; display: inline-flex; align-items: center; justify-content: center;
+            gap: 7px; font-size: 12.5px; font-weight: 800; border: 1px solid transparent; white-space: nowrap; transition: opacity .16s ease, transform .16s ease, background .16s ease;
         }
         .reports-btn:hover:not(:disabled) { transform: translateY(-1px); }
         .reports-btn:disabled { opacity: .48; cursor: not-allowed; }
@@ -127,9 +128,9 @@
         .reports-status-unpaid, .reports-status-draft, .reports-status-disputed { background:#fee2e2; color:#7F3A32; }
         .reports-status-neutral { background:#C9C5BB; color:#333333; }
         .reports-analytics-filter { display: grid; gap: 12px; }
-        .reports-analytics-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        .reports-analytics-bar { display: flex; flex-wrap: nowrap; gap: 8px; align-items: center; min-width: 0; }
         .reports-analytics-branch {
-            min-height: 42px; min-width: 160px; display: inline-flex; align-items: center; gap: 8px; position: relative;
+            min-height: 40px; min-width: 150px; display: inline-flex; align-items: center; gap: 8px; position: relative;
             border: 1px solid #dbe4ef; border-radius: 10px; background: #fff; color: #333333; padding: 0 34px 0 12px;
         }
         .reports-analytics-select {
@@ -137,17 +138,24 @@
             font-size: 13px; font-weight: 800; cursor: pointer;
         }
         .reports-analytics-select-chev { position: absolute; right: 12px; pointer-events: none; color: #5F685F; font-size: 12px; }
-        .reports-analytics-seg { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .reports-analytics-seg { display: inline-flex; flex-wrap: nowrap; gap: 6px; align-items: center; min-width: 0; }
         .reports-analytics-seg-item,
         .reports-analytics-more {
-            min-height: 42px; border: 1px solid #dbe4ef; border-radius: 10px; background: #fff; color: #333333;
+            min-height: 40px; border: 1px solid #dbe4ef; border-radius: 10px; background: #fff; color: #333333;
             display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 13px;
-            font-size: 13px; font-weight: 800; transition: background .16s ease, border-color .16s ease, color .16s ease, transform .16s ease;
+            font-size: 12.5px; font-weight: 800; white-space: nowrap; transition: background .16s ease, border-color .16s ease, color .16s ease, transform .16s ease;
         }
         .reports-analytics-seg-item:hover,
         .reports-analytics-more:hover { transform: translateY(-1px); border-color: #7A8076; }
         .reports-analytics-seg-item.active,
         .reports-analytics-more.active { background: #3E4A3D; border-color: #3E4A3D; color: #fff; }
+        .reports-more-filters {
+            min-height: 40px; border: 1px solid #dbe4ef; border-radius: 10px; background: #fff; color: #333333;
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 12px;
+            font-size: 12.5px; font-weight: 800; white-space: nowrap; transition: background .16s ease, border-color .16s ease, color .16s ease, transform .16s ease;
+        }
+        .reports-more-filters:hover { transform: translateY(-1px); border-color: #7A8076; }
+        .reports-more-filters.active { background: #3E4A3D; border-color: #3E4A3D; color: #fff; }
         .reports-analytics-custom { position: relative; }
         .reports-analytics-date-chev { font-size: 11px; }
         .reports-analytics-popover {
@@ -174,10 +182,19 @@
         .reports-analytics-advanced {
             display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding-top: 4px;
         }
-        @media (max-width: 1180px) { .reports-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 1180px) {
+            .reports-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .reports-config-toolbar,
+            .reports-filter-grid,
+            .reports-analytics-bar,
+            .reports-analytics-seg,
+            .reports-action-buttons { flex-wrap: wrap; }
+            .reports-config-toolbar > .reports-field { flex: 1 1 240px; width: auto; }
+            .reports-filter-grid .reports-field { flex: 1 1 150px; }
+            .reports-advanced-filter-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
         @media (max-width: 720px) {
-            .reports-page { padding: 12px; }
-            .reports-hero { align-items: flex-start; flex-direction: column; }
+            .reports-page { padding: 10px var(--panel-content-inline, 16px) 16px; }
             .reports-config-toolbar > .reports-field,
             .reports-config-toolbar .reports-analytics-filter,
             .reports-filter-grid,
@@ -190,6 +207,7 @@
             .reports-analytics-more { width: 100%; }
             .reports-analytics-advanced { grid-template-columns: 1fr; }
             .reports-analytics-popover { left: 0; right: auto; }
+            .reports-advanced-filter-row { grid-template-columns: 1fr; }
             .reports-actions { justify-content: stretch; }
             .reports-action-chips,
             .reports-action-buttons { width: 100%; margin-left: 0; }
@@ -197,25 +215,15 @@
         }
     </style>
 
-    <header class="reports-hero">
-        <div class="reports-hero-main">
-            <div class="reports-hero-icon"><i class="bi bi-file-earmark-bar-graph"></i></div>
-            <div>
-                <h1 class="reports-title">Reports</h1>
-                <div class="reports-subtitle">Generate, preview, and export filtered operational reports.</div>
-            </div>
-        </div>
-        <div class="reports-role-badge">
-            <i class="bi bi-shield-check"></i>
-            <span x-text="userRole === 'owner' ? 'Owner View' : 'Administrator View'"></span>
-        </div>
-    </header>
-
     <section class="reports-card">
         <div class="reports-card-head">
             <div>
                 <h2 class="reports-card-title">Report Configuration</h2>
                 <div class="reports-card-copy">Choose a report type and apply server-side filters before previewing.</div>
+            </div>
+            <div class="reports-role-badge">
+                <i class="bi bi-shield-check"></i>
+                <span x-text="userRole === 'owner' ? 'Owner View' : 'Administrator View'"></span>
             </div>
         </div>
 
@@ -278,75 +286,6 @@
                     </div>
                 </template>
 
-                <template x-if="shows('case_status')">
-                    <div class="reports-field">
-                        <label class="reports-label" for="case_status">Case Status</label>
-                        <select id="case_status" x-model="filters.case_status" class="reports-input">
-                            <option value="">All Case Statuses</option>
-                            <option value="DRAFT">Draft</option>
-                            <option value="ACTIVE">Active</option>
-                            <option value="COMPLETED">Completed</option>
-                        </select>
-                    </div>
-                </template>
-
-                <template x-if="shows('verification_status')">
-                    <div class="reports-field">
-                        <label class="reports-label" for="verification_status">Verification Status</label>
-                        <select id="verification_status" x-model="filters.verification_status" class="reports-input">
-                            <option value="">All Verification</option>
-                            <option value="PENDING">Pending</option>
-                            <option value="VERIFIED">Verified</option>
-                            <option value="DISPUTED">Disputed</option>
-                        </select>
-                    </div>
-                </template>
-
-                <template x-if="shows('package_id')">
-                    <div class="reports-field reports-field-wide">
-                        <label class="reports-label" for="package_id">Package</label>
-                        <select id="package_id" x-model="filters.package_id" class="reports-input">
-                            <option value="">All Packages</option>
-                            <template x-for="pkg in packages" :key="pkg.id">
-                                <option :value="pkg.id" x-text="pkg.name"></option>
-                            </template>
-                        </select>
-                    </div>
-                </template>
-
-                <template x-if="shows('service_type')">
-                    <div class="reports-field reports-field-wide">
-                        <label class="reports-label" for="service_type">Service Type</label>
-                        <input id="service_type" type="text" x-model="filters.service_type" class="reports-input" placeholder="Burial, cremation, transfer">
-                    </div>
-                </template>
-
-                <template x-if="shows('encoded_by')">
-                    <div class="reports-field reports-field-wide">
-                        <label class="reports-label" for="encoded_by">Encoded By</label>
-                        <select id="encoded_by" x-model="filters.encoded_by" class="reports-input">
-                            <option value="">All Users</option>
-                            <template x-for="user in users" :key="user.id">
-                                <option :value="user.id" x-text="user.name"></option>
-                            </template>
-                        </select>
-                    </div>
-                </template>
-
-                <template x-if="shows('interment_range')">
-                    <div class="reports-field">
-                        <label class="reports-label" for="interment_from">Interment From</label>
-                        <input id="interment_from" type="date" x-model="filters.interment_from" class="reports-input">
-                    </div>
-                </template>
-
-                <template x-if="shows('interment_range')">
-                    <div class="reports-field">
-                        <label class="reports-label" for="interment_to">Interment To</label>
-                        <input id="interment_to" type="date" x-model="filters.interment_to" class="reports-input">
-                    </div>
-                </template>
-
                 <template x-if="shows('audit_user') && auditOptions.supports_user">
                     <div class="reports-field reports-field-wide">
                         <label class="reports-label" for="user_id">Audit User</label>
@@ -358,32 +297,114 @@
                         </select>
                     </div>
                 </template>
-
-                <template x-if="shows('audit_action') && auditOptions.supports_action">
-                    <div class="reports-field">
-                        <label class="reports-label" for="action">Action</label>
-                        <input id="action" type="text" x-model="filters.action" list="audit-actions" class="reports-input" placeholder="Search action">
-                        <datalist id="audit-actions">
-                            <template x-for="action in auditOptions.actions" :key="action">
-                                <option :value="action"></option>
-                            </template>
-                        </datalist>
-                    </div>
-                </template>
-
-                <template x-if="shows('audit_module') && auditOptions.supports_module">
-                    <div class="reports-field reports-field-wide">
-                        <label class="reports-label" for="module">Module</label>
-                        <input id="module" type="text" x-model="filters.module" list="audit-modules" class="reports-input" placeholder="Module or entity">
-                        <datalist id="audit-modules">
-                            <template x-for="module in auditOptions.modules" :key="module">
-                                <option :value="module"></option>
-                            </template>
-                        </datalist>
-                    </div>
-                </template>
+                <button
+                    type="button"
+                    class="reports-more-filters"
+                    :class="{ 'active': advancedFiltersOpen }"
+                    x-show="hasAdvancedFilters()"
+                    x-cloak
+                    @click="advancedFiltersOpen = !advancedFiltersOpen"
+                >
+                    <i class="bi bi-sliders"></i>
+                    <span>More Filters</span>
+                    <i class="bi bi-chevron-down"></i>
+                </button>
                 </div>
             </div>
+                <div class="reports-advanced-filter-row" x-show="advancedFiltersOpen && hasAdvancedFilters()" x-cloak>
+                    <template x-if="shows('case_status')">
+                        <div class="reports-field">
+                            <label class="reports-label" for="case_status">Case Status</label>
+                            <select id="case_status" x-model="filters.case_status" class="reports-input">
+                                <option value="">All Case Statuses</option>
+                                <option value="DRAFT">Draft</option>
+                                <option value="ACTIVE">Active</option>
+                                <option value="COMPLETED">Completed</option>
+                            </select>
+                        </div>
+                    </template>
+
+                    <template x-if="shows('verification_status')">
+                        <div class="reports-field">
+                            <label class="reports-label" for="verification_status">Verification Status</label>
+                            <select id="verification_status" x-model="filters.verification_status" class="reports-input">
+                                <option value="">All Verification</option>
+                                <option value="PENDING">Pending</option>
+                                <option value="VERIFIED">Verified</option>
+                                <option value="DISPUTED">Disputed</option>
+                            </select>
+                        </div>
+                    </template>
+
+                    <template x-if="shows('package_id')">
+                        <div class="reports-field">
+                            <label class="reports-label" for="package_id">Package</label>
+                            <select id="package_id" x-model="filters.package_id" class="reports-input">
+                                <option value="">All Packages</option>
+                                <template x-for="pkg in packages" :key="pkg.id">
+                                    <option :value="pkg.id" x-text="pkg.name"></option>
+                                </template>
+                            </select>
+                        </div>
+                    </template>
+
+                    <template x-if="shows('service_type')">
+                        <div class="reports-field">
+                            <label class="reports-label" for="service_type">Service Type</label>
+                            <input id="service_type" type="text" x-model="filters.service_type" class="reports-input" placeholder="Burial">
+                        </div>
+                    </template>
+
+                    <template x-if="shows('encoded_by')">
+                        <div class="reports-field">
+                            <label class="reports-label" for="encoded_by">Encoded By</label>
+                            <select id="encoded_by" x-model="filters.encoded_by" class="reports-input">
+                                <option value="">All Users</option>
+                                <template x-for="user in users" :key="user.id">
+                                    <option :value="user.id" x-text="user.name"></option>
+                                </template>
+                            </select>
+                        </div>
+                    </template>
+
+                    <template x-if="shows('interment_range')">
+                        <div class="reports-field">
+                            <label class="reports-label" for="interment_from">Interment From</label>
+                            <input id="interment_from" type="date" x-model="filters.interment_from" class="reports-input">
+                        </div>
+                    </template>
+
+                    <template x-if="shows('interment_range')">
+                        <div class="reports-field">
+                            <label class="reports-label" for="interment_to">Interment To</label>
+                            <input id="interment_to" type="date" x-model="filters.interment_to" class="reports-input">
+                        </div>
+                    </template>
+
+                    <template x-if="shows('audit_action') && auditOptions.supports_action">
+                        <div class="reports-field">
+                            <label class="reports-label" for="action">Action</label>
+                            <input id="action" type="text" x-model="filters.action" list="audit-actions" class="reports-input" placeholder="Search action">
+                            <datalist id="audit-actions">
+                                <template x-for="action in auditOptions.actions" :key="action">
+                                    <option :value="action"></option>
+                                </template>
+                            </datalist>
+                        </div>
+                    </template>
+
+                    <template x-if="shows('audit_module') && auditOptions.supports_module">
+                        <div class="reports-field">
+                            <label class="reports-label" for="module">Module</label>
+                            <input id="module" type="text" x-model="filters.module" list="audit-modules" class="reports-input" placeholder="Module or entity">
+                            <datalist id="audit-modules">
+                                <template x-for="module in auditOptions.modules" :key="module">
+                                    <option :value="module"></option>
+                                </template>
+                            </datalist>
+                        </div>
+                    </template>
+                </div>
 
             <div class="reports-actions">
                 <div class="reports-action-chips" x-show="activeToolbarChips().length" x-cloak>
@@ -575,6 +596,7 @@ function reportsModule(config) {
                 this.filters.report_type = config.defaultReportType;
             }
             this.enforceAssignedBranch();
+            this.applyReportDefaults();
             this.reportType = this.filters.report_type;
             if (this.isOwnerAnalytics()) {
                 this.syncAnalyticsPresetFromDates();
@@ -598,8 +620,36 @@ function reportsModule(config) {
             };
             return (map[this.filters.report_type] || []).includes(field);
         },
+        isAdvancedField(field) {
+            const map = {
+                sales: ['case_status', 'package_id', 'service_type'],
+                master_cases: ['case_status', 'verification_status', 'package_id', 'service_type', 'encoded_by', 'interment_range'],
+                audit_logs: ['audit_action', 'audit_module'],
+                owner_branch_analytics: [],
+            };
+            return (map[this.filters.report_type] || []).includes(field);
+        },
+        hasAdvancedFilters() {
+            const map = {
+                sales: ['case_status', 'package_id', 'service_type'],
+                master_cases: ['case_status', 'verification_status', 'package_id', 'service_type', 'encoded_by', 'interment_range'],
+                audit_logs: ['audit_action', 'audit_module'],
+                owner_branch_analytics: [],
+            };
+            return (map[this.filters.report_type] || []).some((field) => {
+                if (field === 'audit_action') return Boolean(this.auditOptions.supports_action);
+                if (field === 'audit_module') return Boolean(this.auditOptions.supports_module);
+                return this.shows(field);
+            });
+        },
+        applyReportDefaults() {
+            if (this.shows('service_type') && !this.filters.service_type) {
+                this.filters.service_type = 'Burial';
+            }
+        },
         params() {
             this.enforceAssignedBranch();
+            this.applyReportDefaults();
             return Object.fromEntries(Object.entries(this.filters).filter(([, value]) => value !== '' && value !== null));
         },
         async loadPreview() {
@@ -643,6 +693,7 @@ function reportsModule(config) {
             Object.keys(this.filters).forEach((key) => this.filters[key] = '');
             this.filters.report_type = reportType;
             this.enforceAssignedBranch();
+            this.applyReportDefaults();
             this.reportType = reportType;
             this.datePreset = '';
             this.customRangeOpen = false;
@@ -668,6 +719,7 @@ function reportsModule(config) {
             Object.keys(this.filters).forEach((key) => this.filters[key] = '');
             this.filters.report_type = reportType;
             this.enforceAssignedBranch();
+            this.applyReportDefaults();
             this.reportType = reportType;
             this.datePreset = '';
             this.customRangeOpen = false;

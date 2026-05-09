@@ -597,8 +597,15 @@ class PaymentController extends Controller
             }
         }
 
-        try {
-            DB::transaction(function () use ($validated, $paymentDetails, $receiptOrNo) {
+        $saved = false;
+        $attempt = 0;
+        $maxRetries = 3;
+
+        do {
+            $attempt++;
+
+            try {
+                DB::transaction(function () use ($validated, $paymentDetails, $receiptOrNo) {
                 $user = auth()->user();
                 $branchScopeIds = $this->paymentWriteBranchIds($user);
 
@@ -730,8 +737,44 @@ class PaymentController extends Controller
                     null,
                     'Payment recorded'
                 );
-            });
-        } catch (\RuntimeException $e) {
+                });
+
+                $saved = true;
+                break;
+            } catch (\Illuminate\Database\QueryException $e) {
+                if ($attempt < $maxRetries && $this->isDuplicatePaymentRecordNoException($e)) {
+                    Log::warning('payment.payment_record_no_collision', [
+                        'case_id' => $validated['funeral_case_id'] ?? null,
+                        'attempt' => $attempt,
+                    ]);
+                    continue;
+                }
+
+                $caseId = $validated['funeral_case_id'] ?? null;
+                Log::error('payment.store_failed', [
+                    'case_id' => $caseId,
+                    'amount'  => $validated['amount_paid'] ?? null,
+                    'error'   => $e->getMessage(),
+                ]);
+                AuditLogger::log(
+                    'payment.create_failed',
+                    'create',
+                    'payment',
+                    null,
+                    [
+                        'case_id' => $caseId,
+                        'amount' => $validated['amount_paid'] ?? null,
+                        'error' => $e->getMessage(),
+                    ],
+                    null,
+                    null,
+                    'failed',
+                    $e->getMessage(),
+                    'Payment record failed'
+                );
+
+                return back()->withErrors(['payment' => 'Failed to save payment record. Please try again.'])->withInput();
+            } catch (\RuntimeException $e) {
             $caseId = $validated['funeral_case_id'] ?? null;
             Log::error('payment.store_failed', [
                 'case_id' => $caseId,
@@ -755,6 +798,11 @@ class PaymentController extends Controller
                 'Payment record failed'
             );
             return back()->withErrors(['payment' => $e->getMessage()])->withInput();
+            }
+        } while ($attempt < $maxRetries);
+
+        if (! $saved) {
+            return back()->withErrors(['payment' => 'Failed to save payment record. Please try again.'])->withInput();
         }
 
         if ($request->boolean('return_to_case')) {
@@ -769,6 +817,17 @@ class PaymentController extends Controller
         }
 
         return redirect()->route('payments.index')->with('success', 'Payment recorded successfully.');
+    }
+
+    private function isDuplicatePaymentRecordNoException(\Illuminate\Database\QueryException $e): bool
+    {
+        $driverCode = (int) ($e->errorInfo[1] ?? 0);
+        if ($driverCode !== 1062) {
+            return false;
+        }
+
+        return str_contains($e->getMessage(), 'payments_payment_record_no_unique')
+            || str_contains($e->getMessage(), 'payment_record_no');
     }
 
     private function paymentViewBranchIds($user): array

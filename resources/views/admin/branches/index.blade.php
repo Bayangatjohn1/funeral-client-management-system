@@ -28,19 +28,19 @@
     @foreach($branchKpis as $kpi)
         <a
             href="{{ $kpi['href'] }}"
-            class="group bg-white border border-slate-200 rounded-xl p-5 flex flex-col gap-4 transition-colors hover:border-[var(--brand-mid)] hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[var(--brand-mid)] focus:ring-offset-2"
+            class="group bg-white border border-slate-200 rounded-xl p-4 flex flex-col gap-3 transition-colors hover:border-[var(--brand-mid)] hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[var(--brand-mid)] focus:ring-offset-2"
         >
             <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0">
                     <span class="text-[11px] font-semibold uppercase tracking-widest text-slate-400">{{ $kpi['label'] }}</span>
                     <div class="mt-2 text-3xl font-bold text-slate-900 leading-none truncate">{{ $kpi['value'] }}</div>
                 </div>
-                <span class="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-[var(--brand-mid)]">
+                <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-[var(--brand-mid)]">
                     <i class="bi {{ $kpi['icon'] }}"></i>
                 </span>
             </div>
             <div class="space-y-1">
-                <p class="text-sm font-semibold text-slate-800 truncate">{{ $kpi['insight'] }}</p>
+                <p class="text-xs font-semibold text-slate-800 truncate">{{ $kpi['insight'] }}</p>
                 <p class="text-xs text-slate-500">{{ $kpi['comparison'] }}</p>
             </div>
             <div class="mt-auto inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-widest text-slate-400 group-hover:text-[var(--brand-mid)]">
@@ -175,8 +175,7 @@
         x-transition:enter="transition ease-out duration-200"
         x-transition:enter-start="opacity-0 translate-y-2"
         x-transition:enter-end="opacity-100 translate-y-0"
-        class="mt-4 p-6"
-        style="border-top: 1px solid var(--border)"
+        class="branch-directory-card-view"
     >
 
         @if($branches->isEmpty())
@@ -296,7 +295,7 @@
             </div>
 
             {{-- Card view pagination --}}
-            <div class="mt-6">
+            <div class="table-system-pagination branch-card-pagination">
                 {{ $branches->links() }}
             </div>
         @endif

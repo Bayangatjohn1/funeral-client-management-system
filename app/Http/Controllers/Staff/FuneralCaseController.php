@@ -537,23 +537,6 @@ class FuneralCaseController extends Controller
 
     public function show(FuneralCase $funeral_case)
     {
-        $user = auth()->user();
-        $operationalBranchId = (int) ($user->operationalBranchId() ?? 0);
-        $allowedBranchIds = method_exists($user, 'branchScopeIds')
-            ? array_map('intval', $user->branchScopeIds())
-            : array_filter([$operationalBranchId]);
-
-        if (
-            ($funeral_case->entry_source ?? 'MAIN') === 'MAIN'
-            && !in_array((int) $funeral_case->branch_id, $allowedBranchIds, true)
-        ) {
-            abort(403);
-        }
-
-        if (($funeral_case->entry_source ?? 'MAIN') === 'OTHER_BRANCH' && !$user->canEncodeAnyBranch()) {
-            abort(403);
-        }
-
         $funeral_case->load(['client', 'deceased', 'branch', 'reportedBranch', 'encodedBy', 'payments.recordedBy', 'payments.encodedBy', 'package', 'serviceDetail']);
 
         return view('staff.funeral_cases.show', compact('funeral_case'));
@@ -587,6 +570,9 @@ class FuneralCaseController extends Controller
 
     public function store(Request $request)
     {
+        $serverRequestDate = now()->toDateString();
+        $request->merge(['service_requested_at' => $serverRequestDate]);
+
         $validated = $request->validate([
             'client_id' => 'required|exists:clients,id',
             'deceased_id' => 'required|exists:deceased,id',
@@ -879,6 +865,11 @@ class FuneralCaseController extends Controller
             ]);
         }
 
+        $serverRequestDate = $funeral_case->service_requested_at?->toDateString()
+            ?? $funeral_case->created_at?->toDateString()
+            ?? now()->toDateString();
+        $request->merge(['service_requested_at' => $serverRequestDate]);
+
         $validated = $request->validate([
             'client_id' => 'required|exists:clients,id',
             'deceased_id' => 'required|exists:deceased,id',
@@ -886,8 +877,12 @@ class FuneralCaseController extends Controller
             'case_status' => 'required|in:DRAFT,ACTIVE,COMPLETED',
             'date_of_death' => 'required|date|before_or_equal:today',
             'service_requested_at' => 'required|date|before_or_equal:today',
-            'funeral_service_at' => 'required|date|after_or_equal:date_of_death',
-            'interment_at' => 'required|date|after_or_equal:funeral_service_at',
+            'wake_start_date' => 'nullable|date',
+            'wake_start_time' => 'nullable|date_format:H:i',
+            'funeral_service_at' => 'required|date',
+            'funeral_service_time' => 'nullable|date_format:H:i',
+            'interment_at' => 'required|date',
+            'interment_time' => 'nullable|date_format:H:i',
             'is_backdated_entry' => 'nullable|boolean',
             'backdated_entry_reason' => 'required_if:is_backdated_entry,1|nullable|string|max:500',
         ], [
@@ -895,10 +890,12 @@ class FuneralCaseController extends Controller
             'date_of_death.before_or_equal' => 'Date of death cannot be in the future.',
             'service_requested_at.required' => 'Request date is required.',
             'service_requested_at.before_or_equal' => 'Request date cannot be in the future.',
-            'funeral_service_at.required' => 'Funeral service date is required.',
-            'funeral_service_at.after_or_equal' => 'Funeral service date must be on or after the date of death.',
-            'interment_at.required' => 'Interment date and time is required.',
-            'interment_at.after_or_equal' => 'Interment date must be on or after the funeral service date.',
+            'wake_start_date.required' => 'Please select a wake start date and time.',
+            'wake_start_time.required' => 'Please select a wake start date and time.',
+            'funeral_service_at.required' => 'Please select a funeral service date and time.',
+            'funeral_service_time.required' => 'Please select a funeral service date and time.',
+            'interment_at.required' => 'Please select an interment date and time.',
+            'interment_time.required' => 'Please select an interment date and time.',
             'backdated_entry_reason.required_if' => 'Please provide a reason for a backdated request entry.',
         ]);
 
@@ -930,8 +927,8 @@ class FuneralCaseController extends Controller
             ->resolve($package, $this->resolveDeceasedAge($deceased), $subtotal, now());
         $discount = (float) $discountPayload['discount_amount'];
         $total = round(max($subtotal - $discount, 0), 2);
-        $originalRequestDate = $funeral_case->service_requested_at?->toDateString();
-        $serviceRequestedAt = Carbon::parse($validated['service_requested_at'])->toDateString();
+        $originalRequestDate = $serverRequestDate;
+        $serviceRequestedAt = $serverRequestDate;
         if (
             $serviceRequestedAt !== $originalRequestDate
             && Carbon::parse($serviceRequestedAt)->lt(today())
@@ -950,8 +947,40 @@ class FuneralCaseController extends Controller
         ])->save();
 
         $wakeLocation = $funeral_case->wake_location ?: $this->resolveLegacyWakeLocation($client);
+        $scheduleWasEdited = $this->scheduleWasEdited($funeral_case, $validated);
+        if ($scheduleWasEdited) {
+            foreach ([
+                'wake_start_date' => 'Please select a wake start date and time.',
+                'wake_start_time' => 'Please select a wake start date and time.',
+                'funeral_service_time' => 'Please select a funeral service date and time.',
+                'interment_time' => 'Please select an interment date and time.',
+            ] as $field => $message) {
+                if (blank($validated[$field] ?? null)) {
+                    return back()->withErrors([$field => $message])->withInput();
+                }
+            }
+        }
+
         $funeralServiceAt = Carbon::parse($validated['funeral_service_at'])->toDateString();
-        $intermentAt = Carbon::parse($validated['interment_at']);
+        $intermentAt = $scheduleWasEdited
+            ? $this->combineScheduleDateTime($validated['interment_at'], $validated['interment_time'])
+            : $this->combineScheduleDateTime(
+                $validated['interment_at'],
+                $funeral_case->interment_at?->format('H:i') ?? '00:00'
+            );
+
+        if ($scheduleWasEdited) {
+            $scheduleError = $this->validateScheduleOrder($validated);
+            if ($scheduleError !== null) {
+                return back()->withErrors($scheduleError)->withInput();
+            }
+        }
+        $wakeDays = $scheduleWasEdited
+            ? $this->resolveWakeDays($validated['wake_start_date'] ?? null, $validated['funeral_service_at'] ?? null)
+            : $funeral_case->deceased?->wake_days;
+        $serviceDetailWakeStart = $scheduleWasEdited
+            ? Carbon::parse($validated['wake_start_date'])->toDateString()
+            : ($funeral_case->wake_start_date?->toDateString() ?? $funeralServiceAt);
 
         $payment = $this->computePaymentFields($total, (float) $funeral_case->total_paid);
         $hasDuplicateOpenCase = FuneralCase::query()
@@ -975,8 +1004,12 @@ class FuneralCaseController extends Controller
             'package_id',
             'branch_id',
             'service_requested_at',
+            'wake_start_date',
+            'wake_start_time',
             'funeral_service_at',
+            'funeral_service_time',
             'interment_at',
+            'interment_time',
         ];
         $beforeValues = [];
         foreach ($trackFields as $field) {
@@ -992,8 +1025,12 @@ class FuneralCaseController extends Controller
             'coffin_type' => $package->coffin_type,
             'service_requested_at' => $serviceRequestedAt,
             'wake_location' => $wakeLocation,
+            'wake_start_date' => $scheduleWasEdited ? Carbon::parse($validated['wake_start_date'])->toDateString() : $funeral_case->wake_start_date,
+            'wake_start_time' => $scheduleWasEdited ? $this->formatTimeForStorage($validated['wake_start_time'] ?? null) : $funeral_case->wake_start_time,
             'funeral_service_at' => $funeralServiceAt,
+            'funeral_service_time' => $scheduleWasEdited ? $this->formatTimeForStorage($validated['funeral_service_time'] ?? null) : $funeral_case->funeral_service_time,
             'interment_at' => $intermentAt,
+            'interment_time' => $scheduleWasEdited ? $this->formatTimeForStorage($validated['interment_time'] ?? null) : $funeral_case->interment_time,
             'subtotal_amount' => $subtotal,
             'discount_type' => $discountPayload['discount_type'],
             'discount_value_type' => $discountPayload['discount_value_type'],
@@ -1015,9 +1052,10 @@ class FuneralCaseController extends Controller
         $funeral_case->serviceDetail()->updateOrCreate(
             ['funeral_case_id' => $funeral_case->id],
             [
-                'start_of_wake' => $funeralServiceAt,
+                'start_of_wake' => $serviceDetailWakeStart,
                 'internment_date' => $intermentAt?->toDateString(),
                 'wake_location' => $wakeLocation,
+                'wake_days' => $wakeDays,
                 'cemetery_place' => $request->input('place_of_cemetery'),
                 'case_status' => match ($funeral_case->case_status) {
                     'ACTIVE' => 'ongoing',
@@ -1026,6 +1064,14 @@ class FuneralCaseController extends Controller
                 },
             ]
         );
+
+        if ($scheduleWasEdited && $deceased) {
+            $deceased->forceFill([
+                'interment' => $intermentAt?->toDateString(),
+                'interment_at' => $intermentAt,
+                'wake_days' => $wakeDays,
+            ])->save();
+        }
 
         $changes = [];
         foreach ($trackFields as $field) {
@@ -1193,5 +1239,90 @@ class FuneralCaseController extends Controller
         }
 
         return $fallbackDate;
+    }
+
+    private function scheduleWasEdited(FuneralCase $case, array $validated): bool
+    {
+        $current = [
+            'wake_start_date' => $case->wake_start_date?->toDateString(),
+            'wake_start_time' => $this->normalizeTimeForComparison($case->wake_start_time),
+            'funeral_service_at' => $case->funeral_service_at?->toDateString(),
+            'funeral_service_time' => $this->normalizeTimeForComparison($case->funeral_service_time),
+            'interment_at' => $case->interment_at?->toDateString(),
+            'interment_time' => $this->normalizeTimeForComparison($case->interment_time),
+        ];
+
+        foreach ($current as $field => $oldValue) {
+            $newValue = $field === 'interment_at' || str_ends_with($field, '_date') || $field === 'funeral_service_at'
+                ? (! blank($validated[$field] ?? null) ? Carbon::parse($validated[$field])->toDateString() : null)
+                : $this->normalizeTimeForComparison($validated[$field] ?? null);
+
+            if ($newValue !== $oldValue) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function validateScheduleOrder(array $validated): ?array
+    {
+        $requestDate = Carbon::parse($validated['service_requested_at'])->startOfDay();
+        $wakeStart = $this->combineScheduleDateTime($validated['wake_start_date'], $validated['wake_start_time']);
+        $funeralService = $this->combineScheduleDateTime($validated['funeral_service_at'], $validated['funeral_service_time']);
+        $interment = $this->combineScheduleDateTime($validated['interment_at'], $validated['interment_time']);
+
+        if ($requestDate->gt($wakeStart->copy()->startOfDay())) {
+            return ['wake_start_date' => 'Wake start date cannot be before the request/recorded date.'];
+        }
+
+        if ($funeralService->lt($wakeStart)) {
+            return ['funeral_service_at' => 'Funeral service date/time cannot be before the wake start date/time.'];
+        }
+
+        if ($interment->lt($funeralService)) {
+            return ['interment_at' => 'Interment date/time cannot be before the funeral service date/time.'];
+        }
+
+        return null;
+    }
+
+    private function resolveWakeDays(?string $wakeStartDate, ?string $funeralServiceDate): ?int
+    {
+        if (!$wakeStartDate || !$funeralServiceDate) {
+            return null;
+        }
+
+        $wakeDate = Carbon::parse($wakeStartDate)->startOfDay();
+        $serviceDate = Carbon::parse($funeralServiceDate)->startOfDay();
+
+        if ($serviceDate->lt($wakeDate)) {
+            return null;
+        }
+
+        return min(365, $wakeDate->diffInDays($serviceDate));
+    }
+
+    private function combineScheduleDateTime(?string $date, ?string $time): Carbon
+    {
+        return Carbon::createFromFormat('Y-m-d H:i', Carbon::parse($date)->toDateString() . ' ' . substr((string) $time, 0, 5));
+    }
+
+    private function formatTimeForStorage(?string $time): ?string
+    {
+        if (!$time) {
+            return null;
+        }
+
+        return Carbon::createFromFormat('H:i', substr($time, 0, 5))->format('H:i:s');
+    }
+
+    private function normalizeTimeForComparison(mixed $time): ?string
+    {
+        if (blank($time)) {
+            return null;
+        }
+
+        return substr((string) $time, 0, 5);
     }
 }

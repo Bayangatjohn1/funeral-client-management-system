@@ -168,7 +168,7 @@
     {{-- ═══════════════════════════════════════════
          CARD VIEW
     ═══════════════════════════════════════════ --}}
-    <div x-show="view === 'card'" x-cloak class="p-6" style="border-top: 1px solid var(--border)">
+    <div x-show="view === 'card'" x-cloak class="directory-card-view">
 
         @if($packages->isEmpty())
             {{-- Empty state --}}
@@ -375,7 +375,7 @@
             </div>
 
             {{-- Card view pagination --}}
-            <div class="mt-6">
+            <div class="table-system-pagination directory-card-pagination">
                 {{ $packages->links() }}
             </div>
         @endif
@@ -512,9 +512,9 @@
                     </tbody>
                 </table>
             </div>
-        </div>
-        <div class="table-system-pagination">
-            {{ $packages->links() }}
+            <div class="table-system-pagination">
+                {{ $packages->links() }}
+            </div>
         </div>
     </div>
 

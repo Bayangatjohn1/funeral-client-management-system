@@ -67,10 +67,29 @@
 
         <section>
             <h3 class="text-sm font-bold uppercase border-b border-black mb-4 pb-1">2. Interment & Service Details</h3>
+            @php
+                $case = $deceased->funeralCase;
+                $wakeStartDate = $case?->wake_start_date?->format('F d, Y') ?? 'Not set';
+                $wakeStartTime = $case?->wake_start_time ? \Carbon\Carbon::parse($case->wake_start_time)->format('h:i A') : 'Time not set';
+                $serviceDate = $case?->funeral_service_at?->format('F d, Y') ?? 'Not set';
+                $serviceTime = $case?->funeral_service_time ? \Carbon\Carbon::parse($case->funeral_service_time)->format('h:i A') : 'Time not set';
+                $intermentDate = $case?->interment_at?->format('F d, Y') ?? $deceased->interment?->format('F d, Y') ?? 'Not set';
+                $intermentTime = $case?->interment_time
+                    ? \Carbon\Carbon::parse($case->interment_time)->format('h:i A')
+                    : ($deceased->interment_at?->format('h:i A') ?? 'Time not set');
+            @endphp
             <div class="grid grid-cols-2 gap-x-12 gap-y-3">
                 <div class="py-1 flex justify-between">
-                    <span class="text-sm text-gray-600">Funeral Service Date:</span>
-                    <span class="text-sm font-bold">{{ $deceased->funeralCase?->funeral_service_at?->format('F d, Y') ?? '—' }}</span>
+                    <span class="text-sm text-gray-600">Request Date / Date Recorded:</span>
+                    <span class="text-sm font-bold">{{ $case?->service_requested_at?->format('F d, Y') ?? $case?->created_at?->format('F d, Y') ?? 'Not set' }}</span>
+                </div>
+                <div class="py-1 flex justify-between">
+                    <span class="text-sm text-gray-600">Wake Start Date &amp; Time:</span>
+                    <span class="text-sm font-bold">{{ $wakeStartDate }} at {{ $wakeStartTime }}</span>
+                </div>
+                <div class="py-1 flex justify-between">
+                    <span class="text-sm text-gray-600">Funeral Service Date &amp; Time:</span>
+                    <span class="text-sm font-bold">{{ $serviceDate }} at {{ $serviceTime }}</span>
                 </div>
                 <div class="py-1 flex justify-between">
                     <span class="text-sm text-gray-600">Service Type:</span>
@@ -86,11 +105,11 @@
                 </div>
                 <div class="py-1 flex justify-between">
                     <span class="text-sm text-gray-600">Interment Date:</span>
-                    <span class="text-sm font-bold">{{ $deceased->interment_at?->format('F d, Y') ?? '—' }}</span>
+                    <span class="text-sm font-bold">{{ $intermentDate }}</span>
                 </div>
                 <div class="py-1 flex justify-between">
                     <span class="text-sm text-gray-600">Interment Time:</span>
-                    <span class="text-sm font-bold">{{ $deceased->interment_at?->format('h:i A') ?? '—' }}</span>
+                    <span class="text-sm font-bold">{{ $intermentTime }}</span>
                 </div>
                 <div class="py-1 flex justify-between">
                     <span class="text-sm text-gray-600">Cemetery / Location:</span>
@@ -237,4 +256,3 @@
 </script>
 
 @endsection
-

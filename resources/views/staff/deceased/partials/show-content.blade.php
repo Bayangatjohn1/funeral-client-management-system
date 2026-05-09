@@ -82,18 +82,27 @@
             <h3 class="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">Service Details</h3>
         </div>
         <div class="p-8 space-y-8">
+            @php
+                $case = $deceased->funeralCase;
+                $wakeStartDate = $case?->wake_start_date?->format('l, F d, Y') ?? 'Not set';
+                $wakeStartTime = $case?->wake_start_time ? \Carbon\Carbon::parse($case->wake_start_time)->format('h:i A') : 'Time not set';
+                $serviceDate = $case?->funeral_service_at?->format('l, F d, Y') ?? 'Not set';
+                $serviceTime = $case?->funeral_service_time ? \Carbon\Carbon::parse($case->funeral_service_time)->format('h:i A') : 'Time not set';
+                $intermentDate = $case?->interment_at?->format('l, F d, Y') ?? $deceased->interment?->format('F d, Y') ?? 'Not set';
+                $intermentTime = $case?->interment_time
+                    ? \Carbon\Carbon::parse($case->interment_time)->format('h:i A')
+                    : ($deceased->interment_at?->format('h:i A') ?? 'Time not set');
+            @endphp
             <div class="flex items-start gap-4">
                 <div class="p-3 bg-slate-50 text-[#a68648] rounded-full border border-slate-100 print-hidden">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </div>
                 <div class="space-y-1">
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Interment Schedule</p>
-                    <p class="text-lg font-bold text-slate-800">
-                        {{ $deceased->interment_at?->format('l, F d, Y') ?? $deceased->interment?->format('F d, Y') ?? '—' }}
-                    </p>
-                    <p class="text-sm font-medium text-[#a68648] uppercase tracking-tighter">
-                        at {{ $deceased->interment_at?->format('h:i A') ?? 'Time not specified' }}
-                    </p>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Schedule</p>
+                    <p class="text-lg font-bold text-slate-800">Request: {{ $case?->service_requested_at?->format('F d, Y') ?? $case?->created_at?->format('F d, Y') ?? 'Not set' }}</p>
+                    <p class="text-sm font-medium text-[#a68648] uppercase tracking-tighter">Wake: {{ $wakeStartDate }} at {{ $wakeStartTime }}</p>
+                    <p class="text-sm font-medium text-[#a68648] uppercase tracking-tighter">Service: {{ $serviceDate }} at {{ $serviceTime }}</p>
+                    <p class="text-sm font-medium text-[#a68648] uppercase tracking-tighter">Interment: {{ $intermentDate }} at {{ $intermentTime }}</p>
                 </div>
             </div>
 

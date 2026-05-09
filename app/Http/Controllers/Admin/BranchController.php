@@ -243,7 +243,13 @@ class BranchController extends Controller
                     ->where('created_at', '<', $monthStart),
             ], 'total_amount')
             ->orderBy('branch_code')
-            ->get();
+            ->get()
+            ->each(function (Branch $branch): void {
+                $branch->current_month_revenue_sum = (float) ($branch->current_month_revenue_sum ?? 0);
+                $branch->previous_month_revenue_sum = (float) ($branch->previous_month_revenue_sum ?? 0);
+                $branch->current_month_cases_count = (int) ($branch->current_month_cases_count ?? 0);
+                $branch->previous_month_cases_count = (int) ($branch->previous_month_cases_count ?? 0);
+            });
 
         $activeBranches = $rankedBranches->where('is_active', true)->values();
         $totalBranches = $rankedBranches->count();
@@ -257,7 +263,7 @@ class BranchController extends Controller
             ->sortBy([
                 ['current_month_revenue_sum', 'desc'],
                 ['current_month_cases_count', 'desc'],
-                ['branch_name', 'asc'],
+                ['branch_code', 'asc'],
             ])
             ->values();
 
@@ -266,7 +272,7 @@ class BranchController extends Controller
             ->sortBy([
                 ['current_month_revenue_sum', 'asc'],
                 ['current_month_cases_count', 'asc'],
-                ['branch_name', 'asc'],
+                ['branch_code', 'asc'],
             ])
             ->values()
             ->first();

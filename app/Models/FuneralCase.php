@@ -29,8 +29,12 @@ class FuneralCase extends Model
         'custom_package_inclusions',
         'custom_package_freebies',
         'wake_location',
+        'wake_start_date',
+        'wake_start_time',
         'funeral_service_at',
+        'funeral_service_time',
         'interment_at',
+        'interment_time',
         'transport_option',
         'transport_notes',
         'coffin_length_cm',
@@ -70,6 +74,7 @@ class FuneralCase extends Model
 
     protected $casts = [
         'service_requested_at' => 'date',
+        'wake_start_date' => 'date',
         'funeral_service_at' => 'date',
         'interment_at' => 'datetime',
         'coffin_length_cm' => 'decimal:2',

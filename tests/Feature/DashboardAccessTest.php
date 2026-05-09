@@ -21,7 +21,46 @@ class DashboardAccessTest extends TestCase
         $response->assertSee('Admin Dashboard');
         $response->assertDontSee('<header class="topbar">', false);
         $response->assertSee('admin-dashboard-greeting', false);
-        $response->assertSee('topbar-notification', false);
+        $response->assertSee('<div class="topbar-notification-wrap"', false);
+    }
+
+    public function test_admin_dashboard_content_is_scoped_by_admin_type(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $branch = $this->createBranch('BR002', 'North Branch');
+        $mainAdmin = $this->createUser('admin', $mainBranch);
+        $branchAdmin = User::factory()->create([
+            'role' => 'admin',
+            'admin_scope' => 'branch',
+            'is_active' => true,
+            'branch_id' => $branch->id,
+            'can_encode_any_branch' => false,
+        ]);
+
+        $this->actingAs($mainAdmin)
+            ->get('/admin')
+            ->assertOk()
+            ->assertSee('Managing Main Branch and all branch operations')
+            ->assertSee('Network Branches')
+            ->assertSee('System Audit Log')
+            ->assertSee('Service Amount by Branch')
+            ->assertSee('Case Volume Distribution');
+
+        $this->actingAs($branchAdmin)
+            ->get('/admin')
+            ->assertOk()
+            ->assertSee('Managing branch operations - BR002 - North Branch')
+            ->assertSee("Today's Schedules", false)
+            ->assertSee('Recent Branch Activity')
+            ->assertSee('Open Case Records')
+            ->assertSee('Payment Monitoring')
+            ->assertDontSee('Record New Case')
+            ->assertDontSee('Record Payment')
+            ->assertDontSee('Network Branches')
+            ->assertDontSee('System Audit Log')
+            ->assertDontSee('Service Amount by Branch')
+            ->assertDontSee('Case Volume Distribution')
+            ->assertDontSee('Open Master Records');
     }
 
     public function test_owner_dashboard_renders_for_owner(): void
@@ -49,7 +88,7 @@ class DashboardAccessTest extends TestCase
             ->assertSee('Staff Dashboard')
             ->assertDontSee('<header class="topbar">', false)
             ->assertSee('staff-header-card', false)
-            ->assertSee('topbar-notification', false)
+            ->assertSee('<div class="topbar-notification-wrap"', false)
             ->assertSee('data-theme-toggle', false);
     }
 
@@ -98,8 +137,30 @@ class DashboardAccessTest extends TestCase
         $this->actingAs($staff)->get('/owner')->assertForbidden();
         $this->actingAs($admin)->get('/owner')->assertForbidden();
 
-        $this->actingAs($admin)->get('/staff')->assertOk();
+        $this->actingAs($admin)->get('/staff')->assertForbidden();
         $this->actingAs($owner)->get('/staff')->assertForbidden();
+    }
+
+    public function test_admins_cannot_access_staff_case_and_payment_recording_workflows(): void
+    {
+        $mainAdmin = $this->createUser('admin');
+        $branch = $this->createBranch('BR002', 'Branch Two');
+        $branchAdmin = User::factory()->create([
+            'role' => 'admin',
+            'admin_scope' => 'branch',
+            'is_active' => true,
+            'branch_id' => $branch->id,
+            'can_encode_any_branch' => false,
+        ]);
+
+        foreach ([$mainAdmin, $branchAdmin] as $admin) {
+            $this->actingAs($admin)->get('/staff')->assertForbidden();
+            $this->actingAs($admin)->get(route('intake.main.create'))->assertForbidden();
+            $this->actingAs($admin)->get(route('funeral-cases.create'))->assertForbidden();
+            $this->actingAs($admin)->get(route('payments.index'))->assertForbidden();
+            $this->assertFalse($admin->can('create', \App\Models\FuneralCase::class));
+            $this->assertFalse($admin->can('create', \App\Models\Payment::class));
+        }
     }
 
     private function createUser(string $role, ?Branch $branch = null): User

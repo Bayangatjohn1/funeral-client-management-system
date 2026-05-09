@@ -1,4 +1,27 @@
-@if($showTopbarNotifications ?? false)
+@php
+    $authUser = $authUser ?? auth()->user();
+    $authRole = $authRole ?? ($authUser->role ?? null);
+    $showTopbarNotifications = $showTopbarNotifications ?? (! $authUser?->isOwner());
+    $notificationRouteName = $notificationRouteName ?? match (true) {
+        $authUser?->isAdmin() => 'admin.reminders.index',
+        $authRole === 'staff' => 'staff.reminders.index',
+        default => null,
+    };
+    $notificationHref = $notificationHref ?? ($notificationRouteName ? route($notificationRouteName) : null);
+    $isReminderPage = $isReminderPage ?? (request()->routeIs('staff.reminders.index') || request()->routeIs('admin.reminders.index'));
+    $notificationCounts = $notificationCounts ?? ['all' => 0, 'due' => 0, 'today' => 0, 'upcoming' => 0];
+    $topbarNotifications = isset($topbarNotifications) ? collect($topbarNotifications) : collect();
+
+    if ($showTopbarNotifications && $authUser && ! isset($payload)) {
+        $payload = app(\App\Support\TopbarNotificationBuilder::class)->forUser($authUser, $authRole);
+        $topbarNotifications = collect($payload['items'] ?? []);
+        $notificationCounts = array_merge($notificationCounts, $payload['counts'] ?? []);
+    }
+
+    $notificationTotal = $notificationTotal ?? ($notificationCounts['all'] ?? 0);
+@endphp
+
+@if($showTopbarNotifications)
 <div class="topbar-notification-wrap" data-notification>
     <button
         type="button"

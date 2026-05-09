@@ -88,6 +88,15 @@
     ], fn ($value) => !is_null($value) && $value !== ''));
 @endphp
 
+@push('styles')
+<style>
+    .records-page {
+        box-sizing: border-box;
+        padding: 0 var(--panel-content-inline) 20px;
+    }
+</style>
+@endpush
+
 <div class="records-page">
     @if(session('success'))
         <div class="flash-success">

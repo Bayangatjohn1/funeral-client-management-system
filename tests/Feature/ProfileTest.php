@@ -48,7 +48,7 @@ class ProfileTest extends TestCase
             ->assertOk()
             ->assertDontSee('<header class="topbar">', false)
             ->assertSee('staff-header-card', false)
-            ->assertSee('topbar-notification', false);
+            ->assertSee('<div class="topbar-notification-wrap"', false);
     }
 
     public function test_staff_non_dashboard_pages_use_inline_header_without_notification_bell(): void

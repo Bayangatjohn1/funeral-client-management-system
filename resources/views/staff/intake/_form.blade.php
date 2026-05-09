@@ -144,17 +144,18 @@
 
     /* ── Left sidebar (step wizard) ── */
     .wizard-steps-shell {
-        width: 220px; flex-shrink: 0;
+        width: 178px; flex-shrink: 0;
+        order: 2;
         display: flex; flex-direction: column; gap: 0;
         padding: 18px 0 12px;
         background: #ffffff;
-        border-right: 1px solid #e4e8ef;
+        border-left: 1px solid #e4e8ef;
         overflow-y: auto; overflow-x: hidden;
     }
     .wizard-steps-group-label {
         font-size: 9px; font-weight: 800;
         text-transform: uppercase; letter-spacing: 0.13em; color: #9baec8;
-        padding: 0 18px 10px; border-bottom: 1px solid #f0f2f6;
+        padding: 0 14px 10px; border-bottom: 1px solid #f0f2f6;
         margin-bottom: 6px;
     }
 
@@ -167,10 +168,16 @@
         background: transparent; border: none;
         text-align: left; cursor: pointer;
     }
+    .wizard-tab.is-locked { cursor: default; }
+    .wizard-tab.is-locked .wz-body {
+        visibility: hidden;
+        pointer-events: none;
+    }
     /* track column: circle + vertical line */
     .wizard-tab .wz-track {
+        order: 2;
         display: flex; flex-direction: column; align-items: center;
-        padding: 12px 0 0 18px; flex-shrink: 0; width: 52px;
+        padding: 18px 14px 0 0; flex-shrink: 0; width: 46px;
     }
     .wizard-tab .wizard-step-number {
         width: var(--wsz); height: var(--wsz);
@@ -190,11 +197,13 @@
     .wizard-tab:last-child .wz-line { visibility: hidden; }
     /* text column */
     .wizard-tab .wz-body {
-        flex: 1; padding: 10px 14px 10px 4px;
-        border-radius: 8px; margin: 4px 8px 4px 0;
-        display: flex; flex-direction: column; gap: 3px;
+        order: 1;
+        flex: 1; padding: 14px 10px 14px 4px;
+        border-radius: 8px; margin: 6px 0 6px 6px;
+        display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+        text-align: right;
         transition: background .15s ease;
-        min-height: 48px;
+        min-height: 64px;
     }
     .wizard-tab:hover .wz-body { background: #f4f6fb; }
     .wizard-tab .wizard-step-label {
@@ -233,6 +242,7 @@
     /* ── Form content wrapper ── */
     .intake-form-wrapper {
         flex: 1; min-width: 0; overflow: hidden;
+        order: 1;
         display: flex; flex-direction: column;
         position: relative; background: #f3f2ef;
     }
@@ -256,6 +266,21 @@
         padding: 20px 28px !important;
         flex: 1; min-height: 0; overflow-y: auto;
         display: flex; flex-direction: column; gap: 0;
+    }
+    #intakeFormContent > .wizard-panel:not(.hidden) {
+        flex: 1 0 auto;
+    }
+    #intakeFormContent > .wizard-panel[data-step="1"]:not(.hidden) {
+        display: flex;
+        flex-direction: column;
+    }
+    #intakeFormContent > .wizard-panel[data-step="1"]:not(.hidden) > .space-y-4 {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+    #intakeFormContent > .wizard-panel[data-step="1"]:not(.hidden) > .space-y-4 > .intake-field-section:last-child {
+        flex: 1;
     }
 
     /* ── Section title block ── */
@@ -311,6 +336,149 @@
     .form-input::placeholder, .form-textarea::placeholder { color: #b0beca; font-weight: 400; }
     .intake-root input::placeholder, .intake-root textarea::placeholder { color: #b0beca !important; font-weight: 400 !important; opacity: 1; }
     .form-input[readonly], .form-input.cursor-not-allowed { background: #f4f6fb; color: #7a8fa8; cursor: not-allowed; }
+    .schedule-subsection {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 6px;
+        padding: 2px 0 4px;
+        color: #1b3358;
+        font-size: 0.74rem;
+        font-weight: 900;
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+    }
+    .schedule-subsection::after {
+        content: "";
+        height: 1px;
+        flex: 1;
+        background: #e4e8ef;
+    }
+    .readonly-date-display {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 45px;
+    }
+    .readonly-date-display i { color: #6b7e96; }
+    .time-input-wrap {
+        position: relative;
+    }
+    .time-input-wrap::before {
+        content: "\F293";
+        position: absolute;
+        left: 0.95rem;
+        top: 50%;
+        z-index: 1;
+        transform: translateY(-50%);
+        color: #7A8076;
+        font-family: "bootstrap-icons";
+        font-size: 0.95rem;
+        pointer-events: none;
+    }
+    .schedule-time-display {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        width: 100%;
+        min-height: 45px;
+        border: 1px solid #C9C5BB;
+        border-radius: 10px;
+        background: #FAFAF7;
+        color: #333333;
+        font-size: 0.92rem;
+        font-weight: 800;
+        padding: 0 12px 0 2.5rem;
+        outline: none;
+        text-align: left;
+        transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+    }
+    .schedule-time-display::after {
+        content: "\F282";
+        color: #7A8076;
+        font-family: "bootstrap-icons";
+        font-size: 0.78rem;
+    }
+    .schedule-time-display::placeholder {
+        color: #7A8076;
+        font-weight: 700;
+    }
+    .schedule-time-display:hover { background: #F3F0E8; }
+    .schedule-time-display:focus {
+        background: #FAFAF7;
+        border-color: #3E4A3D;
+        box-shadow: 0 0 0 4px rgba(62, 74, 61, 0.18);
+    }
+    .time-input-wrap.is-open .schedule-time-display {
+        border-color: #3E4A3D;
+        box-shadow: 0 0 0 4px rgba(62, 74, 61, 0.18);
+    }
+    .schedule-time-popover {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        z-index: 60;
+        display: none;
+        width: min(270px, calc(100vw - 32px));
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
+        padding: 10px;
+        border: 1px solid #C9C5BB;
+        border-radius: 14px;
+        background: #FAFAF7;
+        box-shadow: 0 18px 38px rgba(37, 43, 35, 0.18);
+    }
+    .time-input-wrap.is-open .schedule-time-popover { display: grid; }
+    .time-column {
+        min-width: 0;
+        overflow: hidden;
+        border: 1px solid rgba(201, 197, 187, 0.72);
+        border-radius: 10px;
+        background: rgba(255,255,255,0.42);
+    }
+    .time-column-label {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        display: block;
+        padding: 8px 6px 6px;
+        background: #FAFAF7;
+        color: #7A8076;
+        font-size: 0.64rem;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-align: center;
+        text-transform: uppercase;
+    }
+    .time-column-options {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        max-height: 178px;
+        overflow-y: auto;
+        padding: 4px;
+    }
+    .time-option {
+        min-height: 34px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: #333333;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 800;
+        text-align: center;
+    }
+    .time-option:hover, .time-option:focus {
+        background: #F3F0E8;
+        outline: none;
+    }
+    .time-option.is-selected {
+        background: #3E4A3D;
+        color: #FFFFFF;
+    }
 
 
     /* -- UI-only field organization helpers for Client/Deceased steps -- */
@@ -582,6 +750,61 @@
     }
     #saveIntakeRecord:hover:not(:disabled) { background: linear-gradient(135deg,#036348 0%,#4F6F4D 100%) !important; box-shadow: 0 6px 20px rgba(5,150,105,.42) !important; transform: translateY(-1px); }
     #saveIntakeRecord:disabled { opacity: .5; transform: none !important; }
+
+    /* ── Cancel button (Botanical Suite) ── */
+    #intakeCancelBtn {
+        padding: 10px 20px !important; border-radius: 10px !important;
+        background: #FAFAF7 !important; color: #5F685F !important;
+        border: 1px solid #C9C5BB !important;
+        font-size: 13px !important; font-weight: 600 !important;
+        transition: all .15s ease !important; cursor: pointer;
+        white-space: nowrap; flex-shrink: 0;
+    }
+    #intakeCancelBtn:hover { background: #F3F0E8 !important; border-color: #B8B4AA !important; }
+    #intakeCancelBtn:active { background: #E8E4DC !important; }
+
+    /* ── Cancel confirmation modal ── */
+    #intakeCancelModal { background: rgba(0,0,0,.45); }
+    #intakeCancelModal .cancel-modal-box {
+        background: #FAFAF7; border: 1px solid #C9C5BB;
+        border-radius: 18px; padding: 28px 28px 24px;
+        box-shadow: 0 20px 50px rgba(0,0,0,.18);
+        max-width: 380px; width: 100%; position: relative;
+    }
+    #intakeCancelModal .cancel-modal-title {
+        font-size: 15px; font-weight: 700; color: #3E4A3D; margin: 0 0 8px;
+    }
+    #intakeCancelModal .cancel-modal-msg {
+        font-size: 13px; color: #5F685F; margin: 0 0 22px; line-height: 1.5;
+    }
+    #intakeCancelModal .cancel-modal-actions {
+        display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+    }
+    #intakeCancelModalKeep {
+        padding: 9px 18px; border-radius: 9px;
+        background: #FAFAF7; color: #5F685F; border: 1px solid #C9C5BB;
+        font-size: 13px; font-weight: 600; cursor: pointer;
+        transition: background .15s;
+    }
+    #intakeCancelModalKeep:hover { background: #F3F0E8; }
+    #intakeCancelModalConfirm {
+        padding: 9px 18px; border-radius: 9px;
+        background: #3E4A3D; color: #ffffff; border: 1px solid #3E4A3D;
+        font-size: 13px; font-weight: 700; cursor: pointer;
+        transition: background .15s;
+    }
+    #intakeCancelModalConfirm:hover { background: #344033; }
+    #intakeCancelModalConfirm:active { background: #2F3A2E; }
+
+    /* Botanical Suite theme overrides for cancel button */
+    #intakeCancelBtn {
+        background: var(--color-bg-surface, #FAFAF7) !important;
+        color: var(--color-text-secondary, #5F685F) !important;
+        border-color: var(--color-border, #C9C5BB) !important;
+    }
+    #intakeCancelBtn:hover {
+        background: var(--color-bg-muted, #F3F0E8) !important;
+    }
 
     /* ── Flatpickr ── */
     .flatpickr-calendar { margin-top: 10px !important; border-radius: 18px !important; border: 1px solid #e4e8ef !important; box-shadow: 0 16px 40px rgba(15,23,42,.15) !important; padding: 12px 12px 10px !important; width: 340px !important; max-height: calc(100vh - 24px) !important; background: #ffffff !important; overflow: auto !important; z-index: 2400 !important; }
@@ -883,17 +1106,20 @@
     @media (max-width: 768px) {
         .intake-section-shell { flex-direction: column; }
         .wizard-steps-shell {
+            order: 1;
             width: 100% !important;
             flex-direction: row !important;
-            border-right: none; border-bottom: 1px solid #e4e8ef;
+            border-left: none; border-bottom: 1px solid #e4e8ef;
             overflow-x: auto; overflow-y: hidden;
             padding: 0; height: auto;
         }
+        .intake-form-wrapper { order: 2; }
         .wizard-steps-group-label { display: none; }
         .wizard-tab { flex-direction: column; width: auto; flex: 0 0 auto; min-width: 70px; align-items: center; }
-        .wizard-tab .wz-track { flex-direction: row; padding: 10px 0 0 0; width: auto; }
+        .wizard-tab .wz-track { order: 1; flex-direction: row; padding: 10px 0 0 0; width: auto; }
+        .wizard-tab .wz-body { order: 2; margin: 0 4px; }
         .wizard-tab .wz-line { display: none; }
-        .wizard-tab .wz-body { padding: 4px 6px 8px; margin: 0 4px; min-height: auto; align-items: center; }
+        .wizard-tab .wz-body { padding: 4px 6px 8px; min-height: auto; align-items: center; text-align: center; }
         .wizard-tab .wz-sub { display: none; }
         .wizard-tab .wizard-step-label { font-size: 0.67rem; text-align: center; }
         #intakeFormContent { padding: 14px 16px !important; }
@@ -902,7 +1128,10 @@
     }
     @media (max-width: 640px) {
         .footer-action-bar { flex-direction: column; align-items: stretch; gap: 8px; }
-        #wizardPrev, #wizardNext, #saveIntakeRecord { text-align: center; width: 100%; }
+        .footer-left-group,
+        .footer-right-group { flex-direction: row; }
+        #intakeCancelBtn, #wizardPrev, #wizardNext, #saveIntakeRecord { text-align: center; width: 100%; }
+        #intakeCancelBtn, #wizardPrev, #wizardNext, #saveIntakeRecord { flex: 1; }
     }
     </style>
 
@@ -993,7 +1222,6 @@
         <form method="POST" action="{{ $formAction ?? route('intake.main.store') }}" enctype="multipart/form-data" id="intakeWizardForm">
             @csrf
 
-            <input type="hidden" name="service_requested_at" id="service_requested_at" value="{{ old('service_requested_at', now()->toDateString()) }}">
             <input type="hidden" name="branch_id" id="branch_id" value="{{ $initialSelectedBranchId }}">
             <input type="hidden" id="branch_code_main_default" value="{{ optional($branches->first())->branch_code ?? 'BR001' }}">
 
@@ -1424,19 +1652,178 @@
                             </div>
                         </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                        <div class="schedule-subsection">
+                            <span>Schedule</span>
+                        </div>
                         <div>
-                            <label class="field-label">Funeral Service Date <span class="text-rose-500">*</span></label>
-                            <div class="relative">
-                                <input type="text" name="funeral_service_at" id="funeral_service_at" value="{{ old('funeral_service_at') }}" data-label="funeral service date" class="form-input pr-10 cursor-pointer" placeholder="e.g., January 2, 2026" autocomplete="off" required>
-                                <span id="wake_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
-                                    <i class="bi bi-calendar-event text-lg"></i>
-                                </span>
+                            <label class="field-label">Request Date / Date Recorded</label>
+                            <input type="hidden" name="service_requested_at" id="service_requested_at" value="{{ now()->toDateString() }}">
+                            <div class="form-input readonly-date-display cursor-not-allowed" aria-readonly="true">
+                                <i class="bi bi-calendar-check"></i>
+                                <span>{{ now()->format('F d, Y') }}</span>
+                            </div>
+                            @error('service_requested_at')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                            <p class="text-xs text-slate-500 mt-1">This is the date the case was recorded in the system.</p>
+                        </div>
+
+                        <div>
+                            <label class="field-label">Wake Start Date &amp; Time <span class="text-rose-500">*</span></label>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <div class="relative">
+                                    <input type="text" name="wake_start_date" id="wake_start_date" value="{{ old('wake_start_date') }}" data-label="wake start date" class="form-input pr-10 cursor-pointer" placeholder="Wake date" autocomplete="off" required>
+                                    <span id="wake_start_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
+                                        <i class="bi bi-calendar-event text-lg"></i>
+                                    </span>
+                                </div>
+                                <div class="time-input-wrap" data-time-picker="wake_start_time">
+                                    <input type="hidden" name="wake_start_time" id="wake_start_time" value="{{ old('wake_start_time') ? substr(old('wake_start_time'), 0, 5) : '' }}" data-label="wake start time" class="schedule-time-value" required>
+                                    <button type="button" class="schedule-time-display" data-time-display-for="wake_start_time" aria-label="Wake start time" aria-expanded="false">Select time</button>
+                                    <div class="schedule-time-popover" data-time-popover role="dialog" aria-label="Wake start time picker">
+                                        <div class="time-column">
+                                            <span class="time-column-label">Hour</span>
+                                            <div class="time-column-options">
+                                                @for ($hour = 1; $hour <= 12; $hour++)
+                                                    <button type="button" class="time-option" data-time-part="hour" data-time-value="{{ str_pad((string) $hour, 2, '0', STR_PAD_LEFT) }}">{{ str_pad((string) $hour, 2, '0', STR_PAD_LEFT) }}</button>
+                                                @endfor
+                                            </div>
+                                        </div>
+                                        <div class="time-column">
+                                            <span class="time-column-label">Minute</span>
+                                            <div class="time-column-options">
+                                                @for ($minute = 0; $minute < 60; $minute++)
+                                                    <button type="button" class="time-option" data-time-part="minute" data-time-value="{{ str_pad((string) $minute, 2, '0', STR_PAD_LEFT) }}">{{ str_pad((string) $minute, 2, '0', STR_PAD_LEFT) }}</button>
+                                                @endfor
+                                            </div>
+                                        </div>
+                                        <div class="time-column">
+                                            <span class="time-column-label">AM/PM</span>
+                                            <div class="time-column-options">
+                                                <button type="button" class="time-option" data-time-part="period" data-time-value="AM">AM</button>
+                                                <button type="button" class="time-option" data-time-part="period" data-time-value="PM">PM</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            @error('wake_start_date')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                            @error('wake_start_time')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                            <p id="wake_start_error" class="mt-1 text-sm text-red-600 hidden"></p>
+                            <p class="text-xs text-slate-500 mt-1">First day and time of the wake or viewing period.</p>
+                        </div>
+
+                        <div>
+                            <label class="field-label">Funeral Service Date &amp; Time <span class="text-rose-500">*</span></label>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <div class="relative">
+                                    <input type="text" name="funeral_service_at" id="funeral_service_at" value="{{ old('funeral_service_at') }}" data-label="funeral service date" class="form-input pr-10 cursor-pointer" placeholder="Service date" autocomplete="off" required>
+                                    <span id="wake_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
+                                        <i class="bi bi-calendar-event text-lg"></i>
+                                    </span>
+                                </div>
+                                <div class="time-input-wrap" data-time-picker="funeral_service_time">
+                                    <input type="hidden" name="funeral_service_time" id="funeral_service_time" value="{{ old('funeral_service_time') ? substr(old('funeral_service_time'), 0, 5) : '' }}" data-label="funeral service time" class="schedule-time-value" required>
+                                    <button type="button" class="schedule-time-display" data-time-display-for="funeral_service_time" aria-label="Funeral service time" aria-expanded="false">Select time</button>
+                                    <div class="schedule-time-popover" data-time-popover role="dialog" aria-label="Funeral service time picker">
+                                        <div class="time-column">
+                                            <span class="time-column-label">Hour</span>
+                                            <div class="time-column-options">
+                                                @for ($hour = 1; $hour <= 12; $hour++)
+                                                    <button type="button" class="time-option" data-time-part="hour" data-time-value="{{ str_pad((string) $hour, 2, '0', STR_PAD_LEFT) }}">{{ str_pad((string) $hour, 2, '0', STR_PAD_LEFT) }}</button>
+                                                @endfor
+                                            </div>
+                                        </div>
+                                        <div class="time-column">
+                                            <span class="time-column-label">Minute</span>
+                                            <div class="time-column-options">
+                                                @for ($minute = 0; $minute < 60; $minute++)
+                                                    <button type="button" class="time-option" data-time-part="minute" data-time-value="{{ str_pad((string) $minute, 2, '0', STR_PAD_LEFT) }}">{{ str_pad((string) $minute, 2, '0', STR_PAD_LEFT) }}</button>
+                                                @endfor
+                                            </div>
+                                        </div>
+                                        <div class="time-column">
+                                            <span class="time-column-label">AM/PM</span>
+                                            <div class="time-column-options">
+                                                <button type="button" class="time-option" data-time-part="period" data-time-value="AM">AM</button>
+                                                <button type="button" class="time-option" data-time-part="period" data-time-value="PM">PM</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             @error('funeral_service_at')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
+                            @error('funeral_service_time')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
                             <p id="funeral_service_at_error" class="mt-1 text-sm text-red-600 hidden"></p>
-                            <p class="text-xs text-slate-500 mt-1">Must be on or after the date of death.</p>
+                            <p class="text-xs text-slate-500 mt-1">Date and time of the funeral service, mass, ceremony, or final service.</p>
+                        </div>
+
+                        <div>
+                            <label class="field-label">Interment Date &amp; Time <span class="text-rose-500">*</span></label>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <div class="relative">
+                                    <input type="text" name="interment_at" id="interment_at" value="{{ old('interment_at') }}" data-label="interment date" class="form-input pr-10 cursor-pointer" placeholder="Interment date" autocomplete="off" required>
+                                    <span id="inter_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
+                                        <i class="bi bi-calendar-event text-lg"></i>
+                                    </span>
+                                </div>
+                                <div class="time-input-wrap" data-time-picker="interment_time">
+                                    <input type="hidden" name="interment_time" id="interment_time" value="{{ old('interment_time') ? substr(old('interment_time'), 0, 5) : '' }}" data-label="interment time" class="schedule-time-value" required>
+                                    <button type="button" class="schedule-time-display" data-time-display-for="interment_time" aria-label="Interment time" aria-expanded="false">Select time</button>
+                                    <div class="schedule-time-popover" data-time-popover role="dialog" aria-label="Interment time picker">
+                                        <div class="time-column">
+                                            <span class="time-column-label">Hour</span>
+                                            <div class="time-column-options">
+                                                @for ($hour = 1; $hour <= 12; $hour++)
+                                                    <button type="button" class="time-option" data-time-part="hour" data-time-value="{{ str_pad((string) $hour, 2, '0', STR_PAD_LEFT) }}">{{ str_pad((string) $hour, 2, '0', STR_PAD_LEFT) }}</button>
+                                                @endfor
+                                            </div>
+                                        </div>
+                                        <div class="time-column">
+                                            <span class="time-column-label">Minute</span>
+                                            <div class="time-column-options">
+                                                @for ($minute = 0; $minute < 60; $minute++)
+                                                    <button type="button" class="time-option" data-time-part="minute" data-time-value="{{ str_pad((string) $minute, 2, '0', STR_PAD_LEFT) }}">{{ str_pad((string) $minute, 2, '0', STR_PAD_LEFT) }}</button>
+                                                @endfor
+                                            </div>
+                                        </div>
+                                        <div class="time-column">
+                                            <span class="time-column-label">AM/PM</span>
+                                            <div class="time-column-options">
+                                                <button type="button" class="time-option" data-time-part="period" data-time-value="AM">AM</button>
+                                                <button type="button" class="time-option" data-time-part="period" data-time-value="PM">PM</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            @error('interment_at')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                            @error('interment_time')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                            <div id="interment_at_error" class="hidden text-xs font-bold text-rose-500 mt-1">Interment date/time cannot be before the funeral service date/time.</div>
+                            <p id="interment_schedule_warning" class="hidden text-xs font-bold text-amber-600 mt-1">Funeral service and interment are usually on the same day. Please confirm if the interment is scheduled on a different date.</p>
+                            <p class="text-xs text-slate-500 mt-1">Date and time of burial, cremation, or interment.</p>
+                        </div>
+
+                        <div>
+                            <label class="field-label">Wake Days</label>
+                            <input type="number" name="wake_days" id="wake_days" value="{{ old('wake_days') }}" data-label="wake days" class="form-input bg-slate-50" placeholder="Auto-calculated" readonly>
+                            <p id="wake_days_helper" class="text-xs text-slate-500 mt-1">Wake days are calculated from Wake Start Date to Funeral Service Date.</p>
+                        </div>
+
+                        <div class="schedule-subsection">
+                            <span>Service Information</span>
                         </div>
 
                         <div>
@@ -1451,27 +1838,6 @@
                         <div class="md:col-span-1">
                             <label class="field-label">Wake Location <span class="text-rose-500">*</span></label>
                             <input type="text" name="wake_location" id="wake_location" value="{{ old('wake_location') }}" data-label="wake location" class="form-input" placeholder="Chapel or House Address" required>
-                        </div>
-
-                        <div>
-                            <label class="field-label">Wake Days</label>
-                            <input type="number" name="wake_days" id="wake_days" value="{{ old('wake_days') }}" data-label="wake days" class="form-input bg-slate-50" placeholder="Auto-calculated" readonly>
-                            <p id="wake_days_helper" class="text-xs text-slate-500 mt-1">Auto-calculated once dates are selected.</p>
-                        </div>
-
-                        <div>
-                            <label class="field-label">Interment Date &amp; Time <span class="text-rose-500">*</span></label>
-                            <div class="relative">
-                                <input type="text" name="interment_at" id="interment_at" value="{{ old('interment_at') }}" data-label="interment or burial date" class="form-input pr-10 cursor-pointer" placeholder="e.g., January 5, 2026 9:00 AM" autocomplete="off" required>
-                                <span id="inter_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
-                                    <i class="bi bi-calendar-event text-lg"></i>
-                                </span>
-                            </div>
-                            @error('interment_at')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                            <div id="interment_at_error" class="hidden text-xs font-bold text-rose-500 mt-1">Interment date cannot be earlier than the funeral service date.</div>
-                            <p class="text-xs text-slate-500 mt-1">Select burial date and time. Calendar opens on click.</p>
                         </div>
 
                         <div>
@@ -1905,11 +2271,18 @@
             </div>
 
             <div class="footer-action-bar p-3 sm:p-5 flex items-center gap-3 sm:justify-between bg-transparent border-t border-slate-200">
-                <button type="button" id="wizardPrev" class="w-auto shrink-0 px-6 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all disabled:opacity-30 disabled:hover:bg-white">
-                    Back
-                </button>
+                {{-- Left group: Cancel --}}
+                <div class="footer-left-group flex items-center gap-2 shrink-0">
+                    <button type="button" id="intakeCancelBtn">
+                        Cancel
+                    </button>
+                </div>
 
-                <div class="flex-1 sm:flex-none sm:ml-auto">
+                {{-- Right group: Back + Continue / Save --}}
+                <div class="footer-right-group flex flex-1 sm:flex-none sm:ml-auto items-center gap-2">
+                    <button type="button" id="wizardPrev" class="w-auto shrink-0 px-6 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all disabled:opacity-30 disabled:hover:bg-white">
+                        Back
+                    </button>
                     <button type="button" id="wizardNext" class="w-full sm:w-auto sm:min-w-[190px] px-8 py-3 rounded-xl bg-slate-900 text-white text-sm font-bold transition-all hover:bg-[#3E4A3D] hover:-translate-y-0.5">
                         Continue
                     </button>
@@ -1922,6 +2295,20 @@
         </form>
         </div>{{-- /intake-form-wrapper --}}
     </div>{{-- /intake-section-shell --}}
+
+    {{-- Cancel Confirmation Modal --}}
+    <div id="intakeCancelModal" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4" style="backdrop-filter:blur(3px);">
+        <div class="absolute inset-0" id="intakeCancelModalBackdrop" style="background:rgba(0,0,0,.45);"></div>
+        <div class="cancel-modal-box">
+            <p class="cancel-modal-title">Cancel case intake?</p>
+            <p class="cancel-modal-msg">Your unsaved changes will be lost.</p>
+            <div class="cancel-modal-actions">
+                <button type="button" id="intakeCancelModalKeep">Keep Editing</button>
+                <button type="button" id="intakeCancelModalConfirm">Yes, Cancel</button>
+            </div>
+        </div>
+    </div>
+
 </div>{{-- /intake-root --}}
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -1966,13 +2353,20 @@
     const deceasedAddr = document.getElementById('deceased_address');
 
     const wakeDays = document.getElementById('wake_days');
+    const wakeStart = document.getElementById('wake_start_date');
+    const wakeStartTime = document.getElementById('wake_start_time');
     const funeral = document.getElementById('funeral_service_at');
+    const funeralTime = document.getElementById('funeral_service_time');
     const interment = document.getElementById('interment_at');
+    const intermentTime = document.getElementById('interment_time');
     const intermentErr = document.getElementById('interment_at_error');
+    const intermentWarning = document.getElementById('interment_schedule_warning');
     const bornErr = document.getElementById('born_error');
     const diedErr = document.getElementById('died_error');
+    const wakeStartErr = document.getElementById('wake_start_error');
     const wakeErr = document.getElementById('funeral_service_at_error');
     let wakePicker = null;
+    let wakeStartPicker = null;
     let interPicker = null;
 
     const senior = document.getElementById('senior_citizen_status');
@@ -2066,6 +2460,7 @@
     const serverOldBranchExists = @json(old('branch_id') !== null);
 
     let step = 1;
+    let maxUnlockedStep = initialStep;
     let branchToastTimer = null;
     let packageToastTimer = null;
     const today = new Date().toLocaleDateString('en-CA');
@@ -2101,6 +2496,22 @@
         if (!value) return '-';
         const parsed = new Date(value);
         return Number.isNaN(parsed.getTime()) ? '-' : parsed.toLocaleString(undefined, {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit'
+        });
+    };
+
+    const formatScheduleDateTime = (dateValue, timeValue) => {
+        if (!dateValue && !timeValue) return '-';
+        const dateLabel = formatDateOnly(dateValue);
+        if (!timeValue) return `${dateLabel} Time not set`;
+        const parsed = new Date(`${dateValue}T${timeValue}`);
+        if (Number.isNaN(parsed.getTime())) return dateLabel;
+
+        return parsed.toLocaleString(undefined, {
             year: 'numeric',
             month: 'long',
             day: 'numeric',
@@ -2595,15 +3006,17 @@
     const syncDateConstraints = () => {
         if (died) died.max = today;
 
-        if (funeral) {
-            // Prefer the date of death when constraining the earliest funeral service date
-            // so users can select the same day as the date of death.
-            funeral.min = died?.value || '';
-            if (wakePicker) wakePicker.set('minDate', died?.value || null);
+        if (wakeStart) {
+            wakeStart.min = requestDate?.value || '';
+            if (wakeStartPicker) wakeStartPicker.set('minDate', requestDate?.value || null);
         }
 
-                if (interPicker) {
-            interPicker.set('minDate', funeral?.value || died?.value || 'today');
+        if (wakePicker) {
+            wakePicker.set('minDate', wakeStart?.value || requestDate?.value || null);
+        }
+
+        if (interPicker) {
+            interPicker.set('minDate', funeral?.value || wakeStart?.value || requestDate?.value || 'today');
         }
 
         if (paidAt && died?.value) {
@@ -2731,13 +3144,15 @@
 
         if (reviewService) {
             reviewService.innerHTML = [
+                detailRow('Request Date / Date Recorded', formatDateOnly(f.elements.service_requested_at?.value)),
+                detailRow('Wake Start Date & Time', formatScheduleDateTime(f.elements.wake_start_date?.value, f.elements.wake_start_time?.value)),
+                detailRow('Funeral Service Date & Time', formatScheduleDateTime(f.elements.funeral_service_at?.value, f.elements.funeral_service_time?.value)),
+                detailRow('Interment Date & Time', formatScheduleDateTime(f.elements.interment_at?.value, f.elements.interment_time?.value)),
+                detailRow('Wake Days', textOrDash(f.elements.wake_days?.value)),
                 detailRow('Service Type', 'Burial (fixed)'),
                 detailRow('Wake Location', textOrDash(f.elements.wake_location?.value)),
-                detailRow('Funeral Service Date', formatDateOnly(f.elements.funeral_service_at?.value)),
-                detailRow('Interment Date', formatDateTime(f.elements.interment_at?.value)),
                 detailRow('Place of Interment', textOrDash(f.elements.place_of_cemetery?.value)),
                 detailRow('Case Status', textOrDash(f.elements.case_status?.value)),
-                detailRow('Wake Days', textOrDash(f.elements.wake_days?.value)),
             ].join('');
         }
 
@@ -2777,25 +3192,150 @@
     const computeWakeDays = () => {
         if (!wakeDays) return;
 
-        const wakeDate = getDateValue(funeral, wakePicker);
-        const interDate = getDateValue(interment, interPicker);
+        const wakeDate = getDateValue(wakeStart, wakeStartPicker);
+        const serviceDate = getDateValue(funeral, wakePicker);
 
-        if (!wakeDate || !interDate || interDate < wakeDate) {
+        if (!wakeDate || !serviceDate || serviceDate < wakeDate) {
             wakeDays.value = '';
             const helper = document.getElementById('wake_days_helper');
-            if (helper) helper.textContent = 'Auto-calculated once dates are selected.';
+            if (helper) helper.textContent = 'Wake days are calculated from Wake Start Date to Funeral Service Date.';
             return;
         }
 
         const wakeOnly = new Date(wakeDate.getFullYear(), wakeDate.getMonth(), wakeDate.getDate());
-        const interOnly = new Date(interDate.getFullYear(), interDate.getMonth(), interDate.getDate());
-        const diffDays = Math.floor((interOnly - wakeOnly) / 86400000) + 1;
+        const serviceOnly = new Date(serviceDate.getFullYear(), serviceDate.getMonth(), serviceDate.getDate());
+        const diffDays = Math.floor((serviceOnly - wakeOnly) / 86400000);
 
-        wakeDays.value = diffDays > 0 ? String(diffDays) : '';
+        wakeDays.value = diffDays >= 0 ? String(diffDays) : '';
 
         const helper = document.getElementById('wake_days_helper');
-        if (helper) helper.textContent = diffDays === 1 ? '1 day' : `${diffDays} days`;
+        if (helper) helper.textContent = `Wake Days: ${diffDays} day(s)`;
     };
+
+    const combineDateAndTime = (date, timeValue) => {
+        if (!date || !timeValue) return null;
+        const [hours, minutes] = String(timeValue).split(':').map(Number);
+        if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+
+        const combined = new Date(date.getFullYear(), date.getMonth(), date.getDate(), hours, minutes, 0, 0);
+        return Number.isNaN(combined.getTime()) ? null : combined;
+    };
+
+    const initScheduleTimePicker = (hiddenInput) => {
+        if (!hiddenInput) return;
+
+        const picker = document.querySelector(`[data-time-picker="${hiddenInput.id}"]`);
+        const displayButton = document.querySelector(`[data-time-display-for="${hiddenInput.id}"]`);
+        const popover = picker?.querySelector('[data-time-popover]');
+        if (!picker || !displayButton || !popover) return;
+
+        const state = { hour: '', minute: '', period: '' };
+        const pad = (value) => String(value).padStart(2, '0');
+        const allOptions = [...picker.querySelectorAll('.time-option')];
+
+        const formatDisplay = () => {
+            if (!state.hour || !state.minute || !state.period) return 'Select time';
+            return `${state.hour}:${state.minute} ${state.period}`;
+        };
+
+        const closePicker = () => {
+            picker.classList.remove('is-open');
+            displayButton.setAttribute('aria-expanded', 'false');
+        };
+
+        const openPicker = () => {
+            document.querySelectorAll('.time-input-wrap.is-open').forEach((openWrap) => {
+                if (openWrap !== picker) {
+                    openWrap.classList.remove('is-open');
+                    openWrap.querySelector('.schedule-time-display')?.setAttribute('aria-expanded', 'false');
+                }
+            });
+            picker.classList.add('is-open');
+            displayButton.setAttribute('aria-expanded', 'true');
+            const selected = picker.querySelector('.time-option.is-selected');
+            selected?.scrollIntoView({ block: 'nearest' });
+        };
+
+        const syncHiddenValue = () => {
+            if (!state.hour || !state.minute || !state.period) {
+                hiddenInput.value = '';
+                displayButton.textContent = 'Select time';
+                hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+                return;
+            }
+
+            let hour24 = Number(state.hour) % 12;
+            if (state.period === 'PM') hour24 += 12;
+
+            hiddenInput.value = `${pad(hour24)}:${state.minute}`;
+            displayButton.textContent = formatDisplay();
+            hiddenInput.setCustomValidity('');
+            hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+        };
+
+        const syncSelectedStyles = () => {
+            allOptions.forEach((option) => {
+                option.classList.toggle('is-selected', state[option.dataset.timePart] === option.dataset.timeValue);
+            });
+        };
+
+        const applyHiddenValueToPicker = () => {
+            const [hourRaw, minuteRaw] = String(hiddenInput.value || '').slice(0, 5).split(':');
+            const hour24 = Number(hourRaw);
+            const minute = Number(minuteRaw);
+
+            if (!Number.isFinite(hour24) || !Number.isFinite(minute)) {
+                state.hour = '';
+                state.minute = '';
+                state.period = '';
+                displayButton.textContent = 'Select time';
+                syncSelectedStyles();
+                return;
+            }
+
+            state.hour = pad(hour24 % 12 || 12);
+            state.minute = pad(minute);
+            state.period = hour24 >= 12 ? 'PM' : 'AM';
+            displayButton.textContent = formatDisplay();
+            syncSelectedStyles();
+        };
+
+        displayButton.addEventListener('click', () => {
+            picker.classList.contains('is-open') ? closePicker() : openPicker();
+        });
+
+        allOptions.forEach((option) => {
+            option.addEventListener('click', () => {
+                state[option.dataset.timePart] = option.dataset.timeValue;
+                syncSelectedStyles();
+                syncHiddenValue();
+                if (state.hour && state.minute && state.period) closePicker();
+            });
+        });
+
+        picker.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                closePicker();
+                displayButton.focus();
+            }
+        });
+
+        applyHiddenValueToPicker();
+        hiddenInput.addEventListener('change', () => {
+            if (!picker.classList.contains('is-open')) applyHiddenValueToPicker();
+        });
+    };
+
+    [wakeStartTime, funeralTime, intermentTime].forEach(initScheduleTimePicker);
+
+    document.addEventListener('click', (event) => {
+        document.querySelectorAll('.time-input-wrap.is-open').forEach((picker) => {
+            if (!picker.contains(event.target)) {
+                picker.classList.remove('is-open');
+                picker.querySelector('.schedule-time-display')?.setAttribute('aria-expanded', 'false');
+            }
+        });
+    });
 
     const setFieldError = (el, errEl, message, altEl = null) => {
         if (!el || !errEl) return;
@@ -2869,55 +3409,97 @@
     };
 
     const validateWakeInterment = (mode = 'full') => {
+        const wakeStartRaw = getRawDateString(wakeStart, wakeStartPicker);
         const wakeRaw = getRawDateString(funeral, wakePicker);
         const interRaw = getRawDateString(interment, interPicker);
+        const wakeStartDate = getDateValue(wakeStart, wakeStartPicker);
         const wakeDate = getDateValue(funeral, wakePicker);
         const interDate = getDateValue(interment, interPicker);
         const requestDateValue = getDateValue(requestDate);
+        const wakeStartDateTime = combineDateAndTime(wakeStartDate, wakeStartTime?.value);
+        const funeralDateTime = combineDateAndTime(wakeDate, funeralTime?.value);
+        const intermentDateTime = combineDateAndTime(interDate, intermentTime?.value);
 
+        wakeStart?.setCustomValidity('');
+        wakeStartTime?.setCustomValidity('');
         funeral?.setCustomValidity('');
+        funeralTime?.setCustomValidity('');
         interment?.setCustomValidity('');
+        intermentTime?.setCustomValidity('');
+        intermentWarning?.classList.add('hidden');
 
         if (mode === 'full') {
+            setFieldError(wakeStart, wakeStartErr, '', wakeStartPicker?.altInput);
             setFieldError(funeral, wakeErr, '', wakePicker?.altInput);
             setFieldError(interment, intermentErr, '', interPicker?.altInput);
         }
 
+        if (wakeStart) {
+            if (!wakeStartRaw || !wakeStartTime?.value) {
+                if (mode === 'full') {
+                    wakeStart.setCustomValidity('Please select a wake start date and time.');
+                    wakeStartTime?.setCustomValidity('Please select a wake start date and time.');
+                }
+            } else if (!wakeStartDate) {
+                wakeStart.setCustomValidity('Please select a wake start date and time.');
+            }
+        }
+
         if (funeral) {
-            if (!wakeRaw) {
-                if (mode === 'full') funeral.setCustomValidity('Funeral service date is required.');
+            if (!wakeRaw || !funeralTime?.value) {
+                if (mode === 'full') {
+                    funeral.setCustomValidity('Please select a funeral service date and time.');
+                    funeralTime?.setCustomValidity('Please select a funeral service date and time.');
+                }
             } else if (!wakeDate) {
-                funeral.setCustomValidity('Please enter a valid funeral service date.');
+                funeral.setCustomValidity('Please select a funeral service date and time.');
             }
         }
 
         if (interment) {
-            if (!interRaw) {
-                if (mode === 'full') interment.setCustomValidity('Interment date is required.');
+            if (!interRaw || !intermentTime?.value) {
+                if (mode === 'full') {
+                    interment.setCustomValidity('Please select an interment date and time.');
+                    intermentTime?.setCustomValidity('Please select an interment date and time.');
+                }
             } else if (!interDate) {
-                interment.setCustomValidity('Please enter a valid interment date and time.');
+                interment.setCustomValidity('Please select an interment date and time.');
             }
         }
 
-        // Enforce funeral service not earlier than the date of death.
-        const deathDateValue = getDateValue(died, diedPicker);
-        if (deathDateValue && wakeDate) {
-            const deathOnly = new Date(deathDateValue.getFullYear(), deathDateValue.getMonth(), deathDateValue.getDate());
-            const wakeOnly = new Date(wakeDate.getFullYear(), wakeDate.getMonth(), wakeDate.getDate());
-            if (wakeOnly < deathOnly) {
-                funeral.setCustomValidity('Funeral service date must be on or after the date of death.');
+        if (requestDateValue && wakeStartDate) {
+            const requestOnly = new Date(requestDateValue.getFullYear(), requestDateValue.getMonth(), requestDateValue.getDate());
+            const wakeOnly = new Date(wakeStartDate.getFullYear(), wakeStartDate.getMonth(), wakeStartDate.getDate());
+            if (wakeOnly < requestOnly) {
+                wakeStart.setCustomValidity('Wake start date cannot be before the request/recorded date.');
             }
         }
 
-        if (wakeDate && interDate && interDate < wakeDate) {
-            interment.setCustomValidity('Interment date cannot be earlier than the funeral service date.');
+        if (wakeStartDateTime && funeralDateTime && funeralDateTime < wakeStartDateTime) {
+            funeral.setCustomValidity('Funeral service date/time cannot be before the wake start date/time.');
+        }
+
+        if (funeralDateTime && intermentDateTime && intermentDateTime < funeralDateTime) {
+            interment.setCustomValidity('Interment date/time cannot be before the funeral service date/time.');
+        }
+
+        if (wakeDate && interDate) {
+            const serviceOnly = new Date(wakeDate.getFullYear(), wakeDate.getMonth(), wakeDate.getDate());
+            const interOnly = new Date(interDate.getFullYear(), interDate.getMonth(), interDate.getDate());
+            if (interOnly > serviceOnly) {
+                intermentWarning?.classList.remove('hidden');
+            }
+        }
+
+        if (wakeStartRaw || wakeStartTime?.value || mode === 'full') {
+            setFieldError(wakeStart, wakeStartErr, wakeStart?.validationMessage || wakeStartTime?.validationMessage || '', wakeStartPicker?.altInput);
         }
 
         if (wakeRaw || mode === 'full') {
-            setFieldError(funeral, wakeErr, funeral?.validationMessage || '', wakePicker?.altInput);
+            setFieldError(funeral, wakeErr, funeral?.validationMessage || funeralTime?.validationMessage || '', wakePicker?.altInput);
         }
         if (interRaw || mode === 'full') {
-            setFieldError(interment, intermentErr, interment?.validationMessage || '', interPicker?.altInput);
+            setFieldError(interment, intermentErr, interment?.validationMessage || intermentTime?.validationMessage || '', interPicker?.altInput);
         }
     };
 
@@ -2993,7 +3575,7 @@
     };
 
     const validatePanelFields = (panel) => {
-        const flatpickrDateFields = ['born', 'died', 'funeral_service_at', 'interment_at'];
+        const flatpickrDateFields = ['born', 'died', 'wake_start_date', 'funeral_service_at', 'interment_at'];
 
         for (const field of [...panel.querySelectorAll('input, select, textarea')].filter((element) => element.type !== 'hidden' && !element.disabled)) {
             const isFlatpickrDate = flatpickrDateFields.includes(field.id);
@@ -3134,61 +3716,91 @@
         }
 
         if (targetStep === 3) {
+            const wakeStartRaw = getRawDateString(wakeStart, wakeStartPicker);
             const wakeRaw = getRawDateString(funeral, wakePicker);
             const interRaw = getRawDateString(interment, interPicker);
+            const wakeStartDate = getDateValue(wakeStart, wakeStartPicker);
             const wakeDate = getDateValue(funeral, wakePicker);
             const interDate = getDateValue(interment, interPicker);
-            const deathDate = getDateValue(died, diedPicker);
+            const requestDateValue = getDateValue(requestDate);
+            const wakeStartDateTime = combineDateAndTime(wakeStartDate, wakeStartTime?.value);
+            const funeralDateTime = combineDateAndTime(wakeDate, funeralTime?.value);
+            const intermentDateTime = combineDateAndTime(interDate, intermentTime?.value);
 
+            setFieldError(wakeStart, wakeStartErr, '', wakeStartPicker?.altInput);
             setFieldError(funeral, wakeErr, '', wakePicker?.altInput);
             setFieldError(interment, intermentErr, '', interPicker?.altInput);
+            wakeStart?.setCustomValidity('');
+            wakeStartTime?.setCustomValidity('');
             funeral?.setCustomValidity('');
+            funeralTime?.setCustomValidity('');
             interment?.setCustomValidity('');
+            intermentTime?.setCustomValidity('');
 
-            if (!wakeRaw) {
-                funeral.setCustomValidity('Wake start date is required.');
-                setFieldError(funeral, wakeErr, 'Wake start date is required.', wakePicker?.altInput);
+            if (!wakeStartRaw || !wakeStartTime?.value) {
+                wakeStart.setCustomValidity('Please select a wake start date and time.');
+                wakeStartTime?.setCustomValidity('Please select a wake start date and time.');
+                setFieldError(wakeStart, wakeStartErr, 'Please select a wake start date and time.', wakeStartPicker?.altInput);
+                wakeStartPicker?.altInput?.focus();
+                return false;
+            }
+
+            if (!wakeRaw || !funeralTime?.value) {
+                funeral.setCustomValidity('Please select a funeral service date and time.');
+                funeralTime?.setCustomValidity('Please select a funeral service date and time.');
+                setFieldError(funeral, wakeErr, 'Please select a funeral service date and time.', wakePicker?.altInput);
                 wakePicker?.altInput?.focus();
                 return false;
             }
 
-            if (!interRaw) {
-                interment.setCustomValidity('Interment date is required.');
-                setFieldError(interment, intermentErr, 'Interment date is required.', interPicker?.altInput);
+            if (!interRaw || !intermentTime?.value) {
+                interment.setCustomValidity('Please select an interment date and time.');
+                intermentTime?.setCustomValidity('Please select an interment date and time.');
+                setFieldError(interment, intermentErr, 'Please select an interment date and time.', interPicker?.altInput);
                 interPicker?.altInput?.focus();
                 return false;
             }
 
+            if (!wakeStartDate) {
+                wakeStart.setCustomValidity('Please select a wake start date and time.');
+                setFieldError(wakeStart, wakeStartErr, 'Please select a wake start date and time.', wakeStartPicker?.altInput);
+                wakeStartPicker?.altInput?.focus();
+                return false;
+            }
+
             if (!wakeDate) {
-                funeral.setCustomValidity('Please enter a valid funeral service date.');
-                setFieldError(funeral, wakeErr, 'Please enter a valid funeral service date.', wakePicker?.altInput);
+                funeral.setCustomValidity('Please select a funeral service date and time.');
+                setFieldError(funeral, wakeErr, 'Please select a funeral service date and time.', wakePicker?.altInput);
                 wakePicker?.altInput?.focus();
                 return false;
             }
 
             if (!interDate) {
-                interment.setCustomValidity('Please enter a valid interment date and time.');
-                setFieldError(interment, intermentErr, 'Please enter a valid interment date and time.', interPicker?.altInput);
+                interment.setCustomValidity('Please select an interment date and time.');
+                setFieldError(interment, intermentErr, 'Please select an interment date and time.', interPicker?.altInput);
                 interPicker?.altInput?.focus();
                 return false;
             }
 
-            const deathDateValue = getDateValue(died, diedPicker);
-            if (deathDateValue) {
-                const deathOnly = new Date(deathDateValue.getFullYear(), deathDateValue.getMonth(), deathDateValue.getDate());
-                const wakeOnly = new Date(wakeDate.getFullYear(), wakeDate.getMonth(), wakeDate.getDate());
-
-                if (wakeOnly < deathOnly) {
-                    funeral.setCustomValidity('Funeral service date must be on or after the date of death.');
-                    setFieldError(funeral, wakeErr, 'Funeral service date must be on or after the date of death.', wakePicker?.altInput);
-                    wakePicker?.altInput?.focus();
-                    return false;
-                }
+            const requestOnly = requestDateValue ? new Date(requestDateValue.getFullYear(), requestDateValue.getMonth(), requestDateValue.getDate()) : null;
+            const wakeOnly = new Date(wakeStartDate.getFullYear(), wakeStartDate.getMonth(), wakeStartDate.getDate());
+            if (requestOnly && wakeOnly < requestOnly) {
+                wakeStart.setCustomValidity('Wake start date cannot be before the request/recorded date.');
+                setFieldError(wakeStart, wakeStartErr, 'Wake start date cannot be before the request/recorded date.', wakeStartPicker?.altInput);
+                wakeStartPicker?.altInput?.focus();
+                return false;
             }
 
-            if (interDate < wakeDate) {
-                interment.setCustomValidity('Interment date cannot be earlier than the funeral service date.');
-                setFieldError(interment, intermentErr, 'Interment date cannot be earlier than the funeral service date.', interPicker?.altInput);
+            if (funeralDateTime < wakeStartDateTime) {
+                funeral.setCustomValidity('Funeral service date/time cannot be before the wake start date/time.');
+                setFieldError(funeral, wakeErr, 'Funeral service date/time cannot be before the wake start date/time.', wakePicker?.altInput);
+                wakePicker?.altInput?.focus();
+                return false;
+            }
+
+            if (intermentDateTime < funeralDateTime) {
+                interment.setCustomValidity('Interment date/time cannot be before the funeral service date/time.');
+                setFieldError(interment, intermentErr, 'Interment date/time cannot be before the funeral service date/time.', interPicker?.altInput);
                 interPicker?.altInput?.focus();
                 return false;
             }
@@ -3266,6 +3878,13 @@
         window.scrollTo({ top: scrollTop, behavior: smooth ? 'smooth' : 'auto' });
     };
 
+    const syncProgressVisibility = () => {
+        tabs.forEach((tab) => {
+            const tabStep = Number(tab.dataset.step);
+            tab.classList.toggle('is-locked', tabStep > maxUnlockedStep);
+        });
+    };
+
     const go = (targetStep, options = {}) => {
         const { scroll = true, smooth = true } = options;
         const previousStep = step;
@@ -3274,9 +3893,11 @@
             branchError?.classList.remove('hidden');
             if (branchError) branchError.textContent = 'Please select a branch first before encoding.';
             showBranchToast('Select Branch 2 or Branch 3 before entering case details.');
+            maxUnlockedStep = 1;
             targetStep = 1;
         }
 
+        targetStep = Math.min(targetStep, maxUnlockedStep);
         step = Math.max(1, Math.min(totalSteps, targetStep));
 
         panels.forEach((panel) => panel.classList.toggle('hidden', Number(panel.dataset.step) !== step));
@@ -3289,6 +3910,7 @@
             tab.classList.toggle('active-step', active);
             tab.classList.toggle('completed-step', completed);
         });
+        syncProgressVisibility();
 
         if (prev) prev.disabled = step === 1;
         next?.classList.toggle('hidden', step === totalSteps);
@@ -3340,10 +3962,12 @@
     tabs.forEach((tab) => {
         tab.addEventListener('click', () => {
             const targetStep = Number(tab.dataset.step);
+            if (targetStep > maxUnlockedStep) return;
 
             if (targetStep > step) {
                 for (let index = step; index < targetStep; index += 1) {
                     if (!validate(index)) return;
+                    maxUnlockedStep = Math.max(maxUnlockedStep, index + 1);
                 }
             }
 
@@ -3359,6 +3983,7 @@
 
     next?.addEventListener('click', () => {
         if (!validate(step)) return;
+        maxUnlockedStep = Math.max(maxUnlockedStep, step + 1);
         go(step + 1);
     });
 
@@ -3393,6 +4018,15 @@
         syncAge();
         syncDateConstraints();
         render();
+    });
+
+    [wakeStart, wakeStartTime, funeral, funeralTime, interment, intermentTime, requestDate].forEach((element) => {
+        element?.addEventListener('change', () => {
+            computeWakeDays();
+            validateWakeInterment('full');
+            syncDateConstraints();
+            render();
+        });
     });
 
     funeral?.addEventListener('change', () => {
@@ -3638,6 +4272,47 @@
             });
         };
 
+        wakeStartPicker = flatpickr(wakeStart, {
+            altInput: true,
+            altFormat: 'F j, Y',
+            dateFormat: 'Y-m-d',
+            allowInput: true,
+            clickOpens: false,
+            defaultDate: wakeStart?.value || null,
+            ...pickerBaseOpts,
+            onChange: (selectedDates) => {
+                wakeStart.dataset.userTyped = '0';
+                wakeStart.dataset.lastTypedValue = '';
+                wakeStart.setCustomValidity('');
+                setFieldError(wakeStart, wakeStartErr, '', wakeStartPicker?.altInput);
+
+                if (wakePicker && selectedDates[0]) {
+                    wakePicker.set('minDate', selectedDates[0]);
+                }
+
+                computeWakeDays();
+                validateWakeInterment('full');
+                render();
+            },
+            onClose: (selectedDates, dateStr, instance) => {
+                const raw = (wakeStart.dataset.lastTypedValue || instance.altInput?.value || '').trim();
+                const invalidTyped = (wakeStart.dataset.invalidTypedValue || '').trim();
+
+                if (invalidTyped || (raw && !selectedDates.length && Number.isNaN(Date.parse(raw)))) {
+                    wakeStart.setCustomValidity('Please select a wake start date and time.');
+                    setFieldError(wakeStart, wakeStartErr, 'Please select a wake start date and time.', instance.altInput);
+                    return;
+                }
+
+                validateWakeInterment('full');
+                setFieldError(wakeStart, wakeStartErr, wakeStart.validationMessage || '', instance.altInput);
+            },
+            onValueUpdate: () => {
+                validateWakeInterment('light');
+                setFieldError(wakeStart, wakeStartErr, wakeStart.validationMessage, wakeStartPicker?.altInput);
+            }
+        });
+
         wakePicker = flatpickr(funeral, {
             altInput: true,
             altFormat: 'F j, Y',
@@ -3695,15 +4370,12 @@
 
         interPicker = flatpickr(interment, {
             altInput: true,
-            altFormat: 'F j, Y h:i K',
-            dateFormat: 'Y-m-d H:i',
+            altFormat: 'F j, Y',
+            dateFormat: 'Y-m-d',
             allowInput: true,
             clickOpens: false,
-            enableTime: true,
             defaultDate: interment?.value || null,
-            // Interment cannot be earlier than the funeral service; if no funeral
-            // date is set, use date of death as the earliest allowed date.
-            minDate: funeral?.value || died?.value || 'today',
+            minDate: funeral?.value || wakeStart?.value || requestDate?.value || 'today',
             ...pickerBaseOpts,
             onChange: () => {
                 interment.dataset.userTyped = '0';
@@ -3720,8 +4392,8 @@
             const invalidTyped = (interment.dataset.invalidTypedValue || '').trim();
 
             if (invalidTyped || (raw && !selectedDates.length && Number.isNaN(Date.parse(raw)))) {
-                interment.setCustomValidity('Please enter a valid interment date and time.');
-                setFieldError(interment, intermentErr, 'Please enter a valid interment date and time.', instance.altInput);
+                interment.setCustomValidity('Please select an interment date and time.');
+                setFieldError(interment, intermentErr, 'Please select an interment date and time.', instance.altInput);
                 return;
             }
 
@@ -3750,6 +4422,9 @@
 
         const wakeTrigger = document.getElementById('wake_picker_trigger');
         if (wakeTrigger) wakeTrigger.addEventListener('click', () => wakePicker && wakePicker.open());
+
+        const wakeStartTrigger = document.getElementById('wake_start_picker_trigger');
+        if (wakeStartTrigger) wakeStartTrigger.addEventListener('click', () => wakeStartPicker && wakeStartPicker.open());
 
         const interTrigger = document.getElementById('inter_picker_trigger');
         if (interTrigger) interTrigger.addEventListener('click', () => interPicker && interPicker.open());
@@ -3867,20 +4542,6 @@
                 died.setCustomValidity('');
                 setFieldError(died, diedErr, '', diedPicker?.altInput);
 
-                if (funeral && died.value) {
-                    // Prefer the date of death as the earliest funeral date.
-                    funeral.min = died.value;
-                    if (wakePicker) wakePicker.set('minDate', died.value);
-
-                    const currentWake = getDateValue(funeral, wakePicker);
-                    const deathDate = getDateValue(died, diedPicker);
-                    const minWakeDate = deathDate;
-                    if (currentWake && minWakeDate && currentWake < minWakeDate) {
-                        funeral.value = died.value;
-                        wakePicker?.setDate(died.value, true);
-                    }
-                }
-
                 if (paidAt && died?.value) {
                     paidAt.min = `${died.value}T00:00`;
                 }
@@ -3910,6 +4571,7 @@
 
         rememberTypedValue(bornPicker, born, bornErr, 'born');
         rememberTypedValue(diedPicker, died, diedErr, 'died');
+        rememberTypedValue(wakeStartPicker, wakeStart, wakeStartErr, 'wake_start');
         rememberTypedValue(wakePicker, funeral, wakeErr, 'wake');
         rememberTypedValue(interPicker, interment, intermentErr, 'interment');
     }
@@ -4314,5 +4976,46 @@
     render();
     go(initialStep, { scroll: false, smooth: false });
     showBranchToast(branchPromptMessage());
+
+    // ── Cancel button & dirty-state tracking ─────────────────────────────
+    const cancelBtn      = document.getElementById('intakeCancelBtn');
+    const cancelModal    = document.getElementById('intakeCancelModal');
+    const cancelKeep     = document.getElementById('intakeCancelModalKeep');
+    const cancelConfirm  = document.getElementById('intakeCancelModalConfirm');
+    const cancelBackdrop = document.getElementById('intakeCancelModalBackdrop');
+    const cancelUrl      = @json($cancelUrl ?? '/');
+
+    let formIsDirty = false;
+
+    // Mark dirty on any user interaction with the form
+    f.addEventListener('input',  () => { formIsDirty = true; }, { passive: true });
+    f.addEventListener('change', () => { formIsDirty = true; }, { passive: true });
+
+    const openCancelModal  = () => {
+        cancelModal?.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        cancelKeep?.focus();
+    };
+    const closeCancelModal = () => {
+        cancelModal?.classList.add('hidden');
+        document.body.style.overflow = '';
+    };
+    const doCancel = () => { window.location.href = cancelUrl; };
+
+    cancelBtn?.addEventListener('click', () => {
+        formIsDirty ? openCancelModal() : doCancel();
+    });
+
+    cancelKeep?.addEventListener('click',     closeCancelModal);
+    cancelBackdrop?.addEventListener('click', closeCancelModal);
+    cancelConfirm?.addEventListener('click',  doCancel);
+
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && cancelModal && !cancelModal.classList.contains('hidden')) {
+            closeCancelModal();
+        }
+    });
+    // ─────────────────────────────────────────────────────────────────────
 })();
 </script>

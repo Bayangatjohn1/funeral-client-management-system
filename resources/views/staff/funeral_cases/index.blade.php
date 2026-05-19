@@ -317,7 +317,6 @@
                             <col class="records-col-financials">
                             <col class="records-col-case-status">
                             <col class="records-col-payment-status">
-                            <col class="records-col-actions">
                         </colgroup>
                         <thead>
                             <tr>
@@ -328,7 +327,6 @@
                                 <th class="table-col-number">Financials</th>
                                 <th class="table-status-col">Case Status</th>
                                 <th class="table-status-col table-payment-status-col">Payment Status</th>
-                                <th class="table-col-actions">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -382,62 +380,10 @@
                                         <x-status-badge :status="$case->payment_status" :label="\Illuminate\Support\Str::headline(strtolower((string) $case->payment_status))" class="table-payment-status-badge" />
                                     </td>
 
-                                    <td class="table-col-actions">
-                                        <div class="table-row-actions">
-                                            <div class="row-action-menu" data-row-menu>
-                                                <button
-                                                    type="button"
-                                                    class="row-action-trigger"
-                                                    data-row-menu-trigger
-                                                    data-no-row-click
-                                                    aria-label="Open row actions"
-                                                    aria-haspopup="menu"
-                                                    aria-expanded="false"
-                                                >
-                                                    <i class="bi bi-three-dots-vertical"></i>
-                                                </button>
-
-                                                <div class="row-action-dropdown" role="menu">
-                                                    <a
-                                                        href="{{ route('funeral-cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}"
-                                                        class="row-action-item"
-                                                        data-row-menu-item
-                                                        data-row-view-trigger
-                                                    >
-                                                        <i class="bi bi-eye"></i>
-                                                        <span>Open details</span>
-                                                    </a>
-
-                                                    @if(($case->entry_source ?? 'MAIN') !== 'OTHER_BRANCH')
-                                                        <a
-                                                            href="{{ route('funeral-cases.edit', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}"
-                                                            class="row-action-item"
-                                                            data-row-menu-item
-                                                        >
-                                                            <i class="bi bi-pencil"></i>
-                                                            <span>Edit case</span>
-                                                        </a>
-                                                    @endif
-
-                                                    @unless($isActiveTab)
-                                                        <a
-                                                            href="{{ route('payments.history', ['q' => $case->case_code]) }}"
-                                                            class="row-action-item"
-                                                            data-row-menu-item
-                                                        >
-                                                            <i class="bi bi-clock-history"></i>
-                                                            <span>Payment Monitoring</span>
-                                                        </a>
-                                                    @endunless
-
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="8" class="table-system-empty">
+                                    <td colspan="7" class="table-system-empty">
                                         No case records found.
                                     </td>
                                 </tr>

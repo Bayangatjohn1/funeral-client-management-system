@@ -706,12 +706,12 @@
                 <p class="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">{{ $isMainAdmin ? 'Monitoring User Actions & Security' : $adminBranchLabel }}</p>
             </div>
             @if($isMainAdmin)
-            <a href="{{ route('admin.cases.index') }}" class="inline-flex items-center justify-center px-5 py-2.5 bg-slate-50 border border-slate-200 text-[11px] font-black text-slate-500 uppercase tracking-widest hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors w-full sm:w-auto">
-                Open Master Records
+            <a href="{{ route('admin.audit-logs.index') }}" class="inline-flex items-center justify-center px-5 py-2.5 bg-slate-50 border border-slate-200 text-[11px] font-black text-slate-500 uppercase tracking-widest hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors w-full sm:w-auto">
+                View All Audit Logs
             </a>
             @else
-            <a href="{{ $caseRecordsUrl }}" class="inline-flex items-center justify-center px-5 py-2.5 bg-slate-50 border border-slate-200 text-[11px] font-black text-slate-500 uppercase tracking-widest hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors w-full sm:w-auto">
-                Open Case Records
+            <a href="{{ route('admin.audit-logs.index') }}" class="inline-flex items-center justify-center px-5 py-2.5 bg-slate-50 border border-slate-200 text-[11px] font-black text-slate-500 uppercase tracking-widest hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors w-full sm:w-auto">
+                View All Audit Logs
             </a>
             @endif
         </div>
@@ -730,16 +730,41 @@
                     ];
                 @endphp
 
+                @php
+                    $actionTypeMap = [
+                        'create'        => ['icon' => 'bi-file-earmark-plus-fill', 'color' => 'text-emerald-500', 'bg' => 'bg-emerald-50',  'ring' => 'ring-emerald-50'],
+                        'update'        => ['icon' => 'bi-pencil-fill',             'color' => 'text-blue-500',    'bg' => 'bg-blue-50',     'ring' => 'ring-blue-50'],
+                        'delete'        => ['icon' => 'bi-trash3-fill',             'color' => 'text-red-500',     'bg' => 'bg-red-50',      'ring' => 'ring-red-50'],
+                        'status_change' => ['icon' => 'bi-arrow-repeat',            'color' => 'text-amber-500',   'bg' => 'bg-amber-50',    'ring' => 'ring-amber-50'],
+                        'financial'     => ['icon' => 'bi-cash-stack',              'color' => 'text-indigo-500',  'bg' => 'bg-indigo-50',   'ring' => 'ring-indigo-50'],
+                        'security'      => ['icon' => 'bi-shield-check',            'color' => 'text-purple-500',  'bg' => 'bg-purple-50',   'ring' => 'ring-purple-50'],
+                        'permission'    => ['icon' => 'bi-key-fill',                'color' => 'text-slate-500',   'bg' => 'bg-slate-100',   'ring' => 'ring-slate-50'],
+                    ];
+                    $actionTypeDefault = ['icon' => 'bi-journal-text', 'color' => 'text-slate-500', 'bg' => 'bg-slate-100', 'ring' => 'ring-slate-50'];
+                @endphp
+
                 @forelse($auditLogs ?? $mockupLogs as $log)
                     @php
                         $isArray = is_array($log);
                         $logAction = $isArray ? ($log['action'] ?? 'No action') : ($log->action_label ?? $log->action ?? 'No action');
-                        $logUser = $isArray ? ($log['user'] ?? 'System') : ($log->actor?->name ?? 'System');
-                        $logTime = $isArray ? ($log['time'] ?? '-') : ($log->created_at?->diffForHumans() ?? '-');
-                        $logIcon = $isArray ? ($log['icon'] ?? 'bi-journal-text') : ($log->icon ?? 'bi-journal-text');
-                        $logColor = $isArray ? ($log['color'] ?? 'text-slate-500') : ($log->color ?? 'text-slate-500');
-                        $logBg = $isArray ? ($log['bg'] ?? 'bg-white') : ($log->bg ?? 'bg-white');
-                        $logRing = $isArray ? ($log['ring'] ?? 'ring-white') : ($log->ring ?? 'ring-white');
+                        $logUser   = $isArray ? ($log['user'] ?? 'System') : ($log->actor?->name ?? 'System');
+                        $logRole   = $isArray ? null : ($log->actor_role ?? null);
+                        $logTime   = $isArray ? ($log['time'] ?? '-') : ($log->created_at?->diffForHumans() ?? '-');
+                        $logBranch = $isArray ? null : ($log->branch?->branch_code ?? null);
+
+                        // For real model entries, derive visual style from action_type
+                        if ($isArray) {
+                            $logIcon  = $log['icon']  ?? $actionTypeDefault['icon'];
+                            $logColor = $log['color'] ?? $actionTypeDefault['color'];
+                            $logBg    = $log['bg']    ?? $actionTypeDefault['bg'];
+                            $logRing  = $log['ring']  ?? $actionTypeDefault['ring'];
+                        } else {
+                            $typeStyle = $actionTypeMap[$log->action_type ?? ''] ?? $actionTypeDefault;
+                            $logIcon  = $typeStyle['icon'];
+                            $logColor = $typeStyle['color'];
+                            $logBg    = $typeStyle['bg'];
+                            $logRing  = $typeStyle['ring'];
+                        }
                     @endphp
                     <div class="flex items-start gap-5 group">
                         {{-- Timeline Node --}}
@@ -753,7 +778,13 @@
                                 <div>
                                     <p class="text-sm font-bold text-slate-900">{{ $logAction }}</p>
                                     <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
-                                        Action by <span class="text-slate-700">{{ $logUser }}</span>
+                                        By <span class="text-slate-700">{{ $logUser }}</span>
+                                        @if($logRole)
+                                            <span class="text-slate-400">· {{ ucfirst(str_replace('_', ' ', $logRole)) }}</span>
+                                        @endif
+                                        @if($logBranch)
+                                            <span class="text-slate-400">· {{ $logBranch }}</span>
+                                        @endif
                                     </p>
                                 </div>
                                 <span class="inline-flex items-center px-2.5 py-1 rounded-md bg-slate-50 border border-slate-100 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">

@@ -816,12 +816,11 @@ class FuneralCaseController extends Controller
     {
         $user = auth()->user();
         $operationalBranchId = (int) ($user->operationalBranchId() ?? 0);
-        $editableBranchId = $user?->isMainBranchAdmin()
-            ? (int) $funeral_case->branch_id
-            : $operationalBranchId;
+        // Main Branch Admin may only edit records that belong to their own (main) branch.
+        $editableBranchId = $operationalBranchId;
 
         if ((int) $funeral_case->branch_id !== $editableBranchId) {
-            abort(403);
+            abort(403, 'You can only edit case records that belong to your own branch.');
         }
         if (($funeral_case->entry_source ?? 'MAIN') === 'OTHER_BRANCH') {
             return redirect()
@@ -852,12 +851,11 @@ class FuneralCaseController extends Controller
 
         $user = auth()->user();
         $operationalBranchId = (int) ($user->operationalBranchId() ?? 0);
-        $editableBranchId = $user?->isMainBranchAdmin()
-            ? (int) $funeral_case->branch_id
-            : $operationalBranchId;
+        // Main Branch Admin may only edit records that belong to their own (main) branch.
+        $editableBranchId = $operationalBranchId;
 
         if ((int) $funeral_case->branch_id !== $editableBranchId) {
-            abort(403);
+            abort(403, 'You can only edit case records that belong to your own branch.');
         }
         if (($funeral_case->entry_source ?? 'MAIN') === 'OTHER_BRANCH') {
             return back()->withErrors([
@@ -874,7 +872,7 @@ class FuneralCaseController extends Controller
             'client_id' => 'required|exists:clients,id',
             'deceased_id' => 'required|exists:deceased,id',
             'package_id' => 'required|integer|exists:packages,id',
-            'case_status' => 'required|in:ACTIVE,COMPLETED',
+            // case_status is system-managed (auto-completed on interment date) — not validated from user input.
             'date_of_death' => 'required|date|before_or_equal:today',
             'service_requested_at' => 'required|date|before_or_equal:today',
             'wake_start_date' => 'nullable|date',
@@ -991,23 +989,14 @@ class FuneralCaseController extends Controller
             ->whereIn('case_status', ['DRAFT', 'ACTIVE'])
             ->exists();
 
-        if ($hasDuplicateOpenCase && in_array($validated['case_status'], ['DRAFT', 'ACTIVE'], true)) {
+        // Duplicate-case guard: only relevant while the case is still open.
+        if ($hasDuplicateOpenCase && in_array($funeral_case->case_status, ['DRAFT', 'ACTIVE'], true)) {
             return back()->withErrors([
                 'deceased_id' => 'Another active case already exists for this deceased in this branch.',
             ])->withInput();
         }
 
-        // Block manual completion if the interment date has not been reached yet.
-        // Case status is set to COMPLETED automatically once the interment date passes.
-        if ($validated['case_status'] === 'COMPLETED') {
-            $intermentCheck = $intermentAt ?? $funeral_case->interment_at;
-            if ($intermentCheck && $intermentCheck->copy()->startOfDay()->isFuture()) {
-                return back()->withErrors([
-                    'case_status' => 'Case cannot be manually set to Completed before the interment date ('
-                        . $intermentCheck->format('M d, Y') . '). The status will update automatically once that date is reached.',
-                ])->withInput();
-            }
-        }
+        // case_status is system-managed — preserved from the existing record, never from user input.
 
         $trackFields = [
             'case_status',
@@ -1054,7 +1043,7 @@ class FuneralCaseController extends Controller
             'total_paid' => $payment['total_paid'],
             'balance_amount' => $payment['balance'],
             'payment_status' => $payment['status'],
-            'case_status' => $validated['case_status'],
+            'case_status' => $funeral_case->case_status, // system-managed, never overwritten by user input
             'entry_source' => $entrySource,
             'verification_status' => 'VERIFIED',
             'verified_by' => auth()->id(),

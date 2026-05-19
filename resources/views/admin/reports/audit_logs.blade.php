@@ -34,7 +34,13 @@
             <div class="admin-table-head-row">
                 <div>
                     <h2 class="table-system-title">System Audit Trail</h2>
-                    <p class="admin-table-head-copy">Monitor user activities and data changes across all branches.</p>
+                    <p class="admin-table-head-copy">
+                        @if($isBranchAdminView ?? false)
+                            Monitor user activities and data changes for your assigned branch.
+                        @else
+                            Monitor user activities and data changes across all branches.
+                        @endif
+                    </p>
                 </div>
                 <div class="admin-table-head-actions">
                     <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Status:</span>
@@ -57,14 +63,35 @@
                     </select>
                 </div>
 
-                <div class="table-toolbar-field">
-                    <select name="branch_id" class="table-toolbar-select" onchange="this.form.submit()">
-                        <option value="">All Branches</option>
-                        @foreach($branches as $branch)
-                            <option value="{{ $branch->id }}" {{ (string)($filters['branch_id'] ?? '') === (string)$branch->id ? 'selected' : '' }}>{{ $branch->branch_code }}</option>
-                        @endforeach
-                    </select>
-                </div>
+                @if($isBranchAdminView ?? false)
+                    {{-- Branch admins are locked to their assigned branch --}}
+                    @php $lockedBranch = $branches->first(); @endphp
+                    <div class="table-toolbar-field">
+                        <div class="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 select-none" title="Your audit log view is restricted to your assigned branch only.">
+                            <svg class="w-3.5 h-3.5 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                            </svg>
+                            <div class="leading-tight">
+                                <div class="text-[9px] font-bold uppercase tracking-widest text-amber-500 leading-none mb-0.5">Branch Scope</div>
+                                <div class="text-xs font-semibold text-amber-900 leading-none">
+                                    {{ $lockedBranch?->branch_code ?? '—' }}
+                                    @if($lockedBranch?->branch_name)
+                                        <span class="font-normal text-amber-700"> — {{ $lockedBranch->branch_name }}</span>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                @else
+                    <div class="table-toolbar-field">
+                        <select name="branch_id" class="table-toolbar-select" onchange="this.form.submit()">
+                            <option value="">All Branches</option>
+                            @foreach($branches as $branch)
+                                <option value="{{ $branch->id }}" {{ (string)($filters['branch_id'] ?? '') === (string)$branch->id ? 'selected' : '' }}>{{ $branch->branch_code }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
 
                 <div class="table-toolbar-field">
                     <select name="action_type" class="table-toolbar-select" onchange="this.form.submit()">

@@ -134,14 +134,14 @@
     }
 
     .payments-record-action:hover {
-        background: #2D372D;
-        border-color: #2D372D;
+        background: var(--brand-hover);
+        border-color: var(--brand-hover);
     }
 
     .payments-record-action:focus-visible {
         outline: none;
-        box-shadow: 0 0 0 3px rgba(62,74,61,0.18);
-        border-color: #3E4A3D;
+        box-shadow: var(--shadow-focus);
+        border-color: var(--brand);
     }
 
     .payments-record-action:active {

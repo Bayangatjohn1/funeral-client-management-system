@@ -37,8 +37,8 @@
     <div class="flash-error">{{ $errors->first() }}</div>
 @endif
 
-{{-- Payment Action panel (screen only, not printed) --}}
-@if(($funeral_case->entry_source ?? 'MAIN') !== 'OTHER_BRANCH')
+{{-- Payment Action panel — staff only (admins cannot record payments) --}}
+@if(auth()->user()?->role === 'staff' && ($funeral_case->entry_source ?? 'MAIN') !== 'OTHER_BRANCH')
 <div class="no-print max-w-4xl mx-auto px-4 pt-6">
     <div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
@@ -211,7 +211,7 @@
         @endif
     </div>
 </div>
-@elseif(($funeral_case->entry_source ?? 'MAIN') === 'OTHER_BRANCH')
+@elseif(auth()->user()?->role === 'staff' && ($funeral_case->entry_source ?? 'MAIN') === 'OTHER_BRANCH')
 <div class="no-print max-w-4xl mx-auto px-4 pt-6">
     <div class="flash-warning">Other-branch reported cases are locked for payment updates.</div>
 </div>

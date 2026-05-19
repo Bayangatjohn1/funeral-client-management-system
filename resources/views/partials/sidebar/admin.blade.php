@@ -69,7 +69,7 @@
             <span>Reports</span>
         </a>
 
-        @if(auth()->user()?->isMainBranchAdmin())
+        @if(auth()->user()?->isMainBranchAdmin() || auth()->user()?->isBranchAdmin())
             <a href="{{ route('admin.audit-logs.index') }}" class="{{ $isActive(request()->routeIs('admin.audit-logs.index')) }}">
                 <svg class="{{ $iconState(request()->routeIs('admin.audit-logs.index')) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5h6m-3 0v14m7-9H5m12 0a2 2 0 012 2v7a2 2 0 01-2 2H7a2 2 0 01-2-2v-7a2 2 0 012-2"/>

@@ -69,6 +69,13 @@
   .cv-hero-top     { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
   .cv-hero-case    { font-size:19px; font-weight:800; color:var(--ink); letter-spacing:-.4px; line-height:1.1; }
   .cv-hero-badges  { display:flex; flex-wrap:wrap; gap:5px; padding-top:2px; }
+  .cv-hero-right       { display:flex; align-items:flex-start; gap:10px; flex-wrap:wrap; }
+  .cv-modify-btn       { display:inline-flex; align-items:center; gap:5px; padding:5px 13px; font-size:12px; font-weight:600; color:var(--brand); background:var(--brand-soft,#eef3fa); border:1px solid var(--brand); border-radius:7px; text-decoration:none; transition:background .15s,color .15s; white-space:nowrap; }
+  .cv-modify-btn:hover { background:var(--brand); color:#fff; }
+  .cv-interment-badge  { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; font-size:11.5px; font-weight:600; color:var(--ink-muted); background:var(--surface-panel,#f5f7fa); border:1px solid var(--border); border-radius:6px; white-space:nowrap; }
+  .cv-interment-badge i { font-size:11px; }
+  .cv-interment-badge [class*="status-pill"] { font-size:10px; padding:1px 7px; }
+  @media print { .cv-modify-btn { display:none !important; } }
   .cv-hero-meta    { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:6px 12px; padding-top:10px; border-top:1px solid var(--border); }
   .cv-meta-item    { display:flex; flex-direction:column; gap:1px; }
   .cv-meta-label   { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-muted); }
@@ -123,20 +130,25 @@
     <div class="cv-hero-body">
       <div class="cv-hero-top">
         <div class="cv-hero-case">{{ $funeral_case->case_code }}</div>
-        <div class="cv-hero-badges">
-          <span class="{{ in_array($funeral_case->case_status, ['DRAFT','ACTIVE']) ? 'status-pill-warning' : 'status-pill-success' }}">
-            {{ $funeral_case->case_status }}
-          </span>
-          <span class="{{ $funeral_case->payment_status === 'PAID' ? 'status-pill-success' : ($funeral_case->payment_status === 'PARTIAL' ? 'status-pill-warning' : 'status-pill-danger') }}">
-            {{ $funeral_case->payment_status }}
-          </span>
-          @if($isOtherBranch)
-            <span class="status-pill-warning">Other Branch</span>
-          @endif
-          @if(!empty($funeral_case->verification_status))
-            <span class="{{ $funeral_case->verification_status === 'VERIFIED' ? 'status-pill-success' : ($funeral_case->verification_status === 'DISPUTED' ? 'status-pill-danger' : 'status-pill-warning') }}">
-              {{ $funeral_case->verification_status }}
+        <div class="cv-hero-right">
+          <div class="cv-hero-badges">
+            @if($isOtherBranch)
+              <span class="status-pill-warning">Other Branch</span>
+            @endif
+            <span class="cv-interment-badge">
+              <i class="bi bi-calendar-event"></i>
+              Interment: {{ $displayIntermentAt ? $fmtDt($displayIntermentAt) : '—' }}
+              <span class="{{ in_array($funeral_case->case_status, ['DRAFT','ACTIVE']) ? 'status-pill-warning' : 'status-pill-success' }}" style="margin-left:4px;">
+                {{ $funeral_case->case_status }}
+              </span>
             </span>
+          </div>
+          @if(!$isOtherBranch && auth()->user()?->can('update', $funeral_case))
+            <a href="{{ route('funeral-cases.edit', ['funeral_case' => $funeral_case, 'return_to' => request()->fullUrl()]) }}"
+               class="cv-modify-btn no-print">
+              <i class="bi bi-pencil-square"></i>
+              Modify
+            </a>
           @endif
         </div>
       </div>

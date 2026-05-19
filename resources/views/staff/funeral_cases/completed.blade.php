@@ -134,7 +134,6 @@
                     <th class="table-col-number">Total</th>
                     <th class="table-col-number">Total Paid</th>
                     <th class="text-left">Payment Status</th>
-                    <th class="table-col-actions">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -162,36 +161,10 @@
                             <div class="table-secondary mt-1">With Balance</div>
                         @endif
                     </td>
-                    <td class="table-col-actions">
-                        <div class="table-row-actions">
-                            <div class="row-action-menu" data-row-menu>
-                                <button
-                                    type="button"
-                                    class="row-action-trigger"
-                                    data-row-menu-trigger
-                                    aria-label="Open row actions"
-                                    aria-haspopup="menu"
-                                    aria-expanded="false"
-                                >
-                                    <i class="bi bi-three-dots-vertical"></i>
-                                </button>
-                                <div class="row-action-dropdown" role="menu">
-                                    <a
-                                        href="{{ route('funeral-cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}"
-                                        class="row-action-item"
-                                        data-row-menu-item
-                                    >
-                                        <i class="bi bi-eye"></i>
-                                        <span>View</span>
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="{{ $isOtherView ? 14 : 11 }}" class="table-system-empty">
+                    <td colspan="{{ $isOtherView ? 13 : 10 }}" class="table-system-empty">
                         No completed cases found.
                     </td>
                 </tr>

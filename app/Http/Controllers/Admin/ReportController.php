@@ -163,10 +163,18 @@ class ReportController extends Controller
     public function editCase(Request $request, FuneralCase $funeral_case)
     {
         $user = $request->user();
-        $scopeBranchIds = $user->branchScopeIds();
 
-        if (!in_array($funeral_case->branch_id, $scopeBranchIds)) {
-            abort(403, 'This case is outside your admin scope.');
+        // Main Branch Admin may only edit cases that belong to their own (main) branch.
+        if ($user->isMainBranchAdmin()) {
+            $ownBranchId = $user->operationalBranchId();
+            if ($ownBranchId === null || (int) $funeral_case->branch_id !== $ownBranchId) {
+                abort(403, 'You can only edit case records that belong to your own branch.');
+            }
+        } else {
+            $scopeBranchIds = $user->branchScopeIds();
+            if (!in_array($funeral_case->branch_id, $scopeBranchIds)) {
+                abort(403, 'This case is outside your admin scope.');
+            }
         }
 
         $funeral_case->load(['client', 'deceased', 'branch', 'package', 'encodedBy']);
@@ -187,10 +195,18 @@ class ReportController extends Controller
     public function updateCase(Request $request, FuneralCase $funeral_case)
     {
         $user = $request->user();
-        $scopeBranchIds = $user->branchScopeIds();
 
-        if (!in_array($funeral_case->branch_id, $scopeBranchIds)) {
-            abort(403, 'This case is outside your admin scope.');
+        // Main Branch Admin may only update cases that belong to their own (main) branch.
+        if ($user->isMainBranchAdmin()) {
+            $ownBranchId = $user->operationalBranchId();
+            if ($ownBranchId === null || (int) $funeral_case->branch_id !== $ownBranchId) {
+                abort(403, 'You can only edit case records that belong to your own branch.');
+            }
+        } else {
+            $scopeBranchIds = $user->branchScopeIds();
+            if (!in_array($funeral_case->branch_id, $scopeBranchIds)) {
+                abort(403, 'This case is outside your admin scope.');
+            }
         }
 
         $validated = $request->validate([

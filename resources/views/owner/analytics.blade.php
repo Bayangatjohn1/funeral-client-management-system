@@ -2755,13 +2755,39 @@ html[data-theme='dark'] .ba-head-row-nav {
                 tone: 'blue',
                 // Non-clickable: no onClick, no hint, never selected
             },
-            {
-                label: 'Revenue Trend',
-                value: 'No comparison',
-                note: 'No comparison available.',
-                tone: 'blue',
-                // Non-clickable: no onClick, no hint, never selected
-            },
+            (() => {
+                const rows = revenueRows.rows;
+                if (rows.length < 2) {
+                    return {
+                        label: 'Revenue Trend',
+                        value: 'No comparison',
+                        note: 'Need at least 2 periods to compare.',
+                        tone: 'blue',
+                    };
+                }
+                const mid = Math.floor(rows.length / 2);
+                const firstHalf = rows.slice(0, mid);
+                const secondHalf = rows.slice(mid);
+                const avgFirst = firstHalf.reduce((s, r) => s + r.revenue, 0) / firstHalf.length;
+                const avgSecond = secondHalf.reduce((s, r) => s + r.revenue, 0) / secondHalf.length;
+                const pctChange = avgFirst === 0
+                    ? (avgSecond > 0 ? 100 : 0)
+                    : ((avgSecond - avgFirst) / avgFirst) * 100;
+                const isUp = pctChange > 1;
+                const isDown = pctChange < -1;
+                const trendLabel = isUp ? `↑ Up ${pctChange.toFixed(1)}%` : isDown ? `↓ Down ${Math.abs(pctChange).toFixed(1)}%` : '→ Flat';
+                const trendNote = isUp
+                    ? `${shortMoney(avgSecond)} avg (vs ${shortMoney(avgFirst)} earlier)`
+                    : isDown
+                        ? `${shortMoney(avgSecond)} avg (vs ${shortMoney(avgFirst)} earlier)`
+                        : 'Revenue is steady across periods';
+                return {
+                    label: 'Revenue Trend',
+                    value: trendLabel,
+                    note: trendNote,
+                    tone: isUp ? 'green' : isDown ? 'red' : 'blue',
+                };
+            })(),
         ]);
 
         const collectionRows = buildCollectionInsightRows();

@@ -208,7 +208,16 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->get(
     $activePackageCount = Package::where('is_active', true)->count();
     $dashboardBranch = $branchId ? $branches->firstWhere('id', $branchId) : $user->branch;
     $auditLogs = AuditLog::with(['actor:id,name,role', 'branch:id,branch_code,branch_name'])
-        ->when($branchScopeIds !== null, function ($query) use ($branchScopeIds) {
+        ->when($isBranchAdmin, function ($query) use ($user) {
+            // Branch admins only see their own actions and their branch staff's actions
+            $allowedActorIds = User::where('branch_id', $user->branch_id)
+                ->where(function ($q) use ($user) {
+                    $q->where('id', $user->id)->orWhere('role', 'staff');
+                })
+                ->pluck('id');
+            $query->whereIn('actor_id', $allowedActorIds);
+        })
+        ->when(!$isBranchAdmin && $branchScopeIds !== null, function ($query) use ($branchScopeIds) {
             $query->where(function ($scope) use ($branchScopeIds) {
                 $scope->whereIn('branch_id', $branchScopeIds)
                     ->orWhereIn('target_branch_id', $branchScopeIds);
@@ -404,10 +413,18 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->grou
     Route::resource('clients', ClientController::class)->except(['create', 'store', 'destroy']);
     Route::get('deceased', [DeceasedController::class, 'index'])->name('deceased.index');
     Route::resource('deceased', DeceasedController::class)->only(['edit', 'update', 'show']);
-    Route::resource('funeral-cases', FuneralCaseController::class)->except(['show']);
+    // Staff-only: create, store, delete. Edit/update are open to branch admins (see group below).
+    Route::resource('funeral-cases', FuneralCaseController::class)->except(['show', 'edit', 'update']);
     Route::get('completed-cases', [FuneralCaseController::class, 'completedIndex'])->name('funeral-cases.completed');
     Route::get('other-branch-reports', [FuneralCaseController::class, 'otherReportsIndex'])->name('funeral-cases.other-reports');
     Route::get('reminders', [ReminderController::class, 'index'])->name('staff.reminders.index');
+});
+
+// Case edit/update: accessible to staff AND branch/main admins (policy enforces own-branch restriction).
+Route::middleware(['auth', 'no_cache', 'active', 'staff_or_admin', 'branch.scope'])->group(function () {
+    Route::get('funeral-cases/{funeral_case}/edit', [FuneralCaseController::class, 'edit'])->name('funeral-cases.edit');
+    Route::put('funeral-cases/{funeral_case}', [FuneralCaseController::class, 'update'])->name('funeral-cases.update');
+    Route::patch('funeral-cases/{funeral_case}', [FuneralCaseController::class, 'update']);
 });
 
 Route::middleware(['auth', 'no_cache', 'active'])->get('payments/history', [PaymentController::class, 'history'])->name('payments.history');
@@ -442,7 +459,10 @@ Route::middleware(['auth', 'no_cache', 'active', 'main_admin'])->prefix('admin')
     Route::get('/branches/{branch}/edit', [BranchController::class, 'edit'])->name('admin.branches.edit');
     Route::put('/branches/{branch}', [BranchController::class, 'update'])->name('admin.branches.update');
     Route::patch('/branches/{branch}/toggle-status', [BranchController::class, 'toggleStatus'])->name('admin.branches.toggleStatus');
+});
 
+// Audit logs — accessible by any admin; branch admins are scoped to their own branch via the controller/policy
+Route::middleware(['auth', 'no_cache', 'active', 'admin'])->prefix('admin')->group(function () {
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('admin.audit-logs.index');
     Route::get('/audit-logs/{audit_log}', [AuditLogController::class, 'show'])->name('admin.audit-logs.show');
 });

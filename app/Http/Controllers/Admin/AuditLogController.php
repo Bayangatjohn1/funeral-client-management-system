@@ -17,6 +17,10 @@ class AuditLogController extends Controller
     {
         $this->authorize('viewAny', AuditLog::class);
 
+        /** @var \App\Models\User $authUser */
+        $authUser = $request->user();
+        $isBranchAdmin = $authUser->isBranchAdmin();
+
         $validated = $request->validate([
             'user_id' => ['nullable', 'integer', 'exists:users,id'],
             'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
@@ -39,12 +43,31 @@ class AuditLogController extends Controller
             ])
             ->latest();
 
-        if ($request->filled('user_id')) {
-            $query->where('actor_id', (int) $validated['user_id']);
+        if ($isBranchAdmin) {
+            // Branch admins may only see their own actions and those of staff in their branch.
+            // Build the allowed actor set: themselves + staff assigned to their branch.
+            $allowedActorIds = User::where('branch_id', $authUser->branch_id)
+                ->where(function ($q) use ($authUser) {
+                    $q->where('id', $authUser->id)
+                      ->orWhere('role', 'staff');
+                })
+                ->pluck('id');
+
+            $query->whereIn('actor_id', $allowedActorIds);
+
+            // If the user filtered by a specific actor, honour it only within the allowed set
+            if ($request->filled('user_id') && $allowedActorIds->contains((int) $validated['user_id'])) {
+                $query->where('actor_id', (int) $validated['user_id']);
+            }
+        } else {
+            if ($request->filled('user_id')) {
+                $query->where('actor_id', (int) $validated['user_id']);
+            }
+            if ($request->filled('branch_id')) {
+                $query->where('branch_id', (int) $validated['branch_id']);
+            }
         }
-        if ($request->filled('branch_id')) {
-            $query->where('branch_id', (int) $validated['branch_id']);
-        }
+
         if ($request->filled('action')) {
             $query->where('action', 'like', '%' . $validated['action'] . '%');
         }
@@ -67,8 +90,21 @@ class AuditLogController extends Controller
 
         $logs = $query->paginate($perPage)->withQueryString();
 
-        $users = Cache::remember('audit:users:list', 600, fn () => User::orderBy('name')->get(['id', 'name']));
-        $branches = Cache::remember('audit:branches:list', 600, fn () => Branch::orderBy('branch_code')->get(['id', 'branch_code', 'branch_name']));
+        // Branch admins only see themselves + their staff in the user filter dropdown
+        $users = $isBranchAdmin
+            ? User::where('branch_id', $authUser->branch_id)
+                ->where(function ($q) use ($authUser) {
+                    $q->where('id', $authUser->id)
+                      ->orWhere('role', 'staff');
+                })
+                ->orderBy('name')
+                ->get(['id', 'name'])
+            : Cache::remember('audit:users:list', 600, fn () => User::orderBy('name')->get(['id', 'name']));
+
+        // Branch admins only see their own branch in the filter list
+        $branches = $isBranchAdmin
+            ? Branch::where('id', $authUser->branch_id)->get(['id', 'branch_code', 'branch_name'])
+            : Cache::remember('audit:branches:list', 600, fn () => Branch::orderBy('branch_code')->get(['id', 'branch_code', 'branch_name']));
 
         $validated['per_page'] = $perPage;
 
@@ -76,6 +112,7 @@ class AuditLogController extends Controller
             'logs' => $logs,
             'users' => $users,
             'branches' => $branches,
+            'isBranchAdminView' => $isBranchAdmin,
             'actionTypes' => ['create', 'update', 'delete', 'status_change', 'financial', 'security', 'permission'],
             'entityTypes' => AuditLog::query()->select('entity_type')->distinct()->pluck('entity_type')->filter()->values(),
             'perPageOptions' => self::PER_PAGE_OPTIONS,

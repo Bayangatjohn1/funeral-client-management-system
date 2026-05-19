@@ -1,0 +1,124 @@
+<svg width="1000" height="1680" xmlns="http://www.w3.org/2000/svg" font-family="Arial, sans-serif">
+<line x1="910" y1="254" x2="500" y2="100" stroke="#27ae60" stroke-width="1.3"/>
+<line x1="910" y1="254" x2="500" y2="158" stroke="#27ae60" stroke-width="1.3"/>
+<line x1="910" y1="254" x2="500" y2="228" stroke="#27ae60" stroke-width="1.3"/>
+<line x1="910" y1="254" x2="500" y2="288" stroke="#27ae60" stroke-width="1.3"/>
+<line x1="910" y1="254" x2="500" y2="348" stroke="#27ae60" stroke-width="1.3"/>
+<line x1="910" y1="254" x2="500" y2="408" stroke="#27ae60" stroke-width="1.3"/>
+<line x1="90" y1="658" x2="500" y2="100" stroke="#c0186c" stroke-width="1.3"/>
+<line x1="90" y1="658" x2="500" y2="158" stroke="#c0186c" stroke-width="1.3"/>
+<line x1="90" y1="658" x2="500" y2="478" stroke="#c0186c" stroke-width="1.3"/>
+<line x1="90" y1="658" x2="500" y2="538" stroke="#c0186c" stroke-width="1.3"/>
+<line x1="90" y1="658" x2="500" y2="598" stroke="#c0186c" stroke-width="1.3"/>
+<line x1="90" y1="658" x2="500" y2="658" stroke="#c0186c" stroke-width="1.3"/>
+<line x1="90" y1="658" x2="500" y2="718" stroke="#c0186c" stroke-width="1.3"/>
+<line x1="90" y1="658" x2="500" y2="778" stroke="#c0186c" stroke-width="1.3"/>
+<line x1="90" y1="658" x2="500" y2="838" stroke="#c0186c" stroke-width="1.3"/>
+<line x1="90" y1="1098" x2="500" y2="100" stroke="#e67e22" stroke-width="1.3"/>
+<line x1="90" y1="1098" x2="500" y2="158" stroke="#e67e22" stroke-width="1.3"/>
+<line x1="90" y1="1098" x2="500" y2="918" stroke="#e67e22" stroke-width="1.3"/>
+<line x1="90" y1="1098" x2="500" y2="978" stroke="#e67e22" stroke-width="1.3"/>
+<line x1="90" y1="1098" x2="500" y2="1038" stroke="#e67e22" stroke-width="1.3"/>
+<line x1="90" y1="1098" x2="500" y2="1098" stroke="#e67e22" stroke-width="1.3"/>
+<line x1="90" y1="1098" x2="500" y2="1158" stroke="#e67e22" stroke-width="1.3"/>
+<line x1="90" y1="1098" x2="500" y2="1218" stroke="#e67e22" stroke-width="1.3"/>
+<line x1="90" y1="1098" x2="500" y2="1278" stroke="#e67e22" stroke-width="1.3"/>
+<line x1="910" y1="1478" x2="500" y2="100" stroke="#2980b9" stroke-width="1.3"/>
+<line x1="910" y1="1478" x2="500" y2="158" stroke="#2980b9" stroke-width="1.3"/>
+<line x1="910" y1="1478" x2="500" y2="1358" stroke="#2980b9" stroke-width="1.3"/>
+<line x1="910" y1="1478" x2="500" y2="1418" stroke="#2980b9" stroke-width="1.3"/>
+<line x1="910" y1="1478" x2="500" y2="1478" stroke="#2980b9" stroke-width="1.3"/>
+<line x1="910" y1="1478" x2="500" y2="1538" stroke="#2980b9" stroke-width="1.3"/>
+<line x1="910" y1="1478" x2="500" y2="1598" stroke="#2980b9" stroke-width="1.3"/>
+<rect x="175" y="42" width="650" height="1610" fill="white" fill-opacity="0" stroke="#444" stroke-width="2"/>
+<text x="500" y="32" text-anchor="middle" font-size="11" fill="#333">«system» Funeral Management System</text>
+<rect x="190" y="208" width="620" height="224" fill="none" stroke="#27ae60" stroke-width="1" stroke-dasharray="5,3" rx="4"/>
+<text x="390" y="222" text-anchor="middle" font-size="10" fill="#27ae60">— Owner —</text>
+<rect x="190" y="458" width="620" height="404" fill="none" stroke="#c0186c" stroke-width="1" stroke-dasharray="5,3" rx="4"/>
+<text x="390" y="472" text-anchor="middle" font-size="10" fill="#c0186c">— Main Branch Admin —</text>
+<rect x="190" y="898" width="620" height="404" fill="none" stroke="#e67e22" stroke-width="1" stroke-dasharray="5,3" rx="4"/>
+<text x="390" y="912" text-anchor="middle" font-size="10" fill="#e67e22">— Branch Admin —</text>
+<rect x="190" y="1338" width="620" height="292" fill="none" stroke="#2980b9" stroke-width="1" stroke-dasharray="5,3" rx="4"/>
+<text x="390" y="1352" text-anchor="middle" font-size="10" fill="#2980b9">— Staff —</text>
+<ellipse cx="500" cy="100" rx="70" ry="22" fill="white" stroke="#555555" stroke-width="1.5"/>
+<text x="500" y="104" text-anchor="middle" font-size="11" fill="#222">Login</text>
+<ellipse cx="500" cy="158" rx="90" ry="22" fill="white" stroke="#555555" stroke-width="1.5"/>
+<text x="500" y="162" text-anchor="middle" font-size="11" fill="#222">View Dashboard</text>
+<ellipse cx="500" cy="228" rx="110" ry="22" fill="#d5f5e3" stroke="#27ae60" stroke-width="1.5"/>
+<text x="500" y="232" text-anchor="middle" font-size="11" fill="#222">View Owner Dashboard</text>
+<ellipse cx="500" cy="288" rx="110" ry="22" fill="#d5f5e3" stroke="#27ae60" stroke-width="1.5"/>
+<text x="500" y="292" text-anchor="middle" font-size="11" fill="#222">View Branch Analytics</text>
+<ellipse cx="500" cy="348" rx="110" ry="22" fill="#d5f5e3" stroke="#27ae60" stroke-width="1.5"/>
+<text x="500" y="352" text-anchor="middle" font-size="11" fill="#222">View Global Case History</text>
+<ellipse cx="500" cy="408" rx="110" ry="22" fill="#d5f5e3" stroke="#27ae60" stroke-width="1.5"/>
+<text x="500" y="412" text-anchor="middle" font-size="11" fill="#222">View Reports</text>
+<ellipse cx="500" cy="478" rx="110" ry="22" fill="#fce4f0" stroke="#c0186c" stroke-width="1.5"/>
+<text x="500" y="482" text-anchor="middle" font-size="11" fill="#222">Manage Branches</text>
+<ellipse cx="500" cy="538" rx="110" ry="22" fill="#fce4f0" stroke="#c0186c" stroke-width="1.5"/>
+<text x="500" y="542" text-anchor="middle" font-size="11" fill="#222">Manage User Accounts</text>
+<ellipse cx="500" cy="598" rx="130" ry="28" fill="#fce4f0" stroke="#c0186c" stroke-width="1.5"/>
+<text x="500" y="594" text-anchor="middle" font-size="10.5" fill="#222">Manage Service Packages</text>
+<text x="500" y="608" text-anchor="middle" font-size="10.5" fill="#222">and Pricing</text>
+<ellipse cx="500" cy="658" rx="130" ry="28" fill="#fce4f0" stroke="#c0186c" stroke-width="1.5"/>
+<text x="500" y="654" text-anchor="middle" font-size="10.5" fill="#222">Manage Case Records</text>
+<text x="500" y="668" text-anchor="middle" font-size="10.5" fill="#222">Across Branches</text>
+<ellipse cx="500" cy="718" rx="130" ry="28" fill="#fce4f0" stroke="#c0186c" stroke-width="1.5"/>
+<text x="500" y="714" text-anchor="middle" font-size="10.5" fill="#222">View and Manage</text>
+<text x="500" y="728" text-anchor="middle" font-size="10.5" fill="#222">Payment Monitoring</text>
+<ellipse cx="500" cy="778" rx="110" ry="22" fill="#fce4f0" stroke="#c0186c" stroke-width="1.5"/>
+<text x="500" y="782" text-anchor="middle" font-size="11" fill="#222">Generate Reports</text>
+<ellipse cx="500" cy="838" rx="110" ry="22" fill="#fce4f0" stroke="#c0186c" stroke-width="1.5"/>
+<text x="500" y="842" text-anchor="middle" font-size="11" fill="#222">View Audit Logs</text>
+<ellipse cx="500" cy="918" rx="110" ry="22" fill="#fdebd0" stroke="#e67e22" stroke-width="1.5"/>
+<text x="500" y="922" text-anchor="middle" font-size="11" fill="#222">Manage Branch Users</text>
+<ellipse cx="500" cy="978" rx="110" ry="22" fill="#fdebd0" stroke="#e67e22" stroke-width="1.5"/>
+<text x="500" y="982" text-anchor="middle" font-size="11" fill="#222">View Service Packages</text>
+<ellipse cx="500" cy="1038" rx="130" ry="28" fill="#fdebd0" stroke="#e67e22" stroke-width="1.5"/>
+<text x="500" y="1034" text-anchor="middle" font-size="10.5" fill="#222">Manage Case Records</text>
+<text x="500" y="1048" text-anchor="middle" font-size="10.5" fill="#222">within Assigned Branch</text>
+<ellipse cx="500" cy="1098" rx="130" ry="28" fill="#fdebd0" stroke="#e67e22" stroke-width="1.5"/>
+<text x="500" y="1094" text-anchor="middle" font-size="10.5" fill="#222">View Payment Monitoring</text>
+<text x="500" y="1108" text-anchor="middle" font-size="10.5" fill="#222">within Assigned Branch</text>
+<ellipse cx="500" cy="1158" rx="130" ry="28" fill="#fdebd0" stroke="#e67e22" stroke-width="1.5"/>
+<text x="500" y="1154" text-anchor="middle" font-size="10.5" fill="#222">Manage Payment Records</text>
+<text x="500" y="1168" text-anchor="middle" font-size="10.5" fill="#222">within Assigned Branch</text>
+<ellipse cx="500" cy="1218" rx="110" ry="22" fill="#fdebd0" stroke="#e67e22" stroke-width="1.5"/>
+<text x="500" y="1222" text-anchor="middle" font-size="11" fill="#222">Generate Branch Reports</text>
+<ellipse cx="500" cy="1278" rx="110" ry="22" fill="#fdebd0" stroke="#e67e22" stroke-width="1.5"/>
+<text x="500" y="1282" text-anchor="middle" font-size="11" fill="#222">View Branch Activity Logs</text>
+<ellipse cx="500" cy="1358" rx="110" ry="22" fill="#d6eaf8" stroke="#2980b9" stroke-width="1.5"/>
+<text x="500" y="1362" text-anchor="middle" font-size="11" fill="#222">Manage Case Records</text>
+<ellipse cx="500" cy="1418" rx="110" ry="22" fill="#d6eaf8" stroke="#2980b9" stroke-width="1.5"/>
+<text x="500" y="1422" text-anchor="middle" font-size="11" fill="#222">Record Payment</text>
+<ellipse cx="500" cy="1478" rx="110" ry="22" fill="#d6eaf8" stroke="#2980b9" stroke-width="1.5"/>
+<text x="500" y="1482" text-anchor="middle" font-size="11" fill="#222">View Payment Monitoring</text>
+<ellipse cx="500" cy="1538" rx="110" ry="22" fill="#d6eaf8" stroke="#2980b9" stroke-width="1.5"/>
+<text x="500" y="1542" text-anchor="middle" font-size="11" fill="#222">Search and Retrieve Records</text>
+<ellipse cx="500" cy="1598" rx="130" ry="28" fill="#d6eaf8" stroke="#2980b9" stroke-width="1.5"/>
+<text x="500" y="1594" text-anchor="middle" font-size="10.5" fill="#222">Update Records</text>
+<text x="500" y="1608" text-anchor="middle" font-size="10.5" fill="#222">Within Assigned Branch</text>
+<circle cx="910" cy="210" r="13" fill="white" stroke="#27ae60" stroke-width="2"/>
+<line x1="910" y1="223" x2="910" y2="248" stroke="#27ae60" stroke-width="2"/>
+<line x1="892" y1="232" x2="928" y2="232" stroke="#27ae60" stroke-width="2"/>
+<line x1="910" y1="248" x2="896" y2="272" stroke="#27ae60" stroke-width="2"/>
+<line x1="910" y1="248" x2="924" y2="272" stroke="#27ae60" stroke-width="2"/>
+<text x="910" y="289" text-anchor="middle" font-size="10" font-weight="bold" fill="#27ae60">OWNER</text>
+<circle cx="90" cy="614" r="13" fill="white" stroke="#c0186c" stroke-width="2"/>
+<line x1="90" y1="627" x2="90" y2="652" stroke="#c0186c" stroke-width="2"/>
+<line x1="72" y1="636" x2="108" y2="636" stroke="#c0186c" stroke-width="2"/>
+<line x1="90" y1="652" x2="76" y2="676" stroke="#c0186c" stroke-width="2"/>
+<line x1="90" y1="652" x2="104" y2="676" stroke="#c0186c" stroke-width="2"/>
+<text x="90" y="693" text-anchor="middle" font-size="10" font-weight="bold" fill="#c0186c">MAIN BRANCH ADMIN</text>
+<circle cx="90" cy="1054" r="13" fill="white" stroke="#e67e22" stroke-width="2"/>
+<line x1="90" y1="1067" x2="90" y2="1092" stroke="#e67e22" stroke-width="2"/>
+<line x1="72" y1="1076" x2="108" y2="1076" stroke="#e67e22" stroke-width="2"/>
+<line x1="90" y1="1092" x2="76" y2="1116" stroke="#e67e22" stroke-width="2"/>
+<line x1="90" y1="1092" x2="104" y2="1116" stroke="#e67e22" stroke-width="2"/>
+<text x="90" y="1133" text-anchor="middle" font-size="10" font-weight="bold" fill="#e67e22">BRANCH ADMIN</text>
+<circle cx="910" cy="1434" r="13" fill="white" stroke="#2980b9" stroke-width="2"/>
+<line x1="910" y1="1447" x2="910" y2="1472" stroke="#2980b9" stroke-width="2"/>
+<line x1="892" y1="1456" x2="928" y2="1456" stroke="#2980b9" stroke-width="2"/>
+<line x1="910" y1="1472" x2="896" y2="1496" stroke="#2980b9" stroke-width="2"/>
+<line x1="910" y1="1472" x2="924" y2="1496" stroke="#2980b9" stroke-width="2"/>
+<text x="910" y="1513" text-anchor="middle" font-size="10" font-weight="bold" fill="#2980b9">STAFF</text>
+</svg>

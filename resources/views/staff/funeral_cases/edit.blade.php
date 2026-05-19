@@ -710,28 +710,19 @@ html[data-theme='dark'] .ec-banner     { background: #2a0a0a; border-color: #7f1
             <div class="ec-grid ec-grid-2">
 
                 <div class="ec-field">
-                    <label class="ec-label" for="ec_status">
-                        Case Status <span class="ec-req">*</span>
-                    </label>
-                    <select id="ec_status" name="case_status" class="form-select w-full" required style="font-weight:700;">
-                        <option value="ACTIVE" {{ old('case_status', $funeral_case->case_status) === 'ACTIVE' ? 'selected' : '' }}>
-                            Active (Ongoing)
-                        </option>
-                        <option value="COMPLETED"
-                            {{ old('case_status', $funeral_case->case_status) === 'COMPLETED' ? 'selected' : '' }}
-                            {{ !$intermentPassed ? 'disabled' : '' }}
-                        >
-                            Completed{{ !$intermentPassed ? ' — available after interment date' : '' }}
-                        </option>
-                    </select>
-                    @error('case_status')<div class="ec-err"><i class="bi bi-exclamation-circle"></i> {{ $message }}</div>@enderror
-                    @if(!$intermentPassed)
-                        <span class="ec-hint ec-hint-warn">
-                            <i class="bi bi-info-circle"></i>
-                            Auto-completes after interment date
-                            @if($funeral_case->interment_at)({{ $funeral_case->interment_at->format('M d, Y') }})@endif.
+                    <label class="ec-label">Case Status</label>
+                    {{-- Status is system-managed and auto-set to COMPLETED when interment date is reached. --}}
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="{{ match($funeral_case->case_status) { 'COMPLETED' => 'status-pill-success', 'ACTIVE' => 'status-pill-warning', default => 'status-pill-neutral' } }}">
+                            {{ $funeral_case->case_status }}
                         </span>
-                    @endif
+                    </div>
+                    <span class="ec-hint">
+                        <i class="bi bi-info-circle"></i>
+                        Automatically set to Completed once the interment date is reached.
+                    </span>
+                    {{-- Pass current value so the controller doesn't need it from user input --}}
+                    <input type="hidden" name="case_status" value="{{ $funeral_case->case_status }}">
                 </div>
 
             </div>

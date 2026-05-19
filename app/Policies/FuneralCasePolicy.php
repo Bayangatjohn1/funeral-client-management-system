@@ -43,12 +43,32 @@ class FuneralCasePolicy
 
     public function update(User $user, FuneralCase $case): bool
     {
-        return $this->branchMatch($user, $case) && in_array($user->role, ['staff', 'admin'], true);
+        if (!in_array($user->role, ['staff', 'admin'], true)) {
+            return false;
+        }
+
+        // Main Branch Admin may only edit cases that belong to their own (main) branch.
+        if ($user->isMainBranchAdmin()) {
+            $ownBranchId = $user->operationalBranchId();
+            return $ownBranchId !== null && (int) $case->branch_id === (int) $ownBranchId;
+        }
+
+        return $this->branchMatch($user, $case);
     }
 
     public function delete(User $user, FuneralCase $case): bool
     {
-        return $this->branchMatch($user, $case) && in_array($user->role, ['staff', 'admin'], true);
+        if (!in_array($user->role, ['staff', 'admin'], true)) {
+            return false;
+        }
+
+        // Main Branch Admin may only delete cases that belong to their own (main) branch.
+        if ($user->isMainBranchAdmin()) {
+            $ownBranchId = $user->operationalBranchId();
+            return $ownBranchId !== null && (int) $case->branch_id === (int) $ownBranchId;
+        }
+
+        return $this->branchMatch($user, $case);
     }
 
     private function branchMatch(User $user, FuneralCase $case): bool

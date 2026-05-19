@@ -27,7 +27,21 @@ class PaymentPolicy
 
     public function update(User $user, Payment $payment): bool
     {
-        return $this->branchMatch($user, $payment) && $user->role === 'staff';
+        // Only staff may edit payment records. Main Branch Admin cannot edit
+        // payment records regardless of branch — this also acts as a defensive
+        // guard should the role check ever be relaxed in the future.
+        if ($user->role !== 'staff') {
+            return false;
+        }
+
+        // Main Branch Admin (staff role would not reach here, but kept explicit
+        // for clarity): restrict to own branch only.
+        if (method_exists($user, 'isMainBranchAdmin') && $user->isMainBranchAdmin()) {
+            $ownBranchId = $user->operationalBranchId();
+            return $ownBranchId !== null && (int) $payment->branch_id === (int) $ownBranchId;
+        }
+
+        return $this->branchMatch($user, $payment);
     }
 
     public function delete(User $user, Payment $payment): bool

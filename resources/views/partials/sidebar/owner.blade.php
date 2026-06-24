@@ -10,7 +10,6 @@
 </div>
 
 <div class="nav-section">
-    <p class="nav-group-label">Executive Overview</p>
     <div class="nav-list">
         <a href="{{ route('owner.analytics') }}" class="{{ $isActive(request()->routeIs('owner.analytics')) }}">
             <svg class="{{ $iconState(request()->routeIs('owner.analytics')) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">

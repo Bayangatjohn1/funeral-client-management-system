@@ -33,9 +33,9 @@
             let initialCollapsed = false;
             try {
                 const stored = localStorage.getItem(collapseStorageKey);
-                initialCollapsed = stored === null ? false : stored === 'true';
+                initialCollapsed = stored === null ? true : stored === 'true';
             } catch (error) {
-                initialCollapsed = false;
+                initialCollapsed = true;
             }
 
             if (initialCollapsed) {
@@ -539,7 +539,7 @@
 
             const restoreDesktopCollapsed = () => {
                 const stored = localStorage.getItem(collapseStorageKey);
-                const initialCollapsed = stored === null ? false : stored === 'true';
+                const initialCollapsed = stored === null ? true : stored === 'true';
                 setDesktopCollapsed(initialCollapsed, false);
             };
 
@@ -836,6 +836,60 @@
             document.addEventListener('panel-ui:reset', closeMenu);
 
             updateVisibleState('all');
+        })();
+
+        (function () {
+            // JS-driven sidebar hover-expand so the gap between sidebar and
+            // the fly-out dropdown never causes an accidental collapse.
+            const sidebar   = document.getElementById('appSidebar');
+            const desktop   = window.matchMedia('(min-width: 1024px)');
+            if (!sidebar) return;
+
+            const ATTR        = 'data-sidebar-hovered';
+            const LEAVE_DELAY = 200; // ms — enough to cross the gap
+            let leaveTimer    = null;
+
+            const isCollapsed    = () => document.body.getAttribute('data-sidebar-collapsed') === 'true';
+            const isDropdownOpen = () => {
+                const dd = sidebar.querySelector('[data-account-dropdown]');
+                return dd ? !dd.hidden : false;
+            };
+
+            const enter = () => {
+                if (!desktop.matches || !isCollapsed()) return;
+                clearTimeout(leaveTimer);
+                document.body.setAttribute(ATTR, 'true');
+            };
+
+            const leave = () => {
+                clearTimeout(leaveTimer);
+                leaveTimer = setTimeout(() => {
+                    if (isDropdownOpen()) return; // keep open while menu is visible
+                    document.body.removeAttribute(ATTR);
+                }, LEAVE_DELAY);
+            };
+
+            sidebar.addEventListener('mouseenter', enter);
+            sidebar.addEventListener('mouseleave', leave);
+
+            // When the account dropdown is closed and mouse is no longer on sidebar, collapse
+            const accountDropdown = sidebar.querySelector('[data-account-dropdown]');
+            if (accountDropdown) {
+                new MutationObserver(() => {
+                    if (!isDropdownOpen() && !sidebar.matches(':hover')) {
+                        clearTimeout(leaveTimer);
+                        document.body.removeAttribute(ATTR);
+                    }
+                }).observe(accountDropdown, { attributes: true, attributeFilter: ['hidden'] });
+            }
+
+            // Remove hover state when sidebar is manually expanded via toggle button
+            new MutationObserver(() => {
+                if (!isCollapsed()) {
+                    clearTimeout(leaveTimer);
+                    document.body.removeAttribute(ATTR);
+                }
+            }).observe(document.body, { attributes: true, attributeFilter: ['data-sidebar-collapsed'] });
         })();
 
         (function () {

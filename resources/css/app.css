@@ -3698,9 +3698,10 @@ body[data-sidebar-collapsed="true"] .sidebar {
 }
 
 body[data-sidebar-collapsed="true"] .sidebar-brand {
-    flex-direction: column;
+    flex-direction: row;
+    align-items: center;
     justify-content: center;
-    padding: 10px 8px;
+    padding: 10px;
     gap: 8px;
 }
 
@@ -3712,23 +3713,47 @@ body[data-sidebar-collapsed="true"] .sidebar-collapse-btn {
     transform: translate(0, -50%);
 }
 
-body[data-sidebar-collapsed="true"] .sidebar-brand-copy,
 body[data-sidebar-collapsed="true"] .nav-group-label,
-body[data-sidebar-collapsed="true"] .nav-link span,
-body[data-sidebar-collapsed="true"] .profile-copy,
 body[data-sidebar-collapsed="true"] .sidebar-logout-btn span {
     display: none;
+}
+
+body[data-sidebar-collapsed="true"] .profile-copy {
+    overflow: hidden;
+    max-width: 0;
+    opacity: 0;
+    white-space: nowrap;
+    pointer-events: none;
+    transition: max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease;
+}
+
+body[data-sidebar-collapsed="true"] .sidebar-brand-copy {
+    overflow: hidden;
+    max-width: 0;
+    opacity: 0;
+    white-space: nowrap;
+    pointer-events: none;
+    transition: max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease;
+}
+
+body[data-sidebar-collapsed="true"] .nav-link span {
+    overflow: hidden;
+    max-width: 0;
+    opacity: 0;
+    white-space: nowrap;
+    pointer-events: none;
+    transition: max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease;
 }
 
 body[data-sidebar-collapsed="true"] .sidebar-brand img,
 body[data-sidebar-collapsed="true"] .sidebar-logo {
     width: 34px;
     height: 34px;
-    padding: 3px;
+    padding: 0;
 }
 
 body[data-sidebar-collapsed="true"] .sidebar-scroll {
-    padding: 10px 6px 10px;
+    padding: 10px 8px;
 }
 
 body[data-sidebar-collapsed="true"] .nav-section + .nav-section {
@@ -3740,9 +3765,9 @@ body[data-sidebar-collapsed="true"] .nav-list {
 }
 
 body[data-sidebar-collapsed="true"] .nav-link {
-    justify-content: center;
+    justify-content: flex-start;
     min-height: 42px;
-    padding: 10px 8px;
+    padding: 9px 8px 9px 18px;
     border-radius: 12px;
     position: relative;
 }
@@ -3773,7 +3798,7 @@ body[data-sidebar-collapsed="true"] .nav-link:hover::after {
 }
 
 body[data-sidebar-collapsed="true"] .nav-link.active::before {
-    left: 4px;
+    left: 6px;
     top: 8px;
     bottom: 8px;
 }
@@ -3782,35 +3807,12 @@ body[data-sidebar-collapsed="true"] .sidebar-footer {
     padding: 10px 8px;
 }
 
-body[data-sidebar-collapsed="true"] .sidebar-account-row {
-    flex-direction: column;
-    gap: 8px;
-}
-
-body[data-sidebar-collapsed="true"] .profile-pill {
-    justify-content: center;
-    width: auto;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-}
-
+/* caret hidden in rail mode */
 body[data-sidebar-collapsed="true"] .profile-pill-caret {
     display: none;
 }
 
-body[data-sidebar-collapsed="true"] .profile-pill-toggle {
-    width: 36px;
-    height: 36px;
-    min-height: 36px;
-    border-radius: 999px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-}
-
+/* dropdown always flies out to the right — never changes position */
 body[data-sidebar-collapsed="true"] .sidebar-account-dropdown {
     left: calc(100% + 8px);
     right: auto;
@@ -3819,18 +3821,71 @@ body[data-sidebar-collapsed="true"] .sidebar-account-dropdown {
     margin-bottom: 0;
 }
 
-body[data-sidebar-collapsed="true"] .profile-avatar {
-    width: 34px;
-    height: 34px;
-    font-size: 13px;
-}
-
 body[data-sidebar-collapsed="true"] .sidebar-logout-btn {
     min-height: 34px;
     width: 34px;
     height: 34px;
     padding: 0;
 }
+
+/* ─── Sidebar hover-expand (rail → full) ──────────────────────────────────── */
+@media (min-width: 1024px) {
+    body[data-sidebar-collapsed="true"] .sidebar {
+        transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: visible;
+    }
+
+    body[data-sidebar-collapsed="true"][data-sidebar-hovered] .sidebar {
+        width: 240px;
+    }
+
+    /* Reveal brand copy — logo stays fixed, name slides in to the right */
+    body[data-sidebar-collapsed="true"][data-sidebar-hovered] .sidebar .sidebar-brand-copy {
+        max-width: 200px;
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* Scroll area — same as collapsed so items don't shift vertically */
+    body[data-sidebar-collapsed="true"][data-sidebar-hovered] .sidebar .sidebar-scroll {
+        padding: 10px 8px;
+    }
+
+    /* Reveal section labels */
+    body[data-sidebar-collapsed="true"][data-sidebar-hovered] .sidebar .nav-group-label {
+        display: block;
+    }
+
+    /* Nav link — same padding as collapsed, icon never moves */
+    body[data-sidebar-collapsed="true"][data-sidebar-hovered] .sidebar .nav-link {
+        justify-content: flex-start;
+        padding: 9px 8px 9px 18px;
+    }
+
+    /* Animate label in */
+    body[data-sidebar-collapsed="true"][data-sidebar-hovered] .sidebar .nav-link span {
+        max-width: 200px;
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* Hide tooltip — label is visible now */
+    body[data-sidebar-collapsed="true"][data-sidebar-hovered] .sidebar .nav-link::after {
+        display: none;
+    }
+
+    /* Footer */
+    /* Footer hover — only reveal copy and caret, nothing else moves */
+    body[data-sidebar-collapsed="true"][data-sidebar-hovered] .sidebar .profile-copy {
+        max-width: 200px;
+        opacity: 1;
+        pointer-events: auto;
+    }
+    body[data-sidebar-collapsed="true"][data-sidebar-hovered] .sidebar .profile-pill-caret {
+        display: inline-flex;
+    }
+}
+/* ─────────────────────────────────────────────────────────────────────────── */
 
 .main-area {
     flex: 1;
@@ -6372,7 +6427,7 @@ html.theme-changing h6 {
         opacity 0.2s ease,
         transform 0.2s ease;
 }
- .owner-page-shell button.border {
+.owner-page-shell button.border {
     border-color: #2e4560 !important;
     color: #cfe0f5 !important;
 }

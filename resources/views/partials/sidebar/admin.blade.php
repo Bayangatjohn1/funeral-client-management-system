@@ -11,7 +11,6 @@
 
 @if(auth()->user()?->isMainBranchAdmin() || auth()->user()?->isBranchAdmin())
 <div class="nav-section">
-    <p class="nav-group-label">System Configuration</p>
     <div class="nav-list">
         @if(auth()->user()?->isMainBranchAdmin())
         <a href="{{ route('admin.branches.index') }}" class="{{ $isActive(request()->is('admin/branches*')) }}">
@@ -33,7 +32,6 @@
 
 @if(auth()->user()?->isMainBranchAdmin() || auth()->user()?->isBranchAdmin())
 <div class="nav-section">
-    <p class="nav-group-label">Package Reference</p>
     <div class="nav-list">
         <a href="{{ route('admin.packages.index') }}" class="{{ $isActive(request()->is('admin/packages*')) }}">
             <svg class="{{ $iconState(request()->is('admin/packages*')) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -46,7 +44,6 @@
 @endif
 
 <div class="nav-section">
-    <p class="nav-group-label">Data Monitoring</p>
     <div class="nav-list">
         <a href="{{ route('admin.cases.index') }}" class="{{ $isActive(request()->routeIs('admin.cases.*')) }}">
             <svg class="{{ $iconState(request()->routeIs('admin.cases.*')) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">

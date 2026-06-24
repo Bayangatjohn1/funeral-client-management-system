@@ -10,7 +10,6 @@
 </div>
 
 <div class="nav-section">
-    <p class="nav-group-label">Case Management</p>
     <div class="nav-list">
         <a href="{{ route('intake.main.create') }}"
            class="{{ $isActive(request()->routeIs('intake.main.create') || (request()->routeIs('funeral-cases.index') && request()->boolean('open_wizard'))) }}">
@@ -39,7 +38,6 @@
 </div>
 
 <div class="nav-section">
-    <p class="nav-group-label">Records</p>
     <div class="nav-list">
         <a href="{{ route('funeral-cases.index', ['tab' => 'active', 'record_scope' => 'main']) }}"
            class="{{ $isActive((request()->routeIs('funeral-cases.index') || request()->routeIs('funeral-cases.completed')) && !request()->boolean('open_wizard')) }}">

@@ -566,9 +566,10 @@
     /* ── Package cards ── */
     .package-card-item { position: relative; }
     .package-card-item .package-radio {
-        position: absolute; inset: 0; width: 100%; height: 100%;
-        opacity: .001; cursor: pointer; z-index: 5;
+        position: absolute; width: 1px; height: 1px;
+        opacity: 0; pointer-events: none;
     }
+    .package-details-btn { position: relative; z-index: 10; }
     .package-card {
         border: 1.5px solid #e4e8ef; border-radius: 14px;
         background: #ffffff; padding: 20px; cursor: pointer;
@@ -1134,6 +1135,57 @@
         #intakeCancelBtn, #wizardPrev, #wizardNext, #saveIntakeRecord { text-align: center; width: 100%; }
         #intakeCancelBtn, #wizardPrev, #wizardNext, #saveIntakeRecord { flex: 1; }
     }
+    html[data-theme='dark'] #structured_pricing_section {
+        background: #111827 !important;
+        border-color: #2a3f5f !important;
+    }
+    html[data-theme='dark'] #structured_pricing_section .bg-slate-50,
+    html[data-theme='dark'] #structured_pricing_section .bg-white {
+        background: #152035 !important;
+        border-color: #2a3f5f !important;
+    }
+    html[data-theme='dark'] #structured_pricing_section .text-slate-900,
+    html[data-theme='dark'] #structured_pricing_section .text-slate-800 {
+        color: #e5edf7 !important;
+    }
+    html[data-theme='dark'] #structured_pricing_section .text-slate-600,
+    html[data-theme='dark'] #structured_pricing_section .text-slate-500,
+    html[data-theme='dark'] #structured_pricing_section .text-slate-400 {
+        color: #9fb0c6 !important;
+    }
+    html[data-theme='dark'] #structured_pricing_section .ring-slate-200,
+    html[data-theme='dark'] #structured_pricing_section .border-slate-200 {
+        --tw-ring-color: #2a3f5f !important;
+        border-color: #2a3f5f !important;
+    }
+    html[data-theme='dark'] #package_details_modal .relative {
+        background: #111827 !important;
+        border-color: #2a3f5f !important;
+    }
+    html[data-theme='dark'] #package_details_modal .bg-white,
+    html[data-theme='dark'] #package_details_modal .bg-slate-50 {
+        background: #152035 !important;
+        border-color: #2a3f5f !important;
+    }
+    html[data-theme='dark'] #package_details_modal .text-slate-900,
+    html[data-theme='dark'] #package_details_modal .text-slate-700 {
+        color: #e5edf7 !important;
+    }
+    html[data-theme='dark'] #package_details_modal .text-slate-500 {
+        color: #9fb0c6 !important;
+    }
+    .optional-add-ons-panel:not(.hidden) {
+        animation: intakeAddOnsExpand .18s ease-out;
+    }
+    @keyframes intakeAddOnsExpand {
+        from { opacity: 0; transform: translateY(-4px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .optional-add-ons-panel:not(.hidden) {
+            animation: none;
+        }
+    }
     </style>
 
     <div id="branch_toast" class="hidden fixed left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl bg-slate-900 text-white text-sm font-semibold transition-all duration-300 opacity-0 translate-y-[-8px] toast-pop intake-toast-branch">
@@ -1465,10 +1517,6 @@
                 </section>
 
                 <section class="wizard-panel hidden" data-step="3">
-                    @php
-                        $maxPkgPrice = $packages->max('price');
-                    @endphp
-
                     <div class="pkg-grid-header">
                         <div>
                             <p class="pkg-section-title">Service Packages</p>
@@ -1486,23 +1534,37 @@
                                     && (!$pkg->promo_starts_at || $pkg->promo_starts_at->lte(now()))
                                     && (!$pkg->promo_ends_at || $pkg->promo_ends_at->gte(now()));
 
-                                $isFeatured = $pkg->price == $maxPkgPrice;
-
                                 $inclusionItems = $pkg->inclusionNames();
                                 $freebieItems = $pkg->freebieNames();
-                                $activeAddOns = $pkg->activeAddOns->map(fn ($addOn) => [
-                                    'id' => $addOn->id,
-                                    'name' => $addOn->name,
-                                    'description' => $addOn->description,
-                                    'price' => (float) $addOn->price,
+                                $structuredInclusions = $pkg->packageInclusions->map(fn ($inclusion) => [
+                                    'service_type' => \App\Models\Package::normalizeServiceType($inclusion->service_type),
+                                    'name' => $inclusion->inclusion_name,
+                                    'included_kilometers' => $inclusion->included_kilometers,
+                                    'price_per_excess_kilometer' => (float) $inclusion->price_per_excess_kilometer,
+                                    'included_days' => $inclusion->included_days,
+                                    'price_per_extended_day' => (float) $inclusion->price_per_extended_day,
+                                    'casket_type' => $inclusion->casket_type,
+                                    'casket_catalog_id' => $inclusion->casket_catalog_id,
+                                    'casket' => $inclusion->casketCatalog ? [
+                                        'id' => $inclusion->casketCatalog->id,
+                                        'name' => $inclusion->casketCatalog->name,
+                                        'material' => $inclusion->casketCatalog->type_or_material,
+                                        'reference_value' => (float) $inclusion->casketCatalog->standard_price,
+                                    ] : null,
                                 ])->values();
+                                $structuredFreebies = $pkg->packageFreebies->map(fn ($freebie) => [
+                                    'name' => $freebie->freebie_name,
+                                    'quantity' => $freebie->quantity,
+                                    'unit' => $freebie->unit,
+                                ])->values();
+                                $includedCasket = $structuredInclusions->firstWhere('service_type', \App\Models\Package::SERVICE_CASKET);
+                                $inclusionCount = $structuredInclusions->isNotEmpty() ? $structuredInclusions->count() : count($inclusionItems);
+                                $freebieCount = $structuredFreebies->isNotEmpty() ? $structuredFreebies->count() : count($freebieItems);
+                                $includedCasketName = $includedCasket['casket']['name'] ?? $includedCasket['casket_type'] ?? $pkg->coffin_type ?? 'Not configured';
                             @endphp
 
-                            <div class="package-card-item {{ $isFeatured ? 'pkg-featured-item' : '' }}">
-                                @if($isFeatured)
-                                    <div class="pkg-badge-recommended">Recommended</div>
-                                @endif
-                                <label class="package-card pkg-premium-card {{ $isFeatured ? 'pkg-card-featured' : '' }} w-full cursor-pointer">
+                            <div class="package-card-item">
+                                <div class="package-card pkg-premium-card w-full h-full cursor-pointer" role="radio" tabindex="0" aria-label="{{ $pkg->name }} package">
                                     <input
                                         type="radio"
                                         name="package_id"
@@ -1514,58 +1576,60 @@
                                         data-promo-type="{{ $pkg->promo_value_type }}"
                                         data-promo-value="{{ $pkg->promo_value }}"
                                         data-promo-label="{{ $pkg->promo_label }}"
-                                        data-inclusions="{{ e(implode("\n", $inclusionItems)) }}"
-                                        data-freebies="{{ e(implode("\n", $freebieItems)) }}"
-                                        data-add-ons="{{ e($activeAddOns->toJson()) }}"
+                                        data-inclusions="{{ implode("\n", $inclusionItems) }}"
+                                        data-freebies="{{ implode("\n", $freebieItems) }}"
+                                        data-structured-inclusions="{{ $structuredInclusions->toJson() }}"
+                                        data-structured-freebies="{{ $structuredFreebies->toJson() }}"
+                                        data-included-casket="{{ json_encode($includedCasket['casket'] ?? ['name' => $includedCasket['casket_type'] ?? $pkg->coffin_type, 'reference_value' => 0]) }}"
                                         {{ (string) old('package_id') === (string) $pkg->id ? 'checked' : '' }}
                                         required
                                     >
 
-                                    <div class="pkg-card-body">
-                                        <div class="pkg-tier-label">{{ $pkg->coffin_type ?? 'Standard' }}</div>
-                                        <div class="pkg-name">{{ $pkg->name }}</div>
-                                        <div class="pkg-price"><sub>&#8369;</sub>{{ number_format($pkg->price, 0) }}</div>
-                                        @if($promoNow)
-                                            <div class="pkg-promo-badge">{{ $pkg->promo_label }}</div>
-                                        @else
-                                            <p class="pkg-price-note">Fixed package rate</p>
-                                        @endif
+                                    <div class="pkg-card-body flex h-full flex-col">
+                                        <div class="min-h-[152px]">
+                                            <div class="pkg-name">{{ $pkg->name }}</div>
+                                            <div class="pkg-price"><sub>&#8369;</sub>{{ number_format($pkg->price, 0) }}</div>
+                                            @if($promoNow)
+                                                <div class="pkg-promo-badge">{{ $pkg->promo_label }}</div>
+                                            @else
+                                                <p class="pkg-price-note">Base package price</p>
+                                            @endif
 
-                                        @if(count($inclusionItems) > 0)
-                                            <ul class="pkg-features-list">
-                                                @foreach(array_slice($inclusionItems, 0, 6) as $item)
-                                                    <li class="pkg-feature-item">
-                                                        <span class="pkg-feature-check">&#10003;</span>
-                                                        {{ $item }}
-                                                    </li>
-                                                @endforeach
-                                            </ul>
-                                        @endif
-                                        @if($activeAddOns->isNotEmpty())
-                                            <div class="mt-3 rounded-lg border border-slate-200 bg-white/70 px-3 py-2 text-[11px] font-semibold text-slate-600">
-                                                <div class="text-[10px] font-black uppercase tracking-widest text-[#5F685F]">Optional Add-ons Available</div>
-                                                <div class="mt-1">
-                                                    Optional Add-ons:
-                                                    {{ $activeAddOns->pluck('name')->take(3)->join(', ') }}{{ $activeAddOns->count() > 3 ? ', Show more' : '' }}
+                                            <div class="mt-4 rounded-lg border border-slate-200 bg-white/70 px-3 py-2 text-[11px] font-semibold text-slate-600">
+                                                <div class="text-[10px] font-black uppercase tracking-widest text-[#5F685F]">Included Casket</div>
+                                                <div class="mt-1 truncate">{{ $includedCasketName }}</div>
+                                            </div>
+
+                                            <div class="mt-3 grid grid-cols-2 gap-2 text-center">
+                                                <div class="rounded-lg bg-slate-50 px-2 py-2 ring-1 ring-slate-200">
+                                                    <div class="text-base font-black text-slate-900">{{ $inclusionCount }}</div>
+                                                    <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Inclusions</div>
+                                                </div>
+                                                <div class="rounded-lg bg-slate-50 px-2 py-2 ring-1 ring-slate-200">
+                                                    <div class="text-base font-black text-slate-900">{{ $freebieCount }}</div>
+                                                    <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Freebies</div>
                                                 </div>
                                             </div>
-                                        @endif
+                                        </div>
                                     </div>
 
-                                    <div class="pkg-card-footer">
-                                        <div class="pkg-select-btn">
+                                    <div class="pkg-card-footer grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                        <button type="button" class="package-details-btn rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900" data-package-value="{{ $pkg->id }}">
+                                            <i class="bi bi-eye mr-1"></i> View Details
+                                        </button>
+                                        <div class="pkg-select-btn justify-center">
                                             <span class="pkg-btn-unselected">Select Package</span>
                                             <span class="pkg-btn-selected"><i class="bi bi-check-circle-fill"></i> Selected</span>
                                         </div>
                                         <div class="check-dot hidden"></div>{{-- JS compat --}}
                                     </div>
-                                </label>
+                                </div>
                             </div>
                         @endforeach
 
                         @if(empty($entryMode) || $entryMode === 'main')
                             <div class="package-card-item">
-                                <label class="package-card pkg-premium-card pkg-card-custom w-full cursor-pointer">
+                                <div class="package-card pkg-premium-card pkg-card-custom w-full h-full cursor-pointer" role="radio" tabindex="0" aria-label="Custom package">
                                     <input
                                         type="radio"
                                         name="package_id"
@@ -1576,41 +1640,31 @@
                                         data-price="0"
                                         data-inclusions=""
                                         data-freebies=""
-                                        data-add-ons="[]"
+                                        data-structured-inclusions="[]"
+                                        data-structured-freebies="[]"
+                                        data-included-casket="{}"
                                     >
 
                                     <div class="pkg-card-body">
                                         <div class="pkg-tier-label" style="color:#b45309;">Client Preference</div>
                                         <div class="pkg-name" style="color:#78350f;">Custom</div>
-                                        <div class="pkg-price" style="color:#92400e;">
-                                            <sub>&#8369;</sub><span id="custom_package_price_display">0</span>
+                                        <div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-black text-amber-900">
+                                            Price set during package setup.
                                         </div>
-                                        <p class="pkg-price-note">Tailored to client's needs</p>
-
-                                        <ul class="pkg-features-list">
-                                            <li class="pkg-feature-item">
-                                                <span class="pkg-feature-plus">+</span>
-                                                Choose Casket Tier
-                                            </li>
-                                            <li class="pkg-feature-item">
-                                                <span class="pkg-feature-plus">+</span>
-                                                Flexible Wake Duration
-                                            </li>
-                                            <li class="pkg-feature-item">
-                                                <span class="pkg-feature-plus">+</span>
-                                                Add-on Services (Music, Video)
-                                            </li>
-                                        </ul>
+                                        <p class="pkg-price-note">Manual package details are entered below.</p>
                                     </div>
 
-                                    <div class="pkg-card-footer">
-                                        <div class="pkg-select-btn">
+                                    <div class="pkg-card-footer grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                        <button type="button" class="package-details-btn rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-700" data-package-value="custom">
+                                            <i class="bi bi-eye mr-1"></i> View Details
+                                        </button>
+                                        <div class="pkg-select-btn justify-center">
                                             <span class="pkg-btn-unselected">Build Package</span>
                                             <span class="pkg-btn-selected"><i class="bi bi-check-circle-fill"></i> Selected</span>
                                         </div>
                                         <div class="check-dot hidden"></div>{{-- JS compat --}}
                                     </div>
-                                </label>
+                                </div>
                             </div>
                         @endif
                     </div>
@@ -1639,38 +1693,337 @@
                         </div>
                     @endif
 
-                    <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="rounded-xl border border-slate-100 bg-slate-50 p-5">
-                            <h5 class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">
-                                <i class="bi bi-list-check mr-1"></i> Inclusions
-                            </h5>
-                            <ul id="selected_package_inclusions" class="space-y-2 text-xs font-medium text-slate-700">
-                                <li class="text-slate-400 italic">Select a package to view.</li>
-                            </ul>
-                        </div>
+                    <ul id="selected_package_inclusions" class="hidden"></ul>
+                    <ul id="selected_package_freebies" class="hidden"></ul>
 
-                        <div class="rounded-xl border border-slate-100 bg-slate-50 p-5">
-                            <h5 class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">
-                                <i class="bi bi-gift mr-1"></i> Freebies & Notes
-                            </h5>
-                            <ul id="selected_package_freebies" class="space-y-2 text-xs font-medium text-slate-700">
-                                <li class="text-slate-400 italic">Package freebies will appear here.</li>
-                            </ul>
+                    <div id="package_details_modal" class="hidden fixed inset-0 z-[210] items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="package_details_title">
+                        <div class="absolute inset-0 bg-slate-950/50" data-package-details-close></div>
+                        <div class="relative max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200">
+                            <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+                                <div class="min-w-0">
+                                    <h4 id="package_details_title" class="text-lg font-black text-slate-900">Package Details</h4>
+                                    <p id="package_details_subtitle" class="mt-1 text-xs font-semibold text-slate-500">Review included limits and possible extra charges before selecting.</p>
+                                </div>
+                                <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900" aria-label="Close package details" data-package-details-close>
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                            <div class="border-b border-slate-200 px-5 py-3">
+                                <div class="flex flex-wrap gap-2" role="tablist" aria-label="Package detail sections">
+                                    <button type="button" class="package-detail-tab rounded-lg px-3 py-2 text-xs font-black uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-slate-900" data-package-detail-tab="services" role="tab">Included Services</button>
+                                    <button type="button" class="package-detail-tab rounded-lg px-3 py-2 text-xs font-black uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-slate-900" data-package-detail-tab="freebies" role="tab">Freebies</button>
+                                    <button type="button" class="package-detail-tab rounded-lg px-3 py-2 text-xs font-black uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-slate-900" data-package-detail-tab="coverage" role="tab">Included Limits & Extra Charges</button>
+                                </div>
+                            </div>
+                            <div class="max-h-[58vh] overflow-y-auto px-5 py-4">
+                                <div id="package_detail_services" class="package-detail-panel space-y-2" role="tabpanel"></div>
+                                <div id="package_detail_freebies" class="package-detail-panel hidden space-y-2" role="tabpanel"></div>
+                                <div id="package_detail_coverage" class="package-detail-panel hidden space-y-2" role="tabpanel"></div>
+                            </div>
+                            <div class="flex justify-end border-t border-slate-200 bg-slate-50 px-5 py-4">
+                                <button type="button" class="rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2" data-package-details-close>
+                                    Done
+                                </button>
+                            </div>
                         </div>
                     </div>
 
                     <div id="optional_add_ons_section" class="hidden mt-5 rounded-xl border border-[#C9C5BB] bg-[#FAFAF7] p-5">
-                        <div class="flex items-start justify-between gap-3">
+                        <div class="flex flex-wrap items-start justify-between gap-3">
                             <div>
                                 <h5 class="text-[10px] font-black uppercase tracking-widest text-[#5F685F] mb-1">
                                     <i class="bi bi-plus-square mr-1"></i> Optional Add-ons
                                 </h5>
-                                <p class="text-xs font-medium text-[#5F685F]">These are paid options and are added on top of the base package price.</p>
+                                <p class="text-xs font-medium text-[#5F685F]">Select paid catalog services only when the family requests them.</p>
                             </div>
-                            <div class="text-sm font-black text-[#333333]">&#8369; <span id="selected_add_ons_total">0.00</span></div>
+                            <div class="text-right">
+                                <div class="text-[10px] font-black uppercase tracking-widest text-[#5F685F]">Selected Total</div>
+                                <div class="text-sm font-black text-[#333333]">&#8369; <span id="selected_add_ons_total">0.00</span></div>
+                            </div>
                         </div>
-                        <div id="optional_add_ons_list" class="mt-4 space-y-2"></div>
+
+                        <div id="selected_add_ons_summary" class="mt-4 rounded-lg border border-[#C9C5BB] bg-white px-4 py-3 text-sm text-[#333333]">
+                            <div class="flex flex-wrap items-center justify-between gap-3">
+                                <div class="min-w-0">
+                                    <div class="font-bold">No add-ons selected.</div>
+                                    <div class="mt-0.5 text-xs font-medium text-[#5F685F]">Optional add-ons are not included in the base package price.</div>
+                                </div>
+                                <button type="button" id="choose_add_ons_btn" class="inline-flex items-center gap-2 rounded-lg bg-[#3E4A3D] px-4 py-2 text-xs font-bold text-white hover:bg-[#2f382e] focus:outline-none focus:ring-2 focus:ring-[#3E4A3D] focus:ring-offset-2" aria-expanded="false" aria-controls="optional_add_ons_panel">
+                                    <i class="bi bi-plus-circle"></i> Choose Add-ons
+                                </button>
+                            </div>
+                            <div id="selected_add_ons_lines" class="mt-3 hidden space-y-2"></div>
+                        </div>
+
+                        <div id="optional_add_ons_panel" class="optional-add-ons-panel mt-4 hidden overflow-hidden rounded-xl border border-[#C9C5BB] bg-white" role="region" aria-label="Available optional add-ons">
+                            <div class="border-b border-[#E5E0D5] bg-[#FBFAF7] p-4">
+                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                    <div>
+                                        <div class="text-sm font-black text-[#333333]">Available Add-ons</div>
+                                        <div class="text-xs font-medium text-[#5F685F]">Search and select add-ons for this intake record.</div>
+                                    </div>
+                                    <div class="relative w-full sm:w-72">
+                                        <i class="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-[#8A867A]"></i>
+                                        <input type="search" id="optional_add_ons_search" class="form-input pl-9" placeholder="Search add-ons..." aria-label="Search optional add-ons">
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="optional_add_ons_list" class="max-h-[420px] overflow-y-auto p-4 space-y-2"></div>
+                            <div class="flex flex-wrap items-center justify-between gap-3 border-t border-[#E5E0D5] bg-[#FBFAF7] p-4">
+                                <div class="text-xs font-bold text-[#5F685F]">Draft total: &#8369; <span id="draft_add_ons_total">0.00</span></div>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <button type="button" id="cancel_add_ons_btn" class="rounded-lg border border-[#C9C5BB] bg-white px-4 py-2 text-xs font-bold text-[#333333] hover:bg-[#F3F0E8] focus:outline-none focus:ring-2 focus:ring-[#3E4A3D] focus:ring-offset-2">Cancel</button>
+                                    <button type="button" id="apply_add_ons_btn" class="inline-flex items-center gap-2 rounded-lg bg-[#3E4A3D] px-4 py-2 text-xs font-bold text-white hover:bg-[#2f382e] focus:outline-none focus:ring-2 focus:ring-[#3E4A3D] focus:ring-offset-2">
+                                        <i class="bi bi-check2-circle"></i> Apply Selected Add-ons
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                         @error('selected_add_ons') <div class="mt-2 text-xs font-bold text-[#9E4B3F]">{{ $message }}</div> @enderror
+                    </div>
+
+                    <div id="structured_pricing_section" class="hidden mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                                <h5 class="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-1 flex items-center gap-2">
+                                    <i class="bi bi-sliders2"></i> Package Adjustments
+                                </h5>
+                                <p class="text-xs font-medium text-slate-500">Review package-covered items and enter only actual usage or selected upgrades.</p>
+                            </div>
+                            <div class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-black text-slate-900">
+                                Total adjustments: &#8369; <span id="structured_charges_total">0.00</span>
+                            </div>
+                        </div>
+
+                        <div class="mt-5 space-y-4">
+                            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                <div class="flex items-start gap-3">
+                                    <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-slate-700 shadow-sm ring-1 ring-slate-200">
+                                        <i class="bi bi-box-seam"></i>
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex flex-wrap items-start justify-between gap-3">
+                                            <div>
+                                                <h6 class="text-sm font-black text-slate-900">Casket Selection</h6>
+                                                <p id="included_casket_summary" class="mt-1 text-xs font-semibold text-slate-500">Included casket will be used.</p>
+                                            </div>
+                                            <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
+                                                + &#8369; <span id="casket_adjustment_amount">0.00</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                            <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-3 hover:border-slate-300">
+                                                <input type="radio" name="casket_selection_mode" value="included" class="mt-1 h-4 w-4 text-slate-900 focus:ring-slate-900" {{ old('replacement_casket_catalog_id') ? '' : 'checked' }}>
+                                                <span>
+                                                    <span class="block text-sm font-bold text-slate-800">Use included casket</span>
+                                                    <span class="block text-xs text-slate-500">No additional casket charge.</span>
+                                                </span>
+                                            </label>
+                                            <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-3 hover:border-slate-300">
+                                                <input type="radio" name="casket_selection_mode" value="replacement" class="mt-1 h-4 w-4 text-slate-900 focus:ring-slate-900" {{ old('replacement_casket_catalog_id') ? 'checked' : '' }}>
+                                                <span>
+                                                    <span class="block text-sm font-bold text-slate-800">Choose replacement/upgrade</span>
+                                                    <span class="block text-xs text-slate-500">Charge only the positive reference-value difference.</span>
+                                                </span>
+                                            </label>
+                                        </div>
+
+                                        <div id="replacement_casket_wrap" class="mt-4 hidden">
+                                            <label class="field-label">Alternative Casket</label>
+                                            <select name="replacement_casket_catalog_id" id="replacement_casket_catalog_id" class="form-input" data-label="replacement casket">
+                                                <option value="">Select replacement or upgrade casket</option>
+                                                @foreach(($activeCaskets ?? collect()) as $casket)
+                                                    <option
+                                                        value="{{ $casket->id }}"
+                                                        data-name="{{ $casket->name }}"
+                                                        data-material="{{ $casket->type_or_material }}"
+                                                        data-price="{{ $casket->standard_price }}"
+                                                        {{ (string) old('replacement_casket_catalog_id') === (string) $casket->id ? 'selected' : '' }}
+                                                    >
+                                                        {{ $casket->name }}{{ $casket->type_or_material ? ' - '.$casket->type_or_material : '' }} (&#8369;{{ number_format((float) $casket->standard_price, 2) }})
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            <p id="casket_upgrade_preview" class="mt-1 text-xs text-slate-500">Select a replacement casket to calculate the upgrade difference.</p>
+                                            @error('replacement_casket_catalog_id') <div class="mt-1 text-xs font-bold text-rose-600">{{ $message }}</div> @enderror
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                <div class="flex items-start gap-3">
+                                    <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-slate-700 shadow-sm ring-1 ring-slate-200">
+                                        <i class="bi bi-droplet"></i>
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex flex-wrap items-start justify-between gap-3">
+                                            <div>
+                                                <h6 class="text-sm font-black text-slate-900">Embalming Days</h6>
+                                                <p class="mt-1 text-xs font-medium text-slate-500">Uses total wake days from Wake Start Date through Interment Date.</p>
+                                            </div>
+                                            <div class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-800">
+                                                Charge: &#8369; <span id="embalming_charge_amount">0.00</span>
+                                            </div>
+                                        </div>
+                                        <div id="embalming_config_warning" class="mt-3 hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+                                            <i class="bi bi-exclamation-triangle mr-1"></i> Ask Admin to configure included days and extended-day rate for Embalming.
+                                        </div>
+                                        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                                            <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
+                                                <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Included</span>
+                                                <span class="mt-1 block text-sm font-black text-slate-800"><span id="embalming_included_days">0</span> day(s)</span>
+                                            </div>
+                                            <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
+                                                <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Actual Wake Days</span>
+                                                <span class="mt-1 block text-sm font-black text-slate-800"><span id="embalming_actual_days">0</span> day(s)</span>
+                                            </div>
+                                            <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
+                                                <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Extended</span>
+                                                <span class="mt-1 block text-sm font-black text-slate-800"><span id="embalming_extended_days">0</span> day(s)</span>
+                                            </div>
+                                            <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
+                                                <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Rate</span>
+                                                <span class="mt-1 block text-sm font-black text-slate-800">&#8369; <span id="embalming_rate">0.00</span></span>
+                                            </div>
+                                            <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
+                                                <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Source</span>
+                                                <span class="mt-1 block text-sm font-black text-slate-800">Schedule</span>
+                                            </div>
+                                        </div>
+                                        <p id="embalming_charge_preview" class="mt-2 text-xs text-slate-500">Charged only when wake days exceed included embalming days.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                <div class="flex items-start gap-3">
+                                    <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-slate-700 shadow-sm ring-1 ring-slate-200">
+                                        <i class="bi bi-house-heart"></i>
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex flex-wrap items-start justify-between gap-3">
+                                            <div>
+                                                <h6 class="text-sm font-black text-slate-900">Home Viewing Days</h6>
+                                                <p class="mt-1 text-xs font-medium text-slate-500">Uses the same actual wake days from the service schedule.</p>
+                                            </div>
+                                            <div class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-800">
+                                                Charge: &#8369; <span id="viewing_charge_amount">0.00</span>
+                                            </div>
+                                        </div>
+                                        <div id="viewing_config_warning" class="mt-3 hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+                                            <i class="bi bi-exclamation-triangle mr-1"></i> Ask Admin to configure included days and extended-day rate for Home Viewing.
+                                        </div>
+                                        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                                            <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
+                                                <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Included</span>
+                                                <span class="mt-1 block text-sm font-black text-slate-800"><span id="viewing_included_days">0</span> day(s)</span>
+                                            </div>
+                                            <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
+                                                <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Actual Wake Days</span>
+                                                <span class="mt-1 block text-sm font-black text-slate-800"><span id="viewing_actual_days">0</span> day(s)</span>
+                                            </div>
+                                            <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
+                                                <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Extended</span>
+                                                <span class="mt-1 block text-sm font-black text-slate-800"><span id="viewing_extended_days">0</span> day(s)</span>
+                                            </div>
+                                            <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
+                                                <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Rate</span>
+                                                <span class="mt-1 block text-sm font-black text-slate-800">&#8369; <span id="viewing_rate">0.00</span></span>
+                                            </div>
+                                            <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
+                                                <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Source</span>
+                                                <span class="mt-1 block text-sm font-black text-slate-800">Schedule</span>
+                                            </div>
+                                        </div>
+                                        <p id="viewing_charge_preview" class="mt-2 text-xs text-slate-500">Charged only when wake days exceed included home viewing days.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                <div class="flex items-start gap-3">
+                                    <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-slate-700 shadow-sm ring-1 ring-slate-200">
+                                        <i class="bi bi-truck"></i>
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex flex-wrap items-start justify-between gap-3">
+                                            <div>
+                                                <h6 class="text-sm font-black text-slate-900">Body Retrieval Distance</h6>
+                                                <p class="mt-1 text-xs font-medium text-slate-500">Distance used to retrieve the deceased from the pickup location.</p>
+                                            </div>
+                                            <div class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-800">
+                                                Charge: &#8369; <span id="retrieval_charge_amount">0.00</span>
+                                            </div>
+                                        </div>
+                                        <div id="retrieval_config_warning" class="mt-3 hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+                                            <i class="bi bi-exclamation-triangle mr-1"></i> Ask Admin to configure included kilometers and excess kilometer rate for Body Retrieval.
+                                        </div>
+                                        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                                            <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
+                                                <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Included</span>
+                                                <span class="mt-1 block text-sm font-black text-slate-800"><span id="retrieval_included_km">0.00</span> km</span>
+                                            </div>
+                                            <div class="lg:col-span-2">
+                                                <label class="field-label">Actual Kilometers</label>
+                                                <input type="number" step="0.01" min="0" name="actual_retrieval_kilometers" id="actual_retrieval_kilometers" value="{{ old('actual_retrieval_kilometers') }}" class="form-input" placeholder="0" data-label="actual retrieval kilometers">
+                                            </div>
+                                            <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
+                                                <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Excess</span>
+                                                <span class="mt-1 block text-sm font-black text-slate-800"><span id="retrieval_excess_km">0.00</span> km</span>
+                                            </div>
+                                            <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
+                                                <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Rate</span>
+                                                <span class="mt-1 block text-sm font-black text-slate-800">&#8369; <span id="retrieval_rate">0.00</span></span>
+                                            </div>
+                                        </div>
+                                        <p id="retrieval_charge_preview" class="mt-2 text-xs text-slate-500">Charged only beyond included kilometers.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                <div class="flex items-start gap-3">
+                                    <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-slate-700 shadow-sm ring-1 ring-slate-200">
+                                        <i class="bi bi-signpost-split"></i>
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex flex-wrap items-start justify-between gap-3">
+                                            <div>
+                                                <h6 class="text-sm font-black text-slate-900">Hearse Service Distance</h6>
+                                                <p class="mt-1 text-xs font-medium text-slate-500">Distance from the wake or funeral service location to the cemetery/interment location.</p>
+                                            </div>
+                                            <div class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-800">
+                                                Charge: &#8369; <span id="hearse_charge_amount">0.00</span>
+                                            </div>
+                                        </div>
+                                        <div id="hearse_config_warning" class="mt-3 hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+                                            <i class="bi bi-exclamation-triangle mr-1"></i> Ask Admin to configure included kilometers and excess kilometer rate for Hearse Service.
+                                        </div>
+                                        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                                            <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
+                                                <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Included</span>
+                                                <span class="mt-1 block text-sm font-black text-slate-800"><span id="hearse_included_km">0.00</span> km</span>
+                                            </div>
+                                            <div class="lg:col-span-2">
+                                                <label class="field-label">Actual Kilometers</label>
+                                                <input type="number" step="0.01" min="0" name="actual_hearse_kilometers" id="actual_hearse_kilometers" value="{{ old('actual_hearse_kilometers') }}" class="form-input" placeholder="0" data-label="actual hearse kilometers">
+                                            </div>
+                                            <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
+                                                <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Excess</span>
+                                                <span class="mt-1 block text-sm font-black text-slate-800"><span id="hearse_excess_km">0.00</span> km</span>
+                                            </div>
+                                            <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
+                                                <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Rate</span>
+                                                <span class="mt-1 block text-sm font-black text-slate-800">&#8369; <span id="hearse_rate">0.00</span></span>
+                                            </div>
+                                        </div>
+                                        <p id="hearse_charge_preview" class="mt-2 text-xs text-slate-500">Charged only beyond included kilometers.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="mt-8 pt-8 border-t border-slate-200">
@@ -1851,7 +2204,7 @@
                         <div>
                             <label class="field-label">Wake Days</label>
                             <input type="number" name="wake_days" id="wake_days" value="{{ old('wake_days') }}" data-label="wake days" class="form-input bg-slate-50" placeholder="Auto-calculated" readonly>
-                            <p id="wake_days_helper" class="text-xs text-slate-500 mt-1">Wake days are calculated from Wake Start Date to Funeral Service Date.</p>
+                            <p id="wake_days_helper" class="text-xs text-slate-500 mt-1">Wake days are calculated from Wake Start Date through Interment Date, inclusive.</p>
                         </div>
 
                         <div class="schedule-subsection">
@@ -1924,18 +2277,19 @@
                             <div class="p-5 space-y-5">
 
                                 {{-- Additional charges --}}
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="field-label">Additional Charges</label>
-                                        <div class="flex items-center rounded-lg border border-slate-300 bg-white focus-within:ring-2 focus-within:ring-slate-900">
-                                            <span class="pl-3 pr-2 text-slate-500 font-bold">&#8369;</span>
-                                            <input type="number" step="0.01" min="0" name="additional_service_amount" id="additional_service_amount" value="{{ old('additional_service_amount') }}" data-label="additional charges" class="w-full border-0 focus:outline-none focus:ring-0 font-bold p-3" placeholder="0.00">
+                                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                    <div class="flex flex-wrap items-center justify-between gap-3">
+                                        <div>
+                                            <h5 class="text-[10px] font-black uppercase tracking-widest text-slate-600">Itemized Additional Services</h5>
+                                            <p class="mt-1 text-xs font-medium text-slate-500">Optional manual charges that are not package inclusions, freebies, or selected catalog add-ons.</p>
                                         </div>
+                                        <button type="button" id="add_additional_service_item" class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">
+                                            <i class="bi bi-plus-circle"></i> Add Line
+                                        </button>
                                     </div>
-                                    <div>
-                                        <label class="field-label">Description of Extras</label>
-                                        <textarea name="additional_services" id="additional_services" rows="2" data-label="additional services" class="form-textarea" placeholder="Detail any add-ons here...">{{ old('additional_services') }}</textarea>
-                                    </div>
+                                    <div id="additional_service_items_list" class="mt-4 space-y-2"></div>
+                                    <input type="hidden" name="additional_service_amount" id="additional_service_amount" value="{{ old('additional_service_amount') }}">
+                                    <input type="hidden" name="additional_services" id="additional_services" value="{{ old('additional_services') }}">
                                 </div>
 
                                 {{-- Hidden billing inputs still used by JS --}}
@@ -2428,12 +2782,82 @@
 
     const inclusions = document.getElementById('selected_package_inclusions');
     const freebies = document.getElementById('selected_package_freebies');
+    const packageDetailsModal = document.getElementById('package_details_modal');
+    const packageDetailsTitle = document.getElementById('package_details_title');
+    const packageDetailsSubtitle = document.getElementById('package_details_subtitle');
+    const packageDetailTabs = [...document.querySelectorAll('.package-detail-tab')];
+    const packageDetailPanels = [...document.querySelectorAll('.package-detail-panel')];
+    const packageDetailServices = document.getElementById('package_detail_services');
+    const packageDetailFreebies = document.getElementById('package_detail_freebies');
+    const packageDetailCoverage = document.getElementById('package_detail_coverage');
     const optionalAddOnsSection = document.getElementById('optional_add_ons_section');
     const optionalAddOnsList = document.getElementById('optional_add_ons_list');
+    const optionalAddOnsPanel = document.getElementById('optional_add_ons_panel');
+    const optionalAddOnsSearch = document.getElementById('optional_add_ons_search');
+    const chooseAddOnsBtn = document.getElementById('choose_add_ons_btn');
+    const applyAddOnsBtn = document.getElementById('apply_add_ons_btn');
+    const cancelAddOnsBtn = document.getElementById('cancel_add_ons_btn');
+    const selectedAddOnsSummary = document.getElementById('selected_add_ons_summary');
+    const selectedAddOnsLines = document.getElementById('selected_add_ons_lines');
+    const draftAddOnsTotal = document.getElementById('draft_add_ons_total');
     const selectedAddOnsTotal = document.getElementById('selected_add_ons_total');
     const oldSelectedAddOns = new Set(@json($oldSelectedAddOns));
+    const globalAddOns = {!! \Illuminate\Support\Js::from(($activeAddOns ?? collect())->map(fn ($addOn) => [
+        'id' => $addOn->id,
+        'name' => $addOn->name,
+        'category' => $addOn->category,
+        'description' => $addOn->description,
+        'price' => (float) $addOn->price,
+        'unit' => $addOn->unit,
+    ])->values()) !!};
+    const serviceTypeLabels = {
+        body_retrieval: 'Body Retrieval',
+        embalming: 'Embalming',
+        casket: 'Casket',
+        home_viewing: 'Home Viewing',
+        hearse: 'Hearse',
+        custom: 'Other Package Inclusion',
+    };
+    const structuredPricingSection = document.getElementById('structured_pricing_section');
+    const structuredChargesTotal = document.getElementById('structured_charges_total');
+    const replacementCasket = document.getElementById('replacement_casket_catalog_id');
+    const replacementCasketWrap = document.getElementById('replacement_casket_wrap');
+    const casketModeRadios = [...document.querySelectorAll('[name="casket_selection_mode"]')];
+    const includedCasketSummary = document.getElementById('included_casket_summary');
+    const casketAdjustmentAmount = document.getElementById('casket_adjustment_amount');
+    const casketUpgradePreview = document.getElementById('casket_upgrade_preview');
+    const actualRetrievalKm = document.getElementById('actual_retrieval_kilometers');
+    const actualHearseKm = document.getElementById('actual_hearse_kilometers');
+    const retrievalChargePreview = document.getElementById('retrieval_charge_preview');
+    const hearseChargePreview = document.getElementById('hearse_charge_preview');
+    const retrievalConfigWarning = document.getElementById('retrieval_config_warning');
+    const hearseConfigWarning = document.getElementById('hearse_config_warning');
+    const retrievalIncludedKm = document.getElementById('retrieval_included_km');
+    const retrievalExcessKm = document.getElementById('retrieval_excess_km');
+    const retrievalRate = document.getElementById('retrieval_rate');
+    const retrievalChargeAmount = document.getElementById('retrieval_charge_amount');
+    const hearseIncludedKm = document.getElementById('hearse_included_km');
+    const hearseExcessKm = document.getElementById('hearse_excess_km');
+    const hearseRate = document.getElementById('hearse_rate');
+    const hearseChargeAmount = document.getElementById('hearse_charge_amount');
+    const embalmingConfigWarning = document.getElementById('embalming_config_warning');
+    const embalmingIncludedDays = document.getElementById('embalming_included_days');
+    const embalmingActualDays = document.getElementById('embalming_actual_days');
+    const embalmingExtendedDays = document.getElementById('embalming_extended_days');
+    const embalmingRate = document.getElementById('embalming_rate');
+    const embalmingChargeAmount = document.getElementById('embalming_charge_amount');
+    const embalmingChargePreview = document.getElementById('embalming_charge_preview');
+    const viewingConfigWarning = document.getElementById('viewing_config_warning');
+    const viewingIncludedDays = document.getElementById('viewing_included_days');
+    const viewingActualDays = document.getElementById('viewing_actual_days');
+    const viewingExtendedDays = document.getElementById('viewing_extended_days');
+    const viewingRate = document.getElementById('viewing_rate');
+    const viewingChargeAmount = document.getElementById('viewing_charge_amount');
+    const viewingChargePreview = document.getElementById('viewing_charge_preview');
 
     const addAmt = document.getElementById('additional_service_amount');
+    const additionalItemsList = document.getElementById('additional_service_items_list');
+    const addAdditionalItem = document.getElementById('add_additional_service_item');
     const taxRate = document.getElementById('tax_rate');
     const taxAmountDisplay = document.getElementById('tax_amount_display');
     const additionalServices = document.getElementById('additional_services');
@@ -2524,12 +2948,132 @@
     const list = (value) => String(value || '').split(/\r?\n|,|;/).map((item) => item.trim()).filter(Boolean);
     const textOrDash = (value) => String(value || '').trim() || '-';
     const parseAddOns = (radio = pkg()) => {
+        if (!radio || radio.value === 'custom') return [];
+        return Array.isArray(globalAddOns) ? globalAddOns : [];
+    };
+    const parseJsonDataset = (radio, key, fallback = []) => {
         try {
-            const parsed = JSON.parse(radio?.dataset?.addOns || '[]');
-            return Array.isArray(parsed) ? parsed : [];
+            const parsed = JSON.parse(radio?.dataset?.[key] || JSON.stringify(fallback));
+            return parsed ?? fallback;
         } catch (error) {
-            return [];
+            return fallback;
         }
+    };
+    const structuredInclusionsFor = (radio = pkg()) => {
+        const parsed = parseJsonDataset(radio, 'structuredInclusions', []);
+        return Array.isArray(parsed) ? parsed : [];
+    };
+    const structuredFreebiesFor = (radio = pkg()) => {
+        const parsed = parseJsonDataset(radio, 'structuredFreebies', []);
+        return Array.isArray(parsed) ? parsed : [];
+    };
+    const includedCasketFor = (radio = pkg()) => {
+        const parsed = parseJsonDataset(radio, 'includedCasket', {});
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    };
+    const packageCountsFor = (radio = pkg()) => {
+        const structuredRows = structuredInclusionsFor(radio);
+        const structuredFreebieRows = structuredFreebiesFor(radio);
+        return {
+            inclusions: structuredRows.length || list(radio?.dataset.inclusions).length,
+            freebies: structuredFreebieRows.length || list(radio?.dataset.freebies).length,
+        };
+    };
+    const packageDetailRow = (title, details = '', icon = 'bi-check2') => `
+        <div class="rounded-lg border border-slate-200 bg-white px-4 py-3">
+            <div class="flex items-start gap-3">
+                <i class="bi ${icon} mt-0.5 text-slate-500"></i>
+                <div class="min-w-0">
+                    <div class="text-sm font-bold text-slate-900">${escapeHtml(title)}</div>
+                    ${details ? `<div class="mt-1 text-xs font-semibold text-slate-500">${escapeHtml(details)}</div>` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+    const detailRowsForPackage = (radio = pkg()) => {
+        const structuredRows = structuredInclusionsFor(radio);
+        const structuredFreebieRows = structuredFreebiesFor(radio);
+        const legacyInclusions = list(radio?.dataset.inclusions);
+        const legacyFreebies = list(radio?.dataset.freebies);
+
+        const serviceRows = structuredRows.length
+            ? structuredRows.map((item) => {
+                const label = serviceTypeLabels[item.service_type] || item.name || 'Included service';
+                const details = [];
+                if (item.service_type === 'casket') {
+                    const casket = item.casket || {};
+                    details.push(`${casket.name || item.casket_type || 'Included casket'}${casket.material ? ` - ${casket.material}` : ''}`);
+                    if (num(casket.reference_value) > 0) details.push(`Reference Value PHP ${fmt(casket.reference_value)}`);
+                }
+                if (item.included_kilometers !== null && item.included_kilometers !== undefined) details.push(`${fmt(item.included_kilometers)} included km`);
+                if (num(item.price_per_excess_kilometer) > 0) details.push(`PHP ${fmt(item.price_per_excess_kilometer)} per excess km`);
+                if (item.included_days !== null && item.included_days !== undefined) details.push(`${item.included_days} included day(s)`);
+                if (num(item.price_per_extended_day) > 0) details.push(`PHP ${fmt(item.price_per_extended_day)} per extended day`);
+                return packageDetailRow(label, details.join(' | '), item.service_type === 'casket' ? 'bi-box-seam' : 'bi-check2-circle');
+            })
+            : legacyInclusions.map((item) => packageDetailRow(item, '', 'bi-check2-circle'));
+
+        const freebieRows = structuredFreebieRows.length
+            ? structuredFreebieRows.map((item) => packageDetailRow(item.name || 'Freebie', `${item.quantity || 1} ${item.unit || 'item'}`, 'bi-gift'))
+            : legacyFreebies.map((item) => packageDetailRow(item, '', 'bi-gift'));
+
+        const coverageRows = structuredRows
+            .filter((item) => item.included_kilometers !== null || item.price_per_excess_kilometer || item.included_days !== null || item.price_per_extended_day || item.service_type === 'casket')
+            .map((item) => {
+                const label = serviceTypeLabels[item.service_type] || item.name || 'Included Limit';
+                const details = [];
+                if (item.service_type === 'casket') {
+                    const casket = item.casket || {};
+                    details.push(`Included casket: ${casket.name || item.casket_type || 'Not configured'}`);
+                    details.push(num(casket.reference_value) > 0 ? `Reference Value PHP ${fmt(casket.reference_value)}` : 'Reference Value not configured');
+                }
+                if (item.included_kilometers !== null && item.included_kilometers !== undefined) details.push(`Included ${fmt(item.included_kilometers)} km`);
+                if (num(item.price_per_excess_kilometer) > 0) details.push(`Excess rate PHP ${fmt(item.price_per_excess_kilometer)} / km`);
+                if (item.included_days !== null && item.included_days !== undefined) details.push(`Included ${item.included_days} day(s)`);
+                if (num(item.price_per_extended_day) > 0) details.push(`Extended-day rate PHP ${fmt(item.price_per_extended_day)} / day`);
+                return packageDetailRow(label, details.join(' | '), 'bi-speedometer2');
+            });
+
+        return {
+            services: serviceRows.join('') || '<div class="text-sm font-semibold text-slate-500">No included services configured.</div>',
+            freebies: freebieRows.join('') || '<div class="text-sm font-semibold text-slate-500">No freebies configured.</div>',
+            coverage: coverageRows.join('') || '<div class="text-sm font-semibold text-slate-500">No included limits or extra charges configured.</div>',
+        };
+    };
+    const activatePackageDetailTab = (target = 'services') => {
+        packageDetailTabs.forEach((tab) => {
+            const active = tab.dataset.packageDetailTab === target;
+            tab.classList.toggle('bg-slate-900', active);
+            tab.classList.toggle('text-white', active);
+            tab.classList.toggle('text-slate-500', !active);
+            tab.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        packageDetailPanels.forEach((panel) => {
+            panel.classList.toggle('hidden', panel.id !== `package_detail_${target}`);
+        });
+    };
+    const openPackageDetails = (radio = pkg()) => {
+        if (!radio || !packageDetailsModal) return;
+        const rows = detailRowsForPackage(radio);
+        const counts = packageCountsFor(radio);
+        if (packageDetailsTitle) packageDetailsTitle.textContent = radio.dataset.name || 'Package Details';
+        if (packageDetailsSubtitle) {
+            const casket = includedCasketFor(radio);
+            packageDetailsSubtitle.textContent = radio.value === 'custom'
+                ? 'Price set during package setup. Manual package details are entered in the custom fields.'
+                : `PHP ${fmt(radio.dataset.price)} | ${counts.inclusions} inclusion(s) | ${counts.freebies} freebie(s) | Casket: ${casket.name || 'Not configured'}`;
+        }
+        if (packageDetailServices) packageDetailServices.innerHTML = rows.services;
+        if (packageDetailFreebies) packageDetailFreebies.innerHTML = rows.freebies;
+        if (packageDetailCoverage) packageDetailCoverage.innerHTML = rows.coverage;
+        activatePackageDetailTab('services');
+        packageDetailsModal.classList.remove('hidden');
+        packageDetailsModal.classList.add('flex');
+        packageDetailsModal.querySelector('button[data-package-details-close]')?.focus();
+    };
+    const closePackageDetails = () => {
+        packageDetailsModal?.classList.add('hidden');
+        packageDetailsModal?.classList.remove('flex');
     };
     const checkedAddOns = () => [...document.querySelectorAll('.optional-add-on-checkbox:checked')]
         .map((checkbox) => ({
@@ -2537,8 +3081,140 @@
             name: checkbox.dataset.name || '',
             description: checkbox.dataset.description || '',
             price: num(checkbox.dataset.price),
+            unit: checkbox.dataset.unit || '',
         }));
-    const addOnsTotal = () => checkedAddOns().reduce((sum, addOn) => sum + num(addOn.price), 0);
+    const appliedAddOns = () => parseAddOns().filter((addOn) => oldSelectedAddOns.has(String(addOn.id)));
+    const addOnsTotal = () => appliedAddOns().reduce((sum, addOn) => sum + num(addOn.price), 0);
+    const setAddOnsPanelOpen = (open) => {
+        if (!optionalAddOnsPanel) return;
+        optionalAddOnsPanel.classList.toggle('hidden', !open);
+        chooseAddOnsBtn?.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) {
+            optionalAddOnsSearch?.focus();
+        }
+    };
+    const syncDraftAddOnsTotal = () => {
+        if (draftAddOnsTotal) draftAddOnsTotal.textContent = fmt(checkedAddOns().reduce((sum, addOn) => sum + num(addOn.price), 0));
+    };
+    const restoreAppliedAddOns = () => {
+        document.querySelectorAll('.optional-add-on-checkbox').forEach((checkbox) => {
+            checkbox.checked = oldSelectedAddOns.has(String(checkbox.value));
+        });
+        syncDraftAddOnsTotal();
+    };
+    const applyDraftAddOns = () => {
+        oldSelectedAddOns.clear();
+        checkedAddOns().forEach((addOn) => oldSelectedAddOns.add(String(addOn.id)));
+        setAddOnsPanelOpen(false);
+        render();
+    };
+    const selectedAppliedAddOns = () => {
+        return appliedAddOns();
+    };
+    let additionalItemIndex = 0;
+    const oldAdditionalItems = @json(old('additional_service_items', []));
+    const additionalServiceRows = () => [...document.querySelectorAll('[data-additional-service-row]')]
+        .map((row) => ({
+            description: row.querySelector('[data-additional-description]')?.value?.trim() || '',
+            amount: num(row.querySelector('[data-additional-amount]')?.value),
+        }))
+        .filter((item) => item.description || item.amount > 0);
+    const syncAdditionalServiceHiddenFields = () => {
+        const rows = additionalServiceRows();
+        if (addAmt) addAmt.value = rows.reduce((sum, item) => sum + item.amount, 0).toFixed(2);
+        if (additionalServices) additionalServices.value = rows.map((item) => item.description).filter(Boolean).join('; ');
+    };
+    const addAdditionalServiceRow = (item = {}) => {
+        if (!additionalItemsList) return;
+        const index = additionalItemIndex++;
+        const row = document.createElement('div');
+        row.className = 'grid grid-cols-1 sm:grid-cols-[1fr_150px_38px] gap-2 rounded-lg border border-slate-200 bg-white p-3';
+        row.dataset.additionalServiceRow = '1';
+        row.innerHTML = `
+            <input type="text" name="additional_service_items[${index}][description]" value="${escapeHtml(item.description || '')}" class="form-input" placeholder="Service description" data-label="additional service description" data-additional-description>
+            <div class="flex items-center rounded-lg border border-slate-300 bg-white focus-within:ring-2 focus-within:ring-slate-900">
+                <span class="pl-3 pr-2 text-slate-500 font-bold">&#8369;</span>
+                <input type="number" step="0.01" min="0" name="additional_service_items[${index}][amount]" value="${escapeHtml(item.amount || '')}" class="w-full border-0 focus:outline-none focus:ring-0 font-bold p-3" placeholder="0.00" data-label="additional service amount" data-additional-amount>
+            </div>
+            <button type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-rose-50 hover:text-rose-600" aria-label="Remove additional service line" data-remove-additional-service>
+                <i class="bi bi-x-lg"></i>
+            </button>
+        `;
+        additionalItemsList.appendChild(row);
+        row.querySelectorAll('input').forEach((input) => input.addEventListener('input', () => {
+            syncAdditionalServiceHiddenFields();
+            render();
+        }));
+        row.querySelector('[data-remove-additional-service]')?.addEventListener('click', () => {
+            row.remove();
+            if (!additionalItemsList.querySelector('[data-additional-service-row]')) addAdditionalServiceRow();
+            syncAdditionalServiceHiddenFields();
+            render();
+        });
+        syncAdditionalServiceHiddenFields();
+    };
+    const selectedReplacementCasket = () => {
+        if (casketModeRadios.length && casketModeRadios.find((radio) => radio.checked)?.value !== 'replacement') return null;
+        const option = replacementCasket?.selectedOptions?.[0];
+        if (!option || !option.value) return null;
+        return {
+            id: option.value,
+            name: option.dataset.name || option.textContent.trim(),
+            material: option.dataset.material || '',
+            referenceValue: num(option.dataset.price),
+        };
+    };
+    const isCustomSelected = () => pkg()?.value === 'custom';
+    const inclusiveWakeDays = () => num(wakeDays?.value);
+    const casketUpgradeAmount = () => {
+        if (isCustomSelected()) return 0;
+        const included = includedCasketFor();
+        const selected = selectedReplacementCasket();
+        if (!selected) return 0;
+        const includedValue = num(included.reference_value);
+        if (includedValue <= 0 || selected.referenceValue <= 0) return 0;
+        return Math.max(selected.referenceValue - includedValue, 0);
+    };
+    const chargeForKm = (type, actualValue) => {
+        if (isCustomSelected()) return { amount: 0, excess: 0, included: 0, rate: 0, configured: false };
+        const row = structuredInclusionsFor().find((item) => item.service_type === type);
+        if (!row || row.included_kilometers === null || row.included_kilometers === undefined || num(row.price_per_excess_kilometer) <= 0) {
+            return { amount: 0, excess: 0, included: num(row?.included_kilometers), rate: num(row?.price_per_excess_kilometer), configured: false };
+        }
+        const included = num(row.included_kilometers);
+        const rate = num(row.price_per_excess_kilometer);
+        const actual = num(actualValue);
+        const excess = Math.max(actual - included, 0);
+        return { amount: excess * rate, excess, included, rate, configured: true };
+    };
+    const chargeForDays = (type) => {
+        if (isCustomSelected()) return { amount: 0, excess: 0, included: 0, rate: 0, actual: 0, configured: false };
+        const row = structuredInclusionsFor().find((item) => item.service_type === type);
+        if (!row || row.included_days === null || row.included_days === undefined || num(row.price_per_extended_day) <= 0) {
+            return { amount: 0, excess: 0, included: num(row?.included_days), rate: num(row?.price_per_extended_day), actual: inclusiveWakeDays(), configured: false };
+        }
+        const included = num(row.included_days);
+        const rate = num(row.price_per_extended_day);
+        const actual = inclusiveWakeDays();
+        const excess = Math.max(actual - included, 0);
+        return { amount: excess * rate, excess, included, rate, actual, configured: true };
+    };
+    const serviceCharges = () => {
+        const retrieval = chargeForKm('body_retrieval', actualRetrievalKm?.value);
+        const hearse = chargeForKm('hearse', actualHearseKm?.value);
+        const embalming = chargeForDays('embalming');
+        const viewing = chargeForDays('home_viewing');
+        const casket = casketUpgradeAmount();
+
+        return {
+            retrieval,
+            hearse,
+            embalming,
+            viewing,
+            casket,
+            total: retrieval.amount + hearse.amount + embalming.amount + viewing.amount + casket,
+        };
+    };
 
     const formatDateOnly = (value) => {
         if (!value) return '-';
@@ -2895,11 +3571,28 @@
             };
         }
 
+        const selected = pkg();
+        if (selected && selected.value !== 'custom' && selected.dataset.promoNow === '1') {
+            const promoType = String(selected.dataset.promoType || '').toUpperCase();
+            const promoValue = num(selected.dataset.promoValue);
+            const amount = promoType === 'PERCENT'
+                ? num(pkgAmount?.value) * (promoValue / 100)
+                : promoValue;
+            const label = selected.dataset.promoLabel || 'Package Promo';
+
+            return {
+                type: 'Package Promo',
+                source: label,
+                amount: Math.max(amount, 0),
+                message: `${label} is applied to the package price when no Senior/PWD discount is selected.`,
+            };
+        }
+
         return {
             type: 'None',
             source: 'None',
             amount: 0,
-            message: 'No automatic discount applies when Senior Citizen is marked No.',
+            message: 'No automatic discount applies.',
         };
     };
 
@@ -2911,8 +3604,10 @@
     const totals = () => {
         const packagePrice = num(pkgAmount?.value);
         const selectedAddOns = addOnsTotal();
+        const structured = serviceCharges();
         const additional = num(addAmt?.value);
-        const subtotal = packagePrice + selectedAddOns + additional;
+        const structuredTotal = structured.total;
+        const subtotal = packagePrice + structuredTotal + selectedAddOns + additional;
         const disc = discount();
         const taxableBase = Math.max(subtotal - Math.min(disc.amount, subtotal), 0);
         const rate = Math.max(0, Math.min(num(taxRate?.value), 100));
@@ -2927,7 +3622,7 @@
         const balance = Math.max(total - paid, 0);
         const status = !payNow() || paid <= 0 ? 'UNPAID' : paid < total ? 'PARTIAL' : 'PAID';
 
-        return { packagePrice, selectedAddOns, additional, subtotal, disc, tax, total, paid, balance, status, rate };
+        return { packagePrice, structured, structuredTotal, selectedAddOns, additional, subtotal, disc, tax, total, paid, balance, status, rate };
     };
 
     const paymentMethodSummary = () => {
@@ -3144,6 +3839,7 @@
         pkgCards.forEach((card) => {
             const radio = cardRadio(card);
             const active = !!radio?.checked;
+            card.setAttribute('aria-checked', active ? 'true' : 'false');
             card.classList.toggle('border-slate-800', active);
             card.classList.toggle('bg-slate-50', active);
             card.classList.toggle('ring-2', active);
@@ -3153,43 +3849,71 @@
         if (pkgAmount) pkgAmount.value = selected?.dataset.price || '';
         if (packageError) packageError.classList.add('hidden');
 
-        if (inclusions) {
-            inclusions.innerHTML = list(selected?.dataset.inclusions)
-                .map((item) => `<li class="flex items-start gap-2"><i class="bi bi-check2 text-emerald-500 mt-0.5"></i> <span>${escapeHtml(item)}</span></li>`)
-                .join('') || '<li class="text-slate-400 italic">Select a package to view inclusions.</li>';
-        }
-
-        if (freebies) {
-            freebies.innerHTML = list(selected?.dataset.freebies)
-                .map((item) => `<li class="flex items-start gap-2"><i class="bi bi-gift text-amber-500 mt-0.5"></i> <span>${escapeHtml(item)}</span></li>`)
-                .join('') || '<li class="text-slate-400 italic">Package freebies and notes will appear here.</li>';
-        }
+        if (inclusions) inclusions.innerHTML = list(selected?.dataset.inclusions).map((item) => `<li>${escapeHtml(item)}</li>`).join('');
+        if (freebies) freebies.innerHTML = list(selected?.dataset.freebies).map((item) => `<li>${escapeHtml(item)}</li>`).join('');
 
         const addOns = parseAddOns(selected);
         if (optionalAddOnsSection) optionalAddOnsSection.classList.toggle('hidden', !selected || selected === customPkgRadio);
+        setAddOnsPanelOpen(false);
         if (optionalAddOnsList) {
             if (!selected || selected === customPkgRadio) {
                 optionalAddOnsList.innerHTML = '';
             } else if (addOns.length === 0) {
-                optionalAddOnsList.innerHTML = '<div class="rounded-lg border border-[#C9C5BB] bg-white px-3 py-2 text-sm text-[#5F685F]">No optional add-ons available for this package.</div>';
+                optionalAddOnsList.innerHTML = '<div class="rounded-lg border border-[#C9C5BB] bg-white px-3 py-3 text-sm font-semibold text-[#5F685F]">No add-ons are currently available.</div>';
             } else {
                 optionalAddOnsList.innerHTML = addOns.map((addOn) => {
                     const checked = oldSelectedAddOns.has(String(addOn.id)) ? 'checked' : '';
+                    const searchable = [addOn.name, addOn.category, addOn.description, addOn.unit].filter(Boolean).join(' ').toLowerCase();
                     return `
-                        <label class="flex items-start gap-3 rounded-lg border border-[#C9C5BB] bg-white px-3 py-3 text-sm text-[#333333] hover:bg-[#F3F0E8]">
-                            <input type="checkbox" name="selected_add_ons[]" value="${escapeHtml(addOn.id)}" ${checked} class="optional-add-on-checkbox mt-1 h-4 w-4 rounded border-[#C9C5BB] text-[#3E4A3D] focus:ring-[#3E4A3D]" data-name="${escapeHtml(addOn.name)}" data-description="${escapeHtml(addOn.description || '')}" data-price="${escapeHtml(addOn.price)}">
+                        <label class="optional-add-on-row flex items-start gap-3 rounded-lg border border-[#C9C5BB] bg-white px-3 py-3 text-sm text-[#333333] hover:bg-[#F3F0E8] focus-within:ring-2 focus-within:ring-[#3E4A3D]" data-add-on-search="${escapeHtml(searchable)}">
+                            <input type="checkbox" name="selected_add_ons[]" value="${escapeHtml(addOn.id)}" ${checked} class="optional-add-on-checkbox mt-1 h-4 w-4 rounded border-[#C9C5BB] text-[#3E4A3D] focus:ring-[#3E4A3D]" data-name="${escapeHtml(addOn.name)}" data-description="${escapeHtml(addOn.description || '')}" data-price="${escapeHtml(addOn.price)}" data-unit="${escapeHtml(addOn.unit || '')}" data-category="${escapeHtml(addOn.category || '')}">
                             <span class="min-w-0 flex-1">
                                 <span class="flex flex-wrap items-baseline justify-between gap-2">
                                     <span class="font-bold">${escapeHtml(addOn.name)}</span>
-                                    <span class="font-black">&#8369; ${fmt(addOn.price)}</span>
+                                    <span class="font-black">&#8369; ${fmt(addOn.price)}${addOn.unit ? ` / ${escapeHtml(addOn.unit)}` : ''}</span>
+                                </span>
+                                <span class="mt-1 flex flex-wrap items-center gap-2">
+                                    ${addOn.category ? `<span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">${escapeHtml(addOn.category)}</span>` : ''}
+                                    ${addOn.unit ? `<span class="text-[11px] font-bold text-[#5F685F]">Unit: ${escapeHtml(addOn.unit)}</span>` : ''}
                                 </span>
                                 ${addOn.description ? `<span class="mt-1 block text-xs font-medium text-[#5F685F]">${escapeHtml(addOn.description)}</span>` : ''}
+                                <span class="mt-2 hidden text-xs font-bold text-[#3E4A3D]" data-add-on-quantity-note>Quantity: 1 ${escapeHtml(addOn.unit || 'item')} | Line total: PHP ${fmt(addOn.price)}</span>
                             </span>
                         </label>`;
                 }).join('');
             }
         }
+        if (optionalAddOnsSearch) optionalAddOnsSearch.value = '';
+        if (chooseAddOnsBtn) {
+            const unavailable = !selected || selected === customPkgRadio || addOns.length === 0;
+            chooseAddOnsBtn.disabled = unavailable;
+            chooseAddOnsBtn.classList.toggle('opacity-50', unavailable);
+            chooseAddOnsBtn.classList.toggle('cursor-not-allowed', unavailable);
+            chooseAddOnsBtn.innerHTML = addOns.length === 0
+                ? '<i class="bi bi-slash-circle"></i> No Add-ons Available'
+                : (oldSelectedAddOns.size ? '<i class="bi bi-pencil-square"></i> Change Add-ons' : '<i class="bi bi-plus-circle"></i> Choose Add-ons');
+        }
         if (selectedAddOnsTotal) selectedAddOnsTotal.textContent = fmt(addOnsTotal());
+        if (draftAddOnsTotal) draftAddOnsTotal.textContent = fmt(addOnsTotal());
+        if (selectedAddOnsLines) {
+            const applied = appliedAddOns();
+            selectedAddOnsLines.classList.toggle('hidden', applied.length === 0);
+            selectedAddOnsLines.innerHTML = applied.map((addOn) => `
+                <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#E5E0D5] bg-[#FBFAF7] px-3 py-2">
+                    <span class="min-w-0">
+                        <span class="block font-bold">${escapeHtml(addOn.name)}</span>
+                        <span class="block text-xs font-medium text-[#5F685F]">Qty 1${addOn.unit ? ` ${escapeHtml(addOn.unit)}` : ''}</span>
+                    </span>
+                    <span class="font-black">&#8369; ${fmt(addOn.price)}</span>
+                </div>
+            `).join('');
+        }
+        const summaryTitle = selectedAddOnsSummary?.querySelector('.font-bold');
+        const summaryHelp = selectedAddOnsSummary?.querySelector('.text-xs');
+        if (summaryTitle) summaryTitle.textContent = oldSelectedAddOns.size ? `${oldSelectedAddOns.size} add-on(s) selected.` : (addOns.length ? 'No add-ons selected.' : 'No add-ons are currently available.');
+        if (summaryHelp) summaryHelp.textContent = oldSelectedAddOns.size ? 'Applied add-ons are shown below. Use Change Add-ons to update them.' : 'Optional add-ons are not included in the base package price.';
+
+        if (structuredPricingSection) structuredPricingSection.classList.toggle('hidden', !selected || selected === customPkgRadio);
 
         syncPreferredPackage();
 
@@ -3277,6 +4001,8 @@
                 detailRow('Funeral Service Date & Time', formatScheduleDateTime(f.elements.funeral_service_at?.value, f.elements.funeral_service_time?.value)),
                 detailRow('Interment Date & Time', formatScheduleDateTime(f.elements.interment_at?.value, f.elements.interment_time?.value)),
                 detailRow('Wake Days', textOrDash(f.elements.wake_days?.value)),
+                detailRow('Actual Retrieval KM', textOrDash(f.elements.actual_retrieval_kilometers?.value)),
+                detailRow('Actual Hearse KM', textOrDash(f.elements.actual_hearse_kilometers?.value)),
                 detailRow('Service Type', 'Burial (fixed)'),
                 detailRow('Wake Location', textOrDash(f.elements.wake_location?.value)),
                 detailRow('Place of Interment', textOrDash(f.elements.place_of_cemetery?.value)),
@@ -3285,12 +4011,13 @@
         }
 
         if (reviewPackage) {
-            const selectedAddOnRows = checkedAddOns();
+            const selectedAddOnRows = appliedAddOns();
             reviewPackage.innerHTML = [
                 detailRow('Selected Package', selected?.dataset?.name || '-'),
                 detailRow('Package Price', `PHP ${fmt(t.packagePrice)}`),
                 detailRow('Inclusions', list(selected?.dataset.inclusions).join(', ') || '-'),
                 detailRow('Freebies / Notes', list(selected?.dataset.freebies).join(', ') || '-'),
+                detailRow('Replacement Casket', selectedReplacementCasket()?.name || 'Use included casket'),
                 detailRow('Optional Add-ons', selectedAddOnRows.length
                     ? selectedAddOnRows.map((addOn) => `${addOn.name} x1 - PHP ${fmt(addOn.price)}`).join(', ')
                     : 'No optional add-ons selected.'),
@@ -3300,6 +4027,7 @@
         if (reviewBilling) {
             reviewBilling.innerHTML = [
                 detailRow('Package Price', `PHP ${fmt(t.packagePrice)}`),
+                detailRow('Automatic Charges', `PHP ${fmt(t.structuredTotal)}`),
                 detailRow('Add-ons Total', `PHP ${fmt(t.selectedAddOns)}`),
                 detailRow('Additional Services', textOrDash(additionalServices?.value)),
                 detailRow('Additional Charges', `PHP ${fmt(t.additional)}`),
@@ -3327,18 +4055,18 @@
         if (!wakeDays) return;
 
         const wakeDate = getDateValue(wakeStart, wakeStartPicker);
-        const serviceDate = getDateValue(funeral, wakePicker);
+        const serviceDate = getDateValue(interment, interPicker);
 
         if (!wakeDate || !serviceDate || serviceDate < wakeDate) {
             wakeDays.value = '';
             const helper = document.getElementById('wake_days_helper');
-            if (helper) helper.textContent = 'Wake days are calculated from Wake Start Date to Funeral Service Date.';
+            if (helper) helper.textContent = 'Wake days are calculated from Wake Start Date through Interment Date, inclusive.';
             return;
         }
 
         const wakeOnly = new Date(wakeDate.getFullYear(), wakeDate.getMonth(), wakeDate.getDate());
         const serviceOnly = new Date(serviceDate.getFullYear(), serviceDate.getMonth(), serviceDate.getDate());
-        const diffDays = Math.floor((serviceOnly - wakeOnly) / 86400000);
+        const diffDays = Math.floor((serviceOnly - wakeOnly) / 86400000) + 1;
 
         wakeDays.value = diffDays >= 0 ? String(diffDays) : '';
 
@@ -3650,6 +4378,7 @@
         if (summaryPackage) summaryPackage.textContent = fmt(t.packagePrice);
         if (summaryAddOns) summaryAddOns.textContent = fmt(t.selectedAddOns);
         if (selectedAddOnsTotal) selectedAddOnsTotal.textContent = fmt(t.selectedAddOns);
+        if (structuredChargesTotal) structuredChargesTotal.textContent = fmt(t.structuredTotal);
         if (summaryAdd) summaryAdd.textContent = fmt(t.additional);
         if (summarySubtotal) summarySubtotal.textContent = fmt(t.subtotal);
         if (summaryDiscountSource) summaryDiscountSource.textContent = t.disc.source;
@@ -3685,6 +4414,88 @@
         if (autoDiscountType) autoDiscountType.value = t.disc.type;
         if (autoDiscountAmount) autoDiscountAmount.value = `PHP ${fmt(t.disc.amount)}`;
         if (discountHelpSecondary) discountHelpSecondary.textContent = t.disc.message;
+
+        const replacementMode = casketModeRadios.find((radio) => radio.checked)?.value === 'replacement';
+        if (replacementCasketWrap) replacementCasketWrap.classList.toggle('hidden', !replacementMode);
+        if (replacementCasket && !replacementMode && replacementCasket.value) {
+            replacementCasket.value = '';
+        }
+        const includedCasket = includedCasketFor();
+        if (includedCasketSummary) {
+            const name = includedCasket?.name || 'No included casket configured';
+            const material = includedCasket?.material ? ` - ${includedCasket.material}` : '';
+            const value = num(includedCasket?.reference_value) > 0
+                ? `Reference Value: PHP ${fmt(includedCasket.reference_value)}`
+                : 'Reference Value not configured';
+            includedCasketSummary.textContent = `${name}${material}. ${value}.`;
+        }
+        if (casketAdjustmentAmount) casketAdjustmentAmount.textContent = fmt(t.structured.casket);
+
+        if (casketUpgradePreview) {
+            const included = includedCasketFor();
+            const selected = selectedReplacementCasket();
+            if (isCustomSelected()) {
+                casketUpgradePreview.textContent = 'Custom packages do not calculate casket upgrades yet.';
+            } else if (!selected) {
+                casketUpgradePreview.textContent = included?.name ? `${included.name} is included in the package price.` : 'Included casket will be used.';
+            } else if (num(included.reference_value) <= 0) {
+                casketUpgradePreview.textContent = 'Included casket reference value is not configured.';
+            } else if (selected.referenceValue <= 0) {
+                casketUpgradePreview.textContent = 'Selected casket reference value is not configured.';
+            } else {
+                casketUpgradePreview.textContent = `Upgrade charge: PHP ${fmt(t.structured.casket)}.`;
+            }
+        }
+
+        const syncDistanceCard = (kind, charge, input, warning, includedEl, excessEl, rateEl, amountEl, previewEl) => {
+            if (includedEl) includedEl.textContent = fmt(charge.included);
+            if (excessEl) excessEl.textContent = fmt(charge.excess);
+            if (rateEl) rateEl.textContent = fmt(charge.rate);
+            if (amountEl) amountEl.textContent = fmt(charge.amount);
+
+            const disabled = isCustomSelected() || !charge.configured;
+            if (input) {
+                input.disabled = disabled;
+                input.classList.toggle('cursor-not-allowed', disabled);
+                input.classList.toggle('bg-slate-100', disabled);
+                if (disabled) input.setCustomValidity('');
+            }
+            warning?.classList.toggle('hidden', !(!isCustomSelected() && !charge.configured));
+
+            if (!previewEl) return;
+            if (isCustomSelected()) {
+                previewEl.textContent = 'Custom packages do not use automatic kilometer limits yet.';
+            } else if (!charge.configured) {
+                previewEl.textContent = `${kind} distance charging is unavailable until Admin configures the package limit and rate.`;
+            } else {
+                previewEl.textContent = `Excess ${fmt(charge.excess)} km x PHP ${fmt(charge.rate)} = PHP ${fmt(charge.amount)}.`;
+            }
+        };
+
+        syncDistanceCard('Body Retrieval', t.structured.retrieval, actualRetrievalKm, retrievalConfigWarning, retrievalIncludedKm, retrievalExcessKm, retrievalRate, retrievalChargeAmount, retrievalChargePreview);
+        syncDistanceCard('Hearse Service', t.structured.hearse, actualHearseKm, hearseConfigWarning, hearseIncludedKm, hearseExcessKm, hearseRate, hearseChargeAmount, hearseChargePreview);
+
+        const syncDayCard = (kind, charge, warning, includedEl, actualEl, extendedEl, rateEl, amountEl, previewEl) => {
+            if (includedEl) includedEl.textContent = String(Math.round(num(charge.included)));
+            if (actualEl) actualEl.textContent = String(Math.round(num(charge.actual)));
+            if (extendedEl) extendedEl.textContent = String(Math.round(num(charge.excess)));
+            if (rateEl) rateEl.textContent = fmt(charge.rate);
+            if (amountEl) amountEl.textContent = fmt(charge.amount);
+
+            warning?.classList.toggle('hidden', !(!isCustomSelected() && !charge.configured));
+
+            if (!previewEl) return;
+            if (isCustomSelected()) {
+                previewEl.textContent = 'Custom packages do not use automatic extended-day charges yet.';
+            } else if (!charge.configured) {
+                previewEl.textContent = `${kind} day charging is unavailable until Admin configures the package included days and rate.`;
+            } else {
+                previewEl.textContent = `Extended ${Math.round(num(charge.excess))} day(s) x PHP ${fmt(charge.rate)} = PHP ${fmt(charge.amount)}.`;
+            }
+        };
+
+        syncDayCard('Embalming', t.structured.embalming, embalmingConfigWarning, embalmingIncludedDays, embalmingActualDays, embalmingExtendedDays, embalmingRate, embalmingChargeAmount, embalmingChargePreview);
+        syncDayCard('Home Viewing', t.structured.viewing, viewingConfigWarning, viewingIncludedDays, viewingActualDays, viewingExtendedDays, viewingRate, viewingChargeAmount, viewingChargePreview);
 
         if (paymentStatusPreview) paymentStatusPreview.textContent = t.status;
         if (paymentPaidPreview) paymentPaidPreview.textContent = fmt(t.paid);
@@ -3771,6 +4582,23 @@
         if (targetStep === 3) validateWakeInterment('full');
 
         if (!validatePanelFields(panel)) return false;
+
+        if (targetStep === 4) {
+            for (const row of document.querySelectorAll('[data-additional-service-row]')) {
+                const description = row.querySelector('[data-additional-description]');
+                const amount = row.querySelector('[data-additional-amount]');
+                const hasDescription = !!description?.value?.trim();
+                const hasAmount = num(amount?.value) > 0;
+
+                if (hasAmount && !hasDescription) {
+                    return showFieldError(description, 'Description is required for this additional charge.');
+                }
+
+                if (hasDescription && !hasAmount) {
+                    return showFieldError(amount, 'Enter an amount greater than zero for this line.');
+                }
+            }
+        }
 
         if (targetStep === 1 && (!branch.value || (isOtherEntryMode && !isBranchSelectedForOtherMode()))) {
             branchError?.classList.remove('hidden');
@@ -4982,7 +5810,18 @@
     });
 
     pkgCards.forEach((card) => {
-        card.addEventListener('click', () => {
+        card.addEventListener('click', (event) => {
+            if (event.target.closest('.package-details-btn')) return;
+            const radio = cardRadio(card);
+            if (radio && !radio.checked) radio.checked = true;
+            renderPkg(true);
+            syncControls();
+            render();
+        });
+        card.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            if (event.target.closest('.package-details-btn')) return;
+            event.preventDefault();
             const radio = cardRadio(card);
             if (radio && !radio.checked) radio.checked = true;
             renderPkg(true);
@@ -4995,6 +5834,7 @@
         pkgList.addEventListener('click', (event) => {
             const card = event.target.closest('.package-card');
             if (!card) return;
+            if (event.target.closest('.package-details-btn')) return;
             const radio = cardRadio(card);
             if (radio && !radio.checked) radio.checked = true;
             renderPkg(true);
@@ -5003,11 +5843,90 @@
         });
     }
 
+    document.querySelectorAll('.package-details-btn').forEach((button) => {
+        ['pointerdown', 'mousedown', 'touchstart'].forEach((eventName) => {
+            button.addEventListener(eventName, (event) => {
+                event.stopPropagation();
+            }, { passive: true });
+        });
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const radio = pkgRadios.find((item) => String(item.value) === String(button.dataset.packageValue));
+            openPackageDetails(radio);
+        });
+    });
+
+    packageDetailsModal?.querySelectorAll('[data-package-details-close]').forEach((button) => {
+        button.addEventListener('click', closePackageDetails);
+    });
+
+    packageDetailTabs.forEach((tab) => {
+        tab.addEventListener('click', () => activatePackageDetailTab(tab.dataset.packageDetailTab));
+    });
+
+    packageDetailsModal?.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') closePackageDetails();
+    });
+
     optionalAddOnsList?.addEventListener('change', (event) => {
         if (!event.target.matches('.optional-add-on-checkbox')) return;
-        oldSelectedAddOns.clear();
-        checkedAddOns().forEach((addOn) => oldSelectedAddOns.add(String(addOn.id)));
+        const row = event.target.closest('.optional-add-on-row');
+        row?.querySelector('[data-add-on-quantity-note]')?.classList.toggle('hidden', !event.target.checked);
+        syncDraftAddOnsTotal();
+    });
+
+    chooseAddOnsBtn?.addEventListener('click', () => {
+        if (chooseAddOnsBtn.disabled) return;
+        restoreAppliedAddOns();
+        optionalAddOnsList?.querySelectorAll('[data-add-on-quantity-note]').forEach((note) => {
+            const checkbox = note.closest('.optional-add-on-row')?.querySelector('.optional-add-on-checkbox');
+            note.classList.toggle('hidden', !checkbox?.checked);
+        });
+        if (optionalAddOnsSearch) optionalAddOnsSearch.value = '';
+        optionalAddOnsList?.querySelectorAll('.optional-add-on-row').forEach((row) => row.classList.remove('hidden'));
+        setAddOnsPanelOpen(true);
+    });
+
+    applyAddOnsBtn?.addEventListener('click', applyDraftAddOns);
+
+    cancelAddOnsBtn?.addEventListener('click', () => {
+        restoreAppliedAddOns();
+        setAddOnsPanelOpen(false);
+    });
+
+    optionalAddOnsSearch?.addEventListener('input', () => {
+        const term = optionalAddOnsSearch.value.trim().toLowerCase();
+        optionalAddOnsList?.querySelectorAll('.optional-add-on-row').forEach((row) => {
+            row.classList.toggle('hidden', term !== '' && !String(row.dataset.addOnSearch || '').includes(term));
+        });
+    });
+
+    optionalAddOnsPanel?.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            restoreAppliedAddOns();
+            setAddOnsPanelOpen(false);
+            chooseAddOnsBtn?.focus();
+        }
+    });
+
+    addAdditionalItem?.addEventListener('click', () => {
+        addAdditionalServiceRow();
         render();
+    });
+
+    [replacementCasket, actualRetrievalKm, actualHearseKm].forEach((field) => {
+        field?.addEventListener('input', render);
+        field?.addEventListener('change', render);
+    });
+
+    casketModeRadios.forEach((radio) => {
+        radio.addEventListener('change', () => {
+            if (radio.value === 'included' && radio.checked && replacementCasket) {
+                replacementCasket.value = '';
+            }
+            render();
+        });
     });
 
     prefPkg?.addEventListener('input', () => {
@@ -5095,6 +6014,9 @@
     });
 
     f.addEventListener('submit', (event) => {
+        restoreAppliedAddOns();
+        setAddOnsPanelOpen(false);
+
         if (isOtherEntryMode && otherBranchWindowClosed) {
             event.preventDefault();
             return;
@@ -5135,6 +6057,13 @@
     syncControls();
     syncAge();
     syncDateConstraints();
+    if (Array.isArray(oldAdditionalItems) && oldAdditionalItems.length) {
+        oldAdditionalItems.forEach((item) => addAdditionalServiceRow(item || {}));
+    } else if (num(addAmt?.value) > 0 || (additionalServices?.value || '').trim()) {
+        addAdditionalServiceRow({ description: additionalServices?.value || '', amount: addAmt?.value || '' });
+    } else {
+        addAdditionalServiceRow();
+    }
     syncPreferredPackage();
     renderPkg(false);
     render();

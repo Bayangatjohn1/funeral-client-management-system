@@ -29,18 +29,7 @@
             const desktopMedia = window.matchMedia('(min-width: 1024px)');
             if (!desktopMedia.matches) return;
 
-            const collapseStorageKey = 'sidebar-collapsed';
-            let initialCollapsed = false;
-            try {
-                const stored = localStorage.getItem(collapseStorageKey);
-                initialCollapsed = stored === null ? true : stored === 'true';
-            } catch (error) {
-                initialCollapsed = true;
-            }
-
-            if (initialCollapsed) {
-                document.body.setAttribute('data-sidebar-collapsed', 'true');
-            }
+            document.body.setAttribute('data-sidebar-collapsed', 'true');
         })();
     </script>
     
@@ -62,17 +51,6 @@
                     <div class="sidebar-brand-sub">Funeral Home System</div>
                 </div>
             </div>
-
-            <button
-                type="button"
-                id="desktopSidebarToggle"
-                class="sidebar-collapse-btn"
-                aria-label="Collapse sidebar"
-                aria-expanded="true"
-                aria-controls="appSidebar"
-            >
-                <i class="bi bi-layout-sidebar sidebar-collapse-glyph" aria-hidden="true"></i>
-            </button>
 
             <div class="sidebar-scroll">
                 <nav class="sidebar-nav">
@@ -472,9 +450,7 @@
             const toggle = document.getElementById('mobileSidebarToggle');
             const backdrop = document.getElementById('sidebarBackdrop');
             const sidebar = document.getElementById('appSidebar');
-            const desktopToggle = document.getElementById('desktopSidebarToggle');
             const desktopMedia = window.matchMedia('(min-width: 1024px)');
-            const collapseStorageKey = 'sidebar-collapsed';
             if (!backdrop || !sidebar) return;
 
             const navLinks = sidebar.querySelectorAll('.nav-link');
@@ -507,49 +483,18 @@
                 }
             };
 
-            const syncDesktopToggle = (collapsed) => {
-                if (!desktopToggle) return;
-                desktopToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-                desktopToggle.setAttribute('aria-label', collapsed ? 'Open sidebar' : 'Collapse sidebar');
-
-                const glyph = desktopToggle.querySelector('.sidebar-collapse-glyph');
-                if (!glyph) return;
-                glyph.classList.toggle('bi-layout-sidebar-inset', collapsed);
-                glyph.classList.toggle('bi-layout-sidebar', !collapsed);
-            };
-
-            const setDesktopCollapsed = (collapsed, persist = true) => {
+            const syncDesktopCollapsed = () => {
                 if (!desktopMedia.matches) {
                     document.body.removeAttribute('data-sidebar-collapsed');
-                    syncDesktopToggle(false);
                     return;
                 }
 
-                if (collapsed) {
-                    document.body.setAttribute('data-sidebar-collapsed', 'true');
-                } else {
-                    document.body.removeAttribute('data-sidebar-collapsed');
-                }
-
-                syncDesktopToggle(collapsed);
-                if (persist) {
-                    localStorage.setItem(collapseStorageKey, collapsed ? 'true' : 'false');
-                }
-            };
-
-            const restoreDesktopCollapsed = () => {
-                const stored = localStorage.getItem(collapseStorageKey);
-                const initialCollapsed = stored === null ? true : stored === 'true';
-                setDesktopCollapsed(initialCollapsed, false);
+                document.body.setAttribute('data-sidebar-collapsed', 'true');
             };
 
             if (toggle) {
                 toggle.addEventListener('click', () => {
-                    if (desktopMedia.matches) {
-                        const isCollapsed = document.body.getAttribute('data-sidebar-collapsed') === 'true';
-                        setDesktopCollapsed(!isCollapsed);
-                        return;
-                    }
+                    if (desktopMedia.matches) return;
 
                     if (document.body.getAttribute('data-sidebar-open') === 'true') {
                         closeSidebar();
@@ -559,27 +504,18 @@
                 });
             }
 
-            if (desktopToggle) {
-                desktopToggle.addEventListener('click', () => {
-                    if (!desktopMedia.matches) return;
-                    const isCollapsed = document.body.getAttribute('data-sidebar-collapsed') === 'true';
-                    setDesktopCollapsed(!isCollapsed);
-                });
-            }
-
-            restoreDesktopCollapsed();
+            syncDesktopCollapsed();
 
             backdrop.addEventListener('click', closeSidebar);
 
             window.addEventListener('resize', () => {
                 if (desktopMedia.matches) {
                     closeSidebar();
-                    restoreDesktopCollapsed();
+                    syncDesktopCollapsed();
                     return;
                 }
 
                 document.body.removeAttribute('data-sidebar-collapsed');
-                syncDesktopToggle(false);
             });
 
             document.addEventListener('keydown', (event) => {
@@ -736,6 +672,53 @@
             });
 
             document.addEventListener('panel-ui:reset', closeMenu);
+        })();
+
+        (function () {
+            const storageKey = 'admin-service-management-open';
+            document.querySelectorAll('[data-service-nav]').forEach((nav) => {
+                const parent = nav.querySelector('[data-service-nav-parent]');
+                const submenu = nav.querySelector('[data-service-nav-submenu]');
+                if (!parent || !submenu) return;
+
+                const isActive = nav.getAttribute('data-service-active') === '1';
+                const stored = localStorage.getItem(storageKey);
+                const shouldOpen = isActive ? true : (stored === null || stored === 'true');
+
+                const setOpen = (open, persist = true) => {
+                    submenu.classList.toggle('is-expanded', open);
+                    nav.classList.toggle('is-open', open);
+                    parent.setAttribute('aria-expanded', open ? 'true' : 'false');
+                    if (persist) localStorage.setItem(storageKey, open ? 'true' : 'false');
+                };
+
+                setOpen(shouldOpen, isActive);
+
+                parent.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    if (document.body.getAttribute('data-sidebar-collapsed') === 'true'
+                        && document.body.getAttribute('data-sidebar-hovered') !== 'true') {
+                        setOpen(false, false);
+                        return;
+                    }
+                    setOpen(!submenu.classList.contains('is-expanded'));
+                });
+
+                parent.addEventListener('keydown', (event) => {
+                    if (event.key !== 'Enter' && event.key !== ' ') return;
+                    event.preventDefault();
+                    if (document.body.getAttribute('data-sidebar-collapsed') === 'true'
+                        && document.body.getAttribute('data-sidebar-hovered') !== 'true') {
+                        setOpen(false, false);
+                        return;
+                    }
+                    setOpen(!submenu.classList.contains('is-expanded'));
+                });
+
+                submenu.querySelectorAll('a[href]').forEach((link) => {
+                    link.addEventListener('click', () => setOpen(true));
+                });
+            });
         })();
 
         (function () {

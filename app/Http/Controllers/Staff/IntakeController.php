@@ -4,15 +4,16 @@ namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
+use App\Models\AddOnCatalog;
+use App\Models\CasketCatalog;
 use App\Models\Client;
 use App\Models\Deceased;
 use App\Models\FuneralCase;
 use App\Models\Package;
-use App\Models\PackageAddOn;
 use App\Models\Payment;
 use App\Models\ServiceDetail;
 use App\Support\AuditLogger;
-use App\Support\Discount\CaseDiscountResolver;
+use App\Support\IntakePricingService;
 use App\Support\Payments\PaymentDetails;
 use App\Support\Validation\FieldRules;
 use Carbon\Carbon;
@@ -94,8 +95,15 @@ class IntakeController extends Controller
         $operationalBranchId = (int) ($user->operationalBranchId() ?? $user->branch_id ?? 0);
         $canEncodeAnyBranch = $user->canEncodeAnyBranch();
 
-        $packages = Package::with(['packageInclusions', 'packageFreebies', 'activeAddOns'])
+        $packages = Package::with(['packageInclusions.casketCatalog', 'packageFreebies'])
             ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+        $activeAddOns = AddOnCatalog::where('is_active', true)
+            ->orderBy('category')
+            ->orderBy('name')
+            ->get();
+        $activeCaskets = CasketCatalog::where('is_active', true)
             ->orderBy('name')
             ->get();
 
@@ -111,6 +119,8 @@ class IntakeController extends Controller
 
         return view('staff.intake.create', [
             'packages' => $packages,
+            'activeAddOns' => $activeAddOns,
+            'activeCaskets' => $activeCaskets,
             'branches' => $branches,
             'nextCode' => $this->nextCaseCode((int) $defaultBranchId),
             'nextCodeMap' => $branches->mapWithKeys(function ($branch) {
@@ -247,8 +257,14 @@ class IntakeController extends Controller
             'custom_package_freebies' => 'exclude_unless:package_id,custom|nullable|string|max:1000',
             'additional_services' => 'nullable|string|max:1000',
             'additional_service_amount' => 'nullable|numeric|min:0',
+            'additional_service_items' => 'nullable|array|max:20',
+            'additional_service_items.*.description' => 'nullable|string|max:150',
+            'additional_service_items.*.amount' => 'nullable|numeric|min:0',
             'selected_add_ons' => 'nullable|array',
             'selected_add_ons.*' => 'integer|distinct',
+            'replacement_casket_catalog_id' => 'nullable|integer|exists:casket_catalogs,id',
+            'actual_retrieval_kilometers' => 'nullable|numeric|min:0|max:10000',
+            'actual_hearse_kilometers' => 'nullable|numeric|min:0|max:10000',
             'reporter_name' => FieldRules::personName(false),
             'reporter_contact' => 'nullable|string|max:50|regex:/^[0-9]+$/',
             'reported_at' => 'nullable|date|before_or_equal:now',
@@ -297,8 +313,14 @@ class IntakeController extends Controller
             'confirm_review' => 'You must confirm that the information is correct before saving.',
             'additional_service_amount.numeric' => 'Additional charges must be a valid amount.',
             'additional_service_amount.min' => 'Additional charges cannot be negative.',
+            'additional_service_items.*.description.max' => 'Additional service description is too long.',
+            'additional_service_items.*.amount.numeric' => 'Additional service amount must be valid.',
+            'additional_service_items.*.amount.min' => 'Additional service amount cannot be negative.',
             'selected_add_ons.*.integer' => 'Selected add-on is invalid.',
             'selected_add_ons.*.distinct' => 'Duplicate add-ons are not allowed.',
+            'replacement_casket_catalog_id.exists' => 'Selected casket is unavailable.',
+            'actual_retrieval_kilometers.numeric' => 'Retrieval kilometers must be a valid number.',
+            'actual_hearse_kilometers.numeric' => 'Hearse kilometers must be a valid number.',
         ]));
         $paymentDetails = PaymentDetails::normalize($request);
         if ($request->boolean('mark_as_paid')) {
@@ -314,6 +336,21 @@ class IntakeController extends Controller
         }
         if ($response = $this->rejectDuplicateIntakeNameParts($validated, 'deceased')) {
             return $response;
+        }
+
+        foreach (($validated['additional_service_items'] ?? []) as $index => $item) {
+            $description = trim((string) ($item['description'] ?? ''));
+            $amount = round((float) ($item['amount'] ?? 0), 2);
+            if ($amount > 0 && $description === '') {
+                return back()->withErrors([
+                    "additional_service_items.$index.description" => 'Description is required for this additional charge.',
+                ])->withInput();
+            }
+            if ($description !== '' && $amount <= 0) {
+                return back()->withErrors([
+                    "additional_service_items.$index.amount" => 'Enter an amount greater than zero for this line.',
+                ])->withInput();
+            }
         }
 
         if (
@@ -363,7 +400,7 @@ class IntakeController extends Controller
         $computedWakeDays = $this->resolveWakeDays(
             null,
             $validated['wake_start_date'] ?? null,
-            $validated['funeral_service_at'] ?? null
+            $validated['interment_at'] ?? null
         );
         if ($computedWakeDays === null) {
             return back()->withErrors([
@@ -427,7 +464,7 @@ class IntakeController extends Controller
 
         $package = null;
         if (!$isCustomPackage) {
-            $package = Package::with(['packageInclusions', 'packageFreebies', 'activeAddOns'])
+            $package = Package::with(['packageInclusions.casketCatalog', 'packageFreebies'])
                 ->where('id', $selectedPackageId)
                 ->where('is_active', true)
                 ->first();
@@ -537,24 +574,31 @@ class IntakeController extends Controller
         $servicePackageName = $isCustomPackage
             ? ($validated['custom_package_name'] ?? 'Client Preference')
             : $package->name;
-        $coffinType = $isCustomPackage ? 'CUSTOM' : $package->coffin_type;
-        $packagePrice = round((float) ($isCustomPackage ? $validated['custom_package_price'] : $package->price), 2);
-        $additionalServiceAmount = round((float) ($validated['additional_service_amount'] ?? 0), 2);
+        $pricingService = app(IntakePricingService::class);
+        $selectionErrors = $pricingService->validateSelections($package, $validated, $isCustomPackage);
+        if ($selectionErrors !== []) {
+            return back()->withErrors($selectionErrors)->withInput();
+        }
+
+        $pricing = $pricingService->price($package, $validated, $isCustomPackage, now());
+        $coffinType = $isCustomPackage
+            ? 'CUSTOM'
+            : ($pricing['selected_casket']['name'] ?? $pricing['included_casket']['name'] ?? $package->coffin_type);
+        $packagePrice = $pricing['base_price'];
+        $additionalServiceAmount = $pricing['additional_total'];
         if ($additionalServiceAmount > 0 && trim((string) ($validated['additional_services'] ?? '')) === '') {
-            return back()->withErrors([
-                'additional_services' => 'Description of extras is required when additional charges are entered.',
-            ])->withInput();
+            $hasItemizedDescription = collect($validated['additional_service_items'] ?? [])
+                ->contains(fn ($item) => trim((string) ($item['description'] ?? '')) !== '');
+            if (! $hasItemizedDescription) {
+                return back()->withErrors([
+                    'additional_services' => 'Description of extras is required when additional charges are entered.',
+                ])->withInput();
+            }
         }
 
-        [$selectedAddOns, $addOnsTotal, $addOnErrors] = $this->resolveSelectedAddOns(
-            $validated['selected_add_ons'] ?? [],
-            $selectedPackageId
-        );
-        if ($addOnErrors !== []) {
-            return back()->withErrors($addOnErrors)->withInput();
-        }
-
-        $subtotal = round($packagePrice + $addOnsTotal + $additionalServiceAmount, 2);
+        $selectedAddOns = $pricing['selected_add_ons'];
+        $addOnsTotal = $pricing['add_ons_total'];
+        $subtotal = $pricing['subtotal'];
         $age = $this->resolveAge($validated['born'] ?? null, $validated['died'] ?? null);
         if ($age === null) {
             return back()->withErrors([
@@ -577,24 +621,33 @@ class IntakeController extends Controller
         if ($age >= 60) {
             $validated['senior_citizen_status'] = true;
         }
+
+        $pricing = $pricingService->price($package, $validated, $isCustomPackage, now());
+        $coffinType = $isCustomPackage
+            ? 'CUSTOM'
+            : ($pricing['selected_casket']['name'] ?? $pricing['included_casket']['name'] ?? $package->coffin_type);
+        $packagePrice = $pricing['base_price'];
+        $additionalServiceAmount = $pricing['additional_total'];
+        $selectedAddOns = $pricing['selected_add_ons'];
+        $addOnsTotal = $pricing['add_ons_total'];
+        $subtotal = $pricing['subtotal'];
+
         $wakeDays = $this->resolveWakeDays(
             $validated['wake_days'] ?? null,
             $validated['wake_start_date'] ?? null,
-            $validated['funeral_service_at'] ?? null
+            $validated['interment_at'] ?? null
         );
 
-        $discountResolver = app(CaseDiscountResolver::class);
-        $discountPayload = $this->resolveAutomaticIntakeDiscount($validated, $discountResolver, $packagePrice);
+        $discountPayload = $pricing['discount'];
         if (!empty($discountPayload['error_field'])) {
             return back()->withErrors([
                 $discountPayload['error_field'] => $discountPayload['error_message'],
             ])->withInput();
         }
-        $discountAmount = (float) $discountPayload['discount_amount'];
-        $net = round(max($subtotal - $discountAmount, 0), 2);
-        $taxRate = round((float) ($validated['tax_rate'] ?? 0), 2);
-        $taxAmount = $taxRate > 0 ? round(max($net * ($taxRate / 100), 0), 2) : 0.00;
-        $total = round(max($net + $taxAmount, 0), 2);
+        $discountAmount = $pricing['discount_amount'];
+        $taxRate = $pricing['tax_rate'];
+        $taxAmount = $pricing['tax_amount'];
+        $total = $pricing['total'];
 
         $markAsPaid = $request->boolean('mark_as_paid');
         $allowOverpayment = (bool) config('funeral.allow_overpayment', false);
@@ -729,6 +782,7 @@ class IntakeController extends Controller
                 $entrySource,
                 $mode,
                 $discountPayload,
+                $pricing,
                 $caseStatus,
                 $verificationStatus,
                 $verifiedBy,
@@ -794,7 +848,7 @@ class IntakeController extends Controller
                     'package_freebies_snapshot' => $isCustomPackage
                         ? ($validated['custom_package_freebies'] ?? null)
                         : implode("\n", $package?->freebieNames() ?? []),
-                    'package_promo_snapshot' => $package && $package->promo_is_active
+                    'package_promo_snapshot' => $package && $package->is_promo_effective
                         ? json_encode([
                             'label' => $package->promo_label,
                             'value_type' => $package->promo_value_type,
@@ -802,6 +856,7 @@ class IntakeController extends Controller
                         ])
                         : null,
                     'package_discount_snapshot' => $discountAmount,
+                    'pricing_snapshot' => $pricing['snapshot'],
                     'case_number' => FuneralCase::nextCaseNumber($branchId),
                     'case_code'   => $this->nextCaseCode($branchId),
                     'custom_package_name'        => $isCustomPackage ? $servicePackageName : null,
@@ -876,7 +931,8 @@ class IntakeController extends Controller
 
                 foreach ($selectedAddOns as $selectedAddOn) {
                     $funeralCase->caseAddOns()->create([
-                        'package_add_on_id' => $selectedAddOn->id,
+                        'package_add_on_id' => null,
+                        'add_on_catalog_id' => $selectedAddOn->id,
                         'add_on_name_snapshot' => $selectedAddOn->name,
                         'add_on_description_snapshot' => $selectedAddOn->description,
                         'add_on_price_snapshot' => $selectedAddOn->price,
@@ -1027,49 +1083,6 @@ class IntakeController extends Controller
         return $redirectResponse;
     }
 
-    private function resolveSelectedAddOns(array $selectedIds, ?int $packageId): array
-    {
-        $selectedIds = collect($selectedIds)
-            ->filter(fn ($id) => $id !== null && $id !== '')
-            ->map(fn ($id) => (int) $id)
-            ->values();
-
-        if ($selectedIds->isEmpty()) {
-            return [collect(), 0.00, []];
-        }
-
-        if (! $packageId) {
-            return [collect(), 0.00, ['selected_add_ons' => 'Selected add-on is invalid.']];
-        }
-
-        if ($selectedIds->duplicates()->isNotEmpty()) {
-            return [collect(), 0.00, ['selected_add_ons' => 'Duplicate add-ons are not allowed.']];
-        }
-
-        $addOns = PackageAddOn::whereIn('id', $selectedIds)
-            ->where('package_id', $packageId)
-            ->get()
-            ->keyBy('id');
-
-        if ($addOns->count() !== $selectedIds->count()) {
-            return [collect(), 0.00, ['selected_add_ons' => 'Selected add-on does not belong to the selected package.']];
-        }
-
-        $inactive = $addOns->first(fn ($addOn) => ! $addOn->is_active);
-        if ($inactive) {
-            return [collect(), 0.00, ['selected_add_ons' => 'Selected add-on is no longer available.']];
-        }
-
-        $ordered = $selectedIds->map(fn ($id) => $addOns->get($id))->filter()->values();
-        $total = round($ordered->sum(fn ($addOn) => (float) $addOn->price), 2);
-
-        if ($total < 0) {
-            return [collect(), 0.00, ['selected_add_ons' => 'Unable to calculate add-ons total. Please review selected add-ons.']];
-        }
-
-        return [$ordered, $total, []];
-    }
-
     private function resolveAge(?string $born, ?string $died): ?int
     {
         if (!$born || !$died) {
@@ -1105,20 +1118,20 @@ class IntakeController extends Controller
         }
     }
 
-    private function resolveWakeDays(?int $wakeDays, ?string $wakeStartDate, ?string $funeralServiceDate): ?int
+    private function resolveWakeDays(?int $wakeDays, ?string $wakeStartDate, ?string $intermentDate): ?int
     {
-        if (!$wakeStartDate || !$funeralServiceDate) {
+        if (!$wakeStartDate || !$intermentDate) {
             return null;
         }
 
         try {
             $startDate = Carbon::parse($wakeStartDate)->startOfDay();
-            $serviceDate = Carbon::parse($funeralServiceDate)->startOfDay();
-            if ($serviceDate->lessThan($startDate)) {
+            $endDate = Carbon::parse($intermentDate)->startOfDay();
+            if ($endDate->lessThan($startDate)) {
                 return null; // invalid sequence
             }
 
-            return min(365, $startDate->diffInDays($serviceDate));
+            return min(365, $startDate->diffInDays($endDate) + 1);
         } catch (\Throwable $e) {
             return null;
         }
@@ -1155,39 +1168,6 @@ class IntakeController extends Controller
         }
 
         return Carbon::createFromFormat('H:i', substr($time, 0, 5))->format('H:i:s');
-    }
-
-    private function resolveAutomaticIntakeDiscount(
-        array $validated,
-        CaseDiscountResolver $discountResolver,
-        float $packagePrice
-    ): array {
-        if ((bool) ($validated['pwd_status'] ?? false)) {
-            return $discountResolver->resolveSelected(
-                new Package(['name' => 'Automatic PWD Discount']),
-                'PWD',
-                $packagePrice,
-                now()
-            );
-        }
-
-        if ((bool) ($validated['senior_citizen_status'] ?? false)) {
-            return $discountResolver->resolveSelected(
-                new Package(['name' => 'Automatic Senior Discount']),
-                'SENIOR',
-                $packagePrice,
-                now()
-            );
-        }
-
-        return [
-            'discount_type' => 'NONE',
-            'discount_value_type' => 'AMOUNT',
-            'discount_value' => 0,
-            'discount_amount' => 0,
-            'discount_note' => null,
-            'source' => 'None',
-        ];
     }
 
     private function normalizeIntakeNameParts(array $validated): array

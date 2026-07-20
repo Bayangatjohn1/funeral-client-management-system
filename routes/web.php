@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Admin\BranchController;
+use App\Http\Controllers\Admin\AddOnCatalogController;
+use App\Http\Controllers\Admin\CasketCatalogController;
 use App\Http\Controllers\Admin\PackageController;
 use App\Http\Controllers\Admin\ReportController as AdminReportController;
 use App\Http\Controllers\Admin\AuditLogController;
@@ -8,6 +10,8 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Owner\DashboardController as OwnerDashboardController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\Staff\CaseAttachmentController;
+use App\Http\Controllers\Staff\CaseDocumentController;
 use App\Http\Controllers\Staff\ClientController;
 use App\Http\Controllers\Staff\DeceasedController;
 use App\Http\Controllers\Staff\FuneralCaseController;
@@ -403,6 +407,17 @@ Route::middleware(['auth', 'no_cache', 'active'])->get(
     [FuneralCaseController::class, 'show']
 )->name('funeral-cases.show');
 
+Route::middleware(['auth', 'no_cache', 'active'])->group(function () {
+    Route::post('funeral-cases/{funeral_case}/documents/funeral-contract', [CaseDocumentController::class, 'store'])
+        ->name('funeral-cases.documents.contract.store');
+    Route::get('funeral-cases/{funeral_case}/documents/{document}/preview', [CaseDocumentController::class, 'preview'])
+        ->name('funeral-cases.documents.preview');
+    Route::get('funeral-cases/{funeral_case}/documents/{document}/download', [CaseDocumentController::class, 'download'])
+        ->name('funeral-cases.documents.download');
+    Route::get('funeral-cases/{funeral_case}/documents/{document}/print', [CaseDocumentController::class, 'print'])
+        ->name('funeral-cases.documents.print');
+});
+
 Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->group(function () {
     Route::get('intake', [IntakeController::class, 'create'])->name('intake.create');
     Route::post('intake', [IntakeController::class, 'store'])->name('intake.store');
@@ -425,6 +440,9 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff_or_admin', 'branch.scope
     Route::get('funeral-cases/{funeral_case}/edit', [FuneralCaseController::class, 'edit'])->name('funeral-cases.edit');
     Route::put('funeral-cases/{funeral_case}', [FuneralCaseController::class, 'update'])->name('funeral-cases.update');
     Route::patch('funeral-cases/{funeral_case}', [FuneralCaseController::class, 'update']);
+    Route::post('funeral-cases/{funeral_case}/tarpaulin-photo', [CaseAttachmentController::class, 'store'])->name('funeral-cases.tarpaulin.store');
+    Route::put('funeral-cases/{funeral_case}/tarpaulin-photo', [CaseAttachmentController::class, 'update'])->name('funeral-cases.tarpaulin.update');
+    Route::delete('funeral-cases/{funeral_case}/tarpaulin-photo', [CaseAttachmentController::class, 'destroy'])->name('funeral-cases.tarpaulin.destroy');
 });
 
 Route::middleware(['auth', 'no_cache', 'active'])->get('payments/history', [PaymentController::class, 'history'])->name('payments.history');
@@ -475,6 +493,18 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->pref
     Route::put('/packages/{package}', [PackageController::class, 'update'])->name('admin.packages.update');
     Route::patch('/packages/{package}/quick-price', [PackageController::class, 'quickUpdatePrice'])->name('admin.packages.quickPrice');
     Route::patch('/packages/{package}/toggle-active', [PackageController::class, 'toggleActive'])->name('admin.packages.toggleActive');
+    Route::get('/add-on-catalogs', [AddOnCatalogController::class, 'index'])->name('admin.add-on-catalogs.index');
+    Route::get('/add-on-catalogs/create', [AddOnCatalogController::class, 'create'])->name('admin.add-on-catalogs.create');
+    Route::post('/add-on-catalogs', [AddOnCatalogController::class, 'store'])->name('admin.add-on-catalogs.store');
+    Route::get('/add-on-catalogs/{add_on_catalog}/edit', [AddOnCatalogController::class, 'edit'])->name('admin.add-on-catalogs.edit');
+    Route::put('/add-on-catalogs/{add_on_catalog}', [AddOnCatalogController::class, 'update'])->name('admin.add-on-catalogs.update');
+    Route::patch('/add-on-catalogs/{add_on_catalog}/toggle-active', [AddOnCatalogController::class, 'toggleActive'])->name('admin.add-on-catalogs.toggleActive');
+    Route::get('/casket-catalogs', [CasketCatalogController::class, 'index'])->name('admin.casket-catalogs.index');
+    Route::get('/casket-catalogs/create', [CasketCatalogController::class, 'create'])->name('admin.casket-catalogs.create');
+    Route::post('/casket-catalogs', [CasketCatalogController::class, 'store'])->name('admin.casket-catalogs.store');
+    Route::get('/casket-catalogs/{casket_catalog}/edit', [CasketCatalogController::class, 'edit'])->name('admin.casket-catalogs.edit');
+    Route::put('/casket-catalogs/{casket_catalog}', [CasketCatalogController::class, 'update'])->name('admin.casket-catalogs.update');
+    Route::patch('/casket-catalogs/{casket_catalog}/toggle-active', [CasketCatalogController::class, 'toggleActive'])->name('admin.casket-catalogs.toggleActive');
 
     // Monitoring
     Route::get('/cases', [AdminReportController::class, 'masterCases'])->name('admin.cases.index');

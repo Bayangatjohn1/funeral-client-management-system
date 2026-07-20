@@ -9,6 +9,7 @@ class Package extends Model
 {
     protected $fillable = [
         'name',          // legacy; package_name is the canonical alias via accessor
+        'short_description',
         'coffin_type',
         'price',
         'inclusions',    // legacy TEXT; normalized rows are in package_inclusions table
@@ -31,6 +32,42 @@ class Package extends Model
         'is_active' => 'boolean',
     ];
 
+    public const SERVICE_BODY_RETRIEVAL = 'body_retrieval';
+    public const SERVICE_EMBALMING = 'embalming';
+    public const SERVICE_CASKET = 'casket';
+    public const SERVICE_HOME_VIEWING = 'home_viewing';
+    public const SERVICE_HEARSE = 'hearse';
+    public const SERVICE_CUSTOM = 'custom';
+
+    public static function normalizeServiceType(?string $value): string
+    {
+        $key = strtolower(trim((string) $value));
+        $key = str_replace(['-', ' '], '_', $key);
+        $key = preg_replace('/_+/', '_', $key) ?: '';
+
+        return match ($key) {
+            'retrieval', 'body_retrieval_service', 'body_retrievals' => self::SERVICE_BODY_RETRIEVAL,
+            'hearse_service', 'hearse_services', 'funeral_hearse' => self::SERVICE_HEARSE,
+            'home_viewing_service', 'viewing', 'wake_viewing' => self::SERVICE_HOME_VIEWING,
+            'embalming_service' => self::SERVICE_EMBALMING,
+            'coffin', 'included_casket', 'casket_coffin' => self::SERVICE_CASKET,
+            'other', 'other_inclusion', 'custom_inclusion' => self::SERVICE_CUSTOM,
+            default => $key,
+        };
+    }
+
+    public static function serviceTypeOptions(): array
+    {
+        return [
+            self::SERVICE_BODY_RETRIEVAL => 'Body Retrieval',
+            self::SERVICE_EMBALMING => 'Embalming',
+            self::SERVICE_CASKET => 'Casket',
+            self::SERVICE_HOME_VIEWING => 'Home Viewing',
+            self::SERVICE_HEARSE => 'Hearse',
+            self::SERVICE_CUSTOM => 'Custom Inclusion',
+        ];
+    }
+
     /**
      * Canonical package_name accessor — wraps the legacy name column.
      * Allows new code to reference $package->package_name uniformly.
@@ -51,7 +88,7 @@ class Package extends Model
      */
     public function packageInclusions()
     {
-        return $this->hasMany(\App\Models\PackageInclusion::class)->orderBy('sort_order');
+        return $this->hasMany(\App\Models\PackageInclusion::class)->with('casketCatalog')->orderBy('sort_order');
     }
 
     public function inclusions()
@@ -177,6 +214,27 @@ class Package extends Model
         return $this->promo_is_active
             && $this->promo_starts_at !== null
             && now()->lt($this->promo_starts_at);
+    }
+
+    public function getPromoStatusAttribute(): string
+    {
+        if (! $this->promo_is_active || ! $this->promo_value_type || ! $this->promo_value) {
+            return 'Inactive';
+        }
+
+        $now = now('Asia/Manila');
+        $startsAt = $this->promo_starts_at?->copy()->timezone('Asia/Manila');
+        $endsAt = $this->promo_ends_at?->copy()->timezone('Asia/Manila');
+
+        if ($startsAt && $now->lt($startsAt)) {
+            return 'Scheduled';
+        }
+
+        if ($endsAt && $now->gt($endsAt)) {
+            return 'Expired';
+        }
+
+        return 'Active';
     }
 
     public function funeralCases()

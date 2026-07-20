@@ -25,6 +25,7 @@ class FuneralCase extends Model
         'package_freebies_snapshot',
         'package_promo_snapshot',
         'package_discount_snapshot',
+        'pricing_snapshot',
         'case_number',  // sequential INT per branch (Phase 1+)
         'case_code',
         'service_type',
@@ -94,6 +95,7 @@ class FuneralCase extends Model
         'custom_package_price' => 'decimal:2',
         'package_price_snapshot' => 'decimal:2',
         'package_discount_snapshot' => 'decimal:2',
+        'pricing_snapshot' => 'array',
         'subtotal_amount' => 'decimal:2',
         'discount_value' => 'decimal:2',
         'discount_amount' => 'decimal:2',
@@ -161,6 +163,28 @@ class FuneralCase extends Model
     public function caseAddOns()
     {
         return $this->hasMany(\App\Models\CaseAddOn::class);
+    }
+
+    public function attachments()
+    {
+        return $this->hasMany(\App\Models\CaseAttachment::class, 'case_id');
+    }
+
+    public function tarpaulinAttachment()
+    {
+        return $this->hasOne(\App\Models\CaseAttachment::class, 'case_id')
+            ->where('attachment_type', \App\Models\CaseAttachment::TYPE_TARPAULIN);
+    }
+
+    public function documents()
+    {
+        return $this->hasMany(\App\Models\CaseDocument::class, 'case_id');
+    }
+
+    public function funeralContract()
+    {
+        return $this->hasOne(\App\Models\CaseDocument::class, 'case_id')
+            ->where('document_type', \App\Models\CaseDocument::TYPE_FUNERAL_CONTRACT);
     }
 
     public function encodedBy()

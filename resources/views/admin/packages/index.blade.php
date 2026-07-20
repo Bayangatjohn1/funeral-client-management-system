@@ -8,6 +8,32 @@
     $currentUser = auth()->user();
     $isBranchAdmin = $currentUser?->isBranchAdmin() ?? false;
     $isMainAdmin = $currentUser?->isMainAdmin() ?? false;
+    $packageDisplay = function ($package) {
+        $structured = $package->packageInclusions ?? collect();
+        $casketRow = $structured->firstWhere('service_type', \App\Models\Package::SERVICE_CASKET);
+        $includedCasket = $casketRow?->casket_type ?: $package->coffin_type;
+        $inclusionItems = $package->inclusionNames();
+
+        if ($includedCasket) {
+            $needle = mb_strtolower(trim((string) $includedCasket));
+            $inclusionItems = array_values(array_filter($inclusionItems, function ($item) use ($needle) {
+                $normalized = mb_strtolower(trim((string) $item));
+                if ($normalized === '') {
+                    return false;
+                }
+
+                return ! str_contains($normalized, 'casket')
+                    && ! str_contains($normalized, 'coffin')
+                    && ($needle === '' || ! str_contains($normalized, $needle));
+            }));
+        }
+
+        return [
+            'casket' => $includedCasket,
+            'inclusions' => $inclusionItems,
+            'freebies' => $package->freebieNames(),
+        ];
+    };
 @endphp
 <style>[x-cloak] { display: none !important; }</style>
 <div class="admin-table-page admin-catalog-page package-management-page" x-data="pkgCatalog()">
@@ -22,7 +48,8 @@
 @php
     $isPromoFiltered   = request('promo') === 'with_promo';
     $isPriceSorted     = request('sort') === 'price_desc';
-    $isNoFilter        = !request()->hasAny(['q', 'status', 'promo', 'sort']);
+    $hasFilters        = filled(request('q')) || filled(request('promo')) || (filled(request('sort')) && request('sort') !== 'name_asc');
+    $isNoFilter        = ! $hasFilters;
 @endphp
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
@@ -154,6 +181,335 @@
 .pkg-stat-card--active .pkg-stat-card__action {
     color: #3E4A3D;
 }
+.package-management-page .directory-card-view > .grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    gap: 18px;
+}
+.pkg-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+    border: 1px solid #D7D1C6;
+    border-radius: 10px;
+    background: #FFFFFF;
+    color: #2F302C;
+    box-shadow: 0 1px 3px rgba(62,74,61,.08);
+    transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+.pkg-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    background: rgba(47, 48, 44, .10);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .16s ease;
+}
+.pkg-card:hover::after,
+.pkg-card:focus-within::after {
+    opacity: 1;
+}
+.pkg-card:hover,
+.pkg-card:focus-within {
+    border-color: #9BA695;
+    box-shadow: 0 10px 26px rgba(62,74,61,.13);
+    transform: translateY(-1px);
+}
+.pkg-card-head,
+.pkg-card-price,
+.pkg-card-promo,
+.pkg-card-lists,
+.pkg-card-footer {
+    padding-left: 18px;
+    padding-right: 18px;
+}
+.pkg-card-head { padding-top: 18px; padding-bottom: 13px; }
+.pkg-card-title {
+    color: #2F302C;
+    font-size: 1rem;
+    line-height: 1.3;
+    font-weight: 950;
+}
+.pkg-card-casket {
+    margin-top: 7px;
+    display: inline-flex;
+    max-width: 100%;
+    align-items: center;
+    gap: 6px;
+    color: #5F6B5C;
+    font-size: .78rem;
+    line-height: 1.35;
+    font-weight: 800;
+}
+.pkg-card-price {
+    padding-top: 15px;
+    padding-bottom: 15px;
+    border-top: 1px solid #E7E1D7;
+}
+.pkg-card-kicker {
+    color: #697565;
+    font-size: .66rem;
+    line-height: 1.25;
+    font-weight: 950;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+}
+.pkg-card-amount {
+    margin-top: 3px;
+    color: #2F302C;
+    font-size: 1.55rem;
+    line-height: 1.1;
+    font-weight: 950;
+    font-variant-numeric: tabular-nums;
+}
+.pkg-card-promo {
+    min-height: 42px;
+    padding-bottom: 14px;
+}
+.pkg-muted-text {
+    color: #7A8275;
+    font-size: .78rem;
+    font-weight: 750;
+}
+.pkg-card-lists {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    padding-top: 15px;
+    padding-bottom: 15px;
+    border-top: 1px solid #E7E1D7;
+}
+.pkg-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 54px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    border-top: 1px solid #E7E1D7;
+}
+.pkg-card-edit,
+.table-row-action-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 34px;
+    border: 1px solid #C9C5BB;
+    border-radius: 8px;
+    background: #FAFAF7;
+    color: #3E4A3D;
+    padding: 7px 10px;
+    font-size: .78rem;
+    line-height: 1.2;
+    font-weight: 950;
+    text-decoration: none;
+    cursor: pointer;
+    transition: opacity .15s ease, transform .15s ease, background .15s ease, border-color .15s ease;
+}
+.pkg-card-edit {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 2;
+    opacity: 0;
+    transform: translate(-50%, -44%);
+    box-shadow: 0 12px 28px rgba(47,48,44,.18);
+}
+.pkg-card:hover .pkg-card-edit,
+.pkg-card:focus-within .pkg-card-edit {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+}
+.pkg-card-edit:hover,
+.table-row-action-link:hover {
+    background: #F1EEE7;
+    border-color: #8C9786;
+    color: #2F392E;
+}
+.pkg-detail-view {
+    color: #2F302C;
+}
+.pkg-detail-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 4px 2px 18px;
+    border-bottom: 1px solid #E1DDD5;
+}
+.pkg-detail-head h2 {
+    margin: 4px 0 0;
+    color: #2F302C;
+    font-size: 1.45rem;
+    line-height: 1.2;
+    font-weight: 950;
+}
+.pkg-detail-head p {
+    margin-top: 7px;
+    color: #5F6B5C;
+    font-size: .9rem;
+    line-height: 1.5;
+    font-weight: 650;
+}
+.pkg-detail-head strong {
+    color: #2F302C;
+    font-size: 1.3rem;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+.pkg-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    padding-top: 18px;
+}
+.pkg-detail-grid section {
+    border: 1px solid #D7D1C6;
+    border-radius: 8px;
+    background: #FFFFFF;
+    padding: 14px;
+}
+.pkg-detail-grid h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #2F302C;
+    font-size: .84rem;
+    line-height: 1.3;
+    font-weight: 950;
+    margin-bottom: 9px;
+}
+.pkg-detail-grid p,
+.pkg-detail-grid li,
+.pkg-detail-grid small {
+    color: #5F6B5C;
+    font-size: .84rem;
+    line-height: 1.45;
+    font-weight: 700;
+}
+.pkg-detail-grid ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 8px;
+}
+.pkg-detail-grid li {
+    display: grid;
+    gap: 2px;
+}
+.pkg-detail-grid li span {
+    color: #2F302C;
+    font-weight: 900;
+}
+.pkg-detail-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 18px;
+    margin-top: 18px;
+    border-top: 1px solid #E1DDD5;
+}
+.pkg-modal-error-banner {
+    border: 1px solid #F2C7BF;
+    border-radius: 8px;
+    background: #FFF2EF;
+    color: #914137;
+    padding: 10px 12px;
+    font-size: .82rem;
+    font-weight: 800;
+    margin-bottom: 12px;
+}
+html[data-theme='dark'] .pkg-detail-view,
+html[data-theme='dark'] .pkg-detail-head h2,
+html[data-theme='dark'] .pkg-detail-head strong,
+html[data-theme='dark'] .pkg-detail-grid h3,
+html[data-theme='dark'] .pkg-detail-grid li span {
+    color: #e2ecf9;
+}
+html[data-theme='dark'] .pkg-detail-head,
+html[data-theme='dark'] .pkg-detail-actions {
+    border-color: #243954;
+}
+html[data-theme='dark'] .pkg-detail-head p,
+html[data-theme='dark'] .pkg-detail-grid p,
+html[data-theme='dark'] .pkg-detail-grid li,
+html[data-theme='dark'] .pkg-detail-grid small {
+    color: #9fb6d2;
+}
+html[data-theme='dark'] .pkg-detail-grid section {
+    background: #152035;
+    border-color: #2a3f5f;
+}
+@media (max-width: 760px) {
+    .pkg-detail-head,
+    .pkg-detail-actions {
+        display: grid;
+    }
+    .pkg-detail-grid {
+        grid-template-columns: 1fr;
+    }
+}
+html[data-theme='dark'] .pkg-stat-card,
+html[data-theme='dark'] .pkg-card {
+    background: #111e33;
+    border-color: #243954;
+    color: #e2ecf9;
+}
+html[data-theme='dark'] .pkg-stat-card:hover,
+html[data-theme='dark'] .pkg-stat-card--active,
+html[data-theme='dark'] .pkg-card:hover,
+html[data-theme='dark'] .pkg-card:focus-within {
+    background: #13263d;
+    border-color: #3f5b7f;
+    box-shadow: 0 10px 28px rgba(0,0,0,.24);
+}
+html[data-theme='dark'] .pkg-stat-card__label,
+html[data-theme='dark'] .pkg-stat-card__desc,
+html[data-theme='dark'] .pkg-stat-card__action,
+html[data-theme='dark'] .pkg-card-kicker,
+html[data-theme='dark'] .pkg-card-casket,
+html[data-theme='dark'] .pkg-muted-text {
+    color: #9fb6d2 !important;
+}
+html[data-theme='dark'] .pkg-stat-card__value,
+html[data-theme='dark'] .pkg-card-title,
+html[data-theme='dark'] .pkg-card-amount {
+    color: #e2ecf9 !important;
+}
+html[data-theme='dark'] .pkg-card-price,
+html[data-theme='dark'] .pkg-card-lists,
+html[data-theme='dark'] .pkg-card-footer {
+    border-color: #243954;
+}
+html[data-theme='dark'] .pkg-card-edit,
+html[data-theme='dark'] .table-row-action-link {
+    background: #152035;
+    border-color: #2a3f5f;
+    color: #d8ecff;
+}
+html[data-theme='dark'] .pkg-card-edit:hover,
+html[data-theme='dark'] .table-row-action-link:hover {
+    background: #1a2b41;
+    border-color: #4a82c0;
+    color: #ffffff;
+}
+@media (max-width: 640px) {
+    .pkg-card-lists {
+        grid-template-columns: 1fr;
+    }
+    .pkg-card-edit {
+        position: static;
+        opacity: 1;
+        transform: none;
+        box-shadow: none;
+    }
+}
 </style>
 
 {{-- Main card --}}
@@ -243,14 +599,6 @@
                 >
             </div>
             <div class="table-toolbar-field">
-                <label class="table-toolbar-label">Status</label>
-                <select name="status" class="form-select table-toolbar-select" data-table-auto-submit>
-                    <option value="">All Status</option>
-                    <option value="active" {{ request('status') === 'active' ? 'selected' : '' }}>Active</option>
-                    <option value="inactive" {{ request('status') === 'inactive' ? 'selected' : '' }}>Inactive</option>
-                </select>
-            </div>
-            <div class="table-toolbar-field">
                 <label class="table-toolbar-label">Promo</label>
                 <select name="promo" class="form-select table-toolbar-select" data-table-auto-submit>
                     <option value="">All Promos</option>
@@ -270,10 +618,17 @@
             <div class="table-toolbar-reset-wrap">
                 <span class="table-toolbar-label opacity-0 select-none" aria-hidden="true">Actions</span>
                 <div class="filter-actions">
-                    <a href="{{ route('admin.packages.index') }}" class="btn-outline btn-filter-reset">
-                        <i class="bi bi-arrow-counterclockwise"></i>
-                        <span>Reset</span>
-                    </a>
+                    @if($hasFilters)
+                        <a href="{{ route('admin.packages.index') }}" class="btn-outline btn-filter-reset">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                            <span>Reset</span>
+                        </a>
+                    @else
+                        <button type="button" class="btn-outline btn-filter-reset opacity-50 cursor-not-allowed" disabled aria-disabled="true">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                            <span>Reset</span>
+                        </button>
+                    @endif
                     <button type="submit" class="btn-secondary">
                         <i class="bi bi-funnel"></i>
                         <span>Apply</span>
@@ -316,84 +671,36 @@
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 @foreach($packages as $package)
                 @php
-                    $inclusionItems = $package->inclusionNames();
-                    $freebieItems = $package->freebieNames();
+                    $display = $packageDisplay($package);
+                    $includedCasket = $display['casket'];
+                    $inclusionItems = $display['inclusions'];
+                    $freebieItems = $display['freebies'];
                     $visibleInclusions = array_slice($inclusionItems, 0, 3);
                     $visibleFreebies = array_slice($freebieItems, 0, 3);
                 @endphp
                 <div
-                    class="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col"
-                    x-data="{ editingPrice: false }"
+                    class="pkg-card"
                 >
-                    {{-- Card header: name + status --}}
-                    <div class="p-5 flex items-start justify-between gap-3">
+                    {{-- Card header --}}
+                    <div class="pkg-card-head">
                         <div class="flex-1 min-w-0">
-                            <h3 class="font-bold text-slate-900 text-[15px] leading-snug">{{ $package->name }}</h3>
-                            <p class="text-xs text-slate-500 mt-0.5">
-                                {{ $package->coffin_type ?: '—' }}
-                            </p>
-                        </div>
-                        <div class="flex-shrink-0">
-                            @if($package->is_active)
-                                <span class="status-badge status-badge-success">Active</span>
-                            @else
-                                <span class="status-badge status-badge-neutral">Inactive</span>
+                            <h3 class="pkg-card-title">{{ $package->name }}</h3>
+                            @if($includedCasket)
+                                <p class="pkg-card-casket"><i class="bi bi-box2-heart"></i> {{ $includedCasket }}</p>
                             @endif
                         </div>
                     </div>
 
                     {{-- Price --}}
-                    <div class="px-5 pb-4 pt-4 border-t border-slate-100">
-                        <div x-show="!editingPrice" class="flex items-center justify-between gap-2">
-                            <div>
-                                <p class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Package Price</p>
-                                <p class="text-2xl font-bold text-slate-900 leading-none mt-0.5">&#8369;{{ number_format((float) $package->price, 2) }}</p>
-                            </div>
-                            @if($isMainAdmin)
-                                <button
-                                    type="button"
-                                    @click="editingPrice = true"
-                                    class="inline-flex items-center gap-1 text-xs font-medium text-[var(--brand-mid)] hover:text-[var(--brand-hover)] transition-colors"
-                                >
-                                    <i class="bi bi-pencil-fill text-[10px]"></i>
-                                    Update
-                                </button>
-                            @endif
+                    <div class="pkg-card-price">
+                        <div>
+                            <p class="pkg-card-kicker">Base Price</p>
+                            <p class="pkg-card-amount">&#8369;{{ number_format((float) $package->price, 2) }}</p>
                         </div>
-                        @if($isMainAdmin)
-                        <div x-show="editingPrice" x-cloak>
-                            <p class="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Update Price</p>
-                            <form
-                                method="POST"
-                                action="{{ route('admin.packages.quickPrice', $package) }}"
-                                class="flex items-center gap-2"
-                            >
-                                @csrf
-                                @method('PATCH')
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    name="price"
-                                    value="{{ number_format($package->price, 2, '.', '') }}"
-                                    class="admin-table-input-inline flex-1 min-w-0"
-                                    required
-                                >
-                                <button type="submit" class="admin-table-save-btn">Save</button>
-                                <button
-                                    type="button"
-                                    @click="editingPrice = false"
-                                    class="text-xs text-slate-400 hover:text-slate-700 px-1 transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                            </form>
-                        </div>
-                        @endif
                     </div>
 
                     {{-- Promo --}}
-                    <div class="px-5 pb-4">
+                    <div class="pkg-card-promo">
                         @if($package->promo_is_active && $package->promo_value_type && $package->promo_value)
                             @if($package->is_promo_expired)
                                 {{-- Toggle is on but end date has passed --}}
@@ -436,12 +743,12 @@
                                 @endif
                             @endif
                         @else
-                            <span class="text-xs text-slate-400">No active promo</span>
+                            <span class="pkg-muted-text">No active promo</span>
                         @endif
                     </div>
 
                     {{-- Inclusions & Freebies --}}
-                    <div class="px-5 pb-4 pt-4 border-t border-slate-100 grid grid-cols-2 gap-3 flex-1">
+                    <div class="pkg-card-lists">
                         <div>
                             <p class="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-1.5 flex items-center gap-1">
                                 <i class="bi bi-check2-all"></i> Inclusions
@@ -479,44 +786,23 @@
                     </div>
 
                     {{-- Card footer --}}
-                    <div class="px-5 py-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <div class="pkg-card-footer">
                         <span class="text-[11px] text-slate-400">
                             <i class="bi bi-clock text-[10px] mr-0.5"></i>
                             {{ $package->updated_at?->diffForHumans() ?? '—' }}
                         </span>
                         @if($isMainAdmin)
-                            <div class="row-action-menu" data-row-menu>
-                                <button
-                                    type="button"
-                                    class="row-action-trigger"
-                                    data-row-menu-trigger
-                                    aria-haspopup="menu"
-                                    aria-expanded="false"
-                                    aria-label="Open row actions"
-                                >
-                                    <i class="bi bi-three-dots-vertical"></i>
-                                </button>
-                                <div class="row-action-dropdown" role="menu">
-                                    <a
-                                        href="{{ route('admin.packages.edit', $package) }}"
-                                        data-url="{{ route('admin.packages.edit', $package) }}"
-                                        data-package-modal-trigger
-                                        class="row-action-item"
-                                        data-row-menu-item
-                                    >
-                                        <i class="bi bi-pencil-square"></i>
-                                        <span>Edit Package</span>
-                                    </a>
-                                    <form method="POST" action="{{ route('admin.packages.toggleActive', $package) }}">
-                                        @csrf
-                                        @method('PATCH')
-                                        <button class="row-action-item" type="submit" data-row-menu-item>
-                                            <i class="bi bi-toggle-{{ $package->is_active ? 'off' : 'on' }}"></i>
-                                            <span>{{ $package->is_active ? 'Deactivate Package' : 'Activate Package' }}</span>
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
+                            <button
+                                type="button"
+                                data-package-id="{{ $package->id }}"
+                                data-edit-url="{{ route('admin.packages.edit', $package) }}"
+                                data-package-view-trigger
+                                class="pkg-card-edit"
+                                aria-label="View {{ $package->name }}"
+                            >
+                                <i class="bi bi-eye"></i>
+                                <span>View Package</span>
+                            </button>
                         @endif
                     </div>
                 </div>
@@ -540,12 +826,11 @@
                     <thead>
                         <tr>
                             <th class="text-left">Name</th>
-                            <th class="text-left">Coffin Type</th>
+                            <th class="text-left">Included Casket</th>
                             <th class="text-left">Price</th>
                             <th class="text-left">Inclusions</th>
                             <th class="text-left">Freebies</th>
                             <th class="text-left">Promo</th>
-                            <th class="text-left">Status</th>
                             @if($isMainAdmin)
                                 <th class="table-col-actions">Actions</th>
                             @endif
@@ -554,23 +839,16 @@
                     <tbody>
                     @forelse($packages as $package)
                         @php
-                            $inclusionItems = $package->inclusionNames();
-                            $freebieItems = $package->freebieNames();
+                            $display = $packageDisplay($package);
+                            $includedCasket = $display['casket'];
+                            $inclusionItems = $display['inclusions'];
+                            $freebieItems = $display['freebies'];
                         @endphp
                         <tr>
                             <td class="table-primary">{{ $package->name }}</td>
-                            <td>{{ $package->coffin_type ?? '—' }}</td>
+                            <td>{{ $includedCasket ?? '—' }}</td>
                             <td>
-                                @if($isMainAdmin)
-                                    <form method="POST" action="{{ route('admin.packages.quickPrice', $package) }}" class="flex items-center gap-2">
-                                        @csrf
-                                        @method('PATCH')
-                                        <input type="number" step="0.01" min="0" name="price" value="{{ number_format($package->price, 2, '.', '') }}" class="admin-table-input-inline">
-                                        <button class="admin-table-save-btn" type="submit">Save</button>
-                                    </form>
-                                @else
-                                    <span class="font-semibold text-slate-900">&#8369;{{ number_format((float) $package->price, 2) }}</span>
-                                @endif
+                                <span class="font-semibold text-slate-900">&#8369;{{ number_format((float) $package->price, 2) }}</span>
                             </td>
                             <td class="table-secondary">
                                 @if($inclusionItems)
@@ -637,53 +915,25 @@
                                     <span class="table-secondary">No active promo</span>
                                 @endif
                             </td>
-                            <td>
-                                @if($package->is_active)
-                                    <span class="status-badge status-badge-success">Active</span>
-                                @else
-                                    <span class="status-badge status-badge-neutral">Inactive</span>
-                                @endif
-                            </td>
                             @if($isMainAdmin)
                                 <td class="table-col-actions">
-                                    <div class="row-action-menu" data-row-menu>
-                                        <button
-                                            type="button"
-                                            class="row-action-trigger"
-                                            data-row-menu-trigger
-                                            aria-haspopup="menu"
-                                            aria-expanded="false"
-                                            aria-label="Open row actions"
-                                        >
-                                            <i class="bi bi-three-dots-vertical"></i>
-                                        </button>
-                                        <div class="row-action-dropdown" role="menu">
-                                            <a
-                                                href="{{ route('admin.packages.edit', $package) }}"
-                                                data-url="{{ route('admin.packages.edit', $package) }}"
-                                                data-package-modal-trigger
-                                                class="row-action-item"
-                                                data-row-menu-item
-                                            >
-                                                <i class="bi bi-pencil-square"></i>
-                                                <span>Edit Package</span>
-                                            </a>
-                                            <form method="POST" action="{{ route('admin.packages.toggleActive', $package) }}">
-                                                @csrf
-                                                @method('PATCH')
-                                                <button class="row-action-item" type="submit" data-row-menu-item>
-                                                    <i class="bi bi-toggle-{{ $package->is_active ? 'off' : 'on' }}"></i>
-                                                    <span>{{ $package->is_active ? 'Deactivate Package' : 'Activate Package' }}</span>
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </div>
+                                    <button
+                                        type="button"
+                                        data-package-id="{{ $package->id }}"
+                                        data-edit-url="{{ route('admin.packages.edit', $package) }}"
+                                        data-package-view-trigger
+                                        class="table-row-action-link"
+                                        aria-label="View {{ $package->name }}"
+                                    >
+                                        <i class="bi bi-eye"></i>
+                                        <span>View</span>
+                                    </button>
                                 </td>
                             @endif
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ $isMainAdmin ? 8 : 7 }}" class="table-system-empty">No packages found.</td>
+                            <td colspan="{{ $isMainAdmin ? 7 : 6 }}" class="table-system-empty">No packages found.</td>
                         </tr>
                     @endforelse
                     </tbody>
@@ -699,6 +949,100 @@
 </div>{{-- end space-y-6 --}}
 </div>{{-- end centered container --}}
 </div>{{-- end admin-table-page --}}
+
+@foreach($packages as $package)
+    @php
+        $display = $packageDisplay($package);
+        $casketRow = $package->packageInclusions->firstWhere('service_type', \App\Models\Package::SERVICE_CASKET);
+        $customRows = $package->packageInclusions->filter(fn ($item) => $item->is_custom || $item->service_type === \App\Models\Package::SERVICE_CUSTOM);
+        $serviceRows = $package->packageInclusions->reject(fn ($item) => $item->is_custom || $item->service_type === \App\Models\Package::SERVICE_CUSTOM || $item->service_type === \App\Models\Package::SERVICE_CASKET);
+    @endphp
+    <template id="packageDetailTemplate{{ $package->id }}">
+        <div class="pkg-detail-view" data-package-detail-view>
+            <div class="pkg-detail-head">
+                <div>
+                    <p class="pkg-card-kicker">Package Details</p>
+                    <h2>{{ $package->name }}</h2>
+                    @if($package->short_description)
+                        <p>{{ $package->short_description }}</p>
+                    @endif
+                </div>
+                <strong>&#8369;{{ number_format((float) $package->price, 2) }}</strong>
+            </div>
+
+            <div class="pkg-detail-grid">
+                <section>
+                    <h3><i class="bi bi-box2-heart"></i> Included Casket / Coffin</h3>
+                    <p>{{ $display['casket'] ?: 'No casket selected.' }}</p>
+                </section>
+                <section>
+                    <h3><i class="bi bi-tag"></i> Promo</h3>
+                    @if($package->promo_is_active && $package->promo_value_type && $package->promo_value)
+                        <p>{{ $package->promo_label ?: 'Promo' }} - {{ $package->promo_status }}</p>
+                        <small>
+                            {{ $package->promo_value_type === 'PERCENT' ? number_format((float) $package->promo_value, 2) . '%' : 'PHP ' . number_format((float) $package->promo_value, 2) }}
+                            · {{ $package->promo_starts_at?->format('M d, Y') ?? 'No start' }} to {{ $package->promo_ends_at?->format('M d, Y') ?? 'Ongoing' }}
+                        </small>
+                    @else
+                        <p>Inactive</p>
+                    @endif
+                </section>
+                <section>
+                    <h3><i class="bi bi-check2-square"></i> Included Services</h3>
+                    @if($serviceRows->isNotEmpty())
+                        <ul>
+                            @foreach($serviceRows as $row)
+                                <li>
+                                    <span>{{ \App\Models\Package::serviceTypeOptions()[$row->service_type] ?? $row->inclusion_name }}</span>
+                                    @if($row->included_kilometers !== null)
+                                        <small>{{ $row->included_kilometers }} km included · ₱{{ number_format((float) $row->price_per_excess_kilometer, 2) }}/excess km</small>
+                                    @elseif($row->included_days !== null)
+                                        <small>{{ $row->included_days }} day(s) included · ₱{{ number_format((float) $row->price_per_extended_day, 2) }}/extended day</small>
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ul>
+                    @else
+                        <p>No structured service limits listed.</p>
+                    @endif
+                </section>
+                <section>
+                    <h3><i class="bi bi-list-check"></i> Other Package Inclusions</h3>
+                    @if($customRows->isNotEmpty())
+                        <ul>
+                            @foreach($customRows as $row)
+                                <li>{{ $row->inclusion_name }}</li>
+                            @endforeach
+                        </ul>
+                    @else
+                        <p>No other inclusions listed.</p>
+                    @endif
+                </section>
+                <section>
+                    <h3><i class="bi bi-gift"></i> Freebies</h3>
+                    @if($package->packageFreebies->isNotEmpty())
+                        <ul>
+                            @foreach($package->packageFreebies as $freebie)
+                                <li>{{ $freebie->quantity ?: 1 }} {{ $freebie->unit ?: 'item' }} - {{ $freebie->freebie_name }}</li>
+                            @endforeach
+                        </ul>
+                    @else
+                        <p>No freebies listed.</p>
+                    @endif
+                </section>
+            </div>
+
+            <div class="pkg-detail-actions">
+                @if($isMainAdmin)
+                    <button type="button" class="btn btn-primary-custom" data-package-edit-from-view data-url="{{ route('admin.packages.edit', $package) }}">
+                        <i class="bi bi-pencil-square"></i> Edit Package
+                    </button>
+                @endif
+                <button type="button" class="btn-outline" data-package-detail-close><i class="bi bi-x-circle"></i> Close</button>
+            </div>
+        </div>
+    </template>
+@endforeach
 
 {{-- Package modal --}}
 <div id="packageModalOverlay" class="fixed inset-0 hidden flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-200 font-ui-body" style="z-index: 1300;">
@@ -730,6 +1074,9 @@
         const sheet    = document.getElementById('packageModalSheet');
         const content  = document.getElementById('packageModalContent');
         const closeBtn = document.getElementById('packageModalClose');
+        let activePackageId = null;
+        let activeEditUrl = null;
+        let saving = false;
         if (!overlay || !sheet || !content) return;
 
         function openModal() {
@@ -748,10 +1095,39 @@
             setTimeout(() => {
                 overlay.classList.add('hidden');
                 content.innerHTML = '';
+                activePackageId = null;
+                activeEditUrl = null;
             }, 200);
         }
 
-        async function loadModal(url) {
+        function showPackageView(packageId, editUrl) {
+            const template = document.getElementById('packageDetailTemplate' + packageId);
+            if (!template) return;
+            activePackageId = packageId;
+            activeEditUrl = editUrl || activeEditUrl;
+            openModal();
+            content.innerHTML = '';
+            content.appendChild(template.content.cloneNode(true));
+        }
+
+        async function refreshPackageView() {
+            if (!activePackageId) return;
+            try {
+                const res = await fetch(window.location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                const html = await res.text();
+                const doc = (new DOMParser()).parseFromString(html, 'text/html');
+                const freshTemplate = doc.getElementById('packageDetailTemplate' + activePackageId);
+                if (freshTemplate) {
+                    const currentTemplate = document.getElementById('packageDetailTemplate' + activePackageId);
+                    if (currentTemplate) currentTemplate.innerHTML = freshTemplate.innerHTML;
+                }
+            } catch (error) {
+                // Keep the current view available if a background refresh fails.
+            }
+            showPackageView(activePackageId, activeEditUrl);
+        }
+
+        async function loadEditForm(url) {
             openModal();
             content.innerHTML = '<div class="flex flex-col items-center justify-center py-16 gap-3"><div class="w-6 h-6 rounded-full animate-spin" style="border:2px solid #e2e8f0;border-top-color:#475569"></div></div>';
             try {
@@ -770,17 +1146,102 @@
             }
         }
 
+        function showFormErrors(errors, message) {
+            const banner = document.createElement('div');
+            banner.className = 'pkg-modal-error-banner';
+            const lines = Object.values(errors || {}).flat();
+            banner.innerHTML = [message || 'Please review the package details.', ...lines]
+                .filter(Boolean)
+                .map(line => '<div>' + String(line).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch])) + '</div>')
+                .join('');
+            content.querySelector('.pkg-modal-error-banner')?.remove();
+            const form = content.querySelector('form');
+            if (form) form.prepend(banner);
+        }
+
+        async function submitEditForm(form) {
+            if (saving) return;
+            saving = true;
+            const submit = form.querySelector('[data-package-submit]');
+            if (submit) submit.disabled = true;
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: new FormData(form),
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    showFormErrors(data.errors || {}, data.message || 'Please review the package details.');
+                    return;
+                }
+                await refreshPackageView();
+            } catch (error) {
+                showFormErrors({}, 'Unable to save right now. Please try again.');
+            } finally {
+                saving = false;
+                if (submit) submit.disabled = false;
+            }
+        }
+
         document.addEventListener('click', function (e) {
+            const viewTrigger = e.target.closest('[data-package-view-trigger]');
+            if (viewTrigger) {
+                e.preventDefault();
+                showPackageView(viewTrigger.dataset.packageId, viewTrigger.dataset.editUrl);
+                return;
+            }
+
+            const editFromView = e.target.closest('[data-package-edit-from-view]');
+            if (editFromView) {
+                e.preventDefault();
+                activeEditUrl = editFromView.dataset.url;
+                loadEditForm(activeEditUrl);
+                return;
+            }
+
+            if (e.target.closest('[data-package-detail-close]')) {
+                e.preventDefault();
+                closeModal();
+                return;
+            }
+
             const trigger = e.target.closest('[data-package-modal-trigger]');
-            if (!trigger) return;
+            if (trigger) {
+                e.preventDefault();
+                const url = trigger.dataset.url || trigger.getAttribute('href');
+                if (url) loadEditForm(url);
+                return;
+            }
+
+            const cancel = e.target.closest('#packageModalContent .pkg-link-btn');
+            if (cancel && activePackageId) {
+                e.preventDefault();
+                showPackageView(activePackageId, activeEditUrl);
+            }
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-package-view-trigger]')) {
+                e.preventDefault();
+                const trigger = e.target.closest('[data-package-view-trigger]');
+                showPackageView(trigger.dataset.packageId, trigger.dataset.editUrl);
+            }
+            if (e.key === 'Escape' && !overlay.classList.contains('hidden')) closeModal();
+        });
+
+        content.addEventListener('submit', function (e) {
+            const form = e.target.closest('form');
+            if (!form || !activePackageId) return;
             e.preventDefault();
-            const url = trigger.dataset.url || trigger.getAttribute('href');
-            if (url) loadModal(url);
+            submitEditForm(form);
         });
 
         closeBtn?.addEventListener('click', closeModal);
         overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
-        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
     })();
 </script>
 @endsection

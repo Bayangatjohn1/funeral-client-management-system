@@ -71,6 +71,38 @@ class FuneralCasePolicy
         return $this->branchMatch($user, $case);
     }
 
+    public function uploadTarpaulin(User $user, FuneralCase $case): bool
+    {
+        if (! in_array($user->role, ['staff', 'admin'], true)) {
+            return false;
+        }
+
+        return $this->ownOperationalBranchMatch($user, $case);
+    }
+
+    public function replaceTarpaulin(User $user, FuneralCase $case): bool
+    {
+        return $user->role === 'admin' && $this->ownOperationalBranchMatch($user, $case);
+    }
+
+    public function deleteTarpaulin(User $user, FuneralCase $case): bool
+    {
+        return $user->role === 'admin' && $this->ownOperationalBranchMatch($user, $case);
+    }
+
+    public function generateFuneralContract(User $user, FuneralCase $case): bool
+    {
+        if ($user->isOwner()) {
+            return true;
+        }
+
+        if (! $user->isAdmin()) {
+            return false;
+        }
+
+        return $this->branchMatch($user, $case);
+    }
+
     private function branchMatch(User $user, FuneralCase $case): bool
     {
         if ($user->role === 'owner') {
@@ -80,5 +112,12 @@ class FuneralCasePolicy
         $allowed = method_exists($user, 'branchScopeIds') ? $user->branchScopeIds() : [];
 
         return in_array((int) $case->branch_id, $allowed, true);
+    }
+
+    private function ownOperationalBranchMatch(User $user, FuneralCase $case): bool
+    {
+        $branchId = $user->operationalBranchId();
+
+        return $branchId !== null && (int) $case->branch_id === (int) $branchId;
     }
 }

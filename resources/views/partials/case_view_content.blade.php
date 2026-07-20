@@ -35,6 +35,13 @@
         ?? $funeral_case->serviceDetail?->internment_date
         ?? $funeral_case->deceased?->interment;
     $displayWakeDays = $funeral_case->deceased?->wake_days;
+    $tarpaulinAttachment = $funeral_case->tarpaulinAttachment;
+    $tarpaulinUrl = $tarpaulinAttachment?->publicUrl();
+    $canUploadTarpaulin = auth()->user()?->can('uploadTarpaulin', $funeral_case) ?? false;
+    $canReplaceTarpaulin = auth()->user()?->can('replaceTarpaulin', $funeral_case) ?? false;
+    $canDeleteTarpaulin = auth()->user()?->can('deleteTarpaulin', $funeral_case) ?? false;
+    $funeralContract = $funeral_case->funeralContract;
+    $canGenerateFuneralContract = auth()->user()?->can('generateFuneralContract', $funeral_case) ?? false;
 
     // Smart date formatters — skip the time portion when it is midnight
     $fmtDate = fn($dt) => $dt ? $dt->format('M d, Y') : '—';
@@ -117,6 +124,37 @@
   @media(min-width:480px) { .cv-txn-grid { grid-template-columns:repeat(3,1fr); } }
   .cv-txn-lbl      { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-muted); margin-bottom:1px; }
   .cv-txn-val      { font-size:12px; font-weight:600; color:var(--ink); }
+  /* tarpaulin photo */
+  .cv-tarp-grid    { display:grid; grid-template-columns:1fr; gap:14px; padding:16px; }
+  @media(min-width:640px) { .cv-tarp-grid { grid-template-columns:minmax(190px,260px) 1fr; } }
+  .cv-tarp-preview { min-height:190px; border:1px dashed var(--border); border-radius:10px; background:var(--surface-panel); display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .cv-tarp-preview img { width:100%; height:100%; max-height:260px; object-fit:cover; display:block; }
+  .cv-tarp-empty   { text-align:center; color:var(--ink-muted); font-size:13px; font-weight:600; padding:24px; }
+  .cv-tarp-side    { display:flex; flex-direction:column; gap:12px; min-width:0; }
+  .cv-tarp-meta    { display:grid; grid-template-columns:1fr; gap:8px; }
+  @media(min-width:460px) { .cv-tarp-meta { grid-template-columns:repeat(3,1fr); } }
+  .cv-tarp-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .cv-tarp-form    { display:none; border:1px solid var(--border); border-radius:10px; padding:12px; background:var(--surface-panel); }
+  .cv-tarp-form.open { display:block; }
+  .cv-tarp-file    { width:100%; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--ink); padding:8px; font-size:12px; }
+  .cv-tarp-modal   { position:fixed; inset:0; z-index:70; display:none; align-items:center; justify-content:center; padding:18px; background:rgba(15,23,42,.72); }
+  .cv-tarp-modal.open { display:flex; }
+  .cv-tarp-dialog  { width:min(100%,920px); max-height:92vh; background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden; box-shadow:0 25px 70px rgba(0,0,0,.28); }
+  .cv-tarp-modal-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border-bottom:1px solid var(--border); }
+  .cv-tarp-modal-body { padding:14px; background:var(--surface-panel); }
+  .cv-tarp-modal-body img { width:100%; max-height:74vh; object-fit:contain; border-radius:8px; background:#111827; }
+  /* generated documents */
+  .cv-doc-wrap     { padding:16px; display:flex; flex-direction:column; gap:12px; }
+  .cv-doc-row      { border:1px solid var(--border); border-radius:10px; background:var(--surface-panel); padding:12px 14px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .cv-doc-main     { display:flex; align-items:flex-start; gap:10px; min-width:220px; flex:1; }
+  .cv-doc-icon     { width:34px; height:34px; border-radius:9px; background:var(--brand-soft); color:var(--brand); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .cv-doc-name     { font-size:13px; font-weight:800; color:var(--ink); line-height:1.3; }
+  .cv-doc-meta     { font-size:11px; color:var(--ink-muted); font-weight:600; margin-top:2px; }
+  .cv-doc-actions  { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .cv-doc-alert    { border:1px solid #f0b8a8; background:#fff5f2; color:#7f2f22; border-radius:10px; padding:11px 13px; font-size:12px; }
+  .cv-doc-alert-title { font-weight:800; margin-bottom:5px; }
+  .cv-doc-alert ul { margin:0; padding-left:18px; }
+  .cv-doc-alert li { margin:2px 0; }
   .cv-empty-note   { padding:18px; text-align:center; font-size:13px; color:var(--ink-muted); font-style:italic; }
   html[data-theme='dark'] .cv-stat,
   html[data-theme='dark'] .cv-pkg-box { background:rgba(255,255,255,.04); }
@@ -378,6 +416,202 @@
     @endif
   </div>
 
+  {{-- Tarpaulin Photo --}}
+  <div class="cv-card">
+    <div class="cv-card-head">
+      <div class="cv-card-icon"><i class="bi bi-camera"></i></div>
+      <span class="cv-card-title">Tarpaulin Photo</span>
+    </div>
+
+    <div class="cv-tarp-grid">
+      <div class="cv-tarp-preview">
+        @if($tarpaulinAttachment && $tarpaulinUrl)
+          <img src="{{ $tarpaulinUrl }}" alt="Tarpaulin photo reference for {{ $funeral_case->deceased?->full_name ?? $funeral_case->case_code }}">
+        @else
+          <div class="cv-tarp-empty">No Tarpaulin Photo Uploaded</div>
+        @endif
+      </div>
+
+      <div class="cv-tarp-side">
+        <div class="cv-tarp-meta">
+          <div>
+            <div class="cv-field-label">Status</div>
+            <div class="cv-field-value">
+              @if($tarpaulinAttachment)
+                <span class="status-pill-success">Uploaded</span>
+              @else
+                <span class="status-pill-warning">Not Uploaded</span>
+              @endif
+            </div>
+          </div>
+          <div>
+            <div class="cv-field-label">Uploaded By</div>
+            <div class="cv-field-value">{{ $tarpaulinAttachment?->uploader?->name ?? '—' }}</div>
+          </div>
+          <div>
+            <div class="cv-field-label">Upload Date</div>
+            <div class="cv-field-value">{{ $tarpaulinAttachment?->created_at ? $tarpaulinAttachment->created_at->format('M d, Y') : '—' }}</div>
+          </div>
+        </div>
+
+        <div class="cv-tarp-actions no-print">
+          @if($tarpaulinAttachment && $tarpaulinUrl)
+            <button type="button" class="btn-outline" data-tarpaulin-open>
+              <i class="bi bi-eye mr-1"></i>View
+            </button>
+            @if($canReplaceTarpaulin)
+              <button type="button" class="btn-outline" data-tarpaulin-toggle="replace">
+                <i class="bi bi-arrow-repeat mr-1"></i>Replace
+              </button>
+            @endif
+            @if($canDeleteTarpaulin)
+              <form method="POST" action="{{ route('funeral-cases.tarpaulin.destroy', $funeral_case) }}" onsubmit="return confirm('Delete this tarpaulin photo?');">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="btn-outline" style="color:#9E4B3F;border-color:#9E4B3F;">
+                  <i class="bi bi-trash mr-1"></i>Delete
+                </button>
+              </form>
+            @endif
+          @elseif($canUploadTarpaulin)
+            <button type="button" class="btn-secondary" data-tarpaulin-toggle="upload">
+              <i class="bi bi-upload mr-1"></i>Upload Photo
+            </button>
+          @endif
+        </div>
+
+        @if(! $tarpaulinAttachment && $canUploadTarpaulin)
+          <form method="POST" action="{{ route('funeral-cases.tarpaulin.store', $funeral_case) }}" enctype="multipart/form-data" class="cv-tarp-form no-print" data-tarpaulin-form="upload">
+            @csrf
+            <div class="cv-field-label" style="margin-bottom:6px;">Upload Photo</div>
+            <input type="file" name="photo" class="cv-tarp-file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required>
+            <div class="cv-tarp-actions" style="margin-top:10px;">
+              <button type="submit" class="btn-secondary">Save Photo</button>
+              <button type="button" class="btn-outline" data-tarpaulin-cancel>Cancel</button>
+            </div>
+          </form>
+        @endif
+
+        @if($tarpaulinAttachment && $canReplaceTarpaulin)
+          <form method="POST" action="{{ route('funeral-cases.tarpaulin.update', $funeral_case) }}" enctype="multipart/form-data" class="cv-tarp-form no-print" data-tarpaulin-form="replace">
+            @csrf
+            @method('PUT')
+            <div class="cv-field-label" style="margin-bottom:6px;">Replace Photo</div>
+            <input type="file" name="photo" class="cv-tarp-file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required>
+            <div class="cv-tarp-actions" style="margin-top:10px;">
+              <button type="submit" class="btn-secondary">Replace Photo</button>
+              <button type="button" class="btn-outline" data-tarpaulin-cancel>Cancel</button>
+            </div>
+          </form>
+        @endif
+
+        <div class="cv-field-value" style="font-size:11.5px;color:var(--ink-muted);">
+          Accepted files: JPG, JPEG, PNG. Maximum size: 5MB.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  @if($tarpaulinAttachment && $tarpaulinUrl)
+  <div class="cv-tarp-modal no-print" data-tarpaulin-modal aria-hidden="true">
+    <div class="cv-tarp-dialog" role="dialog" aria-modal="true" aria-label="Tarpaulin photo preview">
+      <div class="cv-tarp-modal-head">
+        <div>
+          <div class="cv-card-title">Tarpaulin Photo</div>
+          <div class="cv-field-value" style="font-size:12px;">{{ $tarpaulinAttachment->file_name }}</div>
+        </div>
+        <button type="button" class="btn-outline" data-tarpaulin-close aria-label="Close tarpaulin photo preview">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      <div class="cv-tarp-modal-body">
+        <img src="{{ $tarpaulinUrl }}" alt="Full tarpaulin photo reference">
+      </div>
+    </div>
+  </div>
+  @endif
+
+  {{-- Generated Documents --}}
+  <div class="cv-card">
+    <div class="cv-card-head">
+      <div class="cv-card-icon"><i class="bi bi-file-earmark-pdf"></i></div>
+      <span class="cv-card-title">Generated Documents</span>
+    </div>
+
+    <div class="cv-doc-wrap">
+      @if($errors->has('contract') || session('contract_missing_fields'))
+        <div class="cv-doc-alert no-print">
+          <div class="cv-doc-alert-title">{{ $errors->first('contract') ?: 'Cannot generate Funeral Contract.' }}</div>
+          @if(session('contract_missing_fields'))
+            <ul>
+              @foreach(session('contract_missing_fields') as $missingField)
+                <li>{{ $missingField }}</li>
+              @endforeach
+            </ul>
+          @endif
+        </div>
+      @endif
+
+      @if($funeralContract)
+        <div class="cv-doc-row">
+          <div class="cv-doc-main">
+            <div class="cv-doc-icon"><i class="bi bi-file-earmark-text"></i></div>
+            <div>
+              <div class="cv-doc-name">Funeral Contract</div>
+              <div class="cv-doc-meta">
+                Reference No.: {{ $funeralContract->contract_number ?? '—' }}<br>
+                {{ $funeralContract->file_name }}<br>
+                Generated {{ $funeralContract->generated_at?->format('M d, Y h:i A') ?? '—' }}
+                @if($funeralContract->generator)
+                  by {{ $funeralContract->generator->name }}
+                @endif
+              </div>
+            </div>
+          </div>
+
+          <div class="cv-doc-actions no-print">
+            <a href="{{ route('funeral-cases.documents.preview', [$funeral_case, $funeralContract]) }}" target="_blank" rel="noopener" class="btn-outline">
+              <i class="bi bi-eye mr-1"></i>Preview
+            </a>
+            <a href="{{ route('funeral-cases.documents.download', [$funeral_case, $funeralContract]) }}" class="btn-outline">
+              <i class="bi bi-download mr-1"></i>Download
+            </a>
+            <a href="{{ route('funeral-cases.documents.print', [$funeral_case, $funeralContract]) }}" target="_blank" rel="noopener" class="btn-outline">
+              <i class="bi bi-printer mr-1"></i>Print
+            </a>
+            @if($canGenerateFuneralContract)
+              <form method="POST" action="{{ route('funeral-cases.documents.contract.store', $funeral_case) }}" onsubmit="return confirm('Regenerate the Funeral Contract from the latest case information?');">
+                @csrf
+                <button type="submit" class="btn-secondary">
+                  <i class="bi bi-arrow-repeat mr-1"></i>Regenerate
+                </button>
+              </form>
+            @endif
+          </div>
+        </div>
+      @else
+        <div class="cv-doc-row">
+          <div class="cv-doc-main">
+            <div class="cv-doc-icon"><i class="bi bi-file-earmark-plus"></i></div>
+            <div>
+              <div class="cv-doc-name">Funeral Contract</div>
+              <div class="cv-doc-meta">No generated Funeral Contract is available for this case.</div>
+            </div>
+          </div>
+
+          @if($canGenerateFuneralContract)
+            <form method="POST" action="{{ route('funeral-cases.documents.contract.store', $funeral_case) }}" class="cv-doc-actions no-print">
+              @csrf
+              <button type="submit" class="btn-secondary">
+                <i class="bi bi-file-earmark-pdf mr-1"></i>Generate Contract
+              </button>
+            </form>
+          @endif
+        </div>
+      @endif
+    </div>
+  </div>
+
   {{-- ── Payment Summary ── --}}
   <div class="cv-card">
     <div class="cv-card-head">
@@ -529,4 +763,48 @@
   @endif
 
 </div>{{-- .cv-shell --}}
+<script>
+  (() => {
+    const forms = document.querySelectorAll('[data-tarpaulin-form]');
+    const showForm = (name) => {
+      forms.forEach(form => form.classList.toggle('open', form.dataset.tarpaulinForm === name));
+    };
+
+    document.querySelectorAll('[data-tarpaulin-toggle]').forEach(button => {
+      button.addEventListener('click', () => showForm(button.dataset.tarpaulinToggle));
+    });
+
+    document.querySelectorAll('[data-tarpaulin-cancel]').forEach(button => {
+      button.addEventListener('click', () => {
+        const form = button.closest('[data-tarpaulin-form]');
+        form?.classList.remove('open');
+        form?.reset();
+      });
+    });
+
+    const modal = document.querySelector('[data-tarpaulin-modal]');
+    const openButton = document.querySelector('[data-tarpaulin-open]');
+    const closeButtons = document.querySelectorAll('[data-tarpaulin-close]');
+
+    const openModal = () => {
+      if (!modal) return;
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+    };
+    const closeModal = () => {
+      if (!modal) return;
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+    };
+
+    openButton?.addEventListener('click', openModal);
+    closeButtons.forEach(button => button.addEventListener('click', closeModal));
+    modal?.addEventListener('click', event => {
+      if (event.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') closeModal();
+    });
+  })();
+</script>
 </div>{{-- #caseViewContent --}}

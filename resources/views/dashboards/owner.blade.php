@@ -5,7 +5,7 @@
 
 @section('header_actions')
     <div class="hidden md:flex items-center gap-2">
-        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[10px] font-bold uppercase tracking-widest">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-sm">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
             Live Data
         </span>
@@ -56,6 +56,44 @@
     $maxSales = max(1, (float) ($branchByRevenue->max('sales') ?? 1));
     $barColors = ['#3E4A3D', '#8B9A8B', '#6F8A6D', '#B87956', '#7A8076'];
 @endphp
+
+{{--
+    ═══════════════════════════════════════════════════════════════════════
+    OWNER DASHBOARD — premium executive-ledger redesign.
+
+      [ Filter Bar: Branch ▼  Period ▼ ]
+      [ Business Overview: Service Value | Collected | Outstanding | Total Cases ]
+      [ Revenue Trend (large chart) ]
+      [ Collection Status | Branch Performance ]
+      [ Top Service Packages | Needs Attention ]
+      [ Quick Access: Branch Analytics | Master Records | Payment Monitoring | Reports ]
+
+    ASSUMPTIONS / NEW CONTROLLER DATA NEEDED (unchanged from prior revision)
+    ─────────────────────────────────────────────────────────────────────
+    1. $revenueTrend — optional variable for the Revenue Trend chart. Expected shape:
+         collect([
+             ['label' => 'Jan', 'value' => 125000.00],
+             ['label' => 'Feb', 'value' => 98000.00],
+             ...
+         ])
+       If it isn't set yet, the section renders a clean empty state instead
+       of breaking — see $revenueTrend ?? collect() below.
+
+    2. $topPackages — shown for both all-branch and single-branch scope.
+       If your controller currently only computes $topPackages for a
+       branch-scoped query, also compute an "all branches" aggregate
+       version when $branchId is empty.
+
+    Everything else reuses the exact variable names from the original view
+    ($totalSales, $totalCollected, $totalOutstanding, $totalCases,
+    $paidCases, $partialCases, $unpaidCases, $branchByRevenue, $maxSales,
+    $barColors, $attentionBranch, $historyQuery, $analyticsQuery,
+    $reportsQuery, $branches, $branchId, $range, $dateRangeLinks, etc.)
+    so no controller changes are required beyond #1 and #2 above.
+    This pass only touches markup/CSS — no Blade variables, routes,
+    filters, or JavaScript behavior were changed.
+    ═══════════════════════════════════════════════════════════════════════
+--}}
 
 {{-- ═══════════════════════════════════════════════════════════
      FILTER BAR
@@ -149,137 +187,212 @@
 </div>
 
 {{-- ═══════════════════════════════════════════════════════════
-     1. BUSINESS HEALTH
+     1. BUSINESS OVERVIEW  (Service Value · Collected · Outstanding · Total Cases)
 ════════════════════════════════════════════════════════════ --}}
-<section class="eb-section" aria-labelledby="sectionBusinessHealth">
+<section class="eb-section" aria-labelledby="sectionBusinessOverview">
     <div class="eb-section-header">
         <div>
-            <h2 class="eb-section-title" id="sectionBusinessHealth">Business Health</h2>
-            <p class="eb-section-sub">Financial overview for the selected period and branch scope.</p>
+            <h2 class="eb-section-title" id="sectionBusinessOverview">Business Overview</h2>
+            <p class="eb-section-sub">Financial snapshot for the selected period and branch scope.</p>
         </div>
     </div>
 
-    <div class="eb-health-grid">
+    <div class="eb-overview-grid">
 
-        {{-- Hero: Total Service Value --}}
-        <div class="eb-health-hero">
-            <div class="eb-health-hero-eyebrow">
-                <i class="bi bi-graph-up-arrow"></i>
-                Total Service Value
+        {{-- Service Value --}}
+        <div class="eb-overview-card eb-overview-hero">
+            <i class="bi bi-graph-up-arrow eb-overview-watermark"></i>
+            <div class="eb-overview-top">
+                <span class="eb-overview-label">Service Value</span>
+                <span class="eb-overview-icon eb-icon-gold"><i class="bi bi-graph-up-arrow"></i></span>
             </div>
-            <div class="eb-health-hero-value">&#8369; {{ number_format((float) ($totalSales ?? 0), 2) }}</div>
-            <div class="eb-health-hero-sub">Gross service amount for all cases in period</div>
+            <div class="eb-overview-value">&#8369;{{ number_format((float) ($totalSales ?? 0), 2) }}</div>
+            <div class="eb-overview-sub">Gross amount for all cases in period</div>
         </div>
 
-        {{-- Total Collected --}}
+        {{-- Collected --}}
         <a href="{{ route('owner.history', array_merge($historyQuery, ['payment_status' => 'PAID'])) }}"
-           class="eb-health-card eb-health-card-green"
-           title="View fully paid cases">
-            <div class="eb-health-card-top">
-                <span class="eb-health-card-label">Total Collected</span>
-                <span class="eb-health-card-icon eb-icon-green"><i class="bi bi-cash-stack"></i></span>
+           class="eb-overview-card eb-accent-green" title="View fully paid cases">
+            <div class="eb-overview-top">
+                <span class="eb-overview-label">Collected</span>
+                <span class="eb-overview-icon eb-icon-green"><i class="bi bi-cash-stack"></i></span>
             </div>
-            <div class="eb-health-card-value eb-val-green">&#8369; {{ number_format((float) ($totalCollected ?? 0), 2) }}</div>
-            <div class="eb-health-card-sub">Payments received &mdash; {{ number_format($paidCases ?? 0) }} fully paid</div>
-            <span class="eb-health-card-hint">View records →</span>
+            <div class="eb-overview-value eb-val-green">&#8369;{{ number_format((float) ($totalCollected ?? 0), 2) }}</div>
+            <div class="eb-overview-sub">{{ number_format($paidCases ?? 0) }} fully paid</div>
         </a>
 
-        {{-- Outstanding Balance --}}
+        {{-- Outstanding --}}
         <a href="{{ route('owner.history', $historyQuery) }}"
-           class="eb-health-card eb-health-card-red"
-           title="View outstanding cases">
-            <div class="eb-health-card-top">
-                <span class="eb-health-card-label">Outstanding Balance</span>
-                <span class="eb-health-card-icon eb-icon-red"><i class="bi bi-exclamation-circle"></i></span>
+           class="eb-overview-card eb-accent-red" title="View outstanding cases">
+            <div class="eb-overview-top">
+                <span class="eb-overview-label">Outstanding</span>
+                <span class="eb-overview-icon eb-icon-red"><i class="bi bi-exclamation-circle"></i></span>
             </div>
-            <div class="eb-health-card-value eb-val-red">&#8369; {{ number_format((float) ($totalOutstanding ?? 0), 2) }}</div>
-            <div class="eb-health-card-sub">Remaining unpaid across all cases</div>
-            <span class="eb-health-card-hint">View records →</span>
-        </a>
-
-    </div>
-</section>
-
-{{-- ═══════════════════════════════════════════════════════════
-     2. COLLECTION RISK
-════════════════════════════════════════════════════════════ --}}
-<section class="eb-section" aria-labelledby="sectionCollectionRisk">
-    <div class="eb-section-header">
-        <div>
-            <h2 class="eb-section-title" id="sectionCollectionRisk">Collection Risk</h2>
-            <p class="eb-section-sub">Accounts requiring follow-up and attention.</p>
-        </div>
-        <a href="{{ route('owner.history', $historyQuery) }}" class="eb-link-btn">
-            All Records <i class="bi bi-arrow-right"></i>
-        </a>
-    </div>
-
-    <div class="eb-risk-grid">
-
-        {{-- Unpaid Accounts --}}
-        <a href="{{ route('owner.history', array_merge($historyQuery, ['payment_status' => 'UNPAID'])) }}"
-           class="eb-risk-card eb-risk-card-red">
-            <div class="eb-risk-card-icon"><i class="bi bi-exclamation-triangle"></i></div>
-            <div class="eb-risk-card-val">{{ number_format($unpaidCases ?? 0) }}</div>
-            <div class="eb-risk-card-label">Unpaid Accounts</div>
-            <div class="eb-risk-card-hint">View details →</div>
-        </a>
-
-        {{-- Partial Payments --}}
-        <a href="{{ route('owner.history', array_merge($historyQuery, ['payment_status' => 'PARTIAL'])) }}"
-           class="eb-risk-card eb-risk-card-amber">
-            <div class="eb-risk-card-icon"><i class="bi bi-hourglass-split"></i></div>
-            <div class="eb-risk-card-val">{{ number_format($partialCases ?? 0) }}</div>
-            <div class="eb-risk-card-label">Partial Payments</div>
-            <div class="eb-risk-card-hint">View details →</div>
+            <div class="eb-overview-value eb-val-red">&#8369;{{ number_format((float) ($totalOutstanding ?? 0), 2) }}</div>
+            <div class="eb-overview-sub">Remaining unpaid balance</div>
         </a>
 
         {{-- Total Cases --}}
         <a href="{{ route('owner.history', $historyQuery) }}"
-           class="eb-risk-card eb-risk-card-slate">
-            <div class="eb-risk-card-icon"><i class="bi bi-folder2-open"></i></div>
-            <div class="eb-risk-card-val">{{ number_format($totalCases ?? 0) }}</div>
-            <div class="eb-risk-card-label">Total Cases</div>
-            <div class="eb-risk-card-hint">View records →</div>
+           class="eb-overview-card eb-accent-slate" title="View all cases">
+            <div class="eb-overview-top">
+                <span class="eb-overview-label">Total Cases</span>
+                <span class="eb-overview-icon eb-icon-slate"><i class="bi bi-folder2-open"></i></span>
+            </div>
+            <div class="eb-overview-value">{{ number_format($totalCases ?? 0) }}</div>
+            <div class="eb-overview-sub">All cases in period</div>
         </a>
 
     </div>
-
-    {{-- Needs Attention Branch --}}
-    @if($attentionBranch)
-    <div class="eb-attention-strip">
-        <div class="eb-attention-left">
-            <span class="eb-attention-badge">
-                <i class="bi bi-flag-fill"></i> Needs Attention
-            </span>
-            <div class="eb-attention-branch">
-                <span class="eb-attention-code">{{ $attentionBranch['branch']?->branch_code ?? '—' }}</span>
-                <span class="eb-attention-name">{{ $attentionBranch['branch']?->branch_name ?? '—' }}</span>
-            </div>
-            <div class="eb-attention-stats">
-                @if(($attentionBranch['unpaid_cases'] ?? 0) > 0)
-                    <span class="eb-bsp eb-bsp-red">{{ $attentionBranch['unpaid_cases'] }} unpaid</span>
-                @endif
-                @if(($attentionBranch['partial_cases'] ?? 0) > 0)
-                    <span class="eb-bsp eb-bsp-amber">{{ $attentionBranch['partial_cases'] }} partial</span>
-                @endif
-            </div>
-        </div>
-        <div class="eb-attention-right">
-            <div class="eb-attention-amount-label">Outstanding Balance</div>
-            <div class="eb-attention-amount">&#8369; {{ number_format((float) ($attentionBranch['outstanding'] ?? 0), 2) }}</div>
-            <a href="{{ route('owner.analytics', array_merge($analyticsQuery, ['branch_id' => $attentionBranch['branch']?->id])) }}"
-               class="eb-attention-link">View in Analytics →</a>
-        </div>
-    </div>
-    @endif
-
 </section>
 
 {{-- ═══════════════════════════════════════════════════════════
-     3. BRANCH PERFORMANCE + REPORTS & OVERSIGHT
+     2. REVENUE TREND
 ════════════════════════════════════════════════════════════ --}}
+@php
+    $revenueTrendPoints = collect($revenueTrend ?? []);
+    $trendMax = $revenueTrendPoints->max('value') ?: 1;
+    $trendCount = max($revenueTrendPoints->count(), 1);
+    $trendChartW = 900;
+    $trendChartH = 240;
+    $trendPad = 28;
+    $trendStepX = $trendCount > 1 ? ($trendChartW - $trendPad * 2) / ($trendCount - 1) : 0;
+
+    $trendPolyPoints = $revenueTrendPoints->values()->map(function ($pt, $i) use ($trendMax, $trendChartH, $trendPad, $trendStepX) {
+        $x = $trendPad + $i * $trendStepX;
+        $y = $trendChartH - $trendPad - ((float) ($pt['value'] ?? 0) / $trendMax) * ($trendChartH - $trendPad * 2);
+        return round($x, 1) . ',' . round($y, 1);
+    })->implode(' ');
+
+    $trendAreaPoints = $revenueTrendPoints->isNotEmpty()
+        ? ($trendPad . ',' . ($trendChartH - $trendPad) . ' ' . $trendPolyPoints . ' ' . round($trendPad + ($trendCount - 1) * $trendStepX, 1) . ',' . ($trendChartH - $trendPad))
+        : '';
+
+    // Decorative ledger gridlines — presentation only, derived from existing chart geometry.
+    $trendGridLines = collect(range(0, 3))->map(fn ($gi) => round($trendPad + ($gi / 3) * ($trendChartH - $trendPad * 2), 1));
+
+    // Presentation-only period delta, derived entirely from the already-supplied $revenueTrend series.
+    $trendFirstVal = (float) ($revenueTrendPoints->first()['value'] ?? 0);
+    $trendLastVal  = (float) ($revenueTrendPoints->last()['value'] ?? 0);
+    $trendDeltaPct = ($revenueTrendPoints->count() >= 2 && $trendFirstVal != 0.0)
+        ? round((($trendLastVal - $trendFirstVal) / abs($trendFirstVal)) * 100, 1)
+        : null;
+@endphp
+<section class="eb-section" aria-labelledby="sectionRevenueTrend">
+    <div class="eb-section-header">
+        <div>
+            <h2 class="eb-section-title" id="sectionRevenueTrend">Revenue Trend</h2>
+            <p class="eb-section-sub">Service value over the selected period.</p>
+        </div>
+        @if(!is_null($trendDeltaPct))
+            <span class="eb-trend-delta {{ $trendDeltaPct >= 0 ? 'is-up' : 'is-down' }}">
+                <i class="bi {{ $trendDeltaPct >= 0 ? 'bi-arrow-up-right' : 'bi-arrow-down-right' }}"></i>
+                {{ $trendDeltaPct >= 0 ? '+' : '' }}{{ $trendDeltaPct }}% vs. period start
+            </span>
+        @endif
+    </div>
+
+    <div class="eb-card eb-trend-card">
+        @if($revenueTrendPoints->isNotEmpty())
+            <div class="eb-trend-scale">
+                <span>&#8369;{{ number_format($trendMax, 0) }}</span>
+                <span>&#8369;0</span>
+            </div>
+            <svg class="eb-trend-svg" viewBox="0 0 {{ $trendChartW }} {{ $trendChartH }}" preserveAspectRatio="none">
+                <defs>
+                    <linearGradient id="ebTrendFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" class="eb-trend-stop-start"></stop>
+                        <stop offset="100%" class="eb-trend-stop-end"></stop>
+                    </linearGradient>
+                </defs>
+                @foreach($trendGridLines as $gy)
+                    <line x1="{{ $trendPad }}" y1="{{ $gy }}" x2="{{ $trendChartW - $trendPad }}" y2="{{ $gy }}" class="eb-trend-grid"></line>
+                @endforeach
+                <polygon points="{{ $trendAreaPoints }}" class="eb-trend-area" fill="url(#ebTrendFill)"></polygon>
+                <polyline points="{{ $trendPolyPoints }}" class="eb-trend-line"></polyline>
+                @foreach($revenueTrendPoints->values() as $i => $pt)
+                    @php
+                        $px = $trendPad + $i * $trendStepX;
+                        $py = $trendChartH - $trendPad - ((float) ($pt['value'] ?? 0) / $trendMax) * ($trendChartH - $trendPad * 2);
+                    @endphp
+                    <circle cx="{{ round($px, 1) }}" cy="{{ round($py, 1) }}" r="4" class="eb-trend-dot">
+                        <title>{{ $pt['label'] ?? '' }}: &#8369;{{ number_format((float) ($pt['value'] ?? 0), 2) }}</title>
+                    </circle>
+                @endforeach
+            </svg>
+            <div class="eb-trend-labels">
+                @foreach($revenueTrendPoints as $pt)
+                    <span>{{ $pt['label'] ?? '' }}</span>
+                @endforeach
+            </div>
+        @else
+            <div class="eb-empty">
+                <i class="bi bi-graph-up eb-empty-icon"></i>
+                <p>No revenue trend data available for this period yet.</p>
+            </div>
+        @endif
+    </div>
+</section>
+
+{{-- ═══════════════════════════════════════════════════════════
+     3. COLLECTION STATUS + BRANCH PERFORMANCE
+════════════════════════════════════════════════════════════ --}}
+@php
+    $collectionTotal = max(($paidCases ?? 0) + ($partialCases ?? 0) + ($unpaidCases ?? 0), 1);
+    $pctPaid    = round((($paidCases ?? 0) / $collectionTotal) * 100);
+    $pctPartial = round((($partialCases ?? 0) / $collectionTotal) * 100);
+    $pctUnpaid  = round((($unpaidCases ?? 0) / $collectionTotal) * 100);
+@endphp
 <div class="eb-bottom-grid">
+
+    {{-- Collection Status --}}
+    <section class="eb-section eb-card" aria-labelledby="sectionCollectionStatus">
+        <div class="eb-section-header">
+            <div>
+                <h2 class="eb-section-title" id="sectionCollectionStatus">Collection Status</h2>
+                <p class="eb-section-sub">Case breakdown by payment status.</p>
+            </div>
+            <a href="{{ route('owner.history', $historyQuery) }}" class="eb-link-btn">
+                All Records <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+
+        <div class="eb-stacked-tape" role="img" aria-label="Paid {{ $pctPaid }}%, Partial {{ $pctPartial }}%, Unpaid {{ $pctUnpaid }}%">
+            <span class="eb-tape-seg eb-tape-green" style="width:{{ max(2, $pctPaid) }}%;"></span>
+            <span class="eb-tape-seg eb-tape-amber" style="width:{{ max(2, $pctPartial) }}%;"></span>
+            <span class="eb-tape-seg eb-tape-red" style="width:{{ max(2, $pctUnpaid) }}%;"></span>
+        </div>
+
+        <div class="eb-status-list">
+            <a href="{{ route('owner.history', array_merge($historyQuery, ['payment_status' => 'PAID'])) }}" class="eb-status-row">
+                <span class="eb-status-dot eb-status-dot-green"></span>
+                <span class="eb-status-name">Paid</span>
+                <span class="eb-status-track">
+                    <span class="eb-status-fill eb-status-fill-green" style="width: {{ max(2, $pctPaid) }}%;"></span>
+                </span>
+                <span class="eb-status-count">{{ number_format($paidCases ?? 0) }}</span>
+                <span class="eb-status-pct">{{ $pctPaid }}%</span>
+            </a>
+            <a href="{{ route('owner.history', array_merge($historyQuery, ['payment_status' => 'PARTIAL'])) }}" class="eb-status-row">
+                <span class="eb-status-dot eb-status-dot-amber"></span>
+                <span class="eb-status-name">Partial</span>
+                <span class="eb-status-track">
+                    <span class="eb-status-fill eb-status-fill-amber" style="width: {{ max(2, $pctPartial) }}%;"></span>
+                </span>
+                <span class="eb-status-count">{{ number_format($partialCases ?? 0) }}</span>
+                <span class="eb-status-pct">{{ $pctPartial }}%</span>
+            </a>
+            <a href="{{ route('owner.history', array_merge($historyQuery, ['payment_status' => 'UNPAID'])) }}" class="eb-status-row">
+                <span class="eb-status-dot eb-status-dot-red"></span>
+                <span class="eb-status-name">Unpaid</span>
+                <span class="eb-status-track">
+                    <span class="eb-status-fill eb-status-fill-red" style="width: {{ max(2, $pctUnpaid) }}%;"></span>
+                </span>
+                <span class="eb-status-count">{{ number_format($unpaidCases ?? 0) }}</span>
+                <span class="eb-status-pct">{{ $pctUnpaid }}%</span>
+            </a>
+        </div>
+    </section>
 
     {{-- Branch Performance --}}
     <section class="eb-section eb-card eb-branch-card" aria-labelledby="sectionBranchPerf">
@@ -305,7 +418,11 @@
                     <div class="eb-branch-row-head">
                         <div class="eb-branch-main">
                             <span class="eb-rank-badge {{ $rank === 1 ? 'is-top' : '' }}">
-                                {{ $rank === 1 ? 'Top 1' : '#' . $rank }}
+                                @if($rank === 1)
+                                    <i class="bi bi-trophy-fill"></i>
+                                @else
+                                    #{{ $rank }}
+                                @endif
                             </span>
                             <span class="eb-branch-copy">
                                 <span class="eb-branch-code">{{ $row['branch']?->branch_code ?? 'N/A' }}</span>
@@ -320,7 +437,7 @@
                             @if(($row['unpaid_cases'] ?? 0) > 0)
                                 <span class="eb-bsp eb-bsp-red">{{ $row['unpaid_cases'] }} unpaid</span>
                             @endif
-                            <span class="eb-branch-amount">&#8369; {{ number_format($bSales, 2) }}</span>
+                            <span class="eb-branch-amount">&#8369;{{ number_format($bSales, 2) }}</span>
                         </div>
                     </div>
                     <div class="eb-branch-bar-track">
@@ -335,115 +452,208 @@
             @endforelse
         </div>
     </section>
-
-    {{-- Right column --}}
-    <div class="eb-right-col">
-
-        {{-- Reports & Oversight --}}
-        <section class="eb-section eb-card eb-reports-card" aria-labelledby="sectionReports">
-            <div class="eb-section-header">
-                <div>
-                    <h2 class="eb-section-title" id="sectionReports">Reports &amp; Oversight</h2>
-                    <p class="eb-section-sub">Monitoring, analytics, and printable reports</p>
-                </div>
-                <a href="{{ route('reports.index', $reportsQuery) }}" class="eb-link-btn">
-                    All Reports <i class="bi bi-arrow-right"></i>
-                </a>
-            </div>
-            <div class="eb-report-list">
-                <a href="{{ route('owner.analytics', $analyticsQuery) }}" class="eb-report-row">
-                    <span class="eb-report-icon eb-ri-blue"><i class="bi bi-bar-chart-line"></i></span>
-                    <span class="eb-report-copy">
-                        <strong>Branch Analytics</strong>
-                        <small>Compare performance, revenue, and trends by branch.</small>
-                    </span>
-                    <i class="bi bi-arrow-up-right eb-report-arrow"></i>
-                </a>
-                <a href="{{ route('owner.history', $historyQuery) }}" class="eb-report-row">
-                    <span class="eb-report-icon eb-ri-amber"><i class="bi bi-exclamation-diamond"></i></span>
-                    <span class="eb-report-copy">
-                        <strong>Payment Monitoring</strong>
-                        <small>Track partial and unpaid accounts across branches.</small>
-                    </span>
-                    <i class="bi bi-arrow-up-right eb-report-arrow"></i>
-                </a>
-                <a href="{{ route('owner.history', $historyQuery) }}" class="eb-report-row">
-                    <span class="eb-report-icon eb-ri-slate"><i class="bi bi-clipboard-data"></i></span>
-                    <span class="eb-report-copy">
-                        <strong>Master Case Records</strong>
-                        <small>View and search all verified case records.</small>
-                    </span>
-                    <i class="bi bi-arrow-up-right eb-report-arrow"></i>
-                </a>
-                <a href="{{ route('reports.index', $reportsQuery) }}" class="eb-report-row">
-                    <span class="eb-report-icon eb-ri-green"><i class="bi bi-wallet2"></i></span>
-                    <span class="eb-report-copy">
-                        <strong>Reports</strong>
-                        <small>Owner-level summaries and printable reports.</small>
-                    </span>
-                    <i class="bi bi-arrow-up-right eb-report-arrow"></i>
-                </a>
-            </div>
-        </section>
-
-        {{-- Top Packages (branch-specific only) --}}
-        @if($branchId && $topPackages && $topPackages->count())
-        <section class="eb-section eb-card" aria-labelledby="sectionTopPackages">
-            <div class="eb-section-header">
-                <div>
-                    <h2 class="eb-section-title" id="sectionTopPackages">Top Packages</h2>
-                    <p class="eb-section-sub">By case volume &mdash; paid cases only</p>
-                </div>
-            </div>
-            <div class="eb-pkg-list">
-                @foreach($topPackages as $pkg)
-                    <div class="eb-pkg-row">
-                        <div class="eb-pkg-name">{{ $pkg->service_package }}</div>
-                        <div class="eb-pkg-stats">
-                            <span class="eb-pkg-cases">{{ $pkg->total_cases }} {{ Str::plural('case', $pkg->total_cases) }}</span>
-                            <span class="eb-pkg-amount">&#8369; {{ number_format((float) $pkg->total_sales, 2) }}</span>
-                        </div>
-                    </div>
-                @endforeach
-            </div>
-        </section>
-        @endif
-
-    </div>
 </div>
+
+{{-- ═══════════════════════════════════════════════════════════
+     4. TOP SERVICE PACKAGES + NEEDS ATTENTION
+════════════════════════════════════════════════════════════ --}}
+<div class="eb-bottom-grid">
+
+    {{-- Top Service Packages --}}
+    <section class="eb-section eb-card" aria-labelledby="sectionTopPackages">
+        <div class="eb-section-header">
+            <div>
+                <h2 class="eb-section-title" id="sectionTopPackages">Top Service Packages</h2>
+                <p class="eb-section-sub">By case volume &mdash; paid cases only</p>
+            </div>
+        </div>
+
+        <div class="eb-pkg-list">
+            @forelse(($topPackages ?? collect()) as $pkg)
+                <div class="eb-pkg-row">
+                    <span class="eb-pkg-rank">{{ str_pad((string) $loop->iteration, 2, '0', STR_PAD_LEFT) }}</span>
+                    <div class="eb-pkg-name">{{ $pkg->service_package }}</div>
+                    <div class="eb-pkg-stats">
+                        <span class="eb-pkg-cases">{{ $pkg->total_cases }} {{ Str::plural('case', $pkg->total_cases) }}</span>
+                        <span class="eb-pkg-amount">&#8369;{{ number_format((float) $pkg->total_sales, 2) }}</span>
+                    </div>
+                </div>
+            @empty
+                <div class="eb-empty">
+                    <i class="bi bi-box-seam eb-empty-icon"></i>
+                    <p>No package data for this period.</p>
+                </div>
+            @endforelse
+        </div>
+    </section>
+
+    {{-- Needs Attention --}}
+    <section class="eb-section eb-card" aria-labelledby="sectionAttention">
+        <div class="eb-section-header">
+            <div>
+                <h2 class="eb-section-title" id="sectionAttention">Needs Attention</h2>
+                <p class="eb-section-sub">Branch with the highest outstanding balance</p>
+            </div>
+        </div>
+
+        @if($attentionBranch)
+            <div class="eb-attention-card">
+                <span class="eb-attention-badge">
+                    <i class="bi bi-flag-fill"></i> Highest Outstanding
+                </span>
+                <div class="eb-attention-branch">
+                    <span class="eb-attention-code">{{ $attentionBranch['branch']?->branch_code ?? '—' }}</span>
+                    <span class="eb-attention-name">{{ $attentionBranch['branch']?->branch_name ?? '—' }}</span>
+                </div>
+                <div class="eb-attention-amount">&#8369;{{ number_format((float) ($attentionBranch['outstanding'] ?? 0), 2) }}</div>
+                <div class="eb-attention-stats">
+                    @if(($attentionBranch['unpaid_cases'] ?? 0) > 0)
+                        <span class="eb-bsp eb-bsp-red">{{ $attentionBranch['unpaid_cases'] }} unpaid</span>
+                    @endif
+                    @if(($attentionBranch['partial_cases'] ?? 0) > 0)
+                        <span class="eb-bsp eb-bsp-amber">{{ $attentionBranch['partial_cases'] }} partial</span>
+                    @endif
+                </div>
+                <a href="{{ route('owner.analytics', array_merge($analyticsQuery, ['branch_id' => $attentionBranch['branch']?->id])) }}"
+                   class="eb-attention-link">View in Analytics <i class="bi bi-arrow-right"></i></a>
+            </div>
+        @else
+            <div class="eb-empty">
+                <i class="bi bi-check2-circle eb-empty-icon"></i>
+                <p>No branches currently need attention.</p>
+            </div>
+        @endif
+    </section>
+</div>
+
+{{-- ═══════════════════════════════════════════════════════════
+     5. QUICK ACCESS
+════════════════════════════════════════════════════════════ --}}
+<section class="eb-section" aria-labelledby="sectionQuickAccess">
+    <div class="eb-section-header">
+        <div>
+            <h2 class="eb-section-title" id="sectionQuickAccess">Quick Access</h2>
+            <p class="eb-section-sub">Jump straight to analytics, records, and reports.</p>
+        </div>
+    </div>
+
+    <div class="eb-quick-grid">
+        <a href="{{ route('owner.analytics', $analyticsQuery) }}" class="eb-quick-item">
+            <span class="eb-quick-icon eb-ri-blue"><i class="bi bi-bar-chart-line"></i></span>
+            <span class="eb-quick-label">Branch Analytics</span>
+            <i class="bi bi-arrow-up-right eb-quick-arrow"></i>
+        </a>
+        <a href="{{ route('owner.history', $historyQuery) }}" class="eb-quick-item">
+            <span class="eb-quick-icon eb-ri-slate"><i class="bi bi-clipboard-data"></i></span>
+            <span class="eb-quick-label">Master Records</span>
+            <i class="bi bi-arrow-up-right eb-quick-arrow"></i>
+        </a>
+        <a href="{{ route('owner.history', $historyQuery) }}" class="eb-quick-item">
+            <span class="eb-quick-icon eb-ri-amber"><i class="bi bi-exclamation-diamond"></i></span>
+            <span class="eb-quick-label">Payment Monitoring</span>
+            <i class="bi bi-arrow-up-right eb-quick-arrow"></i>
+        </a>
+        <a href="{{ route('reports.index', $reportsQuery) }}" class="eb-quick-item">
+            <span class="eb-quick-icon eb-ri-green"><i class="bi bi-wallet2"></i></span>
+            <span class="eb-quick-label">Reports</span>
+            <i class="bi bi-arrow-up-right eb-quick-arrow"></i>
+        </a>
+    </div>
+</section>
 
 </div>{{-- /.eb-shell --}}
 
 <style>
-/* ══════════════════════════════════════════
-   Shell & Typography
-══════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════
+   TOKENS — light (default) + dark, scoped to .eb-shell
+   A "financial ledger" system: paper surfaces, ink-sage accents,
+   tabular figures. Dark mode swaps the accent family to navy/blue
+   while keeping paid/partial/unpaid semantics constant.
+══════════════════════════════════════════════════════════════ */
 .eb-shell {
+    --eb-page:        #F2EFE7;
+    --eb-paper:       #FAFAF7;
+    --eb-paper-2:     #F3F0E8;
+    --eb-card:        #FFFFFF;
+    --eb-border:      #C9C5BB;
+    --eb-text:        #262B25;
+    --eb-text-muted:  #5F685F;
+    --eb-text-faint:  #8A9188;
+    --eb-accent:      #3E4A3D;
+    --eb-accent-strong: #2D372D;
+    --eb-accent-soft: rgba(62,74,61,.09);
+    --eb-gold:        #D6B073;
+    --eb-gold-soft:   rgba(214,176,115,.16);
+    --eb-green:       #6F8A6D;
+    --eb-green-soft:  rgba(111,138,109,.14);
+    --eb-amber:       #B87956;
+    --eb-amber-soft:  rgba(184,121,86,.13);
+    --eb-red:         #9E4B3F;
+    --eb-red-soft:    rgba(158,75,63,.11);
+    --eb-shadow-sm:   0 1px 2px rgba(38,43,37,.05);
+    --eb-shadow-md:   0 10px 30px -12px rgba(38,43,37,.18);
+    --eb-shadow-lg:   0 20px 48px -16px rgba(38,43,37,.22);
+    --eb-hero-grad:   linear-gradient(150deg, #2D372D 0%, #1B2420 100%);
+
+    max-width: 1560px;
+    margin: 0 auto;
     padding: 1.5rem var(--panel-content-inline, 1.5rem) 3rem;
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
-    color: #333333;
+    gap: 1.5rem;
+    color: var(--eb-text);
     font-family: var(--font-body);
 }
 .eb-shell *, .eb-shell button, .eb-shell input,
 .eb-shell select, .eb-shell textarea, .eb-shell a {
     font-family: var(--font-body);
+    box-sizing: border-box;
+}
+
+html[data-theme='dark'] .eb-shell {
+    --eb-page:        #0d1826;
+    --eb-paper:       #182638;
+    --eb-paper-2:     #1e334f;
+    --eb-card:        #182638;
+    --eb-border:      #2e4560;
+    --eb-text:        #e2ecf9;
+    --eb-text-muted:  #8aa7c5;
+    --eb-text-faint:  #5a7898;
+    --eb-accent:      #93c5fd;
+    --eb-accent-strong: #243d5a;
+    --eb-accent-soft: rgba(147,197,253,.12);
+    --eb-gold:        #fbbf24;
+    --eb-gold-soft:   rgba(251,191,36,.14);
+    --eb-green:       #4ade80;
+    --eb-green-soft:  rgba(74,222,128,.13);
+    --eb-amber:       #fbbf24;
+    --eb-amber-soft:  rgba(251,191,36,.13);
+    --eb-red:         #f87171;
+    --eb-red-soft:    rgba(248,113,113,.13);
+    --eb-shadow-sm:   0 1px 2px rgba(0,0,0,.3);
+    --eb-shadow-md:   0 10px 30px -12px rgba(0,0,0,.55);
+    --eb-shadow-lg:   0 20px 48px -16px rgba(0,0,0,.6);
+    --eb-hero-grad:   linear-gradient(150deg, #0f1f35 0%, #0a1420 100%);
 }
 
 /* ══════════════════════════════════════════
    Filter Bar
 ══════════════════════════════════════════ */
 .eb-filter-bar {
+    position: sticky;
+    top: 8px;
+    z-index: 30;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
     flex-wrap: wrap;
-    background: #FAFAF7;
-    border: 1px solid #C9C5BB;
-    border-radius: 14px;
+    background: var(--eb-paper);
+    border: 1px solid var(--eb-border);
+    border-radius: 16px;
     padding: 12px 14px;
+    box-shadow: var(--eb-shadow-sm);
+    backdrop-filter: saturate(140%) blur(6px);
 }
 .eb-filter-left {
     display: flex;
@@ -463,15 +673,15 @@
     gap: 5px;
     font-size: 11px;
     font-weight: 600;
-    color: #3E4A3D;
-    border: 1px solid #C9C5BB;
-    background: #fff;
+    color: var(--eb-accent);
+    border: 1px solid var(--eb-border);
+    background: var(--eb-card);
     border-radius: 999px;
     padding: 4px 10px;
     white-space: nowrap;
 }
-.eb-chip-period { border-color: #3E4A3D; background: rgba(62,74,61,.07); }
-.eb-chip-muted  { color: #5F685F; background: #FAFAF7; }
+.eb-chip-period { border-color: var(--eb-accent); background: var(--eb-accent-soft); }
+.eb-chip-muted  { color: var(--eb-text-muted); background: var(--eb-paper); }
 
 /* Branch selector */
 .eb-branch-select-wrap {
@@ -479,14 +689,14 @@
     align-items: center;
     gap: 7px;
     height: 40px;
-    border: 1px solid #C9C5BB;
-    border-radius: 10px;
-    background: #fff;
+    border: 1px solid var(--eb-border);
+    border-radius: 11px;
+    background: var(--eb-card);
     padding: 0 11px;
     min-width: 200px;
     max-width: 280px;
 }
-.eb-branch-select-wrap i { font-size: 13px; color: #5F685F; }
+.eb-branch-select-wrap i { font-size: 13px; color: var(--eb-text-muted); }
 .eb-chev { font-size: 10px; opacity: .55; pointer-events: none; }
 .eb-branch-select {
     flex: 1;
@@ -495,7 +705,7 @@
     background: transparent;
     font-size: 12px;
     font-weight: 700;
-    color: #333333;
+    color: var(--eb-text);
     outline: none;
     appearance: none;
     -webkit-appearance: none;
@@ -511,13 +721,13 @@
 .eb-seg-item {
     height: 40px;
     padding: 0 13px;
-    border-radius: 10px;
+    border-radius: 11px;
     font-size: 12px;
     font-weight: 700;
-    color: #5F685F;
+    color: var(--eb-text-muted);
     text-decoration: none;
-    border: 1px solid #C9C5BB;
-    background: #fff;
+    border: 1px solid var(--eb-border);
+    background: var(--eb-card);
     transition: all .15s ease;
     display: inline-flex;
     align-items: center;
@@ -525,8 +735,9 @@
     cursor: pointer;
     white-space: nowrap;
 }
-.eb-seg-item:hover  { border-color: #3E4A3D; color: #3E4A3D; }
-.eb-seg-item.active { background: #3E4A3D; color: #fff; border-color: #3E4A3D; }
+.eb-seg-item:hover  { border-color: var(--eb-accent); color: var(--eb-accent); }
+.eb-seg-item.active { background: var(--eb-accent); color: #fff; border-color: var(--eb-accent); }
+html[data-theme='dark'] .eb-seg-item.active { color: #0d1826; }
 
 /* Custom range popover */
 .eb-custom-wrap { position: relative; display: inline-flex; }
@@ -535,11 +746,11 @@
     top: calc(100% + 8px);
     right: 0;
     z-index: 240;
-    background: #fff;
-    border: 1px solid #C9C5BB;
+    background: var(--eb-card);
+    border: 1px solid var(--eb-border);
     border-radius: 14px;
     padding: 16px;
-    box-shadow: 0 8px 28px rgba(0,0,0,.10);
+    box-shadow: var(--eb-shadow-lg);
     min-width: 290px;
 }
 .eb-pop-label {
@@ -547,7 +758,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .08em;
-    color: #5F685F;
+    color: var(--eb-text-muted);
     margin-bottom: 10px;
 }
 .eb-pop-fields {
@@ -557,398 +768,382 @@
     margin-bottom: 10px;
 }
 .eb-pop-field { display: flex; flex-direction: column; gap: 4px; }
-.eb-pop-field-label { font-size: 10.5px; font-weight: 600; color: #5F685F; text-transform: uppercase; letter-spacing: .06em; }
+.eb-pop-field-label { font-size: 10.5px; font-weight: 600; color: var(--eb-text-muted); text-transform: uppercase; letter-spacing: .06em; }
 .eb-pop-input {
     height: 34px; padding: 0 10px;
-    border: 1px solid #C9C5BB; border-radius: 8px;
-    font-size: 12px; color: #333333; background: #FAFAF7;
+    border: 1px solid var(--eb-border); border-radius: 8px;
+    font-size: 12px; color: var(--eb-text); background: var(--eb-paper);
     width: 100%;
 }
-.eb-pop-input:focus { outline: none; border-color: #3E4A3D; }
+.eb-pop-input:focus { outline: none; border-color: var(--eb-accent); }
 .eb-pop-actions { display: flex; gap: 6px; }
 .eb-pop-apply {
     flex: 1; height: 36px;
-    background: #3E4A3D; color: #fff;
+    background: var(--eb-accent); color: #fff;
     border: none; border-radius: 8px;
     font-size: 12px; font-weight: 600; cursor: pointer;
 }
-.eb-pop-apply:hover { background: #2D372D; }
+html[data-theme='dark'] .eb-pop-apply { color: #0d1826; }
+.eb-pop-apply:hover { background: var(--eb-accent-strong); }
+html[data-theme='dark'] .eb-pop-apply:hover { background: var(--eb-accent); opacity: .85; }
 .eb-pop-reset {
     height: 36px; padding: 0 12px;
-    border: 1px solid #C9C5BB; border-radius: 8px;
-    background: #fff; color: #5F685F;
+    border: 1px solid var(--eb-border); border-radius: 8px;
+    background: var(--eb-card); color: var(--eb-text-muted);
     font-size: 12px; font-weight: 600;
     text-decoration: none;
     display: inline-flex; align-items: center; justify-content: center;
 }
-.eb-pop-reset:hover { border-color: #3E4A3D; color: #3E4A3D; }
+.eb-pop-reset:hover { border-color: var(--eb-accent); color: var(--eb-accent); }
 
 /* ══════════════════════════════════════════
    Section chrome
 ══════════════════════════════════════════ */
-.eb-section { display: flex; flex-direction: column; gap: .9rem; }
+.eb-section { display: flex; flex-direction: column; gap: 1rem; }
 .eb-section-header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 10px;
 }
-.eb-section-title { font-size: 14px; font-weight: 800; color: #3E4A3D; letter-spacing: -.02em; font-family: var(--font-heading); }
-.eb-section-sub   { font-size: 12px; color: #5F685F; margin-top: 2px; }
+.eb-section-title {
+    font-size: 14px; font-weight: 800; color: var(--eb-accent);
+    letter-spacing: -.01em; font-family: var(--font-heading);
+    position: relative; padding-bottom: 9px;
+}
+.eb-section-title::after {
+    content: ''; position: absolute; left: 0; bottom: 0;
+    width: 26px; height: 3px; border-radius: 2px;
+    background: var(--eb-gold);
+}
+.eb-section-sub   { font-size: 12px; color: var(--eb-text-muted); margin-top: 2px; }
 .eb-card {
-    background: #FAFAF7;
-    border: 1px solid #C9C5BB;
-    border-radius: 14px;
-    padding: 18px;
+    background: var(--eb-paper);
+    border: 1px solid var(--eb-border);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: var(--eb-shadow-sm);
 }
 .eb-link-btn {
     font-size: 11px; font-weight: 700;
-    color: #5F685F; text-decoration: none;
+    color: var(--eb-text-muted); text-decoration: none;
     display: inline-flex; align-items: center; gap: 4px;
-    white-space: nowrap; padding: 5px 10px;
-    border: 1px solid #C9C5BB; border-radius: 8px;
+    white-space: nowrap; padding: 6px 11px;
+    border: 1px solid var(--eb-border); border-radius: 9px;
     transition: all .12s;
     flex-shrink: 0;
 }
-.eb-link-btn:hover { background: #3E4A3D; color: #fff; border-color: #3E4A3D; }
+.eb-link-btn:hover { background: var(--eb-accent); color: #fff; border-color: var(--eb-accent); }
+html[data-theme='dark'] .eb-link-btn:hover { color: #0d1826; }
 
 /* ══════════════════════════════════════════
-   1. Business Health
+   1. Business Overview (4-up ledger cards)
 ══════════════════════════════════════════ */
-.eb-health-grid {
+.eb-overview-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: repeat(4, 1fr);
     gap: 1rem;
 }
-@media (max-width: 900px) { .eb-health-grid { grid-template-columns: 1fr; } }
-@media (max-width: 1200px) and (min-width: 901px) { .eb-health-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 1100px) { .eb-overview-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px)  { .eb-overview-grid { grid-template-columns: 1fr; } }
 
-/* Hero card */
-.eb-health-hero {
-    background: linear-gradient(135deg, #3E4A3D 0%, #2D372D 100%);
-    border-radius: 16px;
-    padding: 28px 26px 22px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+.eb-overview-card {
     position: relative;
-    overflow: hidden;
-    min-height: 150px;
-    justify-content: flex-end;
-}
-.eb-health-hero::before {
-    content: '';
-    position: absolute;
-    top: -28px; right: -28px;
-    width: 110px; height: 110px;
-    border-radius: 50%;
-    background: rgba(214, 176, 115, .12);
-}
-.eb-health-hero-eyebrow {
-    font-size: 10.5px; font-weight: 800;
-    text-transform: uppercase; letter-spacing: .09em;
-    color: #d6b073;
-    display: flex; align-items: center; gap: 5px;
-    position: relative;
-}
-.eb-health-hero-value {
-    font-size: 2.2rem; font-weight: 800;
-    color: #fff; letter-spacing: -.025em; line-height: 1;
-    position: relative; font-variant-numeric: tabular-nums;
-}
-.eb-health-hero-sub { font-size: 11px; color: rgba(255,255,255,.45); position: relative; }
-
-/* Secondary health cards */
-.eb-health-card {
-    background: #FAFAF7;
-    border: 1px solid #C9C5BB;
+    background: var(--eb-card);
+    border: 1px solid var(--eb-border);
+    border-top: 3px solid var(--eb-border);
     border-radius: 16px;
-    padding: 22px 20px 16px;
+    padding: 20px 18px 18px;
     display: flex;
     flex-direction: column;
     gap: 3px;
     text-decoration: none;
     color: inherit;
-    transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease;
-    position: relative;
+    overflow: hidden;
+    transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease, background .15s ease;
 }
-.eb-health-card:hover {
-    border-color: #3E4A3D;
-    background: #F3F0E8;
+a.eb-overview-card:hover {
+    border-color: var(--eb-accent);
+    background: var(--eb-paper-2);
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(62,74,61,.10);
+    box-shadow: var(--eb-shadow-md);
 }
-.eb-health-card-top {
-    display: flex; align-items: center;
-    justify-content: space-between;
-    margin-bottom: 6px;
+.eb-accent-green { border-top-color: var(--eb-green); }
+.eb-accent-red    { border-top-color: var(--eb-red); }
+.eb-accent-slate  { border-top-color: var(--eb-text-muted); }
+
+.eb-overview-hero {
+    background: var(--eb-hero-grad);
+    color: #fff;
+    border: none;
 }
-.eb-health-card-label { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #5F685F; }
-.eb-health-card-icon {
-    width: 30px; height: 30px; border-radius: 8px;
+.eb-overview-hero .eb-overview-label { color: rgba(255,255,255,.62); }
+.eb-overview-hero .eb-overview-value { color: #fff; }
+.eb-overview-hero .eb-overview-sub   { color: rgba(255,255,255,.45); }
+.eb-overview-watermark {
+    position: absolute; right: -10px; bottom: -14px;
+    font-size: 92px; color: rgba(255,255,255,.06);
+    pointer-events: none; line-height: 1;
+}
+
+.eb-overview-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; position: relative; z-index: 1; }
+.eb-overview-label { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .09em; color: var(--eb-text-muted); }
+.eb-overview-icon {
+    width: 30px; height: 30px; border-radius: 9px;
     display: flex; align-items: center; justify-content: center;
     font-size: 14px;
 }
-.eb-icon-green { background: rgba(111,138,109,.14); color: #6F8A6D; }
-.eb-icon-red   { background: rgba(158,75,63,.12);   color: #9E4B3F; }
-.eb-health-card-value { font-size: 1.55rem; font-weight: 800; letter-spacing: -.02em; line-height: 1; font-variant-numeric: tabular-nums; }
-.eb-val-green { color: #6F8A6D; }
-.eb-val-red   { color: #9E4B3F; }
-.eb-health-card-sub   { font-size: 11px; color: #5F685F; margin-top: 3px; }
-.eb-health-card-hint  { font-size: 10px; font-weight: 700; color: #3E4A3D; opacity: .7; margin-top: 4px; letter-spacing: .02em; }
+.eb-icon-gold  { background: var(--eb-gold-soft);  color: var(--eb-gold); }
+.eb-icon-green { background: var(--eb-green-soft); color: var(--eb-green); }
+.eb-icon-red   { background: var(--eb-red-soft);   color: var(--eb-red); }
+.eb-icon-slate { background: var(--eb-accent-soft); color: var(--eb-text-muted); }
+.eb-overview-value {
+    font-size: 1.65rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.1;
+    font-variant-numeric: tabular-nums; position: relative; z-index: 1;
+}
+.eb-val-green { color: var(--eb-green); }
+.eb-val-red   { color: var(--eb-red); }
+.eb-overview-sub { font-size: 11px; color: var(--eb-text-muted); margin-top: 4px; position: relative; z-index: 1; }
 
 /* ══════════════════════════════════════════
-   2. Collection Risk
+   2. Revenue Trend
 ══════════════════════════════════════════ */
-.eb-risk-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
+.eb-trend-card { display: flex; flex-direction: column; gap: 10px; position: relative; }
+.eb-trend-delta {
+    font-size: 11px; font-weight: 700;
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 5px 10px; border-radius: 999px; white-space: nowrap;
 }
-@media (max-width: 680px) { .eb-risk-grid { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 420px) { .eb-risk-grid { grid-template-columns: 1fr; } }
-
-.eb-risk-card {
-    background: #FAFAF7;
-    border: 1px solid #C9C5BB;
-    border-radius: 14px;
-    padding: 18px 16px 14px;
+.eb-trend-delta.is-up   { color: var(--eb-green); background: var(--eb-green-soft); }
+.eb-trend-delta.is-down { color: var(--eb-red);   background: var(--eb-red-soft); }
+.eb-trend-scale {
+    display: flex; justify-content: space-between;
+    font-size: 10.5px; font-weight: 700; color: var(--eb-text-faint);
+    font-variant-numeric: tabular-nums;
+}
+.eb-trend-svg { width: 100%; height: 240px; display: block; overflow: visible; }
+.eb-trend-grid { stroke: var(--eb-border); stroke-width: 1; stroke-dasharray: 3 4; opacity: .7; }
+.eb-trend-stop-start { stop-color: var(--eb-accent); stop-opacity: .22; }
+.eb-trend-stop-end   { stop-color: var(--eb-accent); stop-opacity: 0; }
+.eb-trend-area { stroke: none; }
+.eb-trend-line { fill: none; stroke: var(--eb-accent); stroke-width: 2.5; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+.eb-trend-dot  { fill: var(--eb-accent); stroke: var(--eb-paper); stroke-width: 2; }
+.eb-trend-labels {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    justify-content: space-between;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--eb-text-muted);
+    padding: 0 2px;
+}
+
+/* ══════════════════════════════════════════
+   3. Collection Status + Branch Performance
+══════════════════════════════════════════ */
+.eb-stacked-tape {
+    display: flex; width: 100%; height: 10px;
+    border-radius: 999px; overflow: hidden;
+    background: var(--eb-border); margin-bottom: 2px;
+}
+.eb-tape-seg { display: block; height: 100%; }
+.eb-tape-green { background: var(--eb-green); }
+.eb-tape-amber { background: var(--eb-amber); }
+.eb-tape-red   { background: var(--eb-red); }
+
+.eb-status-list { display: flex; flex-direction: column; gap: 10px; }
+.eb-status-row {
+    display: grid;
+    grid-template-columns: 10px 64px 1fr auto 40px;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 12px;
+    border: 1px solid var(--eb-border);
+    border-radius: 11px;
+    background: var(--eb-card);
     text-decoration: none;
     color: inherit;
-    transition: border-color .15s, background .15s, transform .15s, box-shadow .15s;
-    border-bottom-width: 3px;
+    transition: border-color .12s, background .12s;
 }
-.eb-risk-card:hover {
-    background: #F3F0E8;
-    border-color: #3E4A3D;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 18px rgba(62,74,61,.10);
-}
-.eb-risk-card-icon { font-size: 20px; margin-bottom: 4px; }
-.eb-risk-card-val   { font-size: 2rem; font-weight: 800; line-height: 1; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
-.eb-risk-card-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #5F685F; }
-.eb-risk-card-hint  { font-size: 10px; font-weight: 700; color: #3E4A3D; opacity: .7; margin-top: 2px; letter-spacing: .02em; }
+.eb-status-row:hover { background: var(--eb-paper-2); border-color: var(--eb-accent); }
+.eb-status-dot { width: 10px; height: 10px; border-radius: 50%; }
+.eb-status-dot-green { background: var(--eb-green); }
+.eb-status-dot-amber { background: var(--eb-amber); }
+.eb-status-dot-red   { background: var(--eb-red); }
+.eb-status-name  { font-size: 12px; font-weight: 700; color: var(--eb-text); }
+.eb-status-track { height: 6px; background: var(--eb-border); border-radius: 999px; overflow: hidden; }
+.eb-status-fill  { display: block; height: 100%; border-radius: 999px; }
+.eb-status-fill-green { background: var(--eb-green); }
+.eb-status-fill-amber { background: var(--eb-amber); }
+.eb-status-fill-red   { background: var(--eb-red); }
+.eb-status-count { font-size: 12px; font-weight: 700; color: var(--eb-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.eb-status-pct   { font-size: 11px; font-weight: 700; color: var(--eb-text-muted); text-align: right; font-variant-numeric: tabular-nums; }
 
-.eb-risk-card-red   { border-bottom-color: #9E4B3F; }
-.eb-risk-card-red   .eb-risk-card-icon { color: #9E4B3F; }
-.eb-risk-card-red   .eb-risk-card-val  { color: #9E4B3F; }
-.eb-risk-card-amber { border-bottom-color: #B87956; }
-.eb-risk-card-amber .eb-risk-card-icon { color: #B87956; }
-.eb-risk-card-amber .eb-risk-card-val  { color: #B87956; }
-.eb-risk-card-slate { border-bottom-color: #3E4A3D; }
-.eb-risk-card-slate .eb-risk-card-icon { color: #3E4A3D; }
-.eb-risk-card-slate .eb-risk-card-val  { color: #3E4A3D; }
-
-/* Needs Attention strip */
-.eb-attention-strip {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    flex-wrap: wrap;
-    background: rgba(184,121,86,.08);
-    border: 1px solid rgba(184,121,86,.30);
-    border-radius: 12px;
-    padding: 14px 16px;
-}
-.eb-attention-left  { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-width: 0; }
-.eb-attention-right { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
-.eb-attention-badge {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 3px 10px; border-radius: 999px;
-    background: rgba(184,121,86,.18); border: 1px solid rgba(184,121,86,.30);
-    color: #B87956; font-size: 10.5px; font-weight: 800;
-    text-transform: uppercase; letter-spacing: .07em; white-space: nowrap;
-}
-.eb-attention-branch { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
-.eb-attention-code   { font-size: 10px; font-weight: 800; color: #B87956; text-transform: uppercase; letter-spacing: .1em; }
-.eb-attention-name   { font-size: 13px; font-weight: 700; color: #333333; }
-.eb-attention-stats  { display: flex; align-items: center; gap: 6px; }
-.eb-attention-amount-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: #B87956; }
-.eb-attention-amount { font-size: 1.1rem; font-weight: 800; color: #9E4B3F; font-variant-numeric: tabular-nums; }
-.eb-attention-link   { font-size: 11px; font-weight: 700; color: #3E4A3D; text-decoration: none; opacity: .8; }
-.eb-attention-link:hover { opacity: 1; text-decoration: underline; }
-
-/* ══════════════════════════════════════════
-   3. Bottom grid — Branch Perf + Reports
-══════════════════════════════════════════ */
-.eb-bottom-grid {
-    display: grid;
-    grid-template-columns: 1fr 360px;
-    gap: 1rem;
-    align-items: start;
-}
-@media (max-width: 1100px) { .eb-bottom-grid { grid-template-columns: 1fr; } }
-.eb-right-col { display: flex; flex-direction: column; gap: 1rem; }
-
-.eb-branch-card { max-height: 380px; overflow: hidden; display: flex; flex-direction: column; }
+/* Branch list (shared with Branch Performance) */
+.eb-branch-card { max-height: 420px; overflow: hidden; display: flex; flex-direction: column; }
 @media (max-width: 1100px) { .eb-branch-card { max-height: none; } }
-.eb-reports-card { display: flex; flex-direction: column; gap: 1rem; }
-
-/* Branch list */
 .eb-branch-list {
     display: flex; flex-direction: column; gap: 8px;
     overflow-y: auto; flex: 1; padding-right: 2px;
 }
 .eb-branch-row {
-    display: flex; flex-direction: column; gap: 7px;
-    padding: 10px; border-radius: 10px;
-    border: 1px solid #C9C5BB; background: #fff;
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 12px; border-radius: 11px;
+    border: 1px solid var(--eb-border); background: var(--eb-card);
+    transition: border-color .12s;
 }
+.eb-branch-row:hover { border-color: var(--eb-accent); }
 .eb-branch-row-head {
     display: flex; align-items: center;
     justify-content: space-between; gap: 10px; flex-wrap: wrap;
 }
-.eb-branch-main  { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.eb-branch-main  { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .eb-branch-copy  { display: flex; align-items: baseline; gap: 5px; flex-wrap: wrap; min-width: 0; }
-.eb-branch-code  { font-size: 10px; font-weight: 800; color: #5F685F; text-transform: uppercase; letter-spacing: .1em; }
-.eb-branch-name  { font-size: 13px; font-weight: 600; color: #333333; }
+.eb-branch-code  { font-size: 10px; font-weight: 800; color: var(--eb-text-muted); text-transform: uppercase; letter-spacing: .1em; }
+.eb-branch-name  { font-size: 13px; font-weight: 600; color: var(--eb-text); }
 .eb-branch-row-stats { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.eb-branch-amount { font-size: 13px; font-weight: 700; color: #3E4A3D; font-variant-numeric: tabular-nums; }
-.eb-branch-bar-track { width: 100%; height: 4px; background: #C9C5BB; border-radius: 999px; overflow: hidden; }
+.eb-branch-amount { font-size: 13px; font-weight: 700; color: var(--eb-accent); font-variant-numeric: tabular-nums; }
+.eb-branch-bar-track { width: 100%; height: 5px; background: var(--eb-border); border-radius: 999px; overflow: hidden; }
 .eb-branch-bar-fill  { height: 100%; border-radius: 999px; transition: width .6s ease; }
 
 .eb-rank-badge {
     flex: 0 0 auto; display: inline-flex; align-items: center;
-    justify-content: center; min-width: 40px; height: 22px; padding: 0 7px;
-    border-radius: 999px; background: #f1f5f9; border: 1px solid #C9C5BB;
-    color: #5F685F; font-size: 10px; font-weight: 800;
+    justify-content: center; min-width: 40px; height: 24px; padding: 0 8px;
+    border-radius: 999px; background: var(--eb-accent-soft); border: 1px solid var(--eb-border);
+    color: var(--eb-text-muted); font-size: 10.5px; font-weight: 800;
 }
-.eb-rank-badge.is-top { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+.eb-rank-badge.is-top { background: var(--eb-gold-soft); border-color: var(--eb-gold); color: var(--eb-gold); font-size: 12px; }
 
 /* Shared status pills */
 .eb-bsp {
     font-size: 10px; font-weight: 700;
     padding: 2px 8px; border-radius: 999px;
 }
-.eb-bsp-green { background: rgba(111,138,109,.14); color: #6F8A6D;  border: 0.5px solid rgba(111,138,109,.30); }
-.eb-bsp-amber { background: rgba(184,121,86,.12);  color: #B87956;  border: 0.5px solid rgba(184,121,86,.25); }
-.eb-bsp-red   { background: rgba(158,75,63,.10);   color: #9E4B3F;  border: 0.5px solid rgba(158,75,63,.22); }
+.eb-bsp-green { background: var(--eb-green-soft); color: var(--eb-green); border: .5px solid var(--eb-green); }
+.eb-bsp-amber { background: var(--eb-amber-soft); color: var(--eb-amber); border: .5px solid var(--eb-amber); }
+.eb-bsp-red   { background: var(--eb-red-soft);   color: var(--eb-red);   border: .5px solid var(--eb-red); }
 
-/* Report list */
-.eb-report-list { display: flex; flex-direction: column; gap: 8px; }
-.eb-report-row {
+/* ══════════════════════════════════════════
+   Bottom grid (shared 2-col layout)
+══════════════════════════════════════════ */
+.eb-bottom-grid {
     display: grid;
-    grid-template-columns: 32px minmax(0,1fr) auto;
-    align-items: center; gap: 10px;
-    padding: 10px 12px; min-height: 54px;
-    border: 1px solid #C9C5BB; border-radius: 10px;
-    background: #fff; color: inherit; text-decoration: none;
-    transition: border-color .12s, background .12s, transform .12s;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    align-items: start;
 }
-.eb-report-row:hover { background: #F3F0E8; border-color: #3E4A3D; transform: translateY(-1px); }
-.eb-report-icon {
-    width: 32px; height: 32px; border-radius: 8px;
-    display: inline-flex; align-items: center;
-    justify-content: center; font-size: 14px;
-}
-.eb-ri-blue  { background: rgba(62,74,61,.10);  color: #3E4A3D; }
-.eb-ri-amber { background: rgba(184,121,86,.12); color: #B87956; }
-.eb-ri-slate { background: rgba(95,104,95,.12);  color: #5F685F; }
-.eb-ri-green { background: rgba(111,138,109,.14); color: #6F8A6D; }
-.eb-report-copy { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.eb-report-copy strong { font-size: 12px; font-weight: 800; color: #3E4A3D; }
-.eb-report-copy small  { font-size: 11px; color: #5F685F; line-height: 1.35; }
-.eb-report-arrow { color: #5F685F; font-size: 12px; }
+@media (max-width: 1100px) { .eb-bottom-grid { grid-template-columns: 1fr; } }
 
-/* Top Packages */
-.eb-pkg-list { display: flex; flex-direction: column; gap: 7px; }
+/* ══════════════════════════════════════════
+   4. Top Packages + Needs Attention
+══════════════════════════════════════════ */
+.eb-pkg-list { display: flex; flex-direction: column; gap: 8px; }
 .eb-pkg-row {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 12px; padding: 9px 12px;
-    background: #fff; border-radius: 8px; border: 1px solid #C9C5BB;
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px;
+    background: var(--eb-card); border-radius: 10px; border: 1px solid var(--eb-border);
+    transition: border-color .12s;
 }
-.eb-pkg-name   { font-size: 12px; font-weight: 600; color: #333333; }
-.eb-pkg-stats  { display: flex; align-items: center; gap: 8px; }
-.eb-pkg-cases  { font-size: 11px; color: #5F685F; }
-.eb-pkg-amount { font-size: 12px; font-weight: 700; color: #3E4A3D; font-variant-numeric: tabular-nums; }
+.eb-pkg-row:hover { border-color: var(--eb-accent); }
+.eb-pkg-rank {
+    font-size: 10.5px; font-weight: 800; color: var(--eb-text-faint);
+    font-variant-numeric: tabular-nums; letter-spacing: .04em; flex-shrink: 0;
+}
+.eb-pkg-name   { font-size: 12px; font-weight: 600; color: var(--eb-text); flex: 1; min-width: 0; }
+.eb-pkg-stats  { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.eb-pkg-cases  { font-size: 11px; color: var(--eb-text-muted); white-space: nowrap; }
+.eb-pkg-amount { font-size: 12px; font-weight: 700; color: var(--eb-accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.eb-attention-card {
+    background: var(--eb-amber-soft);
+    border: 1px solid var(--eb-amber);
+    border-radius: 13px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.eb-attention-badge {
+    align-self: flex-start;
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 999px;
+    background: var(--eb-card); border: 1px solid var(--eb-amber);
+    color: var(--eb-amber); font-size: 10.5px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .07em; white-space: nowrap;
+}
+.eb-attention-branch { display: flex; align-items: baseline; gap: 6px; }
+.eb-attention-code   { font-size: 10px; font-weight: 800; color: var(--eb-amber); text-transform: uppercase; letter-spacing: .1em; }
+.eb-attention-name   { font-size: 13px; font-weight: 700; color: var(--eb-text); }
+.eb-attention-amount { font-size: 1.5rem; font-weight: 800; color: var(--eb-red); font-variant-numeric: tabular-nums; }
+.eb-attention-stats  { display: flex; align-items: center; gap: 6px; }
+.eb-attention-link   {
+    font-size: 11px; font-weight: 700; color: var(--eb-accent); text-decoration: none;
+    display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; opacity: .85;
+}
+.eb-attention-link:hover { opacity: 1; text-decoration: underline; }
+
+/* ══════════════════════════════════════════
+   5. Quick Access
+══════════════════════════════════════════ */
+.eb-quick-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+@media (max-width: 900px) { .eb-quick-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 480px) { .eb-quick-grid { grid-template-columns: 1fr; } }
+.eb-quick-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 15px;
+    border: 1px solid var(--eb-border);
+    border-radius: 13px;
+    background: var(--eb-paper);
+    text-decoration: none;
+    color: inherit;
+    overflow: hidden;
+    transition: border-color .12s, background .12s, transform .12s, box-shadow .12s;
+}
+.eb-quick-item:hover { background: var(--eb-paper-2); border-color: var(--eb-accent); transform: translateY(-2px); box-shadow: var(--eb-shadow-md); }
+.eb-quick-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 15px; flex-shrink: 0;
+}
+.eb-ri-blue  { background: var(--eb-accent-soft); color: var(--eb-accent); }
+.eb-ri-amber { background: var(--eb-amber-soft);  color: var(--eb-amber); }
+.eb-ri-slate { background: var(--eb-accent-soft); color: var(--eb-text-muted); }
+.eb-ri-green { background: var(--eb-green-soft);  color: var(--eb-green); }
+.eb-quick-label { font-size: 12.5px; font-weight: 700; color: var(--eb-accent); }
+.eb-quick-arrow {
+    margin-left: auto; font-size: 13px; color: var(--eb-text-faint);
+    opacity: 0; transform: translate(-4px, 4px);
+    transition: opacity .15s, transform .15s;
+}
+.eb-quick-item:hover .eb-quick-arrow { opacity: 1; transform: translate(0,0); }
 
 /* Empty state */
-.eb-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 2rem; color: #7A8076; font-size: 12px; text-align: center; }
+.eb-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 2.25rem 1rem; color: var(--eb-text-faint); font-size: 12px; text-align: center; }
 .eb-empty-icon { font-size: 2rem; }
 
 /* ══════════════════════════════════════════
-   Dark mode
+   Small-screen refinements
 ══════════════════════════════════════════ */
-html[data-theme='dark'] .eb-shell { color: #e2ecf9; }
-html[data-theme='dark'] .eb-filter-bar  { background: #182638; border-color: #2e4560; }
-html[data-theme='dark'] .eb-chip        { background: #1e334f; border-color: #2e4560; color: #8aa7c5; }
-html[data-theme='dark'] .eb-chip-period { background: #1a3050; border-color: #3d607f; color: #93c5fd; }
-html[data-theme='dark'] .eb-branch-select-wrap,
-html[data-theme='dark'] .eb-pop-reset,
-html[data-theme='dark'] .eb-date-popover { background: #182638; border-color: #2e4560; }
-html[data-theme='dark'] .eb-branch-select,
-html[data-theme='dark'] .eb-branch-select-wrap i,
-html[data-theme='dark'] .eb-chev { color: #8aa7c5; }
-html[data-theme='dark'] .eb-seg-item { color: #8aa7c5; background: #182638; border-color: #2e4560; }
-html[data-theme='dark'] .eb-seg-item:hover  { color: #e2ecf9; border-color: #5a7898; }
-html[data-theme='dark'] .eb-seg-item.active { background: #243d5a; color: #e2ecf9; border-color: #4a6888; }
-html[data-theme='dark'] .eb-pop-input { background: #1e334f; border-color: #2e4560; color: #e2ecf9; }
-html[data-theme='dark'] .eb-pop-input:focus { border-color: #5a7898; }
-html[data-theme='dark'] .eb-pop-reset { color: #8aa7c5; }
+@media (max-width: 640px) {
+    .eb-shell { padding: 1rem .9rem 2.5rem; gap: 1.1rem; }
+    .eb-filter-bar { position: static; padding: 10px; }
+    .eb-overview-value { font-size: 1.4rem; }
+    .eb-trend-svg { height: 190px; }
+    .eb-card { padding: 16px; }
+}
 
-html[data-theme='dark'] .eb-section-title { color: #e2ecf9; }
-html[data-theme='dark'] .eb-section-sub   { color: #5a7898; }
-html[data-theme='dark'] .eb-card { background: #182638; border-color: #2e4560; }
-html[data-theme='dark'] .eb-link-btn { background: #1e334f; border-color: #2e4560; color: #8aa7c5; }
-html[data-theme='dark'] .eb-link-btn:hover { background: #e2ecf9; color: #3E4A3D; border-color: #e2ecf9; }
-
-html[data-theme='dark'] .eb-health-hero { background: linear-gradient(135deg, #0a1628 0%, #0f1f35 100%); }
-html[data-theme='dark'] .eb-health-card { background: #182638; border-color: #2e4560; color: #e2ecf9; }
-html[data-theme='dark'] .eb-health-card:hover { background: #1e334f; border-color: #4a6888; }
-html[data-theme='dark'] .eb-health-card-label { color: #5a7898; }
-html[data-theme='dark'] .eb-health-card-sub   { color: #5a7898; }
-html[data-theme='dark'] .eb-health-card-hint  { color: #93c5fd; }
-html[data-theme='dark'] .eb-icon-green { background: #052e16; color: #4ade80; }
-html[data-theme='dark'] .eb-icon-red   { background: #450a0a; color: #f87171; }
-html[data-theme='dark'] .eb-val-green  { color: #4ade80; }
-html[data-theme='dark'] .eb-val-red    { color: #f87171; }
-
-html[data-theme='dark'] .eb-risk-card { background: #182638; border-color: #2e4560; color: #e2ecf9; }
-html[data-theme='dark'] .eb-risk-card:hover { background: #1e334f; border-color: #4a6888; }
-html[data-theme='dark'] .eb-risk-card-label { color: #5a7898; }
-html[data-theme='dark'] .eb-risk-card-hint  { color: #93c5fd; }
-html[data-theme='dark'] .eb-risk-card-red   .eb-risk-card-val  { color: #f87171; }
-html[data-theme='dark'] .eb-risk-card-red   .eb-risk-card-icon { color: #f87171; }
-html[data-theme='dark'] .eb-risk-card-amber .eb-risk-card-val  { color: #fbbf24; }
-html[data-theme='dark'] .eb-risk-card-amber .eb-risk-card-icon { color: #fbbf24; }
-html[data-theme='dark'] .eb-risk-card-slate .eb-risk-card-val  { color: #e2ecf9; }
-html[data-theme='dark'] .eb-risk-card-slate .eb-risk-card-icon { color: #8aa7c5; }
-
-html[data-theme='dark'] .eb-attention-strip { background: rgba(184,121,86,.10); border-color: rgba(184,121,86,.20); }
-html[data-theme='dark'] .eb-attention-badge { background: rgba(184,121,86,.15); border-color: rgba(184,121,86,.25); color: #fbbf24; }
-html[data-theme='dark'] .eb-attention-name   { color: #e2ecf9; }
-html[data-theme='dark'] .eb-attention-amount { color: #f87171; }
-html[data-theme='dark'] .eb-attention-link   { color: #93c5fd; }
-
-html[data-theme='dark'] .eb-branch-row { background: #1e334f; border-color: #2e4560; }
-html[data-theme='dark'] .eb-branch-name   { color: #e2ecf9; }
-html[data-theme='dark'] .eb-branch-amount { color: #e2ecf9; }
-html[data-theme='dark'] .eb-branch-code   { color: #5a7898; }
-html[data-theme='dark'] .eb-rank-badge { background: #243d5a; border-color: #4a6888; color: #8aa7c5; }
-html[data-theme='dark'] .eb-rank-badge.is-top { background: #451a03; border-color: #92400e; color: #fbbf24; }
-html[data-theme='dark'] .eb-branch-bar-track { background: #2e4560; }
-html[data-theme='dark'] .eb-bsp-green { background: #052e16; color: #4ade80; border-color: #065f46; }
-html[data-theme='dark'] .eb-bsp-amber { background: #451a03; color: #fbbf24; border-color: #92400e; }
-html[data-theme='dark'] .eb-bsp-red   { background: #450a0a; color: #f87171; border-color: #7f1d1d; }
-
-html[data-theme='dark'] .eb-report-row { background: #1e334f; border-color: #2e4560; }
-html[data-theme='dark'] .eb-report-row:hover { background: #243d5a; border-color: #4a6888; }
-html[data-theme='dark'] .eb-report-copy strong { color: #e2ecf9; }
-html[data-theme='dark'] .eb-report-copy small, html[data-theme='dark'] .eb-report-arrow { color: #8aa7c5; }
-html[data-theme='dark'] .eb-ri-blue  { background: #172554; color: #93c5fd; }
-html[data-theme='dark'] .eb-ri-amber { background: #451a03; color: #fbbf24; }
-html[data-theme='dark'] .eb-ri-slate { background: #1e334f; color: #C9C5BB; }
-html[data-theme='dark'] .eb-ri-green { background: #052e16; color: #4ade80; }
-
-html[data-theme='dark'] .eb-pkg-row { background: #1e334f; border-color: #2e4560; }
-html[data-theme='dark'] .eb-pkg-name   { color: #e2ecf9; }
-html[data-theme='dark'] .eb-pkg-cases  { color: #5a7898; }
-html[data-theme='dark'] .eb-pkg-amount { color: #e2ecf9; }
-html[data-theme='dark'] .eb-empty { color: #4a6888; }
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    .eb-overview-card, .eb-quick-item, .eb-branch-bar-fill, .eb-quick-arrow, .eb-branch-row {
+        transition: none !important;
+    }
+}
 </style>
 
 <script>

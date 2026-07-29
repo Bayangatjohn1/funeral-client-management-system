@@ -18,14 +18,16 @@ class IntakePricingService
     public function price(?Package $package, array $validated, bool $isCustomPackage = false, ?Carbon $referenceAt = null): array
     {
         $referenceAt ??= now();
-        $wakeDays = $this->inclusiveDays($validated['wake_start_date'] ?? null, $validated['interment_at'] ?? null);
+        $wakeDuration = WakeDuration::calculate($validated['wake_start_date'] ?? null, $validated['interment_at'] ?? null);
+        $wakeDays = $wakeDuration['days'] ?? 0;
+        $wakeNights = $wakeDuration['nights'] ?? 0;
         $basePrice = round((float) ($isCustomPackage ? ($validated['custom_package_price'] ?? 0) : ($package?->price ?? 0)), 2);
         $additionalItems = $this->additionalItems($validated);
         $additionalTotal = round(collect($additionalItems)->sum('amount'), 2);
 
         if ($isCustomPackage) {
             $discount = $this->automaticDiscount($validated, $basePrice, null, $referenceAt);
-            return $this->buildResult(null, $basePrice, [], collect(), 0.00, $additionalItems, $additionalTotal, round($basePrice + $additionalTotal, 2), $discount, (float) ($validated['tax_rate'] ?? 0), $wakeDays, true, null);
+            return $this->buildResult(null, $basePrice, [], collect(), 0.00, $additionalItems, $additionalTotal, round($basePrice + $additionalTotal, 2), $discount, (float) ($validated['tax_rate'] ?? 0), $wakeDays, $wakeNights, true, null);
         }
 
         $package?->loadMissing(['packageInclusions.casketCatalog', 'packageFreebies']);
@@ -33,13 +35,14 @@ class IntakePricingService
         if ($casketCharge = $this->casketUpgradeCharge($package, $validated)) {
             $serviceCharges[] = $casketCharge;
         }
+        $adjustments = $this->adjustmentSnapshot($package, $validated, $serviceCharges, $casketCharge);
 
         [$selectedAddOns, $addOnsTotal] = $this->selectedAddOns($validated['selected_add_ons'] ?? []);
         $serviceChargesTotal = round(collect($serviceCharges)->sum('amount'), 2);
         $subtotal = round($basePrice + $serviceChargesTotal + $addOnsTotal + $additionalTotal, 2);
         $discount = $this->automaticDiscount($validated, $basePrice, $package, $referenceAt);
 
-        return $this->buildResult($package, $basePrice, $serviceCharges, $selectedAddOns, $addOnsTotal, $additionalItems, $additionalTotal, $subtotal, $discount, (float) ($validated['tax_rate'] ?? 0), $wakeDays, false, $casketCharge['selected_casket'] ?? null);
+        return $this->buildResult($package, $basePrice, $serviceCharges, $selectedAddOns, $addOnsTotal, $additionalItems, $additionalTotal, $subtotal, $discount, (float) ($validated['tax_rate'] ?? 0), $wakeDays, $wakeNights, false, $casketCharge['selected_casket'] ?? null, $adjustments);
     }
 
     public function validateSelections(?Package $package, array $validated, bool $isCustomPackage): array
@@ -85,15 +88,21 @@ class IntakePricingService
 
         $charges = [];
         $rows = $this->rowsByServiceType($package);
-        foreach ([Package::SERVICE_BODY_RETRIEVAL => 'actual_retrieval_kilometers', Package::SERVICE_HEARSE => 'actual_hearse_kilometers'] as $type => $field) {
+        foreach ([
+            Package::SERVICE_BODY_RETRIEVAL => ['apply_retrieval_excess', 'retrieval_excess_kilometers', 'actual_retrieval_kilometers'],
+            Package::SERVICE_HEARSE => ['apply_hearse_excess', 'hearse_excess_kilometers', 'actual_hearse_kilometers'],
+        ] as $type => [$applyField, $excessField, $legacyActualField]) {
             $row = $rows->get($type);
-            $actual = round((float) ($validated[$field] ?? 0), 2);
             $included = (float) ($row?->included_kilometers ?? 0);
             $rate = (float) ($row?->price_per_excess_kilometer ?? 0);
-            $excess = max($actual - $included, 0);
+            $usesExplicitAdjustment = array_key_exists($applyField, $validated) || array_key_exists($excessField, $validated);
+            $applied = (bool) ($validated[$applyField] ?? false);
+            $excess = $usesExplicitAdjustment
+                ? ($applied ? round((float) ($validated[$excessField] ?? 0), 2) : 0.00)
+                : max(round((float) ($validated[$legacyActualField] ?? 0), 2) - $included, 0);
             $amount = round($excess * $rate, 2);
             if ($row && $amount > 0) {
-                $charges[] = ['type' => $type, 'label' => Package::serviceTypeOptions()[$type] ?? $type, 'actual' => $actual, 'included' => $included, 'rate' => $rate, 'excess' => $excess, 'amount' => $amount];
+                $charges[] = ['type' => $type, 'label' => Package::serviceTypeOptions()[$type] ?? $type, 'applied' => true, 'included' => $included, 'rate' => $rate, 'excess' => $excess, 'amount' => $amount];
             }
         }
 
@@ -181,7 +190,7 @@ class IntakePricingService
         return ['discount_type' => 'NONE', 'discount_value_type' => 'AMOUNT', 'discount_value' => 0, 'discount_amount' => 0, 'discount_note' => null, 'source' => 'None'];
     }
 
-    private function buildResult(?Package $package, float $basePrice, array $serviceCharges, Collection $selectedAddOns, float $addOnsTotal, array $additionalItems, float $additionalTotal, float $subtotal, array $discountPayload, float $taxRate, int $wakeDays, bool $isCustomPackage, ?array $selectedCasket): array
+    private function buildResult(?Package $package, float $basePrice, array $serviceCharges, Collection $selectedAddOns, float $addOnsTotal, array $additionalItems, float $additionalTotal, float $subtotal, array $discountPayload, float $taxRate, int $wakeDays, int $wakeNights, bool $isCustomPackage, ?array $selectedCasket, array $adjustments = []): array
     {
         $discountAmount = round((float) ($discountPayload['discount_amount'] ?? 0), 2);
         $net = round(max($subtotal - $discountAmount, 0), 2);
@@ -205,6 +214,8 @@ class IntakePricingService
             'tax_amount' => $taxAmount,
             'total' => $total,
             'wake_days' => $wakeDays,
+            'wake_nights' => $wakeNights,
+            'wake_duration' => WakeDuration::labelFromDays($wakeDays),
             'included_casket' => $includedCasket,
             'selected_casket' => $selectedCasket,
             'snapshot' => [
@@ -215,7 +226,11 @@ class IntakePricingService
                 'freebies' => $package ? $package->packageFreebies->map(fn ($row) => ['name' => $row->freebie_name, 'quantity' => $row->quantity, 'unit' => $row->unit])->values()->all() : [],
                 'included_casket' => $includedCasket,
                 'selected_casket' => $selectedCasket,
+                'promo' => $this->promoSnapshot($package),
+                'adjustments' => $adjustments,
                 'wake_days' => $wakeDays,
+                'wake_nights' => $wakeNights,
+                'wake_duration' => WakeDuration::labelFromDays($wakeDays),
                 'service_charges' => $serviceCharges,
                 'add_ons' => $selectedAddOns->map(fn ($addOn) => ['id' => $addOn->id, 'name' => $addOn->name, 'category' => $addOn->category, 'description' => $addOn->description, 'price' => (float) $addOn->price, 'unit' => $addOn->unit])->values()->all(),
                 'additional_items' => $additionalItems,
@@ -237,19 +252,62 @@ class IntakePricingService
         return ['id' => $catalog?->id, 'name' => $catalog?->name ?: $row->casket_type, 'material' => $catalog?->type_or_material, 'reference_value' => (float) ($catalog?->standard_price ?? 0), 'legacy_text' => $row->casket_type];
     }
 
-    private function inclusiveDays(?string $start, ?string $end): int
+    private function promoSnapshot(?Package $package): ?array
     {
-        if (! $start || ! $end) {
-            return 0;
+        if (! $package || ! $package->is_promo_effective) {
+            return null;
         }
 
-        $startDate = Carbon::parse($start)->startOfDay();
-        $endDate = Carbon::parse($end)->startOfDay();
-        if ($endDate->lt($startDate)) {
-            return 0;
+        return [
+            'label' => $package->promo_label ?: 'Package Promo',
+            'value_type' => $package->promo_value_type,
+            'value' => (float) $package->promo_value,
+            'starts_at' => $package->promo_starts_at?->copy()->timezone('Asia/Manila')->toDateTimeString(),
+            'ends_at' => $package->promo_ends_at?->copy()->timezone('Asia/Manila')->toDateTimeString(),
+            'status' => 'Applied at intake',
+        ];
+    }
+
+    private function adjustmentSnapshot(?Package $package, array $validated, array $serviceCharges, ?array $casketCharge): array
+    {
+        if (! $package) {
+            return [];
         }
 
-        return min(365, $startDate->diffInDays($endDate) + 1);
+        $rows = $this->rowsByServiceType($package);
+        $charges = collect($serviceCharges)->keyBy('type');
+        $distanceAdjustment = function (string $type, string $applyField, string $excessField, string $legacyActualField) use ($rows, $charges, $validated): array {
+            $row = $rows->get($type);
+            $usesExplicitAdjustment = array_key_exists($applyField, $validated) || array_key_exists($excessField, $validated);
+            $applied = $usesExplicitAdjustment
+                ? (bool) ($validated[$applyField] ?? false)
+                : $charges->has($type);
+            $included = (float) ($row?->included_kilometers ?? 0);
+            $rate = (float) ($row?->price_per_excess_kilometer ?? 0);
+            $excess = $usesExplicitAdjustment
+                ? ($applied ? round((float) ($validated[$excessField] ?? 0), 2) : 0.00)
+                : max(round((float) ($validated[$legacyActualField] ?? 0), 2) - $included, 0);
+            $amount = round($excess * $rate, 2);
+
+            return [
+                'applied' => $applied,
+                'included_kilometers' => $included,
+                'excess_kilometers' => $excess,
+                'rate' => $rate,
+                'charge' => $amount,
+            ];
+        };
+
+        return [
+            'casket' => [
+                'applied' => $casketCharge !== null,
+                'included_reference_value' => (float) ($casketCharge['included'] ?? $this->includedCasket($package)['reference_value'] ?? 0),
+                'selected_reference_value' => (float) ($casketCharge['selected'] ?? 0),
+                'charge' => (float) ($casketCharge['amount'] ?? 0),
+            ],
+            'body_retrieval' => $distanceAdjustment(Package::SERVICE_BODY_RETRIEVAL, 'apply_retrieval_excess', 'retrieval_excess_kilometers', 'actual_retrieval_kilometers'),
+            'hearse' => $distanceAdjustment(Package::SERVICE_HEARSE, 'apply_hearse_excess', 'hearse_excess_kilometers', 'actual_hearse_kilometers'),
+        ];
     }
 
     private function rowsByServiceType(Package $package): Collection

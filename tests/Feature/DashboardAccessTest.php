@@ -163,6 +163,16 @@ class DashboardAccessTest extends TestCase
         }
     }
 
+    public function test_staff_funeral_case_create_route_uses_current_intake_flow(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $staff = $this->createUser('staff', $mainBranch);
+
+        $this->actingAs($staff)
+            ->get(route('funeral-cases.create'))
+            ->assertRedirect(route('intake.main.create'));
+    }
+
     private function createUser(string $role, ?Branch $branch = null): User
     {
         if ($role === 'admin' && !$branch) {

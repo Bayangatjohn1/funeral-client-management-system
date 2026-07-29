@@ -35,6 +35,7 @@ class FuneralContractValidationService
 
         $displayPackageName = $case->package_name_snapshot
             ?: ($case->service_package ?? $case->package?->name ?? $case->custom_package_name);
+        $this->require($missing, 'case.service_requested_at', 'Request Date', $case->service_requested_at);
         $this->require($missing, 'case.package', 'Package', $displayPackageName);
 
         if ($this->packageAmount($case) <= 0) {
@@ -77,10 +78,6 @@ class FuneralContractValidationService
 
         if ($case->custom_package_price !== null) {
             return (float) $case->custom_package_price;
-        }
-
-        if ($case->package?->price !== null) {
-            return (float) $case->package->price;
         }
 
         if ($case->subtotal_amount !== null) {

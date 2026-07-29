@@ -701,7 +701,6 @@ class PaymentController extends Controller
 
                 $funeralCase->update([
                     'payment_status' => $status,
-                    'paid_at' => $paidAt,
                     'total_paid' => $newPaid,
                     'balance_amount' => $balance,
                 ]);

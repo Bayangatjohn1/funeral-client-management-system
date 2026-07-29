@@ -390,6 +390,293 @@
     html:not([data-theme='dark']) .admin-dashboard-shell .absolute.left-\[23px\] {
         background-color: var(--color-border) !important;
     }
+
+    /* UI/UX refinement: simpler hierarchy, consistent card language, quieter chrome. */
+    .admin-dashboard-shell {
+        padding: .75rem clamp(.75rem, 1.2vw, 1.15rem) 1.4rem;
+        color: var(--color-text-primary);
+        background:
+            linear-gradient(90deg, rgba(62, 74, 61, 0.035) 0 1px, transparent 1px),
+            linear-gradient(180deg, rgba(62, 74, 61, 0.03) 0 1px, transparent 1px),
+            repeating-linear-gradient(135deg, rgba(62, 74, 61, 0.018) 0 1px, transparent 1px 12px);
+        background-size: 44px 44px, 44px 44px, 16px 16px;
+    }
+
+    .admin-dashboard-shell *,
+    .admin-dashboard-shell *::before,
+    .admin-dashboard-shell *::after {
+        box-shadow: none !important;
+    }
+
+    .admin-dashboard-shell a[href],
+    .admin-dashboard-shell button,
+    .admin-dashboard-shell select,
+    .admin-dashboard-shell [role="button"],
+    .admin-dashboard-shell .dashboard-click-card,
+    .admin-dashboard-shell .stat-card {
+        cursor: pointer;
+    }
+
+    .admin-dashboard-shell button:disabled,
+    .admin-dashboard-shell select:disabled,
+    .admin-dashboard-shell [aria-disabled="true"] {
+        cursor: not-allowed;
+    }
+
+    .admin-dashboard-shell > :not([hidden]) ~ :not([hidden]) {
+        margin-top: 1rem !important;
+    }
+
+    .admin-dashboard-shell .card-custom,
+    .admin-dashboard-shell .stat-card,
+    .admin-dashboard-shell .admin-top-controls,
+    .admin-dashboard-shell > .bg-white,
+    .admin-dashboard-shell .admin-section-block .bg-transparent,
+    .admin-dashboard-greeting,
+    .admin-dashboard-date-pill,
+    .admin-dashboard-shell .admin-financial-card,
+    .admin-dashboard-shell .dashboard-click-card,
+    .admin-dashboard-shell .rounded-\[2\.5rem\],
+    .admin-dashboard-shell .rounded-\[2rem\],
+    .admin-dashboard-shell .rounded-2xl {
+        border-radius: 8px !important;
+    }
+
+    .admin-dashboard-shell .card-custom,
+    .admin-dashboard-shell .stat-card,
+    .admin-dashboard-shell .admin-top-controls,
+    .admin-dashboard-shell > .bg-white,
+    .admin-dashboard-shell .admin-financial-card {
+        box-shadow: none !important;
+    }
+
+    .admin-dashboard-greeting {
+        padding: 1rem;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+    }
+
+    .admin-dashboard-greeting h1 {
+        font-size: clamp(1.45rem, 2vw, 1.85rem);
+        font-weight: 700;
+        letter-spacing: 0;
+        color: var(--color-text-primary);
+    }
+
+    .admin-dashboard-greeting p {
+        margin-top: .25rem;
+        font-size: .92rem;
+        font-weight: 600;
+        color: var(--color-text-secondary);
+    }
+
+    .admin-dashboard-shell .admin-top-controls {
+        padding: .85rem 1rem;
+        gap: .75rem;
+    }
+
+    .admin-dashboard-shell .admin-top-controls-form,
+    .admin-dashboard-shell .admin-top-controls-actions {
+        gap: .55rem;
+    }
+
+    .admin-dashboard-shell .admin-financial-card {
+        min-height: 124px !important;
+        padding: 1rem !important;
+    }
+
+    .admin-dashboard-shell .admin-financial-card h4 {
+        font-size: clamp(1.45rem, 2.4vw, 2rem) !important;
+    }
+
+    .admin-dashboard-shell .stat-card {
+        min-height: 128px;
+        padding: 1rem;
+        gap: .65rem !important;
+    }
+
+    .admin-dashboard-shell .stat-value {
+        font-size: clamp(1.35rem, 2vw, 1.85rem);
+        font-weight: 800;
+        letter-spacing: 0;
+        color: var(--color-text-primary);
+    }
+
+    .admin-dashboard-shell .dashboard-card-link-copy {
+        margin-top: auto;
+        color: var(--color-text-secondary);
+        font-size: .72rem;
+        letter-spacing: 0;
+        text-transform: none;
+    }
+
+    .admin-dashboard-shell a.stat-card:hover,
+    .admin-dashboard-shell .dashboard-click-card:hover {
+        transform: none;
+    }
+
+    .admin-dashboard-shell .admin-section-block h3,
+    .admin-dashboard-shell .admin-section-block h4,
+    .admin-dashboard-shell .admin-section-block h5 {
+        letter-spacing: 0 !important;
+    }
+
+    .admin-dashboard-shell .admin-section-block h3 {
+        font-size: .95rem !important;
+        font-weight: 700 !important;
+        text-transform: none !important;
+        color: var(--color-text-primary) !important;
+    }
+
+    .admin-dashboard-shell .admin-section-block p {
+        letter-spacing: 0 !important;
+        text-transform: none !important;
+        color: var(--color-text-secondary) !important;
+    }
+
+    .admin-dashboard-shell .rank-badge {
+        border-radius: 8px;
+        min-width: 38px;
+    }
+
+    .admin-dashboard-shell .admin-section-block .flex.items-center.justify-between.p-4,
+    .admin-dashboard-shell .admin-section-block .dashboard-click-card {
+        transition: background-color .14s ease, border-color .14s ease, color .14s ease;
+    }
+
+    .admin-dashboard-shell a[href],
+    .admin-dashboard-shell button,
+    .admin-dashboard-shell select,
+    .admin-dashboard-shell [role="button"],
+    .admin-dashboard-shell .stat-card,
+    .admin-dashboard-shell .dashboard-click-card,
+    .admin-dashboard-shell .admin-financial-card,
+    .admin-dashboard-shell .admin-top-controls select,
+    .admin-dashboard-shell .input-custom,
+    .admin-dashboard-shell .admin-date-filter-link,
+    .admin-dashboard-shell .topbar-notification {
+        transition: background-color .14s ease, border-color .14s ease, color .14s ease;
+    }
+
+    .admin-dashboard-shell a[href]:hover,
+    .admin-dashboard-shell button:hover,
+    .admin-dashboard-shell [role="button"]:hover,
+    .admin-dashboard-shell .stat-card:hover,
+    .admin-dashboard-shell .dashboard-click-card:hover,
+    .admin-dashboard-shell .admin-financial-card:hover,
+    .admin-dashboard-shell .topbar-notification:hover {
+        transform: none !important;
+        box-shadow: none !important;
+        filter: none !important;
+    }
+
+    .admin-dashboard-shell a.stat-card:hover,
+    .admin-dashboard-shell .dashboard-click-card:hover,
+    .admin-dashboard-shell .admin-financial-card:hover,
+    .admin-dashboard-shell .admin-top-controls select:hover,
+    .admin-dashboard-shell .input-custom:hover,
+    .admin-dashboard-shell .topbar-notification:hover {
+        background-color: var(--color-bg-muted) !important;
+        border-color: var(--color-border-strong) !important;
+        color: var(--color-text-primary) !important;
+    }
+
+    .admin-dashboard-shell .is-active,
+    .admin-dashboard-shell .active,
+    .admin-dashboard-shell [aria-pressed="true"],
+    .admin-dashboard-shell select:focus,
+    .admin-dashboard-shell .input-custom:focus {
+        border-color: var(--color-primary) !important;
+        background-color: color-mix(in srgb, var(--color-primary) 10%, var(--color-bg-surface)) !important;
+    }
+
+    html[data-theme='dark'] .admin-dashboard-shell {
+        background:
+            linear-gradient(90deg, rgba(148, 163, 184, 0.04) 0 1px, transparent 1px),
+            linear-gradient(180deg, rgba(148, 163, 184, 0.035) 0 1px, transparent 1px),
+            repeating-linear-gradient(135deg, rgba(148, 163, 184, 0.026) 0 1px, transparent 1px 12px);
+        background-size: 44px 44px, 44px 44px, 16px 16px;
+    }
+
+    .admin-dashboard-shell,
+    .admin-dashboard-shell *,
+    .admin-dashboard-shell *::before,
+    .admin-dashboard-shell *::after,
+    .admin-dashboard-shell [class*="shadow"],
+    .admin-dashboard-shell [class*="drop-shadow"],
+    .admin-dashboard-shell [class*="hover:shadow"] {
+        box-shadow: none !important;
+        filter: none !important;
+    }
+
+    .admin-dashboard-shell {
+        font-family: var(--font-body);
+    }
+
+    .admin-dashboard-shell h1,
+    .admin-dashboard-shell h2,
+    .admin-dashboard-shell h3,
+    .admin-dashboard-shell h4,
+    .admin-dashboard-shell h5,
+    .admin-dashboard-shell .stat-value,
+    .admin-dashboard-shell .admin-financial-card h4 {
+        font-family: var(--font-heading) !important;
+        letter-spacing: 0 !important;
+    }
+
+    .admin-dashboard-shell label,
+    .admin-dashboard-shell th,
+    .admin-dashboard-shell .rank-badge,
+    .admin-dashboard-shell .dashboard-card-link-copy,
+    .admin-dashboard-shell .admin-date-filter-link,
+    .admin-dashboard-shell p[class*="font-black"],
+    .admin-dashboard-shell span[class*="font-black"],
+    .admin-dashboard-shell div[class*="font-black"],
+    .admin-dashboard-shell p[class*="font-bold"],
+    .admin-dashboard-shell span[class*="font-bold"],
+    .admin-dashboard-shell [class*="tracking-widest"] {
+        font-weight: 650 !important;
+        letter-spacing: 0 !important;
+    }
+
+    .admin-dashboard-shell a[href]:focus,
+    .admin-dashboard-shell button:focus,
+    .admin-dashboard-shell select:focus,
+    .admin-dashboard-shell input:focus,
+    .admin-dashboard-shell [role="button"]:focus,
+    .admin-dashboard-shell a[href]:focus-visible,
+    .admin-dashboard-shell button:focus-visible,
+    .admin-dashboard-shell select:focus-visible,
+    .admin-dashboard-shell input:focus-visible,
+    .admin-dashboard-shell [role="button"]:focus-visible {
+        outline: none !important;
+        outline-offset: 0 !important;
+        box-shadow: none !important;
+    }
+
+    .admin-dashboard-shell a.stat-card:hover,
+    .admin-dashboard-shell .dashboard-click-card:hover,
+    .admin-dashboard-shell .admin-financial-card:hover,
+    .admin-dashboard-shell .admin-top-controls select:hover,
+    .admin-dashboard-shell .input-custom:hover,
+    .admin-dashboard-shell .admin-date-filter-link:hover,
+    .admin-dashboard-shell .topbar-notification:hover {
+        background-color: #DDE6D8 !important;
+        border-color: #8B9A8B !important;
+        color: var(--color-text-primary) !important;
+    }
+
+    .admin-dashboard-shell .is-active,
+    .admin-dashboard-shell .active,
+    .admin-dashboard-shell [aria-pressed="true"],
+    .admin-dashboard-shell a[href]:focus-visible,
+    .admin-dashboard-shell button:focus-visible,
+    .admin-dashboard-shell select:focus,
+    .admin-dashboard-shell .input-custom:focus {
+        border-color: var(--color-primary) !important;
+        background-color: #D5DFCF !important;
+        color: var(--color-text-primary) !important;
+    }
 </style>
 
 <div class="dashboard-fit-page">

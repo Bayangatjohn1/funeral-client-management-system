@@ -9,8 +9,10 @@ use App\Models\Deceased;
 use App\Models\FuneralCase;
 use App\Models\Package;
 use App\Models\ServiceDetail;
+use App\Support\CaseSnapshotPricingService;
 use App\Support\Discount\CaseDiscountResolver;
 use App\Support\AuditLogger;
+use App\Support\WakeDuration;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -544,28 +546,7 @@ class FuneralCaseController extends Controller
 
     public function create()
     {
-        $defaultBranchId = (int) (auth()->user()->operationalBranchId() ?? 0);
-
-        $clients = Client::where('branch_id', $defaultBranchId)
-            ->orderBy('full_name')
-            ->get();
-
-        $deceaseds = Deceased::where('branch_id', $defaultBranchId)
-            ->orderBy('full_name')
-            ->get();
-
-        $packages = Package::where('is_active', true)
-            ->orderBy('name')
-            ->get();
-        $nextCode = $this->nextCaseCode($defaultBranchId);
-        $nextCodeMap = Branch::whereKey($defaultBranchId)
-            ->orderBy('branch_code')
-            ->get()
-            ->mapWithKeys(function ($branch) {
-                return [$branch->id => $this->nextCaseCode((int) $branch->id)];
-            });
-
-        return view('staff.funeral_cases.create', compact('clients', 'deceaseds', 'packages', 'nextCode', 'nextCodeMap'));
+        return redirect()->route('intake.main.create');
     }
 
     public function store(Request $request)
@@ -836,11 +817,20 @@ class FuneralCaseController extends Controller
             ->orderBy('full_name')
             ->get();
 
-        $packages = Package::where('is_active', true)
-            ->orderBy('name')
-            ->get();
+        $funeral_case->loadMissing(['package', 'funeralContract', 'deceased']);
+        $snapshotPricing = app(CaseSnapshotPricingService::class);
+        $isPricingFinalized = $snapshotPricing->isFinalized($funeral_case);
+        $displayPackageName = $snapshotPricing->packageName($funeral_case);
+        $displayPackagePrice = $snapshotPricing->packagePrice($funeral_case);
 
-        return view('staff.funeral_cases.edit', compact('funeral_case', 'clients', 'deceaseds', 'packages'));
+        return view('staff.funeral_cases.edit', compact(
+            'funeral_case',
+            'clients',
+            'deceaseds',
+            'isPricingFinalized',
+            'displayPackageName',
+            'displayPackagePrice'
+        ));
     }
 
     public function update(Request $request, FuneralCase $funeral_case)
@@ -871,7 +861,7 @@ class FuneralCaseController extends Controller
         $validated = $request->validate([
             'client_id' => 'required|exists:clients,id',
             'deceased_id' => 'required|exists:deceased,id',
-            'package_id' => 'required|integer|exists:packages,id',
+            'package_id' => 'nullable|integer|exists:packages,id',
             // case_status is system-managed (auto-completed on interment date) — not validated from user input.
             'date_of_death' => 'required|date|before_or_equal:today',
             'service_requested_at' => 'required|date|before_or_equal:today',
@@ -912,20 +902,10 @@ class FuneralCaseController extends Controller
                 ->withInput();
         }
 
-        $package = Package::where('id', $validated['package_id'])
-            ->where('is_active', true)
-            ->first();
-        if (!$package) {
-            return back()->withErrors(['package_id' => 'Selected package is unavailable.'])->withInput();
-        }
-
+        $funeral_case->loadMissing(['funeralContract', 'deceased']);
+        $snapshotPricing = app(CaseSnapshotPricingService::class);
+        $isFinalized = $snapshotPricing->isFinalized($funeral_case);
         $entrySource = 'MAIN';
-
-        $subtotal = (float) $package->price;
-        $discountPayload = app(CaseDiscountResolver::class)
-            ->resolve($package, $this->resolveDeceasedAge($deceased), $subtotal, now());
-        $discount = (float) $discountPayload['discount_amount'];
-        $total = round(max($subtotal - $discount, 0), 2);
         $originalRequestDate = $serverRequestDate;
         $serviceRequestedAt = $serverRequestDate;
         if (
@@ -939,6 +919,8 @@ class FuneralCaseController extends Controller
             ])->withInput();
         }
 
+        DB::beginTransaction();
+        try {
         $dateOfDeath = Carbon::parse($validated['date_of_death'])->toDateString();
         $deceased->forceFill([
             'died' => $dateOfDeath,
@@ -946,7 +928,7 @@ class FuneralCaseController extends Controller
         ])->save();
 
         $wakeLocation = $funeral_case->wake_location ?: $this->resolveLegacyWakeLocation($client);
-        $scheduleWasEdited = $this->scheduleWasEdited($funeral_case, $validated);
+        $scheduleWasEdited = ! $isFinalized && $this->scheduleWasEdited($funeral_case, $validated);
         if ($scheduleWasEdited) {
             foreach ([
                 'wake_start_date' => 'Please select a wake start date and time.',
@@ -955,33 +937,44 @@ class FuneralCaseController extends Controller
                 'interment_time' => 'Please select an interment date and time.',
             ] as $field => $message) {
                 if (blank($validated[$field] ?? null)) {
+                    DB::rollBack();
                     return back()->withErrors([$field => $message])->withInput();
                 }
             }
         }
 
-        $funeralServiceAt = Carbon::parse($validated['funeral_service_at'])->toDateString();
-        $intermentAt = $scheduleWasEdited
+        $funeralServiceAt = $isFinalized
+            ? $funeral_case->funeral_service_at?->toDateString()
+            : Carbon::parse($validated['funeral_service_at'])->toDateString();
+        $intermentAt = $isFinalized
+            ? $funeral_case->interment_at
+            : ($scheduleWasEdited
             ? $this->combineScheduleDateTime($validated['interment_at'], $validated['interment_time'])
             : $this->combineScheduleDateTime(
                 $validated['interment_at'],
                 $funeral_case->interment_at?->format('H:i') ?? '00:00'
-            );
+            ));
 
         if ($scheduleWasEdited) {
             $scheduleError = $this->validateScheduleOrder($validated);
             if ($scheduleError !== null) {
+                DB::rollBack();
                 return back()->withErrors($scheduleError)->withInput();
             }
         }
         $wakeDays = $scheduleWasEdited
-            ? $this->resolveWakeDays($validated['wake_start_date'] ?? null, $validated['funeral_service_at'] ?? null)
+            ? $this->resolveWakeDays($validated['wake_start_date'] ?? null, $intermentAt?->toDateString())
             : $funeral_case->deceased?->wake_days;
         $serviceDetailWakeStart = $scheduleWasEdited
             ? Carbon::parse($validated['wake_start_date'])->toDateString()
             : ($funeral_case->wake_start_date?->toDateString() ?? $funeralServiceAt);
-
-        $payment = $this->computePaymentFields($total, (float) $funeral_case->total_paid);
+        $pricingAttributes = $snapshotPricing->pricingAttributesForSchedule(
+            $funeral_case,
+            $serviceDetailWakeStart,
+            $intermentAt?->toDateString(),
+            $isFinalized
+        );
+        $wakeDays = $pricingAttributes['wake_days'] ?? $wakeDays;
         $hasDuplicateOpenCase = FuneralCase::query()
             ->where('branch_id', $client->branch_id)
             ->where('deceased_id', $deceased->id)
@@ -991,6 +984,7 @@ class FuneralCaseController extends Controller
 
         // Duplicate-case guard: only relevant while the case is still open.
         if ($hasDuplicateOpenCase && in_array($funeral_case->case_status, ['DRAFT', 'ACTIVE'], true)) {
+            DB::rollBack();
             return back()->withErrors([
                 'deceased_id' => 'Another active case already exists for this deceased in this branch.',
             ])->withInput();
@@ -1021,10 +1015,7 @@ class FuneralCaseController extends Controller
         $funeral_case->update([
             'client_id' => $client->id,
             'deceased_id' => $deceased->id,
-            'package_id' => $package->id,
             'branch_id' => $client->branch_id,
-            'service_package' => $package->name,
-            'coffin_type' => $package->coffin_type,
             'service_requested_at' => $serviceRequestedAt,
             'wake_location' => $wakeLocation,
             'wake_start_date' => $scheduleWasEdited ? Carbon::parse($validated['wake_start_date'])->toDateString() : $funeral_case->wake_start_date,
@@ -1033,16 +1024,19 @@ class FuneralCaseController extends Controller
             'funeral_service_time' => $scheduleWasEdited ? $this->formatTimeForStorage($validated['funeral_service_time'] ?? null) : $funeral_case->funeral_service_time,
             'interment_at' => $intermentAt,
             'interment_time' => $scheduleWasEdited ? $this->formatTimeForStorage($validated['interment_time'] ?? null) : $funeral_case->interment_time,
-            'subtotal_amount' => $subtotal,
-            'discount_type' => $discountPayload['discount_type'],
-            'discount_value_type' => $discountPayload['discount_value_type'],
-            'discount_value' => $discountPayload['discount_value'],
-            'discount_amount' => $discount,
-            'discount_note' => $discountPayload['discount_note'],
-            'total_amount' => $total,
-            'total_paid' => $payment['total_paid'],
-            'balance_amount' => $payment['balance'],
-            'payment_status' => $payment['status'],
+            'subtotal_amount' => $pricingAttributes['subtotal_amount'],
+            'discount_type' => $pricingAttributes['discount_type'],
+            'discount_value_type' => $pricingAttributes['discount_value_type'],
+            'discount_value' => $pricingAttributes['discount_value'],
+            'discount_amount' => $pricingAttributes['discount_amount'],
+            'discount_note' => $pricingAttributes['discount_note'],
+            'tax_rate' => $pricingAttributes['tax_rate'],
+            'tax_amount' => $pricingAttributes['tax_amount'],
+            'total_amount' => $pricingAttributes['total_amount'],
+            'total_paid' => $pricingAttributes['total_paid'],
+            'balance_amount' => $pricingAttributes['balance_amount'],
+            'payment_status' => $pricingAttributes['payment_status'],
+            'pricing_snapshot' => $pricingAttributes['pricing_snapshot'],
             'case_status' => $funeral_case->case_status, // system-managed, never overwritten by user input
             'entry_source' => $entrySource,
             'verification_status' => 'VERIFIED',
@@ -1134,6 +1128,11 @@ class FuneralCaseController extends Controller
                 'Case status updated',
                 'Case status changed'
             );
+        }
+        DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
         }
 
         $returnTo = $request->input('return_to');
@@ -1295,20 +1294,9 @@ class FuneralCaseController extends Controller
         return null;
     }
 
-    private function resolveWakeDays(?string $wakeStartDate, ?string $funeralServiceDate): ?int
+    private function resolveWakeDays(?string $wakeStartDate, ?string $intermentDate): ?int
     {
-        if (!$wakeStartDate || !$funeralServiceDate) {
-            return null;
-        }
-
-        $wakeDate = Carbon::parse($wakeStartDate)->startOfDay();
-        $serviceDate = Carbon::parse($funeralServiceDate)->startOfDay();
-
-        if ($serviceDate->lt($wakeDate)) {
-            return null;
-        }
-
-        return min(365, $wakeDate->diffInDays($serviceDate));
+        return WakeDuration::days($wakeStartDate, $intermentDate);
     }
 
     private function combineScheduleDateTime(?string $date, ?string $time): Carbon
@@ -1334,3 +1322,5 @@ class FuneralCaseController extends Controller
         return substr((string) $time, 0, 5);
     }
 }
+
+

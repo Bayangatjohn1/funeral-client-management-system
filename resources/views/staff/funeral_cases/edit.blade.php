@@ -9,6 +9,7 @@
     $requestDateRecorded = $funeral_case->service_requested_at ?? $funeral_case->created_at ?? now();
     $intermentPassed = $funeral_case->interment_at
         && $funeral_case->interment_at->copy()->startOfDay()->isPast();
+    $savedWakeDurationLabel = \App\Support\WakeDuration::labelFromDays($funeral_case->deceased?->wake_days);
 @endphp
 
 <style>
@@ -378,6 +379,16 @@ html[data-theme='dark'] .ec-banner     { background: #2a0a0a; border-color: #7f1
         </div>
     @endif
 
+    @if($isPricingFinalized ?? false)
+        <div class="ec-banner">
+            <i class="bi bi-lock-fill"></i>
+            <div>
+                <div>Pricing is locked because this case is completed or already has an issued Funeral Contract.</div>
+                <div style="font-weight:500;margin-top:2px;">Package, casket, kilometers, add-ons, additional charges, wake start, and interment pricing fields are read-only. Safe non-pricing details may still be updated.</div>
+            </div>
+        </div>
+    @endif
+
     {{-- Hero header ───────────────────────────────────────── --}}
     <div class="ec-hero">
         <div class="ec-hero__top">
@@ -537,12 +548,12 @@ html[data-theme='dark'] .ec-banner     { background: #2a0a0a; border-color: #7f1
 
                 <div class="ec-field">
                     <label class="ec-label" for="ec_wake_days">
-                        Wake Days <span class="ec-label-note">— auto-calculated</span>
+                        Wake Duration <span class="ec-label-note">— auto-calculated</span>
                     </label>
                     <input type="number" id="ec_wake_days" name="wake_days"
                         value="{{ old('wake_days', $funeral_case->deceased?->wake_days) }}"
                         class="form-input w-full" min="0" max="365" placeholder="Days" readonly>
-                    <span class="ec-hint"><i class="bi bi-info-circle"></i> Calculated from Wake Start to Funeral Service date.</span>
+                    <span class="ec-hint"><i class="bi bi-info-circle"></i> <span id="ec_wake_duration_label">{{ ($isPricingFinalized ?? false) ? $savedWakeDurationLabel . ' saved on this case.' : 'Calculated from Wake Start Date through Interment Date.' }}</span></span>
                     @error('wake_days')<div class="ec-err"><i class="bi bi-exclamation-circle"></i> {{ $message }}</div>@enderror
                 </div>
 
@@ -592,32 +603,14 @@ html[data-theme='dark'] .ec-banner     { background: #2a0a0a; border-color: #7f1
             <div class="ec-grid ec-grid-2">
 
                 <div class="ec-field ec-full">
-                    <label class="ec-label" for="ec_package">
-                        Service Package <span class="ec-req">*</span>
-                    </label>
-                    <select id="ec_package" name="package_id" class="form-select w-full" required>
-                        @foreach($packages as $pkg)
-                            @php
-                                $promoNow = $pkg->promo_is_active
-                                    && (!$pkg->promo_starts_at || $pkg->promo_starts_at->lte(now()))
-                                    && (!$pkg->promo_ends_at   || $pkg->promo_ends_at->gte(now()));
-                            @endphp
-                            <option
-                                value="{{ $pkg->id }}"
-                                data-price="{{ $pkg->price }}"
-                                data-promo-now="{{ $promoNow ? '1' : '0' }}"
-                                data-promo-type="{{ $pkg->promo_value_type }}"
-                                data-promo-value="{{ $pkg->promo_value }}"
-                                data-promo-label="{{ $pkg->promo_label }}"
-                                {{ (string) old('package_id', $funeral_case->package_id) === (string) $pkg->id ? 'selected' : '' }}
-                            >
-                                {{ $pkg->name }} — ₱{{ number_format($pkg->price, 2) }}{{ $promoNow ? ' · Promo Active' : '' }}
-                            </option>
-                        @endforeach
-                    </select>
-                    @error('package_id')<div class="ec-err"><i class="bi bi-exclamation-circle"></i> {{ $message }}</div>@enderror
+                    <label class="ec-label">Saved Service Package</label>
+                    <div class="ec-readonly">
+                        <i class="bi bi-lock" style="font-size:12px;opacity:.55;"></i>
+                        <span>{{ $displayPackageName ?? $funeral_case->service_package ?? 'Saved Package' }}</span>
+                        <strong style="margin-left:auto;">PHP {{ number_format((float) ($displayPackagePrice ?? $funeral_case->package_price_snapshot ?? $funeral_case->subtotal_amount ?? 0), 2) }}</strong>
+                    </div>
+                    <span class="ec-hint"><i class="bi bi-shield-check"></i> Package and catalog values are preserved from the saved case snapshot.</span>
                 </div>
-
                 <div class="ec-field">
                     <label class="ec-label" for="ec_wake_loc">Wake / Service Location</label>
                     <input type="text" id="ec_wake_loc" name="wake_location"
@@ -627,7 +620,7 @@ html[data-theme='dark'] .ec-banner     { background: #2a0a0a; border-color: #7f1
                 </div>
 
                 <div class="ec-field">
-                    <label class="ec-label" for="ec_req_date">Date Recorded</label>
+                    <label class="ec-label">Date Recorded</label>
                     <div class="ec-readonly">
                         <i class="bi bi-calendar-check" style="font-size:12px;opacity:.5;"></i>
                         {{ $requestDateRecorded->format('F d, Y') }}
@@ -639,7 +632,7 @@ html[data-theme='dark'] .ec-banner     { background: #2a0a0a; border-color: #7f1
                     <label class="ec-label" for="ec_wake_start_date">Wake Start Date</label>
                     <input type="date" id="ec_wake_start_date" name="wake_start_date"
                         value="{{ old('wake_start_date', $funeral_case->wake_start_date?->format('Y-m-d')) }}"
-                        class="form-input w-full">
+                        class="form-input w-full" @readonly($isPricingFinalized ?? false)>
                     @error('wake_start_date')<div class="ec-err"><i class="bi bi-exclamation-circle"></i> {{ $message }}</div>@enderror
                 </div>
 
@@ -647,7 +640,7 @@ html[data-theme='dark'] .ec-banner     { background: #2a0a0a; border-color: #7f1
                     <label class="ec-label" for="ec_wake_start_time">Wake Start Time</label>
                     <input type="time" id="ec_wake_start_time" name="wake_start_time"
                         value="{{ old('wake_start_time', $funeral_case->wake_start_time ? substr($funeral_case->wake_start_time, 0, 5) : '') }}"
-                        class="form-input w-full">
+                        class="form-input w-full" @readonly($isPricingFinalized ?? false)>
                     @error('wake_start_time')<div class="ec-err"><i class="bi bi-exclamation-circle"></i> {{ $message }}</div>@enderror
                 </div>
 
@@ -673,10 +666,10 @@ html[data-theme='dark'] .ec-banner     { background: #2a0a0a; border-color: #7f1
                         class="form-input w-full" rows="2" maxlength="1000"
                         placeholder="Flowers, catering, transport, or other services..."
                         style="resize:vertical; min-height:52px;"
+                        @readonly($isPricingFinalized ?? false)
                     >{{ old('additional_services', $funeral_case->additional_services) }}</textarea>
                     @error('additional_services')<div class="ec-err"><i class="bi bi-exclamation-circle"></i> {{ $message }}</div>@enderror
                 </div>
-
             </div>
         </div>
 
@@ -684,18 +677,18 @@ html[data-theme='dark'] .ec-banner     { background: #2a0a0a; border-color: #7f1
         <div class="ec-fin">
             <div class="ec-fin-card">
                 <div class="ec-fin-label">Package Price</div>
-                <div class="ec-fin-value" id="ec_subtotal">0.00</div>
-                <div class="ec-fin-sub">Base price</div>
+                <div class="ec-fin-value">PHP {{ number_format((float) $funeral_case->subtotal_amount, 2) }}</div>
+                <div class="ec-fin-sub">Saved subtotal</div>
             </div>
             <div class="ec-fin-card" id="ec_discount_card">
                 <div class="ec-fin-label">Discount</div>
-                <div class="ec-fin-value" id="ec_discount">0.00</div>
-                <div class="ec-fin-sub" id="ec_discount_src">None</div>
+                <div class="ec-fin-value">PHP {{ number_format((float) $funeral_case->discount_amount, 2) }}</div>
+                <div class="ec-fin-sub">{{ $funeral_case->discount_note ?: ($funeral_case->discount_type ?: 'None') }}</div>
             </div>
             <div class="ec-fin-card is-total">
-                <div class="ec-fin-label">Estimated Total</div>
-                <div class="ec-fin-value" id="ec_total">0.00</div>
-                <div class="ec-fin-sub">After discount</div>
+                <div class="ec-fin-label">Saved Total</div>
+                <div class="ec-fin-value">PHP {{ number_format((float) $funeral_case->total_amount, 2) }}</div>
+                <div class="ec-fin-sub">Snapshot protected</div>
             </div>
         </div>
     </div>
@@ -769,14 +762,16 @@ html[data-theme='dark'] .ec-banner     { background: #2a0a0a; border-color: #7f1
     const form = document.getElementById('caseEditForm');
     if (!form) return;
 
-    const packageSel       = form.querySelector('[name="package_id"]');
+    const packageSel = null;
     const ageInput         = form.querySelector('[name="age"]');
     const dobInput         = form.querySelector('[name="date_of_birth"]');
     const dodInput         = form.querySelector('[name="date_of_death"]');
     const wakeStartInput   = document.getElementById('ec_wake_start_date');
-    const funeralDateInput = document.getElementById('ec_svc_date');
+    const intermentDateInput = document.getElementById('ec_interment');
     const wakeDaysInput    = document.getElementById('ec_wake_days');
+    const wakeDurationLabel = document.getElementById('ec_wake_duration_label');
     const seniorPct        = {{ (float) config('funeral.senior_discount_percent', 20) }};
+    const isPricingFinalized = @json($isPricingFinalized ?? false);
 
     const subtotalEl  = document.getElementById('ec_subtotal');
     const discountEl  = document.getElementById('ec_discount');
@@ -842,21 +837,32 @@ html[data-theme='dark'] .ec-banner     { background: #2a0a0a; border-color: #7f1
     }
 
     function calcWakeDays() {
-        if (!wakeDaysInput || !wakeStartInput?.value || !funeralDateInput?.value) return;
+        if (isPricingFinalized) return;
+        if (!wakeDaysInput || !wakeStartInput?.value || !intermentDateInput?.value) return;
         const diff = Math.floor(
-            (new Date(`${funeralDateInput.value}T00:00:00`) - new Date(`${wakeStartInput.value}T00:00:00`)) / 86400000
-        );
+            (new Date(`${intermentDateInput.value}T00:00:00`) - new Date(`${wakeStartInput.value}T00:00:00`)) / 86400000
+        ) + 1;
         wakeDaysInput.value = diff >= 0 ? diff : '';
+        if (wakeDurationLabel) {
+            wakeDurationLabel.textContent = diff >= 0
+                ? `${diff}D/${Math.max(diff - 1, 0)}N from Wake Start Date through Interment Date.`
+                : 'Calculated from Wake Start Date through Interment Date.';
+        }
     }
 
-    packageSel?.addEventListener('change', render);
+
     ageInput?.addEventListener('input',   render);
     dobInput?.addEventListener('change',  () => { autoFillAge(); render(); });
     dodInput?.addEventListener('change',  () => { autoFillAge(); render(); });
     wakeStartInput?.addEventListener('change', calcWakeDays);
-    funeralDateInput?.addEventListener('change', calcWakeDays);
+    intermentDateInput?.addEventListener('change', calcWakeDays);
 
     render();
+    calcWakeDays();
 })();
 </script>
 @endsection
+
+
+
+

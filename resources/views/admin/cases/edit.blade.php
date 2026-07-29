@@ -6,6 +6,7 @@
 @section('content')
 @php
     $requestDateRecorded = $funeral_case->service_requested_at ?? $funeral_case->created_at ?? now();
+    $savedWakeDurationLabel = \App\Support\WakeDuration::labelFromDays($funeral_case->deceased?->wake_days);
 @endphp
 
 <style>
@@ -202,6 +203,15 @@ html[data-theme='dark'] .ace-banner     { background: #2a0a0a; border-color: #7f
         </div>
     @endif
 
+    @if($isPricingFinalized ?? false)
+        <div class="ace-banner">
+            <i class="bi bi-lock-fill"></i>
+            <div>
+                <div>Pricing is locked because this case is completed or already has an issued Funeral Contract.</div>
+                <div style="font-weight:500;margin-top:2px;">Package, casket, kilometers, add-ons, additional charges, wake start, and interment pricing fields are read-only. Safe non-pricing details may still be updated.</div>
+            </div>
+        </div>
+    @endif
     {{-- Hero ───────────────────────────────────────────────────── --}}
     <div class="ace-hero">
         <div class="ace-hero__top">
@@ -342,12 +352,12 @@ html[data-theme='dark'] .ace-banner     { background: #2a0a0a; border-color: #7f
 
                 <div class="ace-field">
                     <label class="ace-label" for="ace_wake_days">
-                        Wake Days <span class="ace-label-note">— auto-calculated</span>
+                        Wake Duration <span class="ace-label-note">— auto-calculated</span>
                     </label>
                     <input type="number" id="ace_wake_days" name="wake_days"
                         value="{{ old('wake_days', $funeral_case->deceased?->wake_days) }}"
                         class="form-input w-full" min="0" max="365" placeholder="Days" readonly>
-                    <span class="ace-hint"><i class="bi bi-info-circle"></i> Calculated from Wake Start to Funeral Service date.</span>
+                    <span class="ace-hint"><i class="bi bi-info-circle"></i> <span id="ace_wake_duration_label">{{ ($isPricingFinalized ?? false) ? $savedWakeDurationLabel . ' saved on this case.' : 'Calculated from Wake Start Date through Interment Date.' }}</span></span>
                 </div>
 
                 <div class="ace-field">
@@ -380,32 +390,14 @@ html[data-theme='dark'] .ace-banner     { background: #2a0a0a; border-color: #7f
             <div class="ace-grid ace-grid-2">
 
                 <div class="ace-field ace-full">
-                    <label class="ace-label" for="ace_package">
-                        Service Package <span class="ace-req">*</span>
-                    </label>
-                    <select id="ace_package" name="package_id" class="form-select w-full" required>
-                        @foreach($packages as $pkg)
-                            @php
-                                $promoNow = $pkg->promo_is_active
-                                    && (!$pkg->promo_starts_at || $pkg->promo_starts_at->lte(now()))
-                                    && (!$pkg->promo_ends_at   || $pkg->promo_ends_at->gte(now()));
-                            @endphp
-                            <option
-                                value="{{ $pkg->id }}"
-                                data-price="{{ $pkg->price }}"
-                                data-promo-now="{{ $promoNow ? '1' : '0' }}"
-                                data-promo-type="{{ $pkg->promo_value_type }}"
-                                data-promo-value="{{ $pkg->promo_value }}"
-                                data-promo-label="{{ $pkg->promo_label }}"
-                                {{ (string) old('package_id', $funeral_case->package_id) === (string) $pkg->id ? 'selected' : '' }}
-                            >
-                                {{ $pkg->name }} — ₱{{ number_format($pkg->price, 2) }}{{ $promoNow ? ' · Promo Active' : '' }}
-                            </option>
-                        @endforeach
-                    </select>
-                    @error('package_id')<div class="ace-err"><i class="bi bi-exclamation-circle"></i> {{ $message }}</div>@enderror
+                    <label class="ace-label">Saved Service Package</label>
+                    <div class="ace-readonly">
+                        <i class="bi bi-lock" style="font-size:12px;opacity:.55;"></i>
+                        <span>{{ $displayPackageName ?? $funeral_case->service_package ?? 'Saved Package' }}</span>
+                        <strong style="margin-left:auto;">PHP {{ number_format((float) ($displayPackagePrice ?? $funeral_case->package_price_snapshot ?? $funeral_case->subtotal_amount ?? 0), 2) }}</strong>
+                    </div>
+                    <span class="ace-hint"><i class="bi bi-shield-check"></i> Package and catalog values are preserved from the saved case snapshot.</span>
                 </div>
-
                 <div class="ace-field">
                     <label class="ace-label" for="ace_wake_loc">Wake / Service Location</label>
                     <input type="text" id="ace_wake_loc" name="wake_location"
@@ -427,7 +419,7 @@ html[data-theme='dark'] .ace-banner     { background: #2a0a0a; border-color: #7f
                     <label class="ace-label" for="ace_wake_start_date">Wake Start Date</label>
                     <input type="date" id="ace_wake_start_date" name="wake_start_date"
                         value="{{ old('wake_start_date', $funeral_case->wake_start_date?->format('Y-m-d')) }}"
-                        class="form-input w-full">
+                        class="form-input w-full" @readonly($isPricingFinalized ?? false)>
                     @error('wake_start_date')<div class="ace-err"><i class="bi bi-exclamation-circle"></i> {{ $message }}</div>@enderror
                 </div>
 
@@ -435,7 +427,7 @@ html[data-theme='dark'] .ace-banner     { background: #2a0a0a; border-color: #7f
                     <label class="ace-label" for="ace_wake_start_time">Wake Start Time</label>
                     <input type="time" id="ace_wake_start_time" name="wake_start_time"
                         value="{{ old('wake_start_time', $funeral_case->wake_start_time ? substr($funeral_case->wake_start_time, 0, 5) : '') }}"
-                        class="form-input w-full">
+                        class="form-input w-full" @readonly($isPricingFinalized ?? false)>
                     @error('wake_start_time')<div class="ace-err"><i class="bi bi-exclamation-circle"></i> {{ $message }}</div>@enderror
                 </div>
 
@@ -459,7 +451,7 @@ html[data-theme='dark'] .ace-banner     { background: #2a0a0a; border-color: #7f
                     <label class="ace-label" for="ace_interment_date">Interment Date</label>
                     <input type="date" id="ace_interment_date" name="interment_at"
                         value="{{ old('interment_at', $funeral_case->interment_at?->format('Y-m-d')) }}"
-                        class="form-input w-full">
+                        class="form-input w-full" @readonly($isPricingFinalized ?? false)>
                     @error('interment_at')<div class="ace-err"><i class="bi bi-exclamation-circle"></i> {{ $message }}</div>@enderror
                 </div>
 
@@ -467,7 +459,7 @@ html[data-theme='dark'] .ace-banner     { background: #2a0a0a; border-color: #7f
                     <label class="ace-label" for="ace_interment_time">Interment Time</label>
                     <input type="time" id="ace_interment_time" name="interment_time"
                         value="{{ old('interment_time', $funeral_case->interment_time ? substr($funeral_case->interment_time, 0, 5) : '') }}"
-                        class="form-input w-full">
+                        class="form-input w-full" @readonly($isPricingFinalized ?? false)>
                     @error('interment_time')<div class="ace-err"><i class="bi bi-exclamation-circle"></i> {{ $message }}</div>@enderror
                 </div>
 
@@ -477,10 +469,10 @@ html[data-theme='dark'] .ace-banner     { background: #2a0a0a; border-color: #7f
                         class="form-input w-full" rows="2" maxlength="1000"
                         placeholder="Flowers, catering, transport, or other services..."
                         style="resize:vertical; min-height:52px;"
+                        @readonly($isPricingFinalized ?? false)
                     >{{ old('additional_services', $funeral_case->additional_services) }}</textarea>
                     @error('additional_services')<div class="ace-err"><i class="bi bi-exclamation-circle"></i> {{ $message }}</div>@enderror
                 </div>
-
             </div>
         </div>
 
@@ -488,18 +480,18 @@ html[data-theme='dark'] .ace-banner     { background: #2a0a0a; border-color: #7f
         <div class="ace-fin">
             <div class="ace-fin-card">
                 <div class="ace-fin-label">Package Price</div>
-                <div class="ace-fin-value" id="ace_subtotal">0.00</div>
-                <div class="ace-fin-sub">Base price</div>
+                <div class="ace-fin-value">PHP {{ number_format((float) $funeral_case->subtotal_amount, 2) }}</div>
+                <div class="ace-fin-sub">Saved subtotal</div>
             </div>
             <div class="ace-fin-card" id="ace_discount_card">
                 <div class="ace-fin-label">Discount</div>
-                <div class="ace-fin-value" id="ace_discount">0.00</div>
-                <div class="ace-fin-sub" id="ace_discount_src">None</div>
+                <div class="ace-fin-value">PHP {{ number_format((float) $funeral_case->discount_amount, 2) }}</div>
+                <div class="ace-fin-sub">{{ $funeral_case->discount_note ?: ($funeral_case->discount_type ?: 'None') }}</div>
             </div>
             <div class="ace-fin-card is-total">
-                <div class="ace-fin-label">Estimated Total</div>
-                <div class="ace-fin-value" id="ace_total">0.00</div>
-                <div class="ace-fin-sub">After discount</div>
+                <div class="ace-fin-label">Saved Total</div>
+                <div class="ace-fin-value">PHP {{ number_format((float) $funeral_case->total_amount, 2) }}</div>
+                <div class="ace-fin-sub">Snapshot protected</div>
             </div>
         </div>
     </div>
@@ -582,14 +574,16 @@ html[data-theme='dark'] .ace-banner     { background: #2a0a0a; border-color: #7f
     const form = document.getElementById('adminCaseEditForm');
     if (!form) return;
 
-    const packageSel       = form.querySelector('[name="package_id"]');
+    const packageSel = null;
     const ageInput         = document.getElementById('ace_age');
     const dobInput         = document.getElementById('ace_dob');
     const dodInput         = document.getElementById('ace_dod');
     const wakeStartInput   = document.getElementById('ace_wake_start_date');
-    const funeralDateInput = document.getElementById('ace_svc_date');
+    const intermentDateInput = document.getElementById('ace_interment_date');
     const wakeDaysInput    = document.getElementById('ace_wake_days');
+    const wakeDurationLabel = document.getElementById('ace_wake_duration_label');
     const seniorPct        = {{ (float) config('funeral.senior_discount_percent', 20) }};
+    const isPricingFinalized = @json($isPricingFinalized ?? false);
 
     const subtotalEl  = document.getElementById('ace_subtotal');
     const discountEl  = document.getElementById('ace_discount');
@@ -652,22 +646,32 @@ html[data-theme='dark'] .ace-banner     { background: #2a0a0a; border-color: #7f
     }
 
     function calcWakeDays() {
-        if (!wakeDaysInput || !wakeStartInput?.value || !funeralDateInput?.value) return;
+        if (isPricingFinalized) return;
+        if (!wakeDaysInput || !wakeStartInput?.value || !intermentDateInput?.value) return;
         const diff = Math.floor(
-            (new Date(`${funeralDateInput.value}T00:00:00`) - new Date(`${wakeStartInput.value}T00:00:00`)) / 86400000
-        );
+            (new Date(`${intermentDateInput.value}T00:00:00`) - new Date(`${wakeStartInput.value}T00:00:00`)) / 86400000
+        ) + 1;
         wakeDaysInput.value = diff >= 0 ? diff : '';
+        if (wakeDurationLabel) {
+            wakeDurationLabel.textContent = diff >= 0
+                ? `${diff}D/${Math.max(diff - 1, 0)}N from Wake Start Date through Interment Date.`
+                : 'Calculated from Wake Start Date through Interment Date.';
+        }
     }
 
-    packageSel?.addEventListener('change', render);
+
     ageInput?.addEventListener('input',    render);
     dobInput?.addEventListener('change',   () => { autoFillAge(); render(); });
     dodInput?.addEventListener('change',   () => { autoFillAge(); render(); });
     wakeStartInput?.addEventListener('change',   calcWakeDays);
-    funeralDateInput?.addEventListener('change', calcWakeDays);
+    intermentDateInput?.addEventListener('change', calcWakeDays);
 
     render();
     calcWakeDays();
 })();
 </script>
 @endsection
+
+
+
+

@@ -405,9 +405,13 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->get(
 Route::middleware(['auth', 'no_cache', 'active'])->get(
     'funeral-cases/{funeral_case}',
     [FuneralCaseController::class, 'show']
-)->name('funeral-cases.show');
+)->whereNumber('funeral_case')->name('funeral-cases.show');
 
 Route::middleware(['auth', 'no_cache', 'active'])->group(function () {
+    Route::get('funeral-cases/{funeral_case}/documents/funeral-contract/preview', [CaseDocumentController::class, 'contractPreview'])
+        ->name('funeral-cases.documents.contract.preview');
+    Route::get('funeral-cases/{funeral_case}/documents/funeral-contract/preview-pdf', [CaseDocumentController::class, 'contractPreviewPdf'])
+        ->name('funeral-cases.documents.contract.preview-pdf');
     Route::post('funeral-cases/{funeral_case}/documents/funeral-contract', [CaseDocumentController::class, 'store'])
         ->name('funeral-cases.documents.contract.store');
     Route::get('funeral-cases/{funeral_case}/documents/{document}/preview', [CaseDocumentController::class, 'preview'])

@@ -10,9 +10,11 @@ use App\Models\FuneralCase;
 use App\Models\Package;
 use App\Models\User;
 use App\Support\AuditLogger;
-use App\Support\Discount\CaseDiscountResolver;
+use App\Support\CaseSnapshotPricingService;
+use App\Support\WakeDuration;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
@@ -177,18 +179,22 @@ class ReportController extends Controller
             }
         }
 
-        $funeral_case->load(['client', 'deceased', 'branch', 'package', 'encodedBy']);
-
-        $packages = Package::where('is_active', true)->orderBy('name')->get();
+        $funeral_case->load(['client', 'deceased', 'branch', 'package', 'encodedBy', 'funeralContract']);
+        $snapshotPricing = app(CaseSnapshotPricingService::class);
+        $isPricingFinalized = $snapshotPricing->isFinalized($funeral_case);
+        $displayPackageName = $snapshotPricing->packageName($funeral_case);
+        $displayPackagePrice = $snapshotPricing->packagePrice($funeral_case);
 
         $intermentPassed = $funeral_case->interment_at
             && $funeral_case->interment_at->copy()->startOfDay()->isPast();
 
         return view('admin.cases.edit', [
             'funeral_case'    => $funeral_case,
-            'packages'        => $packages,
             'intermentPassed' => $intermentPassed,
             'returnTo'        => $request->query('return_to', route('admin.cases.index')),
+            'isPricingFinalized' => $isPricingFinalized,
+            'displayPackageName' => $displayPackageName,
+            'displayPackagePrice' => $displayPackagePrice,
         ]);
     }
 
@@ -223,7 +229,7 @@ class ReportController extends Controller
             'deceased_address'     => ['nullable', 'string', 'max:500'],
             'place_of_cemetery'    => ['nullable', 'string', 'max:255'],
             // Service & Package
-            'package_id'           => ['required', 'integer', 'exists:packages,id'],
+            'package_id'           => ['nullable', 'integer', 'exists:packages,id'],
             'wake_location'        => ['nullable', 'string', 'max:255'],
             'wake_start_date'      => ['nullable', 'date'],
             'wake_start_time'      => ['nullable', 'date_format:H:i'],
@@ -255,74 +261,48 @@ class ReportController extends Controller
         }
 
         // ── Package & pricing ───────────────────────────────────────────────────
-        $package = Package::where('id', $validated['package_id'])
-            ->where('is_active', true)
-            ->first();
-        if (!$package) {
-            return back()->withErrors(['package_id' => 'Selected package is unavailable or inactive.'])->withInput();
-        }
-
-        $subtotal = (float) $package->price;
-
-        // Resolve age for discount check
-        $deceasedAge = null;
-        if (filled($validated['age'] ?? null)) {
-            $deceasedAge = (int) $validated['age'];
-        } elseif ($deceased) {
-            $dob = filled($validated['date_of_birth'] ?? null) ? Carbon::parse($validated['date_of_birth']) : $deceased->born;
-            $dod = filled($validated['date_of_death'] ?? null) ? Carbon::parse($validated['date_of_death']) : $deceased->died;
-            if ($dob && $dod) {
-                $deceasedAge = (int) $dob->diffInYears($dod);
-            } elseif ($deceased->age !== null) {
-                $deceasedAge = (int) $deceased->age;
-            }
-        }
-
-        $discountPayload = app(CaseDiscountResolver::class)
-            ->resolve($package, $deceasedAge, $subtotal, now());
-        $discount = (float) $discountPayload['discount_amount'];
-        $total    = round(max($subtotal - $discount, 0), 2);
-
-        // ── Payment fields ──────────────────────────────────────────────────────
-        $totalPaid = round(max((float) $funeral_case->total_paid, 0), 2);
-        if ($total <= 0) {
-            $payment = ['total_paid' => 0.0, 'balance' => 0.0, 'status' => 'PAID'];
-        } elseif ($totalPaid >= $total) {
-            $payment = ['total_paid' => $total, 'balance' => 0.0, 'status' => 'PAID'];
-        } elseif ($totalPaid > 0) {
-            $payment = ['total_paid' => $totalPaid, 'balance' => round($total - $totalPaid, 2), 'status' => 'PARTIAL'];
-        } else {
-            $payment = ['total_paid' => 0.0, 'balance' => $total, 'status' => 'UNPAID'];
-        }
-
-        // ── Schedule fields ─────────────────────────────────────────────────────
-        $intermentAt = isset($validated['interment_at']) && $validated['interment_at']
+        $funeral_case->loadMissing(['funeralContract', 'deceased']);
+        $snapshotPricing = app(CaseSnapshotPricingService::class);
+        $isFinalized = $snapshotPricing->isFinalized($funeral_case)
+            || ($validated['case_status'] ?? $funeral_case->case_status) === 'COMPLETED';
+        $intermentAt = $isFinalized
+            ? $funeral_case->interment_at
+            : (isset($validated['interment_at']) && $validated['interment_at']
             ? Carbon::parse($validated['interment_at'])
-            : $funeral_case->interment_at;
-        if ($intermentAt && isset($validated['interment_time']) && $validated['interment_time']) {
+            : $funeral_case->interment_at);
+        if (! $isFinalized && $intermentAt && isset($validated['interment_time']) && $validated['interment_time']) {
             [$h, $m] = explode(':', $validated['interment_time']);
             $intermentAt->setTime((int) $h, (int) $m, 0);
         }
 
-        $funeralServiceAt = isset($validated['funeral_service_at']) && $validated['funeral_service_at']
+        $funeralServiceAt = $isFinalized
+            ? $funeral_case->funeral_service_at?->toDateString()
+            : (isset($validated['funeral_service_at']) && $validated['funeral_service_at']
             ? Carbon::parse($validated['funeral_service_at'])->toDateString()
-            : $funeral_case->funeral_service_at?->toDateString();
+            : $funeral_case->funeral_service_at?->toDateString());
 
-        $wakeStartDate = isset($validated['wake_start_date']) && $validated['wake_start_date']
+        $wakeStartDate = $isFinalized
+            ? $funeral_case->wake_start_date?->toDateString()
+            : (isset($validated['wake_start_date']) && $validated['wake_start_date']
             ? Carbon::parse($validated['wake_start_date'])->toDateString()
-            : $funeral_case->wake_start_date?->toDateString();
+            : $funeral_case->wake_start_date?->toDateString());
 
-        $wakeDays = null;
-        if ($wakeStartDate && $funeralServiceAt) {
-            $diff = Carbon::parse($wakeStartDate)->diffInDays(Carbon::parse($funeralServiceAt), false);
-            $wakeDays = $diff >= 0 ? (int) $diff : null;
-        }
+        $wakeDays = WakeDuration::days($wakeStartDate, $intermentAt?->toDateString());
+        $pricingAttributes = $snapshotPricing->pricingAttributesForSchedule(
+            $funeral_case,
+            $wakeStartDate,
+            $intermentAt?->toDateString(),
+            $isFinalized
+        );
+        $wakeDays = $pricingAttributes['wake_days'] ?? $wakeDays;
 
         $wakeLocation = filled($validated['wake_location'] ?? null)
             ? $validated['wake_location']
             : ($funeral_case->wake_location ?: 'Not specified');
 
         // ── Update client ───────────────────────────────────────────────────────
+        DB::beginTransaction();
+        try {
         if ($client) {
             $clientData = [
                 'contact_number'           => $validated['client_contact'] ?? $client->contact_number,
@@ -351,11 +331,11 @@ class ReportController extends Controller
                 $deceasedData['died']          = $validated['date_of_death'];
                 $deceasedData['date_of_death'] = $validated['date_of_death'];
             }
-            if ($intermentAt) {
+            if (! $isFinalized && $intermentAt) {
                 $deceasedData['interment']    = $intermentAt->toDateString();
                 $deceasedData['interment_at'] = $intermentAt;
             }
-            if ($wakeDays !== null) {
+            if (! $isFinalized && $wakeDays !== null) {
                 $deceasedData['wake_days'] = $wakeDays;
             }
             $deceased->forceFill($deceasedData)->save();
@@ -363,28 +343,28 @@ class ReportController extends Controller
 
         // ── Update funeral case ─────────────────────────────────────────────────
         $funeral_case->update([
-            'package_id'           => $package->id,
-            'service_package'      => $package->name,
-            'coffin_type'          => $package->coffin_type,
             'wake_location'        => $wakeLocation,
             'wake_start_date'      => $wakeStartDate,
-            'wake_start_time'      => isset($validated['wake_start_time']) ? $validated['wake_start_time'] : $funeral_case->wake_start_time,
+            'wake_start_time'      => ! $isFinalized && isset($validated['wake_start_time']) ? $validated['wake_start_time'] : $funeral_case->wake_start_time,
             'funeral_service_at'   => $funeralServiceAt,
-            'funeral_service_time' => isset($validated['funeral_service_time']) ? $validated['funeral_service_time'] : $funeral_case->funeral_service_time,
+            'funeral_service_time' => ! $isFinalized && isset($validated['funeral_service_time']) ? $validated['funeral_service_time'] : $funeral_case->funeral_service_time,
             'interment_at'         => $intermentAt,
-            'interment_time'       => isset($validated['interment_time']) ? $validated['interment_time'] : $funeral_case->interment_time,
-            'subtotal_amount'      => $subtotal,
-            'discount_type'        => $discountPayload['discount_type'],
-            'discount_value_type'  => $discountPayload['discount_value_type'],
-            'discount_value'       => $discountPayload['discount_value'],
-            'discount_amount'      => $discount,
-            'discount_note'        => $discountPayload['discount_note'],
-            'total_amount'         => $total,
-            'total_paid'           => $payment['total_paid'],
-            'balance_amount'       => $payment['balance'],
-            'payment_status'       => $payment['status'],
+            'interment_time'       => ! $isFinalized && isset($validated['interment_time']) ? $validated['interment_time'] : $funeral_case->interment_time,
+            'subtotal_amount'      => $pricingAttributes['subtotal_amount'],
+            'discount_type'        => $pricingAttributes['discount_type'],
+            'discount_value_type'  => $pricingAttributes['discount_value_type'],
+            'discount_value'       => $pricingAttributes['discount_value'],
+            'discount_amount'      => $pricingAttributes['discount_amount'],
+            'discount_note'        => $pricingAttributes['discount_note'],
+            'tax_rate'             => $pricingAttributes['tax_rate'],
+            'tax_amount'           => $pricingAttributes['tax_amount'],
+            'total_amount'         => $pricingAttributes['total_amount'],
+            'total_paid'           => $pricingAttributes['total_paid'],
+            'balance_amount'       => $pricingAttributes['balance_amount'],
+            'payment_status'       => $pricingAttributes['payment_status'],
+            'pricing_snapshot'     => $pricingAttributes['pricing_snapshot'],
             'case_status'          => $validated['case_status'],
-            'additional_services'  => $validated['additional_services'] ?? $funeral_case->additional_services,
+            'additional_services'  => $isFinalized ? $funeral_case->additional_services : ($validated['additional_services'] ?? $funeral_case->additional_services),
             'verification_status'  => 'VERIFIED',
             'verified_by'          => $user->id,
             'verified_at'          => now(),
@@ -417,11 +397,16 @@ class ReportController extends Controller
                 'case_code'   => $funeral_case->case_code,
                 'updated_by'  => $user->name,
                 'case_status' => $funeral_case->case_status,
-                'package'     => $package->name,
+                'package'     => $snapshotPricing->packageName($funeral_case),
                 'note'        => $validated['admin_note'] ?? null,
             ],
             branchId: $funeral_case->branch_id
         );
+        DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
+        }
 
         $returnTo = $request->input('return_to');
         $redirect = ($returnTo && str_starts_with($returnTo, url('/')))
@@ -645,3 +630,6 @@ class ReportController extends Controller
         return filled($requestedBranchId) ? (int) $requestedBranchId : null;
     }
 }
+
+
+

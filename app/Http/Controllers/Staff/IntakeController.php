@@ -16,6 +16,7 @@ use App\Support\AuditLogger;
 use App\Support\IntakePricingService;
 use App\Support\Payments\PaymentDetails;
 use App\Support\Validation\FieldRules;
+use App\Support\WakeDuration;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -263,6 +264,10 @@ class IntakeController extends Controller
             'selected_add_ons' => 'nullable|array',
             'selected_add_ons.*' => 'integer|distinct',
             'replacement_casket_catalog_id' => 'nullable|integer|exists:casket_catalogs,id',
+            'apply_retrieval_excess' => 'nullable|boolean',
+            'retrieval_excess_kilometers' => 'nullable|numeric|min:0|max:10000',
+            'apply_hearse_excess' => 'nullable|boolean',
+            'hearse_excess_kilometers' => 'nullable|numeric|min:0|max:10000',
             'actual_retrieval_kilometers' => 'nullable|numeric|min:0|max:10000',
             'actual_hearse_kilometers' => 'nullable|numeric|min:0|max:10000',
             'reporter_name' => FieldRules::personName(false),
@@ -319,6 +324,8 @@ class IntakeController extends Controller
             'selected_add_ons.*.integer' => 'Selected add-on is invalid.',
             'selected_add_ons.*.distinct' => 'Duplicate add-ons are not allowed.',
             'replacement_casket_catalog_id.exists' => 'Selected casket is unavailable.',
+            'retrieval_excess_kilometers.numeric' => 'Retrieval excess kilometers must be a valid number.',
+            'hearse_excess_kilometers.numeric' => 'Hearse excess kilometers must be a valid number.',
             'actual_retrieval_kilometers.numeric' => 'Retrieval kilometers must be a valid number.',
             'actual_hearse_kilometers.numeric' => 'Hearse kilometers must be a valid number.',
         ]));
@@ -1120,21 +1127,7 @@ class IntakeController extends Controller
 
     private function resolveWakeDays(?int $wakeDays, ?string $wakeStartDate, ?string $intermentDate): ?int
     {
-        if (!$wakeStartDate || !$intermentDate) {
-            return null;
-        }
-
-        try {
-            $startDate = Carbon::parse($wakeStartDate)->startOfDay();
-            $endDate = Carbon::parse($intermentDate)->startOfDay();
-            if ($endDate->lessThan($startDate)) {
-                return null; // invalid sequence
-            }
-
-            return min(365, $startDate->diffInDays($endDate) + 1);
-        } catch (\Throwable $e) {
-            return null;
-        }
+        return WakeDuration::days($wakeStartDate, $intermentDate);
     }
 
     private function resolveScheduleDatetimes(array $validated): array

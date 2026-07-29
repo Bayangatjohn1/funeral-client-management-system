@@ -11,12 +11,107 @@ use App\Models\PackageFreebie;
 use App\Models\PackageInclusion;
 use App\Models\User;
 use App\Support\IntakePricingService;
+use App\Support\WakeDuration;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class IntakeStructuredPricingTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_wake_duration_uses_inclusive_calendar_days_and_nights(): void
+    {
+        $sameDay = WakeDuration::calculate('2026-07-20', '2026-07-20');
+        $this->assertSame(1, $sameDay['days']);
+        $this->assertSame(0, $sameDay['nights']);
+        $this->assertSame('1D/0N', $sameDay['label']);
+
+        $fourDays = WakeDuration::calculate('2026-07-20', '2026-07-23');
+        $this->assertSame(4, $fourDays['days']);
+        $this->assertSame(3, $fourDays['nights']);
+        $this->assertSame('4D/3N', $fourDays['label']);
+
+        $fiveDays = WakeDuration::calculate('2026-07-20', '2026-07-24');
+        $this->assertSame(5, $fiveDays['days']);
+        $this->assertSame(4, $fiveDays['nights']);
+        $this->assertSame('5D/4N', $fiveDays['label']);
+    }
+
+    public function test_pricing_service_charges_embalming_and_home_viewing_extensions_separately(): void
+    {
+        $package = Package::create([
+            'name' => 'Four Day Coverage Package',
+            'price' => 100000,
+            'is_active' => true,
+        ]);
+        PackageInclusion::create([
+            'package_id' => $package->id,
+            'service_type' => Package::SERVICE_EMBALMING,
+            'inclusion_name' => 'Embalming',
+            'included_days' => 4,
+            'price_per_extended_day' => 1000,
+            'sort_order' => 1,
+        ]);
+        PackageInclusion::create([
+            'package_id' => $package->id,
+            'service_type' => Package::SERVICE_HOME_VIEWING,
+            'inclusion_name' => 'Home Viewing',
+            'included_days' => 4,
+            'price_per_extended_day' => 1500,
+            'sort_order' => 2,
+        ]);
+
+        $pricing = app(IntakePricingService::class)->price($package->fresh(['packageInclusions.casketCatalog', 'packageFreebies']), [
+            'wake_start_date' => '2026-07-20',
+            'interment_at' => '2026-07-24',
+            'senior_citizen_status' => 0,
+            'pwd_status' => 0,
+            'tax_rate' => 0,
+        ]);
+
+        $charges = collect($pricing['service_charges'])->keyBy('type');
+        $this->assertSame(5, $pricing['wake_days']);
+        $this->assertSame(4, $pricing['wake_nights']);
+        $this->assertSame('5D/4N', $pricing['wake_duration']);
+        $this->assertSame(1, (int) $charges[Package::SERVICE_EMBALMING]['excess']);
+        $this->assertSame(1000.0, (float) $charges[Package::SERVICE_EMBALMING]['amount']);
+        $this->assertSame(1, (int) $charges[Package::SERVICE_HOME_VIEWING]['excess']);
+        $this->assertSame(1500.0, (float) $charges[Package::SERVICE_HOME_VIEWING]['amount']);
+        $this->assertSame(2500.0, (float) $pricing['service_charges_total']);
+        $this->assertSame('5D/4N', $pricing['snapshot']['wake_duration']);
+    }
+
+    public function test_pricing_service_snapshots_applied_promo_metadata_for_future_display(): void
+    {
+        $this->travelTo('2026-07-20 10:00:00');
+
+        $package = Package::create([
+            'name' => 'Promo Package',
+            'price' => 100000,
+            'promo_label' => 'July Promo',
+            'promo_value_type' => 'PERCENT',
+            'promo_value' => 10,
+            'promo_starts_at' => '2026-07-20 00:00:00',
+            'promo_ends_at' => '2026-07-21 23:59:59',
+            'promo_is_active' => true,
+            'is_active' => true,
+        ]);
+
+        $pricing = app(IntakePricingService::class)->price($package->fresh(['packageInclusions.casketCatalog', 'packageFreebies']), [
+            'wake_start_date' => '2026-07-20',
+            'interment_at' => '2026-07-20',
+            'senior_citizen_status' => 0,
+            'pwd_status' => 0,
+            'tax_rate' => 0,
+        ]);
+
+        $this->assertSame('PROMO', $pricing['discount']['source']);
+        $this->assertSame(10000.0, (float) $pricing['discount_amount']);
+        $this->assertSame('July Promo', $pricing['snapshot']['promo']['label']);
+        $this->assertSame('PERCENT', $pricing['snapshot']['promo']['value_type']);
+        $this->assertSame(10.0, (float) $pricing['snapshot']['promo']['value']);
+        $this->assertSame('Applied at intake', $pricing['snapshot']['promo']['status']);
+    }
 
     public function test_standard_package_uses_structured_limits_catalog_add_ons_and_snapshots(): void
     {
@@ -132,6 +227,8 @@ class IntakeStructuredPricingTest extends TestCase
         $this->assertSame('Premium Casket', $case->coffin_type);
         $this->assertNotNull($case->pricing_snapshot);
         $this->assertSame(5, (int) $case->pricing_snapshot['wake_days']);
+        $this->assertSame(4, (int) $case->pricing_snapshot['wake_nights']);
+        $this->assertSame('5D/4N', $case->pricing_snapshot['wake_duration']);
         $this->assertSame('First Class', $case->pricing_snapshot['package']['name']);
         $this->assertSame(15000.0, (float) collect($case->pricing_snapshot['service_charges'])->firstWhere('type', 'casket_upgrade')['amount']);
         $this->assertCount(1, $case->pricing_snapshot['add_ons']);
@@ -362,6 +459,98 @@ class IntakeStructuredPricingTest extends TestCase
         $this->assertSame(27748.0, (float) $pricing['service_charges_total']);
     }
 
+    public function test_simplified_adjustments_have_zero_charge_when_not_applied(): void
+    {
+        [$package] = $this->adjustmentPackage();
+
+        $pricing = app(IntakePricingService::class)->price($package, $this->adjustmentPayload([
+            'apply_retrieval_excess' => 0,
+            'apply_hearse_excess' => 0,
+        ]));
+
+        $this->assertSame(0.0, (float) $pricing['service_charges_total']);
+        $this->assertSame([], $pricing['service_charges']);
+        $this->assertFalse($pricing['snapshot']['adjustments']['body_retrieval']['applied']);
+        $this->assertFalse($pricing['snapshot']['adjustments']['hearse']['applied']);
+        $this->assertSame(0.0, (float) $pricing['snapshot']['adjustments']['body_retrieval']['charge']);
+        $this->assertSame(0.0, (float) $pricing['snapshot']['adjustments']['hearse']['charge']);
+    }
+
+    public function test_simplified_adjustments_charge_retrieval_excess_only(): void
+    {
+        [$package] = $this->adjustmentPackage();
+
+        $pricing = app(IntakePricingService::class)->price($package, $this->adjustmentPayload([
+            'apply_retrieval_excess' => 1,
+            'retrieval_excess_kilometers' => 6,
+            'apply_hearse_excess' => 0,
+        ]));
+
+        $charges = collect($pricing['service_charges'])->keyBy('type');
+        $this->assertSame(600.0, (float) $charges[Package::SERVICE_BODY_RETRIEVAL]['amount']);
+        $this->assertFalse($charges->has(Package::SERVICE_HEARSE));
+        $this->assertSame(6.0, (float) $pricing['snapshot']['adjustments']['body_retrieval']['excess_kilometers']);
+        $this->assertSame(100.0, (float) $pricing['snapshot']['adjustments']['body_retrieval']['rate']);
+        $this->assertSame(600.0, (float) $pricing['snapshot']['adjustments']['body_retrieval']['charge']);
+    }
+
+    public function test_simplified_adjustments_charge_hearse_excess_only(): void
+    {
+        [$package] = $this->adjustmentPackage();
+
+        $pricing = app(IntakePricingService::class)->price($package, $this->adjustmentPayload([
+            'apply_retrieval_excess' => 0,
+            'apply_hearse_excess' => 1,
+            'hearse_excess_kilometers' => 8,
+        ]));
+
+        $charges = collect($pricing['service_charges'])->keyBy('type');
+        $this->assertFalse($charges->has(Package::SERVICE_BODY_RETRIEVAL));
+        $this->assertSame(400.0, (float) $charges[Package::SERVICE_HEARSE]['amount']);
+        $this->assertSame(8.0, (float) $pricing['snapshot']['adjustments']['hearse']['excess_kilometers']);
+        $this->assertSame(50.0, (float) $pricing['snapshot']['adjustments']['hearse']['rate']);
+        $this->assertSame(400.0, (float) $pricing['snapshot']['adjustments']['hearse']['charge']);
+    }
+
+    public function test_simplified_adjustments_charge_positive_casket_upgrade_difference_only(): void
+    {
+        [$package, $upgradeCasket] = $this->adjustmentPackage();
+
+        $pricing = app(IntakePricingService::class)->price($package, $this->adjustmentPayload([
+            'replacement_casket_catalog_id' => $upgradeCasket->id,
+            'apply_retrieval_excess' => 0,
+            'apply_hearse_excess' => 0,
+        ]));
+
+        $charge = collect($pricing['service_charges'])->firstWhere('type', 'casket_upgrade');
+        $this->assertSame(15000.0, (float) $charge['amount']);
+        $this->assertTrue($pricing['snapshot']['adjustments']['casket']['applied']);
+        $this->assertSame(30000.0, (float) $pricing['snapshot']['adjustments']['casket']['included_reference_value']);
+        $this->assertSame(45000.0, (float) $pricing['snapshot']['adjustments']['casket']['selected_reference_value']);
+        $this->assertSame(15000.0, (float) $pricing['snapshot']['adjustments']['casket']['charge']);
+    }
+
+    public function test_simplified_adjustments_can_combine_retrieval_hearse_and_casket(): void
+    {
+        [$package, $upgradeCasket] = $this->adjustmentPackage();
+
+        $pricing = app(IntakePricingService::class)->price($package, $this->adjustmentPayload([
+            'replacement_casket_catalog_id' => $upgradeCasket->id,
+            'apply_retrieval_excess' => 1,
+            'retrieval_excess_kilometers' => 3.5,
+            'apply_hearse_excess' => 1,
+            'hearse_excess_kilometers' => 2,
+        ]));
+
+        $charges = collect($pricing['service_charges'])->keyBy('type');
+        $this->assertSame(350.0, (float) $charges[Package::SERVICE_BODY_RETRIEVAL]['amount']);
+        $this->assertSame(100.0, (float) $charges[Package::SERVICE_HEARSE]['amount']);
+        $this->assertSame(15000.0, (float) $charges['casket_upgrade']['amount']);
+        $this->assertSame(15450.0, (float) $pricing['service_charges_total']);
+        $this->assertSame(3.5, (float) $pricing['snapshot']['adjustments']['body_retrieval']['excess_kilometers']);
+        $this->assertSame(2.0, (float) $pricing['snapshot']['adjustments']['hearse']['excess_kilometers']);
+    }
+
     private function branch(): Branch
     {
         return Branch::create([
@@ -409,6 +598,66 @@ class IntakeStructuredPricingTest extends TestCase
             'pwd_status' => 0,
             'tax_rate' => 0,
             'confirm_review' => 1,
+        ], $overrides);
+    }
+
+    private function adjustmentPackage(): array
+    {
+        $includedCasket = CasketCatalog::create([
+            'name' => 'Included Contract Casket',
+            'type_or_material' => 'Metal',
+            'standard_price' => 30000,
+            'is_active' => true,
+        ]);
+        $upgradeCasket = CasketCatalog::create([
+            'name' => 'Upgrade Contract Casket',
+            'type_or_material' => 'Hardwood',
+            'standard_price' => 45000,
+            'is_active' => true,
+        ]);
+        $package = Package::create([
+            'name' => 'Contract Adjustment Package',
+            'price' => 100000,
+            'coffin_type' => $includedCasket->name,
+            'is_active' => true,
+        ]);
+
+        PackageInclusion::create([
+            'package_id' => $package->id,
+            'service_type' => Package::SERVICE_BODY_RETRIEVAL,
+            'inclusion_name' => 'Body Retrieval',
+            'included_kilometers' => 10,
+            'price_per_excess_kilometer' => 100,
+            'sort_order' => 1,
+        ]);
+        PackageInclusion::create([
+            'package_id' => $package->id,
+            'service_type' => Package::SERVICE_HEARSE,
+            'inclusion_name' => 'Hearse',
+            'included_kilometers' => 20,
+            'price_per_excess_kilometer' => 50,
+            'sort_order' => 2,
+        ]);
+        PackageInclusion::create([
+            'package_id' => $package->id,
+            'service_type' => Package::SERVICE_CASKET,
+            'casket_catalog_id' => $includedCasket->id,
+            'inclusion_name' => 'Casket',
+            'casket_type' => $includedCasket->name,
+            'sort_order' => 3,
+        ]);
+
+        return [$package->fresh(['packageInclusions.casketCatalog', 'packageFreebies']), $upgradeCasket];
+    }
+
+    private function adjustmentPayload(array $overrides = []): array
+    {
+        return array_merge([
+            'wake_start_date' => '2026-07-20',
+            'interment_at' => '2026-07-20',
+            'senior_citizen_status' => 0,
+            'pwd_status' => 0,
+            'tax_rate' => 0,
         ], $overrides);
     }
 }

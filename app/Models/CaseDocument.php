@@ -14,6 +14,7 @@ class CaseDocument extends Model
         'case_id',
         'document_type',
         'contract_number',
+        'contract_snapshot',
         'file_name',
         'file_path',
         'generated_by',
@@ -21,6 +22,7 @@ class CaseDocument extends Model
     ];
 
     protected $casts = [
+        'contract_snapshot' => 'array',
         'generated_at' => 'datetime',
     ];
 

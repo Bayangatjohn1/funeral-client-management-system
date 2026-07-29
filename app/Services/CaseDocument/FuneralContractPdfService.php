@@ -5,13 +5,21 @@ namespace App\Services\CaseDocument;
 use App\Models\CaseDocument;
 use App\Models\FuneralCase;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class FuneralContractPdfService
 {
-    public function generate(FuneralCase $case, int $userId): CaseDocument
+    public function __construct(
+        private readonly FuneralContractSnapshotService $snapshotService,
+        private readonly FuneralContractMapper $mapper
+    )
+    {
+    }
+
+    public function generate(FuneralCase $case, int $userId, array $contractDetails = []): CaseDocument
     {
         $case->loadMissing([
             'branch',
@@ -34,16 +42,30 @@ class FuneralContractPdfService
         $fileName = $this->fileName($case, $generatedAt, $contractNumber);
         $filePath = 'case-documents/' . $case->id . '/' . $fileName;
 
-        $pdfBinary = Pdf::loadView('pdf.funeral_contract', [
+        if ($existingDocument && $existingDocument->contract_snapshot && $existingDocument->file_path && Storage::disk('local')->exists($existingDocument->file_path)) {
+            return $existingDocument->fresh(['generator']);
+        }
+
+        $contractSnapshot = $this->snapshotService->make($case, $contractNumber, $contractDetails);
+        $contractView = $this->mapper->map($contractSnapshot);
+        if (! (bool) data_get($contractView, 'reconciliation.reconciled', true)) {
+            throw ValidationException::withMessages([
+                'contract' => 'The saved pricing breakdown does not match the case total. Please review the case billing record before finalizing the contract.',
+            ]);
+        }
+
+        $pdfBinary = Pdf::loadView('pdf.funeral_contract_physical', [
             'funeral_case' => $case,
             'generatedAt' => $generatedAt,
             'contractNumber' => $contractNumber,
+            'contractSnapshot' => $contractSnapshot,
+            'contractView' => $contractView,
         ])->setPaper('a4')->output();
 
         Storage::disk('local')->put($filePath, $pdfBinary);
 
         try {
-            return DB::transaction(function () use ($case, $userId, $generatedAt, $contractNumber, $fileName, $filePath) {
+            return DB::transaction(function () use ($case, $userId, $generatedAt, $contractNumber, $fileName, $filePath, $contractSnapshot) {
                 $document = CaseDocument::where('case_id', $case->id)
                     ->where('document_type', CaseDocument::TYPE_FUNERAL_CONTRACT)
                     ->lockForUpdate()
@@ -60,6 +82,7 @@ class FuneralContractPdfService
 
                 $document->fill([
                     'contract_number' => $document->contract_number ?: $contractNumber,
+                    'contract_snapshot' => $contractSnapshot,
                     'file_name' => $fileName,
                     'file_path' => $filePath,
                     'generated_by' => $userId,

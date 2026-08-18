@@ -1,7 +1,8 @@
 @extends('layouts.panel')
 
+@section('hide_layout_topbar', '1')
 @section('page_title', 'Payment Monitoring')
-@section('page_desc', 'Review case payment summaries and recorded payment transactions.')
+@section('page_desc', '')
 
 @section('content')
 @php
@@ -11,7 +12,7 @@
     $isStaff = $user?->isStaff();
     $isMainAdmin = $user?->isMainBranchAdmin();
     $isOwner = $user?->isOwner();
-    $activeTab = $activeTab ?? 'summary';
+    $activeTab = 'summary';
     $monitoringRoute = request()->routeIs('admin.payments.index') || request()->routeIs('admin.payment-monitoring')
         ? 'admin.payments.index'
         : 'payments.history';
@@ -42,9 +43,10 @@
     .pm-page { color: var(--ink); padding: 12px var(--panel-content-inline, 20px) 20px; }
     .pm-kpis { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:.75rem; margin-bottom:1rem; }
     .pm-kpi {
-        background:var(--card); border:1.5px solid var(--border); border-radius:.625rem;
+        background:#D3DEC9; border:1.5px solid var(--border); border-radius:.625rem;
         display:flex; flex-direction:column;
         text-decoration:none; color:var(--ink);
+        box-shadow:none;
     }
     .pm-kpi-inner {
         display:flex; align-items:center; gap:.75rem;
@@ -53,18 +55,18 @@
     .pm-kpi-icon {
         width:2rem; height:2rem; border-radius:7px; flex-shrink:0;
         display:inline-flex; align-items:center; justify-content:center;
-        font-size:.82rem; background:rgba(62,74,61,0.10); color:var(--brand);
+        font-size:.82rem; background:transparent; color:var(--brand);
     }
     .pm-kpi-body {
         flex:1; min-width:0; display:flex; flex-direction:column; gap:.08rem;
     }
     .pm-kpi-label {
         display:block; font-size:.65rem; text-transform:uppercase; letter-spacing:.06em;
-        color:var(--ink-muted); font-weight:700; line-height:1.3; white-space:nowrap;
+        color:var(--ink-muted); font-weight:650; line-height:1.3; white-space:nowrap;
     }
     .pm-kpi-value {
         display:block; font-size:1.15rem; line-height:1.15;
-        font-weight:800; font-variant-numeric:tabular-nums; color:var(--ink);
+        font-weight:750; font-variant-numeric:tabular-nums; color:var(--ink);
     }
     .pm-kpi-value.good { color:#6F8A6D; }
     .pm-kpi-value.warn { color:#B87956; }
@@ -79,11 +81,11 @@
         white-space:nowrap; flex-shrink:0;
         opacity:0; transition:opacity .15s ease;
     }
-    .pm-kpi.is-link { cursor:pointer; transition:background .13s ease, border-color .13s ease; }
-    .pm-kpi.is-link:hover { background:var(--surface-muted); border-color:var(--brand); box-shadow:0 2px 6px rgba(62,74,61,.09); }
+    .pm-kpi.is-link { cursor:pointer; transition:background .13s ease, border-color .13s ease, color .13s ease; }
+    .pm-kpi.is-link:hover { background:#C7D5BE; border-color:#8EA083; box-shadow:none; }
     .pm-kpi.is-link:hover .pm-kpi-action { opacity:1; }
 
-    .pm-toolbar-shell { background: var(--card); border:1px solid var(--border); border-radius:.75rem; padding:.7rem; margin-bottom:1rem; overflow:visible; }
+    .pm-toolbar-shell { background:#D3DEC9; border:1px solid var(--border); border-radius:.75rem; padding:.7rem; margin-bottom:1rem; overflow:visible; box-shadow:none; }
     .pm-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:.55rem; }
     .pm-field { flex:1 1 8rem; min-width:0; }
     .pm-field.branch { flex:1.5 1 11rem; }
@@ -96,8 +98,11 @@
     .pm-sel-chev { position:absolute; right:.72rem; top:50%; transform:translateY(-50%); color:var(--ink-muted); pointer-events:none; font-size:.72rem; z-index:1; }
     .pm-control {
         width:100%; height:2.65rem; border:1px solid var(--border); border-radius:.75rem;
-        background:var(--white); color:var(--ink); font-size:.82rem; padding:0 .72rem;
+        background:#E1E7D9; color:var(--ink); font-size:.82rem; padding:0 .72rem;
+        box-shadow:none; cursor:pointer; transition:background-color .16s ease, border-color .16s ease;
     }
+    .pm-control:hover { background:#C7D5BE; border-color:#8EA083; }
+    .pm-control:focus { outline:none; box-shadow:none; border-color:var(--accent); background:#FBFCF7; }
     .pm-control:disabled { background:var(--surface-muted); color:var(--ink-muted); opacity:1; }
     .pm-readonly-control {
         display:flex; align-items:center; min-height:2.75rem; height:2.75rem;
@@ -106,50 +111,61 @@
     }
     .pm-actions { display:flex; gap:.55rem; flex:0 0 auto; align-items:center; margin-left:auto; }
     .pm-btn {
-        height:2.65rem; border-radius:.75rem; border:1px solid var(--border); background:var(--white);
+        height:2.65rem; border-radius:.75rem; border:1px solid var(--border); background:#E1E7D9;
         color:var(--ink); padding:0 .78rem; display:inline-flex; align-items:center; gap:.4rem;
         font-weight:700; font-size:.82rem; text-decoration:none; white-space:nowrap;
+        cursor:pointer; box-shadow:none; transition:background-color .16s ease, border-color .16s ease, color .16s ease;
     }
+    .pm-btn:hover { background:#C7D5BE; border-color:#8EA083; color:var(--ink); }
     .pm-btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+    .pm-btn.primary:hover { background:#2F3A2E; border-color:#2F3A2E; color:#fff; }
     .pm-hidden-date-fields { display:none; }
     .pm-modal-backdrop { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(15,23,42,.45); z-index:60; padding:1rem; }
     .pm-modal-backdrop.open { display:flex; }
-    .pm-modal { width:min(100%,28rem); background:var(--card); border:1px solid var(--border); border-radius:1rem; box-shadow:0 20px 45px rgba(15,23,42,.22); overflow:hidden; }
+    .pm-modal { width:min(100%,28rem); background:#D3DEC9; border:1px solid var(--border); border-radius:1rem; box-shadow:none; overflow:hidden; }
+    .pm-modal.pm-transactions-modal { width:min(100%,58rem); max-height:min(86vh,48rem); display:flex; flex-direction:column; }
     .pm-modal-hd { display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:1rem 1.1rem; border-bottom:1px solid var(--border); }
-    .pm-modal-title { font-weight:900; }
+    .pm-modal-title { font-weight:700; }
     .pm-modal-body { display:grid; gap:.8rem; padding:1rem 1.1rem; }
+    .pm-transactions-modal .pm-modal-body { overflow:auto; }
     .pm-modal-ft { display:flex; justify-content:flex-end; gap:.65rem; padding:1rem 1.1rem; border-top:1px solid var(--border); }
 
-    .pm-tabs { display:flex; gap:.35rem; border-bottom:1px solid var(--border); margin:1rem 0 .75rem; }
+    .pm-tabs { display:none; gap:.35rem; border-bottom:1px solid var(--border); margin:1rem 0 .75rem; }
     .pm-tab {
         display:inline-flex; align-items:center; gap:.45rem; padding:.75rem .95rem; color:var(--ink-muted);
-        border-bottom:2px solid transparent; text-decoration:none; font-weight:800; font-size:.9rem;
+        border-bottom:2px solid transparent; text-decoration:none; font-weight:650; font-size:.9rem;
+        cursor:pointer; transition:background-color .16s ease, color .16s ease;
     }
-    .pm-tab.active { color:var(--accent); border-color:var(--accent); }
+    .pm-tab:hover { background:#C7D5BE; color:var(--ink); }
+    .pm-tab.active { color:var(--accent); border-color:var(--accent); background:#C7D5BE; }
 
-    .pm-panel { background:var(--card); border:1px solid var(--border); border-radius:.75rem; overflow:hidden; display:flex; flex-direction:column; }
+    .pm-panel { background:#D3DEC9; border:1px solid var(--border); border-radius:.75rem; overflow:hidden; display:flex; flex-direction:column; box-shadow:none; }
     .pm-records-body { flex:1 1 auto; min-height:0; overflow-y:auto; max-height:calc(100vh - 320px); }
     .pm-money { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; font-weight:700; }
-    .pm-row-list { background:var(--card); }
-    .pm-case-row { display:grid; grid-template-columns:minmax(7rem,.65fr) minmax(0,1.8fr) minmax(12rem,.9fr) auto; gap:1rem; align-items:center; width:100%; padding:1rem; border:0; border-bottom:1px solid var(--border); background:transparent; color:inherit; text-align:left; }
+    .pm-row-list { display:flex; flex-direction:column; background:#D3DEC9; }
+    .pm-case-item { background:#D3DEC9; border-bottom:1px solid var(--border); }
+    .pm-case-item:last-child { border-bottom:0; }
+    .pm-case-row { display:grid; grid-template-columns:minmax(6rem,.5fr) minmax(0,1.5fr) minmax(12rem,.75fr) minmax(18rem,auto); gap:1rem; align-items:center; width:100%; padding:1rem; border:0; background:transparent; color:inherit; text-align:left; }
     .pm-case-row.is-toggle { cursor:pointer; }
-    .pm-case-row.is-toggle:hover { background:var(--surface-muted); }
-    .pm-case-row.is-toggle:focus-visible { outline:none; box-shadow:inset 0 0 0 2px rgba(62,74,61,0.25); }
+    .pm-case-row.is-toggle:hover { background:#C7D5BE; }
+    .pm-case-row.is-toggle:focus-visible { outline:none; background:#C7D5BE; box-shadow:none; }
+    .pm-case-row[aria-expanded="true"] { background:#C7D5BE; }
     .pm-case-row[aria-expanded="true"] .pm-chev { transform:rotate(180deg); }
     .pm-row-main { min-width:0; }
     .pm-row-title { font-weight:850; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .pm-row-meta { margin-top:.22rem; color:var(--ink-muted); font-size:.82rem; display:flex; gap:.4rem; flex-wrap:wrap; align-items:center; }
     .pm-row-date { color:var(--ink-muted); font-size:.86rem; white-space:nowrap; }
-    .pm-row-actions { display:flex; align-items:center; justify-content:flex-end; gap:.65rem; min-width:max-content; }
+    .pm-row-actions { display:flex; align-items:center; justify-content:flex-end; gap:.55rem; min-width:max-content; flex-wrap:nowrap; }
     .pm-row-link { display:inline-flex; align-items:center; gap:.4rem; color:var(--accent); font-weight:850; font-size:.84rem; text-decoration:none; background:transparent; border:0; padding:0; }
-    .pm-light-link { display:inline-flex; align-items:center; gap:.35rem; color:var(--ink-muted); font-weight:750; font-size:.84rem; text-decoration:none; background:transparent; border:0; padding:0; }
-    .pm-light-link:hover { color:var(--accent); }
-    .pm-icon-toggle { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; border:1px solid var(--border); border-radius:.6rem; background:var(--white); color:var(--ink-muted); }
-    .pm-summary-detail { display:none; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.75rem; padding:.85rem 1rem 1rem; background:var(--surface-muted); border-bottom:1px solid var(--border); }
+    .pm-light-link { display:inline-flex; align-items:center; justify-content:center; min-height:2.25rem; gap:.4rem; color:var(--ink); font-weight:700; font-size:.82rem; text-decoration:none; background:#E1E7D9; border:1px solid var(--border); border-radius:.65rem; padding:0 .75rem; transition:background-color .16s ease, border-color .16s ease, color .16s ease; }
+    .pm-light-link:hover { background:#D3DEC9; border-color:#8EA083; color:var(--ink); }
+    button.pm-light-link { cursor:pointer; }
+    .pm-icon-toggle { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; border:1px solid var(--border); border-radius:.6rem; background:#E1E7D9; color:var(--ink-muted); }
+    .pm-summary-detail { display:none; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.75rem; padding:1rem; background:#C7D5BE; border-top:1px solid var(--border); }
     .pm-summary-detail.open { display:grid; }
-    .pm-summary-stat { background:var(--card); border:1px solid var(--border); border-radius:.75rem; padding:.75rem; min-width:0; }
-    .pm-summary-stat span { display:block; color:var(--ink-muted); font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
-    .pm-summary-stat strong { display:block; margin-top:.25rem; color:var(--ink); font-size:.95rem; font-weight:900; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pm-summary-stat { background:#DCE6D6; border:1px solid var(--border); border-radius:.75rem; padding:.75rem; min-width:0; }
+    .pm-summary-stat span { display:block; color:var(--ink-muted); font-size:.68rem; font-weight:650; text-transform:uppercase; letter-spacing:.05em; }
+    .pm-summary-stat strong { display:block; margin-top:.25rem; color:var(--ink); font-size:.95rem; font-weight:750; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .pm-muted { color:var(--ink-muted); }
     .pm-case { font-weight:800; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; }
     .pm-name { font-weight:800; }
@@ -166,10 +182,10 @@
         z-index:2;
         padding:.7rem .85rem;
         border-top:1px solid var(--border);
-        background:var(--card);
+        background:#D3DEC9;
         border-bottom-left-radius:.75rem;
         border-bottom-right-radius:.75rem;
-        box-shadow:0 -10px 24px rgba(62,74,61,.08);
+        box-shadow:none;
     }
     .pm-foot .table-paginator {
         width:100%;
@@ -184,35 +200,35 @@
         font-weight:800;
     }
 
-    .pm-trans-list { background:var(--card); }
-    .pm-trans-item { background:var(--card); border-bottom:1px solid var(--border); overflow:hidden; }
+    .pm-trans-list { background:#D3DEC9; }
+    .pm-trans-item { background:#D3DEC9; border-bottom:1px solid var(--border); overflow:hidden; }
     .pm-trans-row { width:100%; display:grid; grid-template-columns:minmax(7rem,.65fr) minmax(0,1.8fr) minmax(12rem,.9fr) auto; align-items:center; gap:1rem; padding:1rem; border:0; background:transparent; color:inherit; text-align:left; cursor:pointer; }
     .pm-trans-main { min-width:0; }
     .pm-trans-title { font-weight:850; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .pm-trans-meta { margin-top:.25rem; color:var(--ink-muted); font-size:.82rem; display:flex; gap:.45rem; flex-wrap:wrap; }
     .pm-trans-money { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; min-width:0; }
     .pm-trans-stat span { display:block; color:var(--ink-muted); font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
-    .pm-trans-stat strong { display:block; margin-top:.2rem; font-size:.9rem; font-weight:900; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .pm-trans-stat strong { display:block; margin-top:.2rem; font-size:.9rem; font-weight:750; font-variant-numeric:tabular-nums; white-space:nowrap; }
     .pm-trans-side { display:flex; align-items:center; justify-content:flex-end; gap:.75rem; }
     .pm-trans-count { color:var(--ink-muted); font-size:.78rem; font-weight:800; white-space:nowrap; }
-    .pm-expand-label { color:var(--accent); font-size:.82rem; font-weight:900; white-space:nowrap; }
+    .pm-expand-label { color:var(--accent); font-size:.82rem; font-weight:700; white-space:nowrap; }
     .pm-chev { color:var(--ink-muted); transition:transform .16s ease; }
     .pm-trans-row[aria-expanded="true"] .pm-chev { transform:rotate(180deg); }
-    .pm-detail { display:none; background:var(--surface-muted); padding:0 0 .75rem; }
+    .pm-detail { display:none; background:#C7D5BE; padding:0 0 .75rem; }
     .pm-detail.open { display:block; }
-    .pm-case-overview { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.75rem; padding:.85rem 1rem; background:var(--surface-muted); border-bottom:1px solid var(--border); }
+    .pm-case-overview { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.75rem; padding:.85rem 1rem; background:#C7D5BE; border-bottom:1px solid var(--border); }
     .pm-detail-actions { display:flex; gap:.5rem; padding:.75rem 1rem 0; flex-wrap:wrap; }
 
     .pm-txn-list { display:flex; flex-direction:column; gap:.5rem; padding:.75rem 1rem 0; }
-    .pm-txn-card { background:var(--card); border:1px solid var(--border); border-radius:.6rem; overflow:hidden; }
+    .pm-txn-card { background:#DCE6D6; border:1px solid var(--border); border-radius:.6rem; overflow:hidden; box-shadow:none; }
     .pm-txn-hd { display:flex; justify-content:space-between; align-items:flex-start; padding:.85rem 1rem; gap:1rem; }
     .pm-txn-info { min-width:0; flex:1 1 0; }
-    .pm-txn-rec { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:900; font-size:.92rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:24rem; color:var(--ink); }
+    .pm-txn-rec { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:750; font-size:.92rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:24rem; color:var(--ink); }
     .pm-txn-rec-label { display:block; margin-bottom:.16rem; color:var(--ink-muted); font-size:.65rem; font-family:inherit; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
     .pm-txn-sub { display:flex; flex-wrap:wrap; gap:.3rem; font-size:.78rem; color:var(--ink-muted); margin-top:.2rem; align-items:center; }
     .pm-dot { color:var(--ink-muted); }
     .pm-txn-right { display:flex; flex-direction:column; align-items:flex-end; gap:.2rem; flex-shrink:0; }
-    .pm-txn-amt { font-size:1rem; font-weight:900; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .pm-txn-amt { font-size:1rem; font-weight:750; font-variant-numeric:tabular-nums; white-space:nowrap; }
     .pm-txn-bal { display:flex; flex-direction:column; align-items:flex-end; margin-top:.15rem; }
     .pm-txn-bal-lbl { font-size:.65rem; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-muted); font-weight:700; }
     .pm-txn-bal-val { font-size:.8rem; font-weight:700; font-variant-numeric:tabular-nums; color:var(--ink-muted); white-space:nowrap; }
@@ -224,9 +240,9 @@
         background:transparent; border:1px solid var(--border); border-radius:.4rem;
         color:var(--ink-muted); font-size:.75rem; font-weight:700; cursor:pointer;
     }
-    .pm-txn-tog:hover { background:var(--surface-muted); color:var(--ink); }
+    .pm-txn-tog:hover { background:#C7D5BE; color:var(--ink); }
     .pm-txn-tog[aria-expanded="true"] .pm-chev { transform:rotate(180deg); }
-    .pm-txn-det { border-top:1px solid var(--border); padding:.65rem 1rem .85rem; background:var(--surface-muted); }
+    .pm-txn-det { border-top:1px solid var(--border); padding:.65rem 1rem .85rem; background:#C7D5BE; }
     .pm-txn-det-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(11rem,1fr)); gap:.5rem; }
     .pm-txn-det-cell span { display:block; font-size:.65rem; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-muted); font-weight:700; margin-bottom:.2rem; }
     .pm-txn-det-cell strong { font-size:.8rem; word-break:break-word; }
@@ -254,7 +270,7 @@
     html[data-theme='dark'] .pm-kpi.is-link:hover {
         background: #1f2f45;
         border-color: var(--brand);
-        box-shadow: 0 2px 8px rgba(59,130,246,0.16);
+        box-shadow: none;
     }
 
     /* ── Dark mode: status pills ──────────────────────────────────── */
@@ -264,7 +280,18 @@
 
     /* ── Dark mode: row hover & icon toggle ───────────────────────── */
     html[data-theme='dark'] .pm-case-row.is-toggle:hover,
+    html[data-theme='dark'] .pm-case-row[aria-expanded="true"],
     html[data-theme='dark'] .pm-trans-row:hover { background: #202d3f; }
+    html[data-theme='dark'] .pm-light-link {
+        background: #273243;
+        border-color: #526177;
+        color: #e2ecf9;
+    }
+    html[data-theme='dark'] .pm-light-link:hover {
+        background: #202d3f;
+        border-color: #6b7c91;
+        color: #e2ecf9;
+    }
     html[data-theme='dark'] .pm-icon-toggle {
         background: #273243;
         border-color: #526177;
@@ -300,7 +327,7 @@
         .pm-summary-actions, .pm-summary-actions .pm-btn { width:100%; justify-content:center; }
         .pm-case-row, .pm-trans-row { grid-template-columns:minmax(0,1fr); }
         .pm-summary-detail, .pm-case-overview, .pm-trans-money { grid-template-columns:1fr 1fr; }
-        .pm-trans-side, .pm-row-actions { justify-content:flex-start; }
+        .pm-trans-side, .pm-row-actions { justify-content:flex-start; flex-wrap:wrap; min-width:0; }
         .pm-txn-hd { flex-direction:column; gap:.5rem; }
         .pm-txn-right { align-items:flex-start; }
     }
@@ -310,6 +337,7 @@
     @if(session('success'))
         <div class="flash-success">{{ session('success') }}</div>
     @endif
+    <div class="flash-info" data-flash-icon="bi-clock-history">You are on the Payment Monitoring page.</div>
     @if($errors->any())
         <div class="flash-error">{{ $errors->first() }}</div>
     @endif
@@ -317,7 +345,7 @@
     @if(!$isStaff)
     <div class="pm-kpis">
         {{-- Total Cases With Payments — links to Case Payment Summary tab --}}
-        <a href="{{ route($monitoringRoute, $tabQuery('summary')) }}" class="pm-kpi is-link">
+        <div class="pm-kpi">
             <div class="pm-kpi-inner">
                 <span class="pm-kpi-icon"><i class="bi bi-folder-check"></i></span>
                 <div class="pm-kpi-body">
@@ -325,11 +353,10 @@
                     <strong class="pm-kpi-value">{{ number_format($totalCasesWithPayments ?? 0) }}</strong>
                     <span class="pm-kpi-desc">Cases with at least one payment</span>
                 </div>
-                <span class="pm-kpi-action">View <i class="bi bi-arrow-right-short"></i></span>
             </div>
-        </a>
+        </div>
         {{-- Total Payment Transactions — links to Transaction History tab --}}
-        <a href="{{ route($monitoringRoute, $tabQuery('transactions')) }}" class="pm-kpi is-link">
+        <div class="pm-kpi">
             <div class="pm-kpi-inner">
                 <span class="pm-kpi-icon"><i class="bi bi-receipt"></i></span>
                 <div class="pm-kpi-body">
@@ -337,25 +364,23 @@
                     <strong class="pm-kpi-value">{{ number_format($paymentRecordsCount ?? 0) }}</strong>
                     <span class="pm-kpi-desc">All recorded payment entries</span>
                 </div>
-                <span class="pm-kpi-action">View <i class="bi bi-arrow-right-short"></i></span>
             </div>
-        </a>
+        </div>
         {{-- Total Collected — links to Transaction History tab --}}
-        <a href="{{ route($monitoringRoute, $tabQuery('transactions')) }}" class="pm-kpi is-link">
+        <div class="pm-kpi">
             <div class="pm-kpi-inner">
-                <span class="pm-kpi-icon" style="background:rgba(111,138,109,0.12);color:#6F8A6D;"><i class="bi bi-cash-stack"></i></span>
+                <span class="pm-kpi-icon" style="color:#6F8A6D;"><i class="bi bi-cash-stack"></i></span>
                 <div class="pm-kpi-body">
                     <span class="pm-kpi-label">Total Collected</span>
                     <strong class="pm-kpi-value good">&#8369;{{ number_format((float) ($totalCollected ?? 0), 2) }}</strong>
                     <span class="pm-kpi-desc">Actual money received</span>
                 </div>
-                <span class="pm-kpi-action">View <i class="bi bi-arrow-right-short"></i></span>
             </div>
-        </a>
+        </div>
         {{-- Outstanding Balance — non-clickable; no combined UNPAID+PARTIAL filter exists --}}
         <div class="pm-kpi">
             <div class="pm-kpi-inner">
-                <span class="pm-kpi-icon" style="background:rgba(184,121,86,0.12);color:#B87956;"><i class="bi bi-exclamation-circle"></i></span>
+                <span class="pm-kpi-icon" style="color:#B87956;"><i class="bi bi-exclamation-circle"></i></span>
                 <div class="pm-kpi-body">
                     <span class="pm-kpi-label">Outstanding Balance</span>
                     <strong class="pm-kpi-value warn">&#8369;{{ number_format((float) ($totalOutstanding ?? 0), 2) }}</strong>
@@ -366,18 +391,9 @@
     </div>
     @endif
 
-    <div class="pm-tabs" role="tablist">
-        <a class="pm-tab {{ $activeTab === 'summary' ? 'active' : '' }}" href="{{ route($monitoringRoute, $tabQuery('summary')) }}">
-            <i class="bi bi-folder2-open"></i> Case Payment Summary
-        </a>
-        <a class="pm-tab {{ $activeTab === 'transactions' ? 'active' : '' }}" href="{{ route($monitoringRoute, $tabQuery('transactions')) }}">
-            <i class="bi bi-list-ul"></i> Transaction History
-        </a>
-    </div>
-
     <div class="pm-toolbar-shell">
         <form id="pmFilterForm" method="GET" action="{{ route($monitoringRoute) }}" class="pm-toolbar">
-            <input type="hidden" name="tab" value="{{ $activeTab }}">
+            <input type="hidden" name="tab" value="summary">
 
             <div class="pm-field search has-icon">
                 <i class="bi bi-search"></i>
@@ -463,6 +479,7 @@
 
             <div class="pm-actions">
                 <a href="{{ route($monitoringRoute) }}" class="pm-btn"><i class="bi bi-arrow-counterclockwise"></i><span>Reset</span></a>
+                <button type="submit" class="pm-btn primary"><i class="bi bi-funnel"></i><span>Apply</span></button>
             </div>
         </form>
     </div>
@@ -473,10 +490,13 @@
             <div class="pm-row-list">
                 @forelse($paymentCases as $case)
                     @php
+                        $casePayments = $case->payments ?? collect();
                         $latestPaymentAt = $case->payments_max_paid_at ? \Illuminate\Support\Carbon::parse($case->payments_max_paid_at) : null;
                         $summaryId = 'summary-case-' . $case->id;
+                        $transactionsModalId = 'transactions-modal-case-' . $case->id;
                     @endphp
-                    <button type="button" class="pm-case-row is-toggle" data-pm-summary-toggle="{{ $summaryId }}" aria-expanded="false">
+                    <article class="pm-case-item">
+                    <div class="pm-case-row is-toggle" data-pm-summary-toggle="{{ $summaryId }}" aria-expanded="false" role="button" tabindex="0">
                         <div class="pm-case">{{ $case->case_code ?? '-' }}</div>
                         <div class="pm-row-main">
                             <div class="pm-row-title">{{ $case->client?->full_name ?? '-' }} &ndash; {{ $case->deceased?->full_name ?? '-' }}</div>
@@ -487,18 +507,124 @@
                         <div class="pm-row-date">Last payment: {{ $latestPaymentAt?->format('M d, Y h:i A') ?? '-' }}</div>
                         <div class="pm-row-actions">
                             <span class="pm-status {{ $statusClass($case->payment_status) }}">{{ \Illuminate\Support\Str::headline($case->payment_status ?? 'UNPAID') }}</span>
-                            <a class="pm-light-link" data-pm-stop-row-toggle href="{{ route($monitoringRoute, array_filter(array_merge(request()->except(['tab', 'q', 'page', 'transactions_page', 'open_case']), ['tab' => 'transactions', 'q' => $case->case_code, 'open_case' => $case->case_code]))) }}">
+                            <button type="button" class="pm-light-link" data-pm-stop-row-toggle data-pm-open-transactions-modal="{{ $transactionsModalId }}">
                                 <i class="bi bi-list-ul"></i><span>View Transactions</span>
-                            </a>
+                            </button>
                             <span class="pm-icon-toggle" aria-hidden="true"><i class="bi bi-chevron-down pm-chev"></i></span>
                         </div>
-                    </button>
+                    </div>
                     <div id="{{ $summaryId }}" class="pm-summary-detail">
-                        <div class="pm-summary-stat"><span>Total Case Amount</span><strong>PHP {{ number_format((float) $case->total_amount, 2) }}</strong></div>
+                        <div class="pm-summary-stat"><span>Service Amount</span><strong>PHP {{ number_format((float) $case->total_amount, 2) }}</strong></div>
                         <div class="pm-summary-stat"><span>Total Paid</span><strong>PHP {{ number_format((float) $case->total_paid, 2) }}</strong></div>
                         <div class="pm-summary-stat"><span>Remaining Balance</span><strong>PHP {{ number_format((float) $case->balance_amount, 2) }}</strong></div>
                         <div class="pm-summary-stat"><span>Transactions</span><strong>{{ number_format($case->payments_count ?? 0) }}</strong></div>
                     </div>
+                    <div id="{{ $transactionsModalId }}" class="pm-modal-backdrop pm-transactions-backdrop" aria-hidden="true">
+                        <div class="pm-modal pm-transactions-modal" role="dialog" aria-modal="true" aria-labelledby="{{ $transactionsModalId }}-title">
+                            <div class="pm-modal-hd">
+                                <div>
+                                    <div class="pm-modal-title" id="{{ $transactionsModalId }}-title">Transactions for {{ $case->case_code ?? 'Case' }}</div>
+                                    <div class="pm-sub">{{ $case->client?->full_name ?? '-' }} &ndash; {{ $case->deceased?->full_name ?? '-' }}</div>
+                                </div>
+                                <button type="button" class="pm-btn compact" data-pm-close-transactions-modal aria-label="Close transactions"><i class="bi bi-x-lg"></i></button>
+                            </div>
+                            <div class="pm-modal-body">
+                                <div class="pm-case-overview">
+                                    <div class="pm-summary-stat"><span>Service Amount</span><strong>PHP {{ number_format((float) $case->total_amount, 2) }}</strong></div>
+                                    <div class="pm-summary-stat"><span>Total Paid</span><strong>PHP {{ number_format((float) $case->total_paid, 2) }}</strong></div>
+                                    <div class="pm-summary-stat"><span>Remaining Balance</span><strong>PHP {{ number_format((float) $case->balance_amount, 2) }}</strong></div>
+                                    <div class="pm-summary-stat"><span>Transactions</span><strong>{{ number_format($case->payments_count ?? $casePayments->count()) }}</strong></div>
+                                </div>
+
+                                <div class="pm-txn-list">
+                                    @forelse($casePayments as $payment)
+                                        @php
+                                            $method = $payment->payment_method ?: $payment->payment_mode ?: 'cash';
+                                            $cashlessType = $payment->cashless_type ?: ($method === 'bank_transfer' || $payment->payment_mode === 'bank_transfer' ? 'bank_transfer' : null);
+                                            $isCashless = $method === 'cashless' || $cashlessType;
+                                            $methodLabel = \App\Support\Payments\PaymentDetails::label($payment);
+                                            $paidAt = $payment->paid_at ?? $payment->paid_date;
+                                            $hasBalSnap = $payment->balance_after_payment !== null;
+                                            $balanceLabel = $hasBalSnap ? 'Balance After Payment' : 'Current Balance';
+                                            $balanceValue = $hasBalSnap ? $payment->balance_after_payment : $case->balance_amount;
+                                            $txnDetId = 'summary-txnd-' . $payment->id;
+                                            $txnRef = $payment->reference_number ?: $payment->transaction_reference_no ?: null;
+                                            $refLabel = \App\Support\Payments\PaymentDetails::referenceLabel($payment);
+                                            $remarks = $payment->remarks ?: null;
+                                            $encodedBy = $payment->encodedBy?->name ?? $payment->recordedBy?->name ?? null;
+                                            $senderName = $payment->sender_name ?: null;
+                                            $statusAfter = $payment->payment_status_after_payment ?? null;
+                                            $recordNo = $payment->display_payment_record_no ?? null;
+                                        @endphp
+                                        <div class="pm-txn-card">
+                                            <div class="pm-txn-hd">
+                                                <div class="pm-txn-info">
+                                                    <span class="pm-txn-rec-label">Payment Record No.</span>
+                                                    <div class="pm-txn-rec">{{ $recordNo ?? 'Not provided' }}</div>
+                                                    <div class="pm-txn-sub">
+                                                        <span>{{ $methodLabel }}</span>
+                                                        @if($refLabel)
+                                                            <span class="pm-dot">&middot;</span>
+                                                            <span>{{ $refLabel }}</span>
+                                                        @endif
+                                                        <span class="pm-dot">&middot;</span>
+                                                        <span>{{ $paidAt?->format('M d, Y h:i A') ?? 'Not provided' }}</span>
+                                                    </div>
+                                                </div>
+                                                <div class="pm-txn-right">
+                                                    <div class="pm-txn-amt">PHP {{ number_format((float) $payment->amount, 2) }}</div>
+                                                    @if($statusAfter)
+                                                        <span class="pm-status {{ $statusClass($statusAfter) }}">{{ \Illuminate\Support\Str::headline($statusAfter) }}</span>
+                                                    @endif
+                                                    <div class="pm-txn-bal">
+                                                        <span class="pm-txn-bal-lbl">{{ $balanceLabel }}</span>
+                                                        <span class="pm-txn-bal-val">PHP {{ number_format((float) $balanceValue, 2) }}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            @if($encodedBy)
+                                                <div class="pm-txn-foot">
+                                                    <span>Encoded by <strong>{{ $encodedBy }}</strong></span>
+                                                </div>
+                                            @endif
+                                            <button type="button" class="pm-txn-tog" data-pm-txn-det="{{ $txnDetId }}" aria-expanded="false">
+                                                <i class="bi bi-info-circle"></i> Details <i class="bi bi-chevron-down pm-chev"></i>
+                                            </button>
+                                            <div id="{{ $txnDetId }}" class="pm-txn-det" hidden>
+                                                <div class="pm-txn-det-grid">
+                                                    <div class="pm-txn-det-cell"><span>Payment Record No.</span><strong>{{ $recordNo ?? 'Not provided' }}</strong></div>
+                                                    <div class="pm-txn-det-cell"><span>Payment Method</span><strong>{{ $methodLabel }}</strong></div>
+                                                    <div class="pm-txn-det-cell"><span>Payment Amount</span><strong>PHP {{ number_format((float) $payment->amount, 2) }}</strong></div>
+                                                    <div class="pm-txn-det-cell"><span>Payment Date &amp; Time</span><strong>{{ $paidAt?->format('M d, Y h:i A') ?? 'Not provided' }}</strong></div>
+                                                    <div class="pm-txn-det-cell"><span>{{ $balanceLabel }}</span><strong>PHP {{ number_format((float) $balanceValue, 2) }}</strong></div>
+                                                    <div class="pm-txn-det-cell"><span>Encoded By</span><strong>{{ $encodedBy ?: 'Not provided' }}</strong></div>
+                                                    @if($isCashless)
+                                                        <div class="pm-txn-det-cell"><span>Cashless Type</span><strong>{{ $cashlessType ? \Illuminate\Support\Str::headline(str_replace('_', ' ', $cashlessType)) : 'Not provided' }}</strong></div>
+                                                        <div class="pm-txn-det-cell"><span>{{ $payment->approval_code ? 'Approval Code' : 'Reference No.' }}</span><strong>{{ $payment->approval_code ?: ($txnRef ?: 'Not provided') }}</strong></div>
+                                                    @endif
+                                                    @if($senderName)
+                                                        <div class="pm-txn-det-cell"><span>Sender / Account Name</span><strong>{{ $senderName }}</strong></div>
+                                                    @endif
+                                                    @if($remarks)
+                                                        <div class="pm-txn-det-cell pm-txn-det-full"><span>Remarks</span><strong>{{ $remarks }}</strong></div>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @empty
+                                        <div class="pm-empty">No payment transactions found for this case.</div>
+                                    @endforelse
+                                </div>
+                            </div>
+                            <div class="pm-modal-ft">
+                                @if($case)
+                                    <a class="pm-btn primary" href="{{ $caseRoute($case) }}"><i class="bi bi-eye"></i><span>View Case</span></a>
+                                @endif
+                                <button type="button" class="pm-btn" data-pm-close-transactions-modal>Close</button>
+                            </div>
+                        </div>
+                    </div>
+                    </article>
                 @empty
                     <div class="pm-empty">{{ $emptyMessage }}</div>
                 @endforelse
@@ -542,10 +668,10 @@
 
                         <div id="{{ $detailId }}" class="pm-detail">
                             <div class="pm-case-overview">
-                                <div class="pm-summary-stat"><span>Total Paid / Total Case Amount</span><strong>PHP {{ number_format((float) $case->total_paid, 2) }} / PHP {{ number_format((float) $case->total_amount, 2) }}</strong></div>
+                                <div class="pm-summary-stat"><span>Service Amount</span><strong>PHP {{ number_format((float) $case->total_amount, 2) }}</strong></div>
+                                <div class="pm-summary-stat"><span>Total Paid</span><strong>PHP {{ number_format((float) $case->total_paid, 2) }}</strong></div>
                                 <div class="pm-summary-stat"><span>Remaining Balance</span><strong>PHP {{ number_format((float) $case->balance_amount, 2) }}</strong></div>
-                                <div class="pm-summary-stat"><span>Latest Payment Amount</span><strong>{{ $latestAmount !== null ? 'PHP ' . number_format((float) $latestAmount, 2) : 'Not available' }}</strong></div>
-                                <div class="pm-summary-stat"><span>Total Transactions</span><strong>{{ number_format($case->payments_count ?? $casePayments->count()) }}</strong></div>
+                                <div class="pm-summary-stat"><span>Transactions</span><strong>{{ number_format($case->payments_count ?? $casePayments->count()) }}</strong></div>
                             </div>
                             <div class="pm-txn-list">
                                 @forelse($casePayments as $payment)
@@ -793,13 +919,52 @@
         link.addEventListener('click', event => event.stopPropagation());
     });
 
+    const setTransactionsModalOpen = (modal, open) => {
+        if (!modal) return;
+        modal.classList.toggle('open', open);
+        modal.setAttribute('aria-hidden', open ? 'false' : 'true');
+        document.documentElement.classList.toggle('overflow-hidden', open);
+        document.body.classList.toggle('overflow-hidden', open);
+    };
+
+    document.querySelectorAll('[data-pm-open-transactions-modal]').forEach(button => {
+        button.addEventListener('click', event => {
+            event.stopPropagation();
+            const modal = document.getElementById(button.dataset.pmOpenTransactionsModal);
+            setTransactionsModalOpen(modal, true);
+        });
+    });
+
+    document.querySelectorAll('.pm-transactions-backdrop').forEach(modal => {
+        modal.addEventListener('click', event => {
+            if (event.target === modal) setTransactionsModalOpen(modal, false);
+        });
+        modal.querySelectorAll('[data-pm-close-transactions-modal]').forEach(button => {
+            button.addEventListener('click', () => setTransactionsModalOpen(modal, false));
+        });
+    });
+
+    document.addEventListener('keydown', event => {
+        if (event.key !== 'Escape') return;
+        document.querySelectorAll('.pm-transactions-backdrop.open').forEach(modal => {
+            setTransactionsModalOpen(modal, false);
+        });
+    });
+
     document.querySelectorAll('[data-pm-summary-toggle]').forEach(button => {
-        button.addEventListener('click', () => {
+        const toggleSummary = () => {
             const target = document.getElementById(button.dataset.pmSummaryToggle);
             if (!target) return;
             const nextOpen = !target.classList.contains('open');
             target.classList.toggle('open', nextOpen);
             button.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+        };
+
+        button.addEventListener('click', toggleSummary);
+        button.addEventListener('keydown', event => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            toggleSummary();
         });
     });
 

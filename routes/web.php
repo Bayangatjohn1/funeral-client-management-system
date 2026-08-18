@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\BranchController;
 use App\Http\Controllers\Admin\AddOnCatalogController;
 use App\Http\Controllers\Admin\CasketCatalogController;
+use App\Http\Controllers\Admin\FreebieCatalogController;
 use App\Http\Controllers\Admin\PackageController;
 use App\Http\Controllers\Admin\ReportController as AdminReportController;
 use App\Http\Controllers\Admin\AuditLogController;
@@ -87,6 +88,12 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->get(
         'date_filter' => 'nullable|in:all,today,this_week,this_month,this_year',
     ]);
     $branchId = isset($validated['branch_id']) ? (int) $validated['branch_id'] : null;
+    if ($isMainAdmin && !$request->has('branch_id')) {
+        $branchId = (int) ($user->operationalBranchId() ?? $user->branch_id ?? 0) ?: null;
+    }
+    if ($isBranchAdmin && $request->filled('branch_id') && (int) $validated['branch_id'] !== (int) $user->branch_id) {
+        abort(403, 'Branch is outside your admin scope.');
+    }
     if ($isBranchAdmin) {
         $branchId = (int) $user->branch_id;
     }
@@ -503,6 +510,12 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->pref
     Route::get('/add-on-catalogs/{add_on_catalog}/edit', [AddOnCatalogController::class, 'edit'])->name('admin.add-on-catalogs.edit');
     Route::put('/add-on-catalogs/{add_on_catalog}', [AddOnCatalogController::class, 'update'])->name('admin.add-on-catalogs.update');
     Route::patch('/add-on-catalogs/{add_on_catalog}/toggle-active', [AddOnCatalogController::class, 'toggleActive'])->name('admin.add-on-catalogs.toggleActive');
+    Route::get('/freebie-catalogs', [FreebieCatalogController::class, 'index'])->name('admin.freebie-catalogs.index');
+    Route::get('/freebie-catalogs/create', [FreebieCatalogController::class, 'create'])->name('admin.freebie-catalogs.create');
+    Route::post('/freebie-catalogs', [FreebieCatalogController::class, 'store'])->name('admin.freebie-catalogs.store');
+    Route::get('/freebie-catalogs/{freebie_catalog}/edit', [FreebieCatalogController::class, 'edit'])->name('admin.freebie-catalogs.edit');
+    Route::put('/freebie-catalogs/{freebie_catalog}', [FreebieCatalogController::class, 'update'])->name('admin.freebie-catalogs.update');
+    Route::patch('/freebie-catalogs/{freebie_catalog}/toggle-active', [FreebieCatalogController::class, 'toggleActive'])->name('admin.freebie-catalogs.toggleActive');
     Route::get('/casket-catalogs', [CasketCatalogController::class, 'index'])->name('admin.casket-catalogs.index');
     Route::get('/casket-catalogs/create', [CasketCatalogController::class, 'create'])->name('admin.casket-catalogs.create');
     Route::post('/casket-catalogs', [CasketCatalogController::class, 'store'])->name('admin.casket-catalogs.store');

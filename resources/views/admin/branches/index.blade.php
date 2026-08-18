@@ -2,9 +2,294 @@
 
 @section('page_title', 'Branch Management')
 @section('page_desc', 'Manage branch details, status, and branch-wide settings.')
+@section('hide_layout_topbar', '1')
 
 @section('content')
 <style>[x-cloak] { display: none !important; }
+.admin-table-page.branch-management-page {
+    min-height:calc(100vh - 1rem);
+    background:
+        linear-gradient(90deg, rgba(73,87,69,0.04) 0 1px, transparent 1px),
+        linear-gradient(180deg, rgba(73,87,69,0.034) 0 1px, transparent 1px),
+        repeating-linear-gradient(135deg, rgba(73,87,69,0.02) 0 1px, transparent 1px 12px),
+        #C4D2BE;
+    background-size:44px 44px,44px 44px,16px 16px,auto;
+}
+.management-toast {
+    position:fixed;
+    top:1rem;
+    right:1rem;
+    z-index:1200;
+    display:flex;
+    align-items:center;
+    gap:.55rem;
+    max-width:calc(100vw - 2rem);
+    border:1px solid #8EA083;
+    border-radius:.75rem;
+    background:#2F3A2E;
+    color:#F7FAF3;
+    padding:.72rem .9rem;
+    font-size:.88rem;
+    font-weight:650;
+    line-height:1.35;
+    box-shadow:none !important;
+    pointer-events:none;
+    animation:managementToastIn .18s ease-out, managementToastOut .22s ease-in 3.8s forwards;
+}
+.management-toast i {
+    font-size:1rem;
+    color:#DCE6D6;
+}
+@keyframes managementToastIn {
+    from { opacity:0; transform:translateY(-.35rem); }
+    to { opacity:1; transform:translateY(0); }
+}
+@keyframes managementToastOut {
+    to { opacity:0; transform:translateY(-.35rem); visibility:hidden; }
+}
+.branch-management-page .table-system-card,
+.branch-management-page .admin-table-card {
+    background:transparent !important;
+    border:0 !important;
+    border-radius:0 !important;
+    box-shadow:none !important;
+    overflow:visible !important;
+}
+.branch-management-page .admin-table-card {
+    display:flex;
+    flex-direction:column;
+}
+.branch-management-page .table-system-head {
+    background:transparent !important;
+    border:0 !important;
+    padding:0 0 .85rem;
+    order:2;
+}
+.branch-management-page .admin-table-head-row {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:1rem;
+    flex-wrap:wrap;
+}
+.branch-management-page .admin-table-head-row > div:first-child {
+    display:none;
+}
+.branch-management-page .admin-table-head-row {
+    justify-content:flex-start;
+}
+.branch-management-page .table-system-title {
+    color:var(--ink);
+    font-size:1.25rem;
+    font-weight:750;
+    letter-spacing:0;
+    line-height:1.15;
+}
+.branch-management-page .admin-table-head-copy {
+    color:var(--ink-muted);
+    font-size:.88rem;
+    font-weight:600;
+    margin-top:.2rem;
+}
+.branch-management-page .admin-table-head-actions,
+.branch-management-page .filter-actions {
+    display:flex;
+    align-items:center;
+    gap:.6rem;
+    flex-wrap:wrap;
+}
+.branch-management-page .table-system-toolbar {
+    background:#D0DDC8;
+    border:1px solid #B8C7AF;
+    border-radius:.75rem;
+    padding:.75rem;
+    margin-bottom:.8rem;
+    order:1;
+}
+.branch-management-page .branch-directory-card-view,
+.branch-management-page .branch-directory-table-view,
+.branch-management-page .table-system-list {
+    order:3;
+}
+.branch-management-page .branch-directory-table-view {
+    margin-top:0 !important;
+}
+.branch-management-page .table-toolbar {
+    display:flex;
+    flex-wrap:wrap;
+    gap:.65rem !important;
+    align-items:center;
+}
+.branch-management-page .table-toolbar-label {
+    display:none;
+}
+.branch-management-page .table-toolbar-search,
+.branch-management-page .table-toolbar-select,
+.branch-management-page .table-toolbar-sort {
+    min-height:2.9rem !important;
+    height:2.9rem !important;
+    border-radius:.5rem !important;
+    border:1px solid #AEBFA6 !important;
+    background:#E9F0E4 !important;
+    background-color:#E9F0E4 !important;
+    color:#293229 !important;
+    font-size:.92rem !important;
+    font-weight:650 !important;
+    box-shadow:none !important;
+    cursor:pointer;
+    appearance:none !important;
+    -webkit-appearance:none !important;
+    -moz-appearance:none !important;
+    background-image:none !important;
+    transition:background-color .16s ease,border-color .16s ease,color .16s ease;
+}
+.branch-management-page .table-toolbar-input-wrap,
+.branch-management-page .table-toolbar-select-wrap {
+    position:relative;
+}
+.branch-management-page .table-toolbar-field:first-child {
+    flex:1 1 20rem;
+    min-width:min(20rem, 100%);
+}
+.branch-management-page .table-toolbar-field:not(:first-child) {
+    flex:0 0 15.5rem;
+    min-width:15.5rem;
+}
+.branch-management-page .table-toolbar-reset-wrap {
+    flex:0 0 auto;
+    margin-left:auto;
+}
+.branch-management-page .table-toolbar-input-wrap,
+.branch-management-page .table-toolbar-select-wrap,
+.branch-management-page .table-toolbar-field,
+.branch-management-page .table-toolbar-search,
+.branch-management-page .table-toolbar-select,
+.branch-management-page .table-toolbar-sort {
+    width:100%;
+}
+.branch-management-page .table-toolbar-search,
+.branch-management-page .table-toolbar-select,
+.branch-management-page .table-toolbar-sort {
+    padding-left:2.6rem !important;
+    padding-right:2.45rem !important;
+}
+.branch-management-page .table-toolbar-search { cursor:text; }
+.branch-management-page .table-toolbar-select-wrap,
+.branch-management-page .table-toolbar-select-wrap *,
+.branch-management-page .filter-actions *,
+.branch-management-page .admin-table-head-actions * {
+    cursor:pointer;
+}
+.branch-management-page .table-toolbar-select-icon {
+    pointer-events:none;
+    position:absolute;
+    right:1rem;
+    top:50%;
+    transform:translateY(-50%);
+    color:#657563;
+    font-size:.9rem;
+}
+.branch-management-page .table-toolbar-leading-icon {
+    position:absolute;
+    left:1rem;
+    top:50%;
+    transform:translateY(-50%);
+    color:#657563;
+    font-size:1rem;
+    pointer-events:none;
+}
+.branch-management-page .table-toolbar-search:hover,
+.branch-management-page .table-toolbar-select:hover,
+.branch-management-page .table-toolbar-sort:hover {
+    background:#DFE9D9 !important;
+    background-color:#DFE9D9 !important;
+    border-color:#8EA083 !important;
+}
+.branch-management-page .table-toolbar-search:focus,
+.branch-management-page .table-toolbar-select:focus,
+.branch-management-page .table-toolbar-sort:focus {
+    border-color:#8EA083 !important;
+    background:#EEF5E9 !important;
+    background-color:#EEF5E9 !important;
+    box-shadow:none !important;
+}
+.branch-management-page .btn-secondary,
+.branch-management-page .btn-primary-custom {
+    min-height:2.9rem;
+    height:2.9rem;
+    border-radius:.5rem;
+    padding:0 .95rem;
+    font-size:.84rem;
+    font-weight:650;
+    box-shadow:none !important;
+    cursor:pointer;
+    transition:background-color .16s ease,border-color .16s ease,color .16s ease;
+}
+.branch-management-page .btn-secondary {
+    min-width:5.8rem;
+    white-space:nowrap;
+}
+.branch-management-page .btn-primary-custom:hover {
+    background:#DDE8D6 !important;
+    border-color:#8EA083 !important;
+    color:var(--ink) !important;
+}
+.branch-management-page .btn-secondary,
+.branch-management-page .btn-primary-custom {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:.45rem;
+    background:#344333 !important;
+    border:1px solid #344333 !important;
+    color:#fff !important;
+}
+.branch-management-page .filter-actions {
+    min-height:2.9rem;
+    padding:0;
+    border:0;
+    background:transparent;
+}
+.branch-management-page .filter-actions .btn-primary-custom {
+    min-width:8.75rem;
+}
+.branch-management-page .btn-secondary:hover,
+.branch-management-page .btn-primary-custom:hover {
+    background:#2F3A2E !important;
+    border-color:#2F3A2E !important;
+    color:#fff !important;
+}
+.branch-management-page .admin-table-head-actions .btn-primary-custom {
+    min-width:10rem;
+    min-height:2.85rem;
+    background:#344333 !important;
+    border-color:#344333 !important;
+    color:#fff !important;
+    font-weight:700;
+}
+.branch-management-page .admin-table-head-actions .btn-primary-custom i {
+    color:#F7FAF3;
+}
+.branch-management-page .admin-table-head-actions > .inline-flex {
+    background:#E1E7D9 !important;
+    border:1px solid var(--border) !important;
+    border-radius:.75rem !important;
+    overflow:hidden;
+    box-shadow:none !important;
+}
+.branch-management-page .admin-table-head-actions > .inline-flex button {
+    min-height:2.45rem;
+    color:var(--ink-muted);
+    cursor:pointer;
+}
+.branch-management-page .admin-table-head-actions > .inline-flex button:hover {
+    background:#C7D5BE !important;
+    color:var(--ink) !important;
+}
+.branch-management-page .admin-table-head-actions > .inline-flex .bg-slate-900 {
+    background:var(--accent) !important;
+    color:#fff !important;
+}
 .branch-kpi-strip {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -18,17 +303,17 @@
 }
 .branch-kpi-card {
     display: block;
-    background: #FAFAF7;
-    border: 1.5px solid #C9C5BB;
-    border-radius: 10px;
+    background: #DCE6D6;
+    border: 1px solid var(--border);
+    border-radius: .75rem;
     text-decoration: none;
     cursor: pointer;
-    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+    box-shadow:none !important;
 }
 .branch-kpi-card:hover {
-    background: #F3F0E8;
-    border-color: #3E4A3D;
-    box-shadow: 0 2px 6px rgba(62,74,61,0.09);
+    background: #C7D5BE;
+    border-color: #8EA083;
 }
 .branch-kpi-card__inner {
     display: flex;
@@ -45,7 +330,6 @@
     justify-content: center;
     font-size: 0.82rem;
     flex-shrink: 0;
-    background: rgba(62,74,61,0.10);
     color: #3E4A3D;
 }
 .branch-kpi-card__body {
@@ -57,8 +341,8 @@
 }
 .branch-kpi-card__label {
     font-size: 0.65rem;
-    font-weight: 700;
-    color: #5F685F;
+    font-weight: 650;
+    color: var(--ink-muted);
     text-transform: uppercase;
     letter-spacing: 0.06em;
     white-space: nowrap;
@@ -66,15 +350,15 @@
 }
 .branch-kpi-card__value {
     font-size: 1.15rem;
-    font-weight: 800;
+    font-weight: 750;
     line-height: 1.15;
-    color: #222222;
+    color: var(--ink);
     font-variant-numeric: tabular-nums;
 }
 .branch-kpi-card__desc {
     font-size: 0.63rem;
-    color: #7A8577;
-    font-weight: 500;
+    color: var(--ink-muted);
+    font-weight: 600;
     line-height: 1.3;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -84,7 +368,7 @@
 .branch-kpi-card__action {
     font-size: 0.62rem;
     font-weight: 700;
-    color: #5F685F;
+    color: var(--ink);
     text-transform: uppercase;
     letter-spacing: 0.07em;
     white-space: nowrap;
@@ -94,6 +378,256 @@
 }
 .branch-kpi-card:hover .branch-kpi-card__action {
     opacity: 1;
+}
+.branch-management-page .branch-directory-card-view,
+.branch-management-page .table-system-list {
+    background:transparent !important;
+    border-top:0 !important;
+    padding:0 !important;
+    overflow:visible !important;
+}
+.branch-management-page .branch-directory-card-view > .grid {
+    grid-template-columns:repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+    gap:18px;
+}
+.branch-management-page .directory-item-card {
+    background:#DCE6D6 !important;
+    border:1px solid var(--border) !important;
+    border-radius:.75rem !important;
+    box-shadow:none !important;
+    overflow:visible;
+}
+.branch-management-page .directory-item-card:hover {
+    background:#C7D5BE !important;
+    border-color:#8EA083 !important;
+}
+.branch-management-page .directory-item-card .border-t {
+    border-color:var(--border) !important;
+}
+.branch-management-page .directory-item-card h3,
+.branch-management-page .table-primary {
+    color:var(--ink) !important;
+    font-weight:680;
+}
+.branch-management-page .directory-item-card p,
+.branch-management-page .directory-item-card .text-slate-500,
+.branch-management-page .directory-item-card .text-slate-400,
+.branch-management-page .table-secondary {
+    color:var(--ink-muted) !important;
+    font-weight:600;
+}
+.branch-management-page .row-action-trigger {
+    width:auto !important;
+    min-width:6rem;
+    min-height:2.35rem;
+    gap:.45rem;
+    border-radius:.75rem !important;
+    background:#E1E7D9 !important;
+    border:1px solid var(--border) !important;
+    color:var(--ink) !important;
+    box-shadow:none !important;
+    cursor:pointer;
+    font-size:.78rem;
+    font-weight:700;
+    padding:0 .75rem;
+}
+.branch-management-page .row-action-trigger::after {
+    content:"Actions";
+}
+.branch-management-page .row-action-trigger:hover,
+.branch-management-page .row-action-item:hover {
+    background:#C7D5BE !important;
+    color:var(--ink) !important;
+}
+.branch-management-page .row-action-dropdown {
+    min-width:12rem;
+    border:1px solid #B5C4AD !important;
+    border-radius:.75rem !important;
+    background:#E1E7D9 !important;
+    box-shadow:none !important;
+    padding:.35rem !important;
+}
+.branch-management-page .row-action-item {
+    border-radius:.6rem !important;
+    color:var(--ink) !important;
+    font-size:.8rem !important;
+    font-weight:680 !important;
+    padding:.6rem .7rem !important;
+}
+.branch-management-page .row-action-item i {
+    color:#566653 !important;
+}
+.branch-management-page .table-system-wrap,
+.branch-management-page .table-system-table {
+    background:#DCE6D6 !important;
+    box-shadow:none !important;
+}
+.branch-management-page .table-system-wrap {
+    margin:0 !important;
+    border:1px solid var(--border);
+    border-radius:.75rem;
+    overflow:auto;
+}
+.branch-management-page .table-system-table thead th {
+    background:#C7D5BE !important;
+    color:var(--ink-muted) !important;
+    font-weight:650;
+    font-size:.72rem;
+    letter-spacing:.05em;
+}
+.branch-management-page .directory-item-card [class*="tracking-widest"],
+.branch-management-page .table-system-table tbody td {
+    color:var(--ink) !important;
+}
+.branch-management-page .table-system-table tbody tr:hover {
+    background:#C7D5BE !important;
+}
+@media(max-width:900px) {
+    .branch-management-page .table-toolbar { grid-template-columns:1fr !important; }
+    .branch-management-page .admin-table-head-actions,
+    .branch-management-page .filter-actions { width:100%; }
+    .branch-management-page .filter-actions > * { flex:1; }
+}
+#branchCreateModalSheet,
+#branchModalSheet {
+    background:#D3DEC9 !important;
+    border:1px solid var(--border) !important;
+    border-radius:.75rem !important;
+    box-shadow:none !important;
+}
+#branchCreateModalSheet .bg-white,
+#branchCreateModalSheet .bg-slate-50,
+#branchModalSheet .bg-white,
+#branchModalSheet .bg-slate-50,
+#branchModalContent {
+    background:#D3DEC9 !important;
+}
+#branchCreateModalSheet .rounded-2xl {
+    border-radius:.75rem !important;
+    border-color:var(--border) !important;
+    box-shadow:none !important;
+}
+#branchCreateModalSheet .rounded-2xl,
+#branchModalContent .rounded-2xl {
+    background:#D3DEC9 !important;
+}
+#branchCreateModalSheet .border-b,
+#branchCreateModalSheet .border-t,
+#branchCreateModalSheet .border-slate-200,
+#branchModalSheet .border-slate-200 {
+    border-color:var(--border) !important;
+}
+#branchCreateModalSheet .px-6.py-5,
+#branchModalContent .px-6.py-5 {
+    background:#C7D5BE !important;
+    border-bottom:1px solid #AEBFA6 !important;
+    padding:1rem 1.15rem !important;
+}
+#branchCreateModalSheet h2,
+#branchModalContent h2 {
+    color:var(--ink) !important;
+    font-size:1.25rem !important;
+    font-weight:760 !important;
+    letter-spacing:0 !important;
+}
+#branchCreateModalSheet p,
+#branchCreateModalSheet .text-slate-500,
+#branchCreateModalSheet .text-slate-700,
+#branchModalContent p,
+#branchModalContent .text-slate-500,
+#branchModalContent .text-slate-700 {
+    color:var(--ink-muted) !important;
+    font-weight:600;
+}
+#branchCreateModalSheet .p-6,
+#branchModalContent .p-6 {
+    padding:1rem !important;
+}
+#branchCreateModalSheet .grid,
+#branchModalContent .grid {
+    gap:.8rem !important;
+}
+#branchCreateModalSheet .label-section,
+#branchModalContent .label-section {
+    color:#566653 !important;
+    font-size:.76rem !important;
+    font-weight:680 !important;
+}
+#branchCreateModalSheet .form-input,
+#branchModalContent .form-input,
+#branchModalContent select,
+#branchModalContent textarea {
+    min-height:2.65rem;
+    border-radius:.65rem;
+    border:1px solid #AEBFA6 !important;
+    background:#E9F0E4 !important;
+    color:var(--ink) !important;
+    font-weight:650;
+    box-shadow:none !important;
+}
+#branchCreateModalSheet .form-input:focus,
+#branchModalContent .form-input:focus,
+#branchModalContent select:focus,
+#branchModalContent textarea:focus {
+    border-color:#8EA083;
+    background:#F4F8EF !important;
+    box-shadow:none !important;
+}
+#branchCreateModalSheet .rounded-xl,
+#branchModalContent .rounded-xl {
+    border-color:#AEBFA6 !important;
+    background:#DDE8D6 !important;
+    box-shadow:none !important;
+}
+#branchCreateModalSheet .text-slate-500.mt-2,
+#branchModalContent .text-slate-500.mt-2 {
+    margin-top:.45rem !important;
+    font-size:.82rem !important;
+}
+#branchCreateModalSheet button,
+#branchModalSheet button {
+    cursor:pointer;
+    box-shadow:none !important;
+}
+#branchCreateModalClose,
+#branchEditModalClose {
+    background:#E9F0E4 !important;
+    border:1px solid #AEBFA6 !important;
+    color:var(--ink) !important;
+    border-radius:.55rem !important;
+}
+#branchCreateModalClose:hover,
+#branchEditModalClose:hover {
+    background:#DDE8D6 !important;
+    color:var(--ink) !important;
+}
+#branchCreateModalSheet .btn-outline,
+#branchModalContent .btn-outline {
+    min-height:2.55rem;
+    border:1px solid #AEBFA6 !important;
+    border-radius:.55rem !important;
+    background:#E9F0E4 !important;
+    color:#3E4A3D !important;
+    box-shadow:none !important;
+}
+#branchCreateModalSheet .btn-outline:hover,
+#branchModalContent .btn-outline:hover {
+    background:#DDE8D6 !important;
+    color:var(--ink) !important;
+}
+#branchCreateModalSheet .btn-primary-custom,
+#branchModalContent .btn-primary-custom {
+    min-height:2.55rem;
+    border-radius:.55rem !important;
+    background:#344333 !important;
+    border-color:#344333 !important;
+    color:#fff !important;
+    box-shadow:none !important;
+}
+#branchCreateModalSheet .btn-primary-custom:hover,
+#branchModalContent .btn-primary-custom:hover {
+    background:#2F3A2E !important;
+    border-color:#2F3A2E !important;
 }
 </style>
 <div class="admin-table-page directory-page admin-catalog-page branch-management-page" x-data="branchCatalog()">
@@ -109,6 +643,11 @@
         {{ $errors->first() }}
     </div>
 @endif
+
+<div class="management-toast no-print" role="status" aria-live="polite">
+    <i class="bi bi-building"></i>
+    <span>You are viewing Branch Management.</span>
+</div>
 
 @php
     $highlightBranchId = request('highlight_branch');
@@ -166,15 +705,6 @@
                     </button>
                 </div>
 
-                {{-- Add Branch --}}
-                <button
-                    id="openBranchCreateModal"
-                    type="button"
-                    class="btn btn-primary-custom btn-sm bg-[var(--brand-mid)] border-[var(--brand-mid)] hover:bg-[var(--brand-hover)] hover:border-[var(--brand-hover)] text-white inline-flex items-center gap-2"
-                >
-                    <i class="bi bi-plus-circle"></i>
-                    <span>Add Branch</span>
-                </button>
             </div>
         </div>
     </div>
@@ -186,6 +716,8 @@
             action="{{ route('admin.branches.index') }}"
             class="table-toolbar"
             data-table-toolbar
+            data-live-search-suggestions
+            data-live-search-commit-only
             data-search-debounce="400"
             style="grid-template-columns: minmax(260px, 2.2fr) repeat(2, minmax(150px, 1fr)) auto;"
         >
@@ -195,19 +727,28 @@
             @endif
             <div class="table-toolbar-field">
                 <label class="table-toolbar-label">Search</label>
-                <input
-                    type="text"
-                    name="q"
-                    value="{{ request('q') }}"
-                    placeholder="Search branches..."
-                    class="form-input table-toolbar-search"
-                    data-table-search
-                    autocomplete="off"
-                >
+                <div class="table-toolbar-input-wrap">
+                    <i class="bi bi-search table-toolbar-leading-icon" aria-hidden="true"></i>
+                    <input
+                        type="text"
+                        name="q"
+                        value="{{ request('q') }}"
+                        placeholder="Search branches..."
+                        class="form-input table-toolbar-search has-clear-action"
+                        data-table-search
+                        data-live-search-input
+                        autocomplete="off"
+                    >
+                    <button type="button" class="live-search-clear" data-live-search-clear aria-label="Clear search" @if(!filled(request('q'))) hidden @endif>
+                        <i class="bi bi-x"></i>
+                    </button>
+                    <div class="live-search-results" data-live-search-results hidden></div>
+                </div>
             </div>
             <div class="table-toolbar-field">
                 <label class="table-toolbar-label">Status</label>
                 <div class="table-toolbar-select-wrap">
+                    <i class="bi bi-activity table-toolbar-leading-icon" aria-hidden="true"></i>
                     <select name="status" class="form-select table-toolbar-select" data-table-auto-submit>
                         <option value="">All Status</option>
                         <option value="active"   {{ request('status') === 'active'   ? 'selected' : '' }}>Active</option>
@@ -219,6 +760,7 @@
             <div class="table-toolbar-field">
                 <label class="table-toolbar-label">Sort</label>
                 <div class="table-toolbar-select-wrap">
+                    <i class="bi bi-sort-alpha-down table-toolbar-leading-icon" aria-hidden="true"></i>
                     <select name="sort" class="form-select table-toolbar-sort" data-table-sort>
                         <option value="code_asc"     {{ request('sort', 'code_asc') === 'code_asc'    ? 'selected' : '' }}>Branch ID</option>
                         <option value="name_asc"     {{ request('sort') === 'name_asc'                 ? 'selected' : '' }}>Branch Name</option>
@@ -233,13 +775,13 @@
             <div class="table-toolbar-reset-wrap">
                 <span class="table-toolbar-label opacity-0 select-none" aria-hidden="true">Actions</span>
                 <div class="filter-actions">
-                    <a href="{{ route('admin.branches.index') }}" class="btn-outline btn-filter-reset">
-                        <i class="bi bi-arrow-counterclockwise"></i>
-                        <span>Reset</span>
-                    </a>
-                    <button type="submit" class="btn-secondary">
-                        <i class="bi bi-funnel"></i>
-                        <span>Apply</span>
+                    <button
+                        id="openBranchCreateModal"
+                        type="button"
+                        class="btn btn-primary-custom btn-sm"
+                    >
+                        <i class="bi bi-plus-circle"></i>
+                        <span>Add Branch</span>
                     </button>
                 </div>
             </div>
@@ -287,6 +829,10 @@
                 @endphp
                 <div
                     class="directory-item-card bg-white border {{ $isHighlightedBranch ? 'border-[var(--brand-mid)] ring-2 ring-[var(--brand-mid)]/20' : 'border-slate-200' }} rounded-2xl transition-colors duration-200 flex flex-col cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--brand-mid)] focus:ring-offset-2"
+                    data-live-search-row
+                    data-live-search-title="{{ $branch->branch_name }}"
+                    data-live-search-meta="{{ $branch->branch_code }} / {{ $branch->address ?: 'No address' }}"
+                    data-live-search-text="{{ $branch->branch_code }} {{ $branch->branch_name }} {{ $branch->address }} {{ $branch->is_active ? 'Active' : 'Inactive' }}"
                     data-branch-card-href="{{ route('admin.cases.index', ['branch_id' => $branch->id]) }}"
                     role="link"
                     tabindex="0"
@@ -350,15 +896,15 @@
                                 <i class="bi bi-three-dots-vertical"></i>
                             </button>
                             <div class="row-action-dropdown" role="menu">
-                                <a
+                                <button
+                                    type="button"
                                     class="row-action-item open-branch-modal"
                                     data-row-menu-item
                                     data-url="{{ route('admin.branches.edit', ['branch' => $branch, 'return_to' => request()->fullUrl()]) }}"
-                                    href="{{ route('admin.branches.edit', ['branch' => $branch, 'return_to' => request()->fullUrl()]) }}"
                                 >
                                     <i class="bi bi-pencil-square"></i>
                                     <span>Edit branch</span>
-                                </a>
+                                </button>
                                 <form method="POST" action="{{ route('admin.branches.toggleStatus', $branch) }}">
                                     @csrf
                                     @method('PATCH')
@@ -387,11 +933,11 @@
     <div
         x-show="view === 'table'"
         x-cloak
-        x-transition:enter="transition ease-out duration-200"
-        x-transition:enter-start="opacity-0 translate-y-2"
-        x-transition:enter-end="opacity-100 translate-y-0"
-        class="mt-4"
-    >
+    x-transition:enter="transition ease-out duration-200"
+    x-transition:enter-start="opacity-0 translate-y-2"
+    x-transition:enter-end="opacity-100 translate-y-0"
+    class="branch-directory-table-view"
+>
         <div class="table-system-list">
             <div class="table-wrapper table-system-wrap">
                 <table class="table-base table-system-table">
@@ -410,7 +956,13 @@
                             @php
                                 $isHighlightedBranch = (string) $highlightBranchId === (string) $branch->id;
                             @endphp
-                            <tr class="{{ $isHighlightedBranch ? 'bg-amber-50' : '' }}">
+                            <tr
+                                class="{{ $isHighlightedBranch ? 'bg-amber-50' : '' }}"
+                                data-live-search-row
+                                data-live-search-title="{{ $branch->branch_name }}"
+                                data-live-search-meta="{{ $branch->branch_code }} / {{ $branch->address ?: 'No address' }}"
+                                data-live-search-text="{{ $branch->branch_code }} {{ $branch->branch_name }} {{ $branch->address }} {{ $branch->is_active ? 'Active' : 'Inactive' }}"
+                            >
                                 <td class="table-primary">
                                     {{ $branch->branch_code }}
                                     @if($branch->isMain())
@@ -440,15 +992,15 @@
                                             <i class="bi bi-three-dots-vertical"></i>
                                         </button>
                                         <div class="row-action-dropdown" role="menu">
-                                            <a
+                                            <button
+                                                type="button"
                                                 class="row-action-item open-branch-modal"
                                                 data-row-menu-item
                                                 data-url="{{ route('admin.branches.edit', ['branch' => $branch, 'return_to' => request()->fullUrl()]) }}"
-                                                href="{{ route('admin.branches.edit', ['branch' => $branch, 'return_to' => request()->fullUrl()]) }}"
                                             >
                                                 <i class="bi bi-pencil-square"></i>
                                                 <span>Edit branch</span>
-                                            </a>
+                                            </button>
                                             <form method="POST" action="{{ route('admin.branches.toggleStatus', $branch) }}">
                                                 @csrf
                                                 @method('PATCH')
@@ -493,8 +1045,8 @@
                     <div class="px-6 py-5 border-b border-slate-200">
                         <div class="flex items-start justify-between gap-3">
                             <div>
-                                <h2 class="text-[1.65rem] leading-tight text-slate-900 font-ui-heading">Create Branch</h2>
-                                <p class="text-base text-slate-500">Register a new branch and configure branch information</p>
+                                <h2 class="text-[1.65rem] leading-tight text-slate-900 font-ui-heading">Branch details</h2>
+                                <p class="text-base text-slate-500">Enter the branch name, address, and operating status.</p>
                             </div>
                             <div class="flex items-center gap-2">
                                 <span class="inline-flex items-center rounded-xl border border-slate-300 bg-slate-50 px-3 py-1 text-sm font-semibold tracking-wide text-slate-700">
@@ -508,7 +1060,7 @@
                     </div>
 
                     <div class="p-6 space-y-5">
-                        <div>
+                        <div class="rounded-xl border px-4 py-4">
                             <label class="label-section">Branch Code</label>
                             <input type="text" value="{{ $nextCode }}" class="form-input bg-slate-100 text-slate-700 font-semibold" readonly>
                             <div class="text-sm text-slate-500 mt-2">Branch code is auto-assigned and cannot be changed.</div>
@@ -542,7 +1094,7 @@
 
                         <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 flex items-center justify-between gap-4">
                             <div>
-                                <div class="text-[1.1rem] leading-tight font-semibold text-slate-900">Branch Status</div>
+                                <div class="text-[1.1rem] leading-tight font-semibold text-slate-900">Operating status</div>
                                 <p class="text-sm text-slate-500">Active branches can process new cases and payments</p>
                             </div>
                             <div class="flex items-center gap-3">
@@ -560,7 +1112,7 @@
                     </div>
 
                     <div class="px-6 py-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
-                        <div class="text-sm text-slate-500">Ready to save new branch details.</div>
+                        <div class="text-sm text-slate-500">Review the branch details before saving.</div>
                         <div class="flex flex-wrap items-center gap-2">
                             <button type="button" id="branchCreateModalCancel" class="btn btn-outline">Cancel</button>
                             <button class="btn btn-primary-custom bg-[var(--brand-mid)] border-[var(--brand-mid)] hover:bg-[var(--brand-hover)] hover:border-[var(--brand-hover)] text-white px-5">
@@ -577,11 +1129,8 @@
 
 {{-- Branch edit modal --}}
 <div id="branchModalOverlay" class="fixed inset-0 hidden flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-200 font-ui-body" style="z-index: 1300;">
-    <div id="branchModalSheet" class="relative w-[92vw] max-w-4xl max-h-[92vh] bg-white rounded-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border border-slate-200 font-ui-body">
-        <button id="branchEditModalClose" type="button" class="absolute top-4 right-4 z-10 inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors focus:outline-none">
-            <i class="bi bi-x-lg" style="font-size:.8rem"></i>
-        </button>
-        <div id="branchModalContent" class="overflow-y-auto max-h-[84vh] p-6 bg-slate-50">
+    <div id="branchModalSheet" class="relative w-[92vw] max-w-3xl max-h-[92vh] bg-white rounded-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border border-slate-200 font-ui-body">
+        <div id="branchModalContent" class="overflow-y-auto max-h-[84vh] bg-slate-50">
             <div class="flex flex-col items-center justify-center py-16 gap-3">
                 <div class="w-7 h-7 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin"></div>
                 <span class="text-sm text-slate-400">Loading...</span>
@@ -612,7 +1161,6 @@ function branchCatalog() {
     const editSheet    = document.getElementById('branchModalSheet');
     const editContent  = document.getElementById('branchModalContent');
     const editLinks    = [...document.querySelectorAll('.open-branch-modal')];
-    const editCloseBtn = document.getElementById('branchEditModalClose');
 
     const createOverlay   = document.getElementById('branchCreateModalOverlay');
     const createSheet     = document.getElementById('branchCreateModalSheet');
@@ -801,7 +1349,7 @@ function branchCatalog() {
         link.addEventListener('click', (e) => {
             e.preventDefault();
             showModal(editOverlay, editSheet);
-            loadEditForm(link.dataset.url || link.href);
+            loadEditForm(link.dataset.url);
         });
     });
 

@@ -35,6 +35,37 @@
     html[data-theme='dark'] .cc-money span { color:#7fa6cf; }
     html[data-theme='dark'] .cc-primary { background:#3b82f6; border-color:#60a5fa; }
     html[data-theme='dark'] .cc-secondary { background:#152035; border-color:#2a3f5f; color:#d8ecff; }
+    html:not([data-theme='dark']) .page-content {
+        background:
+            linear-gradient(90deg, rgba(73,87,69,0.04) 0 1px, transparent 1px),
+            linear-gradient(180deg, rgba(73,87,69,0.034) 0 1px, transparent 1px),
+            repeating-linear-gradient(135deg, rgba(73,87,69,0.02) 0 1px, transparent 1px 12px),
+            #C4D2BE !important;
+        background-size:44px 44px,44px 44px,16px 16px,auto;
+    }
+    .cc-form { color:var(--ink); }
+    .cc-card { background:#D3DEC9 !important; border-color:var(--border) !important; box-shadow:none !important; }
+    .cc-head, .cc-actions { background:#C7D5BE !important; border-color:var(--border) !important; }
+    .cc-title { color:var(--ink) !important; font-weight:750 !important; }
+    .cc-copy, .cc-help { color:var(--ink-muted) !important; font-weight:600 !important; }
+    .cc-label { color:#566653 !important; font-weight:650 !important; }
+    .cc-form .form-input, .cc-form .form-select, .cc-form textarea, .cc-money {
+        background:#E1E7D9 !important;
+        border-color:var(--border) !important;
+        color:var(--ink) !important;
+        box-shadow:none !important;
+    }
+    .cc-form .form-input:hover, .cc-form .form-select:hover, .cc-form textarea:hover, .cc-money:hover,
+    .cc-form .form-input:focus, .cc-form .form-select:focus, .cc-form textarea:focus {
+        background:#EEF3E8 !important;
+        border-color:#8EA083 !important;
+        box-shadow:none !important;
+    }
+    .cc-primary, .cc-secondary { cursor:pointer; box-shadow:none !important; }
+    .cc-primary { background:#344333 !important; border-color:#344333 !important; color:#fff !important; font-weight:700 !important; }
+    .cc-primary:hover { background:#2F3A2E !important; border-color:#2F3A2E !important; }
+    .cc-secondary { background:#E1E7D9 !important; border-color:var(--border) !important; color:var(--ink) !important; font-weight:700 !important; }
+    .cc-secondary:hover { background:#D3DEC9 !important; border-color:#8EA083 !important; }
     @media (max-width:680px) { .cc-grid { grid-template-columns:1fr; } .cc-actions { display:grid; } }
 </style>
 
@@ -48,7 +79,7 @@
     <section class="cc-card">
         <div class="cc-head">
             <div class="cc-title"><i class="bi bi-box2-heart"></i> {{ $isEdit ? 'Edit Casket' : 'Add Casket' }}</div>
-            <p class="cc-copy">Casket reference information used for packages and upgrades.</p>
+            <p class="cc-copy">Casket or coffin option used when building service packages.</p>
         </div>
         <div class="cc-body">
             <div class="cc-grid">
@@ -60,7 +91,7 @@
                 <div>
                     <label class="cc-label">Reference Value</label>
                     <div class="cc-money"><span>&#8369;</span><input type="number" step="0.01" min="0.01" inputmode="decimal" name="standard_price" value="{{ old('standard_price', $isEdit ? $catalog->standard_price : '') }}" class="form-input" required placeholder="0.00"></div>
-                    <p class="cc-help">Used only to calculate replacement or upgrade charges. It is not added separately when the casket is included in a package.</p>
+                    <p class="cc-help">Reference value for this catalog item. It helps keep package casket selection consistent.</p>
                     @error('standard_price') <div class="form-error">{{ $message }}</div> @enderror
                 </div>
             </div>

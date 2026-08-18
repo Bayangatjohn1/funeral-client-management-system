@@ -161,8 +161,8 @@ class CasketCatalogController extends Controller
     private function rules(?CasketCatalog $catalog = null): array
     {
         return [
-            'name' => ['required', 'string', 'max:150', $this->mustContainLetterRule('Casket name must include letters.')],
-            'type_or_material' => ['nullable', 'string', 'max:100'],
+            'name' => ['required', 'string', 'max:150', $this->mustContainLetterRule('Casket name must include letters.'), $this->allowedNameTextRule('Casket name has unnecessary special characters.')],
+            'type_or_material' => ['nullable', 'string', 'max:100', $this->mustContainLetterRule('Material must include letters.'), $this->allowedNameTextRule('Material has unnecessary special characters.')],
             'standard_price' => ['required', 'numeric', 'min:0.01'],
             'description' => ['nullable', 'string', 'max:500'],
             'return_to' => ['nullable', 'string', 'max:1000'],
@@ -234,6 +234,19 @@ class CasketCatalogController extends Controller
             }
 
             if (! preg_match('/[\pL\pM]/u', (string) $value) || preg_match('/^\d+(?:\.\d+)?$/', trim((string) $value))) {
+                $fail($message);
+            }
+        };
+    }
+
+    private function allowedNameTextRule(string $message): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) use ($message): void {
+            if ($value === null || trim((string) $value) === '') {
+                return;
+            }
+
+            if (! preg_match("~^[\pL\pM\pN][\pL\pM\pN\s.,'()/&-]*$~u", trim((string) $value))) {
                 $fail($message);
             }
         };

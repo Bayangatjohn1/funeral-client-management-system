@@ -20,9 +20,8 @@
     $usesCustomCreatedDate = $resolvedDatePreset === 'CUSTOM';
     $createdPresetLabel = match ($resolvedDatePreset) {
         'TODAY' => 'Today',
-        'LAST_7_DAYS' => 'Last 7 Days',
-        'LAST_30_DAYS' => 'Last 30 Days',
         'THIS_MONTH' => 'This Month',
+        'THIS_YEAR' => 'This Year',
         'CUSTOM' => 'Custom Range',
         default => 'Any Time',
     };
@@ -65,8 +64,14 @@
         width:100%;
         max-width:none;
         margin-inline:0;
-        padding-inline:0;
+        padding:18px 18px 24px;
         box-sizing:border-box;
+        background:
+            linear-gradient(90deg, rgba(73,87,69,0.04) 0 1px, transparent 1px),
+            linear-gradient(180deg, rgba(73,87,69,0.034) 0 1px, transparent 1px),
+            repeating-linear-gradient(135deg, rgba(73,87,69,0.02) 0 1px, transparent 1px 12px),
+            #C4D2BE;
+        background-size:44px 44px,44px 44px,16px 16px,auto;
     }
 
     .sales-page-body {
@@ -77,12 +82,12 @@
         min-height:0;
         overflow-y:auto;
         overflow-x:hidden;
-        padding-top:12px;
-        padding-bottom:12px;
+        padding-top:14px;
+        padding-bottom:0;
     }
     .sales-page-body > * {
-        margin-left:18px;
-        margin-right:18px;
+        margin-left:0;
+        margin-right:0;
         width:auto;
         max-width:none;
         min-width:0;
@@ -144,6 +149,45 @@
         display: flex;
         gap: 8px;
         align-items: center;
+    }
+
+    .sales-export-menu {
+        position:relative;
+    }
+
+    .sales-export-menu summary {
+        list-style:none;
+    }
+
+    .sales-export-menu summary::-webkit-details-marker {
+        display:none;
+    }
+
+    .sales-export-options {
+        position:absolute;
+        right:0;
+        top:calc(100% + .45rem);
+        z-index:50;
+        min-width:11rem;
+        border:1px solid #AEBFA6;
+        border-radius:.65rem;
+        background:#E9F0E4;
+        overflow:hidden;
+    }
+
+    .sales-export-options a {
+        display:flex;
+        align-items:center;
+        gap:.5rem;
+        padding:.72rem .85rem;
+        color:#293229;
+        font-size:.86rem;
+        font-weight:650;
+        text-decoration:none;
+    }
+
+    .sales-export-options a:hover {
+        background:#DDE8D6;
     }
 
     .sales-ref-page .topbar-actions .btn {
@@ -244,7 +288,7 @@
         color: #7f7d76;
     }
 
-    .sales-kpis { display:grid; grid-template-columns:repeat(7,minmax(120px,1fr)); border-top:0; }
+    .sales-kpis { display:grid; grid-template-columns:repeat(4,minmax(160px,1fr)); border-top:0; }
     .sales-kpi {
         padding:14px 16px;
         border-right:1px solid #edf2f7;
@@ -453,7 +497,7 @@
     @media (max-width:1400px) { .sales-kpis { grid-template-columns:repeat(4,minmax(150px,1fr)); } }
     @media (max-width:1200px) {
         .sales-charts { grid-template-columns:1fr; }
-        .sales-kpis { grid-template-columns:repeat(3,minmax(140px,1fr)); }
+        .sales-kpis { grid-template-columns:repeat(2,minmax(160px,1fr)); }
         .sales-branch-top {
             flex-direction:column;
             align-items:flex-start;
@@ -500,9 +544,271 @@
         .sales-branch-head h3 { font-size:16px; }
         .sales-bname { font-size:15px; }
     }
+
+    /* Consistent admin UI pass */
+    .sales-ref-page .sales-page-head,
+    .sales-ref-page .table-system-card,
+    .sales-panel,
+    .sales-branch-item,
+    .sales-detail {
+        border:1px solid #AEBFA6 !important;
+        border-radius:.75rem !important;
+        background:#D3DEC9 !important;
+        box-shadow:none !important;
+    }
+
+    .sales-ref-page .sales-page-head {
+        position:relative;
+        top:auto;
+        overflow:visible;
+    }
+
+    .sales-ref-page .sales-topbar {
+        justify-content:flex-end;
+        background:#D3DEC9 !important;
+        border-bottom:1px solid #AEBFA6 !important;
+        padding:.75rem !important;
+    }
+
+    .sales-ref-page .sales-topbar-leading {
+        display:none !important;
+    }
+
+    .sales-ref-page .topbar-actions {
+        flex-wrap:wrap;
+    }
+
+    .sales-ref-page .topbar-actions .btn,
+    .sales-ref-page .filter-apply,
+    .sales-ref-page .filter-reset {
+        min-height:2.65rem !important;
+        border-radius:.5rem !important;
+        padding:0 .95rem !important;
+        font-size:.84rem !important;
+        font-weight:650 !important;
+        box-shadow:none !important;
+        cursor:pointer;
+    }
+
+    .sales-ref-page .topbar-actions .btn-secondary,
+    .sales-ref-page .filter-reset {
+        background:#E9F0E4 !important;
+        border:1px solid #AEBFA6 !important;
+        color:#3E4A3D !important;
+        text-decoration:none;
+    }
+
+    .sales-ref-page .topbar-actions .btn-secondary:hover,
+    .sales-ref-page .filter-reset:hover {
+        background:#DDE8D6 !important;
+        color:#293229 !important;
+    }
+
+    .sales-ref-page .topbar-actions .btn-dark,
+    .sales-ref-page .filter-apply {
+        background:#344333 !important;
+        border:1px solid #344333 !important;
+        color:#fff !important;
+    }
+
+    .sales-ref-page .topbar-actions .btn-dark:hover,
+    .sales-ref-page .filter-apply:hover {
+        background:#2F3A2E !important;
+        border-color:#2F3A2E !important;
+    }
+
+    .sales-ref-page .sales-filterbar {
+        background:#D0DDC8 !important;
+        border-bottom:0 !important;
+        padding:.75rem !important;
+    }
+
+    .sales-ref-page .sales-filter {
+        width:100%;
+        gap:.65rem !important;
+    }
+
+    .sales-ref-page .sales-filter-control {
+        position:relative;
+        display:inline-flex;
+        align-items:center;
+        min-width:14.75rem;
+    }
+
+    .sales-ref-page .sales-filter-control > i {
+        position:absolute;
+        left:1rem;
+        z-index:2;
+        color:#657563;
+        pointer-events:none;
+    }
+
+    .sales-ref-page .sales-filter-control::after {
+        content:"\F282";
+        font-family:"bootstrap-icons";
+        position:absolute;
+        right:1rem;
+        color:#657563;
+        font-size:.85rem;
+        pointer-events:none;
+    }
+
+    .sales-ref-page .sales-filter-control.is-date::after {
+        content:"";
+    }
+
+    .sales-ref-page .filter-select {
+        width:100%;
+        min-height:2.65rem !important;
+        border:1px solid #AEBFA6 !important;
+        border-radius:.5rem !important;
+        background:#E9F0E4 !important;
+        background-image:none !important;
+        color:#293229 !important;
+        font-size:.9rem !important;
+        font-weight:650 !important;
+        padding:.45rem 2.45rem .45rem 2.55rem !important;
+        box-shadow:none !important;
+        appearance:none;
+        cursor:pointer;
+    }
+
+    .sales-ref-page .filter-select:hover {
+        background:#DDE8D6 !important;
+        border-color:#8EA083 !important;
+    }
+
+    .sales-ref-page .filter-select:focus {
+        background:#F4F8EF !important;
+        border-color:#8EA083 !important;
+        box-shadow:none !important;
+    }
+
+    .sales-ref-page .filter-sep {
+        display:none !important;
+    }
+
+    .sales-ref-page .filter-tag {
+        min-height:2.2rem;
+        border:1px solid #AEBFA6 !important;
+        background:#E1E7D9 !important;
+        color:#566653 !important;
+        font-size:.78rem !important;
+        font-weight:620;
+        border-radius:999px !important;
+        padding:.35rem .75rem !important;
+    }
+
+    .sales-kpis {
+        grid-template-columns:repeat(4,minmax(180px,1fr)) !important;
+        gap:10px;
+        padding:10px;
+    }
+
+    .sales-kpi {
+        border:1px solid #AEBFA6 !important;
+        border-radius:.65rem;
+        background:#E1E7D9;
+    }
+
+    .sales-kpi .k-label {
+        color:#566653 !important;
+        font-size:.76rem !important;
+        font-weight:680 !important;
+        letter-spacing:.05em;
+        text-transform:uppercase;
+    }
+
+    .sales-kpi .k-copy,
+    .sales-panel p,
+    .sales-branch-head span,
+    .sales-row span,
+    .sales-bmetrics span {
+        color:#566653 !important;
+        font-weight:600;
+    }
+
+    .sales-panel h3,
+    .sales-branch-head h3 {
+        color:#293229 !important;
+        font-weight:720 !important;
+    }
+
+    .sales-bars {
+        border:1px solid #AEBFA6;
+        background:#E1E7D9 !important;
+    }
+
+    .sales-donut:after {
+        background:#D3DEC9 !important;
+        box-shadow:none !important;
+        border:1px solid #AEBFA6 !important;
+    }
+
+    .sales-donut-legend span,
+    .sales-pill,
+    .sales-bars-label,
+    .sales-legend {
+        color:#566653 !important;
+        font-weight:600;
+    }
+
+    .sales-branch-item[open] > summary,
+    .sales-detail details>summary {
+        border-bottom-color:#AEBFA6 !important;
+    }
+
+    .sales-line {
+        background:#E1E7D9 !important;
+    }
+
+    .sales-detail th {
+        background:#C7D5BE !important;
+        color:#566653 !important;
+    }
+
+    .sales-detail .total-row td {
+        background:#E1E7D9 !important;
+    }
+
+    .sales-report-toast {
+        position:fixed;
+        top:1rem;
+        right:1rem;
+        z-index:1200;
+        display:flex;
+        align-items:center;
+        gap:.55rem;
+        max-width:calc(100vw - 2rem);
+        border:1px solid #8EA083;
+        border-radius:.75rem;
+        background:#2F3A2E;
+        color:#F7FAF3;
+        padding:.72rem .9rem;
+        font-size:.88rem;
+        font-weight:650;
+        line-height:1.35;
+        box-shadow:none !important;
+        pointer-events:none;
+        animation:salesToastIn .18s ease-out, salesToastOut .22s ease-in 3.8s forwards;
+    }
+
+    @keyframes salesToastIn {
+        from { opacity:0; transform:translateY(-.35rem); }
+        to { opacity:1; transform:translateY(0); }
+    }
+
+    @keyframes salesToastOut {
+        to { opacity:0; transform:translateY(-.35rem); visibility:hidden; }
+    }
 </style>
 
 <div class="admin-table-page sales-ref-page">
+    <div class="sales-report-toast no-print" role="status" aria-live="polite">
+        <i class="bi bi-graph-up-arrow"></i>
+        <span>You are viewing sales reports.</span>
+    </div>
+
     @if($errors->any())
         <div class="flash-error">{{ $errors->first() }}</div>
     @endif
@@ -526,8 +832,23 @@
                 </div>
             </div>
             <div class="topbar-actions">
-                <button type="button" class="btn btn-secondary">↓ Export CSV</button>
-                <a href="{{ route('reports.print', $printParams) }}" target="_blank" rel="noopener" class="btn btn-secondary">↓ Export PDF</a>
+                <details class="sales-export-menu">
+                    <summary class="btn btn-secondary">
+                        <i class="bi bi-download"></i>
+                        <span>Export</span>
+                        <i class="bi bi-chevron-down"></i>
+                    </summary>
+                    <div class="sales-export-options">
+                        <a href="{{ route('reports.exportCsv', $printParams) }}">
+                            <i class="bi bi-filetype-csv"></i>
+                            <span>Export CSV</span>
+                        </a>
+                        <a href="{{ route('reports.print', $printParams) }}" target="_blank" rel="noopener">
+                            <i class="bi bi-filetype-pdf"></i>
+                            <span>Export PDF</span>
+                        </a>
+                    </div>
+                </details>
                 <a href="{{ route('reports.index') }}" class="btn btn-dark">+ Generate Report</a>
             </div>
         </div>
@@ -537,30 +858,36 @@
                 @if($isBranchAdmin && $branchId)
                     <input type="hidden" name="branch_id" value="{{ $branchId }}">
                 @endif
-                <select id="sales-branch" name="branch_id" class="filter-select" data-branch-auto-submit @if($isBranchAdmin) disabled @endif>
-                    @unless($isBranchAdmin)
+                <span class="sales-filter-control">
+                    <i class="bi bi-building"></i>
+                    <select id="sales-branch" name="branch_id" class="filter-select" @if($isBranchAdmin) disabled @endif>
+                        @unless($isBranchAdmin)
                         <option value="">All Branches</option>
-                    @endunless
-                    @foreach($branches as $branch)
-                        <option value="{{ $branch->id }}" {{ (string) $branchId === (string) $branch->id ? 'selected' : '' }}>
-                            {{ $branch->branch_code }} - {{ $branch->branch_name }}
-                        </option>
-                    @endforeach
-                </select>
+                        @endunless
+                        @foreach($branches as $branch)
+                            <option value="{{ $branch->id }}" {{ (string) $branchId === (string) $branch->id ? 'selected' : '' }}>
+                                {{ $branch->branch_code }} - {{ $branch->branch_name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </span>
                 @if($isBranchAdmin)
                     <span class="filter-tag"><strong>Assigned Branch Only</strong></span>
                 @endif
 
-                <select id="sales-created-preset" name="date_preset" class="filter-select">
-                    <option value="ANY" {{ $resolvedDatePreset === 'ANY' ? 'selected' : '' }}>Any Time</option>
-                    <option value="TODAY" {{ $resolvedDatePreset === 'TODAY' ? 'selected' : '' }}>Today</option>
-                    <option value="LAST_7_DAYS" {{ $resolvedDatePreset === 'LAST_7_DAYS' ? 'selected' : '' }}>Last 7 Days</option>
-                    <option value="LAST_30_DAYS" {{ $resolvedDatePreset === 'LAST_30_DAYS' ? 'selected' : '' }}>Last 30 Days</option>
-                    <option value="THIS_MONTH" {{ $resolvedDatePreset === 'THIS_MONTH' ? 'selected' : '' }}>This Month</option>
-                    <option value="CUSTOM" {{ $resolvedDatePreset === 'CUSTOM' ? 'selected' : '' }}>Custom Range</option>
-                </select>
+                <span class="sales-filter-control">
+                    <i class="bi bi-calendar3"></i>
+                    <select id="sales-created-preset" name="date_preset" class="filter-select">
+                        <option value="ANY" {{ $resolvedDatePreset === 'ANY' ? 'selected' : '' }}>Any Time</option>
+                        <option value="TODAY" {{ $resolvedDatePreset === 'TODAY' ? 'selected' : '' }}>Today</option>
+                        <option value="THIS_MONTH" {{ $resolvedDatePreset === 'THIS_MONTH' ? 'selected' : '' }}>This Month</option>
+                        <option value="THIS_YEAR" {{ $resolvedDatePreset === 'THIS_YEAR' ? 'selected' : '' }}>This Year</option>
+                        <option value="CUSTOM" {{ $resolvedDatePreset === 'CUSTOM' ? 'selected' : '' }}>Custom Range</option>
+                    </select>
+                </span>
 
-                <div class="custom-created-field" data-custom-created-field>
+                <div class="custom-created-field sales-filter-control is-date" data-custom-created-field>
+                    <i class="bi bi-calendar-event"></i>
                     <input
                         id="sales-date-from"
                         type="date"
@@ -571,7 +898,8 @@
                     >
                 </div>
 
-                <div class="custom-created-field" data-custom-created-field>
+                <div class="custom-created-field sales-filter-control is-date" data-custom-created-field>
+                    <i class="bi bi-calendar-event"></i>
                     <input
                         id="sales-date-to"
                         type="date"
@@ -596,9 +924,6 @@
     <section class="table-system-card">
         <div class="sales-kpis">
             <div class="sales-kpi"><div class="k-label">Total Cases</div><div class="k-value">{{ number_format($totalCases) }}</div><div class="k-copy">All statuses</div></div>
-            <div class="sales-kpi"><div class="k-label">Paid</div><div class="k-value k-paid">{{ number_format($paidCases) }}</div><div class="k-copy">Fully settled</div></div>
-            <div class="sales-kpi"><div class="k-label">Partial</div><div class="k-value k-partial">{{ number_format($partialCases) }}</div><div class="k-copy">In progress</div></div>
-            <div class="sales-kpi"><div class="k-label">Unpaid</div><div class="k-value k-unpaid">{{ number_format($unpaidCases) }}</div><div class="k-copy">Needs action</div></div>
             <div class="sales-kpi"><div class="k-label">Total Service Amt.</div><div class="k-value k-money">PHP {{ number_format($totalSales, 0) }}</div><div class="k-copy">Gross revenue</div></div>
             <div class="sales-kpi"><div class="k-label">Collected</div><div class="k-value k-money k-paid">PHP {{ number_format($totalCollected, 0) }}</div><div class="k-copy">{{ number_format(($totalCollected / max($totalSales, 1)) * 100, 1) }}% of sales</div></div>
             <div class="sales-kpi"><div class="k-label">Outstanding</div><div class="k-value k-money k-unpaid">PHP {{ number_format($totalOutstanding, 0) }}</div><div class="k-copy">Balance due</div></div>
@@ -749,18 +1074,9 @@
         const form = document.querySelector('form[data-sales-toolbar]');
         if (!form) return;
 
-        const branchSelect = form.querySelector('select[data-branch-auto-submit]');
         const presetSelect = form.querySelector('select[name="date_preset"]');
         const customFields = form.querySelectorAll('[data-custom-created-field]');
         const customInputs = form.querySelectorAll('[data-custom-created-input]');
-
-        const submitForm = () => {
-            if (typeof form.requestSubmit === 'function') {
-                form.requestSubmit();
-                return;
-            }
-            form.submit();
-        };
 
         const syncCustomDateVisibility = () => {
             if (!presetSelect) return;
@@ -772,12 +1088,6 @@
                 input.disabled = !isCustom;
             });
         };
-
-        if (branchSelect) {
-            branchSelect.addEventListener('change', () => {
-                submitForm();
-            });
-        }
 
         if (presetSelect) {
             presetSelect.addEventListener('change', syncCustomDateVisibility);

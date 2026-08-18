@@ -379,10 +379,7 @@
         pointer-events: none;
     }
     .schedule-time-display {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
+        display: block;
         width: 100%;
         min-height: 45px;
         border: 1px solid #C9C5BB;
@@ -391,20 +388,35 @@
         color: #333333;
         font-size: 0.92rem;
         font-weight: 800;
-        padding: 0 12px 0 2.5rem;
+        padding: 0 2.6rem 0 2.5rem;
         outline: none;
         text-align: left;
         transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
     }
-    .schedule-time-display::after {
-        content: "\F282";
-        color: #7A8076;
-        font-family: "bootstrap-icons";
-        font-size: 0.78rem;
-    }
     .schedule-time-display::placeholder {
         color: #7A8076;
         font-weight: 700;
+    }
+    .schedule-time-toggle {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        z-index: 2;
+        display: inline-flex;
+        width: 32px;
+        height: 32px;
+        align-items: center;
+        justify-content: center;
+        transform: translateY(-50%);
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: #5F685F;
+        cursor: pointer;
+    }
+    .schedule-time-toggle:hover {
+        background: #E3ECD9;
+        color: #232821;
     }
     .schedule-time-display:hover { background: #F3F0E8; }
     .schedule-time-display:focus {
@@ -816,7 +828,9 @@
     .flatpickr-current-month { position: static !important; left: auto !important; width: auto !important; height: auto !important; padding: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important; line-height: 1.2 !important; color: #0d1f38 !important; font-weight: 800 !important; white-space: nowrap !important; }
     .flatpickr-current-month .flatpickr-monthDropdown-months { appearance: none !important; -webkit-appearance: none !important; border: 1px solid #e4e8ef !important; background: #f4f7fb !important; border-radius: 10px !important; padding: 4px 28px 4px 10px !important; margin: 0 !important; font-size: 15px !important; font-weight: 800 !important; color: #0d1f38 !important; line-height: 1.2 !important; cursor: pointer !important; box-shadow: none !important; min-width: 110px !important; }
     .flatpickr-current-month input.cur-year { border: 1px solid #e4e8ef !important; background: #f4f7fb !important; border-radius: 10px !important; box-shadow: none !important; padding: 4px 8px !important; margin: 0 !important; font-size: 15px !important; font-weight: 800 !important; color: #0d1f38 !important; width: 74px !important; min-width: 74px !important; text-align: center !important; }
+    .flatpickr-current-month .intake-year-dropdown { appearance: none !important; -webkit-appearance: none !important; border: 1px solid #e4e8ef !important; background: #f4f7fb !important; border-radius: 10px !important; padding: 4px 28px 4px 10px !important; margin: 0 !important; font-size: 15px !important; font-weight: 800 !important; color: #0d1f38 !important; line-height: 1.2 !important; cursor: pointer !important; box-shadow: none !important; min-width: 92px !important; }
     .flatpickr-current-month .flatpickr-monthDropdown-months:focus,.flatpickr-current-month input.cur-year:focus { outline: none !important; border-color: #1b3358 !important; box-shadow: 0 0 0 3px rgba(27,51,88,.1) !important; }
+    .flatpickr-current-month .intake-year-dropdown:focus { outline: none !important; border-color: #1b3358 !important; box-shadow: 0 0 0 3px rgba(27,51,88,.1) !important; }
     .numInputWrapper { width: auto !important; min-width: 74px !important; }
     .numInputWrapper span { display: none !important; }
     .flatpickr-prev-month,.flatpickr-next-month { top: 12px !important; width: 30px !important; height: 30px !important; padding: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important; color: #6b7e96 !important; border-radius: 999px !important; background: #ffffff !important; transition: all .15s ease !important; }
@@ -1068,6 +1082,1127 @@
         box-shadow: 0 6px 20px rgba(62, 74, 61, .34) !important;
     }
 
+    /* Staff dashboard-aligned intake polish */
+    .intake-root {
+        --intake-page: #CAD8C2;
+        --intake-page-deep: #BFCEB7;
+        --intake-card: #D3DEC9;
+        --intake-card-alt: #DCE6D6;
+        --intake-card-strong: #C7D5BE;
+        --intake-hover: #C5D3BC;
+        --intake-active: #B8C9AF;
+        --intake-border: #AEBBA8;
+        --intake-border-strong: #8EA083;
+        --intake-text: #232821;
+        --intake-muted: #3F4C3E;
+        --intake-dark: #3E4A3D;
+        --intake-dark-hover: #2F3A2E;
+        --intake-danger: #A84E45;
+        --intake-warning: #B87956;
+        display: flex !important;
+        flex-direction: column !important;
+        height: calc(100vh - var(--topbar-h, 0px)) !important;
+        min-height: 0 !important;
+        max-height: calc(100vh - var(--topbar-h, 0px)) !important;
+        padding: 18px 22px !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+        background-color: var(--intake-page) !important;
+        background-image:
+            linear-gradient(rgba(62, 74, 61, .035) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(62, 74, 61, .035) 1px, transparent 1px),
+            repeating-linear-gradient(135deg, rgba(62, 74, 61, .028) 0 1px, transparent 1px 18px) !important;
+        background-size: 28px 28px, 28px 28px, 18px 18px !important;
+        color: var(--intake-text) !important;
+        font-family: var(--font-body), "DM Sans", system-ui, sans-serif !important;
+    }
+
+    .intake-root *,
+    .intake-root *::before,
+    .intake-root *::after {
+        letter-spacing: 0 !important;
+    }
+
+    .intake-root .font-sans { font-family: var(--font-body), "DM Sans", system-ui, sans-serif !important; }
+    .intake-brand-name,
+    .section-title-text h3,
+    .pkg-section-title,
+    .pkg-name,
+    .pkg-price,
+    #summary_total,
+    .wizard-step-label {
+        font-family: var(--font-heading), "Syne", var(--font-body), sans-serif !important;
+    }
+
+    .intake-root,
+    .intake-form-wrapper,
+    .wizard-steps-shell,
+    .wizard-panel,
+    .intake-field-section,
+    .subsection-soft,
+    .package-card,
+    .pkg-premium-card,
+    .payment-type-card,
+    .flatpickr-calendar,
+    .footer-action-bar,
+    .schedule-time-popover,
+    #intakeCancelModal .cancel-modal-box,
+    .intake-root .shadow-sm,
+    .intake-root .shadow-md,
+    .intake-root .shadow-lg,
+    .intake-root .shadow-xl,
+    .intake-root .shadow-2xl,
+    .intake-root [class*="shadow-"] {
+        box-shadow: none !important;
+        filter: none !important;
+        backdrop-filter: none !important;
+    }
+
+    .intake-top-shell {
+        min-height: 76px !important;
+        height: auto !important;
+        padding: 18px 22px !important;
+        background: var(--intake-card-alt) !important;
+        border: 1px solid var(--intake-border) !important;
+        border-radius: 8px 8px 0 0 !important;
+        color: var(--intake-text) !important;
+    }
+
+    .intake-progress-rail {
+        height: 4px !important;
+        background: var(--intake-card-strong) !important;
+        border-left: 1px solid var(--intake-border) !important;
+        border-right: 1px solid var(--intake-border) !important;
+    }
+
+    .intake-progress-fill {
+        background: var(--intake-dark) !important;
+        border-radius: 0 !important;
+    }
+
+    .intake-brand-logo {
+        width: 40px !important;
+        height: 40px !important;
+        border-radius: 8px !important;
+        background: var(--intake-dark) !important;
+        color: #fff !important;
+    }
+
+    .intake-brand-name {
+        color: var(--intake-text) !important;
+        font-size: 1rem !important;
+        font-weight: 650 !important;
+    }
+
+    .intake-mode-badge,
+    .intake-meta-value,
+    .branch-toggle {
+        color: var(--intake-text) !important;
+        font-weight: 650 !important;
+    }
+
+    .intake-meta-label,
+    .intake-draft-label,
+    .wizard-steps-group-label,
+    .wizard-tab .wz-sub,
+    .pkg-section-sub,
+    .pkg-tier-label,
+    .pkg-price-note,
+    .intake-field-help {
+        color: var(--intake-muted) !important;
+        font-weight: 500 !important;
+    }
+
+    .intake-exit-btn,
+    #intakeCancelBtn,
+    #wizardPrev,
+    #wizardNext,
+    #saveIntakeRecord,
+    .package-card,
+    .package-details-btn,
+    .payment-type-card,
+    .payment-method-card,
+    .time-option,
+    .schedule-time-display,
+    .flatpickr-day,
+    .flatpickr-prev-month,
+    .flatpickr-next-month,
+    .branch-toggle,
+    .review-edit,
+    #add_additional_service_item,
+    #choose_add_ons_btn,
+    #cancel_add_ons_btn,
+    #apply_add_ons_btn,
+    [data-package-details-close],
+    .wizard-tab:not(.is-locked) {
+        cursor: pointer !important;
+    }
+
+    .intake-section-shell {
+        flex: 1 1 0 !important;
+        min-height: 0 !important;
+        background: transparent !important;
+        border: 1px solid var(--intake-border) !important;
+        border-top: 0 !important;
+        border-radius: 0 0 8px 8px !important;
+        overflow: hidden !important;
+    }
+
+    .wizard-steps-shell {
+        width: 220px !important;
+        padding: 18px 10px !important;
+        background: var(--intake-card-strong) !important;
+        border-left: 1px solid var(--intake-border) !important;
+    }
+
+    .wizard-steps-group-label {
+        padding: 0 10px 12px !important;
+        border-bottom: 1px solid rgba(62, 74, 61, .16) !important;
+        font-size: .68rem !important;
+        text-transform: none !important;
+    }
+
+    .wizard-tab .wz-body {
+        min-height: 58px !important;
+        border-radius: 8px !important;
+        margin: 5px 0 !important;
+        padding: 12px 10px !important;
+        align-items: flex-end !important;
+        color: var(--intake-text) !important;
+        transition: background-color .18s ease, color .18s ease !important;
+    }
+
+    .wizard-tab.is-locked .wz-body {
+        visibility: visible !important;
+        pointer-events: none !important;
+        opacity: .82 !important;
+    }
+
+    .wizard-tab:hover .wz-body,
+    .wizard-tab:focus-visible .wz-body {
+        background: var(--intake-hover) !important;
+    }
+
+    .wizard-tab.active-step .wz-body,
+    .wizard-tab.completed-step:hover .wz-body {
+        background: var(--intake-active) !important;
+    }
+
+    .wizard-tab .wizard-step-label {
+        color: var(--intake-text) !important;
+        font-size: .84rem !important;
+        font-weight: 650 !important;
+    }
+
+    .wizard-tab.active-step .wizard-step-label {
+        color: var(--intake-text) !important;
+        font-weight: 700 !important;
+    }
+
+    .wizard-tab .wizard-step-number {
+        width: 30px !important;
+        height: 30px !important;
+        border-color: var(--intake-border-strong) !important;
+        background: var(--intake-card-alt) !important;
+        color: var(--intake-muted) !important;
+        font-weight: 650 !important;
+    }
+
+    .wizard-tab.active-step .wizard-step-number,
+    .wizard-tab.completed-step .wizard-step-number {
+        background: var(--intake-dark) !important;
+        border-color: var(--intake-dark) !important;
+        color: #fff !important;
+    }
+
+    .wizard-tab .wz-line,
+    .wizard-tab.completed-step .wz-line {
+        background: var(--intake-border-strong) !important;
+    }
+
+    .intake-form-wrapper,
+    #intakeFormContent,
+    .footer-action-bar {
+        background: transparent !important;
+    }
+
+    .intake-form-wrapper,
+    form#intakeWizardForm {
+        min-height: 0 !important;
+        height: 100% !important;
+    }
+
+    #intakeFormContent {
+        padding: 22px !important;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+    }
+
+    .wizard-panel {
+        border-radius: 8px !important;
+        border: 1px solid var(--intake-border) !important;
+        background: var(--intake-card) !important;
+        padding: 24px !important;
+    }
+
+    .section-title-block {
+        align-items: center !important;
+        gap: 12px !important;
+        margin-bottom: 20px !important;
+        padding-bottom: 14px !important;
+        border-bottom: 1px solid rgba(62, 74, 61, .15) !important;
+    }
+
+    .section-heading-icon {
+        width: 38px !important;
+        height: 38px !important;
+        border-radius: 8px !important;
+        background: transparent !important;
+        border: 1px solid var(--intake-border-strong) !important;
+        color: var(--intake-dark) !important;
+        font-size: 18px !important;
+    }
+
+    .section-title-text h3,
+    .pkg-section-title {
+        color: var(--intake-text) !important;
+        font-size: 1.15rem !important;
+        font-weight: 650 !important;
+    }
+
+    .section-title-text p,
+    .pkg-section-sub {
+        color: var(--intake-muted) !important;
+        font-size: .9rem !important;
+        font-weight: 500 !important;
+    }
+
+    .intake-field-section,
+    .subsection-soft,
+    #optional_add_ons_section,
+    #structured_pricing_section,
+    #cashless_details_wrap,
+    .intake-root .rounded-2xl.border,
+    .intake-root .rounded-xl.border,
+    .intake-root .rounded-lg.border {
+        background-color: var(--intake-card-alt) !important;
+        border-color: var(--intake-border) !important;
+    }
+
+    .intake-field-section {
+        border-radius: 8px !important;
+        padding: 18px !important;
+    }
+
+    .intake-section-kicker,
+    .field-label {
+        color: var(--intake-muted) !important;
+        font-weight: 650 !important;
+        text-transform: none !important;
+        font-size: .82rem !important;
+    }
+
+    .field-label {
+        margin-bottom: .45rem !important;
+    }
+
+    .intake-section-kicker i {
+        color: var(--intake-dark) !important;
+        font-size: 1rem !important;
+    }
+
+    .form-input,
+    .form-textarea,
+    .schedule-time-display,
+    .readonly-date-display {
+        min-height: 46px !important;
+        border-radius: 8px !important;
+        border: 1px solid var(--intake-border) !important;
+        background: #F2F6EF !important;
+        color: var(--intake-text) !important;
+        font-size: .94rem !important;
+        font-weight: 500 !important;
+        transition: background-color .18s ease, border-color .18s ease, color .18s ease !important;
+    }
+
+    .form-input:hover,
+    .form-textarea:hover,
+    .schedule-time-display:hover {
+        background: #E8EFE3 !important;
+        border-color: var(--intake-border-strong) !important;
+    }
+
+    .form-input:focus,
+    .form-textarea:focus,
+    .schedule-time-display:focus,
+    .time-input-wrap.is-open .schedule-time-display {
+        outline: none !important;
+        background: #EEF4EA !important;
+        border-color: var(--intake-dark) !important;
+        box-shadow: none !important;
+    }
+
+    .form-input::placeholder,
+    .form-textarea::placeholder,
+    .intake-root input::placeholder,
+    .intake-root textarea::placeholder {
+        color: #667260 !important;
+        opacity: 1 !important;
+    }
+
+    .form-input[readonly],
+    .form-input.cursor-not-allowed,
+    .intake-root .pointer-events-none.form-input {
+        background: var(--intake-card-strong) !important;
+        color: var(--intake-muted) !important;
+    }
+
+    .pkg-grid-header {
+        margin-bottom: 18px !important;
+        padding-bottom: 14px !important;
+        border-bottom: 1px solid rgba(62, 74, 61, .15) !important;
+    }
+
+    .package-card,
+    .pkg-premium-card,
+    .payment-type-card,
+    .payment-method-card,
+    .package-detail-tab,
+    .optional-add-on-row {
+        border-radius: 8px !important;
+        background: var(--intake-card-alt) !important;
+        border-color: var(--intake-border) !important;
+        color: var(--intake-text) !important;
+        transform: none !important;
+        transition: background-color .18s ease, border-color .18s ease, color .18s ease !important;
+    }
+
+    .package-card:hover,
+    .pkg-premium-card:hover,
+    .payment-type-card:hover,
+    .payment-method-card:hover,
+    .package-detail-tab:hover,
+    .optional-add-on-row:hover {
+        background: var(--intake-hover) !important;
+        border-color: var(--intake-border-strong) !important;
+        transform: none !important;
+    }
+
+    .package-card.selected,
+    .pkg-premium-card:has(.package-radio:checked),
+    .bpay-tab-group .payment-method-card.active-tab,
+    .bpay-tab-group .payment-type-card.active-tab {
+        background: var(--intake-active) !important;
+        border-color: var(--intake-dark) !important;
+        color: var(--intake-text) !important;
+    }
+
+    .pkg-card-body,
+    .pkg-card-footer {
+        background: transparent !important;
+    }
+
+    .pkg-name,
+    .pkg-price,
+    .pkg-feature-item,
+    .intake-root .text-slate-900,
+    .intake-root .text-slate-800,
+    .intake-root .text-slate-700,
+    .intake-root .text-[#333333] {
+        color: var(--intake-text) !important;
+    }
+
+    .intake-root .text-slate-600,
+    .intake-root .text-slate-500,
+    .intake-root .text-slate-400,
+    .intake-root .text-[#5F685F] {
+        color: var(--intake-muted) !important;
+    }
+
+    .pkg-price,
+    #summary_total,
+    #payment_status_preview,
+    #payment_paid_preview,
+    #payment_balance_preview {
+        font-weight: 700 !important;
+    }
+
+    .pkg-select-btn,
+    .package-details-btn,
+    .intake-exit-btn,
+    #intakeCancelBtn,
+    #wizardPrev,
+    #wizardNext,
+    #saveIntakeRecord,
+    #add_additional_service_item,
+    #choose_add_ons_btn,
+    #cancel_add_ons_btn,
+    #apply_add_ons_btn,
+    [data-package-details-close] {
+        border-radius: 8px !important;
+        font-weight: 650 !important;
+        box-shadow: none !important;
+        transform: none !important;
+    }
+
+    .package-details-btn,
+    #wizardPrev,
+    #intakeCancelBtn,
+    #add_additional_service_item,
+    #cancel_add_ons_btn,
+    .intake-exit-btn {
+        background: #EEF4EA !important;
+        border: 1px solid var(--intake-border) !important;
+        color: var(--intake-text) !important;
+    }
+
+    .package-details-btn:hover,
+    #wizardPrev:hover:not(:disabled),
+    #intakeCancelBtn:hover,
+    #add_additional_service_item:hover,
+    #cancel_add_ons_btn:hover,
+    .intake-exit-btn:hover {
+        background: var(--intake-hover) !important;
+        border-color: var(--intake-border-strong) !important;
+        color: var(--intake-text) !important;
+    }
+
+    #wizardNext,
+    #saveIntakeRecord,
+    #choose_add_ons_btn,
+    #apply_add_ons_btn,
+    #intakeCancelModalConfirm,
+    .pkg-premium-card:has(.package-radio:checked) .pkg-select-btn {
+        background: var(--intake-dark) !important;
+        border: 1px solid var(--intake-dark) !important;
+        color: #fff !important;
+    }
+
+    #wizardNext:hover:not(:disabled),
+    #saveIntakeRecord:hover:not(:disabled),
+    #choose_add_ons_btn:hover,
+    #apply_add_ons_btn:hover,
+    #intakeCancelModalConfirm:hover {
+        background: var(--intake-dark-hover) !important;
+        border-color: var(--intake-dark-hover) !important;
+        color: #fff !important;
+        transform: none !important;
+    }
+
+    .footer-action-bar {
+        padding: 14px 22px !important;
+        border-top: 1px solid var(--intake-border) !important;
+        flex: 0 0 auto !important;
+        position: relative !important;
+        z-index: 35 !important;
+    }
+
+    .bpay-tab-group {
+        border-color: var(--intake-border) !important;
+        border-radius: 8px !important;
+        background: var(--intake-card-strong) !important;
+    }
+
+    .schedule-subsection {
+        color: var(--intake-text) !important;
+        font-weight: 650 !important;
+        text-transform: none !important;
+    }
+
+    .schedule-subsection::after {
+        background: rgba(62, 74, 61, .2) !important;
+    }
+
+    .time-input-wrap::before,
+    .schedule-time-display::after,
+    .readonly-date-display i,
+    .flatpickr-prev-month,
+    .flatpickr-next-month {
+        color: var(--intake-muted) !important;
+    }
+
+    .schedule-time-popover,
+    .flatpickr-calendar {
+        background: #EEF4EA !important;
+        border-color: var(--intake-border) !important;
+    }
+
+    .time-column,
+    .flatpickr-current-month .flatpickr-monthDropdown-months,
+    .flatpickr-current-month input.cur-year,
+    .flatpickr-current-month .intake-year-dropdown {
+        background: var(--intake-card-alt) !important;
+        border-color: var(--intake-border) !important;
+    }
+
+    .time-option:hover,
+    .time-option:focus,
+    .flatpickr-day:hover {
+        background: var(--intake-hover) !important;
+    }
+
+    .time-option.is-selected,
+    .flatpickr-day.selected,
+    .flatpickr-day.startRange,
+    .flatpickr-day.endRange {
+        background: var(--intake-dark) !important;
+        border-color: var(--intake-dark) !important;
+        color: #fff !important;
+    }
+
+    #package_details_modal .relative,
+    #intakeCancelModal .cancel-modal-box,
+    #intake_lock_overlay .bg-white {
+        background: var(--intake-card-alt) !important;
+        border-color: var(--intake-border) !important;
+        color: var(--intake-text) !important;
+    }
+
+    #intakeCancelModal {
+        background: rgba(35, 40, 33, .38) !important;
+    }
+
+    #intakeCancelModal[style] {
+        backdrop-filter: none !important;
+    }
+
+    .lock-overlay {
+        background: rgba(202, 216, 194, .88) !important;
+        backdrop-filter: none !important;
+    }
+
+    .intake-root .ring-1,
+    .intake-root .ring-2,
+    .intake-root [class*="ring-"] {
+        box-shadow: none !important;
+    }
+
+    .intake-root .font-black {
+        font-weight: 700 !important;
+    }
+
+    .intake-root .font-bold {
+        font-weight: 650 !important;
+    }
+
+    .intake-root .opacity-50,
+    .intake-root .opacity-60,
+    .intake-root .opacity-70 {
+        opacity: 1 !important;
+    }
+
+    .intake-root input,
+    .intake-root select,
+    .intake-root textarea,
+    .intake-root button,
+    .intake-root label,
+    .intake-root .form-input,
+    .intake-root .form-textarea,
+    .intake-root .wizard-step-number,
+    .intake-root .section-heading-icon,
+    .intake-root .package-card,
+    .intake-root .pkg-premium-card,
+    .intake-root .payment-type-card,
+    .intake-root .payment-method-card,
+    .intake-root .schedule-time-display,
+    .intake-root .flatpickr-calendar,
+    .intake-root .cancel-modal-box {
+        box-shadow: none !important;
+        --tw-shadow: 0 0 #0000 !important;
+        --tw-shadow-colored: 0 0 #0000 !important;
+        --tw-ring-offset-shadow: 0 0 #0000 !important;
+        --tw-ring-shadow: 0 0 #0000 !important;
+    }
+
+    .intake-root .wizard-tab.active-step .wizard-step-number,
+    .intake-root .wizard-tab.completed-step .wizard-step-number,
+    .intake-root .bpay-tab-group .payment-method-card.active-tab,
+    .intake-root .bpay-tab-group .payment-type-card.active-tab,
+    .intake-root .form-input:focus,
+    .intake-root .form-textarea:focus,
+    .intake-root #wizardNext,
+    .intake-root #saveIntakeRecord,
+    .intake-root #wizardNext:hover:not(:disabled),
+    .intake-root #saveIntakeRecord:hover:not(:disabled) {
+        box-shadow: none !important;
+    }
+
+    .service-selection-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+        margin-top: 18px;
+    }
+
+    .service-tool-card {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: start;
+        gap: 16px;
+        border: 1px solid var(--intake-border);
+        border-radius: 8px;
+        background: var(--intake-card-alt);
+        padding: 18px;
+        color: var(--intake-text);
+    }
+
+    .service-tool-card:hover {
+        background: var(--intake-hover);
+        border-color: var(--intake-border-strong);
+    }
+
+    .service-tool-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--font-heading), "Syne", var(--font-body), sans-serif;
+        font-size: .98rem;
+        font-weight: 650;
+        color: var(--intake-text);
+    }
+
+    .service-tool-help {
+        margin-top: 3px;
+        font-size: .82rem;
+        font-weight: 500;
+        color: var(--intake-muted);
+    }
+
+    .service-tool-value {
+        margin-top: 8px;
+        font-size: .88rem;
+        font-weight: 650;
+        color: var(--intake-text);
+    }
+
+    #selected_add_ons_summary {
+        grid-column: 1 / -1;
+        min-width: 0 !important;
+        width: 100% !important;
+        border-color: var(--intake-border) !important;
+        background: #C7D5BE !important;
+        padding: 14px !important;
+    }
+
+    #selected_add_ons_summary > div {
+        align-items: center !important;
+    }
+
+    #structured_pricing_section > button {
+        align-self: center;
+        white-space: nowrap;
+    }
+
+    #optional_add_ons_panel:not(.hidden),
+    #package_adjustments_panel:not(.hidden) {
+        position: fixed !important;
+        inset: auto auto auto auto !important;
+        left: 50% !important;
+        top: 50% !important;
+        z-index: 260 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        width: min(920px, calc(100vw - 32px)) !important;
+        max-height: min(700px, calc(100vh - 40px)) !important;
+        transform: translate(-50%, -50%) !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+        border: 1px solid var(--intake-border-strong) !important;
+        border-radius: 8px !important;
+        background: var(--intake-card) !important;
+        color: var(--intake-text) !important;
+    }
+
+    #optional_add_ons_panel:not(.hidden) {
+        width: min(820px, calc(100vw - 32px)) !important;
+    }
+
+    #optional_add_ons_panel > div:first-child,
+    #package_adjustments_panel > .package-adjustments-head {
+        flex: 0 0 auto;
+        background: var(--intake-card-strong) !important;
+        border-color: var(--intake-border) !important;
+    }
+
+    #optional_add_ons_panel > div:first-child {
+        padding: 16px !important;
+    }
+
+    #optional_add_ons_panel > div:first-child > div,
+    #package_adjustments_panel > .package-adjustments-head {
+        align-items: center !important;
+    }
+
+    #optional_add_ons_panel > div:first-child > div {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto !important;
+        gap: 12px !important;
+    }
+
+    .optional-add-ons-searchbar {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .optional-add-ons-searchbar .form-input {
+        padding-left: 42px !important;
+    }
+
+    #optional_add_ons_list,
+    #package_adjustments_panel .package-adjustments-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: none !important;
+        overflow-y: auto !important;
+    }
+
+    #optional_add_ons_list {
+        padding: 14px 16px !important;
+        background: var(--intake-card) !important;
+    }
+
+    #optional_add_ons_list .optional-add-on-row {
+        min-height: 58px;
+        align-items: center !important;
+        background: var(--intake-card-alt) !important;
+        border-color: var(--intake-border) !important;
+    }
+
+    #optional_add_ons_list .optional-add-on-row:hover {
+        background: var(--intake-hover) !important;
+    }
+
+    #optional_add_ons_list .optional-add-on-row input[type="checkbox"],
+    #billing_additional_services_section input[type="checkbox"],
+    #package_adjustments_panel input[type="checkbox"] {
+        cursor: pointer !important;
+    }
+
+    #billing_additional_services_section {
+        margin: 0 16px 14px !important;
+        background: var(--intake-card-alt) !important;
+        border-color: var(--intake-border) !important;
+        border-radius: 8px !important;
+    }
+
+    #billing_additional_services_section > div:first-child {
+        align-items: center !important;
+    }
+
+    #billing_additional_services_section h5 {
+        color: var(--intake-text) !important;
+        font-family: var(--font-heading), "Syne", var(--font-body), sans-serif !important;
+        font-size: .92rem !important;
+        font-weight: 650 !important;
+        text-transform: none !important;
+    }
+
+    #additional_service_items_list [data-additional-service-row] {
+        background: #F2F6EF !important;
+        border-color: var(--intake-border) !important;
+        border-radius: 8px !important;
+    }
+
+    #additional_service_items_list input {
+        background: #F7FAF4 !important;
+    }
+
+    .service-details-area {
+        margin-top: 28px;
+        padding-top: 24px;
+        border-top: 1px solid rgba(62, 74, 61, .18);
+    }
+
+    .service-details-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr);
+        gap: 16px;
+        align-items: start;
+    }
+
+    .service-detail-panel {
+        border: 1px solid var(--intake-border);
+        border-radius: 8px;
+        background: var(--intake-card-alt);
+        padding: 18px;
+    }
+
+    .service-detail-panel-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(62, 74, 61, .16);
+    }
+
+    .service-detail-panel-header i {
+        display: inline-flex;
+        width: 34px;
+        height: 34px;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--intake-border-strong);
+        border-radius: 8px;
+        color: var(--intake-dark);
+    }
+
+    .service-detail-panel-header h4 {
+        margin: 0;
+        font-family: var(--font-heading), "Syne", var(--font-body), sans-serif;
+        font-size: 1rem;
+        font-weight: 650;
+        color: var(--intake-text);
+    }
+
+    .service-detail-panel-header p {
+        margin-top: 2px;
+        font-size: .82rem;
+        font-weight: 500;
+        color: var(--intake-muted);
+    }
+
+    .schedule-stack {
+        display: grid;
+        gap: 14px;
+    }
+
+    .schedule-field-row {
+        display: grid;
+        grid-template-columns: 170px minmax(0, 1fr);
+        gap: 14px;
+        align-items: start;
+        padding: 14px;
+        border: 1px solid var(--intake-border);
+        border-radius: 8px;
+        background: #DCE6D6;
+    }
+
+    .schedule-field-row:hover {
+        background: var(--intake-hover);
+    }
+
+    .schedule-field-label {
+        padding-top: 2px;
+    }
+
+    .schedule-field-label .field-label {
+        margin-bottom: 3px !important;
+    }
+
+    .schedule-field-label p {
+        font-size: .78rem;
+        line-height: 1.35;
+        color: var(--intake-muted);
+    }
+
+    .service-info-stack {
+        display: grid;
+        gap: 14px;
+    }
+
+    .service-readout {
+        display: flex;
+        min-height: 46px;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--intake-border);
+        border-radius: 8px;
+        background: #F2F6EF;
+        padding: 0 14px;
+        color: var(--intake-text);
+        font-weight: 650;
+    }
+
+    .service-photo-upload {
+        margin-top: 16px;
+        border: 1px dashed var(--intake-border-strong);
+        border-radius: 8px;
+        background: var(--intake-card-alt);
+        padding: 16px;
+    }
+
+    @media (max-width: 1100px) {
+        .service-details-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .schedule-field-row {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    #package_adjustments_panel .package-adjustments-head {
+        padding: 16px !important;
+    }
+
+    #package_adjustments_panel .package-adjustments-body {
+        padding: 16px !important;
+        background: var(--intake-card) !important;
+    }
+
+    #package_adjustments_panel .package-adjustments-body > .rounded-xl {
+        border-radius: 8px !important;
+        background: var(--intake-card-alt) !important;
+        border-color: var(--intake-border) !important;
+        padding: 16px !important;
+    }
+
+    #package_adjustments_panel .package-adjustments-body > .rounded-xl:hover {
+        background: var(--intake-hover) !important;
+    }
+
+    #package_adjustments_panel .package-adjustments-body .rounded-lg {
+        border-radius: 8px !important;
+    }
+
+    #package_adjustments_panel .shadow-sm {
+        box-shadow: none !important;
+    }
+
+    #package_adjustments_panel .package-adjustments-body .grid .rounded-lg.bg-white {
+        background: #F2F6EF !important;
+        border: 1px solid var(--intake-border) !important;
+    }
+
+    #package_adjustments_panel .package-adjustments-body h6 {
+        font-family: var(--font-heading), "Syne", var(--font-body), sans-serif !important;
+        font-size: .92rem !important;
+        font-weight: 650 !important;
+        color: var(--intake-text) !important;
+    }
+
+    #package_adjustments_panel .package-adjustments-body .text-slate-500,
+    #package_adjustments_panel .package-adjustments-body .text-slate-400 {
+        color: var(--intake-muted) !important;
+    }
+
+    #optional_add_ons_panel > div:last-child,
+    #package_adjustments_panel .package-adjustments-foot {
+        flex: 0 0 auto;
+        background: var(--intake-card-strong) !important;
+        border-color: var(--intake-border) !important;
+    }
+
+    #optional_add_ons_panel > div:last-child,
+    #package_adjustments_panel .package-adjustments-foot {
+        padding: 14px 16px !important;
+    }
+
+    .intake-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 250;
+        background: rgba(35, 40, 33, .38);
+    }
+
+    .intake-modal-backdrop.hidden {
+        display: none;
+    }
+
+    .billing-method-choice {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .billing-payment-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .billing-payment-stack > * {
+        margin-top: 0 !important;
+    }
+
+    #payment_form_fields {
+        order: 1;
+    }
+
+    #discount_help_wrap {
+        order: 2;
+    }
+
+    .billing-method-choice .payment-method-card {
+        min-height: 82px;
+        justify-content: flex-start !important;
+        padding: 16px !important;
+        border: 1px solid var(--intake-border) !important;
+        border-radius: 8px !important;
+        background: var(--intake-card-alt) !important;
+    }
+
+    .billing-method-choice .payment-method-card:hover {
+        background: var(--intake-hover) !important;
+        border-color: var(--intake-border-strong) !important;
+    }
+
+    .billing-method-choice .payment-method-card.active-tab {
+        background: var(--intake-active) !important;
+        border-color: var(--intake-dark) !important;
+    }
+
+    .payment-details-shell {
+        border: 1px solid var(--intake-border);
+        border-radius: 8px;
+        background: var(--intake-card-alt);
+        padding: 16px;
+    }
+
+    .payment-details-shell.hidden {
+        display: none;
+    }
+
+    #cashless_details_wrap select,
+    #cashless_type {
+        cursor: pointer !important;
+    }
+
+    #cashless_details_wrap select:hover,
+    #cashless_type:hover {
+        background: var(--intake-hover) !important;
+        border-color: var(--intake-border-strong) !important;
+    }
+
+    @media (max-width: 900px) {
+        .service-selection-actions {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .intake-root {
+            padding: 12px !important;
+        }
+
+        .intake-top-shell {
+            border-radius: 8px 8px 0 0 !important;
+            align-items: flex-start !important;
+        }
+
+        .wizard-steps-shell {
+            width: 100% !important;
+            background: var(--intake-card-strong) !important;
+            border-left: 0 !important;
+            border-bottom: 1px solid var(--intake-border) !important;
+        }
+
+        #intakeFormContent {
+            padding: 14px !important;
+        }
+
+        .wizard-panel {
+            padding: 18px !important;
+        }
+
+        .billing-method-choice {
+            grid-template-columns: 1fr;
+        }
+    }
+
     /* ── Dark mode ── */
     html[data-theme='dark'] .panel-shell-body,
     html[data-theme='dark'] .main-area,
@@ -1196,9 +2331,6 @@
         <i class="bi bi-check2-circle text-lg"></i>
         <span class="package-toast-text">You selected a package.</span>
     </div>
-    {{-- Right: draft label + exit --}}
-    
-</div>
 
 {{-- Progress rail (updated by JS) --}}
 <div class="intake-progress-rail"><div class="intake-progress-fill" id="intakeProgressFill"></div></div>
@@ -1728,21 +2860,40 @@
                         </div>
                     </div>
 
-                    <div id="optional_add_ons_section" class="hidden mt-5 rounded-xl border border-[#C9C5BB] bg-[#FAFAF7] p-5">
-                        <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div id="intake_service_modal_backdrop" class="intake-modal-backdrop hidden"></div>
+
+                    <div class="service-selection-actions">
+                    <div id="structured_pricing_section" class="hidden service-tool-card">
+                        <div class="min-w-0">
                             <div>
-                                <h5 class="text-[10px] font-black uppercase tracking-widest text-[#5F685F] mb-1">
-                                    <i class="bi bi-plus-square mr-1"></i> Optional Add-ons
+                                <h5 class="service-tool-title">
+                                    <i class="bi bi-sliders2"></i> Package Adjustments
                                 </h5>
-                                <p class="text-xs font-medium text-[#5F685F]">Select paid catalog services only when the family requests them.</p>
+                                <p class="service-tool-help">Review package upgrades, covered items, and excess usage before adding optional services.</p>
                             </div>
-                            <div class="text-right">
-                                <div class="text-[10px] font-black uppercase tracking-widest text-[#5F685F]">Selected Total</div>
-                                <div class="text-sm font-black text-[#333333]">&#8369; <span id="selected_add_ons_total">0.00</span></div>
+                            <div class="service-tool-value">
+                                Total adjustments: &#8369; <span id="structured_charges_total">0.00</span>
+                            </div>
+                        </div>
+                        <button type="button" id="open_package_adjustments_btn" class="inline-flex items-center gap-2 rounded-lg bg-[#3E4A3D] px-4 py-2 text-xs font-bold text-white hover:bg-[#2f382e]">
+                            <i class="bi bi-sliders"></i> Open Adjustments
+                        </button>
+                    </div>
+
+                    <div id="optional_add_ons_section" class="hidden service-tool-card">
+                        <div class="min-w-0">
+                            <div>
+                                <h5 class="service-tool-title">
+                                    <i class="bi bi-plus-square"></i> Optional Add-ons
+                                </h5>
+                                <p class="service-tool-help">Select paid catalog services only when requested.</p>
+                            </div>
+                            <div class="service-tool-value">
+                                Selected total: &#8369; <span id="selected_add_ons_total">0.00</span>
                             </div>
                         </div>
 
-                        <div id="selected_add_ons_summary" class="mt-4 rounded-lg border border-[#C9C5BB] bg-white px-4 py-3 text-sm text-[#333333]">
+                        <div id="selected_add_ons_summary" class="min-w-[220px] rounded-lg border border-[#C9C5BB] bg-white px-4 py-3 text-sm text-[#333333]">
                             <div class="flex flex-wrap items-center justify-between gap-3">
                                 <div class="min-w-0">
                                     <div class="font-bold">No add-ons selected.</div>
@@ -1759,16 +2910,35 @@
                             <div class="border-b border-[#E5E0D5] bg-[#FBFAF7] p-4">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
                                     <div>
-                                        <div class="text-sm font-black text-[#333333]">Available Add-ons</div>
-                                        <div class="text-xs font-medium text-[#5F685F]">Search and select add-ons for this intake record.</div>
+                                        <div class="service-tool-title"><i class="bi bi-plus-square"></i> Optional Add-ons</div>
+                                        <div class="service-tool-help">Choose catalog add-ons first. Use manual charges only when the request is not listed.</div>
                                     </div>
-                                    <div class="relative w-full sm:w-72">
-                                        <i class="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-[#8A867A]"></i>
-                                        <input type="search" id="optional_add_ons_search" class="form-input pl-9" placeholder="Search add-ons..." aria-label="Search optional add-ons">
+                                    <button type="button" id="close_add_ons_btn" class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#C9C5BB] bg-[#F2F6EF] text-[#3E4A3D] hover:bg-[#DDE8D6]" aria-label="Close optional add-ons">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                    <div class="optional-add-ons-searchbar">
+                                        <div class="relative min-w-0 flex-1">
+                                            <i class="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-[#687466]"></i>
+                                            <input type="search" id="optional_add_ons_search" class="form-input" placeholder="Search add-ons..." aria-label="Search optional add-ons">
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                             <div id="optional_add_ons_list" class="max-h-[420px] overflow-y-auto p-4 space-y-2"></div>
+                            <div id="billing_additional_services_section" class="mx-4 mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                    <div>
+                                        <h5 class="text-[10px] font-black uppercase tracking-widest text-slate-600">Manual Charges</h5>
+                                        <p class="mt-1 text-xs font-medium text-slate-500">Use this only for requested charges that are not listed in the add-ons catalog.</p>
+                                    </div>
+                                    <button type="button" id="add_additional_service_item" class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">
+                                        <i class="bi bi-plus-circle"></i> Add Line
+                                    </button>
+                                </div>
+                                <div id="additional_service_items_list" class="mt-4 space-y-2"></div>
+                                <input type="hidden" name="additional_service_amount" id="additional_service_amount" value="{{ old('additional_service_amount') }}">
+                                <input type="hidden" name="additional_services" id="additional_services" value="{{ old('additional_services') }}">
+                            </div>
                             <div class="flex flex-wrap items-center justify-between gap-3 border-t border-[#E5E0D5] bg-[#FBFAF7] p-4">
                                 <div class="text-xs font-bold text-[#5F685F]">Draft total: &#8369; <span id="draft_add_ons_total">0.00</span></div>
                                 <div class="flex flex-wrap items-center gap-2">
@@ -1781,21 +2951,21 @@
                         </div>
                         @error('selected_add_ons') <div class="mt-2 text-xs font-bold text-[#9E4B3F]">{{ $message }}</div> @enderror
                     </div>
+                    </div>
 
-                    <div id="structured_pricing_section" class="hidden mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                        <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div id="package_adjustments_panel" class="package-adjustments-modal hidden" role="dialog" aria-modal="true" aria-labelledby="package_adjustments_title">
+                        <div class="package-adjustments-head flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 p-4">
                             <div>
-                                <h5 class="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-1 flex items-center gap-2">
+                                <h5 id="package_adjustments_title" class="service-tool-title">
                                     <i class="bi bi-sliders2"></i> Package Adjustments
                                 </h5>
-                                <p class="text-xs font-medium text-slate-500">Review package-covered items and enter only actual usage or selected upgrades.</p>
+                                <p class="service-tool-help">Enter only actual excess usage or selected upgrades.</p>
                             </div>
-                            <div class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-black text-slate-900">
-                                Total adjustments: &#8369; <span id="structured_charges_total">0.00</span>
-                            </div>
+                            <button type="button" id="close_package_adjustments_btn" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50" aria-label="Close package adjustments">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
                         </div>
-
-                        <div class="mt-5 space-y-4">
+                        <div class="package-adjustments-body p-4 space-y-4">
                             <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
                                 <div class="flex items-start gap-3">
                                     <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-slate-700 shadow-sm ring-1 ring-slate-200">
@@ -2036,37 +3206,49 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="package-adjustments-foot flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 p-4">
+                            <div class="text-xs font-bold text-[#5F685F]">Current total: &#8369; <span id="structured_charges_total_modal">0.00</span></div>
+                            <button type="button" id="done_package_adjustments_btn" class="inline-flex items-center gap-2 rounded-lg bg-[#3E4A3D] px-4 py-2 text-xs font-bold text-white hover:bg-[#2f382e]">
+                                <i class="bi bi-check2-circle"></i> Done
+                            </button>
+                        </div>
                     </div>
 
-                    <div class="mt-8 pt-8 border-t border-slate-200">
+                    <div class="service-details-area">
                         <div class="section-title-block mb-6">
                             <div class="section-heading-icon">
                                 <i class="bi bi-geo-alt-fill"></i>
                             </div>
                             <div class="section-title-text">
                                 <h3>Service Details</h3>
-                                <p>Set the wake, interment, and case progress details.</p>
+                                <p>Set the service schedule, locations, and case progress.</p>
                             </div>
-                        </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-                        <div class="schedule-subsection">
-                            <span>Schedule</span>
-                        </div>
-                        <div>
-                            <label class="field-label">Request Date / Date Recorded</label>
-                            <input type="hidden" name="service_requested_at" id="service_requested_at" value="{{ now()->toDateString() }}">
-                            <div class="form-input readonly-date-display cursor-not-allowed" aria-readonly="true">
-                                <i class="bi bi-calendar-check"></i>
-                                <span>{{ now()->format('F d, Y') }}</span>
-                            </div>
-                            @error('service_requested_at')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                            <p class="text-xs text-slate-500 mt-1">This is the date the case was recorded in the system.</p>
                         </div>
 
-                        <div>
-                            <label class="field-label">Wake Start Date &amp; Time <span class="text-rose-500">*</span></label>
+                    <input type="hidden" name="service_requested_at" id="service_requested_at" value="{{ now()->toDateString() }}">
+                    <input type="hidden" name="service_type" id="service_type" value="Burial">
+                    @error('service_requested_at')
+                        <p class="mb-3 text-sm text-red-600">{{ $message }}</p>
+                    @enderror
+
+                    <div class="service-details-grid">
+                        <div class="service-detail-panel">
+                            <div class="service-detail-panel-header">
+                                <i class="bi bi-calendar2-week"></i>
+                                <div>
+                                    <h4>Schedule</h4>
+                                    <p>Arrange the wake, funeral service, and interment timeline.</p>
+                                </div>
+                            </div>
+
+                            <div class="schedule-stack">
+
+                        <div class="schedule-field-row">
+                            <div class="schedule-field-label">
+                                <label class="field-label">Wake Start <span class="text-rose-500">*</span></label>
+                                <p>First day and time of the wake or viewing period.</p>
+                            </div>
+                            <div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div class="relative">
                                     <input type="text" name="wake_start_date" id="wake_start_date" value="{{ old('wake_start_date') }}" data-label="wake start date" class="form-input pr-10 cursor-pointer" placeholder="Wake date" autocomplete="off" required>
@@ -2076,7 +3258,10 @@
                                 </div>
                                 <div class="time-input-wrap" data-time-picker="wake_start_time">
                                     <input type="hidden" name="wake_start_time" id="wake_start_time" value="{{ old('wake_start_time') ? substr(old('wake_start_time'), 0, 5) : '' }}" data-label="wake start time" class="schedule-time-value" required>
-                                    <button type="button" class="schedule-time-display" data-time-display-for="wake_start_time" aria-label="Wake start time" aria-expanded="false">Select time</button>
+                                    <input type="text" class="schedule-time-display" data-time-display-for="wake_start_time" data-skip-autocap aria-label="Wake start time" placeholder="e.g. 8:30 AM" inputmode="text" autocomplete="off" aria-expanded="false">
+                                    <button type="button" class="schedule-time-toggle" data-time-toggle-for="wake_start_time" aria-label="Open wake start time picker">
+                                        <i class="bi bi-chevron-down"></i>
+                                    </button>
                                     <div class="schedule-time-popover" data-time-popover role="dialog" aria-label="Wake start time picker">
                                         <div class="time-column">
                                             <span class="time-column-label">Hour</span>
@@ -2111,11 +3296,15 @@
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                             <p id="wake_start_error" class="mt-1 text-sm text-red-600 hidden"></p>
-                            <p class="text-xs text-slate-500 mt-1">First day and time of the wake or viewing period.</p>
+                            </div>
                         </div>
 
-                        <div>
-                            <label class="field-label">Funeral Service Date &amp; Time <span class="text-rose-500">*</span></label>
+                        <div class="schedule-field-row">
+                            <div class="schedule-field-label">
+                                <label class="field-label">Funeral Service <span class="text-rose-500">*</span></label>
+                                <p>Date and time of the final service or ceremony.</p>
+                            </div>
+                            <div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div class="relative">
                                     <input type="text" name="funeral_service_at" id="funeral_service_at" value="{{ old('funeral_service_at') }}" data-label="funeral service date" class="form-input pr-10 cursor-pointer" placeholder="Service date" autocomplete="off" required>
@@ -2125,7 +3314,10 @@
                                 </div>
                                 <div class="time-input-wrap" data-time-picker="funeral_service_time">
                                     <input type="hidden" name="funeral_service_time" id="funeral_service_time" value="{{ old('funeral_service_time') ? substr(old('funeral_service_time'), 0, 5) : '' }}" data-label="funeral service time" class="schedule-time-value" required>
-                                    <button type="button" class="schedule-time-display" data-time-display-for="funeral_service_time" aria-label="Funeral service time" aria-expanded="false">Select time</button>
+                                    <input type="text" class="schedule-time-display" data-time-display-for="funeral_service_time" data-skip-autocap aria-label="Funeral service time" placeholder="e.g. 9:00 AM" inputmode="text" autocomplete="off" aria-expanded="false">
+                                    <button type="button" class="schedule-time-toggle" data-time-toggle-for="funeral_service_time" aria-label="Open funeral service time picker">
+                                        <i class="bi bi-chevron-down"></i>
+                                    </button>
                                     <div class="schedule-time-popover" data-time-popover role="dialog" aria-label="Funeral service time picker">
                                         <div class="time-column">
                                             <span class="time-column-label">Hour</span>
@@ -2160,11 +3352,15 @@
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                             <p id="funeral_service_at_error" class="mt-1 text-sm text-red-600 hidden"></p>
-                            <p class="text-xs text-slate-500 mt-1">Date and time of the funeral service, mass, ceremony, or final service.</p>
+                            </div>
                         </div>
 
-                        <div>
-                            <label class="field-label">Interment Date &amp; Time <span class="text-rose-500">*</span></label>
+                        <div class="schedule-field-row">
+                            <div class="schedule-field-label">
+                                <label class="field-label">Interment <span class="text-rose-500">*</span></label>
+                                <p>Date and time of burial or interment.</p>
+                            </div>
+                            <div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div class="relative">
                                     <input type="text" name="interment_at" id="interment_at" value="{{ old('interment_at') }}" data-label="interment date" class="form-input pr-10 cursor-pointer" placeholder="Interment date" autocomplete="off" required>
@@ -2174,7 +3370,10 @@
                                 </div>
                                 <div class="time-input-wrap" data-time-picker="interment_time">
                                     <input type="hidden" name="interment_time" id="interment_time" value="{{ old('interment_time') ? substr(old('interment_time'), 0, 5) : '' }}" data-label="interment time" class="schedule-time-value" required>
-                                    <button type="button" class="schedule-time-display" data-time-display-for="interment_time" aria-label="Interment time" aria-expanded="false">Select time</button>
+                                    <input type="text" class="schedule-time-display" data-time-display-for="interment_time" data-skip-autocap aria-label="Interment time" placeholder="e.g. 1:00 PM" inputmode="text" autocomplete="off" aria-expanded="false">
+                                    <button type="button" class="schedule-time-toggle" data-time-toggle-for="interment_time" aria-label="Open interment time picker">
+                                        <i class="bi bi-chevron-down"></i>
+                                    </button>
                                     <div class="schedule-time-popover" data-time-popover role="dialog" aria-label="Interment time picker">
                                         <div class="time-column">
                                             <span class="time-column-label">Hour</span>
@@ -2210,31 +3409,37 @@
                             @enderror
                             <div id="interment_at_error" class="hidden text-xs font-bold text-rose-500 mt-1">Interment date cannot be before the funeral service date.</div>
                             <p id="interment_schedule_warning" class="hidden text-xs font-bold text-amber-600 mt-1">Funeral service and interment are usually on the same day. Please confirm if interment is scheduled on a different date.</p>
-                            <p class="text-xs text-slate-500 mt-1">Date and time of burial, cremation, or interment.</p>
+                            </div>
                         </div>
 
-                        <div>
-                            <label class="field-label">Wake Duration</label>
+                        <div class="schedule-field-row">
+                            <div class="schedule-field-label">
+                                <label class="field-label">Wake Duration</label>
+                                <p>Auto-computed from wake start through interment.</p>
+                            </div>
+                            <div>
                             <input type="hidden" name="wake_days" id="wake_days" value="{{ old('wake_days') }}" data-label="wake days">
-                            <div class="form-input bg-slate-50 border-slate-200 text-slate-700 font-semibold flex items-center gap-2 pointer-events-none">
+                            <div class="service-readout pointer-events-none">
                                 <i class="bi bi-moon-stars text-slate-500"></i>
                                 <span id="wake_duration_display">Auto-calculated</span>
                             </div>
                             <p id="wake_days_helper" class="text-xs text-slate-500 mt-1">Calculated from Wake Start Date through Interment Date, inclusive.</p>
-                        </div>
-
-                        <div class="schedule-subsection">
-                            <span>Service Information</span>
-                        </div>
-
-                        <div>
-                            <label class="field-label">Service Type</label>
-                            <input type="hidden" name="service_type" id="service_type" value="Burial">
-                            <div class="form-input bg-slate-50 border-slate-200 text-slate-700 font-semibold flex items-center gap-2 pointer-events-none">
-                                <i class="bi bi-check-circle-fill text-emerald-600"></i>
-                                Burial (fixed)
                             </div>
                         </div>
+
+                            </div>
+                        </div>
+
+                        <div class="service-detail-panel">
+                            <div class="service-detail-panel-header">
+                                <i class="bi bi-geo-alt"></i>
+                                <div>
+                                    <h4>Service Information</h4>
+                                    <p>Burial service details and current case progress.</p>
+                                </div>
+                            </div>
+
+                            <div class="service-info-stack">
 
                         <div class="md:col-span-1">
                             <label class="field-label">Wake Location <span class="text-rose-500">*</span></label>
@@ -2260,9 +3465,11 @@
                                 </select>
                             @endif
                         </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="mt-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5">
+                    <div class="service-photo-upload">
                         <label class="field-label">Upload Deceased Photo (Optional)</label>
                         <input type="file" name="deceased_photo" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300">
                     </div>
@@ -2290,23 +3497,7 @@
                                 </div>
                                 <span class="font-bold text-slate-800 text-sm">Record Payment</span>
                             </div>
-                            <div class="p-5 space-y-5">
-
-                                {{-- Additional charges --}}
-                                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                                    <div class="flex flex-wrap items-center justify-between gap-3">
-                                        <div>
-                                            <h5 class="text-[10px] font-black uppercase tracking-widest text-slate-600">Itemized Additional Services</h5>
-                                            <p class="mt-1 text-xs font-medium text-slate-500">Optional manual charges that are not package inclusions, freebies, or selected catalog add-ons.</p>
-                                        </div>
-                                        <button type="button" id="add_additional_service_item" class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">
-                                            <i class="bi bi-plus-circle"></i> Add Line
-                                        </button>
-                                    </div>
-                                    <div id="additional_service_items_list" class="mt-4 space-y-2"></div>
-                                    <input type="hidden" name="additional_service_amount" id="additional_service_amount" value="{{ old('additional_service_amount') }}">
-                                    <input type="hidden" name="additional_services" id="additional_services" value="{{ old('additional_services') }}">
-                                </div>
+                            <div class="p-5 billing-payment-stack">
 
                                 {{-- Hidden billing inputs still used by JS --}}
                                 <input type="hidden" name="package_amount" id="package_amount" value="{{ old('package_amount') }}">
@@ -2318,6 +3509,15 @@
                                 <div id="discount_help_wrap" class="text-[11px] font-medium text-slate-500 flex gap-2 items-start">
                                     <i class="bi bi-info-circle text-blue-400 mt-0.5 flex-shrink-0"></i>
                                     <span id="discount_help_text_secondary">Discount is tied to Senior Citizen status.</span>
+                                </div>
+
+                                <div class="rounded-lg border border-[#AEBBA8] bg-[#DCE6D6] px-4 py-3 text-xs font-medium text-[#3F4C3E]">
+                                    <div class="flex items-start gap-2">
+                                        <i class="bi bi-save2 mt-0.5 text-[#3E4A3D]"></i>
+                                        <p>
+                                            Payment details are autosaved only as a local draft. An official payment record is created only after final submission.
+                                        </p>
+                                    </div>
                                 </div>
 
                                 <div class="border-t border-slate-100"></div>
@@ -2336,7 +3536,7 @@
                                 @endif
 
                                 @if(!$isOtherEntryMode)
-                                    <label id="mark_as_paid_label" class="group flex items-center justify-between gap-4 p-4 rounded-xl border-2 {{ old('mark_as_paid') ? 'border-slate-800 bg-slate-50' : 'border-slate-200 bg-white' }} cursor-pointer transition-all duration-200 hover:border-slate-400">
+                                    <label id="mark_as_paid_label" class="hidden group flex items-center justify-between gap-4 p-4 rounded-xl border-2 {{ old('mark_as_paid') ? 'border-slate-800 bg-slate-50' : 'border-slate-200 bg-white' }} cursor-pointer transition-all duration-200 hover:border-slate-400">
                                         <div class="flex items-center gap-3">
                                             <div id="mark_as_paid_icon" class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-200 {{ old('mark_as_paid') ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500' }}">
                                                 <i class="bi bi-cash-stack text-base"></i>
@@ -2354,22 +3554,30 @@
                                     </label>
                                 @endif
 
-                                <div id="payment_form_fields" class="{{ $isOtherEntryMode ? '' : 'hidden' }} space-y-5">
+                                <div id="payment_form_fields" class="space-y-5">
                                     {{-- Payment Method --}}
                                     <div>
                                         <label class="field-label text-xs">Payment Method</label>
-                                        <div class="bpay-tab-group">
+                                        <div class="billing-method-choice" id="payment_method_group">
                                             <label class="payment-method-card cursor-pointer">
-                                                <input type="radio" name="payment_method" value="cash" class="payment-method-radio sr-only" {{ old('payment_method', 'cash') === 'cash' || old('payment_method') === 'CASH' ? 'checked' : '' }}>
-                                                <span class="flex items-center gap-2 text-sm font-bold text-slate-700"><i class="bi bi-cash-coin"></i> Cash</span>
+                                                <input type="radio" name="payment_method" value="cash" class="payment-method-radio sr-only" {{ $isOtherEntryMode || old('payment_method') === 'cash' || old('payment_method') === 'CASH' ? 'checked' : '' }}>
+                                                <span class="flex flex-col gap-1 text-sm font-bold text-slate-700">
+                                                    <span class="flex items-center gap-2"><i class="bi bi-cash-coin"></i> Cash</span>
+                                                    <span class="text-xs font-medium text-slate-500">Record an over-the-counter payment.</span>
+                                                </span>
                                             </label>
                                             <label class="payment-method-card cursor-pointer">
                                                 <input type="radio" name="payment_method" value="cashless" class="payment-method-radio sr-only" {{ in_array(old('payment_method'), ['cashless', 'bank_transfer', 'BANK_TRANSFER'], true) ? 'checked' : '' }}>
-                                                <span class="flex items-center gap-2 text-sm font-bold text-slate-700"><i class="bi bi-wallet2"></i> Cashless</span>
+                                                <span class="flex flex-col gap-1 text-sm font-bold text-slate-700">
+                                                    <span class="flex items-center gap-2"><i class="bi bi-wallet2"></i> Cashless</span>
+                                                    <span class="text-xs font-medium text-slate-500">Bank, wallet, card, or other channel.</span>
+                                                </span>
                                             </label>
                                         </div>
+                                        <p id="payment_method_hint" class="mt-2 text-xs font-medium text-slate-500">Leave unselected if no payment is being recorded yet.</p>
                                     </div>
 
+                                    <div id="payment_details_section" class="payment-details-shell hidden space-y-5">
                                     <div id="cash_reference_wrap">
                                         <label class="field-label">Receipt / Reference No. <span class="text-slate-400 font-medium">(optional)</span></label>
                                         <input type="text" name="reference_number" id="cash_reference_number" value="{{ old('reference_number') }}" data-label="receipt reference" class="form-input" placeholder="Optional receipt or reference number">
@@ -2528,6 +3736,7 @@
                                             <div class="text-[9px] font-black uppercase tracking-widest opacity-50 mb-1">Remaining Balance</div>
                                             <div class="text-base font-black">&#8369; <span id="payment_balance_preview">0.00</span></div>
                                         </div>
+                                    </div>
                                     </div>
                                 </div>
 
@@ -2814,10 +4023,12 @@
     const chooseAddOnsBtn = document.getElementById('choose_add_ons_btn');
     const applyAddOnsBtn = document.getElementById('apply_add_ons_btn');
     const cancelAddOnsBtn = document.getElementById('cancel_add_ons_btn');
+    const closeAddOnsBtn = document.getElementById('close_add_ons_btn');
     const selectedAddOnsSummary = document.getElementById('selected_add_ons_summary');
     const selectedAddOnsLines = document.getElementById('selected_add_ons_lines');
     const draftAddOnsTotal = document.getElementById('draft_add_ons_total');
     const selectedAddOnsTotal = document.getElementById('selected_add_ons_total');
+    const serviceModalBackdrop = document.getElementById('intake_service_modal_backdrop');
     const oldSelectedAddOns = new Set(@json($oldSelectedAddOns));
     const globalAddOns = {!! \Illuminate\Support\Js::from(($activeAddOns ?? collect())->map(fn ($addOn) => [
         'id' => $addOn->id,
@@ -2836,7 +4047,12 @@
         custom: 'Other Package Inclusion',
     };
     const structuredPricingSection = document.getElementById('structured_pricing_section');
+    const packageAdjustmentsPanel = document.getElementById('package_adjustments_panel');
+    const openPackageAdjustmentsBtn = document.getElementById('open_package_adjustments_btn');
+    const closePackageAdjustmentsBtn = document.getElementById('close_package_adjustments_btn');
+    const donePackageAdjustmentsBtn = document.getElementById('done_package_adjustments_btn');
     const structuredChargesTotal = document.getElementById('structured_charges_total');
+    const structuredChargesTotalModal = document.getElementById('structured_charges_total_modal');
     const replacementCasket = document.getElementById('replacement_casket_catalog_id');
     const replacementCasketWrap = document.getElementById('replacement_casket_wrap');
     const casketModeRadios = [...document.querySelectorAll('[name="casket_selection_mode"]')];
@@ -2941,6 +4157,13 @@
     const seniorPct = {{ (float) ($seniorDiscountPercent ?? config('funeral.senior_discount_percent', 20)) }};
     const isOtherEntryMode = @json($isOtherEntryMode);
     const otherBranchWindowClosed = @json($otherBranchWindowClosed);
+    const intakeAutosaveKey = [
+        'funeral-system',
+        'intake-draft',
+        @json(auth()->id()),
+        @json($isOtherEntryMode ? 'other' : 'main'),
+        @json((string) $initialSelectedBranchId),
+    ].join(':');
     const totalSteps = panels.length;
     const initialStep = Math.max(1, Math.min(totalSteps, Number(@json($initialStep ?? 1))));
     const serverInitialBranchId = @json((string) $initialSelectedBranchId);
@@ -3110,12 +4333,29 @@
         }));
     const appliedAddOns = () => parseAddOns().filter((addOn) => oldSelectedAddOns.has(String(addOn.id)));
     const addOnsTotal = () => appliedAddOns().reduce((sum, addOn) => sum + num(addOn.price), 0);
+    const syncServiceBackdrop = () => {
+        const hasOpenPanel = !optionalAddOnsPanel?.classList.contains('hidden') || !packageAdjustmentsPanel?.classList.contains('hidden');
+        serviceModalBackdrop?.classList.toggle('hidden', !hasOpenPanel);
+        document.body.style.overflow = hasOpenPanel ? 'hidden' : '';
+    };
     const setAddOnsPanelOpen = (open) => {
         if (!optionalAddOnsPanel) return;
         optionalAddOnsPanel.classList.toggle('hidden', !open);
         chooseAddOnsBtn?.setAttribute('aria-expanded', open ? 'true' : 'false');
+        syncServiceBackdrop();
         if (open) {
             optionalAddOnsSearch?.focus();
+        }
+    };
+    const setPackageAdjustmentsOpen = (open) => {
+        if (!packageAdjustmentsPanel) return;
+        packageAdjustmentsPanel.classList.toggle('hidden', !open);
+        openPackageAdjustmentsBtn?.setAttribute('aria-expanded', open ? 'true' : 'false');
+        syncServiceBackdrop();
+        if (open) {
+            closePackageAdjustmentsBtn?.focus();
+        } else {
+            openPackageAdjustmentsBtn?.focus();
         }
     };
     const syncDraftAddOnsTotal = () => {
@@ -3138,6 +4378,7 @@
     };
     let additionalItemIndex = 0;
     const oldAdditionalItems = @json(old('additional_service_items', []));
+    let restoredAutosaveAdditionalRows = false;
     const additionalServiceRows = () => [...document.querySelectorAll('[data-additional-service-row]')]
         .map((row) => ({
             description: row.querySelector('[data-additional-description]')?.value?.trim() || '',
@@ -3939,6 +5180,7 @@
         if (summaryHelp) summaryHelp.textContent = oldSelectedAddOns.size ? 'Applied add-ons are shown below. Use Change Add-ons to update them.' : 'Optional add-ons are not included in the base package price.';
 
         if (structuredPricingSection) structuredPricingSection.classList.toggle('hidden', !selected || selected === customPkgRadio);
+        if (!selected || selected === customPkgRadio) setPackageAdjustmentsOpen(false);
 
         syncPreferredPackage();
 
@@ -3970,7 +5212,7 @@
         setHidden(proofWrap, proofInput, senior?.value !== '1');
         if (proofInput) proofInput.required = false;
 
-        if (payWrap && mark?.type === 'checkbox') payWrap.classList.toggle('hidden', !payNow());
+        if (payWrap) payWrap.classList.remove('hidden');
 
         if (amountPaid) {
             amountPaid.disabled = !payNow();
@@ -4021,14 +5263,12 @@
 
         if (reviewService) {
             reviewService.innerHTML = [
-                detailRow('Request Date / Date Recorded', formatDateOnly(f.elements.service_requested_at?.value)),
                 detailRow('Wake Start Date & Time', formatScheduleDateTime(f.elements.wake_start_date?.value, f.elements.wake_start_time?.value)),
                 detailRow('Funeral Service Date & Time', formatScheduleDateTime(f.elements.funeral_service_at?.value, f.elements.funeral_service_time?.value)),
                 detailRow('Interment Date & Time', formatScheduleDateTime(f.elements.interment_at?.value, f.elements.interment_time?.value)),
                 detailRow('Wake Duration', wakeDurationLabel(f.elements.wake_days?.value)),
                 detailRow('Retrieval Excess KM', applyRetrievalExcess?.checked ? textOrDash(retrievalExcessInput?.value) : 'Within coverage'),
                 detailRow('Hearse Excess KM', applyHearseExcess?.checked ? textOrDash(hearseExcessInput?.value) : 'Within coverage'),
-                detailRow('Service Type', 'Burial (fixed)'),
                 detailRow('Wake Location', textOrDash(f.elements.wake_location?.value)),
                 detailRow('Place of Interment', textOrDash(f.elements.place_of_cemetery?.value)),
                 detailRow('Case Status', textOrDash(f.elements.case_status?.value)),
@@ -4114,22 +5354,57 @@
         if (!hiddenInput) return;
 
         const picker = document.querySelector(`[data-time-picker="${hiddenInput.id}"]`);
-        const displayButton = document.querySelector(`[data-time-display-for="${hiddenInput.id}"]`);
+        const displayInput = document.querySelector(`[data-time-display-for="${hiddenInput.id}"]`);
+        const toggleButton = document.querySelector(`[data-time-toggle-for="${hiddenInput.id}"]`);
         const popover = picker?.querySelector('[data-time-popover]');
-        if (!picker || !displayButton || !popover) return;
+        if (!picker || !displayInput || !popover) return;
 
         const state = { hour: '', minute: '', period: '' };
         const pad = (value) => String(value).padStart(2, '0');
         const allOptions = [...picker.querySelectorAll('.time-option')];
 
+        const parseTypedTime = (value) => {
+            const raw = String(value || '').trim().toUpperCase().replace(/\s+/g, '');
+            if (!raw) return null;
+
+            const amPmMatch = raw.match(/^(\d{1,2})(?::?(\d{2}))?(AM|PM)$/);
+            if (amPmMatch) {
+                let hour = Number(amPmMatch[1]);
+                const minute = Number(amPmMatch[2] ?? '00');
+                const period = amPmMatch[3];
+
+                if (hour < 1 || hour > 12 || minute < 0 || minute > 59) return null;
+                hour = hour % 12;
+                if (period === 'PM') hour += 12;
+                return `${pad(hour)}:${pad(minute)}`;
+            }
+
+            const twentyFourHourMatch = raw.match(/^(\d{1,2})(?::?(\d{2}))$/);
+            if (twentyFourHourMatch) {
+                const hour = Number(twentyFourHourMatch[1]);
+                const minute = Number(twentyFourHourMatch[2]);
+                if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+                return `${pad(hour)}:${pad(minute)}`;
+            }
+
+            const hourOnly = raw.match(/^(\d{1,2})$/);
+            if (hourOnly) {
+                const hour = Number(hourOnly[1]);
+                if (hour < 1 || hour > 12) return null;
+                return `${pad(hour)}:00`;
+            }
+
+            return null;
+        };
+
         const formatDisplay = () => {
-            if (!state.hour || !state.minute || !state.period) return 'Select time';
+            if (!state.hour || !state.minute || !state.period) return '';
             return `${state.hour}:${state.minute} ${state.period}`;
         };
 
         const closePicker = () => {
             picker.classList.remove('is-open');
-            displayButton.setAttribute('aria-expanded', 'false');
+            displayInput.setAttribute('aria-expanded', 'false');
         };
 
         const openPicker = () => {
@@ -4140,7 +5415,7 @@
                 }
             });
             picker.classList.add('is-open');
-            displayButton.setAttribute('aria-expanded', 'true');
+            displayInput.setAttribute('aria-expanded', 'true');
             const selected = picker.querySelector('.time-option.is-selected');
             selected?.scrollIntoView({ block: 'nearest' });
         };
@@ -4148,7 +5423,7 @@
         const syncHiddenValue = () => {
             if (!state.hour || !state.minute || !state.period) {
                 hiddenInput.value = '';
-                displayButton.textContent = 'Select time';
+                displayInput.value = '';
                 hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
                 return;
             }
@@ -4157,8 +5432,9 @@
             if (state.period === 'PM') hour24 += 12;
 
             hiddenInput.value = `${pad(hour24)}:${state.minute}`;
-            displayButton.textContent = formatDisplay();
+            displayInput.value = formatDisplay();
             hiddenInput.setCustomValidity('');
+            displayInput.setCustomValidity('');
             hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
         };
 
@@ -4177,7 +5453,7 @@
                 state.hour = '';
                 state.minute = '';
                 state.period = '';
-                displayButton.textContent = 'Select time';
+                displayInput.value = '';
                 syncSelectedStyles();
                 return;
             }
@@ -4185,12 +5461,68 @@
             state.hour = pad(hour24 % 12 || 12);
             state.minute = pad(minute);
             state.period = hour24 >= 12 ? 'PM' : 'AM';
-            displayButton.textContent = formatDisplay();
+            displayInput.value = formatDisplay();
             syncSelectedStyles();
         };
 
-        displayButton.addEventListener('click', () => {
+        const applyTypedTime = (showError = false) => {
+            const typed = displayInput.value.trim();
+            if (!typed) {
+                state.hour = '';
+                state.minute = '';
+                state.period = '';
+                hiddenInput.value = '';
+                hiddenInput.setCustomValidity('');
+                displayInput.setCustomValidity('');
+                syncSelectedStyles();
+                hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+                return true;
+            }
+
+            const parsed = parseTypedTime(typed);
+            if (!parsed) {
+                const message = 'Use a valid time like 8:30 AM.';
+                hiddenInput.setCustomValidity(message);
+                displayInput.setCustomValidity(showError ? message : '');
+                if (showError) displayInput.reportValidity();
+                return false;
+            }
+
+            hiddenInput.value = parsed;
+            hiddenInput.setCustomValidity('');
+            displayInput.setCustomValidity('');
+            applyHiddenValueToPicker();
+            hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+            return true;
+        };
+
+        toggleButton?.addEventListener('click', () => {
             picker.classList.contains('is-open') ? closePicker() : openPicker();
+        });
+
+        displayInput.addEventListener('focus', () => {
+            displayInput.select();
+        });
+
+        displayInput.addEventListener('input', () => {
+            applyTypedTime(false);
+        });
+
+        displayInput.addEventListener('blur', () => {
+            applyTypedTime(true);
+        });
+
+        displayInput.addEventListener('keydown', (event) => {
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                openPicker();
+                return;
+            }
+
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                if (applyTypedTime(true)) closePicker();
+            }
         });
 
         allOptions.forEach((option) => {
@@ -4205,7 +5537,7 @@
         picker.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
                 closePicker();
-                displayButton.focus();
+                displayInput.focus();
             }
         });
 
@@ -4406,6 +5738,7 @@
         if (summaryAddOns) summaryAddOns.textContent = fmt(t.selectedAddOns);
         if (selectedAddOnsTotal) selectedAddOnsTotal.textContent = fmt(t.selectedAddOns);
         if (structuredChargesTotal) structuredChargesTotal.textContent = fmt(t.structuredTotal);
+        if (structuredChargesTotalModal) structuredChargesTotalModal.textContent = fmt(t.structuredTotal);
         if (summaryAdd) summaryAdd.textContent = fmt(t.additional);
         if (summarySubtotal) summarySubtotal.textContent = fmt(t.subtotal);
         if (summaryDiscountSource) summaryDiscountSource.textContent = t.disc.source;
@@ -5185,6 +6518,54 @@
             requestAnimationFrame(nudgeViewport);
         };
 
+        const dateYear = (value) => {
+            if (!value) return null;
+            const date = value instanceof Date ? value : new Date(value);
+            return Number.isNaN(date.getTime()) ? null : date.getFullYear();
+        };
+
+        const enhanceYearDropdown = (instance) => {
+            const currentYear = new Date().getFullYear();
+            const calendar = instance?.calendarContainer;
+            const currentMonth = calendar?.querySelector('.flatpickr-current-month');
+            const yearInput = currentMonth?.querySelector('input.cur-year');
+            const yearWrapper = yearInput?.closest('.numInputWrapper');
+            if (!currentMonth || !yearInput || !yearWrapper) return;
+
+            let select = currentMonth.querySelector('.intake-year-dropdown');
+            if (!select) {
+                select = document.createElement('select');
+                select.className = 'intake-year-dropdown';
+                select.setAttribute('aria-label', 'Select year');
+                yearWrapper.style.display = 'none';
+                yearWrapper.insertAdjacentElement('afterend', select);
+                select.addEventListener('change', () => {
+                    const year = Number(select.value);
+                    if (Number.isFinite(year)) instance.changeYear(year);
+                });
+            }
+
+            const maxYear = dateYear(instance.config.maxDate) ?? (instance.input?.id === 'born' || instance.input?.id === 'died' ? currentYear : currentYear + 1);
+            const minYear = dateYear(instance.config.minDate) ?? (instance.input?.id === 'born' || instance.input?.id === 'died' ? currentYear - 125 : currentYear - 1);
+            const startYear = Math.min(minYear, maxYear);
+            const endYear = Math.max(minYear, maxYear);
+            const selectedYear = instance.currentYear || dateYear(instance.selectedDates?.[0]) || endYear;
+            const signature = `${startYear}:${endYear}`;
+
+            if (select.dataset.range !== signature) {
+                select.replaceChildren();
+                for (let year = endYear; year >= startYear; year -= 1) {
+                    const option = document.createElement('option');
+                    option.value = String(year);
+                    option.textContent = String(year);
+                    select.appendChild(option);
+                }
+                select.dataset.range = signature;
+            }
+
+            select.value = String(Math.min(Math.max(selectedYear, startYear), endYear));
+        };
+
         const pickerBaseOpts = {
             position: 'auto left',
             appendTo: document.body,
@@ -5193,6 +6574,7 @@
             prevArrow: '<span>&lsaquo;</span>',
             nextArrow: '<span>&rsaquo;</span>',
             onReady: (selectedDates, dateStr, instance) => {
+                enhanceYearDropdown(instance);
                 ensurePickerVisible(instance);
             },
             onOpen: (selectedDates, dateStr, instance) => {
@@ -5200,12 +6582,15 @@
                 if (cal) {
                     cal.classList.add('shadow-2xl', 'border', 'border-slate-200');
                 }
+                enhanceYearDropdown(instance);
                 ensurePickerVisible(instance);
             },
             onMonthChange: (selectedDates, dateStr, instance) => {
+                enhanceYearDropdown(instance);
                 ensurePickerVisible(instance);
             },
             onYearChange: (selectedDates, dateStr, instance) => {
+                enhanceYearDropdown(instance);
                 ensurePickerVisible(instance);
             }
         };
@@ -5684,6 +7069,8 @@
 
     const payMethodRadios = [...document.querySelectorAll('.payment-method-radio')];
     const payMethodCards  = [...document.querySelectorAll('.payment-method-card')];
+    const paymentDetailsSection = document.getElementById('payment_details_section');
+    const paymentMethodHint = document.getElementById('payment_method_hint');
     const cashReferenceWrap = document.getElementById('cash_reference_wrap');
     const cashReferenceNumber = document.getElementById('cash_reference_number');
     const cashlessWrap    = document.getElementById('cashless_details_wrap');
@@ -5700,14 +7087,31 @@
 
     function syncPayMethod() {
         const selected = payMethodRadios.find(r => r.checked)?.value;
+        const hasMethod = !!selected;
+        if (mark?.type === 'checkbox') {
+            mark.checked = hasMethod;
+            syncMarkLabel();
+        }
         payMethodCards.forEach(card => {
             card.classList.toggle('active-tab', !!card.querySelector('.payment-method-radio')?.checked);
         });
         const isCashless = selected === 'cashless';
         const type = cashlessType?.value || '';
-        if (cashReferenceWrap) cashReferenceWrap.classList.toggle('hidden', isCashless);
-        if (cashlessWrap) cashlessWrap.classList.toggle('hidden', !isCashless);
-        if (cashlessType) cashlessType.required = isCashless;
+        if (paymentDetailsSection) paymentDetailsSection.classList.toggle('hidden', !hasMethod);
+        if (paymentMethodHint) {
+            paymentMethodHint.textContent = hasMethod
+                ? 'Payment details are now available below.'
+                : 'Leave unselected if no payment is being recorded yet.';
+        }
+        if (cashReferenceWrap) cashReferenceWrap.classList.toggle('hidden', !hasMethod || isCashless);
+        if (cashlessWrap) cashlessWrap.classList.toggle('hidden', !hasMethod || !isCashless);
+        if (cashlessType) cashlessType.required = hasMethod && isCashless;
+        if (!hasMethod && amountPaid) {
+            amountPaid.value = '';
+        }
+        if (!hasMethod) {
+            payTypeRadios.forEach((radio) => { radio.checked = false; });
+        }
         if (!isCashless) {
             if (cashlessType) cashlessType.value = '';
             if (bankName) bankName.value = '';
@@ -5944,6 +7348,12 @@
         setAddOnsPanelOpen(false);
     });
 
+    closeAddOnsBtn?.addEventListener('click', () => {
+        restoreAppliedAddOns();
+        setAddOnsPanelOpen(false);
+        chooseAddOnsBtn?.focus();
+    });
+
     optionalAddOnsSearch?.addEventListener('input', () => {
         const term = optionalAddOnsSearch.value.trim().toLowerCase();
         optionalAddOnsList?.querySelectorAll('.optional-add-on-row').forEach((row) => {
@@ -5956,6 +7366,34 @@
             restoreAppliedAddOns();
             setAddOnsPanelOpen(false);
             chooseAddOnsBtn?.focus();
+        }
+    });
+
+    openPackageAdjustmentsBtn?.addEventListener('click', () => {
+        setPackageAdjustmentsOpen(true);
+    });
+
+    closePackageAdjustmentsBtn?.addEventListener('click', () => {
+        setPackageAdjustmentsOpen(false);
+    });
+
+    donePackageAdjustmentsBtn?.addEventListener('click', () => {
+        setPackageAdjustmentsOpen(false);
+    });
+
+    packageAdjustmentsPanel?.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            setPackageAdjustmentsOpen(false);
+        }
+    });
+
+    serviceModalBackdrop?.addEventListener('click', () => {
+        if (!optionalAddOnsPanel?.classList.contains('hidden')) {
+            restoreAppliedAddOns();
+            setAddOnsPanelOpen(false);
+        }
+        if (!packageAdjustmentsPanel?.classList.contains('hidden')) {
+            setPackageAdjustmentsOpen(false);
         }
     });
 
@@ -6086,7 +7524,120 @@
                 return;
             }
         }
+
+        try {
+            localStorage.removeItem(intakeAutosaveKey);
+        } catch (error) {
+            // Autosave is best-effort only.
+        }
     });
+
+    const getAutosaveFields = () => [...f.querySelectorAll('input, select, textarea')]
+        .filter((field) => {
+            if (!field.name || field.type === 'file') return false;
+            if (field.name === '_token') return false;
+            return true;
+        });
+
+    const saveLocalDraft = () => {
+        try {
+            const fields = {};
+            getAutosaveFields().forEach((field) => {
+                if (field.type === 'radio') {
+                    if (field.checked) fields[field.name] = field.value;
+                    return;
+                }
+
+                if (field.type === 'checkbox') {
+                    if (!fields[field.name]) fields[field.name] = [];
+                    if (field.checked) fields[field.name].push(field.value);
+                    return;
+                }
+
+                fields[field.name] = field.value;
+            });
+
+            localStorage.setItem(intakeAutosaveKey, JSON.stringify({
+                version: 1,
+                savedAt: new Date().toISOString(),
+                step,
+                selectedAddOns: [...oldSelectedAddOns],
+                fields,
+            }));
+        } catch (error) {
+            // Browser storage can be disabled/full; final form submit still works.
+        }
+    };
+
+    const restoreLocalDraft = () => {
+        let draft = null;
+
+        try {
+            draft = JSON.parse(localStorage.getItem(intakeAutosaveKey) || 'null');
+        } catch (error) {
+            draft = null;
+        }
+
+        if (!draft?.fields || typeof draft.fields !== 'object') return false;
+
+        const grouped = new Map();
+        getAutosaveFields().forEach((field) => {
+            if (!grouped.has(field.name)) grouped.set(field.name, []);
+            grouped.get(field.name).push(field);
+        });
+
+        Object.entries(draft.fields).forEach(([name, value]) => {
+            const fields = grouped.get(name) || [];
+            const restoredElements = [];
+            fields.forEach((field) => {
+                if (field.type === 'radio') {
+                    field.checked = String(field.value) === String(value);
+                    restoredElements.push(field);
+                    return;
+                }
+
+                if (field.type === 'checkbox') {
+                    const values = Array.isArray(value) ? value.map(String) : [String(value)];
+                    field.checked = values.includes(String(field.value));
+                    restoredElements.push(field);
+                    return;
+                }
+
+                field.value = value ?? '';
+                restoredElements.push(field);
+            });
+            restoredElements.forEach((field) => field.dispatchEvent(new Event('change', { bubbles: true })));
+        });
+
+        if (Array.isArray(draft.selectedAddOns)) {
+            oldSelectedAddOns.clear();
+            draft.selectedAddOns.forEach((id) => oldSelectedAddOns.add(String(id)));
+        }
+
+        const additionalRows = Object.entries(draft.fields)
+            .filter(([name]) => /^additional_service_items\[\d+\]\[(description|amount)\]$/.test(name))
+            .reduce((rows, [name, value]) => {
+                const match = name.match(/^additional_service_items\[(\d+)\]\[(description|amount)\]$/);
+                if (!match) return rows;
+                const index = Number(match[1]);
+                rows[index] = rows[index] || {};
+                rows[index][match[2]] = value;
+                return rows;
+            }, []);
+
+        if (additionalRows.some((row) => row && (row.description || row.amount))) {
+            additionalItemsList?.replaceChildren();
+            additionalItemIndex = 0;
+            additionalRows.filter(Boolean).forEach((row) => addAdditionalServiceRow(row));
+            restoredAutosaveAdditionalRows = true;
+        }
+
+        if (Number.isFinite(Number(draft.step))) {
+            maxUnlockedStep = Math.max(maxUnlockedStep, Math.min(totalSteps, Number(draft.step)));
+        }
+
+        return true;
+    };
 
     const initializeBranchState = () => {
         if (isOtherEntryMode) {
@@ -6101,12 +7652,15 @@
     };
 
     initializeBranchState();
+    const restoredLocalDraft = restoreLocalDraft();
     syncBranch(false);
     syncRequestDate();
     syncControls();
     syncAge();
     syncDateConstraints();
-    if (Array.isArray(oldAdditionalItems) && oldAdditionalItems.length) {
+    if (restoredAutosaveAdditionalRows) {
+        // Autosaved manual charge rows were restored already.
+    } else if (Array.isArray(oldAdditionalItems) && oldAdditionalItems.length) {
         oldAdditionalItems.forEach((item) => addAdditionalServiceRow(item || {}));
     } else if (num(addAmt?.value) > 0 || (additionalServices?.value || '').trim()) {
         addAdditionalServiceRow({ description: additionalServices?.value || '', amount: addAmt?.value || '' });
@@ -6117,7 +7671,7 @@
     renderPkg(false);
     render();
     go(initialStep, { scroll: false, smooth: false });
-    showBranchToast(branchPromptMessage());
+    showBranchToast(restoredLocalDraft ? 'Unsaved local draft restored. Submit to save it officially.' : branchPromptMessage());
 
     // ── Cancel button & dirty-state tracking ─────────────────────────────
     const cancelBtn      = document.getElementById('intakeCancelBtn');
@@ -6128,10 +7682,15 @@
     const cancelUrl      = @json($cancelUrl ?? '/');
 
     let formIsDirty = false;
+    let autosaveTimer = null;
+    const queueLocalDraftSave = () => {
+        window.clearTimeout(autosaveTimer);
+        autosaveTimer = window.setTimeout(saveLocalDraft, 350);
+    };
 
     // Mark dirty on any user interaction with the form
-    f.addEventListener('input',  () => { formIsDirty = true; }, { passive: true });
-    f.addEventListener('change', () => { formIsDirty = true; }, { passive: true });
+    f.addEventListener('input',  () => { formIsDirty = true; queueLocalDraftSave(); }, { passive: true });
+    f.addEventListener('change', () => { formIsDirty = true; queueLocalDraftSave(); }, { passive: true });
 
     const openCancelModal  = () => {
         cancelModal?.classList.remove('hidden');

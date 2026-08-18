@@ -407,11 +407,12 @@
             toasts.forEach((el, idx) => {
                 const type = Object.keys(meta).find((k) => el.classList.contains(k)) || 'flash-info';
                 const { icon, colorClass } = meta[type];
+                const customIcon = el.dataset.flashIcon || icon;
 
                 const text = el.textContent.trim();
 
                 const iconEl = document.createElement('i');
-                iconEl.className = `bi ${icon} flash-icon ${colorClass}`;
+                iconEl.className = `bi ${customIcon} flash-icon ${colorClass}`;
 
                 const body = document.createElement('span');
                 body.className = 'flash-body';

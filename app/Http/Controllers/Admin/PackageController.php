@@ -157,11 +157,21 @@ class PackageController extends Controller
         $this->ensureCanManagePackages();
 
         $package->load(['packageInclusions.casketCatalog', 'packageFreebies']);
+        $selectedFreebieCatalogIds = $package->packageFreebies
+            ->pluck('freebie_catalog_id')
+            ->filter()
+            ->values();
 
         return view('admin.packages.edit', [
             'package' => $package,
             'serviceTypeOptions' => Package::serviceTypeOptions(),
-            'freebieCatalogs' => FreebieCatalog::query()->where('is_active', true)->orderBy('name')->get(),
+            'freebieCatalogs' => FreebieCatalog::query()
+                ->where(function ($query) use ($selectedFreebieCatalogIds) {
+                    $query->where('is_active', true)
+                        ->when($selectedFreebieCatalogIds->isNotEmpty(), fn ($builder) => $builder->orWhereIn('id', $selectedFreebieCatalogIds));
+                })
+                ->orderBy('name')
+                ->get(),
             'casketCatalogs' => CasketCatalog::query()->where('is_active', true)->orderBy('name')->get(),
         ]);
     }
@@ -277,10 +287,10 @@ class PackageController extends Controller
     private function packageValidationRules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:150', $this->mustContainLetterRule('Package name must include letters.')],
+            'name' => ['required', 'string', 'max:150', $this->mustContainLetterRule('Package name must include letters.'), $this->allowedNameTextRule('Package name has unnecessary special characters.')],
             'short_description' => ['nullable', 'string', 'max:500'],
             'price' => ['required', 'numeric', 'min:0'],
-            'included_services' => ['required', 'array', $this->atLeastOneIncludedServiceRule()],
+            'included_services' => ['required', 'array', $this->atLeastOneIncludedServiceRule(), $this->requiredIncludedCasketRule()],
             'included_services.*.enabled' => ['nullable', 'boolean'],
             'included_services.*.description' => ['nullable', 'string', 'max:255'],
             'included_services.*.included_kilometers' => ['nullable', 'integer', 'min:0', 'max:999999'],
@@ -288,15 +298,16 @@ class PackageController extends Controller
             'included_services.*.included_days' => ['nullable', 'integer', 'min:0', 'max:365'],
             'included_services.*.price_per_extended_day' => ['nullable', 'numeric', 'min:0'],
             'included_services.*.casket_catalog_id' => ['nullable', 'integer', 'exists:casket_catalogs,id'],
-            'included_services.*.casket_type' => ['nullable', 'string', 'max:150'],
+            'included_services.casket.casket_catalog_id' => [$this->requiredIncludedCasketRule()],
+            'included_services.*.casket_type' => ['nullable', 'string', 'max:150', $this->allowedNameTextRule('Casket type has unnecessary special characters.')],
             'custom_inclusions' => ['nullable', 'array'],
-            'custom_inclusions.*.description' => ['nullable', 'string', 'max:255', $this->mustContainLetterRule('Custom inclusion must include valid description text.')],
+            'custom_inclusions.*.description' => ['nullable', 'string', 'max:255', $this->mustContainLetterRule('Custom inclusion must include valid description text.'), $this->allowedNameTextRule('Custom inclusion has unnecessary special characters.')],
             'freebies' => ['nullable', 'array'],
             'freebies.*.freebie_catalog_id' => ['nullable', 'integer', 'exists:freebie_catalogs,id'],
-            'freebies.*.freebie_name' => ['nullable', 'string', 'max:255', $this->mustContainLetterRule('Freebie must include valid description text.')],
+            'freebies.*.freebie_name' => ['nullable', 'string', 'max:255', $this->mustContainLetterRule('Freebie must include valid description text.'), $this->allowedNameTextRule('Freebie has unnecessary special characters.')],
             'freebies.*.quantity' => ['nullable', 'integer', 'min:1', 'max:999'],
             'freebies.*.unit' => ['nullable', 'string', 'max:40'],
-            'promo_label' => ['nullable', 'string', 'max:120'],
+            'promo_label' => ['nullable', 'string', 'max:120', $this->allowedNameTextRule('Promo label has unnecessary special characters.')],
             'promo_value_type' => 'nullable|in:AMOUNT,PERCENT',
             'promo_value' => 'nullable|numeric|min:0',
             'promo_starts_at' => 'nullable|date',
@@ -313,6 +324,7 @@ class PackageController extends Controller
             'price.numeric' => 'Price must be a valid amount.',
             'price.min' => 'Price cannot be negative.',
             'included_services.required' => 'At least one included service is required.',
+            'included_services.casket.casket_catalog_id.exists' => 'Please select a valid casket.',
             'freebies.*.freebie_name.max' => 'Freebie must include valid description text.',
             'freebies.*.quantity.min' => 'Freebie quantity must be at least 1.',
             'promo_value.numeric' => 'Promo value must be a valid amount.',
@@ -423,11 +435,41 @@ class PackageController extends Controller
         };
     }
 
+    private function allowedNameTextRule(string $message): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) use ($message): void {
+            if ($value === null || ! is_scalar($value) || trim((string) $value) === '') {
+                return;
+            }
+
+            if (! preg_match("~^[\pL\pM\pN][\pL\pM\pN\s.,'()/&-]*$~u", trim((string) $value))) {
+                $fail($message);
+            }
+        };
+    }
+
     private function atLeastOneIncludedServiceRule(): \Closure
     {
         return function (string $attribute, mixed $value, \Closure $fail): void {
             if (! is_array($value) || $this->cleanIncludedServices($value) === []) {
                 $fail('At least one included service is required.');
+            }
+        };
+    }
+
+    private function requiredIncludedCasketRule(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail): void {
+            $casket = is_array($value)
+                ? ($value[Package::SERVICE_CASKET] ?? [])
+                : request()->input('included_services.' . Package::SERVICE_CASKET, []);
+            if (! is_array($casket) || empty($casket['enabled'])) {
+                return;
+            }
+
+            $catalogId = $casket['casket_catalog_id'] ?? null;
+            if (! is_numeric($catalogId) || (int) $catalogId <= 0) {
+                $fail('Please select a casket before saving.');
             }
         };
     }

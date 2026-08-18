@@ -72,16 +72,25 @@
 @php
     $intakeErrorField = $errors->any() ? array_key_first($errors->toArray()) : null;
     $intakeErrorStep = match ($intakeErrorField) {
-        'branch_id', 'client_name', 'client_relationship', 'client_contact_number', 'client_email',
+        'branch_id', 'client_first_name', 'client_last_name', 'client_middle_name', 'client_suffix',
+        'client_relationship', 'client_contact_number', 'client_email',
         'client_valid_id_type', 'client_valid_id_number', 'client_address', 'reporter_name', 'reporter_contact', 'reported_at' => 1,
-        'deceased_name', 'deceased_address', 'born', 'died', 'gender', 'civil_status', 'senior_citizen_status',
+        'deceased_first_name', 'deceased_last_name', 'deceased_middle_name', 'deceased_suffix',
+        'deceased_address', 'born', 'died', 'gender', 'civil_status', 'senior_citizen_status',
         'senior_citizen_id_number', 'pwd_status', 'pwd_id_number', 'deceased_photo' => 2,
+        'package_id', 'custom_package_name', 'custom_package_price', 'custom_package_inclusions',
+        'custom_package_freebies', 'selected_add_ons', 'replacement_casket_catalog_id',
+        'apply_retrieval_excess', 'retrieval_excess_kilometers', 'apply_hearse_excess',
+        'hearse_excess_kilometers', 'actual_retrieval_kilometers', 'actual_hearse_kilometers',
         'service_requested_at', 'wake_location', 'wake_start_date', 'wake_start_time', 'funeral_service_at',
         'funeral_service_time', 'interment_at', 'interment_time', 'wake_days', 'place_of_cemetery', 'case_status',
-        'selected_add_ons' => 3,
-        'package_id' => 4,
-        'additional_services', 'additional_service_amount' => 5,
-        'mark_as_paid', 'payment_type', 'paid_at', 'amount_paid', 'payment' => 6,
+        'transport_option', 'transport_notes', 'coffin_length_cm', 'coffin_size',
+        'embalming_required', 'embalming_status', 'embalming_at', 'embalming_notes' => 3,
+        'additional_services', 'additional_service_amount', 'additional_service_items',
+        'mark_as_paid', 'payment_type', 'paid_at', 'amount_paid', 'payment', 'payment_method',
+        'reference_number', 'cashless_type', 'bank_name', 'account_name', 'mobile_number',
+        'payment_channel', 'bank_reference' => 4,
+        'confirm_review' => 5,
         default => 1,
     };
 @endphp

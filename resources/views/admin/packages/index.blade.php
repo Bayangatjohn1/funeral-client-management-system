@@ -2,6 +2,7 @@
 
 @section('page_title', 'Package Management')
 @section('page_desc', 'Manage funeral service packages, pricing, inclusions, freebies, promos, and availability.')
+@section('hide_layout_topbar', '1')
 
 @section('content')
 @php
@@ -36,63 +37,18 @@
     };
 @endphp
 <style>[x-cloak] { display: none !important; }</style>
-<div class="admin-table-page admin-catalog-page package-management-page" x-data="pkgCatalog()">
+<div class="admin-table-page admin-catalog-page service-management-page package-management-page" x-data="pkgCatalog()">
 <div class="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-8 py-6">
 <div class="space-y-6">
+
+<div class="management-toast no-print" role="status" aria-live="polite">
+    <i class="bi bi-box-seam" aria-hidden="true"></i>
+    <span>You are viewing service package records.</span>
+</div>
 
 @if(session('success'))
     <div class="flash-success">{{ session('success') }}</div>
 @endif
-
-{{-- Summary stats --}}
-@php
-    $isPromoFiltered   = request('promo') === 'with_promo';
-    $isPriceSorted     = request('sort') === 'price_desc';
-    $hasFilters        = filled(request('q')) || filled(request('promo')) || (filled(request('sort')) && request('sort') !== 'name_asc');
-    $isNoFilter        = ! $hasFilters;
-@endphp
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-
-    {{-- Total Packages — clickable: clears all filters --}}
-    <a href="{{ route('admin.packages.index') }}" class="pkg-stat-card {{ $isNoFilter ? 'pkg-stat-card--active' : '' }}" title="View all packages">
-        <div class="pkg-stat-card__inner">
-            <span class="pkg-stat-card__icon" style="background:rgba(62,74,61,0.10);color:#3E4A3D;"><i class="bi bi-box-seam"></i></span>
-            <div class="pkg-stat-card__body">
-                <span class="pkg-stat-card__label">Total Packages</span>
-                <span class="pkg-stat-card__value" style="color:#333333;">{{ $totalPackages }}</span>
-                <span class="pkg-stat-card__desc">All service packages</span>
-            </div>
-            <span class="pkg-stat-card__action">View all</span>
-        </div>
-    </a>
-
-    {{-- With Promo — clickable: filters promo=with_promo --}}
-    <a href="{{ route('admin.packages.index', ['promo' => 'with_promo']) }}" class="pkg-stat-card {{ $isPromoFiltered ? 'pkg-stat-card--active' : '' }}" title="Filter packages with active promos">
-        <div class="pkg-stat-card__inner">
-            <span class="pkg-stat-card__icon" style="background:rgba(184,121,86,0.12);color:#B87956;"><i class="bi bi-tag-fill"></i></span>
-            <div class="pkg-stat-card__body">
-                <span class="pkg-stat-card__label">With Promo</span>
-                <span class="pkg-stat-card__value" style="color:#B87956;">{{ $promoPackages }}</span>
-                <span class="pkg-stat-card__desc">Packages with active promos</span>
-            </div>
-            <span class="pkg-stat-card__action">Filter promos</span>
-        </div>
-    </a>
-
-    {{-- Highest Price — clickable: sorts by price_desc --}}
-    <a href="{{ route('admin.packages.index', ['sort' => 'price_desc']) }}" class="pkg-stat-card {{ $isPriceSorted ? 'pkg-stat-card--active' : '' }}" title="Sort by highest price">
-        <div class="pkg-stat-card__inner">
-            <span class="pkg-stat-card__icon" style="background:rgba(62,74,61,0.10);color:#3E4A3D;"><i class="bi bi-arrow-up-circle"></i></span>
-            <div class="pkg-stat-card__body">
-                <span class="pkg-stat-card__label">Highest Price</span>
-                <span class="pkg-stat-card__value" style="color:#333333;">&#8369;{{ number_format($highestPrice, 2) }}</span>
-                <span class="pkg-stat-card__desc">Most expensive package</span>
-            </div>
-            <span class="pkg-stat-card__action">Sort highest</span>
-        </div>
-    </a>
-
-</div>
 
 <style>
 .pkg-stat-card {
@@ -182,7 +138,7 @@
     color: #3E4A3D;
 }
 .package-management-page .directory-card-view > .grid {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
     gap: 18px;
 }
 .pkg-card {
@@ -336,53 +292,93 @@
 }
 .pkg-detail-head {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
-    gap: 18px;
-    padding: 4px 2px 18px;
-    border-bottom: 1px solid #E1DDD5;
+    gap: 1rem;
+    padding: 1rem;
+    border: 1px solid #B5C4AD;
+    border-radius: .85rem;
+    background: #D3DEC9;
 }
 .pkg-detail-head h2 {
-    margin: 4px 0 0;
+    margin: .2rem 0 0;
     color: #2F302C;
-    font-size: 1.45rem;
+    font-size: 1.35rem;
     line-height: 1.2;
-    font-weight: 950;
+    font-weight: 780;
 }
 .pkg-detail-head p {
-    margin-top: 7px;
+    margin-top: .35rem;
     color: #5F6B5C;
-    font-size: .9rem;
+    font-size: .86rem;
     line-height: 1.5;
     font-weight: 650;
 }
-.pkg-detail-head strong {
+.pkg-detail-price {
+    display: grid;
+    gap: .15rem;
+    min-width: 11rem;
+    border: 1px solid #B5C4AD;
+    border-radius: .75rem;
+    background: #E1E7D9;
+    padding: .75rem .9rem;
+}
+.pkg-detail-price span {
+    color: #566653;
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+.pkg-detail-price strong {
     color: #2F302C;
-    font-size: 1.3rem;
+    font-size: 1.22rem;
     line-height: 1.2;
     white-space: nowrap;
+}
+.pkg-detail-badges {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .45rem;
+    margin-top: .7rem;
+}
+.pkg-detail-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    border: 1px solid #B5C4AD;
+    border-radius: 999px;
+    background: #E1E7D9;
+    color: #566653;
+    padding: .28rem .6rem;
+    font-size: .72rem;
+    font-weight: 700;
+    line-height: 1.2;
 }
 .pkg-detail-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
-    padding-top: 18px;
+    gap: .85rem;
+    padding-top: .9rem;
 }
 .pkg-detail-grid section {
-    border: 1px solid #D7D1C6;
-    border-radius: 8px;
-    background: #FFFFFF;
-    padding: 14px;
+    border: 1px solid #B5C4AD;
+    border-radius: .85rem;
+    background: #E1E7D9;
+    padding: .95rem;
 }
 .pkg-detail-grid h3 {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: .45rem;
     color: #2F302C;
-    font-size: .84rem;
+    font-size: .78rem;
     line-height: 1.3;
-    font-weight: 950;
-    margin-bottom: 9px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    margin-bottom: .65rem;
+    text-transform: uppercase;
 }
 .pkg-detail-grid p,
 .pkg-detail-grid li,
@@ -390,40 +386,71 @@
     color: #5F6B5C;
     font-size: .84rem;
     line-height: 1.45;
-    font-weight: 700;
+    font-weight: 650;
 }
 .pkg-detail-grid ul {
     margin: 0;
     padding: 0;
     list-style: none;
     display: grid;
-    gap: 8px;
+    gap: .55rem;
 }
 .pkg-detail-grid li {
     display: grid;
-    gap: 2px;
+    gap: .15rem;
+    border-top: 1px solid #C7D5BE;
+    padding-top: .55rem;
+}
+.pkg-detail-grid li:first-child {
+    border-top: 0;
+    padding-top: 0;
 }
 .pkg-detail-grid li span {
     color: #2F302C;
-    font-weight: 900;
+    font-weight: 720;
 }
 .pkg-detail-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 10px;
-    padding-top: 18px;
-    margin-top: 18px;
-    border-top: 1px solid #E1DDD5;
+    gap: .6rem;
+    padding-top: .9rem;
+    margin-top: .9rem;
+    border-top: 1px solid #B5C4AD;
 }
-.pkg-modal-error-banner {
-    border: 1px solid #F2C7BF;
-    border-radius: 8px;
-    background: #FFF2EF;
-    color: #914137;
-    padding: 10px 12px;
-    font-size: .82rem;
-    font-weight: 800;
-    margin-bottom: 12px;
+.pkg-detail-close {
+    min-height: 2.65rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .45rem;
+    border: 1px solid #B5C4AD;
+    border-radius: .75rem;
+    background: #E1E7D9;
+    color: #3E4A3D;
+    padding: 0 .95rem;
+    font-size: .84rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: none !important;
+    transition: background-color .16s ease, border-color .16s ease, color .16s ease;
+}
+.pkg-detail-close:hover,
+.pkg-detail-close:focus-visible {
+    background: #C7D5BE;
+    border-color: #8EA083;
+    color: #263325;
+    outline: none;
+}
+#packageModalOverlay {
+    background: rgba(35, 43, 34, .46) !important;
+    backdrop-filter: none !important;
+}
+#packageModalSheet {
+    background: #D3DEC9 !important;
+    border: 1px solid #8EA083 !important;
+    border-radius: .9rem !important;
+    box-shadow: none !important;
 }
 html[data-theme='dark'] .pkg-detail-view,
 html[data-theme='dark'] .pkg-detail-head h2,
@@ -450,6 +477,9 @@ html[data-theme='dark'] .pkg-detail-grid section {
     .pkg-detail-head,
     .pkg-detail-actions {
         display: grid;
+    }
+    .pkg-detail-price {
+        min-width: 0;
     }
     .pkg-detail-grid {
         grid-template-columns: 1fr;
@@ -512,6 +542,245 @@ html[data-theme='dark'] .table-row-action-link:hover {
 }
 </style>
 
+<style>
+.package-management-page .grid.grid-cols-1.sm\:grid-cols-3 {
+    gap: .85rem !important;
+}
+.package-management-page .pkg-stat-card {
+    background: #D3DEC9 !important;
+    border: 1px solid var(--border) !important;
+    border-radius: .75rem !important;
+    box-shadow: none !important;
+    color: var(--ink);
+    transition: background-color .16s ease, border-color .16s ease, color .16s ease;
+}
+.package-management-page .pkg-stat-card:hover,
+.package-management-page .pkg-stat-card--active {
+    background: #C7D5BE !important;
+    border-color: #8EA083 !important;
+    box-shadow: none !important;
+}
+.package-management-page .pkg-stat-card__inner {
+    min-height: 4.6rem;
+    padding: .65rem .9rem;
+}
+.package-management-page .pkg-stat-card__icon {
+    background: transparent !important;
+    color: #566653 !important;
+    width: 2rem;
+    height: 2rem;
+    font-size: 1.05rem;
+}
+.package-management-page .pkg-stat-card__value {
+    font-size: 1.05rem;
+    line-height: 1.1;
+}
+.package-management-page .pkg-stat-card__desc {
+    font-size: .62rem;
+}
+.package-management-page .pkg-stat-card__label,
+.package-management-page .pkg-stat-card__desc,
+.package-management-page .pkg-stat-card__action {
+    color: #566653;
+    font-weight: 650;
+}
+.package-management-page .pkg-stat-card__value {
+    color: var(--ink) !important;
+    font-weight: 750;
+}
+.package-management-page .admin-table-card {
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+}
+.package-management-page .table-system-toolbar,
+.package-management-page .table-system-head {
+    background: transparent !important;
+    border: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+.package-management-page .table-system-toolbar {
+    background: #D3DEC9 !important;
+    border: 1px solid #B5C4AD !important;
+    border-radius: .85rem !important;
+    padding: .85rem !important;
+    margin-bottom: .8rem !important;
+}
+.package-management-page .table-system-head {
+    padding-top: 0 !important;
+    padding-bottom: .85rem !important;
+}
+.package-management-page .table-toolbar {
+    background: transparent !important;
+}
+.package-management-page .directory-card-view {
+    order: 3;
+    background: transparent !important;
+    border-top: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+}
+.package-management-page .package-table-view {
+    order: 3;
+}
+.package-management-page .package-table-view .table-system-list {
+    background: transparent;
+    padding: 0;
+}
+.package-management-page .package-table-view .table-system-wrap {
+    margin: 0;
+}
+.package-management-page .package-table-view .table-system-table {
+    min-width: 980px;
+}
+.package-management-page .package-table-view .table-system-table tbody tr:hover {
+    background: #E6EEDF !important;
+}
+.package-management-page .package-table-view .table-system-table th,
+.package-management-page .package-table-view .table-system-table td {
+    padding-top: .75rem !important;
+    padding-bottom: .75rem !important;
+}
+.package-management-page .pkg-card {
+    background: #E1E7D9 !important;
+    border: 1px solid var(--border) !important;
+    border-radius: .75rem !important;
+    box-shadow: none !important;
+    transform: none !important;
+    color: var(--ink);
+    transition: background-color .16s ease, border-color .16s ease, color .16s ease;
+}
+.package-management-page .pkg-card::after {
+    display: none !important;
+}
+.package-management-page .pkg-card:hover,
+.package-management-page .pkg-card:focus-within {
+    background: #C7D5BE !important;
+    border-color: #8EA083 !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+.package-management-page .pkg-card-head,
+.package-management-page .pkg-card-price,
+.package-management-page .pkg-card-promo,
+.package-management-page .pkg-card-lists,
+.package-management-page .pkg-card-footer {
+    border-color: #B5C4AD !important;
+    padding-left: .9rem !important;
+    padding-right: .9rem !important;
+}
+.package-management-page .pkg-card-head {
+    padding-top: .85rem !important;
+    padding-bottom: .65rem !important;
+}
+.package-management-page .pkg-card-price {
+    padding-top: .7rem !important;
+    padding-bottom: .7rem !important;
+}
+.package-management-page .pkg-card-promo {
+    min-height: 2rem !important;
+    padding-bottom: .65rem !important;
+}
+.package-management-page .pkg-card-lists {
+    gap: .75rem !important;
+    padding-top: .75rem !important;
+    padding-bottom: .75rem !important;
+}
+.package-management-page .pkg-card-footer {
+    min-height: 2.75rem !important;
+    padding-top: .55rem !important;
+    padding-bottom: .55rem !important;
+}
+.package-management-page .pkg-card-amount {
+    font-size: 1.25rem !important;
+}
+.package-management-page .pkg-card-title {
+    font-size: .95rem !important;
+}
+.package-management-page .pkg-card-casket,
+.package-management-page .pkg-muted-text,
+.package-management-page .pkg-card-lists li,
+.package-management-page .pkg-card-lists span {
+    font-size: .74rem !important;
+    line-height: 1.35 !important;
+}
+.package-management-page .pkg-card-title,
+.package-management-page .pkg-card-amount {
+    color: var(--ink) !important;
+    font-weight: 750;
+}
+.package-management-page .pkg-card-kicker,
+.package-management-page .pkg-card-casket {
+    color: #566653 !important;
+    font-weight: 650;
+}
+.package-management-page .pkg-card-edit {
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    opacity: 1 !important;
+    transform: none !important;
+    background: #344333 !important;
+    border: 1px solid #344333 !important;
+    color: #fff !important;
+    box-shadow: none !important;
+}
+.package-management-page .pkg-card:hover .pkg-card-edit,
+.package-management-page .pkg-card:focus-within .pkg-card-edit {
+    opacity: 1 !important;
+    transform: none !important;
+}
+.package-management-page .pkg-card-edit:hover {
+    background: #2F3A2E !important;
+    border-color: #2F3A2E !important;
+    color: #fff !important;
+}
+.package-management-page .admin-table-head-actions > .inline-flex {
+    background: #E1E7D9 !important;
+    border: 1px solid var(--border) !important;
+    border-radius: .75rem !important;
+    box-shadow: none !important;
+}
+.package-management-page .admin-table-head-row,
+.package-management-page .admin-table-head-actions {
+    justify-content: flex-start !important;
+}
+.package-management-page .admin-table-head-actions > .inline-flex button {
+    min-height: 2.65rem;
+    color: var(--ink-muted);
+    cursor: pointer;
+}
+.package-management-page .admin-table-head-actions > .inline-flex button:hover {
+    background: #C7D5BE !important;
+    color: var(--ink) !important;
+}
+.package-management-page .admin-table-head-actions > .inline-flex .bg-slate-900 {
+    background: #344333 !important;
+    color: #fff !important;
+}
+.package-management-page .admin-table-head-actions .btn-primary-custom {
+    background: #344333 !important;
+    border-color: #344333 !important;
+    color: #fff !important;
+}
+.package-management-page .admin-table-head-actions .btn-primary-custom:hover {
+    background: #2F3A2E !important;
+    border-color: #2F3A2E !important;
+    color: #fff !important;
+}
+.package-management-page .table-system-wrap {
+    margin-top: 0;
+}
+@media (max-width: 900px) {
+    .package-management-page .table-toolbar {
+        grid-template-columns: 1fr !important;
+    }
+}
+</style>
+
 {{-- Main card --}}
 <section class="table-system-card admin-table-card">
 
@@ -560,19 +829,6 @@ html[data-theme='dark'] .table-row-action-link:hover {
                         <span class="hidden sm:inline text-xs">Table</span>
                     </button>
                 </div>
-
-                @if($isMainAdmin)
-                    {{-- Add Package --}}
-                    <a
-                        href="{{ route('admin.packages.create') }}"
-                        data-package-modal-trigger
-                        data-url="{{ route('admin.packages.create') }}"
-                        class="btn btn-primary-custom btn-sm bg-[var(--brand-mid)] border-[var(--brand-mid)] hover:bg-[var(--brand-hover)] hover:border-[var(--brand-hover)] text-white inline-flex items-center gap-2"
-                    >
-                        <i class="bi bi-plus-circle"></i>
-                        <span>Add Package</span>
-                    </a>
-                @endif
             </div>
         </div>
     </div>
@@ -584,55 +840,68 @@ html[data-theme='dark'] .table-row-action-link:hover {
             action="{{ route('admin.packages.index') }}"
             class="table-toolbar"
             data-table-toolbar
+            data-live-search-suggestions
+            data-live-search-commit-only
             data-search-debounce="400"
+            style="grid-template-columns:minmax(260px, 1.8fr) minmax(170px, .75fr) minmax(170px, .75fr) auto;"
         >
             <div class="table-toolbar-field">
                 <label class="table-toolbar-label">Search</label>
-                <input
-                    type="text"
-                    name="q"
-                    value="{{ request('q') }}"
-                    placeholder="Search packages..."
-                    class="form-input table-toolbar-search"
-                    data-table-search
-                    autocomplete="off"
-                >
+                <div class="table-toolbar-input-wrap">
+                    <i class="bi bi-search table-toolbar-leading-icon" aria-hidden="true"></i>
+                    <input
+                        type="text"
+                        name="q"
+                        value="{{ request('q') }}"
+                        placeholder="Search packages..."
+                        class="form-input table-toolbar-search has-clear-action"
+                        data-table-search
+                        data-live-search-input
+                        autocomplete="off"
+                    >
+                    <button type="button" class="live-search-clear" data-live-search-clear aria-label="Clear search" @if(!filled(request('q'))) hidden @endif>
+                        <i class="bi bi-x"></i>
+                    </button>
+                    <div class="live-search-results" data-live-search-results hidden></div>
+                </div>
             </div>
             <div class="table-toolbar-field">
                 <label class="table-toolbar-label">Promo</label>
-                <select name="promo" class="form-select table-toolbar-select" data-table-auto-submit>
-                    <option value="">All Promos</option>
-                    <option value="with_promo" {{ request('promo') === 'with_promo' ? 'selected' : '' }}>With Promo</option>
-                    <option value="no_promo" {{ request('promo') === 'no_promo' ? 'selected' : '' }}>No Promo</option>
-                </select>
+                <div class="table-toolbar-select-wrap">
+                    <i class="bi bi-tag table-toolbar-leading-icon" aria-hidden="true"></i>
+                    <select name="promo" class="form-select table-toolbar-select" data-table-auto-submit>
+                        <option value="">All Promos</option>
+                        <option value="with_promo" {{ request('promo') === 'with_promo' ? 'selected' : '' }}>With Promo</option>
+                        <option value="no_promo" {{ request('promo') === 'no_promo' ? 'selected' : '' }}>No Promo</option>
+                    </select>
+                    <i class="bi bi-chevron-down table-toolbar-select-icon" aria-hidden="true"></i>
+                </div>
             </div>
             <div class="table-toolbar-field">
                 <label class="table-toolbar-label">Sort</label>
-                <select name="sort" class="form-select table-toolbar-sort" data-table-sort>
-                    <option value="name_asc" {{ request('sort', 'name_asc') === 'name_asc' ? 'selected' : '' }}>Name A&ndash;Z</option>
-                    <option value="updated_desc" {{ request('sort') === 'updated_desc' ? 'selected' : '' }}>Latest Updated</option>
-                    <option value="price_desc" {{ request('sort') === 'price_desc' ? 'selected' : '' }}>Price: High to Low</option>
-                    <option value="price_asc" {{ request('sort') === 'price_asc' ? 'selected' : '' }}>Price: Low to High</option>
-                </select>
+                <div class="table-toolbar-select-wrap">
+                    <i class="bi bi-sort-alpha-down table-toolbar-leading-icon" aria-hidden="true"></i>
+                    <select name="sort" class="form-select table-toolbar-sort" data-table-sort>
+                        <option value="name_asc" {{ request('sort', 'name_asc') === 'name_asc' ? 'selected' : '' }}>A-Z</option>
+                        <option value="updated_desc" {{ request('sort') === 'updated_desc' ? 'selected' : '' }}>Newest</option>
+                        <option value="price_desc" {{ request('sort') === 'price_desc' ? 'selected' : '' }}>Highest Price</option>
+                        <option value="price_asc" {{ request('sort') === 'price_asc' ? 'selected' : '' }}>Lowest Price</option>
+                    </select>
+                    <i class="bi bi-chevron-down table-toolbar-select-icon" aria-hidden="true"></i>
+                </div>
             </div>
             <div class="table-toolbar-reset-wrap">
                 <span class="table-toolbar-label opacity-0 select-none" aria-hidden="true">Actions</span>
                 <div class="filter-actions">
-                    @if($hasFilters)
-                        <a href="{{ route('admin.packages.index') }}" class="btn-outline btn-filter-reset">
-                            <i class="bi bi-arrow-counterclockwise"></i>
-                            <span>Reset</span>
+                    @if($isMainAdmin)
+                        <a
+                            href="{{ route('admin.packages.create') }}"
+                            class="btn btn-primary-custom btn-sm"
+                        >
+                            <i class="bi bi-plus-circle"></i>
+                            <span>Add Package</span>
                         </a>
-                    @else
-                        <button type="button" class="btn-outline btn-filter-reset opacity-50 cursor-not-allowed" disabled aria-disabled="true">
-                            <i class="bi bi-arrow-counterclockwise"></i>
-                            <span>Reset</span>
-                        </button>
                     @endif
-                    <button type="submit" class="btn-secondary">
-                        <i class="bi bi-funnel"></i>
-                        <span>Apply</span>
-                    </button>
                 </div>
             </div>
         </form>
@@ -656,8 +925,6 @@ html[data-theme='dark'] .table-row-action-link:hover {
                 @if($isMainAdmin)
                     <a
                         href="{{ route('admin.packages.create') }}"
-                        data-package-modal-trigger
-                        data-url="{{ route('admin.packages.create') }}"
                         class="btn btn-primary-custom btn-sm bg-[var(--brand-mid)] border-[var(--brand-mid)] text-white inline-flex items-center gap-1.5 mt-1"
                     >
                         <i class="bi bi-plus-circle"></i>
@@ -680,6 +947,10 @@ html[data-theme='dark'] .table-row-action-link:hover {
                 @endphp
                 <div
                     class="pkg-card"
+                    data-live-search-row
+                    data-live-search-title="{{ $package->name }}"
+                    data-live-search-meta="{{ ($includedCasket ?? 'No casket') . ' / ₱' . number_format((float) $package->price, 2) }}"
+                    data-live-search-text="{{ $package->name }} {{ $includedCasket }} {{ implode(' ', $inclusionItems) }} {{ implode(' ', $freebieItems) }}"
                 >
                     {{-- Card header --}}
                     <div class="pkg-card-head">
@@ -819,7 +1090,7 @@ html[data-theme='dark'] .table-row-action-link:hover {
     {{-- ═══════════════════════════════════════════
          TABLE VIEW
     ═══════════════════════════════════════════ --}}
-    <div x-show="view === 'table'" x-cloak>
+    <div x-show="view === 'table'" x-cloak class="package-table-view">
         <div class="table-system-list">
             <div class="table-wrapper table-system-wrap">
                 <table class="table-base table-system-table">
@@ -844,7 +1115,12 @@ html[data-theme='dark'] .table-row-action-link:hover {
                             $inclusionItems = $display['inclusions'];
                             $freebieItems = $display['freebies'];
                         @endphp
-                        <tr>
+                        <tr
+                            data-live-search-row
+                            data-live-search-title="{{ $package->name }}"
+                            data-live-search-meta="{{ ($includedCasket ?? 'No casket') . ' / ₱' . number_format((float) $package->price, 2) }}"
+                            data-live-search-text="{{ $package->name }} {{ $includedCasket }} {{ implode(' ', $inclusionItems) }} {{ implode(' ', $freebieItems) }}"
+                        >
                             <td class="table-primary">{{ $package->name }}</td>
                             <td>{{ $includedCasket ?? '—' }}</td>
                             <td>
@@ -963,11 +1239,23 @@ html[data-theme='dark'] .table-row-action-link:hover {
                 <div>
                     <p class="pkg-card-kicker">Package Details</p>
                     <h2>{{ $package->name }}</h2>
+                    <div class="pkg-detail-badges">
+                        <span class="pkg-detail-badge"><i class="bi bi-box2-heart"></i>{{ $display['casket'] ?: 'No casket selected' }}</span>
+                        <span class="pkg-detail-badge"><i class="bi bi-gift"></i>{{ $package->packageFreebies->count() }} freebies</span>
+                        @if($package->promo_is_active && $package->promo_value_type && $package->promo_value)
+                            <span class="pkg-detail-badge"><i class="bi bi-tag"></i>{{ $package->promo_status }}</span>
+                        @else
+                            <span class="pkg-detail-badge"><i class="bi bi-tag"></i>No active promo</span>
+                        @endif
+                    </div>
                     @if($package->short_description)
                         <p>{{ $package->short_description }}</p>
                     @endif
                 </div>
-                <strong>&#8369;{{ number_format((float) $package->price, 2) }}</strong>
+                <div class="pkg-detail-price">
+                    <span>Base Price</span>
+                    <strong>&#8369;{{ number_format((float) $package->price, 2) }}</strong>
+                </div>
             </div>
 
             <div class="pkg-detail-grid">
@@ -980,11 +1268,11 @@ html[data-theme='dark'] .table-row-action-link:hover {
                     @if($package->promo_is_active && $package->promo_value_type && $package->promo_value)
                         <p>{{ $package->promo_label ?: 'Promo' }} - {{ $package->promo_status }}</p>
                         <small>
-                            {{ $package->promo_value_type === 'PERCENT' ? number_format((float) $package->promo_value, 2) . '%' : 'PHP ' . number_format((float) $package->promo_value, 2) }}
+                            {{ $package->promo_value_type === 'PERCENT' ? number_format((float) $package->promo_value, 2) . '% off' : 'PHP ' . number_format((float) $package->promo_value, 2) . ' off' }}
                             · {{ $package->promo_starts_at?->format('M d, Y') ?? 'No start' }} to {{ $package->promo_ends_at?->format('M d, Y') ?? 'Ongoing' }}
                         </small>
                     @else
-                        <p>Inactive</p>
+                        <p>No active promo for this package.</p>
                     @endif
                 </section>
                 <section>
@@ -1034,23 +1322,23 @@ html[data-theme='dark'] .table-row-action-link:hover {
 
             <div class="pkg-detail-actions">
                 @if($isMainAdmin)
-                    <button type="button" class="btn btn-primary-custom" data-package-edit-from-view data-url="{{ route('admin.packages.edit', $package) }}">
+                    <a href="{{ route('admin.packages.edit', $package) }}" class="btn btn-primary-custom">
                         <i class="bi bi-pencil-square"></i> Edit Package
-                    </button>
+                    </a>
                 @endif
-                <button type="button" class="btn-outline" data-package-detail-close><i class="bi bi-x-circle"></i> Close</button>
+                <button type="button" class="pkg-detail-close" data-package-detail-close>
+                    <i class="bi bi-x-lg"></i>
+                    <span>Close</span>
+                </button>
             </div>
         </div>
     </template>
 @endforeach
 
 {{-- Package modal --}}
-<div id="packageModalOverlay" class="fixed inset-0 hidden flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-200 font-ui-body" style="z-index: 1300;">
-    <div id="packageModalSheet" class="relative w-[92vw] max-w-4xl max-h-[92vh] bg-white rounded-2xl shadow-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border border-slate-200 font-ui-body">
-        <button id="packageModalClose" type="button" class="absolute top-4 right-4 z-10 inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors focus:outline-none shadow-sm">
-            <i class="bi bi-x-lg" style="font-size:.8rem"></i>
-        </button>
-        <div id="packageModalContent" class="overflow-y-auto max-h-[84vh]" style="padding:1.5rem 2rem;">
+<div id="packageModalOverlay" class="fixed inset-0 hidden flex items-center justify-center transition-opacity duration-200 font-ui-body" style="z-index: 1300;">
+    <div id="packageModalSheet" class="relative w-[92vw] max-w-4xl max-h-[92vh] overflow-hidden transform transition-all duration-200 scale-95 opacity-0 font-ui-body">
+        <div id="packageModalContent" class="overflow-y-auto max-h-[84vh]" style="padding:1.25rem 1.5rem;">
             <div class="flex flex-col items-center justify-center py-16 gap-3">
                 <div class="w-6 h-6 rounded-full animate-spin" style="border:2px solid #e2e8f0;border-top-color:#475569"></div>
             </div>
@@ -1073,10 +1361,7 @@ html[data-theme='dark'] .table-row-action-link:hover {
         const overlay  = document.getElementById('packageModalOverlay');
         const sheet    = document.getElementById('packageModalSheet');
         const content  = document.getElementById('packageModalContent');
-        const closeBtn = document.getElementById('packageModalClose');
         let activePackageId = null;
-        let activeEditUrl = null;
-        let saving = false;
         if (!overlay || !sheet || !content) return;
 
         function openModal() {
@@ -1096,110 +1381,23 @@ html[data-theme='dark'] .table-row-action-link:hover {
                 overlay.classList.add('hidden');
                 content.innerHTML = '';
                 activePackageId = null;
-                activeEditUrl = null;
             }, 200);
         }
 
-        function showPackageView(packageId, editUrl) {
+        function showPackageView(packageId) {
             const template = document.getElementById('packageDetailTemplate' + packageId);
             if (!template) return;
             activePackageId = packageId;
-            activeEditUrl = editUrl || activeEditUrl;
             openModal();
             content.innerHTML = '';
             content.appendChild(template.content.cloneNode(true));
-        }
-
-        async function refreshPackageView() {
-            if (!activePackageId) return;
-            try {
-                const res = await fetch(window.location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-                const html = await res.text();
-                const doc = (new DOMParser()).parseFromString(html, 'text/html');
-                const freshTemplate = doc.getElementById('packageDetailTemplate' + activePackageId);
-                if (freshTemplate) {
-                    const currentTemplate = document.getElementById('packageDetailTemplate' + activePackageId);
-                    if (currentTemplate) currentTemplate.innerHTML = freshTemplate.innerHTML;
-                }
-            } catch (error) {
-                // Keep the current view available if a background refresh fails.
-            }
-            showPackageView(activePackageId, activeEditUrl);
-        }
-
-        async function loadEditForm(url) {
-            openModal();
-            content.innerHTML = '<div class="flex flex-col items-center justify-center py-16 gap-3"><div class="w-6 h-6 rounded-full animate-spin" style="border:2px solid #e2e8f0;border-top-color:#475569"></div></div>';
-            try {
-                const res  = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-                const html = await res.text();
-                const doc  = (new DOMParser()).parseFromString(html, 'text/html');
-                const main = doc.querySelector('.page-content') || doc.body;
-                content.innerHTML = main.innerHTML;
-                content.querySelectorAll('script').forEach(old => {
-                    const s = document.createElement('script');
-                    s.textContent = old.textContent;
-                    content.appendChild(s);
-                });
-            } catch (err) {
-                content.innerHTML = '<p class="text-center text-rose-600 py-10 text-sm font-semibold">Failed to load. Please try again.</p>';
-            }
-        }
-
-        function showFormErrors(errors, message) {
-            const banner = document.createElement('div');
-            banner.className = 'pkg-modal-error-banner';
-            const lines = Object.values(errors || {}).flat();
-            banner.innerHTML = [message || 'Please review the package details.', ...lines]
-                .filter(Boolean)
-                .map(line => '<div>' + String(line).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch])) + '</div>')
-                .join('');
-            content.querySelector('.pkg-modal-error-banner')?.remove();
-            const form = content.querySelector('form');
-            if (form) form.prepend(banner);
-        }
-
-        async function submitEditForm(form) {
-            if (saving) return;
-            saving = true;
-            const submit = form.querySelector('[data-package-submit]');
-            if (submit) submit.disabled = true;
-            try {
-                const response = await fetch(form.action, {
-                    method: 'POST',
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                    body: new FormData(form),
-                });
-                const data = await response.json().catch(() => ({}));
-                if (!response.ok) {
-                    showFormErrors(data.errors || {}, data.message || 'Please review the package details.');
-                    return;
-                }
-                await refreshPackageView();
-            } catch (error) {
-                showFormErrors({}, 'Unable to save right now. Please try again.');
-            } finally {
-                saving = false;
-                if (submit) submit.disabled = false;
-            }
         }
 
         document.addEventListener('click', function (e) {
             const viewTrigger = e.target.closest('[data-package-view-trigger]');
             if (viewTrigger) {
                 e.preventDefault();
-                showPackageView(viewTrigger.dataset.packageId, viewTrigger.dataset.editUrl);
-                return;
-            }
-
-            const editFromView = e.target.closest('[data-package-edit-from-view]');
-            if (editFromView) {
-                e.preventDefault();
-                activeEditUrl = editFromView.dataset.url;
-                loadEditForm(activeEditUrl);
+                showPackageView(viewTrigger.dataset.packageId);
                 return;
             }
 
@@ -1209,38 +1407,17 @@ html[data-theme='dark'] .table-row-action-link:hover {
                 return;
             }
 
-            const trigger = e.target.closest('[data-package-modal-trigger]');
-            if (trigger) {
-                e.preventDefault();
-                const url = trigger.dataset.url || trigger.getAttribute('href');
-                if (url) loadEditForm(url);
-                return;
-            }
-
-            const cancel = e.target.closest('#packageModalContent .pkg-link-btn');
-            if (cancel && activePackageId) {
-                e.preventDefault();
-                showPackageView(activePackageId, activeEditUrl);
-            }
         });
 
         document.addEventListener('keydown', function (e) {
             if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-package-view-trigger]')) {
                 e.preventDefault();
                 const trigger = e.target.closest('[data-package-view-trigger]');
-                showPackageView(trigger.dataset.packageId, trigger.dataset.editUrl);
+                showPackageView(trigger.dataset.packageId);
             }
             if (e.key === 'Escape' && !overlay.classList.contains('hidden')) closeModal();
         });
 
-        content.addEventListener('submit', function (e) {
-            const form = e.target.closest('form');
-            if (!form || !activePackageId) return;
-            e.preventDefault();
-            submitEditForm(form);
-        });
-
-        closeBtn?.addEventListener('click', closeModal);
         overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
     })();
 </script>

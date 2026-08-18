@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AddOnCatalog;
 use App\Support\AuditLogger;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class AddOnCatalogController extends Controller
 {
@@ -29,6 +30,10 @@ class AddOnCatalogController extends Controller
             $query->where('is_active', false);
         }
 
+        if ($request->filled('category') && in_array($request->query('category'), AddOnCatalog::CATEGORY_OPTIONS, true)) {
+            $query->where('category', $request->query('category'));
+        }
+
         $catalogs = $query
             ->withCount('legacyPackageAddOns')
             ->orderBy('category')
@@ -36,7 +41,10 @@ class AddOnCatalogController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        return view('admin.add-on-catalogs.index', compact('catalogs'));
+        return view('admin.add-on-catalogs.index', [
+            'catalogs' => $catalogs,
+            'categoryOptions' => AddOnCatalog::CATEGORY_OPTIONS,
+        ]);
     }
 
     public function create()
@@ -49,6 +57,7 @@ class AddOnCatalogController extends Controller
                 'unit' => 'item',
                 'is_active' => true,
             ]),
+            'categoryOptions' => AddOnCatalog::CATEGORY_OPTIONS,
         ]);
     }
 
@@ -103,7 +112,10 @@ class AddOnCatalogController extends Controller
     {
         $this->ensureCanManage();
 
-        return view('admin.add-on-catalogs.edit', ['catalog' => $add_on_catalog]);
+        return view('admin.add-on-catalogs.edit', [
+            'catalog' => $add_on_catalog,
+            'categoryOptions' => AddOnCatalog::CATEGORY_OPTIONS,
+        ]);
     }
 
     public function update(Request $request, AddOnCatalog $add_on_catalog)
@@ -164,11 +176,11 @@ class AddOnCatalogController extends Controller
     private function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:150', $this->mustContainLetterRule('Add-on name must include letters.')],
-            'category' => ['nullable', 'string', 'max:80', $this->mustContainLetterRule('Category must include letters.')],
+            'name' => ['required', 'string', 'max:150', $this->mustContainLetterRule('Add-on name must include letters.'), $this->allowedNameTextRule('Add-on name has unnecessary special characters.')],
+            'category' => ['required', 'string', Rule::in(AddOnCatalog::CATEGORY_OPTIONS)],
             'description' => ['nullable', 'string', 'max:500'],
             'price' => ['required', 'numeric', 'min:0'],
-            'unit' => ['required', 'string', 'max:40', $this->mustContainLetterRule('Unit must include letters.')],
+            'unit' => ['required', 'string', Rule::in(AddOnCatalog::UNIT_OPTIONS)],
             'return_to' => ['nullable', 'string', 'max:1000'],
         ];
     }
@@ -180,7 +192,10 @@ class AddOnCatalogController extends Controller
             'price.required' => 'Standard price is required.',
             'price.numeric' => 'Standard price must be a valid amount.',
             'price.min' => 'Standard price cannot be negative.',
+            'category.required' => 'Add-on type is required.',
+            'category.in' => 'Select a valid add-on type.',
             'unit.required' => 'Unit is required.',
+            'unit.in' => 'Select a valid unit.',
         ];
     }
 
@@ -232,6 +247,19 @@ class AddOnCatalogController extends Controller
             }
 
             if (! preg_match('/[\pL\pM]/u', (string) $value) || preg_match('/^\d+(?:\.\d+)?$/', trim((string) $value))) {
+                $fail($message);
+            }
+        };
+    }
+
+    private function allowedNameTextRule(string $message): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) use ($message): void {
+            if ($value === null || trim((string) $value) === '') {
+                return;
+            }
+
+            if (! preg_match("~^[\pL\pM][\pL\pM\s,'()/&-]*$~u", trim((string) $value))) {
                 $fail($message);
             }
         };

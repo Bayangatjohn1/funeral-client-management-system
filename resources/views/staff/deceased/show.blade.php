@@ -80,7 +80,7 @@
             @endphp
             <div class="grid grid-cols-2 gap-x-12 gap-y-3">
                 <div class="py-1 flex justify-between">
-                    <span class="text-sm text-gray-600">Request Date / Date Recorded:</span>
+                    <span class="text-sm text-gray-600">Date Created:</span>
                     <span class="text-sm font-bold">{{ $case?->service_requested_at?->format('F d, Y') ?? $case?->created_at?->format('F d, Y') ?? 'Not set' }}</span>
                 </div>
                 <div class="py-1 flex justify-between">

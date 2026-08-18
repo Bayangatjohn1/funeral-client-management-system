@@ -2,7 +2,8 @@
     $isEdit = $catalog->exists;
     $action = $isEdit ? route('admin.add-on-catalogs.update', $catalog) : route('admin.add-on-catalogs.store');
     $returnTo = old('return_to', request('return_to', route('admin.add-on-catalogs.index')));
-    $unitOptions = ['item', 'set', 'day', 'trip', 'service'];
+    $categoryOptions = $categoryOptions ?? \App\Models\AddOnCatalog::CATEGORY_OPTIONS;
+    $unitOptions = \App\Models\AddOnCatalog::UNIT_OPTIONS;
 @endphp
 
 <style>
@@ -17,6 +18,9 @@
     .aoc-grid { display:grid; grid-template-columns:1fr 190px; gap:16px; }
     .aoc-label { display:block; margin-bottom:8px; font-size:.74rem; font-weight:950; text-transform:uppercase; letter-spacing:.07em; color:#53604F; }
     .aoc-form .form-input, .aoc-form .form-select, .aoc-form textarea { width:100%; min-height:44px; border:1px solid #C9C5BB; border-radius:7px; background:#fff; color:#2F302C; font-size:.92rem; font-weight:650; }
+    .aoc-select-wrap { position:relative; }
+    .aoc-select-wrap .form-select { cursor:pointer; appearance:none; background-image:none !important; padding-right:2.4rem; }
+    .aoc-select-icon { position:absolute; right:.85rem; top:50%; transform:translateY(-50%); color:#5F685F; font-size:.9rem; pointer-events:none; }
     .aoc-money { display:flex; align-items:center; border:1px solid #C9C5BB; border-radius:7px; background:#fff; overflow:hidden; }
     .aoc-money span { padding-left:12px; font-weight:950; color:#5F685F; }
     .aoc-money .form-input { border:0; border-radius:0; }
@@ -36,6 +40,39 @@
     html[data-theme='dark'] .aoc-money span { color:#7fa6cf; }
     html[data-theme='dark'] .aoc-primary { background:#3b82f6; border-color:#60a5fa; }
     html[data-theme='dark'] .aoc-secondary { background:#152035; border-color:#2a3f5f; color:#d8ecff; }
+    html:not([data-theme='dark']) .page-content {
+        background:
+            linear-gradient(90deg, rgba(73,87,69,0.04) 0 1px, transparent 1px),
+            linear-gradient(180deg, rgba(73,87,69,0.034) 0 1px, transparent 1px),
+            repeating-linear-gradient(135deg, rgba(73,87,69,0.02) 0 1px, transparent 1px 12px),
+            #C4D2BE !important;
+        background-size:44px 44px,44px 44px,16px 16px,auto;
+    }
+    .aoc-form { color:var(--ink); }
+    .aoc-card { background:#D3DEC9 !important; border-color:var(--border) !important; box-shadow:none !important; }
+    .aoc-head, .aoc-actions { background:#C7D5BE !important; border-color:var(--border) !important; }
+    .aoc-title { color:var(--ink) !important; font-weight:750 !important; }
+    .aoc-copy { color:var(--ink-muted) !important; font-weight:600 !important; }
+    .aoc-note { background:#E1E7D9 !important; border-color:var(--border) !important; color:var(--ink-muted) !important; box-shadow:none !important; }
+    .aoc-label { color:#566653 !important; font-weight:650 !important; }
+    .aoc-form .form-input, .aoc-form .form-select, .aoc-form textarea, .aoc-money {
+        background:#E1E7D9 !important;
+        border-color:var(--border) !important;
+        color:var(--ink) !important;
+        box-shadow:none !important;
+    }
+    .aoc-form .form-input:hover, .aoc-form .form-select:hover, .aoc-form textarea:hover, .aoc-money:hover,
+    .aoc-form .form-input:focus, .aoc-form .form-select:focus, .aoc-form textarea:focus {
+        background:#EEF3E8 !important;
+        border-color:#8EA083 !important;
+        box-shadow:none !important;
+    }
+    .aoc-select-wrap:hover .aoc-select-icon, .aoc-select-wrap:focus-within .aoc-select-icon { color:#344333; }
+    .aoc-primary, .aoc-secondary { cursor:pointer; box-shadow:none !important; }
+    .aoc-primary { background:#344333 !important; border-color:#344333 !important; color:#fff !important; font-weight:700 !important; }
+    .aoc-primary:hover { background:#2F3A2E !important; border-color:#2F3A2E !important; }
+    .aoc-secondary { background:#E1E7D9 !important; border-color:var(--border) !important; color:var(--ink) !important; font-weight:700 !important; }
+    .aoc-secondary:hover { background:#D3DEC9 !important; border-color:#8EA083 !important; }
     @media (max-width:720px) { .aoc-grid { grid-template-columns:1fr; } .aoc-actions { display:grid; } }
 </style>
 
@@ -56,12 +93,19 @@
             <div class="aoc-grid">
                 <div>
                     <label class="aoc-label">Add-on Name</label>
-                    <input type="text" name="name" value="{{ old('name', $catalog->name) }}" class="form-input" required maxlength="150" pattern=".*[A-Za-z].*" title="Enter an add-on name with letters." placeholder="e.g. Extra flower arrangement">
+                    <input type="text" name="name" value="{{ old('name', $catalog->name) }}" class="form-input" required maxlength="150" pattern="[A-Za-zÀ-ž][A-Za-zÀ-ž\s,'()/&-]*" title="Use letters and normal separators only. Numbers and unnecessary symbols are not allowed." placeholder="e.g. Extra flower arrangement">
                     @error('name') <div class="form-error">{{ $message }}</div> @enderror
                 </div>
                 <div>
-                    <label class="aoc-label">Category</label>
-                    <input type="text" name="category" value="{{ old('category', $catalog->category ?: 'General') }}" class="form-input" maxlength="80" pattern=".*[A-Za-z].*" title="Enter a category with letters." placeholder="e.g. Flowers, Transport, Media">
+                    <label class="aoc-label">Add-on Type</label>
+                    <div class="aoc-select-wrap">
+                        <select name="category" class="form-select" required>
+                            @foreach($categoryOptions as $category)
+                                <option value="{{ $category }}" @selected(old('category', $catalog->category ?: 'General') === $category)>{{ $category }}</option>
+                            @endforeach
+                        </select>
+                        <i class="bi bi-chevron-down aoc-select-icon" aria-hidden="true"></i>
+                    </div>
                     @error('category') <div class="form-error">{{ $message }}</div> @enderror
                 </div>
             </div>
@@ -74,12 +118,14 @@
                 </div>
                 <div>
                     <label class="aoc-label">Unit</label>
-                    <input list="add_on_unit_options" type="text" name="unit" value="{{ old('unit', $catalog->unit ?: 'item') }}" class="form-input" required maxlength="40" pattern=".*[A-Za-z].*" title="Enter a unit with letters." placeholder="item, set, day, trip, service">
-                    <datalist id="add_on_unit_options">
-                        @foreach($unitOptions as $unit)
-                            <option value="{{ $unit }}"></option>
-                        @endforeach
-                    </datalist>
+                    <div class="aoc-select-wrap">
+                        <select name="unit" class="form-select" required>
+                            @foreach($unitOptions as $unit)
+                                <option value="{{ $unit }}" @selected(old('unit', $catalog->unit ?: 'item') === $unit)>{{ ucfirst($unit) }}</option>
+                            @endforeach
+                        </select>
+                        <i class="bi bi-chevron-down aoc-select-icon" aria-hidden="true"></i>
+                    </div>
                     @error('unit') <div class="form-error">{{ $message }}</div> @enderror
                 </div>
             </div>

@@ -1364,6 +1364,111 @@
         border-color: var(--color-primary) !important;
         color: var(--color-text-primary) !important;
     }
+
+    html:not([data-theme='dark']) .staff-dashboard-v2 {
+        --dash-card-soft: #D3DEC9;
+        --dash-card-alt: #DCE6D6;
+        --dash-card-strong: #C7D5BE;
+        --dash-card-warm: #E1DFCC;
+        --dash-hover: #C5D3BC;
+        --dash-active: #B8C9AF;
+        --dash-text: #232821;
+        --dash-muted: #3F4C3E;
+    }
+
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-card,
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-header-card,
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-action-card,
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-list-row,
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-upcoming-date,
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-month-card,
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-tools,
+    html:not([data-theme='dark']) .staff-dashboard-v2 .bg-white {
+        background: var(--dash-card-soft) !important;
+        color: var(--dash-text) !important;
+        border-color: #AEBBA8 !important;
+        box-shadow: none !important;
+        filter: none !important;
+        backdrop-filter: none !important;
+    }
+
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-action-card:nth-child(even),
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-card:nth-of-type(even),
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-list-row:nth-child(even) {
+        background: var(--dash-card-alt) !important;
+    }
+
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-action-card.is-dark,
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-action-card.is-green,
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-card-head,
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-card-tabs-bar {
+        background: var(--dash-card-strong) !important;
+        border-color: #9CAC94 !important;
+        color: var(--dash-text) !important;
+    }
+
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-action-card.is-light:nth-child(4),
+    html:not([data-theme='dark']) .staff-dashboard-v2 [data-attention-card],
+    html:not([data-theme='dark']) .staff-dashboard-v2 [data-outstanding-card] {
+        background: var(--dash-card-warm) !important;
+    }
+
+    html:not([data-theme='dark']) .staff-dashboard-v2 h1,
+    html:not([data-theme='dark']) .staff-dashboard-v2 h2,
+    html:not([data-theme='dark']) .staff-dashboard-v2 h3,
+    html:not([data-theme='dark']) .staff-dashboard-v2 h4,
+    html:not([data-theme='dark']) .staff-dashboard-v2 strong,
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-title,
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-action-card .title,
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-stat-value,
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-balance-value {
+        color: var(--dash-text) !important;
+        opacity: 1 !important;
+    }
+
+    html:not([data-theme='dark']) .staff-dashboard-v2 p,
+    html:not([data-theme='dark']) .staff-dashboard-v2 small,
+    html:not([data-theme='dark']) .staff-dashboard-v2 label,
+    html:not([data-theme='dark']) .staff-dashboard-v2 span,
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-subtitle,
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-action-card .desc,
+    html:not([data-theme='dark']) .staff-dashboard-v2 [class*="text-slate"],
+    html:not([data-theme='dark']) .staff-dashboard-v2 [class*="text-gray"] {
+        color: var(--dash-muted) !important;
+        opacity: 1 !important;
+    }
+
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-action-card .icon,
+    html:not([data-theme='dark']) .staff-dashboard-v2 [class*="bg-slate-50"],
+    html:not([data-theme='dark']) .staff-dashboard-v2 [class*="bg-emerald-50"],
+    html:not([data-theme='dark']) .staff-dashboard-v2 [class*="bg-red-50"],
+    html:not([data-theme='dark']) .staff-dashboard-v2 [class*="bg-amber-50"] {
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-action-card:hover,
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-list-row:hover,
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-pill:hover,
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-tab-btn:hover,
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-balance-cta:hover,
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-link:hover,
+    html:not([data-theme='dark']) .staff-dashboard-v2 .topbar-notification:hover,
+    html:not([data-theme='dark']) .staff-dashboard-v2 button:hover {
+        background: var(--dash-hover) !important;
+        border-color: #8EA083 !important;
+        color: var(--dash-text) !important;
+    }
+
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-tab-btn.is-active,
+    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-pill.is-active,
+    html:not([data-theme='dark']) .staff-dashboard-v2 [aria-pressed="true"],
+    html:not([data-theme='dark']) .staff-dashboard-v2 a[href]:focus-visible,
+    html:not([data-theme='dark']) .staff-dashboard-v2 button:focus-visible {
+        background: var(--dash-active) !important;
+        border-color: #3E4A3D !important;
+        color: var(--dash-text) !important;
+    }
 </style>
 
 <div class="staff-dashboard-v2">

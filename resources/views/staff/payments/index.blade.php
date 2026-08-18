@@ -1,7 +1,8 @@
 @extends('layouts.panel')
 
-@section('page_title', 'Payments')
-@section('page_desc', 'Record and manage case payment transactions.')
+@section('hide_layout_topbar', '1')
+@section('page_title', 'Record Payment')
+@section('page_desc', '')
 
 @section('content')
 <style>
@@ -13,11 +14,12 @@
         height: 100%;
         width: 100%;
         box-sizing: border-box;
-        padding: 0 var(--panel-content-inline) 20px;
+        padding: 12px var(--panel-content-inline) 20px;
+        color: var(--ink);
     }
 
     .payments-unified-card {
-        background: var(--card);
+        background: #D3DEC9;
         border: 1px solid var(--border);
         border-radius: 14px;
         box-shadow: none;
@@ -45,7 +47,7 @@
 
     .payments-filter-shell {
         padding: 12px var(--panel-content-inline);
-        background: var(--card);
+        background: #D3DEC9;
     }
 
     .payments-filter-toolbar {
@@ -61,12 +63,44 @@
     }
 
     .payments-filter-toolbar .payments-filter-search {
-        flex: 1 1 20rem;
+        flex: 0 1 34rem;
         min-width: min(100%, 18rem);
+        max-width: 34rem;
     }
 
     .payments-filter-toolbar .payments-filter-date {
-        min-width: 10.75rem;
+        flex: 0 0 14.5rem;
+        min-width: 14.5rem;
+    }
+
+    .payments-filter-right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    .payments-filter-control {
+        position: relative;
+        width: 100%;
+    }
+
+    .payments-filter-control > i {
+        position: absolute;
+        left: 0.9rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--ink-muted);
+        font-size: 0.92rem;
+        pointer-events: none;
+        z-index: 1;
+    }
+
+    .payments-filter-control .table-toolbar-search,
+    .payments-filter-control .table-toolbar-select {
+        padding-left: 2.45rem;
     }
 
     .payments-filter-toolbar .table-toolbar-label {
@@ -80,30 +114,25 @@
         height: 2.75rem;
         border: 1px solid var(--border);
         border-radius: 0.75rem;
-        background: var(--card);
+        background: #E1E7D9;
         color: var(--ink);
         font-size: 0.875rem;
         box-shadow: none;
+        cursor: pointer;
+        transition: background-color .16s ease, border-color .16s ease, color .16s ease;
     }
 
     .payments-filter-toolbar .table-toolbar-search:focus,
     .payments-filter-toolbar .table-toolbar-select:focus {
         border-color: var(--accent);
-        box-shadow: var(--shadow-focus);
+        box-shadow: none;
+        background: #FBFCF7;
     }
 
-    .payments-filter-toolbar .payments-filter-actions {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        flex-wrap: wrap;
-    }
-
-    .payments-filter-toolbar .payments-filter-actions .btn-secondary,
-    .payments-filter-toolbar .payments-filter-actions .btn-outline {
-        min-height: 2.75rem;
-        border-radius: 0.75rem;
-        white-space: nowrap;
+    .payments-filter-toolbar .table-toolbar-search:hover,
+    .payments-filter-toolbar .table-toolbar-select:hover {
+        background: #C7D5BE;
+        border-color: #8EA083;
     }
 
     .payments-unified-card .list-card {
@@ -112,10 +141,7 @@
         flex-direction: column;
         flex: 1;
         min-height: 0;
-    }
-
-    .payments-unified-card .list-card-header {
-        flex-shrink: 0;
+        background: #D3DEC9;
     }
 
     .payments-record-action {
@@ -140,7 +166,7 @@
 
     .payments-record-action:focus-visible {
         outline: none;
-        box-shadow: var(--shadow-focus);
+        box-shadow: none;
         border-color: var(--brand);
     }
 
@@ -150,17 +176,95 @@
 
     .payments-unified-card .table-wrapper {
         border: 0;
-        border-radius: 0;
+        border-radius: 14px;
         box-shadow: none;
-        padding: 12px var(--panel-content-inline);
+        padding: 0;
+        margin: 14px var(--panel-content-inline) 18px;
         flex: 1;
         min-height: 0;
         overflow-y: auto;
+        background: #D3DEC9;
+        border: 1px solid var(--border);
+    }
+
+    .payments-unified-card .payments-table {
+        background: #D3DEC9;
+        border-collapse: separate;
+        border-spacing: 0;
+        border: 0;
+        border-radius: 14px;
+        overflow: hidden;
+    }
+
+    .payments-unified-card .payments-table thead tr {
+        background: #C7D5BE;
+    }
+
+    .payments-unified-card .payments-table thead th {
+        background: #C7D5BE;
+        color: #3F4C3E;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.055em;
+        text-transform: uppercase;
+        border-bottom: 1px solid var(--border);
+        padding-top: 13px;
+        padding-bottom: 13px;
+    }
+
+    .payments-unified-card .payments-table tbody tr,
+    .payments-unified-card .payments-table tbody td {
+        background: #D3DEC9;
+        transition: background-color .16s ease, color .16s ease;
+    }
+
+    .payments-unified-card .payments-table tbody tr:nth-child(even),
+    .payments-unified-card .payments-table tbody tr:nth-child(even) td {
+        background: #DCE6D6;
+    }
+
+    .payments-unified-card .payments-table tbody tr:hover,
+    .payments-unified-card .payments-table tbody tr:hover td {
+        background: #C5D3BC !important;
+    }
+
+    .payments-unified-card .payments-table tbody td {
+        border-bottom: 1px solid rgba(142, 160, 131, .42);
+        color: #232821;
+        font-size: .86rem;
+        line-height: 1.35;
+        vertical-align: middle;
+    }
+
+    .payments-unified-card .payments-table tbody tr:last-child td {
+        border-bottom: 0;
+    }
+
+    .payments-case-code {
+        color: #232821;
+        font-weight: 700;
+        letter-spacing: .015em;
+    }
+
+    .payments-money {
+        color: #232821;
+        font-weight: 650;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    .payments-money.is-paid {
+        color: #5F7D5F;
+    }
+
+    .payments-money.is-balance {
+        color: #9E4B3F;
+        font-weight: 700;
     }
 
     .payments-meta-section {
-        border-top: 1px solid var(--border);
-        padding: 16px var(--panel-content-inline) 18px;
+        padding: 0 var(--panel-content-inline) 18px;
+        background: #D3DEC9;
     }
 
     .payments-pagination {
@@ -168,22 +272,136 @@
         padding: 12px var(--panel-content-inline);
     }
 
+    html.payment-modal-open,
+    html.payment-modal-open body,
+    html.payment-modal-open .panel-shell-body {
+        overflow: hidden !important;
+    }
+
+    #paymentFormModal {
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 2500 !important;
+        width: 100vw;
+        height: 100vh;
+        min-height: 100vh;
+        min-height: 100svh;
+        height: 100dvh;
+        min-height: 100dvh;
+        overflow: hidden;
+        background: #C6D4BE;
+        isolation: isolate;
+        padding: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+    }
+
+    #paymentFormBackdrop {
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100vw;
+        height: 100vh;
+        min-height: 100vh;
+        min-height: 100svh;
+        height: 100dvh;
+        min-height: 100dvh;
+        background: #C6D4BE !important;
+    }
+
     #paymentFormModal .payment-modal-viewport {
-        position: absolute;
+        position: fixed;
         inset: 0;
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 16px;
+        padding: 40px 18px;
+        overflow: hidden;
+        background: #C6D4BE;
     }
 
     #paymentFormModal .payment-modal-sheet {
         width: min(1120px, 100%);
-        max-height: calc(100vh - 32px);
+        height: auto;
+        max-height: calc(100vh - 80px);
+        max-height: calc(100dvh - 80px);
         margin: 0 auto;
         overflow-y: auto;
-        border-radius: 24px;
+        border-radius: 20px;
+        box-shadow: none !important;
+    }
+
+    #paymentFormModal .payment-modal-close,
+    .payments-date-modal .payments-date-modal-close {
+        cursor: pointer;
+        box-shadow: none !important;
+    }
+
+    #paymentFormModal .payment-modal-close:hover,
+    .payments-date-modal .payments-date-modal-close:hover {
+        background: #C7D5BE !important;
+        color: var(--ink) !important;
+    }
+
+    .payments-date-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 55;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        background: rgba(31, 38, 31, .42);
+    }
+
+    .payments-date-backdrop.open {
+        display: flex;
+    }
+
+    .payments-date-modal {
+        width: min(100%, 28rem);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: #D3DEC9;
+        overflow: hidden;
         box-shadow: none;
+    }
+
+    .payments-date-modal-head,
+    .payments-date-modal-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .75rem;
+        padding: .9rem 1rem;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .payments-date-modal-foot {
+        justify-content: flex-end;
+        border-top: 1px solid var(--border);
+        border-bottom: 0;
+    }
+
+    .payments-date-modal-title {
+        font-size: .95rem;
+        font-weight: 700;
+        color: var(--ink);
+    }
+
+    .payments-date-modal-body {
+        display: grid;
+        gap: .8rem;
+        padding: 1rem;
+    }
+
+    .payments-date-modal-label {
+        display: block;
+        margin-bottom: .38rem;
+        color: var(--ink-muted);
+        font-size: .72rem;
+        font-weight: 650;
+        text-transform: uppercase;
+        letter-spacing: .05em;
     }
 
     @media (max-width: 640px) {
@@ -194,10 +412,24 @@
 
         .payments-filter-toolbar,
         .payments-filter-toolbar .table-toolbar-field,
-        .payments-filter-toolbar .payments-filter-actions,
-        .payments-filter-toolbar .payments-filter-actions .btn-secondary,
-        .payments-filter-toolbar .payments-filter-actions .btn-outline {
+        .payments-filter-toolbar .table-toolbar-field {
             width: 100%;
+        }
+
+        .payments-filter-toolbar .payments-filter-date {
+            flex-basis: 100%;
+            min-width: 0;
+        }
+
+        .payments-filter-right {
+            width: 100%;
+            margin-left: 0;
+            justify-content: stretch;
+        }
+
+        .payments-filter-right .payments-record-action {
+            width: 100%;
+            justify-content: center;
         }
     }
 </style>
@@ -218,6 +450,10 @@
     </div>
 @endif
 
+<div class="flash-info" data-flash-icon="bi-credit-card-2-front">
+    You are on the Record Payment page.
+</div>
+
 @if($errors->any())
     <div class="flash-error">
         {{ $errors->first() }}
@@ -226,12 +462,12 @@
 
 @if($canRecordPayment ?? false)
 <div id="paymentFormModal" class="fixed inset-0 z-40 hidden panel-overlay-content">
-    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" id="paymentFormBackdrop"></div>
+    <div class="absolute inset-0 bg-black/60" id="paymentFormBackdrop"></div>
     <div class="payment-modal-viewport">
-        <div class="payment-modal-sheet rounded-2xl overflow-hidden" style="border:1px solid var(--border);background:var(--card);box-shadow:0 25px 60px rgba(0,0,0,0.22)">
+        <div class="payment-modal-sheet rounded-2xl overflow-hidden" style="border:1px solid var(--border);background:#D3DEC9;box-shadow:none">
             <div class="flex items-center justify-between px-6 py-5" style="border-bottom:1px solid var(--border);background:var(--surface-muted)">
                 <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-xl bg-[#3E4A3D] text-white flex items-center justify-center flex-shrink-0 shadow-md">
+                    <div class="w-9 h-9 rounded-xl bg-[#3E4A3D] text-white flex items-center justify-center flex-shrink-0">
                         <i class="bi bi-cash-stack text-base"></i>
                     </div>
                     <div>
@@ -239,7 +475,7 @@
                         <div class="text-xs mt-0.5" style="color:var(--ink-muted)">Choose a case, enter the received amount, then verify the payment preview before saving.</div>
                     </div>
                 </div>
-                <button type="button" id="closePaymentFormTop" class="inline-flex items-center justify-center w-9 h-9 rounded-xl transition-colors focus:outline-none shadow-sm" style="background:var(--card);border:1px solid var(--border);color:var(--ink-muted)">
+                <button type="button" id="closePaymentFormTop" class="payment-modal-close inline-flex items-center justify-center w-9 h-9 rounded-xl transition-colors focus:outline-none" style="background:#E1E7D9;border:1px solid var(--border);color:var(--ink-muted)">
                     <i class="bi bi-x-lg" style="font-size:.8rem"></i>
                 </button>
             </div>
@@ -256,34 +492,17 @@
         <form id="paymentRecordingFilterForm" method="GET" action="{{ route('payments.index') }}" class="payments-filter-toolbar" data-table-toolbar data-search-debounce="400">
             <div class="table-toolbar-field payments-filter-search">
                 <label for="payment-filter-q" class="table-toolbar-label">Search</label>
-                <input
-                    id="payment-filter-q"
-                    name="q"
-                    value="{{ request('q') }}"
-                    class="form-input table-toolbar-search"
-                    data-table-search
-                    placeholder="Search case, client, or deceased..."
-                >
-            </div>
-
-            <div class="table-toolbar-field">
-                <label for="payment-status-filter" class="table-toolbar-label">Payment Status</label>
-                <select id="payment-status-filter" name="payment_status" class="form-select table-toolbar-select" data-table-auto-submit>
-                    <option value="">All Payment Status</option>
-                    <option value="UNPAID" {{ request('payment_status') === 'UNPAID' ? 'selected' : '' }}>Unpaid</option>
-                    <option value="PARTIAL" {{ request('payment_status') === 'PARTIAL' ? 'selected' : '' }}>Partial</option>
-                    <option value="PAID" {{ request('payment_status') === 'PAID' ? 'selected' : '' }}>Paid</option>
-                </select>
-            </div>
-
-            <div class="table-toolbar-field">
-                <label for="case-status-filter" class="table-toolbar-label">Case Status</label>
-                <select id="case-status-filter" name="case_status" class="form-select table-toolbar-select" data-table-auto-submit>
-                    <option value="">All Case Status</option>
-                    <option value="DRAFT" {{ request('case_status') === 'DRAFT' ? 'selected' : '' }}>Draft</option>
-                    <option value="ACTIVE" {{ request('case_status') === 'ACTIVE' ? 'selected' : '' }}>Active</option>
-                    <option value="COMPLETED" {{ request('case_status') === 'COMPLETED' ? 'selected' : '' }}>Completed</option>
-                </select>
+                <div class="payments-filter-control">
+                    <i class="bi bi-search" aria-hidden="true"></i>
+                    <input
+                        id="payment-filter-q"
+                        name="q"
+                        value="{{ request('q') }}"
+                        class="form-input table-toolbar-search"
+                        data-table-search
+                        placeholder="Search case, client, or deceased..."
+                    >
+                </div>
             </div>
 
             @if(($branches ?? collect())->count() > 1)
@@ -300,79 +519,63 @@
                 </div>
             @endif
 
-            <div class="table-toolbar-field">
-                <label for="payment-date-range" class="table-toolbar-label">Service Date</label>
-                <select id="payment-date-range" name="date_range" class="form-select table-toolbar-select" data-payment-date-range>
-                    <option value="any" @selected($paymentDateRange === 'any')>Any Service Date</option>
-                    <option value="custom" @selected($paymentDateRange === 'custom')>Custom Range</option>
-                </select>
+            <div class="payments-filter-right">
+                <div class="table-toolbar-field payments-filter-date">
+                    <label for="payment-date-range" class="table-toolbar-label">Service Date</label>
+                    <div class="payments-filter-control">
+                        <i class="bi bi-calendar3" aria-hidden="true"></i>
+                        <select id="payment-date-range" name="date_range" class="form-select table-toolbar-select" data-payment-date-range>
+                            <option value="any" @selected($paymentDateRange === 'any')>All Dates</option>
+                            <option value="today" @selected($paymentDateRange === 'today')>Today</option>
+                            <option value="this_month" @selected($paymentDateRange === 'this_month')>This Month</option>
+                            <option value="this_year" @selected($paymentDateRange === 'this_year')>This Year</option>
+                            <option value="custom" @selected($paymentDateRange === 'custom')>Custom</option>
+                        </select>
+                    </div>
+                </div>
+
+                @if($canRecordPayment ?? false)
+                    <button id="openPaymentForm" type="button" class="payments-record-action">
+                        <i class="bi bi-cash-stack text-base"></i>
+                        Record Payment
+                    </button>
+                @endif
             </div>
 
-            <div class="table-toolbar-field payments-filter-date" data-payment-custom-date-field @if(!$usesPaymentCustomDate) hidden @endif>
-                <label for="payment-service-date-from" class="table-toolbar-label">Service Date From</label>
-                <input
-                    id="payment-service-date-from"
-                    type="date"
-                    name="request_date_from"
-                    value="{{ request('request_date_from') }}"
-                    class="form-input table-toolbar-select"
-                    title="Service Date From"
-                    data-payment-custom-date-input
-                    @if(!$usesPaymentCustomDate) disabled @endif
-                >
-            </div>
+            <input id="payment-service-date-from" type="hidden" name="request_date_from" value="{{ request('request_date_from') }}" data-payment-custom-date-input>
+            <input id="payment-service-date-to" type="hidden" name="request_date_to" value="{{ request('request_date_to') }}" data-payment-custom-date-input>
 
-            <div class="table-toolbar-field payments-filter-date" data-payment-custom-date-field @if(!$usesPaymentCustomDate) hidden @endif>
-                <label for="payment-service-date-to" class="table-toolbar-label">Service Date To</label>
-                <input
-                    id="payment-service-date-to"
-                    type="date"
-                    name="request_date_to"
-                    value="{{ request('request_date_to') }}"
-                    class="form-input table-toolbar-select"
-                    title="Service Date To"
-                    data-payment-custom-date-input
-                    @if(!$usesPaymentCustomDate) disabled @endif
-                >
-            </div>
-
-            <div class="payments-filter-actions">
-                <button type="submit" class="btn-secondary">
-                    <i class="bi bi-search"></i>
-                    <span>Search</span>
-                </button>
-                <a href="{{ route('payments.index') }}" class="btn-outline btn-filter-reset">
-                    <i class="bi bi-arrow-counterclockwise"></i>
-                    <span>Reset</span>
-                </a>
-            </div>
         </form>
     </div>
 
-    <div class="list-card">
-        <div class="list-card-header">
-            <div>
-                <div class="list-card-title">Open Cases</div>
-                <div class="list-card-copy">
-                    @if($canRecordPayment ?? false)
-                        Start by clicking a case row with a remaining balance. You can also open a blank payment form manually.
-                    @else
-                        Review cases with remaining balances. Payment recording is limited to assigned staff.
-                    @endif
-                </div>
+    <div id="paymentDateModal" class="payments-date-backdrop" aria-hidden="true">
+        <div class="payments-date-modal" role="dialog" aria-modal="true" aria-labelledby="paymentDateModalTitle">
+            <div class="payments-date-modal-head">
+                <div class="payments-date-modal-title" id="paymentDateModalTitle">Custom Date</div>
+                <button type="button" class="payments-date-modal-close btn-outline" data-payment-date-cancel aria-label="Close custom date">
+                    <i class="bi bi-x-lg"></i>
+                </button>
             </div>
-            @if($canRecordPayment ?? false)
-                <div>
-                    <button id="openPaymentForm" type="button" class="payments-record-action">
-                        <i class="bi bi-cash-stack text-base"></i>
-                        Record New Payment
-                    </button>
-                </div>
-            @endif
+            <div class="payments-date-modal-body">
+                <label>
+                    <span class="payments-date-modal-label">From</span>
+                    <input id="payment-modal-date-from" type="date" value="{{ request('request_date_from') }}" class="form-input table-toolbar-select">
+                </label>
+                <label>
+                    <span class="payments-date-modal-label">To</span>
+                    <input id="payment-modal-date-to" type="date" value="{{ request('request_date_to') }}" class="form-input table-toolbar-select">
+                </label>
+            </div>
+            <div class="payments-date-modal-foot">
+                <button type="button" class="btn-outline" data-payment-date-cancel>Cancel</button>
+                <button type="button" class="btn-secondary" id="paymentApplyCustomDates">Apply</button>
+            </div>
         </div>
+    </div>
 
-        <div class="table-wrapper rounded-none border-0">
-            <table class="table-base text-sm">
+    <div class="list-card">
+        <div class="table-wrapper">
+            <table class="table-base payments-table">
                 <thead>
                     <tr>
                         <th class="text-left">Case Code</th>
@@ -390,15 +593,15 @@
                 @forelse($openCases as $case)
                     <tr
                         @if($canRecordPayment ?? false) data-open-payment-case="{{ $case->id }}" title="Click to open the payment form for this case" @endif
-                        class="hover:bg-slate-50 transition-colors {{ ($canRecordPayment ?? false) ? 'cursor-pointer' : '' }}"
+                        class="{{ ($canRecordPayment ?? false) ? 'cursor-pointer' : '' }}"
                     >
-                        <td class="font-mono font-bold text-slate-800">{{ $case->case_code }}</td>
+                        <td class="payments-case-code">{{ $case->case_code }}</td>
                         <td>{{ $case->client?->full_name ?? '-' }}</td>
                         <td>{{ $case->deceased?->full_name ?? '-' }}</td>
                         <td>{{ $case->service_package ?: ($case->custom_package_name ?: '-') }}</td>
-                        <td class="font-semibold">{{ number_format($case->total_amount, 2) }}</td>
-                        <td class="text-emerald-700 font-semibold">{{ number_format((float) $case->total_paid, 2) }}</td>
-                        <td class="text-rose-700 font-bold">{{ number_format((float) $case->balance_amount, 2) }}</td>
+                        <td class="payments-money">{{ number_format($case->total_amount, 2) }}</td>
+                        <td class="payments-money is-paid">{{ number_format((float) $case->total_paid, 2) }}</td>
+                        <td class="payments-money is-balance">{{ number_format((float) $case->balance_amount, 2) }}</td>
                         <td>
                             <span class="{{ $case->payment_status === 'PARTIAL' ? 'status-pill-warning' : 'status-pill-danger' }}">
                                 {{ $case->payment_status }}
@@ -427,9 +630,10 @@
         </div>
 
         <div class="payments-meta-section">
-            <div class="list-card-title mb-2">Payment Monitoring</div>
-            <div class="list-card-copy">Payment monitoring is on a separate page with case summaries and transaction filters.</div>
-            <a href="{{ route('payments.history') }}" class="btn-outline mt-4 inline-flex">Open Payment Monitoring</a>
+            <a href="{{ route('payments.history') }}" class="btn-outline inline-flex">
+                <i class="bi bi-clock-history"></i>
+                <span>Payment Monitoring</span>
+            </a>
         </div>
     </div>
 </div>
@@ -439,27 +643,77 @@
     const filterForm = document.getElementById('paymentRecordingFilterForm');
     if (filterForm) {
         const dateRange = filterForm.querySelector('[data-payment-date-range]');
-        const customDateFields = filterForm.querySelectorAll('[data-payment-custom-date-field]');
         const customDateInputs = filterForm.querySelectorAll('[data-payment-custom-date-input]');
+        const dateModal = document.getElementById('paymentDateModal');
+        const modalFrom = document.getElementById('payment-modal-date-from');
+        const modalTo = document.getElementById('payment-modal-date-to');
+        const applyCustomDates = document.getElementById('paymentApplyCustomDates');
 
-        const setCustomDateState = (isCustom) => {
-            customDateFields.forEach((field) => {
-                field.hidden = !isCustom;
-            });
-            customDateInputs.forEach((input) => {
-                input.disabled = !isCustom;
-                if (!isCustom) {
-                    input.value = '';
-                }
-            });
+        const toDateValue = (date) => date.toISOString().slice(0, 10);
+
+        const setPresetDates = (preset) => {
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            let from = '';
+            let to = '';
+
+            if (preset === 'today') {
+                from = to = toDateValue(today);
+            } else if (preset === 'this_month') {
+                from = toDateValue(new Date(today.getFullYear(), today.getMonth(), 1));
+                to = toDateValue(new Date(today.getFullYear(), today.getMonth() + 1, 0));
+            } else if (preset === 'this_year') {
+                from = toDateValue(new Date(today.getFullYear(), 0, 1));
+                to = toDateValue(new Date(today.getFullYear(), 11, 31));
+            }
+
+            const [dateFrom, dateTo] = customDateInputs;
+            if (dateFrom) dateFrom.value = from;
+            if (dateTo) dateTo.value = to;
+        };
+
+        const openDateModal = () => {
+            const [dateFrom, dateTo] = customDateInputs;
+            if (modalFrom && dateFrom) modalFrom.value = dateFrom.value;
+            if (modalTo && dateTo) modalTo.value = dateTo.value;
+            dateModal?.classList.add('open');
+            dateModal?.setAttribute('aria-hidden', 'false');
+            modalFrom?.focus();
+        };
+
+        const closeDateModal = () => {
+            dateModal?.classList.remove('open');
+            dateModal?.setAttribute('aria-hidden', 'true');
         };
 
         dateRange?.addEventListener('change', () => {
-            const isCustom = dateRange.value === 'custom';
-            setCustomDateState(isCustom);
-            if (!isCustom) {
-                filterForm.requestSubmit();
+            if (dateRange.value === 'custom') {
+                openDateModal();
+                return;
             }
+
+            setPresetDates(dateRange.value);
+            filterForm.requestSubmit();
+        });
+
+        applyCustomDates?.addEventListener('click', () => {
+            const [dateFrom, dateTo] = customDateInputs;
+            if (dateFrom && modalFrom) dateFrom.value = modalFrom.value;
+            if (dateTo && modalTo) dateTo.value = modalTo.value;
+            closeDateModal();
+            filterForm.requestSubmit();
+        });
+
+        document.querySelectorAll('[data-payment-date-cancel]').forEach((button) => {
+            button.addEventListener('click', () => {
+                closeDateModal();
+                const [dateFrom, dateTo] = customDateInputs;
+                if (dateRange && !dateFrom?.value && !dateTo?.value) dateRange.value = 'any';
+            });
+        });
+
+        dateModal?.addEventListener('click', (event) => {
+            if (event.target === dateModal) closeDateModal();
         });
     }
 
@@ -477,9 +731,14 @@
 
     if (!openBtn || !modal) return;
 
+    if (modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+    }
+
     function openModal() {
         modal.classList.remove('hidden');
         requestAnimationFrame(() => modal.classList.add('opacity-100'));
+        document.documentElement.classList.add('payment-modal-open');
         document.body.classList.add('overflow-hidden');
     }
 
@@ -487,6 +746,7 @@
         modal.classList.remove('opacity-100');
         setTimeout(() => {
             modal.classList.add('hidden');
+            document.documentElement.classList.remove('payment-modal-open');
             document.body.classList.remove('overflow-hidden');
         }, 190);
     }

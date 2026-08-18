@@ -2,6 +2,7 @@
 
 @section('page_title','Edit Case')
 @section('page_desc', 'Update case record details.')
+@section('hide_layout_topbar', '1')
 
 @section('content')
 @php
@@ -16,12 +17,12 @@
 /* ── Page wrapper ─────────────────────────────────────────── */
 .ec-wrap {
     width: 100%;
-    max-width: 860px;
+    max-width: 112rem;
     margin: 0 auto;
-    padding: 0 24px 40px;
+    padding: 12px var(--panel-content-inline, 20px) 28px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 14px;
     box-sizing: border-box;
 }
 
@@ -33,57 +34,58 @@
     width: fit-content;
     padding: 7px 14px;
     border: 1px solid var(--border);
-    border-radius: 10px;
-    font-size: 11px;
+    min-height: 2.55rem;
+    border-radius: .75rem;
+    font-size: .84rem;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--ink-muted);
-    background: var(--card);
+    color: var(--ink);
+    background: #E1E7D9;
     text-decoration: none;
-    transition: background .15s, border-color .15s, color .15s;
+    transition: background-color .16s ease, border-color .16s ease, color .16s ease;
 }
 .ec-back:hover {
-    background: var(--surface-muted, #F3F0E8);
-    border-color: var(--accent, #3E4A3D);
-    color: var(--accent, #3E4A3D);
+    background: #C7D5BE;
+    border-color: #8EA083;
+    color: var(--ink);
 }
 
 /* ── Page hero header ─────────────────────────────────────── */
 .ec-hero {
-    background: var(--card);
+    background: #D3DEC9;
     border: 1px solid var(--border);
-    border-radius: 16px;
+    border-radius: .75rem;
     overflow: hidden;
+    box-shadow: none;
 }
 .ec-hero__top {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 18px 22px 16px;
+    padding: 1rem 1.1rem;
     border-bottom: 1px solid var(--border);
+    background: #C7D5BE;
 }
 .ec-hero__left { display: flex; flex-direction: column; gap: 3px; }
 .ec-hero__tag {
-    font-size: 10px;
-    font-weight: 800;
+    font-size: .68rem;
+    font-weight: 650;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: .07em;
     color: var(--ink-muted);
     display: flex;
     align-items: center;
     gap: 5px;
 }
 .ec-hero__title {
-    font-size: 17px;
-    font-weight: 800;
+    font-size: 1.4rem;
+    font-weight: 750;
     color: var(--ink);
-    letter-spacing: -0.3px;
+    letter-spacing: 0;
     line-height: 1.2;
 }
 .ec-hero__sub {
-    font-size: 12px;
+    font-size: .86rem;
     color: var(--ink-muted);
     margin-top: 1px;
 }
@@ -92,109 +94,111 @@
     align-items: center;
     gap: 5px;
     padding: 5px 14px;
-    border-radius: 999px;
-    background: var(--brand-soft, #e8f0e8);
-    color: var(--brand, #3E4A3D);
-    font-size: 13px;
-    font-weight: 800;
-    border: 1px solid color-mix(in srgb, var(--brand, #3E4A3D) 20%, transparent);
-    letter-spacing: 0.04em;
+    border-radius: .7rem;
+    background: #E1E7D9;
+    color: var(--ink);
+    font-size: .86rem;
+    font-weight: 750;
+    border: 1px solid var(--border);
+    letter-spacing: 0;
     white-space: nowrap;
     font-family: monospace;
 }
 
 /* ── Meta strip ───────────────────────────────────────────── */
 .ec-meta {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: .7rem;
+    padding: 1rem;
 }
 .ec-meta__item {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding: 10px 20px;
-    border-right: 1px solid var(--border);
-    min-width: 120px;
+    gap: .15rem;
+    padding: .8rem .9rem;
+    border: 1px solid var(--border);
+    border-radius: .7rem;
+    background: #DCE6D6;
+    min-width: 0;
 }
-.ec-meta__item:last-child { border-right: none; }
 .ec-meta__label {
-    font-size: 9px;
-    font-weight: 800;
+    font-size: .68rem;
+    font-weight: 650;
     text-transform: uppercase;
-    letter-spacing: 0.09em;
+    letter-spacing: .06em;
     color: var(--ink-muted);
 }
 .ec-meta__value {
-    font-size: 12px;
-    font-weight: 600;
+    font-size: .86rem;
+    font-weight: 650;
     color: var(--ink);
 }
 
 /* ── Card ─────────────────────────────────────────────────── */
 .ec-card {
-    background: var(--card);
+    background: #D3DEC9;
     border: 1px solid var(--border);
-    border-radius: 16px;
+    border-radius: .75rem;
     overflow: hidden;
+    box-shadow: none;
 }
 .ec-card__head {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 14px 20px;
+    gap: .55rem;
+    padding: .85rem 1rem;
     border-bottom: 1px solid var(--border);
-    background: var(--surface-muted, #FAFAF7);
+    background: #C7D5BE;
 }
 .ec-card__icon {
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
-    background: var(--brand-soft, #e8f0e8);
+    width: 1.4rem;
+    height: 1.4rem;
     color: var(--brand, #3E4A3D);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 13px;
+    font-size: .86rem;
     flex-shrink: 0;
 }
 .ec-card__title {
-    font-size: 11px;
-    font-weight: 800;
+    font-size: .72rem;
+    font-weight: 650;
     text-transform: uppercase;
-    letter-spacing: 0.09em;
+    letter-spacing: .07em;
     color: var(--ink-muted);
 }
-.ec-card__body { padding: 18px 20px; }
+.ec-card__body { padding: 1rem; }
 
 /* ── Grid ─────────────────────────────────────────────────── */
-.ec-grid   { display: grid; gap: 14px; }
+.ec-grid   { display: grid; gap: .7rem; }
 .ec-grid-2 { grid-template-columns: 1fr 1fr; }
 .ec-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
 .ec-full   { grid-column: 1 / -1; }
 
 /* ── Field ────────────────────────────────────────────────── */
-.ec-field { display: flex; flex-direction: column; gap: 4px; }
+.ec-field { display: flex; flex-direction: column; gap: .35rem; }
 .ec-label {
-    font-size: 10px;
-    font-weight: 800;
+    font-size: .68rem;
+    font-weight: 650;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: .06em;
     color: var(--ink-muted);
     display: flex;
     align-items: center;
     gap: 4px;
 }
 .ec-label-note {
-    font-size: 9px;
-    font-weight: 500;
+    font-size: .68rem;
+    font-weight: 600;
     text-transform: none;
     letter-spacing: 0;
     color: var(--ink-muted);
-    opacity: 0.75;
+    opacity: 1;
 }
 .ec-req { color: #e11d48; }
 .ec-hint {
-    font-size: 10px;
+    font-size: .76rem;
     color: var(--ink-muted);
     display: flex;
     align-items: center;
@@ -216,12 +220,12 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    min-height: 40px;
-    padding: 8px 12px;
+    min-height: 2.6rem;
+    padding: .7rem .8rem;
     border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--surface-muted, #f5f5f2);
-    font-size: 13px;
+    border-radius: .7rem;
+    background: #E1E7D9;
+    font-size: .86rem;
     font-weight: 600;
     color: var(--ink-muted);
     cursor: not-allowed;
@@ -238,35 +242,36 @@
 .ec-fin {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    padding: 16px 20px;
-    background: var(--surface-muted, #FAFAF7);
+    gap: .75rem;
+    padding: 1rem;
+    background: #C7D5BE;
     border-top: 1px solid var(--border);
 }
 .ec-fin-card {
-    background: var(--card);
+    background: #DCE6D6;
     border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 12px 14px;
-    text-align: center;
+    border-radius: .7rem;
+    padding: .85rem .95rem;
+    text-align: left;
+    box-shadow: none;
 }
 .ec-fin-label {
-    font-size: 9px;
-    font-weight: 800;
+    font-size: .68rem;
+    font-weight: 650;
     text-transform: uppercase;
-    letter-spacing: 0.09em;
+    letter-spacing: .07em;
     color: var(--ink-muted);
     margin-bottom: 4px;
 }
 .ec-fin-value {
-    font-size: 16px;
-    font-weight: 800;
+    font-size: 1rem;
+    font-weight: 750;
     color: var(--ink);
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.5px;
 }
 .ec-fin-sub {
-    font-size: 9px;
+    font-size: .72rem;
     color: var(--ink-muted);
     margin-top: 2px;
 }
@@ -296,41 +301,73 @@
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
+    justify-content: flex-end;
 }
 .ec-save-btn {
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    padding: 10px 22px;
-    border-radius: 10px;
+    min-height: 2.65rem;
+    padding: 0 .95rem;
+    border-radius: .75rem;
     background: var(--accent, #3E4A3D);
     border: 1px solid var(--accent, #3E4A3D);
     color: #fff;
-    font-size: 13px;
+    font-size: .84rem;
     font-weight: 700;
     cursor: pointer;
-    transition: background .15s, border-color .15s;
+    transition: background-color .16s ease, border-color .16s ease;
+    box-shadow: none;
 }
 .ec-save-btn:hover { background: #2f3a2e; border-color: #2f3a2e; }
 .ec-cancel-btn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 10px 18px;
-    border-radius: 10px;
-    background: var(--card);
+    min-height: 2.65rem;
+    padding: 0 .95rem;
+    border-radius: .75rem;
+    background: #E1E7D9;
     border: 1px solid var(--border);
     color: var(--ink-muted);
-    font-size: 13px;
-    font-weight: 600;
+    font-size: .84rem;
+    font-weight: 700;
     cursor: pointer;
     text-decoration: none;
-    transition: background .15s, border-color .15s, color .15s;
+    transition: background-color .16s ease, border-color .16s ease, color .16s ease;
+    box-shadow: none;
 }
 .ec-cancel-btn:hover {
-    background: var(--surface-muted, #F3F0E8);
-    border-color: var(--ink-muted);
+    background: #C7D5BE;
+    border-color: #8EA083;
     color: var(--ink);
+}
+
+.ec-wrap .form-input,
+.ec-wrap select,
+.ec-wrap textarea {
+    min-height: 2.75rem;
+    border-radius: .7rem;
+    border: 1px solid var(--border);
+    background: #E1E7D9;
+    color: var(--ink);
+    font-size: .9rem;
+    font-weight: 600;
+    box-shadow: none !important;
+}
+.ec-wrap .form-input:focus,
+.ec-wrap select:focus,
+.ec-wrap textarea:focus {
+    border-color: #8EA083;
+    background: #EEF3E8;
+    box-shadow: none !important;
+}
+.ec-wrap button,
+.ec-wrap a,
+.ec-wrap select,
+.ec-wrap input[type="date"],
+.ec-wrap input[type="time"] {
+    cursor: pointer;
 }
 
 /* ── Dark mode ────────────────────────────────────────────── */
@@ -617,15 +654,6 @@ html[data-theme='dark'] .ec-banner     { background: #2a0a0a; border-color: #7f1
                         value="{{ old('wake_location', $funeral_case->wake_location) }}"
                         class="form-input w-full" maxlength="255" placeholder="Funeral home, chapel, or address">
                     @error('wake_location')<div class="ec-err"><i class="bi bi-exclamation-circle"></i> {{ $message }}</div>@enderror
-                </div>
-
-                <div class="ec-field">
-                    <label class="ec-label">Date Recorded</label>
-                    <div class="ec-readonly">
-                        <i class="bi bi-calendar-check" style="font-size:12px;opacity:.5;"></i>
-                        {{ $requestDateRecorded->format('F d, Y') }}
-                    </div>
-                    <span class="ec-hint"><i class="bi bi-lock"></i> System-generated, cannot be changed.</span>
                 </div>
 
                 <div class="ec-field">

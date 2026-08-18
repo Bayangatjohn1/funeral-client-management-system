@@ -2032,6 +2032,107 @@ a.eb-overview-card:hover {
     color: var(--eb-text);
 }
 
+.eb-shell {
+    --eb-card: #D3DEC9;
+    --eb-card-alt: #DCE6D6;
+    --eb-card-strong: #C7D5BE;
+    --eb-card-warm: #E1DFCC;
+    --eb-hover: #C5D3BC;
+    --eb-active: #B8C9AF;
+    --eb-readable-muted: #3F4C3E;
+}
+
+.eb-shell .eb-card,
+.eb-shell .eb-overview-card,
+.eb-shell .eb-branch-card,
+.eb-shell .eb-trend-card,
+.eb-shell .eb-quick-item,
+.eb-shell .eb-pkg-row,
+.eb-shell .eb-attention-item,
+.eb-shell .eb-status-row {
+    background: var(--eb-card) !important;
+    color: var(--eb-text) !important;
+    border-color: #AEBBA8 !important;
+    box-shadow: none !important;
+    filter: none !important;
+    backdrop-filter: none !important;
+}
+
+.eb-shell .eb-overview-card:nth-child(2),
+.eb-shell .eb-pkg-row:nth-child(odd),
+.eb-shell .eb-status-row:nth-child(odd) {
+    background: var(--eb-card-alt) !important;
+}
+
+.eb-shell .eb-overview-card:nth-child(3),
+.eb-shell .eb-attention-item,
+.eb-shell .eb-branch-pie-panel {
+    background: var(--eb-card-warm) !important;
+}
+
+.eb-shell .eb-card h1,
+.eb-shell .eb-card h2,
+.eb-shell .eb-card h3,
+.eb-shell .eb-card h4,
+.eb-shell .eb-overview-card h3,
+.eb-shell .eb-overview-value,
+.eb-shell .eb-branch-name,
+.eb-shell .eb-branch-bar-value,
+.eb-shell .eb-status-value,
+.eb-shell .eb-pkg-name {
+    color: #232821 !important;
+}
+
+.eb-shell .eb-card p,
+.eb-shell .eb-card small,
+.eb-shell .eb-overview-label,
+.eb-shell .eb-overview-desc,
+.eb-shell .eb-section-sub,
+.eb-shell .eb-branch-code,
+.eb-shell .eb-status-label,
+.eb-shell .eb-pkg-meta,
+.eb-shell .eb-attention-code {
+    color: var(--eb-readable-muted) !important;
+    opacity: 1 !important;
+}
+
+.eb-shell .eb-overview-icon,
+.eb-shell .eb-section-icon,
+.eb-shell .eb-quick-icon {
+    background: transparent !important;
+    color: #3E4A3D !important;
+}
+
+.eb-shell .eb-overview-card:hover,
+.eb-shell .eb-quick-button:hover,
+.eb-shell .eb-quick-item:hover,
+.eb-shell .eb-status-row:hover,
+.eb-shell .eb-pkg-row:hover,
+.eb-shell .eb-branch-bar-item:hover:not(.is-selected),
+.eb-shell .eb-pop-reset:hover,
+.eb-shell .eb-branch-select-wrap:hover,
+.eb-shell .eb-period-select-wrap:hover {
+    background: var(--eb-hover) !important;
+    border-color: #8EA083 !important;
+    color: #232821 !important;
+}
+
+.eb-shell .eb-branch-bar-item.is-selected,
+.eb-shell .eb-branch-bar-item.is-active,
+.eb-shell .eb-seg-item[aria-pressed="true"],
+.eb-shell .eb-status-row[aria-pressed="true"],
+.eb-shell .eb-quick-button[aria-pressed="true"],
+.eb-shell [aria-pressed="true"] {
+    background: var(--eb-active) !important;
+    border-color: #3E4A3D !important;
+    color: #232821 !important;
+}
+
+.eb-shell .eb-branch-bar-item.is-preview:not(.is-selected) {
+    background: var(--eb-hover) !important;
+    border-color: #8EA083 !important;
+}
+
 @media (max-width: 640px) {
     .eb-shell {
         max-width: none;

@@ -633,15 +633,15 @@ class ReportController extends Controller
         $user = auth()->user();
         if ($user?->isOwner()) {
             return [
-                self::REPORT_OWNER_BRANCH_ANALYTICS => 'Owner Sales per Branch / Branch Analytics',
+                self::REPORT_OWNER_BRANCH_ANALYTICS => 'Owner Sales per Branch',
             ];
         }
 
         return [
             self::REPORT_SALES => 'Sales Report',
-            self::REPORT_MASTER_CASES => 'Master Cases / Case Monitoring',
+            self::REPORT_MASTER_CASES => 'Master Case Monitoring',
             self::REPORT_AUDIT_LOGS => 'Audit Logs',
-            self::REPORT_OWNER_BRANCH_ANALYTICS => 'Owner Sales per Branch / Branch Analytics',
+            self::REPORT_OWNER_BRANCH_ANALYTICS => 'Owner Sales per Branch',
         ];
     }
 

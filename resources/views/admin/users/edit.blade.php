@@ -2,6 +2,7 @@
 
 @section('page_title','Edit User')
 @section('page_desc', 'Update user profile details, roles, and credentials.')
+@section('hide_layout_topbar', '1')
 
 @section('content')
 @php
@@ -27,9 +28,143 @@
     $selectedBranchId = (int) old('branch_id', $user->branch_id);
     $shouldLockBranch = $isEditingMainAdmin || $isEditingStaff || $isBranchAdmin;
 @endphp
+<style>
+.user-edit-page {
+    min-height:calc(100vh - 1rem);
+    background:
+        linear-gradient(90deg, rgba(73,87,69,0.04) 0 1px, transparent 1px),
+        linear-gradient(180deg, rgba(73,87,69,0.034) 0 1px, transparent 1px),
+        repeating-linear-gradient(135deg, rgba(73,87,69,0.02) 0 1px, transparent 1px 12px),
+        #C4D2BE;
+    background-size:44px 44px,44px 44px,16px 16px,auto;
+}
+.user-edit-toast {
+    position:fixed;
+    top:1rem;
+    right:1rem;
+    z-index:1200;
+    display:flex;
+    align-items:center;
+    gap:.55rem;
+    max-width:calc(100vw - 2rem);
+    border:1px solid #8EA083;
+    border-radius:.75rem;
+    background:#2F3A2E;
+    color:#F7FAF3;
+    padding:.72rem .9rem;
+    font-size:.88rem;
+    font-weight:650;
+    line-height:1.35;
+    box-shadow:none !important;
+    pointer-events:none;
+    animation:userEditToastIn .18s ease-out, userEditToastOut .22s ease-in 3.8s forwards;
+}
+@keyframes userEditToastIn {
+    from { opacity:0; transform:translateY(-.35rem); }
+    to { opacity:1; transform:translateY(0); }
+}
+@keyframes userEditToastOut {
+    to { opacity:0; transform:translateY(-.35rem); visibility:hidden; }
+}
+.user-edit-page .modal-shell-card {
+    border:1px solid #B5C4AD !important;
+    border-radius:.85rem !important;
+    background:#D3DEC9 !important;
+    box-shadow:none !important;
+}
+.user-edit-page .modal-shell-card > .border-b,
+.user-edit-page .modal-shell-card > form > .border-t,
+.user-edit-page .modal-shell-card > .border-t {
+    border-color:#B5C4AD !important;
+    background:#D3DEC9 !important;
+}
+.user-edit-page .modal-shell-card h2 {
+    color:var(--ink) !important;
+    font-size:1.35rem !important;
+    font-weight:780 !important;
+}
+.user-edit-page .modal-shell-card p,
+.user-edit-page .form-hint {
+    color:#566653 !important;
+    font-weight:620;
+}
+.user-edit-page .modal-shell-card .rounded-xl.border {
+    border-color:#B5C4AD !important;
+    background:#E1E7D9 !important;
+    box-shadow:none !important;
+}
+.user-edit-page .modal-shell-card h3 {
+    color:#3E4A3D !important;
+    font-size:.78rem !important;
+    font-weight:720 !important;
+    letter-spacing:.06em;
+}
+.user-edit-page .label-section {
+    color:#566653;
+    font-size:.76rem;
+    font-weight:680;
+}
+.user-edit-page .form-input,
+.user-edit-page .form-select {
+    min-height:2.65rem;
+    border:1px solid #B5C4AD;
+    border-radius:.75rem;
+    background:#F7FAF3;
+    color:var(--ink);
+    box-shadow:none !important;
+}
+.user-edit-page .form-input:focus,
+.user-edit-page .form-select:focus {
+    background:#fff;
+    border-color:#8EA083;
+    box-shadow:none !important;
+}
+.user-edit-page .btn-outline {
+    min-height:2.65rem;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border:1px solid #B5C4AD;
+    border-radius:.75rem;
+    background:#E1E7D9;
+    color:#3E4A3D;
+    padding:0 .95rem;
+    font-weight:700;
+    box-shadow:none !important;
+}
+.user-edit-page .btn-outline:hover {
+    background:#C7D5BE;
+    border-color:#8EA083;
+    color:var(--ink);
+}
+.user-edit-page .btn-primary-custom {
+    min-height:2.65rem;
+    border-radius:.75rem;
+    background:#344333 !important;
+    border-color:#344333 !important;
+    box-shadow:none !important;
+}
+.user-edit-page .btn-primary-custom:hover {
+    background:#2F3A2E !important;
+    border-color:#2F3A2E !important;
+}
+.user-edit-badge {
+    border:1px solid #B5C4AD;
+    border-radius:999px;
+    background:#E1E7D9;
+    color:#3E4A3D;
+    padding:.35rem .7rem;
+    font-size:.76rem;
+    font-weight:720;
+}
+</style>
 
-<div class="w-full bg-slate-100 min-h-screen py-10 px-4 sm:px-6 lg:px-8 flex justify-center font-ui-body">
-    <div class="w-full max-w-5xl space-y-8">
+<div class="user-edit-page w-full min-h-screen pt-4 pb-8 px-4 sm:px-6 lg:px-8 flex justify-center font-ui-body">
+    <div class="w-full max-w-5xl space-y-5">
+        <div class="user-edit-toast no-print" role="status" aria-live="polite">
+            <i class="bi bi-person-gear"></i>
+            <span>You are editing a user account.</span>
+        </div>
         <form id="userEditForm" method="POST" action="{{ route('admin.users.update', $user) }}" class="w-full">
             @csrf
             @method('PUT')
@@ -48,21 +183,24 @@
             @endif
 
             <div class="modal-shell-card max-w-5xl mx-auto rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                <div class="px-8 py-6 border-b border-slate-200 bg-slate-50">
+                <div class="px-6 sm:px-8 py-5 border-b border-slate-200 bg-slate-50">
                     <div class="flex items-start justify-between gap-3">
                         <div>
-                            <h2 class="text-2xl font-semibold text-slate-900">Edit User</h2>
-                            <p class="text-sm text-slate-500 mt-1">Update account details and access for {{ $user->name }}.</p>
+                            <h2 class="text-2xl font-semibold text-slate-900">Account details</h2>
+                            <p class="text-sm text-slate-500 mt-1">Update the user profile, role access, and contact information.</p>
                         </div>
-                        <span class="inline-flex items-center rounded-xl border border-slate-300 bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
+                        <span class="user-edit-badge inline-flex items-center">
                             User ID: {{ $user->id }}
                         </span>
                     </div>
                 </div>
 
-                <div class="p-8 space-y-8">
+                <div class="p-5 sm:p-6 space-y-5">
                     <div class="rounded-xl border border-slate-200 p-6 space-y-5">
-                        <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Account Information</h3>
+                        <div>
+                            <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Account Information</h3>
+                            <p class="text-sm mt-1">Review the user name and email used for login.</p>
+                        </div>
 
                         <div class="grid gap-5 md:grid-cols-2">
                             @if($hasSplitUserNames)
@@ -120,7 +258,10 @@
                     </div>
 
                     <div class="rounded-xl border border-slate-200 p-6 space-y-5">
-                        <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Role & Access</h3>
+                        <div>
+                            <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Role & Access</h3>
+                            <p class="text-sm mt-1">Control the user role and assigned branch scope.</p>
+                        </div>
 
                         <div class="grid gap-5 md:grid-cols-2">
                             <div>
@@ -197,7 +338,10 @@
                     </div>
 
                     <div class="rounded-xl border border-slate-200 p-6 space-y-5">
-                        <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Personal Information</h3>
+                        <div>
+                            <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Contact Information</h3>
+                            <p class="text-sm mt-1">Optional details for internal user records.</p>
+                        </div>
 
                         <div class="grid gap-5 md:grid-cols-2">
                             <div id="contact_wrap">
@@ -225,7 +369,7 @@
                     </div>
                 </div>
 
-                <div class="px-8 py-5 border-t border-slate-200 flex justify-end gap-3 bg-slate-50">
+                <div class="px-6 sm:px-8 py-5 border-t border-slate-200 flex justify-end gap-3 bg-slate-50">
                     <a href="{{ $returnTo }}" class="btn btn-outline">Cancel</a>
                     <button type="submit" class="btn btn-primary-custom bg-[var(--brand-mid)] border-[var(--brand-mid)] hover:bg-[var(--brand-hover)] text-white px-6">
                         <i class="bi bi-save2"></i>
@@ -236,8 +380,8 @@
         </form>
 
         <div class="modal-shell-card max-w-5xl mx-auto rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div class="px-8 py-6 border-b border-slate-200 bg-slate-50">
-                <h2 class="text-2xl font-semibold text-slate-900">Reset Password</h2>
+            <div class="px-6 sm:px-8 py-5 border-b border-slate-200 bg-slate-50">
+                <h2 class="text-2xl font-semibold text-slate-900">Password reset</h2>
                 <p class="text-sm text-slate-500 mt-1">Optional password update for this account.</p>
             </div>
 
@@ -247,7 +391,7 @@
 
                 <input type="hidden" name="return_to" value="{{ $returnTo }}">
 
-                <div class="p-8">
+                <div class="p-5 sm:p-6">
                     <div class="rounded-xl border border-slate-200 p-6">
                         <div class="grid gap-5 md:grid-cols-2">
                             <div>
@@ -264,7 +408,7 @@
                     </div>
                 </div>
 
-                <div class="px-8 py-5 border-t border-slate-200 flex justify-end bg-slate-50">
+                <div class="px-6 sm:px-8 py-5 border-t border-slate-200 flex justify-end bg-slate-50">
                     <button type="submit" class="btn btn-outline px-5">
                         Reset
                     </button>

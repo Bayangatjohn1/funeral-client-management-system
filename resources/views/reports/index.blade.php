@@ -2,6 +2,7 @@
 
 @section('page_title', 'Reports')
 @section('page_desc', 'Generate, preview, and export filtered operational reports.')
+@section('hide_layout_topbar', '1')
 
 @section('content')
 <div
@@ -488,7 +489,371 @@
         html[data-theme='dark'] .reports-scope-pill {
             color: #34d399;
         }
+
+        .reports-page {
+            min-height:100%;
+            padding:18px !important;
+            background:
+                linear-gradient(90deg, rgba(73,87,69,0.04) 0 1px, transparent 1px),
+                linear-gradient(180deg, rgba(73,87,69,0.034) 0 1px, transparent 1px),
+                repeating-linear-gradient(135deg, rgba(73,87,69,0.02) 0 1px, transparent 1px 12px),
+                #C4D2BE;
+            background-size:44px 44px,44px 44px,16px 16px,auto;
+        }
+
+        .reports-toast {
+            position:fixed;
+            top:1rem;
+            right:1rem;
+            z-index:1200;
+            display:flex;
+            align-items:center;
+            gap:.55rem;
+            max-width:calc(100vw - 2rem);
+            border:1px solid #8EA083;
+            border-radius:.75rem;
+            background:#2F3A2E;
+            color:#F7FAF3;
+            padding:.72rem .9rem;
+            font-size:.88rem;
+            font-weight:650;
+            line-height:1.35;
+            box-shadow:none !important;
+            pointer-events:none;
+            animation:reportsToastIn .18s ease-out, reportsToastOut .22s ease-in 3.8s forwards;
+        }
+
+        @keyframes reportsToastIn {
+            from { opacity:0; transform:translateY(-.35rem); }
+            to { opacity:1; transform:translateY(0); }
+        }
+
+        @keyframes reportsToastOut {
+            to { opacity:0; transform:translateY(-.35rem); visibility:hidden; }
+        }
+
+        .reports-card {
+            background:#D3DEC9 !important;
+            border:1px solid #AEBFA6 !important;
+            border-radius:.75rem !important;
+            box-shadow:none !important;
+            overflow:visible;
+        }
+
+        .reports-card-head,
+        .reports-preview-head {
+            border-bottom:1px solid #AEBFA6 !important;
+            padding:.95rem 1rem !important;
+            background:#D3DEC9 !important;
+        }
+
+        .reports-card:first-of-type .reports-card-head {
+            display:none;
+        }
+
+        .reports-card-title {
+            color:#293229 !important;
+            font-size:1.05rem !important;
+            font-weight:720 !important;
+        }
+
+        .reports-card-copy {
+            color:#566653 !important;
+            font-size:.86rem !important;
+            font-weight:560 !important;
+        }
+
+        .reports-config-form {
+            padding:.75rem !important;
+            gap:.75rem !important;
+        }
+
+        .reports-config-toolbar {
+            align-items:center !important;
+            gap:.65rem !important;
+        }
+
+        .reports-filter-grid {
+            gap:.65rem !important;
+        }
+
+        .reports-field {
+            position:relative;
+        }
+
+        .reports-config-toolbar > .reports-field,
+        .reports-filter-grid .reports-field,
+        .reports-filter-grid .reports-field.reports-field-wide {
+            flex:1 1 13.5rem !important;
+            min-width:12.5rem !important;
+            max-width:none !important;
+        }
+
+        .reports-config-toolbar > .reports-field:first-child {
+            flex:0 1 16rem !important;
+        }
+
+        .reports-label {
+            position:absolute !important;
+            top:-.45rem !important;
+            left:.85rem !important;
+            z-index:2 !important;
+            background:#D3DEC9 !important;
+            color:#566653 !important;
+            padding:0 .35rem !important;
+            font-size:.68rem !important;
+            font-weight:680 !important;
+            line-height:1 !important;
+            letter-spacing:.04em !important;
+        }
+
+        .reports-config-toolbar > .reports-field .reports-label {
+            display:block !important;
+        }
+
+        .reports-help {
+            display:none !important;
+        }
+
+        .reports-input,
+        .reports-analytics-branch,
+        .reports-analytics-seg-item,
+        .reports-analytics-more,
+        .reports-more-filters,
+        .reports-analytics-pop-input {
+            min-height:2.65rem !important;
+            border:1px solid #AEBFA6 !important;
+            border-radius:.5rem !important;
+            background:#E9F0E4 !important;
+            color:#293229 !important;
+            font-size:.9rem !important;
+            font-weight:650 !important;
+            box-shadow:none !important;
+            cursor:pointer;
+        }
+
+        .reports-input {
+            padding:.45rem 2.45rem .45rem .9rem !important;
+        }
+
+        .reports-input:hover,
+        .reports-analytics-branch:hover,
+        .reports-analytics-seg-item:hover,
+        .reports-analytics-more:hover,
+        .reports-more-filters:hover,
+        .reports-btn-secondary:hover:not(:disabled),
+        .reports-btn-neutral:hover:not(:disabled),
+        .reports-metric:hover:not(.is-selected) {
+            background:#DDE8D6 !important;
+            border-color:#8EA083 !important;
+            transform:none !important;
+        }
+
+        .reports-input:focus,
+        .reports-analytics-pop-input:focus {
+            border-color:#8EA083 !important;
+            background:#F4F8EF !important;
+            box-shadow:none !important;
+        }
+
+        .reports-more-filters.active,
+        .reports-analytics-seg-item.active,
+        .reports-analytics-more.active {
+            background:#344333 !important;
+            border-color:#344333 !important;
+            color:#fff !important;
+        }
+
+        .reports-advanced-filter-row {
+            border-top:1px solid #AEBFA6 !important;
+            padding-top:.85rem !important;
+            gap:.65rem !important;
+        }
+
+        .reports-actions {
+            border-top:1px solid #AEBFA6 !important;
+            padding-top:.75rem !important;
+            gap:.65rem !important;
+        }
+
+        .reports-action-buttons {
+            gap:.55rem !important;
+        }
+
+        .reports-btn {
+            min-height:2.65rem !important;
+            border-radius:.5rem !important;
+            padding:0 .95rem !important;
+            font-size:.84rem !important;
+            font-weight:650 !important;
+            box-shadow:none !important;
+            cursor:pointer;
+            transform:none !important;
+        }
+
+        .reports-btn-primary {
+            background:#344333 !important;
+            border-color:#344333 !important;
+            color:#fff !important;
+        }
+
+        .reports-btn-primary:hover:not(:disabled) {
+            background:#2F3A2E !important;
+        }
+
+        .reports-btn-secondary,
+        .reports-btn-neutral {
+            background:#E9F0E4 !important;
+            border:1px solid #AEBFA6 !important;
+            color:#3E4A3D !important;
+        }
+
+        .reports-export-menu {
+            position:relative;
+        }
+
+        .reports-export-menu[aria-disabled="true"] {
+            opacity:.48;
+            pointer-events:none;
+        }
+
+        .reports-export-menu summary {
+            list-style:none;
+        }
+
+        .reports-export-menu summary::-webkit-details-marker {
+            display:none;
+        }
+
+        .reports-export-options {
+            position:absolute;
+            right:0;
+            top:calc(100% + .45rem);
+            z-index:40;
+            min-width:12rem;
+            border:1px solid #AEBFA6;
+            border-radius:.65rem;
+            background:#E9F0E4;
+            overflow:hidden;
+        }
+
+        .reports-export-options button {
+            width:100%;
+            min-height:2.5rem;
+            border:0;
+            background:transparent;
+            color:#293229;
+            display:flex;
+            align-items:center;
+            gap:.5rem;
+            padding:0 .85rem;
+            font-size:.86rem;
+            font-weight:650;
+            cursor:pointer;
+            text-align:left;
+        }
+
+        .reports-export-options button:hover {
+            background:#DDE8D6;
+        }
+
+        .reports-chip,
+        .reports-role-badge {
+            border:1px solid #AEBFA6 !important;
+            background:#E1E7D9 !important;
+            color:#566653 !important;
+            font-weight:650 !important;
+            box-shadow:none !important;
+        }
+
+        .reports-summary-grid {
+            grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+            gap:.65rem !important;
+            padding:.75rem !important;
+        }
+
+        .reports-metric {
+            background:#E1E7D9 !important;
+            border:1px solid #AEBFA6 !important;
+            border-radius:.65rem !important;
+            box-shadow:none !important;
+        }
+
+        .reports-metric-icon {
+            background:transparent !important;
+            color:#566653 !important;
+            width:2rem !important;
+            height:2rem !important;
+        }
+
+        .reports-metric-label {
+            color:#566653 !important;
+            font-size:.74rem !important;
+            font-weight:680 !important;
+        }
+
+        .reports-metric-value {
+            color:#293229 !important;
+            font-size:1.3rem !important;
+            font-weight:720 !important;
+        }
+
+        .reports-table-wrap {
+            background:#D3DEC9 !important;
+            padding:.75rem;
+        }
+
+        .reports-table {
+            min-width:64rem;
+            background:#F7F9F3;
+            border:1px solid #AEBFA6;
+            border-radius:.75rem;
+            overflow:hidden;
+        }
+
+        .reports-table th {
+            background:#C7D5BE !important;
+            color:#566653 !important;
+            border-bottom:1px solid #AEBFA6 !important;
+            font-weight:720 !important;
+        }
+
+        .reports-table td {
+            border-bottom:1px solid #D4DEC9 !important;
+            color:#293229 !important;
+            font-weight:540;
+        }
+
+        .reports-table tbody tr:hover td {
+            background:#E9F0E4 !important;
+        }
+
+        .reports-state {
+            background:#D3DEC9 !important;
+        }
+
+        .reports-state-icon {
+            background:#E1E7D9 !important;
+            color:#566653 !important;
+        }
+
+        .reports-alert,
+        .reports-branch-strip,
+        .reports-drill-banner {
+            box-shadow:none !important;
+        }
+
+        .reports-analytics-popover {
+            background:#E9F0E4 !important;
+            border:1px solid #AEBFA6 !important;
+            box-shadow:none !important;
+        }
     </style>
+
+    <div class="reports-toast no-print" role="status" aria-live="polite">
+        <i class="bi bi-clipboard-data"></i>
+        <span>You are viewing the reports page.</span>
+    </div>
 
     <section class="reports-card">
         <div class="reports-card-head">
@@ -537,15 +902,14 @@
 
                 <template x-if="shows('date_range')">
                     <div class="reports-field">
-                        <label class="reports-label" for="date_from">Date From</label>
-                        <input id="date_from" type="date" x-model="filters.date_from" class="reports-input">
-                    </div>
-                </template>
-
-                <template x-if="shows('date_range')">
-                    <div class="reports-field">
-                        <label class="reports-label" for="date_to">Date To</label>
-                        <input id="date_to" type="date" x-model="filters.date_to" class="reports-input">
+                        <label class="reports-label" for="date_preset">Date Range</label>
+                        <select id="date_preset" x-model="datePreset" class="reports-input" @change="selectReportDatePreset(datePreset)">
+                            <option value="">Any Time</option>
+                            <option value="TODAY">Today</option>
+                            <option value="THIS_MONTH">This Month</option>
+                            <option value="THIS_YEAR">This Year</option>
+                            <option value="CUSTOM">Custom Range</option>
+                        </select>
                     </div>
                 </template>
 
@@ -587,6 +951,20 @@
                 </div>
             </div>
                 <div class="reports-advanced-filter-row" x-show="advancedFiltersOpen && hasAdvancedFilters()" x-cloak>
+                    <template x-if="shows('date_range') && datePreset === 'CUSTOM'">
+                        <div class="reports-field">
+                            <label class="reports-label" for="date_from">Date From</label>
+                            <input id="date_from" type="date" x-model="filters.date_from" class="reports-input">
+                        </div>
+                    </template>
+
+                    <template x-if="shows('date_range') && datePreset === 'CUSTOM'">
+                        <div class="reports-field">
+                            <label class="reports-label" for="date_to">Date To</label>
+                            <input id="date_to" type="date" x-model="filters.date_to" class="reports-input">
+                        </div>
+                    </template>
+
                     <template x-if="shows('case_status')">
                         <div class="reports-field">
                             <label class="reports-label" for="case_status">Case Status</label>
@@ -697,14 +1075,26 @@
                         <i class="bi bi-eye" x-show="!loading"></i>
                         <span x-text="loading ? 'Generating...' : 'Preview Report'"></span>
                     </button>
-                    <button type="button" class="reports-btn reports-btn-secondary" @click="openPrint" :disabled="loading || rows.length === 0">
-                        <i class="bi bi-printer"></i>
-                        <span>Print / Save as PDF</span>
-                    </button>
-                    <button type="button" class="reports-btn reports-btn-secondary" @click="openCsv" :disabled="loading || rows.length === 0">
-                        <i class="bi bi-file-earmark-spreadsheet"></i>
-                        <span>Export CSV</span>
-                    </button>
+                    <details
+                        class="reports-export-menu"
+                        :aria-disabled="loading || rows.length === 0 ? 'true' : 'false'"
+                    >
+                        <summary class="reports-btn reports-btn-secondary">
+                            <i class="bi bi-download"></i>
+                            <span>Export</span>
+                            <i class="bi bi-chevron-down"></i>
+                        </summary>
+                        <div class="reports-export-options">
+                            <button type="button" @click="openPrint">
+                                <i class="bi bi-filetype-pdf"></i>
+                                <span>Print / Save as PDF</span>
+                            </button>
+                            <button type="button" @click="openCsv">
+                                <i class="bi bi-filetype-csv"></i>
+                                <span>Export CSV</span>
+                            </button>
+                        </div>
+                    </details>
                     <button type="button" class="reports-btn reports-btn-neutral" @click="resetFilters">
                         <i class="bi bi-arrow-counterclockwise"></i>
                         <span>Reset Filters</span>
@@ -972,7 +1362,8 @@ function reportsModule(config) {
             this.reportType = this.filters.report_type;
             if (this.isOwnerAnalytics()) {
                 this.syncAnalyticsPresetFromDates();
-                this.queueOwnerAnalyticsPreview();
+            } else {
+                this.syncReportPresetFromDates();
             }
         },
         enforceAssignedBranch() {
@@ -1008,6 +1399,9 @@ function reportsModule(config) {
                 audit_logs: ['audit_action', 'audit_module'],
                 owner_branch_analytics: [],
             };
+            if (this.shows('date_range') && this.datePreset === 'CUSTOM') {
+                return true;
+            }
             return (map[this.filters.report_type] || []).some((field) => {
                 if (field === 'audit_action') return Boolean(this.auditOptions.supports_action);
                 if (field === 'audit_module') return Boolean(this.auditOptions.supports_module);
@@ -1086,13 +1480,6 @@ function reportsModule(config) {
             this.drilldownMode = 'cases';
             if (this.isOwnerAnalytics()) {
                 this.selectDatePreset('TODAY');
-            } else {
-                this.rows = [];
-                this.summary = {};
-                this.selectedFilters = {};
-                this.error = '';
-                this.hasPreview = false;
-                return;
             }
             this.rows = [];
             this.summary = {};
@@ -1118,11 +1505,35 @@ function reportsModule(config) {
                 this.selectDatePreset('TODAY');
                 return;
             }
+            this.syncReportPresetFromDates();
             this.rows = [];
             this.summary = {};
             this.selectedFilters = {};
             this.error = '';
             this.hasPreview = false;
+        },
+        selectReportDatePreset(preset) {
+            if (this.isOwnerAnalytics()) {
+                this.selectDatePreset(preset || 'TODAY');
+                return;
+            }
+            if (!preset) {
+                this.filters.date_from = '';
+                this.filters.date_to = '';
+                return;
+            }
+            if (preset === 'TODAY') {
+                this.filters.date_from = config.analyticsDates.today;
+                this.filters.date_to = config.analyticsDates.today;
+            } else if (preset === 'THIS_MONTH') {
+                this.filters.date_from = config.analyticsDates.monthStart;
+                this.filters.date_to = config.analyticsDates.today;
+            } else if (preset === 'THIS_YEAR') {
+                this.filters.date_from = config.analyticsDates.yearStart;
+                this.filters.date_to = config.analyticsDates.today;
+            } else if (preset === 'CUSTOM') {
+                this.advancedFiltersOpen = true;
+            }
         },
         selectDatePreset(preset) {
             this.datePreset = preset;
@@ -1137,12 +1548,10 @@ function reportsModule(config) {
                 this.filters.date_from = config.analyticsDates.yearStart;
                 this.filters.date_to = config.analyticsDates.today;
             }
-            this.queueOwnerAnalyticsPreview();
         },
         applyCustomRange() {
             this.datePreset = 'CUSTOM';
             this.customRangeOpen = false;
-            this.queueOwnerAnalyticsPreview();
         },
         syncAnalyticsPresetFromDates() {
             const from = this.filters.date_from;
@@ -1167,11 +1576,30 @@ function reportsModule(config) {
             }
             this.datePreset = 'CUSTOM';
         },
-        queueOwnerAnalyticsPreview() {
-            if (!this.isOwnerAnalytics()) return;
-            if (this.previewTimer) clearTimeout(this.previewTimer);
-            this.previewTimer = setTimeout(() => this.loadPreview(), 180);
+        syncReportPresetFromDates() {
+            if (this.isOwnerAnalytics()) return;
+            const from = this.filters.date_from;
+            const to = this.filters.date_to;
+            if (!from && !to) {
+                this.datePreset = '';
+                return;
+            }
+            if (from === config.analyticsDates.today && to === config.analyticsDates.today) {
+                this.datePreset = 'TODAY';
+                return;
+            }
+            if (from === config.analyticsDates.monthStart && to === config.analyticsDates.today) {
+                this.datePreset = 'THIS_MONTH';
+                return;
+            }
+            if (from === config.analyticsDates.yearStart && to === config.analyticsDates.today) {
+                this.datePreset = 'THIS_YEAR';
+                return;
+            }
+            this.datePreset = 'CUSTOM';
+            this.advancedFiltersOpen = true;
         },
+        queueOwnerAnalyticsPreview() {},
         analyticsBranchLabel() {
             if (this.isBranchAdmin) return this.assignedBranchLabel || 'Assigned Branch';
             const branch = this.branches.find((item) => String(item.id) === String(this.filters.branch_id));
@@ -1208,7 +1636,7 @@ function reportsModule(config) {
             const auditUser = this.users.find((item) => String(item.id) === String(this.filters.user_id));
 
             if (this.filters.branch_id || this.isBranchAdmin) chips.push({ icon: 'bi-building', label: this.isBranchAdmin ? (this.assignedBranchLabel || 'Assigned Branch Only') : (branch ? `${branch.branch_code} - ${branch.branch_name}` : `Branch #${this.filters.branch_id}`) });
-            if (this.filters.date_from || this.filters.date_to) chips.push({ icon: 'bi-calendar3', label: `${this.filters.date_from || 'Start'} - ${this.filters.date_to || 'Today'}` });
+            if (this.filters.date_from || this.filters.date_to) chips.push({ icon: 'bi-calendar3', label: this.datePreset === 'CUSTOM' ? `${this.filters.date_from || 'Start'} - ${this.filters.date_to || 'Today'}` : this.analyticsPresetLabel() });
             if (this.filters.payment_status) chips.push({ icon: 'bi-wallet2', label: `Payment: ${this.formatStatus(this.filters.payment_status)}` });
             if (this.filters.case_status) chips.push({ icon: 'bi-folder2-open', label: `Case: ${this.formatStatus(this.filters.case_status)}` });
             if (this.filters.verification_status) chips.push({ icon: 'bi-shield-check', label: `Verification: ${this.formatStatus(this.filters.verification_status)}` });
@@ -1260,9 +1688,6 @@ function reportsModule(config) {
             if (this.reportType === 'owner_branch_analytics') {
                 return [
                     { label: 'Total Cases',       value: this.number(this.summary.total_cases || 0),       icon: 'bi-folder2-open',      key: 'total_cases' },
-                    { label: 'Paid Cases',         value: this.number(this.summary.paid_cases || 0),        icon: 'bi-check-circle',       key: 'paid_cases' },
-                    { label: 'Partial Cases',      value: this.number(this.summary.partial_cases || 0),     icon: 'bi-hourglass-split',    key: 'partial_cases' },
-                    { label: 'Unpaid Cases',       value: this.number(this.summary.unpaid_cases || 0),      icon: 'bi-exclamation-circle', key: 'unpaid_cases' },
                     { label: 'Gross Amount',       value: money(this.summary.gross_amount),                 icon: 'bi-cash-stack',         key: 'gross_amount' },
                     { label: 'Collected Amount',   value: money(this.summary.collected_amount),             icon: 'bi-wallet2',            key: 'collected_amount' },
                     { label: 'Remaining Balance',  value: money(this.summary.remaining_balance),            icon: 'bi-receipt',            key: 'remaining_balance' },

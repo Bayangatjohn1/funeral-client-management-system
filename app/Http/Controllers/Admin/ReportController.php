@@ -492,7 +492,7 @@ class ReportController extends Controller
     {
         $validated = $request->validate([
             'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
-            'date_preset' => ['nullable', 'in:ANY,TODAY,LAST_7_DAYS,LAST_30_DAYS,THIS_MONTH,CUSTOM'],
+            'date_preset' => ['nullable', 'in:ANY,TODAY,THIS_MONTH,THIS_YEAR,CUSTOM'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
             'interment_from' => ['nullable', 'date'],
@@ -519,9 +519,8 @@ class ReportController extends Controller
         } elseif ($datePreset !== 'ANY') {
             [$dateFrom, $dateTo] = match ($datePreset) {
                 'TODAY' => [Carbon::today()->toDateString(), Carbon::today()->toDateString()],
-                'LAST_7_DAYS' => [Carbon::today()->subDays(6)->toDateString(), Carbon::today()->toDateString()],
-                'LAST_30_DAYS' => [Carbon::today()->subDays(29)->toDateString(), Carbon::today()->toDateString()],
                 'THIS_MONTH' => [Carbon::today()->startOfMonth()->toDateString(), Carbon::today()->toDateString()],
+                'THIS_YEAR' => [Carbon::today()->startOfYear()->toDateString(), Carbon::today()->toDateString()],
                 default => [null, null],
             };
         }

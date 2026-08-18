@@ -1,13 +1,13 @@
 {{-- NOTE: Keep input names/ids; JS summary and PaymentController depend on them. --}}
 <style>
-    .pf-shell { display: flex; flex-direction: column; gap: 1.25rem; }
+    .pf-shell { display: flex; flex-direction: column; gap: .95rem; }
     .pf-guide {
-        display: grid;
+        display: none;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: .75rem;
-        border: 1px solid #dbe7f5;
-        border-radius: 18px;
-        background: #f8fbff;
+        border: 1px solid #AEBBA8;
+        border-radius: 16px;
+        background: #C7D5BE;
         padding: .85rem;
     }
     .pf-guide-step {
@@ -15,8 +15,8 @@
         align-items: flex-start;
         gap: .7rem;
         border-radius: 14px;
-        background: #ffffff;
-        border: 1px solid #e6eef8;
+        background: #DCE6D6;
+        border: 1px solid #AEBBA8;
         padding: .85rem;
         min-width: 0;
     }
@@ -32,36 +32,36 @@
         background: #3E4A3D;
         color: #ffffff;
         font-size: .72rem;
-        font-weight: 950;
+        font-weight: 750;
         line-height: 1;
     }
     .pf-guide-title {
-        color: #0d1f38;
+        color: #232821;
         font-size: .82rem;
-        font-weight: 950;
+        font-weight: 700;
         line-height: 1.25;
     }
     .pf-guide-copy {
         margin-top: .18rem;
-        color: #5F685F;
+        color: #3F4C3E;
         font-size: .72rem;
-        font-weight: 650;
+        font-weight: 550;
         line-height: 1.35;
     }
     .pf-section {
-        border: 1px solid #C9C5BB;
+        border: 1px solid #AEBBA8;
         border-radius: 18px;
-        background: #ffffff;
-        box-shadow: 0 10px 28px rgba(15, 23, 42, .05);
+        background: #D3DEC9;
+        box-shadow: none;
         overflow: hidden;
     }
     .pf-section-head {
         display: flex;
         align-items: flex-start;
         gap: .85rem;
-        padding: 1rem 1.1rem;
-        border-bottom: 1px solid #edf2f7;
-        background: linear-gradient(180deg, #ffffff 0%, #FAFAF7 100%);
+        padding: .88rem 1rem;
+        border-bottom: 1px solid #AEBBA8;
+        background: #C7D5BE;
     }
     .pf-section-icon {
         width: 2.25rem;
@@ -72,12 +72,12 @@
         justify-content: center;
         color: #ffffff;
         background: #3E4A3D;
-        box-shadow: 0 8px 18px rgba(62, 74, 61, .18);
+        box-shadow: none;
         flex: 0 0 auto;
     }
-    .pf-section-title { margin: 0; color: #0d1f38; font-size: .98rem; font-weight: 900; line-height: 1.2; }
-    .pf-section-sub { margin-top: .18rem; color: #5F685F; font-size: .78rem; font-weight: 600; line-height: 1.35; }
-    .pf-section-body { padding: 1.1rem; }
+    .pf-section-title { margin: 0; color: #232821; font-size: .98rem; font-weight: 650; line-height: 1.2; }
+    .pf-section-sub { margin-top: .16rem; color: #3F4C3E; font-size: .78rem; font-weight: 520; line-height: 1.35; }
+    .pf-section-body { padding: 1rem; }
     .pf-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
     .pf-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .pf-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -87,8 +87,8 @@
         align-items: center;
         gap: .3rem;
         font-size: 0.68rem;
-        font-weight: 900;
-        color: #4d6480;
+        font-weight: 600;
+        color: #3F4C3E;
         text-transform: uppercase;
         letter-spacing: 0.085em;
         margin-bottom: 0.45rem;
@@ -98,24 +98,25 @@
         width: 100%;
         min-height: 2.9rem;
         border-radius: 12px;
-        border: 1.5px solid #dde4ee;
-        background: #ffffff;
+        border: 1.5px solid #AEBBA8;
+        background: #E1E7D9;
         padding: 0.78rem 1rem;
         font-size: 0.9rem;
         font-weight: 500;
-        color: #0d1f38;
-        box-shadow: 0 1px 3px rgba(15,23,42,.04);
-        transition: border-color .18s, box-shadow .18s, background .18s;
+        color: #232821;
+        box-shadow: none;
+        transition: border-color .18s, background .18s, color .18s;
         font-family: inherit;
         box-sizing: border-box;
     }
     .pf-input:focus {
         border-color: #3E4A3D;
-        box-shadow: 0 0 0 3px rgba(62,74,61,.18);
+        box-shadow: none;
         outline: none;
-        background: #fff;
+        background: #FBFCF7;
     }
-    .pf-input[readonly] { background: #FAFAF7; color: #5F685F; }
+    .pf-input:hover { background: #C7D5BE; border-color: #8EA083; }
+    .pf-input[readonly] { background: #DCE6D6; color: #3F4C3E; }
     .pf-input::placeholder { color: #a8b6c7; font-weight: 500; }
     .pf-select {
         appearance: none;
@@ -144,31 +145,104 @@
         line-height: 1;
     }
     .pf-control-wrap:focus-within .pf-control-icon { color: #3E4A3D; }
-    .pf-help { margin-top: .45rem; color: #5F685F; font-size: .72rem; font-weight: 600; line-height: 1.35; }
-    .pf-help.soft { color: #7A8076; }
+    .pf-help { margin-top: .45rem; color: #3F4C3E; font-size: .72rem; font-weight: 550; line-height: 1.35; }
+    .pf-help.soft { color: #4D594B; }
+    .pf-payment-layout {
+        display: grid;
+        grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr);
+        gap: 1rem;
+        align-items: start;
+    }
+    .pf-method-layout {
+        display: grid;
+        grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr);
+        gap: 1rem;
+        align-items: start;
+    }
+    .pf-method-options {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .75rem;
+    }
+    .pf-method-option {
+        min-height: 4.6rem;
+        border: 1.5px solid #AEBBA8;
+        border-radius: 14px;
+        background: #E1E7D9;
+        color: #232821;
+        padding: .85rem;
+        text-align: left;
+        cursor: pointer;
+        box-shadow: none;
+        transition: background .18s, border-color .18s, color .18s;
+    }
+    .pf-method-option:hover { background: #C7D5BE; border-color: #8EA083; }
+    .pf-method-option.is-active {
+        background: #3E4A3D;
+        border-color: #2D372D;
+        color: #ffffff;
+    }
+    .pf-method-option-title {
+        display: flex;
+        align-items: center;
+        gap: .45rem;
+        font-size: .92rem;
+        font-weight: 650;
+        line-height: 1.2;
+    }
+    .pf-method-option-copy {
+        margin-top: .3rem;
+        font-size: .72rem;
+        font-weight: 520;
+        line-height: 1.35;
+        color: #3F4C3E;
+    }
+    .pf-method-option.is-active .pf-method-option-copy { color: rgba(255,255,255,.75); }
+    .pf-payment-layout .pf-record-number { grid-column: 1 / -1; }
+    .pf-record-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .75rem;
+        border: 1px solid #AEBBA8;
+        border-radius: 13px;
+        background: #DCE6D6;
+        padding: .75rem .9rem;
+    }
+    .pf-record-card span:first-child {
+        color: #3F4C3E;
+        font-size: .76rem;
+        font-weight: 560;
+    }
+    .pf-record-card span:last-child {
+        color: #232821;
+        font-size: .82rem;
+        font-weight: 650;
+        text-align: right;
+    }
     .pf-amount-wrap {
         display: flex;
         align-items: stretch;
         min-height: 2.95rem;
         border-radius: 12px;
-        border: 1.5px solid #dde4ee;
-        background: #ffffff;
-        box-shadow: 0 1px 3px rgba(15,23,42,.04);
-        transition: border-color .18s, box-shadow .18s, background .18s;
+        border: 1.5px solid #AEBBA8;
+        background: #E1E7D9;
+        box-shadow: none;
+        transition: border-color .18s, background .18s;
         overflow: hidden;
     }
     .pf-amount-wrap:focus-within {
         border-color: #3E4A3D;
-        box-shadow: 0 0 0 3px rgba(62,74,61,.18);
-        background: #fff;
+        box-shadow: none;
+        background: #FBFCF7;
     }
     .pf-amount-prefix {
         padding: 0 14px;
         font-size: .95rem;
-        font-weight: 900;
-        color: #4d6480;
-        background: #F3F0E8;
-        border-right: 1.5px solid #dde4ee;
+        font-weight: 750;
+        color: #3F4C3E;
+        background: #C7D5BE;
+        border-right: 1.5px solid #AEBBA8;
         display: flex;
         align-items: center;
         flex-shrink: 0;
@@ -180,8 +254,8 @@
         outline: none;
         padding: 0.75rem 1rem;
         font-size: 1.03rem;
-        font-weight: 900;
-        color: #0d1f38;
+        font-weight: 750;
+        color: #232821;
         background: transparent;
         font-family: inherit;
         width: 100%;
@@ -193,41 +267,41 @@
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: .75rem;
         border-radius: 14px;
-        border: 1px solid #C9C5BB;
-        background: #FAFAF7;
+        border: 1px solid #AEBBA8;
+        background: #DCE6D6;
         padding: .85rem;
         margin-top: .9rem;
     }
     .pf-snapshot-item { padding: .35rem .5rem; }
-    .pf-snapshot-label { color: #5F685F; font-size: .7rem; font-weight: 800; margin-bottom: .2rem; }
-    .pf-snapshot-value { color: #0d1f38; font-size: .95rem; font-weight: 950; font-variant-numeric: tabular-nums; }
+    .pf-snapshot-label { color: #3F4C3E; font-size: .7rem; font-weight: 650; margin-bottom: .2rem; }
+    .pf-snapshot-value { color: #232821; font-size: .95rem; font-weight: 750; font-variant-numeric: tabular-nums; }
     .pf-snapshot-value.good { color: #047857; }
     .pf-snapshot-value.warn { color: #be123c; }
 
     .pf-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
     .pf-summary-card {
         border-radius: 14px;
-        border: 1.5px solid #e4e8ef;
-        background: #FAFAF7;
+        border: 1.5px solid #AEBBA8;
+        background: #DCE6D6;
         padding: .85rem .95rem;
         min-width: 0;
     }
-    .pf-summary-card.accent-green { border-color: #a7f3d0; background: #f0fdf4; }
+    .pf-summary-card.accent-green { border-color: #8EA083; background: #DCE6D6; }
     .pf-summary-card.accent-navy { border-color: #3E4A3D; background: #3E4A3D; color: #fff; }
     .pf-summary-label {
         font-size: 0.6rem;
-        font-weight: 900;
+        font-weight: 650;
         text-transform: uppercase;
         letter-spacing: 0.1em;
-        color: #8da1bc;
+        color: #3F4C3E;
         margin-bottom: .28rem;
     }
     .pf-summary-card.accent-green .pf-summary-label { color: #059669; }
     .pf-summary-card.accent-navy .pf-summary-label { color: rgba(255,255,255,.62); }
     .pf-summary-value {
         font-size: .98rem;
-        font-weight: 950;
-        color: #0d1f38;
+        font-weight: 750;
+        color: #232821;
         font-variant-numeric: tabular-nums;
         overflow-wrap: anywhere;
     }
@@ -239,7 +313,7 @@
         padding: 3px 10px;
         border-radius: 999px;
         font-size: 0.7rem;
-        font-weight: 900;
+        font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.08em;
     }
@@ -248,8 +322,8 @@
     .pf-status-pill.unpaid { background: #fee2e2; color: #991b1b; }
     .pf-bank-box {
         border-radius: 16px;
-        border: 1px solid #dbe5f0;
-        background: #FAFAF7;
+        border: 1px solid #AEBBA8;
+        background: #DCE6D6;
         padding: 1rem;
     }
     .pf-note {
@@ -257,20 +331,32 @@
         align-items: flex-start;
         gap: .65rem;
         border-radius: 14px;
-        border: 1px solid #C9C5BB;
-        background: #FAFAF7;
+        border: 1px solid #AEBBA8;
+        background: #DCE6D6;
         padding: .85rem 1rem;
-        color: #5F685F;
+        color: #3F4C3E;
         font-size: .78rem;
-        font-weight: 650;
+        font-weight: 550;
         line-height: 1.45;
     }
+    .pf-review-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .pf-review-layout .pf-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .pf-actions {
         display: flex;
         align-items: center;
         justify-content: flex-end;
         gap: .75rem;
-        padding-top: .15rem;
+        position: sticky;
+        bottom: 0;
+        z-index: 5;
+        margin-top: .15rem;
+        padding: .85rem 0 0;
+        border-top: 1px solid #AEBBA8;
+        background: #D3DEC9;
     }
     .pf-btn {
         min-height: 2.65rem;
@@ -281,18 +367,20 @@
         justify-content: center;
         gap: .45rem;
         font-size: .86rem;
-        font-weight: 850;
-        transition: transform .18s, box-shadow .18s, background .18s, color .18s;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: none;
+        transition: background .18s, color .18s, border-color .18s;
     }
-    .pf-btn.secondary { border: 1px solid #dbe3ee; background: #fff; color: #5F685F; }
-    .pf-btn.secondary:hover { background: #F3F0E8; border-color: #3E4A3D; color: #3E4A3D; }
+    .pf-btn.secondary { border: 1px solid #AEBBA8; background: #E1E7D9; color: #3F4C3E; }
+    .pf-btn.secondary:hover { background: #C7D5BE; border-color: #8EA083; color: #232821; }
     .pf-btn.primary {
         border: 1px solid #2D372D;
-        background: linear-gradient(135deg, #3E4A3D, #2D372D);
+        background: #3E4A3D;
         color: #fff;
-        box-shadow: 0 10px 22px rgba(62,74,61,.20);
+        box-shadow: none;
     }
-    .pf-btn.primary:hover { transform: translateY(-1px); box-shadow: 0 14px 28px rgba(62,74,61,.28); }
+    .pf-btn.primary:hover { background: #2F3A2E; box-shadow: none; }
     .pf-btn:disabled { opacity: .45; pointer-events: none; transform: none; box-shadow: none; }
 
     html[data-theme='dark'] .pf-section { background: #102033; border-color: #243954; }
@@ -308,7 +396,7 @@
     html[data-theme='dark'] .pf-input,
     html[data-theme='dark'] .pf-amount-wrap { background: #1a2b41 !important; border-color: #2a3f5f !important; color: #d8ecff !important; }
     html[data-theme='dark'] .pf-input:focus,
-    html[data-theme='dark'] .pf-amount-wrap:focus-within { border-color: #4a82c0 !important; box-shadow: 0 0 0 4px rgba(74,130,192,.15) !important; }
+    html[data-theme='dark'] .pf-amount-wrap:focus-within { border-color: #4a82c0 !important; box-shadow: none !important; }
     html[data-theme='dark'] .pf-input[readonly] { background: #152035 !important; color: #8fabca !important; }
     html[data-theme='dark'] .pf-amount-prefix { background: #152035; border-color: #2a3f5f; color: #7a9ec8; }
     html[data-theme='dark'] .pf-amount-input { color: #d8ecff; }
@@ -327,14 +415,21 @@
         .pf-guide,
         .pf-grid.two,
         .pf-grid.three,
+        .pf-method-layout,
+        .pf-payment-layout,
+        .pf-review-layout,
         .pf-summary-grid { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 640px) {
         .pf-guide { grid-template-columns: 1fr; padding: .95rem; }
         .pf-section-head { padding: .95rem; }
         .pf-section-body { padding: .95rem; }
+        .pf-method-options,
         .pf-grid.two,
         .pf-grid.three,
+        .pf-method-layout,
+        .pf-payment-layout,
+        .pf-review-layout,
         .pf-summary-grid,
         .pf-snapshot { grid-template-columns: 1fr; }
         .pf-actions { flex-direction: column-reverse; align-items: stretch; }
@@ -355,41 +450,17 @@
     <form method="POST" action="{{ route('payments.store') }}" id="paymentForm" class="pf-shell">
         @csrf
 
-        <div class="pf-guide" aria-label="Payment recording steps">
-            <div class="pf-guide-step">
-                <span class="pf-guide-num">1</span>
-                <div>
-                    <div class="pf-guide-title">Select the case</div>
-                    <div class="pf-guide-copy">Pick the case first so the form can show the current balance and maximum receivable amount.</div>
-                </div>
-            </div>
-            <div class="pf-guide-step">
-                <span class="pf-guide-num">2</span>
-                <div>
-                    <div class="pf-guide-title">Enter payment details</div>
-                    <div class="pf-guide-copy">Choose Cash or Cashless, then enter the amount received, date, and required transaction details.</div>
-                </div>
-            </div>
-            <div class="pf-guide-step">
-                <span class="pf-guide-num">3</span>
-                <div>
-                    <div class="pf-guide-title">Check the preview</div>
-                    <div class="pf-guide-copy">Review the new paid amount, balance, and payment status before saving.</div>
-                </div>
-            </div>
-        </div>
-
         <section class="pf-section">
             <div class="pf-section-head">
                 <div class="pf-section-index">1</div>
                 <div>
-                    <h3 class="pf-section-title">Select Case</h3>
-                    <div class="pf-section-sub">Start here. The selected case controls the balance, payment limit, and status preview.</div>
+                    <h3 class="pf-section-title">Case</h3>
+                    <div class="pf-section-sub">Choose the case first so the form can show its balance and payment limit.</div>
                 </div>
             </div>
             <div class="pf-section-body">
                 <div class="pf-field">
-                    <label class="pf-label" for="funeral_case_id">Start Here: Funeral Case <span class="pf-required">*</span></label>
+                    <label class="pf-label" for="funeral_case_id">Funeral Case <span class="pf-required">*</span></label>
                     @php
                         $preselectCase  = $preselectCase ?? null;
                         $prefillCaseId  = old('funeral_case_id', $preselectCase->id ?? null);
@@ -443,71 +514,51 @@
             <div class="pf-section-head">
                 <div class="pf-section-index">2</div>
                 <div>
-                    <h3 class="pf-section-title">Enter Payment Received</h3>
-                    <div class="pf-section-sub">Choose the payment method, then enter the exact amount, date received, and optional receipt number.</div>
+                    <h3 class="pf-section-title">Payment Method</h3>
+                    <div class="pf-section-sub">Choose Cash or Cashless first. The next fields will adjust based on this selection.</div>
                 </div>
             </div>
             <div class="pf-section-body">
-                <div class="pf-grid two">
+                <div class="pf-method-layout">
                     <div class="pf-field">
                         <label class="pf-label" for="payment_method">Payment Method <span class="pf-required">*</span></label>
+                        <select name="payment_method" id="payment_method" class="hidden" required>
+                            <option value="cash" {{ old('payment_method', 'cash') === 'cash' ? 'selected' : '' }}>Cash</option>
+                            <option value="cashless" {{ in_array(old('payment_method'), ['cashless', 'bank_transfer'], true) ? 'selected' : '' }}>Cashless</option>
+                        </select>
+                        <div class="pf-method-options" role="group" aria-label="Payment method">
+                            <button type="button" class="pf-method-option" data-payment-method-option="cash">
+                                <span class="pf-method-option-title">
+                                    <i class="bi bi-cash"></i>
+                                    Cash
+                                </span>
+                                <span class="pf-method-option-copy">Use this for physical cash payments.</span>
+                            </button>
+                            <button type="button" class="pf-method-option" data-payment-method-option="cashless">
+                                <span class="pf-method-option-title">
+                                    <i class="bi bi-credit-card-2-front"></i>
+                                    Cashless
+                                </span>
+                                <span class="pf-method-option-copy">Use this for bank, wallet, card, or other digital payments.</span>
+                            </button>
+                        </div>
+                        <p class="pf-help soft">Choose one method first so the form shows only the needed fields.</p>
+                    </div>
+
+                    <div id="pf_cashless_type_field" class="pf-field hidden">
+                        <label class="pf-label" for="cashless_type">Cashless Type <span class="pf-required">*</span></label>
                         <div class="pf-control-wrap">
-                            <select name="payment_method" id="payment_method" class="pf-input pf-select" required>
-                                <option value="cash" {{ old('payment_method', 'cash') === 'cash' ? 'selected' : '' }}>Cash</option>
-                                <option value="cashless" {{ in_array(old('payment_method'), ['cashless', 'bank_transfer'], true) ? 'selected' : '' }}>Cashless</option>
+                            <select name="cashless_type" id="cashless_type" class="pf-input pf-select">
+                                <option value="">Select cashless type</option>
+                                <option value="bank_transfer" {{ old('cashless_type', old('payment_method') === 'bank_transfer' ? 'bank_transfer' : null) === 'bank_transfer' ? 'selected' : '' }}>Bank Transfer</option>
+                                <option value="gcash" {{ old('cashless_type') === 'gcash' ? 'selected' : '' }}>GCash</option>
+                                <option value="maya" {{ old('cashless_type') === 'maya' ? 'selected' : '' }}>Maya</option>
+                                <option value="card" {{ old('cashless_type') === 'card' ? 'selected' : '' }}>Card</option>
+                                <option value="other" {{ old('cashless_type') === 'other' ? 'selected' : '' }}>Other</option>
                             </select>
                             <span class="pf-control-icon"><i class="bi bi-chevron-down"></i></span>
                         </div>
-                        <p class="pf-help soft">Choose Cash for physical payment. Choose Cashless for bank transfer, GCash, Maya, card, or other channels.</p>
-                    </div>
-
-                    <div class="pf-field">
-                        <label class="pf-label" for="payment_record_no_display">Internal Payment Record No.</label>
-                        <input type="text" id="payment_record_no_display" value="Generated after saving" class="pf-input" readonly>
-                        <p class="pf-help soft">System-generated internal payment tracking number.</p>
-                    </div>
-                </div>
-
-                <div class="pf-grid two" style="margin-top:1rem;">
-                    <div class="pf-field">
-                        <label class="pf-label" for="amount_paid">Amount Received <span class="pf-required">*</span></label>
-                        <div class="pf-amount-wrap">
-                            <span class="pf-amount-prefix">₱</span>
-                            <input
-                                type="number"
-                                step="0.01"
-                                min="0.01"
-                                name="amount_paid"
-                                id="amount_paid"
-                                value="{{ old('amount_paid') }}"
-                                class="pf-amount-input"
-                                placeholder="0.00"
-                                required
-                            >
-                        </div>
-                        <p id="pf_amount_hint" class="pf-help soft">Choose a case first. This amount cannot exceed the remaining balance.</p>
-                        <p id="pf_amount_formatted" class="pf-help" style="font-weight:800;color:#333333;">₱0.00</p>
-                    </div>
-
-                    <div class="pf-field">
-                        <label class="pf-label" for="paid_at_input">Payment Date &amp; Time <span class="pf-required">*</span></label>
-                        <input
-                            type="datetime-local"
-                            name="paid_at"
-                            id="paid_at_input"
-                            value="{{ old('paid_at', now()->format('Y-m-d\\TH:i')) }}"
-                            class="pf-input"
-                            required
-                        >
-                        <p class="pf-help soft">Use the actual date and time the payment was received. Future dates are not allowed.</p>
-                    </div>
-                </div>
-
-                <div class="pf-grid two" style="margin-top:1rem;">
-                    <div class="pf-field">
-                        <label class="pf-label" for="receipt_or_no">Receipt / OR No.</label>
-                        <input type="text" name="receipt_or_no" id="receipt_or_no" value="{{ old('receipt_or_no', old('accounting_reference_no')) }}" class="pf-input" maxlength="100" placeholder="Optional receipt or OR number">
-                        <p class="pf-help soft">Optional. Leave this blank if no receipt or OR has been issued yet.</p>
+                        <p class="pf-help soft">Select the channel so only the needed transaction fields appear.</p>
                     </div>
                 </div>
             </div>
@@ -517,29 +568,12 @@
             <div class="pf-section-head">
                 <div class="pf-section-index">3</div>
                 <div>
-                    <h3 class="pf-section-title">Cashless Details</h3>
-                    <div class="pf-section-sub">This section appears only for Cashless payments. Select the channel before entering the reference details.</div>
+                    <h3 class="pf-section-title">Transaction Details</h3>
+                    <div class="pf-section-sub">Complete only the fields needed for the selected cashless type.</div>
                 </div>
             </div>
             <div class="pf-section-body">
                 <div class="pf-bank-box">
-                    <div class="pf-grid two">
-                        <div class="pf-field">
-                            <label class="pf-label" for="cashless_type">Cashless Type <span class="pf-required">*</span></label>
-                            <div class="pf-control-wrap">
-                                <select name="cashless_type" id="cashless_type" class="pf-input pf-select">
-                                    <option value="">Select cashless type</option>
-                                    <option value="bank_transfer" {{ old('cashless_type', old('payment_method') === 'bank_transfer' ? 'bank_transfer' : null) === 'bank_transfer' ? 'selected' : '' }}>Bank Transfer</option>
-                                    <option value="gcash" {{ old('cashless_type') === 'gcash' ? 'selected' : '' }}>GCash</option>
-                                    <option value="maya" {{ old('cashless_type') === 'maya' ? 'selected' : '' }}>Maya</option>
-                                    <option value="card" {{ old('cashless_type') === 'card' ? 'selected' : '' }}>Card</option>
-                                    <option value="other" {{ old('cashless_type') === 'other' ? 'selected' : '' }}>Other</option>
-                                </select>
-                                <span class="pf-control-icon"><i class="bi bi-chevron-down"></i></span>
-                            </div>
-                        </div>
-                    </div>
-
                     <div data-cashless-panel="bank_transfer" class="cashless-panel hidden">
                         <div class="pf-grid two" style="margin-top:1rem;">
                             <div class="pf-field">
@@ -647,21 +681,77 @@
             </div>
         </section>
 
-        <section class="pf-section">
+        <section id="pf_received_payment_fields" class="pf-section hidden">
             <div class="pf-section-head">
                 <div class="pf-section-index">4</div>
                 <div>
-                    <h3 class="pf-section-title">Check Result Before Saving</h3>
-                    <div class="pf-section-sub">Add optional remarks, then verify the paid amount, remaining balance, and new payment status.</div>
+                    <h3 class="pf-section-title">Payment Received</h3>
+                    <div class="pf-section-sub">Enter the amount, received date, and optional receipt details.</div>
                 </div>
             </div>
             <div class="pf-section-body">
-                <div class="pf-field">
-                    <label class="pf-label" for="remarks">Remarks</label>
-                    <textarea name="remarks" id="remarks" class="pf-input" style="min-height:90px; resize:vertical;" maxlength="1000" placeholder="Optional notes about this payment">{{ old('remarks') }}</textarea>
-                </div>
+                <div class="pf-payment-layout">
+                    <div class="pf-field">
+                        <label class="pf-label" for="amount_paid">Amount Received <span class="pf-required">*</span></label>
+                        <div class="pf-amount-wrap">
+                            <span class="pf-amount-prefix">₱</span>
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0.01"
+                                name="amount_paid"
+                                id="amount_paid"
+                                value="{{ old('amount_paid') }}"
+                                class="pf-amount-input"
+                                placeholder="0.00"
+                                required
+                            >
+                        </div>
+                        <p id="pf_amount_hint" class="pf-help soft">Choose a case first. This amount cannot exceed the remaining balance.</p>
+                        <p id="pf_amount_formatted" class="pf-help" style="font-weight:700;color:#232821;">₱0.00</p>
+                    </div>
 
-                <div style="margin-top:1rem;">
+                    <div class="pf-field">
+                        <label class="pf-label" for="paid_at_input">Payment Date &amp; Time <span class="pf-required">*</span></label>
+                        <input
+                            type="datetime-local"
+                            name="paid_at"
+                            id="paid_at_input"
+                            value="{{ old('paid_at', now()->format('Y-m-d\\TH:i')) }}"
+                            class="pf-input"
+                            required
+                        >
+                        <p class="pf-help soft">Use the actual date and time the payment was received.</p>
+                    </div>
+
+                    <div class="pf-field">
+                        <label class="pf-label" for="receipt_or_no">Receipt / OR No.</label>
+                        <input type="text" name="receipt_or_no" id="receipt_or_no" value="{{ old('receipt_or_no', old('accounting_reference_no')) }}" class="pf-input" maxlength="100" placeholder="Optional receipt or OR number">
+                        <p class="pf-help soft">Leave blank if no receipt or OR has been issued yet.</p>
+                    </div>
+
+                    <div class="pf-field pf-record-number">
+                        <input type="hidden" id="payment_record_no_display" value="Generated after saving" readonly>
+                        <div class="pf-record-card" aria-label="Internal payment record number">
+                            <span>Internal payment record number</span>
+                            <span>Generated after saving</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="pf-section">
+            <div class="pf-section-head">
+                <div class="pf-section-index">5</div>
+                <div>
+                    <h3 class="pf-section-title">Review</h3>
+                    <div class="pf-section-sub">Verify the payment outcome before saving.</div>
+                </div>
+            </div>
+            <div class="pf-section-body">
+                <div class="pf-review-layout">
+                <div>
                     <div class="pf-label" style="margin-bottom:.65rem;">After This Payment</div>
                     <div class="pf-summary-grid">
                         <div class="pf-summary-card">
@@ -681,6 +771,12 @@
                             <div class="pf-summary-value" id="new_status_display">—</div>
                         </div>
                     </div>
+                </div>
+
+                <div class="pf-field">
+                    <label class="pf-label" for="remarks">Remarks</label>
+                    <textarea name="remarks" id="remarks" class="pf-input" style="min-height:90px; resize:vertical;" maxlength="1000" placeholder="Optional notes about this payment">{{ old('remarks') }}</textarea>
+                </div>
                 </div>
             </div>
         </section>
@@ -712,9 +808,14 @@
     const form          = document.getElementById('paymentForm');
     const caseSelect    = document.getElementById('funeral_case_id');
     const amountInput   = document.getElementById('amount_paid');
+    const paidAtInput   = document.getElementById('paid_at_input');
+    const receiptInput  = document.getElementById('receipt_or_no');
     const paymentMethod = document.getElementById('payment_method');
+    const paymentMethodOptions = document.querySelectorAll('[data-payment-method-option]');
     const cashlessFields = document.getElementById('pf_cashless_fields');
+    const cashlessTypeField = document.getElementById('pf_cashless_type_field');
     const cashlessType   = document.getElementById('cashless_type');
+    const receivedPaymentFields = document.getElementById('pf_received_payment_fields');
     const bankName       = document.getElementById('bank_name');
     const otherBankWrap  = document.getElementById('pf_other_bank_wrap');
     const otherBankName  = document.getElementById('other_bank_name');
@@ -748,6 +849,17 @@
         const map = { PAID: 'paid', PARTIAL: 'partial', UNPAID: 'unpaid' };
         const cls = map[status] || 'unpaid';
         return `<span class="pf-status-pill ${cls}">${status}</span>`;
+    }
+
+    function selectedCaseBalance() {
+        const opt = caseSelect.options[caseSelect.selectedIndex];
+        return opt && opt.value ? toNum(opt.dataset.balance) : 0;
+    }
+
+    function fillAmountFromSelectedCase() {
+        if (!amountInput) return;
+        const balance = selectedCaseBalance();
+        amountInput.value = balance > 0 ? balance.toFixed(2) : '';
     }
 
     function updateSummary() {
@@ -807,7 +919,24 @@
     function updatePaymentMethodFields() {
         const isCashless = paymentMethod?.value === 'cashless';
         const type = cashlessType?.value || '';
-        if (cashlessFields) cashlessFields.classList.toggle('hidden', !isCashless);
+        const showReceivedPayment = isCashless ? Boolean(type) : Boolean(paymentMethod?.value);
+        paymentMethodOptions.forEach((option) => {
+            const isActive = option.dataset.paymentMethodOption === paymentMethod?.value;
+            option.classList.toggle('is-active', isActive);
+            option.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+        if (cashlessTypeField) cashlessTypeField.classList.toggle('hidden', !isCashless);
+        if (cashlessFields) cashlessFields.classList.toggle('hidden', !isCashless || !type);
+        if (receivedPaymentFields) receivedPaymentFields.classList.toggle('hidden', !showReceivedPayment);
+        if (amountInput) {
+            amountInput.required = showReceivedPayment;
+            amountInput.disabled = !showReceivedPayment;
+        }
+        if (paidAtInput) {
+            paidAtInput.required = showReceivedPayment;
+            paidAtInput.disabled = !showReceivedPayment;
+        }
+        if (receiptInput) receiptInput.disabled = !showReceivedPayment;
         if (cashlessType) cashlessType.required = isCashless;
         if (!isCashless) {
             if (cashlessType) cashlessType.value = '';
@@ -843,6 +972,12 @@
         if (paymentChannel) paymentChannel.value = activeChannel ? activeChannel.value : '';
         if (walletProvider) walletProvider.value = type === 'gcash' ? 'GCash' : (type === 'maya' ? 'Maya' : '');
         if (transactionRef && referenceNo) transactionRef.value = referenceNo.value;
+
+        const visibleSections = [...document.querySelectorAll('#paymentForm .pf-section:not(.hidden)')];
+        visibleSections.forEach((section, index) => {
+            const marker = section.querySelector('.pf-section-index');
+            if (marker) marker.textContent = String(index + 1);
+        });
     }
 
     function fail(field, message) {
@@ -922,10 +1057,29 @@
         return true;
     }
 
-    if (caseSelect) caseSelect.addEventListener('change', updateSummary);
+    if (caseSelect) caseSelect.addEventListener('change', () => {
+        fillAmountFromSelectedCase();
+        updateSummary();
+    });
     if (amountInput) amountInput.addEventListener('input', updateSummary);
     if (paymentMethod) paymentMethod.addEventListener('change', updatePaymentMethodFields);
-    if (cashlessType) cashlessType.addEventListener('change', updatePaymentMethodFields);
+    paymentMethodOptions.forEach((option) => {
+        option.addEventListener('click', () => {
+            if (!paymentMethod) return;
+            paymentMethod.value = option.dataset.paymentMethodOption || 'cash';
+            paymentMethod.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    });
+    if (cashlessType) {
+        cashlessType.addEventListener('change', () => {
+            updatePaymentMethodFields();
+            if (paymentMethod?.value === 'cashless' && cashlessType.value && cashlessFields) {
+                requestAnimationFrame(() => {
+                    cashlessFields.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                });
+            }
+        });
+    }
     if (bankName) bankName.addEventListener('change', updatePaymentMethodFields);
     if (accountName) {
         accountName.addEventListener('input', () => {

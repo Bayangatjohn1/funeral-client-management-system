@@ -44,6 +44,10 @@
     $outstandingMonitoringUrl = route('admin.cases.index', array_merge($branchLinkParams, $caseDateLinkParams));
     $todaySchedulesUrl = route('admin.reminders.index', array_merge($branchLinkParams, ['tab' => 'today', 'alert_type' => 'all']));
     $balanceAttentionUrl = route('admin.reminders.index', array_merge($branchLinkParams, ['tab' => 'unpaid', 'alert_type' => 'balance']));
+    $showBranchComparison = $isMainAdmin && !($selectedBranchId ?? null) && collect($branchRevenueCards ?? [])->count() > 1;
+    $collectionRate = (float) ($totalServiceValue ?? 0) > 0
+        ? round(((float) ($totalCollected ?? 0) / (float) $totalServiceValue) * 100)
+        : 0;
 @endphp
 <style>
     html:not([data-theme='dark']) .admin-dashboard-shell {
@@ -677,6 +681,489 @@
         background-color: #D5DFCF !important;
         color: var(--color-text-primary) !important;
     }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell {
+        --dash-card-soft: #D3DEC9;
+        --dash-card-alt: #DCE6D6;
+        --dash-card-strong: #C7D5BE;
+        --dash-card-warm: #E1DFCC;
+        --dash-hover: #C5D3BC;
+        --dash-active: #B8C9AF;
+        --dash-text: #232821;
+        --dash-muted: #3F4C3E;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .card-custom,
+    html:not([data-theme='dark']) .admin-dashboard-shell .stat-card,
+    html:not([data-theme='dark']) .admin-dashboard-shell .dashboard-click-card,
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-financial-card,
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-section-block,
+    html:not([data-theme='dark']) .admin-dashboard-shell > .bg-white,
+    html:not([data-theme='dark']) .admin-dashboard-shell .bg-white,
+    html:not([data-theme='dark']) .admin-dashboard-shell .bg-transparent {
+        background: var(--dash-card-soft) !important;
+        color: var(--dash-text) !important;
+        border-color: #AEBBA8 !important;
+        box-shadow: none !important;
+        filter: none !important;
+        backdrop-filter: none !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .stat-card:nth-child(even),
+    html:not([data-theme='dark']) .admin-dashboard-shell .dashboard-click-card:nth-child(even),
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-section-block:nth-of-type(even) {
+        background: var(--dash-card-alt) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-financial-card:nth-child(2),
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-section-block .dashboard-click-card:nth-child(odd) {
+        background: var(--dash-card-warm) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell h1,
+    html:not([data-theme='dark']) .admin-dashboard-shell h2,
+    html:not([data-theme='dark']) .admin-dashboard-shell h3,
+    html:not([data-theme='dark']) .admin-dashboard-shell h4,
+    html:not([data-theme='dark']) .admin-dashboard-shell h5,
+    html:not([data-theme='dark']) .admin-dashboard-shell .stat-value,
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-financial-card h4,
+    html:not([data-theme='dark']) .admin-dashboard-shell strong {
+        color: var(--dash-text) !important;
+        opacity: 1 !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell p,
+    html:not([data-theme='dark']) .admin-dashboard-shell small,
+    html:not([data-theme='dark']) .admin-dashboard-shell label,
+    html:not([data-theme='dark']) .admin-dashboard-shell span,
+    html:not([data-theme='dark']) .admin-dashboard-shell .dashboard-card-link-copy,
+    html:not([data-theme='dark']) .admin-dashboard-shell [class*="text-slate"],
+    html:not([data-theme='dark']) .admin-dashboard-shell [class*="text-gray"] {
+        color: var(--dash-muted) !important;
+        opacity: 1 !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .stat-card > .w-9,
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-financial-card__head > div,
+    html:not([data-theme='dark']) .admin-dashboard-shell [class*="bg-slate-50"],
+    html:not([data-theme='dark']) .admin-dashboard-shell [class*="bg-emerald-50"],
+    html:not([data-theme='dark']) .admin-dashboard-shell [class*="bg-red-50"],
+    html:not([data-theme='dark']) .admin-dashboard-shell [class*="bg-amber-50"] {
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell a.stat-card:hover,
+    html:not([data-theme='dark']) .admin-dashboard-shell .dashboard-click-card:hover,
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-financial-card:hover,
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-top-controls select:hover,
+    html:not([data-theme='dark']) .admin-dashboard-shell .input-custom:hover,
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-date-filter-link:hover,
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification:hover,
+    html:not([data-theme='dark']) .admin-dashboard-shell button:hover {
+        background: var(--dash-hover) !important;
+        border-color: #8EA083 !important;
+        color: var(--dash-text) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .is-active,
+    html:not([data-theme='dark']) .admin-dashboard-shell .active,
+    html:not([data-theme='dark']) .admin-dashboard-shell [aria-pressed="true"],
+    html:not([data-theme='dark']) .admin-dashboard-shell select:focus,
+    html:not([data-theme='dark']) .admin-dashboard-shell .input-custom:focus,
+    html:not([data-theme='dark']) .admin-dashboard-shell a[href]:focus-visible,
+    html:not([data-theme='dark']) .admin-dashboard-shell button:focus-visible {
+        background: var(--dash-active) !important;
+        border-color: #3E4A3D !important;
+        color: var(--dash-text) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-section-block {
+        background: transparent !important;
+        border-color: transparent !important;
+        box-shadow: none !important;
+        filter: none !important;
+        backdrop-filter: none !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-top-controls {
+        background: var(--dash-card-soft) !important;
+        border-color: #AEBBA8 !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-top-controls .input-custom,
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-top-controls .btn-secondary-custom,
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-date-filter-link {
+        min-height: 42px;
+        background: var(--dash-card-alt) !important;
+        border: 1px solid #AEBBA8 !important;
+        color: var(--dash-text) !important;
+        border-radius: 8px !important;
+        box-shadow: none !important;
+        filter: none !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-top-controls .btn-primary-custom {
+        min-height: 42px;
+        background: #3E4A3D !important;
+        border: 1px solid #3E4A3D !important;
+        color: #FFFDF7 !important;
+        border-radius: 8px !important;
+        box-shadow: none !important;
+        filter: none !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-top-controls .input-custom:hover,
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-top-controls .btn-secondary-custom:hover,
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-date-filter-link:hover {
+        background: var(--dash-hover) !important;
+        border-color: #8EA083 !important;
+        color: var(--dash-text) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-top-controls .btn-primary-custom:hover {
+        background: #2F3A2E !important;
+        border-color: #2F3A2E !important;
+        color: #FFFDF7 !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-financial-card {
+        background: var(--dash-card-soft) !important;
+        border-color: #AEBBA8 !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-financial-card:nth-child(2) {
+        background: var(--dash-card-soft) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-financial-card__head .inline-flex,
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-financial-card__head .w-10 {
+        background: var(--dash-card-alt) !important;
+        border-color: #AEBBA8 !important;
+        color: var(--dash-muted) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-financial-card:hover {
+        background: var(--dash-hover) !important;
+        border-color: #8EA083 !important;
+    }
+
+    .admin-dashboard-shell .admin-filter-control {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        min-width: 12rem;
+    }
+
+    .admin-dashboard-shell .admin-filter-control.is-period {
+        min-width: 10rem;
+    }
+
+    .admin-dashboard-shell .admin-filter-control .input-custom {
+        width: 100%;
+        padding-left: 2.35rem !important;
+        padding-right: 2.35rem !important;
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+    }
+
+    .admin-dashboard-shell .admin-filter-icon,
+    .admin-dashboard-shell .admin-filter-chevron {
+        position: absolute;
+        top: 50%;
+        z-index: 2;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #3E4A3D;
+        opacity: 1;
+        pointer-events: none;
+        transform: translateY(-50%);
+    }
+
+    .admin-dashboard-shell .admin-filter-icon {
+        left: .85rem;
+        font-size: .95rem;
+    }
+
+    .admin-dashboard-shell .admin-filter-chevron {
+        right: .85rem;
+        font-size: .82rem;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-top-controls .admin-filter-control:hover .admin-filter-icon,
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-top-controls .admin-filter-control:hover .admin-filter-chevron,
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-filter-control:focus-within .admin-filter-icon,
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-filter-control:focus-within .admin-filter-chevron {
+        color: #232821;
+    }
+
+    @media (max-width: 767px) {
+        .admin-dashboard-shell .admin-filter-control {
+            width: 100%;
+            min-width: 0;
+        }
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-dashboard-greeting,
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-top-controls {
+        background: var(--dash-card-soft) !important;
+        border-color: #AEBBA8 !important;
+        overflow: visible;
+    }
+
+    .admin-dashboard-shell .admin-dashboard-greeting,
+    .admin-dashboard-shell .admin-top-controls,
+    .admin-dashboard-shell .admin-financial-card,
+    .admin-dashboard-shell .stat-card {
+        overflow: hidden;
+    }
+
+    .admin-dashboard-shell .admin-financial-card {
+        position: relative;
+        min-height: 156px !important;
+        padding: 1.1rem 1.2rem 1.1rem 7rem !important;
+        justify-content: center !important;
+    }
+
+    .admin-dashboard-shell .admin-financial-card::before {
+        content: "";
+        position: absolute;
+        left: -2.7rem;
+        top: 50%;
+        width: 7.7rem;
+        height: 7.7rem;
+        border: 1.5px solid #8EA083;
+        border-radius: 999px;
+        transform: translateY(-50%);
+        pointer-events: none;
+    }
+
+    .admin-dashboard-shell .admin-financial-card__head {
+        margin-bottom: .9rem;
+    }
+
+    .admin-dashboard-shell .admin-financial-card__head > .w-10 {
+        position: absolute;
+        left: 1.05rem;
+        top: 50%;
+        width: 4rem !important;
+        height: 4rem !important;
+        border: 0 !important;
+        background: transparent !important;
+        color: #3E4A3D !important;
+        font-size: 2rem !important;
+        transform: translateY(-50%);
+    }
+
+    .admin-dashboard-shell .admin-financial-card__head > .w-10 i {
+        color: inherit !important;
+    }
+
+    .admin-dashboard-shell .admin-financial-card .dashboard-card-link-copy {
+        display: none !important;
+    }
+
+    .admin-dashboard-shell .stat-card .dashboard-card-link-copy {
+        display: none !important;
+    }
+
+    .admin-dashboard-shell .stat-card {
+        justify-content: center;
+        min-height: 138px;
+    }
+
+    .admin-dashboard-shell .admin-summary-section {
+        display: flex;
+        flex-direction: column;
+        gap: .85rem;
+        margin-top: 1.05rem !important;
+        padding: 0;
+        background: transparent !important;
+        border: 0 !important;
+        overflow: visible;
+    }
+
+    .admin-dashboard-shell .admin-summary-section__title {
+        margin: 0;
+        padding: 0 .1rem;
+        font-family: var(--font-heading);
+        font-size: 1.05rem !important;
+        font-weight: 700 !important;
+        line-height: 1.2;
+        text-transform: none !important;
+        letter-spacing: 0 !important;
+        color: #232821 !important;
+    }
+
+    .admin-dashboard-shell .admin-summary-section .grid {
+        margin-top: 0 !important;
+    }
+
+    @media (max-width: 767px) {
+        .admin-dashboard-shell .admin-financial-card {
+            padding: 1rem 1rem 1rem 5.5rem !important;
+        }
+
+        .admin-dashboard-shell .admin-financial-card::before {
+            left: -3.4rem;
+        }
+
+        .admin-dashboard-shell .admin-financial-card__head > .w-10 {
+            left: .8rem;
+            width: 3.5rem !important;
+            height: 3.5rem !important;
+            font-size: 1.75rem !important;
+        }
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-financial-card__head > .w-10,
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-financial-card__head > div.w-10 {
+        background: transparent !important;
+        border-color: transparent !important;
+        color: #3E4A3D !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-financial-card__head > .inline-flex {
+        display: none !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-summary-section,
+    html:not([data-theme='dark']) .admin-dashboard-shell section.admin-summary-section,
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-summary-section.section,
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-summary-section::before,
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-summary-section::after {
+        background: transparent !important;
+        border-color: transparent !important;
+        box-shadow: none !important;
+        filter: none !important;
+        backdrop-filter: none !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-summary-section {
+        margin-top: .85rem !important;
+        padding: 0 !important;
+        overflow: visible !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-dashboard-date-pill,
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification,
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification-chip,
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification-card__tag,
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification-card__pill,
+    html:not([data-theme='dark']) .admin-dashboard-shell .rank-badge {
+        background: var(--dash-card-alt) !important;
+        border-color: #AEBBA8 !important;
+        color: var(--dash-text) !important;
+        box-shadow: none !important;
+        filter: none !important;
+        backdrop-filter: none !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-dashboard-date-pill i,
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification i,
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification-chip i,
+    html:not([data-theme='dark']) .admin-dashboard-shell .rank-badge {
+        color: #3E4A3D !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification:hover,
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification[aria-expanded="true"],
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification.is-active,
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification-chip:hover,
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification-card:hover,
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification-footer-btn:hover {
+        background: var(--dash-hover) !important;
+        border-color: #8EA083 !important;
+        color: var(--dash-text) !important;
+        box-shadow: none !important;
+        transform: none !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification-chip.is-active,
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification-footer-btn.is-primary {
+        background: var(--dash-active) !important;
+        border-color: #3E4A3D !important;
+        color: var(--dash-text) !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification-menu,
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification-menu__head,
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification-menu__chips,
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification-menu__list,
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification-menu__footer,
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification-card,
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification-empty {
+        background: var(--dash-card-soft) !important;
+        border-color: #AEBBA8 !important;
+        color: var(--dash-text) !important;
+        box-shadow: none !important;
+        filter: none !important;
+        backdrop-filter: none !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification-menu__head small,
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification-card__text,
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification-card__meta {
+        color: var(--dash-muted) !important;
+        opacity: 1 !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .topbar-notification__count {
+        background: #9E4B3F !important;
+        color: #FFFDF7 !important;
+        border-color: #D3DEC9 !important;
+        box-shadow: none !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-summary-section .stat-card > .w-9 {
+        width: 2.4rem !important;
+        height: 2.4rem !important;
+        border-radius: 8px !important;
+        background: transparent !important;
+        border: 1.5px solid #8EA083 !important;
+        color: #3E4A3D !important;
+        box-shadow: none !important;
+        filter: none !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-summary-section .stat-card > .w-9 i {
+        color: #3E4A3D !important;
+        font-size: 1rem;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-summary-section .stat-card:hover > .w-9 {
+        background: var(--dash-active) !important;
+        border-color: #3E4A3D !important;
+        color: #232821 !important;
+    }
+
+    html:not([data-theme='dark']) .admin-dashboard-shell .admin-summary-section .stat-card:hover > .w-9 i {
+        color: #232821 !important;
+    }
+
+    .admin-dashboard-shell .admin-summary-section .stat-value {
+        max-width: 100%;
+        overflow-wrap: normal;
+        word-break: normal;
+    }
+
+    .admin-dashboard-shell .admin-summary-section .stat-value.is-money {
+        display: block;
+        width: 100%;
+        font-size: clamp(1.05rem, 1.25vw, 1.45rem) !important;
+        line-height: 1.08;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: clip;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .admin-dashboard-shell .admin-summary-section .stat-value.is-money .currency-mark {
+        margin-right: .08rem;
+        font-family: var(--font-body);
+    }
 </style>
 
 <div class="dashboard-fit-page">
@@ -714,22 +1201,30 @@
     {{-- Filters + Quick Actions --}}
     <div class="card-custom admin-top-controls">
         <form method="GET" action="{{ url('/admin') }}" class="admin-top-controls-form">
-            <select name="branch_id" onchange="this.form.submit()" class="input-custom w-48" @if($isBranchAdmin) disabled @endif>
-                <option value="">{{ $isMainAdmin ? 'All Branches' : 'Assigned Branch' }}</option>
-                @foreach($branches ?? [] as $branch)
-                    <option value="{{ $branch->id }}" {{ (string) ($selectedBranchId ?? '') === (string) $branch->id ? 'selected' : '' }}>
-                        {{ $branch->branch_code }} - {{ $branch->branch_name }}
-                    </option>
-                @endforeach
-            </select>
+            <label class="admin-filter-control">
+                <i class="bi bi-building admin-filter-icon"></i>
+                <select name="branch_id" onchange="this.form.submit()" class="input-custom w-48" @if($isBranchAdmin) disabled @endif>
+                    <option value="">{{ $isMainAdmin ? 'All Branches' : 'Assigned Branch' }}</option>
+                    @foreach($branches ?? [] as $branch)
+                        <option value="{{ $branch->id }}" {{ (string) ($selectedBranchId ?? '') === (string) $branch->id ? 'selected' : '' }}>
+                            {{ $branch->branch_code }} - {{ $branch->branch_name }}
+                        </option>
+                    @endforeach
+                </select>
+                <i class="bi bi-chevron-down admin-filter-chevron"></i>
+            </label>
 
-            <select name="date_filter" onchange="this.form.submit()" class="input-custom w-40">
-                <option value="all" {{ ($selectedDateFilter ?? 'this_month') === 'all' ? 'selected' : '' }}>All Time</option>
-                <option value="today" {{ ($selectedDateFilter ?? 'this_month') === 'today' ? 'selected' : '' }}>Today</option>
-                <option value="this_week" {{ ($selectedDateFilter ?? 'this_month') === 'this_week' ? 'selected' : '' }}>This Week</option>
-                <option value="this_month" {{ ($selectedDateFilter ?? 'this_month') === 'this_month' ? 'selected' : '' }}>This Month</option>
-                <option value="this_year" {{ ($selectedDateFilter ?? 'this_month') === 'this_year' ? 'selected' : '' }}>This Year</option>
-            </select>
+            <label class="admin-filter-control is-period">
+                <i class="bi bi-funnel admin-filter-icon"></i>
+                <select name="date_filter" onchange="this.form.submit()" class="input-custom w-40">
+                    <option value="all" {{ ($selectedDateFilter ?? 'this_month') === 'all' ? 'selected' : '' }}>All Time</option>
+                    <option value="today" {{ ($selectedDateFilter ?? 'this_month') === 'today' ? 'selected' : '' }}>Today</option>
+                    <option value="this_week" {{ ($selectedDateFilter ?? 'this_month') === 'this_week' ? 'selected' : '' }}>This Week</option>
+                    <option value="this_month" {{ ($selectedDateFilter ?? 'this_month') === 'this_month' ? 'selected' : '' }}>This Month</option>
+                    <option value="this_year" {{ ($selectedDateFilter ?? 'this_month') === 'this_year' ? 'selected' : '' }}>This Year</option>
+                </select>
+                <i class="bi bi-chevron-down admin-filter-chevron"></i>
+            </label>
             <select class="input-custom w-40 md:hidden" aria-hidden="true" disabled>
                 <option value="all" {{ ($selectedDateFilter ?? 'this_month') === 'all' ? 'selected' : '' }}>All Time</option>
                 <option value="today" {{ ($selectedDateFilter ?? 'this_month') === 'today' ? 'selected' : '' }}>Today</option>
@@ -760,10 +1255,6 @@
         {{-- Collected Amount --}}
         <a href="{{ $collectedMonitoringUrl }}" class="dashboard-click-card admin-financial-card flex flex-col justify-between">
             <div class="admin-financial-card__head flex items-center justify-between gap-4">
-                <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200">
-                    <span class="w-2 h-2 rounded-full bg-slate-400"></span>
-                    <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest">{{ $isMainAdmin ? 'ALL-BRANCH SUMMARY' : 'ASSIGNED BRANCH' }}</span>
-                </div>
                 <div class="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 text-lg">
                     <i class="bi bi-wallet2"></i>
                 </div>
@@ -774,17 +1265,12 @@
                 <h4 class="font-black font-heading tracking-tight">
                     <span class="text-emerald-400 font-sans mr-1">₱</span>{{ number_format((float) ($totalCollected ?? 0), 2) }}
                 </h4>
-                <div class="dashboard-card-link-copy">View details -></div>
             </div>
         </a>
 
         {{-- Outstanding Balance --}}
         <a href="{{ $outstandingMonitoringUrl }}" class="dashboard-click-card admin-financial-card flex flex-col justify-between">
             <div class="admin-financial-card__head flex items-center justify-between gap-4">
-                <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200">
-                    <i class="bi bi-exclamation-circle-fill text-amber-600 text-[10px]"></i>
-                    <span class="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.16em]">UNSETTLED BALANCE</span>
-                </div>
                 <div class="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 text-lg">
                     <i class="bi bi-graph-down-arrow"></i>
                 </div>
@@ -795,22 +1281,21 @@
                 <h4 class="font-black font-heading tracking-tight">
                     <span class="font-sans mr-1">₱</span>{{ number_format((float) ($totalOutstanding ?? 0), 2) }}
                 </h4>
-                <div class="dashboard-card-link-copy">Review balances -></div>
             </div>
         </a>
     </div>
 
-    {{-- 3. CASE METRICS --}}
-    <section class="space-y-3 section admin-section-block">
-        <h3 class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Case and Payment Summary</h3>
+    {{-- 3. SERVICE METRICS --}}
+    <section class="section admin-section-block admin-summary-section">
+        <h3 class="admin-summary-section__title">Service and Payment Summary</h3>
         <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             @php
                 $caseStats = [
-                    ['label' => 'Total Records', 'val' => $totalCases ?? 0, 'icon' => 'bi-folder2-open', 'color' => 'text-slate-900', 'url' => $caseRecordsUrl],
-                    ['label' => 'Ongoing Cases', 'val' => $ongoingCases ?? 0, 'icon' => 'bi-arrow-repeat', 'color' => 'text-slate-900', 'url' => $activeCasesUrl],
+                    ['label' => 'Total Services', 'val' => $totalCases ?? 0, 'icon' => 'bi-folder2-open', 'color' => 'text-slate-900', 'url' => $caseRecordsUrl],
+                    ['label' => 'Ongoing Services', 'val' => $ongoingCases ?? 0, 'icon' => 'bi-arrow-repeat', 'color' => 'text-slate-900', 'url' => $activeCasesUrl],
                     ['label' => 'Paid in Full', 'val' => $paidCases ?? 0, 'icon' => 'bi-check-circle', 'color' => 'text-emerald-600', 'url' => $paidMonitoringUrl],
                     ['label' => 'Partially Paid', 'val' => $partialCases ?? 0, 'icon' => 'bi-pie-chart', 'color' => 'text-amber-600', 'url' => $partialMonitoringUrl],
-                    ['label' => 'Unpaid Cases', 'val' => $unpaidCases ?? 0, 'icon' => 'bi-exclamation-triangle', 'color' => 'text-red-600', 'url' => $unpaidMonitoringUrl],
+                    ['label' => 'Unpaid Services', 'val' => $unpaidCases ?? 0, 'icon' => 'bi-exclamation-triangle', 'color' => 'text-red-600', 'url' => $unpaidMonitoringUrl],
                     ['label' => $isMainAdmin ? 'Total Contract Value' : 'Total Service Value', 'val' => number_format((float) ($totalServiceValue ?? $totalSales ?? 0), 2), 'icon' => 'bi-cash-coin', 'color' => 'text-emerald-600', 'is_money' => true],
                 ];
             @endphp
@@ -829,12 +1314,11 @@
                     </div>
                     <div>
                         <div id="{{ $statInner }}" class="stat-label mb-1">{{ $s['label'] }}</div>
-                        <div class="stat-value {{ $s['color'] }}">
-                            {{ isset($s['is_money']) ? '₱' : '' }}{{ $s['val'] }}
+                        <div class="stat-value {{ $s['color'] }} {{ isset($s['is_money']) ? 'is-money' : '' }}">
+                            @if(isset($s['is_money']))
+                                <span class="currency-mark">₱</span>
+                            @endif{{ $s['val'] }}
                         </div>
-                        @if(isset($s['url']))
-                            <div class="dashboard-card-link-copy">View details -></div>
-                        @endif
                     </div>
                 @if(isset($s['url']))
                     </a>
@@ -849,73 +1333,203 @@
     @if($isMainAdmin)
     <div class="grid grid-cols-1 xl:grid-cols-12 gap-5 lg:gap-6 section admin-section-block">
         
-        {{-- Left: Elegant Service Amount List --}}
+        @if($showBranchComparison)
         <div class="xl:col-span-7 card-custom flex flex-col">
             <div class="flex items-center justify-between mb-8">
-                <h3 class="text-[12px] font-black uppercase tracking-widest text-slate-800 font-heading">Service Amount by Branch</h3>
-                <i class="bi bi-trophy text-xl text-amber-400"></i>
+                <div>
+                    <h3 class="text-[12px] font-black uppercase tracking-widest text-slate-800 font-heading">Collections by Branch</h3>
+                    <p class="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">Collected vs service value</p>
+                </div>
+                <i class="bi bi-wallet2 text-xl text-amber-400"></i>
             </div>
             
             <div class="space-y-4 flex-1">
-                @foreach($branchRevenueCards ?? [] as $index => $card)
+                @foreach($branchRevenueCards ?? [] as $card)
+                    @php
+                        $serviceValue = (float) ($card['sales'] ?? 0);
+                        $collectedValue = (float) ($card['collected'] ?? 0);
+                        $branchCollectionRate = $serviceValue > 0 ? round(($collectedValue / $serviceValue) * 100) : 0;
+                    @endphp
                     <div class="flex items-center justify-between p-4 rounded-2xl border border-slate-100 hover:bg-slate-50 transition-all group">
                         <div class="flex items-center gap-4">
-                            <div class="rank-badge {{ $index === 0 ? 'bg-[var(--accent)]' : '' }}">#{{ $index + 1 }}</div>
+                            <div class="rank-badge">
+                                <i class="bi bi-building"></i>
+                            </div>
                             <div>
                                 <h5 class="text-sm font-black text-slate-900 tracking-tight">{{ $card['branch']->branch_name ?? 'Branch' }}</h5>
                                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{{ $card['branch']->branch_code ?? 'N/A' }}</p>
                             </div>
                         </div>
                         <div class="text-right">
-                            <h4 class="text-xl font-black text-slate-900 font-heading">₱{{ number_format((float) ($card['sales'] ?? 0), 2) }}</h4>
-                            <p class="text-[9px] font-bold text-emerald-500 uppercase tracking-widest mt-0.5 group-hover:animate-pulse">Total Service Value</p>
+                            <h4 class="text-xl font-black text-slate-900 font-heading">PHP {{ number_format($collectedValue, 2) }}</h4>
+                            <p class="text-[9px] font-bold text-emerald-500 uppercase tracking-widest mt-0.5">{{ $branchCollectionRate }}% collected</p>
+                            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">of PHP {{ number_format($serviceValue, 2) }}</p>
                         </div>
                     </div>
                 @endforeach
             </div>
         </div>
 
-        {{-- Right: Case Volume Progress --}}
         <div class="xl:col-span-5 card-custom flex flex-col">
-            <h3 class="text-[12px] font-black uppercase tracking-widest text-slate-800 mb-8 font-heading">Case Volume Distribution</h3>
+            <div class="flex items-center justify-between mb-8">
+                <div>
+                    <h3 class="text-[12px] font-black uppercase tracking-widest text-slate-800 font-heading">Services by Branch</h3>
+                    <p class="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">Service records per branch</p>
+                </div>
+                <i class="bi bi-folder2-open text-xl text-[#3E4A3D]"></i>
+            </div>
             
-            <div class="space-y-8 flex-1 flex flex-col justify-center">
+            <div class="flex-1 flex flex-col justify-center">
                 @php
                     $volumeCollection = collect($caseVolume ?? []);
                     $maxVolume = max(1, (float) $volumeCollection->max('count'));
                 @endphp
-                
-                @forelse($volumeCollection as $row)
-                    @php
-                        $count = is_array($row) ? ($row['count'] ?? 0) : ($row->count ?? 0);
-                        $branchCode = is_array($row) ? ($row['branch_code'] ?? '') : ($row->branch_code ?? '');
-                        $branchName = is_array($row) ? ($row['branch_name'] ?? '') : ($row->branch_name ?? '');
-                        $width = $maxVolume > 0 ? ($count / $maxVolume) * 100 : 0;
-                    @endphp
-                    <div class="group">
-                        <div class="flex items-end justify-between mb-2">
-                            <div>
-                                <span class="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-0.5">{{ $branchCode }}</span>
-                                <span class="text-xs font-black text-slate-900 truncate pr-4">{{ $branchName }}</span>
+
+                @if($volumeCollection->isNotEmpty())
+                    <div class="relative min-h-[250px] overflow-x-auto pb-1">
+                        <div class="absolute inset-x-0 bottom-[3.85rem] border-t border-slate-200"></div>
+                        <div class="grid auto-cols-fr grid-flow-col gap-4 items-end min-w-full min-h-[238px]">
+                        @foreach($volumeCollection as $row)
+                            @php
+                                $count = is_array($row) ? ($row['count'] ?? 0) : ($row->count ?? 0);
+                                $branchCode = is_array($row) ? ($row['branch_code'] ?? '') : ($row->branch_code ?? '');
+                                $branchName = is_array($row) ? ($row['branch_name'] ?? '') : ($row->branch_name ?? '');
+                                $height = $maxVolume > 0 ? max(8, ($count / $maxVolume) * 170) : 8;
+                            @endphp
+                            <div class="relative z-[1] min-w-[72px] flex flex-col items-center justify-end gap-2" title="{{ $branchName }} - {{ $count }} services">
+                                <div class="w-full h-[180px] flex items-end justify-center px-2">
+                                    <div class="flex w-full max-w-[42px] flex-col items-center justify-end gap-1">
+                                        <span class="text-sm font-black text-[#3E4A3D] font-heading leading-none">{{ $count }}</span>
+                                        <div class="w-full rounded-t-xl bg-[#3E4A3D] shadow-sm" style="height: {{ $height }}px"></div>
+                                    </div>
+                                </div>
+                                <div class="text-center w-full">
+                                    <span class="block text-[10px] font-black uppercase tracking-widest text-slate-700 truncate">{{ $branchCode }}</span>
+                                    <span class="block text-[9px] font-bold text-slate-400 truncate">{{ $branchName }}</span>
+                                </div>
                             </div>
-                            <span class="text-lg font-black text-[#3E4A3D] font-heading">{{ $count }}</span>
-                        </div>
-                        <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
-                            <div class="h-full rounded-full bg-gradient-to-r from-[#22324A] to-[#1A2636] transition-all duration-1000 w-0 group-hover:brightness-110 relative" style="width: {{ $width }}%">
-                                <div class="absolute top-0 right-0 bottom-0 w-8 bg-gradient-to-l from-white/30 to-transparent"></div>
-                            </div>
+                        @endforeach
                         </div>
                     </div>
-                @empty
+                @else
                     <div class="text-center py-8">
                         <div class="w-16 h-16 mx-auto bg-slate-50 rounded-full flex items-center justify-center text-slate-300 text-2xl mb-4">
                             <i class="bi bi-bar-chart"></i>
                         </div>
                         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">No branch data available</p>
                     </div>
-                @endforelse
+                @endif
             </div>
         </div>
+        @else
+        <div class="xl:col-span-7 card-custom flex flex-col">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h3 class="text-[12px] font-black uppercase tracking-widest text-slate-800 font-heading">Collection Summary</h3>
+                    <p class="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">{{ $adminBranchLabel }}</p>
+                </div>
+                <a href="{{ $collectedMonitoringUrl }}" class="btn-secondary-custom btn-sm">View payments</a>
+            </div>
+
+            @php
+                $summaryServiceValue = (float) ($totalServiceValue ?? $totalSales ?? 0);
+                $summaryCollected = (float) ($totalCollected ?? 0);
+                $summaryOutstanding = (float) ($totalOutstanding ?? 0);
+                $collectedWidth = min(100, max(0, $collectionRate));
+                $outstandingWidth = max(0, 100 - $collectedWidth);
+                $servicesWithBalance = (int) ($partialCases ?? 0) + (int) ($unpaidCases ?? 0);
+            @endphp
+
+            <div class="flex flex-col gap-5">
+                <div class="p-5 rounded-2xl border border-slate-100">
+                    <div class="flex items-end justify-between gap-4 mb-4">
+                        <div>
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Collection Rate</p>
+                            <h4 class="text-4xl font-black text-slate-900 font-heading leading-none">{{ $collectionRate }}%</h4>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Service Value</p>
+                            <p class="text-lg font-black text-slate-900 font-heading">PHP {{ number_format($summaryServiceValue, 2) }}</p>
+                        </div>
+                    </div>
+
+                    <div class="h-5 bg-[#9E4B3F]/25 rounded-full overflow-hidden flex" aria-label="Collection progress">
+                        <div class="h-full bg-[#5F7D5F]" style="width: {{ $collectedWidth }}%"></div>
+                        <div class="h-full bg-[#9E4B3F]" style="width: {{ $outstandingWidth }}%"></div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 mt-4">
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-[#5F7D5F]"></span>
+                            <div>
+                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Collected</p>
+                                <p class="text-sm font-black text-slate-900">PHP {{ number_format($summaryCollected, 2) }}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-[#9E4B3F]"></span>
+                            <div>
+                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Unpaid Balance</p>
+                                <p class="text-sm font-black text-slate-900">PHP {{ number_format($summaryOutstanding, 2) }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <a href="{{ $paidMonitoringUrl }}" class="dashboard-click-card p-4 rounded-2xl border border-slate-100">
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Paid Services</p>
+                        <h4 class="text-xl font-black text-slate-900 font-heading">{{ (int) ($paidCases ?? 0) }}</h4>
+                    </a>
+                    <a href="{{ $partialMonitoringUrl }}" class="dashboard-click-card p-4 rounded-2xl border border-slate-100">
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Partial Services</p>
+                        <h4 class="text-xl font-black text-slate-900 font-heading">{{ (int) ($partialCases ?? 0) }}</h4>
+                    </a>
+                    <a href="{{ $unpaidMonitoringUrl }}" class="dashboard-click-card p-4 rounded-2xl border border-slate-100">
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Services With Balance</p>
+                        <h4 class="text-xl font-black text-slate-900 font-heading">{{ $servicesWithBalance }}</h4>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="xl:col-span-5 card-custom flex flex-col">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h3 class="text-[12px] font-black uppercase tracking-widest text-slate-800 font-heading">Service Status Summary</h3>
+                    <p class="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">Current branch view</p>
+                </div>
+                <a href="{{ $caseRecordsUrl }}" class="btn-secondary-custom btn-sm">View services</a>
+            </div>
+
+            <div class="space-y-4 flex-1 flex flex-col justify-center">
+                @php
+                    $statusRows = [
+                        ['label' => 'Ongoing', 'count' => (int) ($ongoingCases ?? 0), 'url' => $activeCasesUrl],
+                        ['label' => 'Paid in Full', 'count' => (int) ($paidCases ?? 0), 'url' => $paidMonitoringUrl],
+                        ['label' => 'Partial', 'count' => (int) ($partialCases ?? 0), 'url' => $partialMonitoringUrl],
+                        ['label' => 'Unpaid', 'count' => (int) ($unpaidCases ?? 0), 'url' => $unpaidMonitoringUrl],
+                    ];
+                    $maxStatusCount = max(1, collect($statusRows)->max('count'));
+                @endphp
+
+                @foreach($statusRows as $row)
+                    @php
+                        $width = $maxStatusCount > 0 ? ($row['count'] / $maxStatusCount) * 100 : 0;
+                    @endphp
+                    <a href="{{ $row['url'] }}" class="dashboard-click-card block p-3 rounded-2xl border border-slate-100">
+                        <div class="flex items-end justify-between mb-2">
+                            <span class="text-xs font-black text-slate-900">{{ $row['label'] }}</span>
+                            <span class="text-lg font-black text-[#3E4A3D] font-heading">{{ $row['count'] }}</span>
+                        </div>
+                        <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div class="h-full rounded-full bg-[#3E4A3D]" style="width: {{ $width }}%"></div>
+                        </div>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+        @endif
     </div>
     @else
     <div class="grid grid-cols-1 xl:grid-cols-12 gap-5 lg:gap-6 section admin-section-block">
@@ -934,7 +1548,7 @@
                         <div>
                             <p class="text-sm font-black text-slate-900">{{ $item['title'] ?? 'Scheduled service' }}</p>
                             <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
-                                {{ $item['case_code'] ?? 'Case record' }} - {{ $item['client_name'] ?? 'Client' }}
+                                {{ $item['case_code'] ?? 'Service record' }} - {{ $item['client_name'] ?? 'Client' }}
                             </p>
                         </div>
                         <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">
@@ -965,7 +1579,7 @@
                 @forelse(($attentionReminders ?? collect())->take(5) as $item)
                     <a href="{{ $balanceAttentionUrl }}" class="dashboard-click-card block p-4 rounded-2xl border border-slate-100">
                         <div class="flex items-center justify-between gap-3">
-                            <p class="text-sm font-black text-slate-900">{{ $item['case_code'] ?? 'Case record' }}</p>
+                            <p class="text-sm font-black text-slate-900">{{ $item['case_code'] ?? 'Service record' }}</p>
                             <span class="text-[10px] font-black text-red-600 uppercase tracking-widest">Balance</span>
                         </div>
                         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
@@ -1010,8 +1624,8 @@
             <div class="space-y-6 relative">
                 @php
                     $mockupLogs = [
-                        ['time' => '10 mins ago', 'user' => 'Admin Juan', 'action' => 'Approved package void request for Case #1029', 'icon' => 'bi-shield-check', 'color' => 'text-emerald-500', 'bg' => 'bg-emerald-50', 'ring' => 'ring-emerald-50'],
-                        ['time' => '1 hour ago', 'user' => 'Staff Maria', 'action' => 'Encoded initial payment (₱15,000) for Case #1030', 'icon' => 'bi-cash-stack', 'color' => 'text-blue-500', 'bg' => 'bg-blue-50', 'ring' => 'ring-blue-50'],
+                        ['time' => '10 mins ago', 'user' => 'Admin Juan', 'action' => 'Approved package void request for Service #1029', 'icon' => 'bi-shield-check', 'color' => 'text-emerald-500', 'bg' => 'bg-emerald-50', 'ring' => 'ring-emerald-50'],
+                        ['time' => '1 hour ago', 'user' => 'Staff Maria', 'action' => 'Encoded initial payment (₱15,000) for Service #1030', 'icon' => 'bi-cash-stack', 'color' => 'text-blue-500', 'bg' => 'bg-blue-50', 'ring' => 'ring-blue-50'],
                         ['time' => '3 hours ago', 'user' => 'Owner', 'action' => 'Updated Executive Package pricing matrix', 'icon' => 'bi-tags-fill', 'color' => 'text-[#3E4A3D]', 'bg' => 'bg-[#3E4A3D]/10', 'ring' => 'ring-[#3E4A3D]/5'],
                         ['time' => 'Yesterday', 'user' => 'Staff Pedro', 'action' => 'Created new intake record for Deceased: Dela Cruz', 'icon' => 'bi-file-earmark-plus-fill', 'color' => 'text-slate-500', 'bg' => 'bg-slate-100', 'ring' => 'ring-slate-50'],
                     ];
@@ -1099,7 +1713,7 @@
                     ['label' => 'Service Catalogs', 'val' => $activePackageCount ?? 0, 'icon' => 'bi-layers', 'url' => route('admin.packages.index')],
                 ]
                 : [
-                    ['label' => 'Open Case Records', 'val' => $totalCases ?? 0, 'icon' => 'bi-folder2-open', 'url' => $caseRecordsUrl],
+                    ['label' => 'Open Service Records', 'val' => $totalCases ?? 0, 'icon' => 'bi-folder2-open', 'url' => $caseRecordsUrl],
                     ['label' => 'Payment Monitoring', 'val' => 'Review balances', 'icon' => 'bi-credit-card', 'url' => route('admin.payment-monitoring', $branchLinkParams)],
                     ['label' => 'Service Catalogs', 'val' => $activePackageCount ?? 0, 'icon' => 'bi-layers', 'url' => route('admin.packages.index')],
                 ];

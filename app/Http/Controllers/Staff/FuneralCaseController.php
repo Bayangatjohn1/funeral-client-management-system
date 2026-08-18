@@ -36,7 +36,7 @@ class FuneralCaseController extends Controller
 
         $request->validate([
             'q' => ['nullable', 'string', 'max:100', "regex:/^[A-Za-z0-9\\s.'-]+$/"],
-            'tab' => ['nullable', 'in:active,completed'],
+            'tab' => ['nullable', 'in:all,active,draft,completed'],
             'case_status' => ['nullable', 'in:DRAFT,ACTIVE,COMPLETED'],
             'payment_status' => ['nullable', 'in:PAID,PARTIAL,UNPAID'],
             'date_preset' => ['nullable', 'in:TODAY,THIS_MONTH,THIS_YEAR,CUSTOM'],
@@ -49,7 +49,7 @@ class FuneralCaseController extends Controller
             'package_id' => ['nullable', 'integer', 'exists:packages,id'],
             'interment_from' => ['nullable', 'date'],
             'interment_to' => ['nullable', 'date', 'after_or_equal:interment_from'],
-            'sort' => ['nullable', 'in:newest,oldest,service_date_asc,service_date_desc,total_desc,total_asc,paid_desc,paid_asc,balance_desc,balance_asc'],
+            'sort' => ['nullable', 'in:newest,oldest,alpha_asc,alpha_desc'],
             'quick_filter' => ['nullable', 'in:all,needs_attention,with_balance,recent,paid,recently_completed'],
             'record_scope' => ['nullable', 'in:main,other'],
         ], [
@@ -66,24 +66,12 @@ class FuneralCaseController extends Controller
                 ->with('success', 'Other-branch reports are completed-only and are shown under Branch Reports.');
         }
 
-        $currentTab = strtolower((string) $request->query('tab', 'active'));
-        if (!in_array($currentTab, ['active', 'completed'], true)) {
-            $currentTab = 'active';
+        $currentTab = strtolower((string) $request->query('tab', 'all'));
+        if (!in_array($currentTab, ['all', 'active', 'draft', 'completed'], true)) {
+            $currentTab = 'all';
         }
 
-        $quickFilterOptions = $currentTab === 'active'
-            ? [
-                'all' => 'All',
-                'needs_attention' => 'Needs Attention',
-                'with_balance' => 'With Balance',
-                'recent' => 'Recent',
-            ]
-            : [
-                'all' => 'All',
-                'paid' => 'Paid',
-                'with_balance' => 'With Balance',
-                'recently_completed' => 'Recently Completed',
-            ];
+        $quickFilterOptions = ['all' => 'All'];
 
         $quickFilter = strtolower((string) $request->query('quick_filter', 'all'));
         if (!array_key_exists($quickFilter, $quickFilterOptions)) {
@@ -134,8 +122,10 @@ class FuneralCaseController extends Controller
         }
 
         if ($currentTab === 'active') {
-            $query->whereIn('case_status', ['DRAFT', 'ACTIVE']);
-        } else {
+            $query->where('case_status', 'ACTIVE');
+        } elseif ($currentTab === 'draft') {
+            $query->where('case_status', 'DRAFT');
+        } elseif ($currentTab === 'completed') {
             $query->where('case_status', 'COMPLETED');
         }
 
@@ -300,28 +290,11 @@ class FuneralCaseController extends Controller
 
     private function caseRecordSortOptions(string $tab): array
     {
-        if ($tab === 'completed') {
-            return [
-                'newest' => 'Newest First',
-                'oldest' => 'Oldest First',
-                'total_desc' => 'Total Amount: High to Low',
-                'total_asc' => 'Total Amount: Low to High',
-                'paid_desc' => 'Total Paid: High to Low',
-                'paid_asc' => 'Total Paid: Low to High',
-                'balance_desc' => 'Balance: High to Low',
-                'balance_asc' => 'Balance: Low to High',
-            ];
-        }
-
         return [
-            'newest' => 'Newest First',
-            'oldest' => 'Oldest First',
-            'service_date_asc' => 'Funeral Service Date: Earliest',
-            'service_date_desc' => 'Funeral Service Date: Latest',
-            'total_desc' => 'Total Amount: High to Low',
-            'total_asc' => 'Total Amount: Low to High',
-            'balance_desc' => 'Balance: High to Low',
-            'balance_asc' => 'Balance: Low to High',
+            'newest' => 'Newest',
+            'oldest' => 'Oldest',
+            'alpha_asc' => 'A-Z',
+            'alpha_desc' => 'Z-A',
         ];
     }
 
@@ -374,39 +347,18 @@ class FuneralCaseController extends Controller
             $query->oldest('created_at');
             return;
         }
-        if ($sort === 'service_date_asc') {
-            $query->orderBy('funeral_service_at');
+        if ($sort === 'alpha_asc') {
+            $query->orderBy(Client::select('full_name')
+                ->whereColumn('clients.id', 'funeral_cases.client_id')
+                ->limit(1));
             return;
         }
-        if ($sort === 'service_date_desc') {
-            $query->orderByDesc('funeral_service_at');
+        if ($sort === 'alpha_desc') {
+            $query->orderByDesc(Client::select('full_name')
+                ->whereColumn('clients.id', 'funeral_cases.client_id')
+                ->limit(1));
             return;
         }
-        if ($sort === 'total_desc') {
-            $query->orderByDesc('total_amount');
-            return;
-        }
-        if ($sort === 'total_asc') {
-            $query->orderBy('total_amount');
-            return;
-        }
-        if ($sort === 'paid_desc') {
-            $query->orderByDesc('total_paid');
-            return;
-        }
-        if ($sort === 'paid_asc') {
-            $query->orderBy('total_paid');
-            return;
-        }
-        if ($sort === 'balance_desc') {
-            $query->orderByDesc('balance_amount');
-            return;
-        }
-        if ($sort === 'balance_asc') {
-            $query->orderBy('balance_amount');
-            return;
-        }
-
         $query->latest('created_at');
     }
 

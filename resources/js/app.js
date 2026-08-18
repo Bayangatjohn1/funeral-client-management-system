@@ -176,7 +176,8 @@ function initTableToolbarBehavior() {
 
     forms.forEach((form) => {
         const debounceMs = Number(form.dataset.searchDebounce || 400);
-        const searchInputs = form.querySelectorAll('[data-table-search]');
+        const usesLocalSearch = form.hasAttribute('data-live-search-suggestions');
+        const searchInputs = usesLocalSearch ? [] : form.querySelectorAll('[data-table-search]');
         const sortInputs = form.querySelectorAll('[data-table-sort]');
         const autoSubmitInputs = form.querySelectorAll('[data-table-auto-submit]');
         let debounceTimer = null;
@@ -261,6 +262,124 @@ function initTableToolbarBehavior() {
         });
 
         form.addEventListener('submit', markNavigationIntent);
+    });
+}
+
+function initLiveSearchSuggestions() {
+    document.querySelectorAll('form[data-live-search-suggestions]').forEach((form) => {
+        if (form.dataset.liveSearchReady === '1') return;
+        form.dataset.liveSearchReady = '1';
+
+        const input = form.querySelector('[data-live-search-input]');
+        const clear = form.querySelector('[data-live-search-clear]');
+        const panel = form.querySelector('[data-live-search-results]');
+        const page = form.closest('.admin-table-page') || document;
+        if (!(input instanceof HTMLInputElement) || !panel) return;
+
+        const commitOnly = form.hasAttribute('data-live-search-commit-only');
+        const rows = () => Array.from(page.querySelectorAll('[data-live-search-row]'));
+        const normalize = (value) => String(value || '').toLowerCase().trim();
+
+        const applyLocalFilter = () => {
+            const query = normalize(input.value);
+            rows().forEach((row) => {
+                const isMatch = !query || normalize(row.dataset.liveSearchText || row.textContent).includes(query);
+                row.classList.toggle('is-search-hidden', !isMatch);
+            });
+        };
+
+        const setPanel = (items, query) => {
+            panel.innerHTML = '';
+            if (!query) {
+                panel.hidden = true;
+                return;
+            }
+
+            if (!items.length) {
+                const empty = document.createElement('div');
+                empty.className = 'live-search-empty';
+                empty.textContent = 'No quick matches found. Continue typing to search all records.';
+                panel.appendChild(empty);
+                panel.hidden = false;
+                return;
+            }
+
+            const seen = new Set();
+            const uniqueItems = items.filter((row) => {
+                const key = `${row.dataset.liveSearchTitle || row.textContent.trim()}|${row.dataset.liveSearchMeta || ''}`;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+
+            uniqueItems.slice(0, 5).forEach((row) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'live-search-option';
+                button.innerHTML = `
+                    <span class="live-search-option__title"></span>
+                    <span class="live-search-option__meta"></span>
+                `;
+                button.querySelector('.live-search-option__title').textContent = row.dataset.liveSearchTitle || row.textContent.trim();
+                button.querySelector('.live-search-option__meta').textContent = row.dataset.liveSearchMeta || 'Open matching record';
+                button.addEventListener('click', () => {
+                    input.value = row.dataset.liveSearchTitle || input.value;
+                    panel.hidden = true;
+                    form.dataset.liveSearchSelected = '1';
+                    applyLocalFilter();
+                });
+                panel.appendChild(button);
+            });
+            panel.hidden = false;
+        };
+
+        const render = (showPanel = true) => {
+            const query = normalize(input.value);
+            if (clear) clear.hidden = query.length === 0;
+            if (!showPanel || form.dataset.liveSearchSelected === '1') {
+                panel.hidden = true;
+                return;
+            }
+            const matches = rows().filter((row) => normalize(row.dataset.liveSearchText || row.textContent).includes(query));
+            setPanel(matches, query);
+        };
+
+        clear?.addEventListener('click', () => {
+            input.value = '';
+            form.dataset.liveSearchSelected = '0';
+            panel.hidden = true;
+            applyLocalFilter();
+            render(false);
+        });
+
+        input.addEventListener('input', () => {
+            form.dataset.liveSearchSelected = '0';
+            if (!commitOnly) {
+                applyLocalFilter();
+            }
+            render();
+        });
+        input.addEventListener('focus', () => render());
+        input.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                panel.hidden = true;
+                applyLocalFilter();
+                return;
+            }
+            if (event.key === 'Escape') {
+                panel.hidden = true;
+            }
+        });
+
+        document.addEventListener('pointerdown', (event) => {
+            if (!(event.target instanceof Element)) return;
+            if (form.contains(event.target)) return;
+            panel.hidden = true;
+        });
+
+        applyLocalFilter();
+        render(false);
     });
 }
 
@@ -413,6 +532,7 @@ function initCaseRecordTabTransitions() {
             currentCard.replaceWith(nextCard);
             window.history.pushState({}, '', targetUrl.href);
             initTableToolbarBehavior();
+            initLiveSearchSuggestions();
             initCaseCompactFilters();
 
             const nextTableSection = nextCard.querySelector('.table-system-list');
@@ -429,6 +549,7 @@ function initCaseRecordTabTransitions() {
 initTheme();
 initRowActionMenus();
 initTableToolbarBehavior();
+initLiveSearchSuggestions();
 initCaseCompactFilters();
 initClickableRecordRows();
 initCaseRecordTabTransitions();

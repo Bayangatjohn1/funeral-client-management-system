@@ -43,8 +43,16 @@ class DashboardAccessTest extends TestCase
             ->assertSee('Managing Main Branch and all branch operations')
             ->assertSee('Network Branches')
             ->assertSee('System Audit Log')
-            ->assertSee('Service Amount by Branch')
-            ->assertSee('Case Volume Distribution');
+            ->assertSee('Collection Summary')
+            ->assertSee('Service Status Summary')
+            ->assertDontSee('Collections by Branch')
+            ->assertDontSee('Services by Branch');
+
+        $this->actingAs($mainAdmin)
+            ->get('/admin?branch_id=')
+            ->assertOk()
+            ->assertSee('Collections by Branch')
+            ->assertSee('Services by Branch');
 
         $this->actingAs($branchAdmin)
             ->get('/admin')
@@ -52,14 +60,14 @@ class DashboardAccessTest extends TestCase
             ->assertSee('Managing branch operations - BR002 - North Branch')
             ->assertSee("Today's Schedules", false)
             ->assertSee('Recent Branch Activity')
-            ->assertSee('Open Case Records')
+            ->assertSee('Open Service Records')
             ->assertSee('Payment Monitoring')
             ->assertDontSee('Record New Case')
             ->assertDontSee('Record Payment')
             ->assertDontSee('Network Branches')
             ->assertDontSee('System Audit Log')
-            ->assertDontSee('Service Amount by Branch')
-            ->assertDontSee('Case Volume Distribution')
+            ->assertDontSee('Collections by Branch')
+            ->assertDontSee('Services by Branch')
             ->assertDontSee('Open Master Records');
     }
 

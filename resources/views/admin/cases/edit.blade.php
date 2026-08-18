@@ -407,7 +407,7 @@ html[data-theme='dark'] .ace-banner     { background: #2a0a0a; border-color: #7f
                 </div>
 
                 <div class="ace-field">
-                    <label class="ace-label">Date Recorded</label>
+                    <label class="ace-label">Date Created</label>
                     <div class="ace-readonly">
                         <i class="bi bi-calendar-check" style="font-size:12px;opacity:.5;"></i>
                         {{ $requestDateRecorded->format('F d, Y') }}

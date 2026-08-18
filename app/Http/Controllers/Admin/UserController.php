@@ -30,15 +30,25 @@ class UserController extends Controller
 
     $validated = $request->validate([
         'q' => ['nullable', 'string', 'max:100'],
+        'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
         'role' => ['nullable', Rule::in(['admin', 'staff'])],
         'status' => ['nullable', Rule::in(['active', 'inactive'])],
         'sort' => ['nullable', Rule::in(['latest', 'name_asc', 'role_asc', 'branch_asc'])],
     ]);
 
+    $branches = collect();
+    $selectedBranchId = isset($validated['branch_id']) ? (int) $validated['branch_id'] : null;
+    $assignedBranch = null;
+
     $query = User::where('role', '!=', 'owner')
         ->with('branch');
 
     if ($actor->isMainBranchAdmin()) {
+        $branches = Branch::query()
+            ->where('is_active', true)
+            ->orderBy('branch_code')
+            ->get(['id', 'branch_code', 'branch_name']);
+
         $query->where(function ($q) use ($actor) {
             $q->where(function ($adminQuery) use ($actor) {
                 $adminQuery->where('role', 'admin')
@@ -50,6 +60,10 @@ class UserController extends Controller
             });
         });
     } elseif ($actor->role === 'admin') {
+        $assignedBranch = Branch::query()
+            ->whereKey($actor->branch_id)
+            ->first(['id', 'branch_code', 'branch_name']);
+
         $query->where('role', 'staff')
             ->where('branch_id', $actor->branch_id);
     } else {
@@ -67,6 +81,7 @@ class UserController extends Controller
                     ->orWhereHas('branch', fn ($branchQuery) => $branchQuery->where('branch_name', 'like', "%{$search}%"));
             });
         })
+        ->when($selectedBranchId, fn ($q, int $branchId) => $q->where('branch_id', $branchId))
         ->when($validated['role'] ?? null, fn ($q, string $role) => $q->where('role', $role))
         ->when($validated['status'] ?? null, fn ($q, string $status) => $q->where('is_active', $status === 'active'));
 
@@ -85,7 +100,12 @@ class UserController extends Controller
         ->paginate(20)
         ->withQueryString();
 
-    return view('admin.users.index', compact('users'));
+    return view('admin.users.index', compact(
+        'users',
+        'branches',
+        'selectedBranchId',
+        'assignedBranch'
+    ));
 }
     public function create()
 {

@@ -2,11 +2,15 @@
 
 @section('page_title', 'Case Records')
 @section('page_desc', 'Manage ongoing and completed case records.')
+@section('hide_layout_topbar', '1')
 
 @section('content')
 @php
-    $activeTab = $currentTab ?? 'active';
+    $activeTab = $currentTab ?? 'all';
+    $isAllTab = $activeTab === 'all';
     $isActiveTab = $activeTab === 'active';
+    $isDraftTab = $activeTab === 'draft';
+    $isCompletedTab = $activeTab === 'completed';
     $recordScope = $recordScope ?? 'main';
     $quickFilter = $quickFilter ?? 'all';
     $sort = $sort ?? 'newest';
@@ -21,9 +25,7 @@
     $caseRecordsBranchLabel = $operationalBranch
         ? trim(($operationalBranch->branch_code ?? '') . ' - ' . ($operationalBranch->branch_name ?? ''))
         : 'Assigned Branch';
-    $caseRecordsChips = collect([
-        ['icon' => 'bi-lock-fill', 'label' => 'Branch: ' . $caseRecordsBranchLabel, 'locked' => true],
-    ]);
+    $caseRecordsChips = collect();
     if (filled(request('q'))) {
         $caseRecordsChips->push(['icon' => 'bi-search', 'label' => 'Search: ' . request('q')]);
     }
@@ -47,8 +49,7 @@
         $caseRecordsChips->push(['icon' => 'bi-calendar-event', 'label' => 'Interment: ' . (($intermentFrom ?? null) ?: 'Start') . ' - ' . (($intermentTo ?? null) ?: 'Today')]);
     }
 
-    $activeTabUrl = route('funeral-cases.index', array_filter([
-        'tab' => 'active',
+    $caseRecordsTabParams = [
         'record_scope' => $recordScope,
         'q' => request('q'),
         'case_status' => request('case_status'),
@@ -64,38 +65,894 @@
         'interment_from' => request('interment_from'),
         'interment_to' => request('interment_to'),
         'sort' => 'newest',
-        'quick_filter' => 'all',
-    ], fn ($value) => !is_null($value) && $value !== ''));
+    ];
 
-    $completedTabUrl = route('funeral-cases.index', array_filter([
+    $allTabUrl = route('funeral-cases.index', array_filter(array_merge($caseRecordsTabParams, [
+        'tab' => 'all',
+    ]), fn ($value) => !is_null($value) && $value !== ''));
+
+    $activeTabUrl = route('funeral-cases.index', array_filter(array_merge($caseRecordsTabParams, [
+        'tab' => 'active',
+    ]), fn ($value) => !is_null($value) && $value !== ''));
+
+    $draftTabUrl = route('funeral-cases.index', array_filter(array_merge($caseRecordsTabParams, [
+        'tab' => 'draft',
+    ]), fn ($value) => !is_null($value) && $value !== ''));
+
+    $completedTabUrl = route('funeral-cases.index', array_filter(array_merge($caseRecordsTabParams, [
         'tab' => 'completed',
-        'record_scope' => $recordScope,
-        'q' => request('q'),
-        'case_status' => request('case_status'),
-        'payment_status' => request('payment_status'),
-        'service_type' => request('service_type'),
-        'package_id' => request('package_id'),
-        'date_preset' => request('date_preset'),
-        'date_from' => request('date_from'),
-        'date_to' => request('date_to'),
-        'date_range' => request('date_range'),
-        'request_date_from' => request('request_date_from'),
-        'request_date_to' => request('request_date_to'),
-        'interment_from' => request('interment_from'),
-        'interment_to' => request('interment_to'),
-        'sort' => 'newest',
-        'quick_filter' => 'all',
-    ], fn ($value) => !is_null($value) && $value !== ''));
+    ]), fn ($value) => !is_null($value) && $value !== ''));
 @endphp
 
-@push('styles')
 <style>
     .records-page {
+        --records-card: #D3DEC9;
+        --records-card-alt: #DCE6D6;
+        --records-card-strong: #C7D5BE;
+        --records-hover: #C5D3BC;
+        --records-active: #B8C9AF;
+        --records-border: #AEBBA8;
+        --records-border-strong: #8EA083;
+        --records-text: #232821;
+        --records-muted: #3F4C3E;
         box-sizing: border-box;
-        padding: 0 var(--panel-content-inline) 20px;
+        min-height: 100%;
+        padding: .9rem var(--panel-content-inline) 20px;
+        color: var(--records-text);
+        font-family: var(--font-body);
+        background:
+            linear-gradient(90deg, rgba(73, 87, 69, 0.04) 0 1px, transparent 1px),
+            linear-gradient(180deg, rgba(73, 87, 69, 0.034) 0 1px, transparent 1px),
+            repeating-linear-gradient(135deg, rgba(73, 87, 69, 0.02) 0 1px, transparent 1px 12px);
+        background-size: 44px 44px, 44px 44px, 16px 16px;
+        transition: opacity .16s ease, transform .16s ease;
+    }
+
+    .records-page.is-updating {
+        opacity: .72;
+        transform: translateY(2px);
+        pointer-events: none;
+    }
+
+    .records-page,
+    .records-page *,
+    .records-page *::before,
+    .records-page *::after {
+        box-shadow: none !important;
+        filter: none !important;
+        backdrop-filter: none !important;
+    }
+
+    .records-page h1,
+    .records-page h2,
+    .records-page h3,
+    .records-page h4,
+    .records-page .table-system-list-title,
+    .records-page .table-primary {
+        font-family: var(--font-heading);
+        letter-spacing: 0;
+        color: var(--records-text) !important;
+    }
+
+    .records-page p,
+    .records-page small,
+    .records-page label,
+    .records-page .table-secondary,
+    .records-page .table-system-list-copy,
+    .records-page .case-compact-advanced-note {
+        color: var(--records-muted) !important;
+        opacity: 1 !important;
+    }
+
+    .records-page label,
+    .records-page th,
+    .records-page .case-compact-chip,
+    .records-page .table-quick-tab,
+    .records-page .status-badge {
+        font-weight: 650 !important;
+        letter-spacing: 0 !important;
+    }
+
+    .records-page a[href],
+    .records-page button,
+    .records-page select,
+    .records-page input,
+    .records-page [role="button"],
+    .records-page [data-clickable-row] {
+        transition: background-color .14s ease, border-color .14s ease, color .14s ease;
+    }
+
+    .records-page a[href],
+    .records-page button,
+    .records-page select,
+    .records-page [role="button"],
+    .records-page [data-clickable-row] {
+        cursor: pointer;
+    }
+
+    .records-page a[href]:focus,
+    .records-page button:focus,
+    .records-page select:focus,
+    .records-page input:focus,
+    .records-page [role="button"]:focus,
+    .records-page [data-clickable-row]:focus,
+    .records-page a[href]:focus-visible,
+    .records-page button:focus-visible,
+    .records-page select:focus-visible,
+    .records-page input:focus-visible,
+    .records-page [role="button"]:focus-visible,
+    .records-page [data-clickable-row]:focus-visible {
+        outline: none !important;
+        outline-offset: 0 !important;
+    }
+
+    .records-page .flash-success,
+    .records-page .flash-info,
+    .records-page .list-card,
+    .records-page .case-records-top-wrapper,
+    .records-page .table-system-toolbar,
+    .records-page .table-system-list,
+    .records-page .table-system-list-header,
+    .records-page .table-system-wrap,
+    .records-page .table-system-pagination,
+    .records-page .case-compact-filter,
+    .records-page .case-compact-search-row,
+    .records-page .case-compact-filter-bar,
+    .records-page .case-compact-advanced,
+    .records-page .case-compact-popover,
+    .records-page .case-records-tabs-row,
+    .records-page .case-records-quick-row {
+        background: var(--records-card) !important;
+        border-color: var(--records-border) !important;
+        border-radius: 8px !important;
+        color: var(--records-text) !important;
+    }
+
+    .records-page .case-records-top-wrapper,
+    .records-page .table-system-toolbar,
+    .records-page .case-records-tabs-row,
+    .records-page .case-records-quick-row {
+        overflow: visible;
+    }
+
+    .records-page .table-system-list-header,
+    .records-page .case-compact-search-row,
+    .records-page .case-compact-filter-bar,
+    .records-page .case-records-tabs-row,
+    .records-page .case-records-quick-row,
+    .records-page .table-system-pagination {
+        background: var(--records-card-alt) !important;
+    }
+
+    .records-page .case-records-top-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: .75rem;
+        padding: .85rem;
+        margin-bottom: 1rem;
+    }
+
+    .records-page .table-system-toolbar,
+    .records-page .case-records-controls {
+        padding: 0 !important;
+        background: transparent !important;
+        border: 0 !important;
+    }
+
+    .records-page .case-compact-filter {
+        display: flex;
+        flex-direction: column;
+        gap: .75rem;
+        background: transparent !important;
+        border: 0 !important;
+    }
+
+    .records-page .case-compact-search-row,
+    .records-page .case-compact-filter-bar,
+    .records-page .case-records-tabs-row,
+    .records-page .case-records-quick-row {
+        padding: .75rem;
+        border: 1px solid var(--records-border);
+    }
+
+    .records-page .case-records-tabs-row,
+    .records-page .case-records-quick-row {
+        background: transparent !important;
+        border-color: transparent !important;
+        padding: 0;
+    }
+
+    .records-page .case-records-tabs,
+    .records-page .table-system-quick-tabs {
+        background: var(--records-card-alt) !important;
+        border: 1px solid var(--records-border) !important;
+        border-radius: 8px !important;
+        padding: .35rem;
+        gap: .35rem;
+    }
+
+    .records-page .case-compact-search-row,
+    .records-page .case-compact-filter-bar {
+        gap: .65rem;
+    }
+
+    .records-page .case-compact-field label,
+    .records-page .case-compact-pop-field label,
+    .records-page .table-toolbar-label {
+        font-size: .74rem;
+        color: var(--records-muted) !important;
+        text-transform: none;
+    }
+
+    .records-page .case-compact-input,
+    .records-page .case-compact-select,
+    .records-page .case-compact-date-select,
+    .records-page .case-compact-sort-select,
+    .records-page .case-compact-branch,
+    .records-page .case-compact-seg,
+    .records-page .case-compact-seg-item,
+    .records-page .case-compact-more,
+    .records-page .case-compact-chip,
+    .records-page .case-compact-reset,
+    .records-page .case-compact-apply,
+    .records-page .case-compact-pop-input,
+    .records-page .case-compact-pop-apply,
+    .records-page .case-compact-pop-reset,
+    .records-page .case-compact-advanced-clear,
+    .records-page .table-quick-tab,
+    .records-page .btn-secondary,
+    .records-page .btn-outline,
+    .records-page .btn-filter-reset {
+        min-height: 40px;
+        background: var(--records-card-alt) !important;
+        border: 1px solid var(--records-border) !important;
+        border-radius: 8px !important;
+        color: var(--records-text) !important;
+    }
+
+    .records-page .case-compact-date-filter {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        min-width: 12.25rem;
+        padding: 0 !important;
+    }
+
+    .records-page .case-compact-sort-filter {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        min-width: 12.25rem;
+        padding: 0 !important;
+    }
+
+    .records-page .case-compact-date-select,
+    .records-page .case-compact-sort-select {
+        width: 100%;
+        min-height: 40px;
+        padding: 0 2.3rem 0 2.35rem;
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        font-weight: 650;
+    }
+
+    .records-page .case-compact-date-icon,
+    .records-page .case-compact-sort-icon,
+    .records-page .case-compact-date-filter > .case-compact-date-chev,
+    .records-page .case-compact-sort-filter > .case-compact-sort-chev {
+        position: absolute;
+        top: 50%;
+        z-index: 2;
+        color: #3E4A3D !important;
+        pointer-events: none;
+        transform: translateY(-50%);
+    }
+
+    .records-page .case-compact-date-icon {
+        left: .85rem;
+    }
+
+    .records-page .case-compact-sort-icon {
+        left: .85rem;
+    }
+
+    .records-page .case-compact-date-filter > .case-compact-date-chev,
+    .records-page .case-compact-sort-filter > .case-compact-sort-chev {
+        right: .85rem;
+        font-size: .82rem;
+    }
+
+    .records-page .case-compact-date-filter .case-compact-custom {
+        position: absolute;
+        left: 0;
+        top: calc(100% + .45rem);
+        z-index: 40;
+    }
+
+    .records-page .case-compact-input::placeholder {
+        color: var(--records-muted) !important;
+        opacity: 1;
+    }
+
+    .records-page .case-compact-apply,
+    .records-page .case-compact-pop-apply,
+    .records-page .btn-secondary {
+        background: #3E4A3D !important;
+        border-color: #3E4A3D !important;
+        color: #FFFDF7 !important;
+    }
+
+    .records-page .case-compact-input:hover,
+    .records-page .case-compact-select:hover,
+    .records-page .case-compact-date-select:hover,
+    .records-page .case-compact-sort-select:hover,
+    .records-page .case-compact-branch:hover,
+    .records-page .case-compact-seg-item:hover,
+    .records-page .case-compact-more:hover,
+    .records-page .case-compact-chip:hover,
+    .records-page .case-compact-reset:hover,
+    .records-page .case-compact-pop-reset:hover,
+    .records-page .case-compact-advanced-clear:hover,
+    .records-page .table-quick-tab:hover,
+    .records-page .btn-outline:hover,
+    .records-page .btn-filter-reset:hover {
+        background: var(--records-hover) !important;
+        border-color: var(--records-border-strong) !important;
+        color: var(--records-text) !important;
+        transform: none !important;
+    }
+
+    .records-page .case-compact-apply:hover,
+    .records-page .case-compact-pop-apply:hover,
+    .records-page .btn-secondary:hover {
+        background: #2F3A2E !important;
+        border-color: #2F3A2E !important;
+        color: #FFFDF7 !important;
+        transform: none !important;
+    }
+
+    .records-page .case-compact-seg-item.active,
+    .records-page .case-compact-date-filter:has(.case-compact-date-select[value="CUSTOM"]),
+    .records-page .case-compact-more.active,
+    .records-page .table-quick-tab-active,
+    .records-page .table-quick-tab[aria-selected="true"],
+    .records-page .case-compact-chip-locked {
+        background: var(--records-active) !important;
+        border-color: #3E4A3D !important;
+        color: var(--records-text) !important;
+    }
+
+    .records-page .case-compact-seg-item.active,
+    .records-page .case-compact-more.active,
+    .records-page .table-quick-tab-active {
+        font-weight: 700 !important;
+    }
+
+    .records-page .case-compact-branch > i,
+    .records-page .case-compact-select-chev,
+    .records-page .case-compact-date-chev,
+    .records-page .case-compact-sort-chev,
+    .records-page .case-compact-chip i,
+    .records-page .table-quick-tab i,
+    .records-page .case-compact-reset i,
+    .records-page .case-compact-apply i {
+        color: #3E4A3D !important;
+        opacity: 1 !important;
+    }
+
+    .records-page .case-compact-popover {
+        min-width: 25rem;
+        padding: .85rem;
+        background: var(--records-card) !important;
+        border: 1px solid var(--records-border) !important;
+    }
+
+    .records-page .case-compact-apply i,
+    .records-page .case-compact-pop-apply i,
+    .records-page .btn-secondary i {
+        color: #FFFDF7 !important;
+    }
+
+    .records-page .table-system-list {
+        overflow: hidden;
+        border: 1px solid var(--records-border);
+    }
+
+    .records-page .table-system-list-header {
+        padding: .9rem 1rem;
+        border-bottom: 1px solid var(--records-border);
+    }
+
+    .records-page .table-system-list-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+    }
+
+    .records-page .table-system-wrap {
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: var(--records-card) !important;
+    }
+
+    .records-page .table-system-table {
+        background: transparent !important;
+        color: var(--records-text);
+    }
+
+    .records-page .table-system-table thead tr,
+    .records-page .table-system-table thead th {
+        background: var(--records-card-strong) !important;
+        color: var(--records-muted) !important;
+        border-color: var(--records-border) !important;
+    }
+
+    .records-page .table-system-table tbody td {
+        background: var(--records-card) !important;
+        border-color: var(--records-border) !important;
+        color: var(--records-text) !important;
+    }
+
+    .records-page .table-system-table tbody tr:nth-child(even) td {
+        background: var(--records-card-alt) !important;
+    }
+
+    .records-page .table-system-table tbody tr:hover td,
+    .records-page .table-system-table tr[data-clickable-row]:focus-visible td {
+        background: var(--records-hover) !important;
+        color: var(--records-text) !important;
+    }
+
+    .records-page .table-system-table .row-needs-attention td:first-child {
+        box-shadow: inset 4px 0 0 #9E4B3F !important;
+    }
+
+    .records-page .status-badge,
+    .records-page .table-payment-status-badge {
+        background: transparent !important;
+        border: 1.5px solid var(--records-border-strong) !important;
+        border-radius: 8px !important;
+        color: var(--records-text) !important;
+    }
+
+    .records-page .table-system-empty {
+        background: var(--records-card-alt) !important;
+        color: var(--records-muted) !important;
+    }
+
+    .records-page .table-wrapper,
+    .records-page table,
+    .records-page tbody,
+    .records-page tr,
+    .records-page td,
+    .records-page .table-base,
+    .records-page .table-system-table,
+    .records-page .table-system-table tbody,
+    .records-page .records-worklist-table {
+        background-color: var(--records-card) !important;
+    }
+
+    .records-page .table-system-list,
+    .records-page .table-system-wrap {
+        background: var(--records-card) !important;
+    }
+
+    .records-page .table-system-table tbody tr:nth-child(even),
+    .records-page .table-system-table tbody tr:nth-child(even) td {
+        background-color: var(--records-card-alt) !important;
+    }
+
+    .records-page .table-system-table tbody tr:hover,
+    .records-page .table-system-table tbody tr:hover td,
+    .records-page .table-system-table tr[data-clickable-row]:focus-visible,
+    .records-page .table-system-table tr[data-clickable-row]:focus-visible td {
+        background-color: var(--records-hover) !important;
+    }
+
+    .records-page #caseEditOverlay {
+        backdrop-filter: none !important;
+    }
+
+    .records-page #caseEditSheet,
+    .records-page #caseEditContent,
+    .records-page #caseEditClose {
+        background: var(--records-card) !important;
+        border-color: var(--records-border) !important;
+        box-shadow: none !important;
+    }
+
+    @media (max-width: 767px) {
+        .records-page {
+            padding-inline: .75rem;
+        }
+
+        .records-page .case-records-top-wrapper {
+            padding: .65rem;
+        }
+
+        .records-page .case-compact-search-row,
+        .records-page .case-compact-filter-bar,
+        .records-page .case-records-tabs-row,
+        .records-page .case-records-quick-row {
+            padding: .65rem;
+        }
+    }
+
+    html:not([data-theme='dark']) .records-page {
+        padding-top: 1.15rem;
+        background:
+            linear-gradient(90deg, rgba(73, 87, 69, 0.04) 0 1px, transparent 1px),
+            linear-gradient(180deg, rgba(73, 87, 69, 0.034) 0 1px, transparent 1px),
+            repeating-linear-gradient(135deg, rgba(73, 87, 69, 0.02) 0 1px, transparent 1px 12px);
+        background-size: 44px 44px, 44px 44px, 16px 16px;
+    }
+
+    html:not([data-theme='dark']) .records-page .case-records-top-wrapper,
+    html:not([data-theme='dark']) .records-page .table-system-list,
+    html:not([data-theme='dark']) .records-page .table-system-list-header,
+    html:not([data-theme='dark']) .records-page .table-system-wrap,
+    html:not([data-theme='dark']) .records-page .table-system-table,
+    html:not([data-theme='dark']) .records-page .table-system-table tbody,
+    html:not([data-theme='dark']) .records-page .table-wrapper {
+        background: var(--records-card) !important;
+        border-color: var(--records-border) !important;
+        box-shadow: none !important;
+    }
+
+    html:not([data-theme='dark']) .records-page .case-compact-search-row,
+    html:not([data-theme='dark']) .records-page .case-compact-filter-bar,
+    html:not([data-theme='dark']) .records-page .case-records-tabs,
+    html:not([data-theme='dark']) .records-page .table-system-quick-tabs,
+    html:not([data-theme='dark']) .records-page .table-system-list-header,
+    html:not([data-theme='dark']) .records-page .table-system-table thead tr,
+    html:not([data-theme='dark']) .records-page .table-system-table thead th {
+        background: var(--records-card-strong) !important;
+        border-color: var(--records-border) !important;
+    }
+
+    html:not([data-theme='dark']) .records-page .case-compact-input,
+    html:not([data-theme='dark']) .records-page .case-compact-select,
+    html:not([data-theme='dark']) .records-page .case-compact-date-select,
+    html:not([data-theme='dark']) .records-page .case-compact-sort-select,
+    html:not([data-theme='dark']) .records-page .case-compact-branch,
+    html:not([data-theme='dark']) .records-page .case-compact-more,
+    html:not([data-theme='dark']) .records-page .case-compact-reset,
+    html:not([data-theme='dark']) .records-page .case-compact-pop-input,
+    html:not([data-theme='dark']) .records-page .case-compact-pop-reset,
+    html:not([data-theme='dark']) .records-page .case-compact-advanced-clear,
+    html:not([data-theme='dark']) .records-page .table-quick-tab,
+    html:not([data-theme='dark']) .records-page .case-compact-chip {
+        background: var(--records-card-alt) !important;
+        border-color: var(--records-border) !important;
+        color: var(--records-text) !important;
+    }
+
+    html:not([data-theme='dark']) .records-page .case-compact-date-filter,
+    html:not([data-theme='dark']) .records-page .case-compact-sort-filter {
+        min-width: 12.25rem;
+        background: transparent !important;
+        border: 0 !important;
+    }
+
+    html:not([data-theme='dark']) .records-page .case-compact-sort-filter {
+        min-width: 12.25rem;
+    }
+
+    html:not([data-theme='dark']) .records-page .case-compact-date-select,
+    html:not([data-theme='dark']) .records-page .case-compact-sort-select {
+        background-image: none !important;
+        padding-left: 2.25rem !important;
+        padding-right: 2.25rem !important;
+    }
+
+    html:not([data-theme='dark']) .records-page .case-compact-date-filter > .case-compact-date-chev,
+    html:not([data-theme='dark']) .records-page .case-compact-sort-filter > .case-compact-sort-chev {
+        right: .78rem;
+    }
+
+    html:not([data-theme='dark']) .records-page .case-compact-date-filter::after,
+    html:not([data-theme='dark']) .records-page .case-compact-date-filter .case-compact-custom::before,
+    html:not([data-theme='dark']) .records-page .case-compact-date-filter .case-compact-custom::after {
+        content: none !important;
+        display: none !important;
+    }
+
+    html:not([data-theme='dark']) .records-page .case-compact-date-filter .case-compact-custom {
+        left: auto;
+        right: 0;
+        top: calc(100% + .5rem);
+        width: min(22rem, calc(100vw - 2rem));
+    }
+
+    html:not([data-theme='dark']) .records-page .case-compact-popover {
+        min-width: 0;
+        width: 100%;
+        padding: .85rem;
+        background: var(--records-card) !important;
+        border-color: var(--records-border) !important;
+    }
+
+    html:not([data-theme='dark']) .records-page .case-compact-pop-fields {
+        grid-template-columns: 1fr 1fr;
+        gap: .65rem;
+    }
+
+    html:not([data-theme='dark']) .records-page .table-system-table tbody tr,
+    html:not([data-theme='dark']) .records-page .table-system-table tbody tr td {
+        background: var(--records-card) !important;
+    }
+
+    html:not([data-theme='dark']) .records-page .table-system-table tbody tr:nth-child(even),
+    html:not([data-theme='dark']) .records-page .table-system-table tbody tr:nth-child(even) td {
+        background: var(--records-card-alt) !important;
+    }
+
+    html:not([data-theme='dark']) .records-page .case-compact-input:hover,
+    html:not([data-theme='dark']) .records-page .case-compact-select:hover,
+    html:not([data-theme='dark']) .records-page .case-compact-date-select:hover,
+    html:not([data-theme='dark']) .records-page .case-compact-sort-select:hover,
+    html:not([data-theme='dark']) .records-page .case-compact-branch:hover,
+    html:not([data-theme='dark']) .records-page .case-compact-more:hover,
+    html:not([data-theme='dark']) .records-page .case-compact-reset:hover,
+    html:not([data-theme='dark']) .records-page .case-compact-pop-reset:hover,
+    html:not([data-theme='dark']) .records-page .case-compact-advanced-clear:hover,
+    html:not([data-theme='dark']) .records-page .table-quick-tab:hover,
+    html:not([data-theme='dark']) .records-page .case-compact-chip:hover,
+    html:not([data-theme='dark']) .records-page .table-system-table tbody tr:hover,
+    html:not([data-theme='dark']) .records-page .table-system-table tbody tr:hover td {
+        background: var(--records-hover) !important;
+        border-color: var(--records-border-strong) !important;
+        color: var(--records-text) !important;
+    }
+
+    html:not([data-theme='dark']) .records-page .case-compact-date-select:focus,
+    html:not([data-theme='dark']) .records-page .case-compact-sort-select:focus,
+    html:not([data-theme='dark']) .records-page .case-compact-input:focus,
+    html:not([data-theme='dark']) .records-page .case-compact-pop-input:focus {
+        background: var(--records-card-alt) !important;
+        border-color: var(--records-border-strong) !important;
+        color: var(--records-text) !important;
+    }
+
+    html:not([data-theme='dark']) .records-page .case-compact-seg-item.active,
+    html:not([data-theme='dark']) .records-page .case-compact-more.active,
+    html:not([data-theme='dark']) .records-page .table-quick-tab-active,
+    html:not([data-theme='dark']) .records-page .case-compact-chip-locked {
+        background: var(--records-active) !important;
+        border-color: #3E4A3D !important;
+        color: var(--records-text) !important;
+    }
+
+    .records-page .case-records-top-wrapper {
+        display: grid !important;
+        grid-template-columns: minmax(24rem, 46rem) minmax(2rem, 1fr) auto auto;
+        grid-template-areas:
+            "search spacer filters actions"
+            "advanced advanced advanced advanced";
+        align-items: center;
+        gap: .65rem;
+        height: auto !important;
+        min-height: 0 !important;
+        padding: .85rem !important;
+        margin: 0 0 .6rem !important;
+        overflow: visible !important;
+    }
+
+    .records-page .case-records-controls,
+    .records-page .case-records-controls .case-compact-filter,
+    .records-page .case-records-controls .case-compact-search-row,
+    .records-page .case-records-quick-row {
+        display: contents !important;
+        height: auto !important;
+        min-height: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+    }
+
+    .records-page .case-records-controls .case-compact-search-field {
+        grid-area: search;
+        min-width: 0;
+        max-width: 46rem;
+    }
+
+    .records-page .case-records-controls .case-compact-search-field label {
+        display: none !important;
+    }
+
+    .records-page .case-records-controls .case-compact-filter-bar {
+        grid-area: filters;
+        display: inline-flex !important;
+        flex-wrap: nowrap !important;
+        gap: .55rem !important;
+        justify-content: flex-end;
+        justify-self: end;
+        width: auto !important;
+        height: auto !important;
+        min-height: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+    }
+
+    html:not([data-theme='dark']) .records-page .case-records-controls .case-compact-filter-bar {
+        background: transparent !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+    }
+
+    .records-page .case-records-controls .case-compact-actions {
+        grid-area: actions;
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: flex-end;
+        justify-self: end;
+        width: auto !important;
+        margin-left: 0 !important;
+    }
+
+    .records-page .case-records-controls .case-compact-advanced {
+        grid-area: advanced;
+        width: 100%;
+        margin-top: .15rem !important;
+    }
+
+    .records-page .case-records-tabs-row {
+        grid-area: tabs;
+        display: flex !important;
+        align-items: center;
+        height: auto !important;
+        min-height: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+    }
+
+    .records-page .table-system-quick-tabs {
+        grid-area: quick;
+        justify-self: start;
+    }
+
+    .records-page .case-records-quick-chips {
+        grid-area: branch;
+        justify-self: end;
+        align-self: end;
+        width: auto !important;
+        padding: 0 !important;
+    }
+
+    .records-page .case-compact-search-field,
+    .records-page .case-compact-search-field .case-compact-input {
+        height: 44px;
+    }
+
+    .records-page .case-compact-input,
+    .records-page .case-compact-date-select,
+    .records-page .case-compact-more,
+    .records-page .case-compact-reset,
+    .records-page .case-compact-apply,
+    .records-page .table-quick-tab,
+    .records-page .case-compact-chip {
+        min-height: 40px !important;
+    }
+
+    .records-page .case-compact-search-field .case-compact-input {
+        display: block;
+        padding-inline: .95rem;
+    }
+
+    .records-page .case-compact-date-filter {
+        position: relative !important;
+        overflow: visible !important;
+        min-width: 12.75rem !important;
+    }
+
+    .records-page .case-compact-date-select {
+        appearance: none !important;
+        -webkit-appearance: none !important;
+        -moz-appearance: none !important;
+        background-image: none !important;
+    }
+
+    .records-page .case-compact-sort-select {
+        appearance: none !important;
+        -webkit-appearance: none !important;
+        -moz-appearance: none !important;
+        background-image: none !important;
+    }
+
+    .records-page .case-compact-sort-select::-ms-expand {
+        display: none;
+    }
+
+    .records-page .case-compact-date-select::-ms-expand {
+        display: none;
+    }
+
+    .records-page .case-compact-date-filter > .case-compact-date-chev,
+    .records-page .case-compact-date-filter > .case-compact-date-icon,
+    .records-page .case-compact-sort-filter > .case-compact-sort-chev,
+    .records-page .case-compact-sort-filter > .case-compact-sort-icon {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .records-page .case-compact-date-filter .case-compact-custom {
+        position: absolute !important;
+        top: calc(100% + .5rem) !important;
+        right: 0 !important;
+        left: auto !important;
+        z-index: 80 !important;
+        width: min(22rem, calc(100vw - 2rem)) !important;
+    }
+
+    .records-page .case-compact-popover {
+        position: relative !important;
+        top: auto !important;
+        right: auto !important;
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    .records-page .table-system-list,
+    .records-page .table-system-wrap,
+    .records-page .table-wrapper {
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+    }
+
+    .records-page .table-system-wrap,
+    .records-page .table-wrapper {
+        overflow-x: auto !important;
+        overflow-y: visible !important;
+    }
+
+    @media (max-width: 1120px) {
+        .records-page .case-records-top-wrapper {
+            grid-template-columns: 1fr auto;
+            grid-template-areas:
+                "search search"
+                "filters actions"
+                "advanced advanced";
+        }
+    }
+
+    @media (max-width: 760px) {
+        .records-page .case-records-top-wrapper {
+            grid-template-columns: 1fr;
+            grid-template-areas:
+                "search"
+                "filters"
+                "actions"
+                "advanced";
+        }
+
+        .records-page .case-records-controls .case-compact-filter-bar,
+        .records-page .case-records-controls .case-compact-actions,
+        .records-page .case-records-tabs,
+        .records-page .table-system-quick-tabs,
+        .records-page .case-records-quick-chips {
+            width: 100% !important;
+            justify-content: flex-start;
+            justify-self: stretch;
+        }
+    }
+
+    .records-page > .case-records-tabs-row {
+        display: flex !important;
+        align-items: center;
+        margin: 0 0 .65rem !important;
+        padding: 0 !important;
+        background: transparent !important;
+        border: 0 !important;
+    }
+
+    .records-page > .case-records-tabs-row + .table-system-list {
+        margin-top: 0 !important;
     }
 </style>
-@endpush
 
 <div class="records-page">
     @if(session('success'))
@@ -151,12 +1008,17 @@
                     'intermentTo' => $intermentTo ?? null,
                     'serviceTypes' => $serviceTypes ?? collect(),
                     'packages' => $packages ?? collect(),
-                    'hiddenInputs' => ['tab' => $activeTab, 'record_scope' => $recordScope, 'sort' => $sort],
+                    'hiddenInputs' => ['tab' => $activeTab, 'record_scope' => $recordScope],
                     'showVerificationStatus' => false,
                     'showPackage' => true,
                     'showEncodedBy' => false,
-                    'showBranchChip' => true,
+                    'showBranchChip' => false,
+                    'showBranchField' => false,
                     'showInlineChips' => false,
+                    'showMoreFilters' => false,
+                    'showSort' => true,
+                    'sortOptions' => $sortOptions ?? [],
+                    'sort' => $sort,
                 ])
 
                 <form id="caseRecordsFilterForm" method="GET" action="{{ route('funeral-cases.index') }}" class="table-toolbar hidden" data-table-toolbar data-search-debounce="400">
@@ -251,58 +1113,59 @@
                 </form>
 
             </div>
+            </div>{{-- /.case-records-top-wrapper --}}
 
             <div class="case-records-tabs-row">
                 <div class="table-quick-tabs case-records-tabs" role="tablist" aria-label="Case record tabs">
+                    <a
+                        href="{{ $allTabUrl }}"
+                        role="tab"
+                        aria-selected="{{ $isAllTab ? 'true' : 'false' }}"
+                        class="table-quick-tab {{ $isAllTab ? 'table-quick-tab-active' : '' }}"
+                    >
+                        All
+                    </a>
+                    <a
+                        href="{{ $draftTabUrl }}"
+                        role="tab"
+                        aria-selected="{{ $isDraftTab ? 'true' : 'false' }}"
+                        class="table-quick-tab {{ $isDraftTab ? 'table-quick-tab-active' : '' }}"
+                    >
+                        Draft
+                    </a>
                     <a
                         href="{{ $activeTabUrl }}"
                         role="tab"
                         aria-selected="{{ $isActiveTab ? 'true' : 'false' }}"
                         class="table-quick-tab {{ $isActiveTab ? 'table-quick-tab-active' : '' }}"
                     >
-                        Active Cases
+                        Active
                     </a>
                     <a
                         href="{{ $completedTabUrl }}"
                         role="tab"
-                        aria-selected="{{ $isActiveTab ? 'false' : 'true' }}"
-                        class="table-quick-tab {{ $isActiveTab ? '' : 'table-quick-tab-active' }}"
+                        aria-selected="{{ $isCompletedTab ? 'true' : 'false' }}"
+                        class="table-quick-tab {{ $isCompletedTab ? 'table-quick-tab-active' : '' }}"
                     >
-                        Completed Cases
+                        Completed
                     </a>
                 </div>
             </div>
 
-            <div class="case-records-quick-row case-records-quick-row--last">
-                <div class="table-quick-tabs table-system-quick-tabs" aria-label="Quick filters">
-                    @foreach(($quickFilterOptions ?? []) as $filterKey => $filterLabel)
-                        <a
-                            href="{{ route('funeral-cases.index', array_filter(array_merge(request()->except(['page', 'quick_filter', 'open_wizard']), ['quick_filter' => $filterKey]), fn ($value) => !is_null($value) && $value !== '')) }}"
-                            class="table-quick-tab {{ $quickFilter === $filterKey ? 'table-quick-tab-active' : '' }}"
-                        >
-                            {{ $filterLabel }}
-                        </a>
-                    @endforeach
-                </div>
-
-                <div class="case-compact-inline-chips case-records-quick-chips" aria-label="Applied branch and filters">
-                    @foreach($caseRecordsChips as $chip)
-                        <span class="case-compact-chip {{ !empty($chip['locked']) ? 'case-compact-chip-locked' : '' }}">
-                            <i class="bi {{ $chip['icon'] }}"></i>{{ $chip['label'] }}
-                        </span>
-                    @endforeach
-                </div>
-            </div>
-            </div>{{-- /.case-records-top-wrapper --}}
-
             <div class="table-system-list">
                 <div class="table-system-list-header">
                     <div>
-                        <div class="table-system-list-title">{{ $isActiveTab ? 'Active Case Records' : 'Completed Case Records' }}</div>
+                        <div class="table-system-list-title">
+                            {{ $isAllTab ? 'All Case Records' : ($isActiveTab ? 'Active Case Records' : ($isDraftTab ? 'Draft Case Records' : 'Completed Case Records')) }}
+                        </div>
                         <div class="table-system-list-copy">
-                            {{ $isActiveTab
+                            {{ $isAllTab
+                                ? 'Review all branch case records in one simplified list.'
+                                : ($isActiveTab
                                 ? 'Track ongoing case activity, balances, and workflow status.'
-                                : 'Review completed records, payment standing, and follow-up actions.' }}
+                                : ($isDraftTab
+                                ? 'Review saved draft records before they move into active work.'
+                                : 'Review completed records, payment standing, and follow-up actions.')) }}
                         </div>
                     </div>
                 </div>
@@ -585,6 +1448,211 @@
             });
             clicked.classList.add('table-quick-tab-active');
             clicked.setAttribute('aria-selected', 'true');
+        });
+    })();
+
+    (function () {
+        const recordsSelector = '.records-page';
+        const replaceSelectors = [
+            '.case-records-top-wrapper',
+            '.table-system-list',
+            '.table-system-pagination',
+        ];
+
+        const getRecordsPage = () => document.querySelector(recordsSelector);
+
+        const setUpdating = (isUpdating) => {
+            const page = getRecordsPage();
+            if (!page) return;
+            page.classList.toggle('is-updating', isUpdating);
+        };
+
+        const syncActiveLink = (link) => {
+            if (!link) return;
+            const group = link.closest('.case-records-tabs, .table-system-quick-tabs');
+            if (!group) return;
+            group.querySelectorAll('.table-quick-tab').forEach((tab) => {
+                tab.classList.remove('table-quick-tab-active');
+                tab.setAttribute('aria-selected', 'false');
+            });
+            link.classList.add('table-quick-tab-active');
+            link.setAttribute('aria-selected', 'true');
+        };
+
+        const replaceFromDocument = (doc) => {
+            replaceSelectors.forEach((selector) => {
+                const current = document.querySelector(`${recordsSelector} ${selector}`);
+                const next = doc.querySelector(`${recordsSelector} ${selector}`);
+                if (current && next) {
+                    current.replaceWith(next);
+                }
+            });
+        };
+
+        const loadRecords = async (url, pushState = true) => {
+            const page = getRecordsPage();
+            if (!page) {
+                window.location.href = url.toString();
+                return;
+            }
+
+            setUpdating(true);
+
+            try {
+                const response = await fetch(url.toString(), {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'text/html',
+                    },
+                    credentials: 'same-origin',
+                });
+
+                if (!response.ok) throw new Error(`Case records request failed: ${response.status}`);
+
+                const html = await response.text();
+                const nextDocument = new DOMParser().parseFromString(html, 'text/html');
+                if (!nextDocument.querySelector(recordsSelector)) throw new Error('Case records page not found.');
+
+                await new Promise((resolve) => window.setTimeout(resolve, 120));
+                replaceFromDocument(nextDocument);
+
+                if (pushState) {
+                    window.history.pushState({}, '', url.toString());
+                }
+
+                document.dispatchEvent(new CustomEvent('panel-ui:reset'));
+            } catch (error) {
+                window.location.href = url.toString();
+            } finally {
+                requestAnimationFrame(() => setUpdating(false));
+            }
+        };
+
+        const submitFilterForm = (form, submitter = null) => {
+            const url = new URL(form.action, window.location.origin);
+            const data = submitter ? new FormData(form, submitter) : new FormData(form);
+            const selectedPreset = String(data.get('date_preset') || '');
+
+            Array.from(url.searchParams.keys()).forEach((key) => url.searchParams.delete(key));
+            data.forEach((value, key) => {
+                if (selectedPreset !== 'CUSTOM' && (key === 'date_from' || key === 'date_to')) return;
+                if (value !== null && String(value) !== '') {
+                    url.searchParams.append(key, value);
+                }
+            });
+
+            loadRecords(url, true);
+        };
+
+        const setCustomOpen = (form, open) => {
+            const toggle = form.querySelector('[data-case-custom-toggle]');
+            const select = form.querySelector('[data-case-date-preset-select]');
+            const panel = form.querySelector('[data-case-custom-panel]');
+            if (!panel) return;
+            panel.hidden = !open;
+            if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            if (select) select.setAttribute('aria-expanded', open ? 'true' : 'false');
+        };
+
+        const setMoreOpen = (form, open) => {
+            const toggle = form.querySelector('[data-case-more-toggle]');
+            const panel = form.querySelector('[data-case-more-panel]');
+            const icon = form.querySelector('[data-case-more-icon]');
+            const text = form.querySelector('[data-case-more-text]');
+            if (!toggle || !panel) return;
+            const hasFilters = toggle.classList.contains('active');
+
+            panel.hidden = !open;
+            toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            toggle.classList.toggle('active', open || hasFilters);
+            if (text) text.textContent = open ? 'Hide Filters' : 'More Filters';
+            if (icon) {
+                icon.classList.toggle('bi-chevron-down', !open);
+                icon.classList.toggle('bi-chevron-up', open);
+            }
+        };
+
+        document.addEventListener('click', (event) => {
+            const target = event.target instanceof Element ? event.target : null;
+            if (!target) return;
+
+            const customToggle = target.closest(`${recordsSelector} [data-case-custom-toggle]`);
+            if (customToggle) {
+                const form = customToggle.closest('[data-case-filter]');
+                if (form) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setCustomOpen(form, customToggle.getAttribute('aria-expanded') !== 'true');
+                }
+                return;
+            }
+
+            const moreToggle = target.closest(`${recordsSelector} [data-case-more-toggle]`);
+            if (moreToggle) {
+                const form = moreToggle.closest('[data-case-filter]');
+                if (form) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setMoreOpen(form, moreToggle.getAttribute('aria-expanded') !== 'true');
+                }
+                return;
+            }
+
+            const ajaxLink = target.closest(`${recordsSelector} .case-records-tabs a[href], ${recordsSelector} .table-system-quick-tabs a[href], ${recordsSelector} .case-compact-reset[href], ${recordsSelector} .case-compact-pop-reset[href], ${recordsSelector} .case-compact-advanced-clear[href]`);
+            if (!ajaxLink || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+            const url = new URL(ajaxLink.href, window.location.href);
+            if (url.origin !== window.location.origin) return;
+
+            event.preventDefault();
+            event.stopPropagation();
+            syncActiveLink(ajaxLink);
+            loadRecords(url, true);
+        }, true);
+
+        document.addEventListener('change', (event) => {
+            const select = event.target instanceof Element ? event.target.closest(`${recordsSelector} [data-case-date-preset-select]`) : null;
+            if (!select) return;
+
+            const form = select.closest('[data-case-filter]');
+            if (!form) return;
+
+            if (select.value === 'CUSTOM') {
+                setCustomOpen(form, true);
+                return;
+            }
+
+            setCustomOpen(form, false);
+            submitFilterForm(form);
+        }, true);
+
+        document.addEventListener('change', (event) => {
+            const select = event.target instanceof Element ? event.target.closest(`${recordsSelector} [data-case-sort-select]`) : null;
+            if (!select) return;
+
+            const form = select.closest('[data-case-filter]');
+            if (!form) return;
+
+            submitFilterForm(form);
+        }, true);
+
+        document.addEventListener('submit', (event) => {
+            const form = event.target instanceof Element ? event.target.closest(`${recordsSelector} [data-case-filter]`) : null;
+            if (!form) return;
+
+            event.preventDefault();
+            submitFilterForm(form, event.submitter || null);
+        }, true);
+
+        document.addEventListener('click', (event) => {
+            const page = getRecordsPage();
+            if (!page || !(event.target instanceof Element)) return;
+            if (event.target.closest('[data-case-filter]')) return;
+            page.querySelectorAll('[data-case-filter]').forEach((filterForm) => setCustomOpen(filterForm, false));
+        });
+
+        window.addEventListener('popstate', () => {
+            loadRecords(new URL(window.location.href), false);
         });
     })();
 </script>

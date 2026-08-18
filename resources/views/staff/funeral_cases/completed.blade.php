@@ -120,7 +120,7 @@
             <thead>
                 <tr>
                     <th class="text-left">Case ID</th>
-                    <th class="text-left">{{ $isOtherView ? 'Encoded Date' : 'Request Date' }}</th>
+                    <th class="text-left">{{ $isOtherView ? 'Encoded Date' : 'Date Created' }}</th>
                     <th class="text-left">Branch</th>
                     <th class="text-left">Client</th>
                     <th class="text-left">Deceased</th>

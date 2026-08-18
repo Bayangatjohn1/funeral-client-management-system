@@ -2,6 +2,7 @@
 
 @section('page_title','Create User')
 @section('page_desc', 'Create a new system user and assign role access.')
+@section('hide_layout_topbar', '1')
 
 @section('content')
 @php
@@ -14,11 +15,161 @@
     $isMainBranchAdmin = auth()->user()?->isMainBranchAdmin();
     $isBranchAdmin = auth()->user()?->role === 'admin' && ! auth()->user()?->isMainBranchAdmin();
 @endphp
-<form id="userCreateForm" method="POST" action="{{ route('admin.users.store') }}" class="max-w-4xl w-full mx-auto font-ui-body">
+<style>
+.user-create-page {
+    min-height:calc(100vh - 1rem);
+    background:
+        linear-gradient(90deg, rgba(73,87,69,0.04) 0 1px, transparent 1px),
+        linear-gradient(180deg, rgba(73,87,69,0.034) 0 1px, transparent 1px),
+        repeating-linear-gradient(135deg, rgba(73,87,69,0.02) 0 1px, transparent 1px 12px),
+        #C4D2BE;
+    background-size:44px 44px,44px 44px,16px 16px,auto;
+}
+.user-create-toast {
+    position:fixed;
+    top:1rem;
+    right:1rem;
+    z-index:1200;
+    display:flex;
+    align-items:center;
+    gap:.55rem;
+    max-width:calc(100vw - 2rem);
+    border:1px solid #8EA083;
+    border-radius:.75rem;
+    background:#2F3A2E;
+    color:#F7FAF3;
+    padding:.72rem .9rem;
+    font-size:.88rem;
+    font-weight:650;
+    line-height:1.35;
+    box-shadow:none !important;
+    pointer-events:none;
+    animation:managementToastIn .18s ease-out, managementToastOut .22s ease-in 3.8s forwards;
+}
+@keyframes managementToastIn {
+    from { opacity:0; transform:translateY(-.35rem); }
+    to { opacity:1; transform:translateY(0); }
+}
+@keyframes managementToastOut {
+    to { opacity:0; transform:translateY(-.35rem); visibility:hidden; }
+}
+.user-create-shell {
+    border:1px solid #B5C4AD !important;
+    border-radius:.85rem !important;
+    background:#D3DEC9 !important;
+    box-shadow:none !important;
+    overflow:hidden;
+}
+.user-create-head,
+.user-create-footer {
+    border-color:#B5C4AD !important;
+    background:#D3DEC9 !important;
+}
+.user-create-head h2 {
+    color:var(--ink);
+    font-size:1.35rem;
+    font-weight:780;
+    letter-spacing:0;
+}
+.user-create-head p,
+.user-create-section p,
+.user-create-note {
+    color:#566653;
+    font-weight:620;
+}
+.user-create-badge {
+    border:1px solid #B5C4AD;
+    border-radius:999px;
+    background:#E1E7D9;
+    color:#3E4A3D;
+    padding:.35rem .7rem;
+    font-size:.76rem;
+    font-weight:720;
+}
+.user-create-section {
+    border:1px solid #B5C4AD !important;
+    border-radius:.85rem !important;
+    background:#E1E7D9 !important;
+    box-shadow:none !important;
+}
+.user-create-section h3 {
+    color:#3E4A3D !important;
+    font-size:.78rem !important;
+    font-weight:720 !important;
+    letter-spacing:.06em;
+}
+.user-create-page .form-input,
+.user-create-page .form-select {
+    min-height:2.65rem;
+    border:1px solid #B5C4AD;
+    border-radius:.75rem;
+    background:#F7FAF3;
+    color:var(--ink);
+    box-shadow:none !important;
+}
+.user-create-page .form-select {
+    cursor:pointer;
+}
+.user-create-page .form-input:focus,
+.user-create-page .form-select:focus {
+    background:#fff;
+    border-color:#8EA083;
+    box-shadow:none !important;
+}
+.user-create-page .label-section {
+    color:#566653;
+    font-size:.76rem;
+    font-weight:680;
+}
+.user-create-page .form-hint {
+    color:#566653;
+    font-weight:620;
+}
+.user-create-page .btn-outline {
+    min-height:2.65rem;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border:1px solid #B5C4AD;
+    border-radius:.75rem;
+    background:#E1E7D9;
+    color:#3E4A3D;
+    padding:0 .95rem;
+    font-weight:700;
+    box-shadow:none !important;
+}
+.user-create-page .btn-outline:hover {
+    background:#C7D5BE;
+    border-color:#8EA083;
+    color:var(--ink);
+}
+.user-create-page .btn-primary-custom {
+    min-height:2.65rem;
+    border-radius:.75rem;
+    background:#344333 !important;
+    border-color:#344333 !important;
+    box-shadow:none !important;
+}
+.user-create-page .btn-primary-custom:hover {
+    background:#2F3A2E !important;
+    border-color:#2F3A2E !important;
+}
+@media (max-width:768px) {
+    .user-create-footer {
+        display:grid !important;
+    }
+}
+</style>
+<form id="userCreateForm" method="POST" action="{{ route('admin.users.store') }}" class="w-full font-ui-body">
 @csrf
-<div class="w-full bg-slate-100 min-h-screen py-10 px-4 sm:px-6 lg:px-8 flex justify-center">
+<div class="user-create-page w-full min-h-screen pt-4 pb-8 px-4 sm:px-6 lg:px-8">
 
-<div class="w-full max-w-5xl">
+<div class="w-full max-w-5xl mx-auto">
+
+<div class="user-create-toast no-print" role="status" aria-live="polite">
+    <i class="bi bi-person-plus"></i>
+    <span>You are adding a new user account.</span>
+</div>
 
 <input type="hidden" name="return_to" value="{{ $returnTo }}">
 
@@ -33,26 +184,29 @@
 </div>
 @endif
 
-<div class="modal-shell-card max-w-5xl mx-auto rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+<div class="modal-shell-card user-create-shell max-w-5xl mx-auto">
 
     <!-- HEADER -->
-    <div class="px-8 py-6 border-b border-slate-200 bg-slate-50">
+    <div class="user-create-head px-6 sm:px-8 py-5 border-b">
         <div class="flex items-start justify-between gap-3">
             <div>
-                <h2 class="text-2xl font-semibold text-slate-900">Create User</h2>
-                <p class="text-sm text-slate-500 mt-1">Create a new system user and assign role access.</p>
+                <h2>New account details</h2>
+                <p class="text-sm mt-1">Enter account, access, and contact information for the user.</p>
             </div>
-            <span class="inline-flex items-center rounded-xl border border-slate-300 bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
+            <span class="user-create-badge inline-flex items-center">
                 New Account
             </span>
         </div>
     </div>
 
-    <div class="p-8 space-y-8">
+    <div class="p-5 sm:p-6 space-y-5">
 
         <!-- ACCOUNT CARD -->
-        <div class="rounded-xl border border-slate-200 p-6 space-y-5">
-            <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Account Information</h3>
+        <div class="user-create-section rounded-xl border p-5 space-y-5">
+            <div>
+                <h3 class="text-xs uppercase">Account Information</h3>
+                <p class="user-create-note text-sm mt-1">Use the name and login credentials assigned to the user.</p>
+            </div>
 
             <div class="grid gap-5 md:grid-cols-2">
 
@@ -119,8 +273,11 @@
         </div>
 
         <!-- ROLE CARD -->
-        <div class="rounded-xl border border-slate-200 p-6 space-y-5">
-            <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Role & Access</h3>
+        <div class="user-create-section rounded-xl border p-5 space-y-5">
+            <div>
+                <h3 class="text-xs uppercase">Role & Access</h3>
+                <p class="user-create-note text-sm mt-1">Choose the user role and the branch scope that applies.</p>
+            </div>
 
             <div class="grid gap-5 md:grid-cols-2">
 
@@ -175,8 +332,11 @@
         </div>
 
         <!-- PERSONAL CARD -->
-        <div class="rounded-xl border border-slate-200 p-6 space-y-5">
-            <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Personal Information</h3>
+        <div class="user-create-section rounded-xl border p-5 space-y-5">
+            <div>
+                <h3 class="text-xs uppercase">Contact Information</h3>
+                <p class="user-create-note text-sm mt-1">Optional details shown in user records and internal references.</p>
+            </div>
 
             <div class="grid gap-5 md:grid-cols-2">
 
@@ -206,9 +366,9 @@
     </div>
 
     <!-- FOOTER -->
-    <div class="px-8 py-5 border-t border-slate-200 flex justify-end gap-3 bg-slate-50">
+    <div class="user-create-footer px-5 sm:px-8 py-5 border-t flex justify-end gap-3">
         <a href="{{ $returnTo }}" class="btn btn-outline">Cancel</a>
-        <button class="btn btn-primary-custom bg-[var(--brand-mid)] border-[var(--brand-mid)] hover:bg-[var(--brand-hover)] text-white px-6">
+        <button class="btn btn-primary-custom text-white px-6">
             <i class="bi bi-save2"></i>
             Save User
         </button>

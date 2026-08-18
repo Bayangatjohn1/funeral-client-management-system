@@ -13,6 +13,11 @@
     $showInterment = $showInterment ?? true;
     $showBranchChip = $showBranchChip ?? true;
     $showInlineChips = $showInlineChips ?? true;
+    $showMoreFilters = $showMoreFilters ?? true;
+    $showSort = $showSort ?? false;
+    $showBranchField = $showBranchField ?? true;
+    $sortOptions = $sortOptions ?? [];
+    $sort = $sort ?? request('sort', 'newest');
     $branchLabel = 'All Branches';
     if ($branchMode === 'locked') {
         $branchLabel = $assignedBranch
@@ -134,48 +139,49 @@
     </div>
 
     <div class="case-compact-filter-bar" role="group" aria-label="Case record filters">
-        <div class="case-compact-branch" title="{{ $branchMode === 'locked' ? 'Assigned Branch' : 'Branch' }}">
-            <i class="bi bi-building"></i>
-            @if($branchMode === 'locked')
-                <input type="hidden" name="branch_id" value="{{ $assignedBranch?->id ?? $branchId }}">
-                <select class="case-compact-select" disabled>
-                    <option>{{ $assignedBranch?->branch_code ?? 'Assigned Branch' }}{{ $assignedBranch?->branch_name ? ' - ' . $assignedBranch->branch_name : '' }}</option>
-                </select>
-                <i class="bi bi-lock-fill case-compact-select-chev"></i>
-            @else
-                <select name="branch_id" class="case-compact-select" aria-label="Branch filter" onchange="this.form.submit()">
-                    <option value="">All Branches</option>
-                    @foreach(($branches ?? collect()) as $branch)
-                        <option value="{{ $branch->id }}" @selected((string) $branchId === (string) $branch->id)>
-                            {{ $branch->branch_code }} - {{ $branch->branch_name }}
-                        </option>
-                    @endforeach
-                </select>
-                <i class="bi bi-chevron-down case-compact-select-chev"></i>
-            @endif
-        </div>
+        @if($showBranchField)
+            <div class="case-compact-branch" title="{{ $branchMode === 'locked' ? 'Assigned Branch' : 'Branch' }}">
+                <i class="bi bi-building"></i>
+                @if($branchMode === 'locked')
+                    <input type="hidden" name="branch_id" value="{{ $assignedBranch?->id ?? $branchId }}">
+                    <select class="case-compact-select" disabled>
+                        <option>{{ $assignedBranch?->branch_code ?? 'Assigned Branch' }}{{ $assignedBranch?->branch_name ? ' - ' . $assignedBranch->branch_name : '' }}</option>
+                    </select>
+                    <i class="bi bi-lock-fill case-compact-select-chev"></i>
+                @else
+                    <select name="branch_id" class="case-compact-select" aria-label="Branch filter" onchange="this.form.submit()">
+                        <option value="">All Branches</option>
+                        @foreach(($branches ?? collect()) as $branch)
+                            <option value="{{ $branch->id }}" @selected((string) $branchId === (string) $branch->id)>
+                                {{ $branch->branch_code }} - {{ $branch->branch_name }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <i class="bi bi-chevron-down case-compact-select-chev"></i>
+                @endif
+            </div>
+        @endif
 
-        <div class="case-compact-seg" role="group" aria-label="Date encoded preset filter">
-            <button type="submit" name="date_preset" value="TODAY" title="Filter by Date Encoded / Date Created" class="case-compact-seg-item {{ $datePreset === 'TODAY' ? 'active' : '' }}">Today</button>
-            <button type="submit" name="date_preset" value="THIS_MONTH" title="Filter by Date Encoded / Date Created" class="case-compact-seg-item {{ $datePreset === 'THIS_MONTH' ? 'active' : '' }}">This Month</button>
-            <button type="submit" name="date_preset" value="THIS_YEAR" title="Filter by Date Encoded / Date Created" class="case-compact-seg-item {{ $datePreset === 'THIS_YEAR' ? 'active' : '' }}">This Year</button>
+        <div class="case-compact-seg case-compact-date-filter" role="group" aria-label="Date encoded preset filter">
+            <i class="bi bi-calendar3 case-compact-date-icon"></i>
+            <select name="date_preset" class="case-compact-date-select" data-case-date-preset-select aria-label="Date encoded filter">
+                <option value="" @selected(blank($datePreset))>All Dates</option>
+                <option value="TODAY" @selected($datePreset === 'TODAY')>Today</option>
+                <option value="THIS_MONTH" @selected($datePreset === 'THIS_MONTH')>This Month</option>
+                <option value="THIS_YEAR" @selected($datePreset === 'THIS_YEAR')>This Year</option>
+                <option value="CUSTOM" @selected($datePreset === 'CUSTOM')>Custom Range</option>
+            </select>
+            <i class="bi bi-chevron-down case-compact-date-chev"></i>
 
             <div class="case-compact-custom">
-                <button type="button" class="case-compact-seg-item {{ $datePreset === 'CUSTOM' ? 'active' : '' }}" data-case-custom-toggle aria-expanded="false">
-                    <i class="bi bi-calendar3"></i>
-                    <span>Custom Range</span>
-                    <i class="bi bi-chevron-down case-compact-date-chev"></i>
-                </button>
-
-                <div class="case-compact-popover" data-case-custom-panel hidden>
-                    <div class="case-compact-pop-label">Date Encoded / Date Created Range</div>
+                <div class="case-compact-popover" data-case-custom-panel @if($datePreset !== 'CUSTOM') hidden @endif>
                     <div class="case-compact-pop-fields">
                         <div class="case-compact-pop-field">
-                            <label>Date Encoded From</label>
+                            <label>From</label>
                             <input type="date" name="date_from" value="{{ $dateFrom ?? '' }}" class="case-compact-pop-input">
                         </div>
                         <div class="case-compact-pop-field">
-                            <label>Date Encoded To</label>
+                            <label>To</label>
                             <input type="date" name="date_to" value="{{ $dateTo ?? '' }}" class="case-compact-pop-input">
                         </div>
                     </div>
@@ -187,108 +193,124 @@
             </div>
         </div>
 
-        <button type="button" class="case-compact-more {{ $advancedFilterCount > 0 ? 'active' : '' }}" data-case-more-toggle aria-expanded="false">
-            <i class="bi bi-sliders"></i>
-            <span data-case-more-text>More Filters</span>
-            <i class="bi bi-chevron-down" data-case-more-icon></i>
-        </button>
+        @if($showSort && !empty($sortOptions))
+            <div class="case-compact-seg case-compact-sort-filter" role="group" aria-label="Sort case records">
+                <i class="bi bi-arrow-down-up case-compact-sort-icon"></i>
+                <select name="sort" class="case-compact-sort-select" data-case-sort-select aria-label="Sort case records" onchange="this.form.requestSubmit()">
+                    @foreach($sortOptions as $sortKey => $sortLabel)
+                        <option value="{{ $sortKey }}" @selected($sort === $sortKey)>{{ $sortLabel }}</option>
+                    @endforeach
+                </select>
+                <i class="bi bi-chevron-down case-compact-sort-chev"></i>
+            </div>
+        @endif
+
+        @if($showMoreFilters)
+            <button type="button" class="case-compact-more {{ $advancedFilterCount > 0 ? 'active' : '' }}" data-case-more-toggle aria-expanded="false">
+                <i class="bi bi-sliders"></i>
+                <span data-case-more-text>More Filters</span>
+                <i class="bi bi-chevron-down" data-case-more-icon></i>
+            </button>
+        @endif
     </div>
-    <div class="case-compact-advanced" data-case-more-panel hidden>
-        <div class="case-compact-advanced-head">
-            <div>
-                <div class="case-compact-advanced-title">More Filters</div>
-                <div class="case-compact-advanced-note">
-                    Date presets use encoded date. Interment fields narrow the service schedule.
+    @if($showMoreFilters)
+        <div class="case-compact-advanced" data-case-more-panel hidden>
+            <div class="case-compact-advanced-head">
+                <div>
+                    <div class="case-compact-advanced-title">More Filters</div>
+                    <div class="case-compact-advanced-note">
+                        Date presets use encoded date. Interment fields narrow the service schedule.
+                    </div>
                 </div>
+                <a href="{{ $resetUrl }}" class="case-compact-advanced-clear">
+                    <i class="bi bi-x-circle"></i>
+                    <span>Clear filters</span>
+                </a>
             </div>
-            <a href="{{ $resetUrl }}" class="case-compact-advanced-clear">
-                <i class="bi bi-x-circle"></i>
-                <span>Clear filters</span>
-            </a>
+
+            @if($showCaseStatus)
+                <div class="case-compact-field">
+                    <label>Case Status</label>
+                    <select name="case_status" class="case-compact-input">
+                        <option value="">All Case Status</option>
+                        <option value="DRAFT" @selected(request('case_status') === 'DRAFT')>Draft</option>
+                        <option value="ACTIVE" @selected(request('case_status') === 'ACTIVE')>Active</option>
+                        <option value="COMPLETED" @selected(request('case_status') === 'COMPLETED')>Completed</option>
+                    </select>
+                </div>
+            @endif
+
+            @if($showPaymentStatus)
+                <div class="case-compact-field">
+                    <label>Payment Status</label>
+                    <select name="payment_status" class="case-compact-input">
+                        <option value="">All Payment Status</option>
+                        <option value="UNPAID" @selected(request('payment_status') === 'UNPAID')>Unpaid</option>
+                        <option value="PARTIAL" @selected(request('payment_status') === 'PARTIAL')>Partial</option>
+                        <option value="PAID" @selected(request('payment_status') === 'PAID')>Paid</option>
+                    </select>
+                </div>
+            @endif
+
+            @if($showVerificationStatus)
+                <div class="case-compact-field">
+                    <label>Verification Status</label>
+                    <select name="verification_status" class="case-compact-input">
+                        <option value="">All Verification Status</option>
+                        <option value="PENDING" @selected(request('verification_status') === 'PENDING')>Pending Review</option>
+                        <option value="VERIFIED" @selected(request('verification_status') === 'VERIFIED')>Verified</option>
+                        <option value="DISPUTED" @selected(request('verification_status') === 'DISPUTED')>Disputed</option>
+                    </select>
+                </div>
+            @endif
+
+            @if($showServiceType)
+                <div class="case-compact-field">
+                    <label>Service Type</label>
+                    <select name="service_type" class="case-compact-input">
+                        <option value="">All Service Types</option>
+                        @foreach(($serviceTypes ?? collect()) as $type)
+                            <option value="{{ $type }}" @selected(request('service_type') === $type)>{{ $type }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
+
+            @if($showPackage)
+                <div class="case-compact-field">
+                    <label>Package</label>
+                    <select name="package_id" class="case-compact-input">
+                        <option value="">All Packages</option>
+                        @foreach(($packages ?? collect()) as $package)
+                            <option value="{{ $package->id }}" @selected((string) request('package_id') === (string) $package->id)>{{ $package->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
+
+            @if($showEncodedBy)
+                <div class="case-compact-field">
+                    <label>Encoded By</label>
+                    <select name="encoded_by" class="case-compact-input">
+                        <option value="">All Encoders</option>
+                        @foreach(($encoders ?? collect()) as $encoder)
+                            <option value="{{ $encoder->id }}" @selected((string) request('encoded_by') === (string) $encoder->id)>{{ $encoder->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
+
+            @if($showInterment)
+                <div class="case-compact-field">
+                    <label>Interment Date From</label>
+                    <input type="date" name="interment_from" value="{{ $intermentFrom ?? '' }}" class="case-compact-input">
+                </div>
+                <div class="case-compact-field">
+                    <label>Interment Date To</label>
+                    <input type="date" name="interment_to" value="{{ $intermentTo ?? '' }}" class="case-compact-input">
+                </div>
+            @endif
         </div>
-
-        @if($showCaseStatus)
-            <div class="case-compact-field">
-                <label>Case Status</label>
-                <select name="case_status" class="case-compact-input">
-                    <option value="">All Case Status</option>
-                    <option value="DRAFT" @selected(request('case_status') === 'DRAFT')>Draft</option>
-                    <option value="ACTIVE" @selected(request('case_status') === 'ACTIVE')>Active</option>
-                    <option value="COMPLETED" @selected(request('case_status') === 'COMPLETED')>Completed</option>
-                </select>
-            </div>
-        @endif
-
-        @if($showPaymentStatus)
-            <div class="case-compact-field">
-                <label>Payment Status</label>
-                <select name="payment_status" class="case-compact-input">
-                    <option value="">All Payment Status</option>
-                    <option value="UNPAID" @selected(request('payment_status') === 'UNPAID')>Unpaid</option>
-                    <option value="PARTIAL" @selected(request('payment_status') === 'PARTIAL')>Partial</option>
-                    <option value="PAID" @selected(request('payment_status') === 'PAID')>Paid</option>
-                </select>
-            </div>
-        @endif
-
-        @if($showVerificationStatus)
-            <div class="case-compact-field">
-                <label>Verification Status</label>
-                <select name="verification_status" class="case-compact-input">
-                    <option value="">All Verification Status</option>
-                    <option value="PENDING" @selected(request('verification_status') === 'PENDING')>Pending Review</option>
-                    <option value="VERIFIED" @selected(request('verification_status') === 'VERIFIED')>Verified</option>
-                    <option value="DISPUTED" @selected(request('verification_status') === 'DISPUTED')>Disputed</option>
-                </select>
-            </div>
-        @endif
-
-        @if($showServiceType)
-            <div class="case-compact-field">
-                <label>Service Type</label>
-                <select name="service_type" class="case-compact-input">
-                    <option value="">All Service Types</option>
-                    @foreach(($serviceTypes ?? collect()) as $type)
-                        <option value="{{ $type }}" @selected(request('service_type') === $type)>{{ $type }}</option>
-                    @endforeach
-                </select>
-            </div>
-        @endif
-
-        @if($showPackage)
-            <div class="case-compact-field">
-                <label>Package</label>
-                <select name="package_id" class="case-compact-input">
-                    <option value="">All Packages</option>
-                    @foreach(($packages ?? collect()) as $package)
-                        <option value="{{ $package->id }}" @selected((string) request('package_id') === (string) $package->id)>{{ $package->name }}</option>
-                    @endforeach
-                </select>
-            </div>
-        @endif
-
-        @if($showEncodedBy)
-            <div class="case-compact-field">
-                <label>Encoded By</label>
-                <select name="encoded_by" class="case-compact-input">
-                    <option value="">All Encoders</option>
-                    @foreach(($encoders ?? collect()) as $encoder)
-                        <option value="{{ $encoder->id }}" @selected((string) request('encoded_by') === (string) $encoder->id)>{{ $encoder->name }}</option>
-                    @endforeach
-                </select>
-            </div>
-        @endif
-
-        @if($showInterment)
-            <div class="case-compact-field">
-                <label>Interment Date From</label>
-                <input type="date" name="interment_from" value="{{ $intermentFrom ?? '' }}" class="case-compact-input">
-            </div>
-            <div class="case-compact-field">
-                <label>Interment Date To</label>
-                <input type="date" name="interment_to" value="{{ $intermentTo ?? '' }}" class="case-compact-input">
-            </div>
-        @endif
-    </div>
+    @endif
 
 </form>

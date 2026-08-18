@@ -2,13 +2,426 @@
 
 @section('page_title','User Management')
 @section('page_desc', 'Manage system users, roles, and account access.')
+@section('hide_layout_topbar', '1')
 
 @section('content')
-<style>[x-cloak] { display: none !important; }</style>
+<style>
+[x-cloak] { display: none !important; }
+.admin-table-page.directory-page {
+    min-height:calc(100vh - 1rem);
+    overflow:visible;
+    background:
+        linear-gradient(90deg, rgba(73,87,69,0.04) 0 1px, transparent 1px),
+        linear-gradient(180deg, rgba(73,87,69,0.034) 0 1px, transparent 1px),
+        repeating-linear-gradient(135deg, rgba(73,87,69,0.02) 0 1px, transparent 1px 12px),
+        #C4D2BE;
+    background-size:44px 44px,44px 44px,16px 16px,auto;
+}
+.management-toast {
+    position:fixed;
+    top:1rem;
+    right:1rem;
+    z-index:1200;
+    display:flex;
+    align-items:center;
+    gap:.55rem;
+    max-width:calc(100vw - 2rem);
+    border:1px solid #8EA083;
+    border-radius:.75rem;
+    background:#2F3A2E;
+    color:#F7FAF3;
+    padding:.72rem .9rem;
+    font-size:.88rem;
+    font-weight:650;
+    line-height:1.35;
+    box-shadow:none !important;
+    pointer-events:none;
+    animation:managementToastIn .18s ease-out, managementToastOut .22s ease-in 3.8s forwards;
+}
+.management-toast i {
+    font-size:1rem;
+    color:#DCE6D6;
+}
+@keyframes managementToastIn {
+    from { opacity:0; transform:translateY(-.35rem); }
+    to { opacity:1; transform:translateY(0); }
+}
+@keyframes managementToastOut {
+    to { opacity:0; transform:translateY(-.35rem); visibility:hidden; }
+}
+.directory-page .table-system-card,
+.directory-page .admin-table-card {
+    background:transparent !important;
+    border:0 !important;
+    border-radius:0 !important;
+    box-shadow:none !important;
+    overflow:visible !important;
+}
+.directory-page .admin-table-card {
+    display:flex;
+    flex-direction:column;
+}
+.directory-page .table-system-head {
+    background:transparent !important;
+    border:0 !important;
+    padding:0 0 .85rem;
+    order:2;
+}
+.directory-page .admin-table-head-row {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:1rem;
+    flex-wrap:wrap;
+}
+.directory-page .admin-table-head-row > div:first-child {
+    display:none;
+}
+.directory-page .admin-table-head-row {
+    justify-content:flex-start;
+}
+.directory-page .table-system-title {
+    color:var(--ink);
+    font-size:1.25rem;
+    font-weight:750;
+    letter-spacing:0;
+    line-height:1.15;
+}
+.directory-page .admin-table-head-copy {
+    color:var(--ink-muted);
+    font-size:.88rem;
+    font-weight:600;
+    margin-top:.2rem;
+}
+.directory-page .admin-table-head-actions,
+.directory-page .filter-actions {
+    display:flex;
+    align-items:center;
+    gap:.6rem;
+    flex-wrap:wrap;
+}
+.directory-page .table-system-toolbar {
+    background:#D0DDC8;
+    border:1px solid #B8C7AF;
+    border-radius:.75rem;
+    padding:.75rem;
+    margin-bottom:.8rem;
+    order:1;
+}
+.directory-page .directory-card-view,
+.directory-page .directory-table-view,
+.directory-page .table-system-list {
+    order:3;
+    overflow:visible !important;
+}
+.directory-page .directory-table-view {
+    margin-top:0 !important;
+}
+.directory-page .table-toolbar {
+    display:flex;
+    flex-wrap:wrap;
+    gap:.65rem !important;
+    align-items:center;
+}
+.directory-page .table-toolbar-label {
+    display:none;
+}
+.directory-page .table-toolbar-search,
+.directory-page .table-toolbar-select,
+.directory-page .table-toolbar-sort {
+    min-height:2.9rem !important;
+    height:2.9rem !important;
+    border-radius:.5rem !important;
+    border:1px solid #AEBFA6 !important;
+    background:#E9F0E4 !important;
+    background-color:#E9F0E4 !important;
+    color:#293229 !important;
+    font-size:.92rem !important;
+    font-weight:650 !important;
+    box-shadow:none !important;
+    cursor:pointer;
+    appearance:none !important;
+    -webkit-appearance:none !important;
+    -moz-appearance:none !important;
+    background-image:none !important;
+    transition:background-color .16s ease,border-color .16s ease,color .16s ease;
+}
+.directory-page .table-toolbar-input-wrap,
+.directory-page .table-toolbar-select-wrap {
+    position:relative;
+}
+.directory-page .table-toolbar-field:first-child {
+    flex:1 1 20rem;
+    min-width:min(20rem, 100%);
+}
+.directory-page .table-toolbar-field:not(:first-child) {
+    flex:0 0 14.75rem;
+    min-width:14.75rem;
+}
+.directory-page .table-toolbar-reset-wrap {
+    flex:0 0 auto;
+    margin-left:auto;
+}
+.directory-page .table-toolbar-input-wrap,
+.directory-page .table-toolbar-select-wrap,
+.directory-page .table-toolbar-field,
+.directory-page .table-toolbar-search,
+.directory-page .table-toolbar-select,
+.directory-page .table-toolbar-sort {
+    width:100%;
+}
+.directory-page .table-toolbar-search,
+.directory-page .table-toolbar-select,
+.directory-page .table-toolbar-sort {
+    padding-left:2.6rem !important;
+    padding-right:2.45rem !important;
+}
+.directory-page .table-toolbar-search { cursor:text; }
+.directory-page .table-toolbar-select-wrap,
+.directory-page .table-toolbar-select-wrap *,
+.directory-page .filter-actions *,
+.directory-page .admin-table-head-actions * {
+    cursor:pointer;
+}
+.directory-page .table-toolbar-select-icon {
+    pointer-events:none;
+    position:absolute;
+    right:1rem;
+    top:50%;
+    transform:translateY(-50%);
+    color:#657563;
+    font-size:.9rem;
+}
+.directory-page .table-toolbar-leading-icon {
+    position:absolute;
+    left:1rem;
+    top:50%;
+    transform:translateY(-50%);
+    color:#657563;
+    font-size:1rem;
+    pointer-events:none;
+}
+.directory-page .table-toolbar-search:hover,
+.directory-page .table-toolbar-select:hover,
+.directory-page .table-toolbar-sort:hover {
+    background:#DFE9D9 !important;
+    background-color:#DFE9D9 !important;
+    border-color:#8EA083 !important;
+}
+.directory-page .table-toolbar-search:focus,
+.directory-page .table-toolbar-select:focus,
+.directory-page .table-toolbar-sort:focus {
+    border-color:#8EA083 !important;
+    background:#EEF5E9 !important;
+    background-color:#EEF5E9 !important;
+    box-shadow:none !important;
+}
+.directory-page .btn-secondary,
+.directory-page .btn-filter-reset,
+.directory-page .btn-primary-custom {
+    min-height:2.9rem;
+    height:2.9rem;
+    border-radius:.5rem;
+    padding:0 .95rem;
+    font-size:.84rem;
+    font-weight:650;
+    box-shadow:none !important;
+    cursor:pointer;
+    transition:background-color .16s ease,border-color .16s ease,color .16s ease;
+}
+.directory-page .btn-filter-reset {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:.45rem;
+    background:#E7EDE1;
+    border:1px solid #B8C7AF;
+    color:var(--ink);
+    text-decoration:none;
+}
+.directory-page .btn-filter-reset,
+.directory-page .btn-secondary {
+    min-width:5.8rem;
+    white-space:nowrap;
+}
+.directory-page .btn-filter-reset:hover,
+.directory-page .btn-primary-custom:hover {
+    background:#DDE8D6 !important;
+    border-color:#8EA083 !important;
+    color:var(--ink) !important;
+}
+.directory-page .btn-secondary,
+.directory-page .btn-primary-custom {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:.45rem;
+    background:#344333 !important;
+    border:1px solid #344333 !important;
+    color:#fff !important;
+}
+.directory-page .filter-actions {
+    min-height:2.9rem;
+    padding:0;
+    border:0;
+    background:transparent;
+}
+.directory-page .filter-actions .btn-primary-custom {
+    min-width:8.25rem;
+}
+.directory-page .btn-secondary:hover,
+.directory-page .btn-primary-custom:hover {
+    background:#2F3A2E !important;
+    border-color:#2F3A2E !important;
+    color:#fff !important;
+}
+.directory-page .admin-table-head-actions .btn-primary-custom {
+    min-width:10rem;
+    min-height:2.85rem;
+    background:#344333 !important;
+    border-color:#344333 !important;
+    color:#fff !important;
+    font-weight:700;
+}
+.directory-page .admin-table-head-actions .btn-primary-custom i {
+    color:#F7FAF3;
+}
+.directory-page .admin-table-head-actions > .inline-flex {
+    background:#E1E7D9 !important;
+    border:1px solid var(--border) !important;
+    border-radius:.75rem !important;
+    overflow:hidden;
+    box-shadow:none !important;
+}
+.directory-page .admin-table-head-actions > .inline-flex button {
+    min-height:2.45rem;
+    color:var(--ink-muted);
+    cursor:pointer;
+}
+.directory-page .admin-table-head-actions > .inline-flex button:hover {
+    background:#C7D5BE !important;
+    color:var(--ink) !important;
+}
+.directory-page .admin-table-head-actions > .inline-flex .bg-slate-900 {
+    background:var(--accent) !important;
+    color:#fff !important;
+}
+.directory-page .directory-card-view,
+.directory-page .table-system-list {
+    background:transparent !important;
+    border-top:0 !important;
+    padding:0 !important;
+    overflow:visible !important;
+}
+.directory-page .directory-card-view > .grid {
+    grid-template-columns:repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+    gap:18px;
+}
+.directory-page .directory-item-card {
+    background:#DCE6D6 !important;
+    border:1px solid var(--border) !important;
+    border-radius:.75rem !important;
+    box-shadow:none !important;
+    cursor:pointer;
+    overflow:visible;
+}
+.directory-page .directory-item-card:hover {
+    background:#C7D5BE !important;
+    border-color:#8EA083 !important;
+}
+.directory-page .directory-item-card .border-t {
+    border-color:var(--border) !important;
+}
+.directory-page .directory-item-card h3,
+.directory-page .table-primary {
+    color:var(--ink) !important;
+    font-weight:680;
+}
+.directory-page .directory-item-card p,
+.directory-page .directory-item-card .text-slate-500,
+.directory-page .directory-item-card .text-slate-400,
+.directory-page .table-secondary {
+    color:var(--ink-muted) !important;
+    font-weight:600;
+}
+.directory-page .row-action-trigger {
+    width:auto !important;
+    min-width:6rem;
+    min-height:2.35rem;
+    gap:.45rem;
+    border-radius:.75rem !important;
+    background:#E1E7D9 !important;
+    border:1px solid var(--border) !important;
+    color:var(--ink) !important;
+    box-shadow:none !important;
+    cursor:pointer;
+    font-size:.78rem;
+    font-weight:700;
+    padding:0 .75rem;
+}
+.directory-page .row-action-trigger::after {
+    content:"Actions";
+}
+.directory-page .row-action-trigger:hover,
+.directory-page .row-action-item:hover {
+    background:#C7D5BE !important;
+    color:var(--ink) !important;
+}
+.directory-page .row-action-dropdown {
+    min-width:12rem;
+    border:1px solid #B5C4AD !important;
+    border-radius:.75rem !important;
+    background:#E1E7D9 !important;
+    box-shadow:none !important;
+    padding:.35rem !important;
+}
+.directory-page .row-action-item {
+    border-radius:.6rem !important;
+    color:var(--ink) !important;
+    font-size:.8rem !important;
+    font-weight:680 !important;
+    padding:.6rem .7rem !important;
+}
+.directory-page .row-action-item i {
+    color:#566653 !important;
+}
+.directory-page .table-system-wrap,
+.directory-page .table-system-table {
+    background:#DCE6D6 !important;
+    box-shadow:none !important;
+}
+.directory-page .table-system-wrap {
+    margin:0 !important;
+    border:1px solid var(--border);
+    border-radius:.75rem;
+    overflow-x:auto;
+    overflow-y:visible;
+}
+.directory-page .table-system-table thead th {
+    background:#C7D5BE !important;
+    color:var(--ink-muted) !important;
+    font-weight:650;
+    font-size:.72rem;
+    letter-spacing:.05em;
+}
+.directory-page .directory-item-card [class*="tracking-widest"],
+.directory-page .table-system-table tbody td {
+    color:var(--ink) !important;
+}
+.directory-page .table-system-table tbody tr:hover {
+    background:#C7D5BE !important;
+}
+@media(max-width:900px) {
+    .directory-page .table-toolbar { grid-template-columns:1fr !important; }
+    .directory-page .admin-table-head-actions,
+    .directory-page .filter-actions { width:100%; }
+    .directory-page .filter-actions > * { flex:1; }
+}
+</style>
 
 <div class="admin-table-page directory-page" x-data="userCatalog()">
-<div class="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-8 py-6">
-<div class="space-y-6">
+<div class="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-8 pt-4 pb-6">
+<div class="space-y-4">
 
 @if (session('success'))
     <div class="flash-success">{{ session('success') }}</div>
@@ -23,6 +436,11 @@
         {{ $errors->first() }}
     </div>
 @endif
+
+<div class="management-toast no-print" role="status" aria-live="polite">
+    <i class="bi bi-people"></i>
+    <span>You are viewing User Management.</span>
+</div>
 
 <section class="table-system-card admin-table-card">
     <div class="table-system-head">
@@ -54,14 +472,6 @@
                         <span class="hidden sm:inline text-xs">Table</span>
                     </button>
                 </div>
-
-                <a
-                    href="{{ route('admin.users.create', ['return_to' => request()->fullUrl()]) }}"
-                    class="btn btn-primary-custom btn-sm bg-[var(--brand-mid)] border-[var(--brand-mid)] hover:bg-[var(--brand-hover)] hover:border-[var(--brand-hover)] text-white inline-flex items-center gap-2"
-                >
-                    <i class="bi bi-plus-circle"></i>
-                    <span>Add User</span>
-                </a>
             </div>
         </div>
     </div>
@@ -72,24 +482,58 @@
             action="{{ route('admin.users.index') }}"
             class="table-toolbar"
             data-table-toolbar
+            data-live-search-suggestions
+            data-live-search-commit-only
             data-search-debounce="400"
-            style="grid-template-columns: minmax(260px, 2.2fr) repeat(3, minmax(150px, 1fr)) auto;"
+            style="grid-template-columns: minmax(260px, 2.2fr) repeat(4, minmax(150px, 1fr)) auto;"
         >
             <div class="table-toolbar-field">
                 <label class="table-toolbar-label">Search</label>
-                <input
-                    type="text"
-                    name="q"
-                    value="{{ request('q') }}"
-                    placeholder="Search users..."
-                    class="form-input table-toolbar-search"
-                    data-table-search
-                    autocomplete="off"
-                >
+                <div class="table-toolbar-input-wrap">
+                    <i class="bi bi-search table-toolbar-leading-icon" aria-hidden="true"></i>
+                    <input
+                        type="text"
+                        name="q"
+                        value="{{ request('q') }}"
+                        placeholder="Search users..."
+                        class="form-input table-toolbar-search has-clear-action"
+                        data-table-search
+                        data-live-search-input
+                        autocomplete="off"
+                    >
+                    <button type="button" class="live-search-clear" data-live-search-clear aria-label="Clear search" @if(!filled(request('q'))) hidden @endif>
+                        <i class="bi bi-x"></i>
+                    </button>
+                    <div class="live-search-results" data-live-search-results hidden></div>
+                </div>
+            </div>
+            <div class="table-toolbar-field">
+                <label class="table-toolbar-label">Branch</label>
+                <div class="table-toolbar-select-wrap">
+                    <i class="bi bi-building table-toolbar-leading-icon" aria-hidden="true"></i>
+                    @if(($branches ?? collect())->isNotEmpty())
+                        <select name="branch_id" class="form-select table-toolbar-select" data-table-auto-submit>
+                            <option value="">All Branches</option>
+                            @foreach($branches as $branch)
+                                <option value="{{ $branch->id }}" {{ (string) ($selectedBranchId ?? '') === (string) $branch->id ? 'selected' : '' }}>
+                                    {{ $branch->branch_code }} - {{ $branch->branch_name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    @else
+                        <select class="form-select table-toolbar-select" disabled>
+                            <option>
+                                {{ trim(($assignedBranch?->branch_code ?? 'Assigned') . ' - ' . ($assignedBranch?->branch_name ?? 'Branch')) }}
+                            </option>
+                        </select>
+                    @endif
+                    <i class="bi bi-chevron-down table-toolbar-select-icon" aria-hidden="true"></i>
+                </div>
             </div>
             <div class="table-toolbar-field">
                 <label class="table-toolbar-label">Role</label>
                 <div class="table-toolbar-select-wrap">
+                    <i class="bi bi-person-badge table-toolbar-leading-icon" aria-hidden="true"></i>
                     <select name="role" class="form-select table-toolbar-select" data-table-auto-submit>
                         <option value="">All Roles</option>
                         <option value="admin" {{ request('role') === 'admin' ? 'selected' : '' }}>Admin</option>
@@ -101,6 +545,7 @@
             <div class="table-toolbar-field">
                 <label class="table-toolbar-label">Status</label>
                 <div class="table-toolbar-select-wrap">
+                    <i class="bi bi-activity table-toolbar-leading-icon" aria-hidden="true"></i>
                     <select name="status" class="form-select table-toolbar-select" data-table-auto-submit>
                         <option value="">All Status</option>
                         <option value="active" {{ request('status') === 'active' ? 'selected' : '' }}>Active</option>
@@ -112,6 +557,7 @@
             <div class="table-toolbar-field">
                 <label class="table-toolbar-label">Sort</label>
                 <div class="table-toolbar-select-wrap">
+                    <i class="bi bi-sort-alpha-down table-toolbar-leading-icon" aria-hidden="true"></i>
                     <select name="sort" class="form-select table-toolbar-sort" data-table-sort>
                         <option value="latest" {{ request('sort', 'latest') === 'latest' ? 'selected' : '' }}>Newest</option>
                         <option value="name_asc" {{ request('sort') === 'name_asc' ? 'selected' : '' }}>Name</option>
@@ -124,14 +570,13 @@
             <div class="table-toolbar-reset-wrap">
                 <span class="table-toolbar-label opacity-0 select-none" aria-hidden="true">Actions</span>
                 <div class="filter-actions">
-                    <a href="{{ route('admin.users.index') }}" class="btn-outline btn-filter-reset">
-                        <i class="bi bi-arrow-counterclockwise"></i>
-                        <span>Reset</span>
+                    <a
+                        href="{{ route('admin.users.create', ['return_to' => request()->fullUrl()]) }}"
+                        class="btn btn-primary-custom btn-sm"
+                    >
+                        <i class="bi bi-plus-circle"></i>
+                        <span>Add User</span>
                     </a>
-                    <button type="submit" class="btn-secondary">
-                        <i class="bi bi-funnel"></i>
-                        <span>Apply</span>
-                    </button>
                 </div>
             </div>
         </form>
@@ -165,7 +610,13 @@
         @else
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 @foreach($users as $user)
-                    <div class="directory-item-card bg-white border border-slate-200 rounded-2xl transition-colors duration-200 flex flex-col">
+                    <div
+                        class="directory-item-card bg-white border border-slate-200 rounded-2xl transition-colors duration-200 flex flex-col"
+                        data-live-search-row
+                        data-live-search-title="{{ $user->name }}"
+                        data-live-search-meta="{{ $user->roleLabel() }} / {{ $user->branch->branch_name ?? 'No branch assigned' }}"
+                        data-live-search-text="{{ $user->name }} {{ $user->email }} {{ $user->roleLabel() }} {{ $user->branch->branch_name ?? '' }} {{ $user->position }} {{ $user->contact_number }} {{ $user->is_active ? 'Active' : 'Inactive' }}"
+                    >
                         <div class="p-5 flex items-start justify-between gap-3">
                             <div class="flex-1 min-w-0">
                                 <div class="flex flex-wrap items-center gap-1.5 mb-2">
@@ -254,11 +705,11 @@
     <div
         x-show="view === 'table'"
         x-cloak
-        x-transition:enter="transition ease-out duration-200"
-        x-transition:enter-start="opacity-0 translate-y-2"
-        x-transition:enter-end="opacity-100 translate-y-0"
-        class="mt-4"
-    >
+    x-transition:enter="transition ease-out duration-200"
+    x-transition:enter-start="opacity-0 translate-y-2"
+    x-transition:enter-end="opacity-100 translate-y-0"
+    class="directory-table-view"
+>
         <div class="table-system-list">
             <div class="table-wrapper table-system-wrap">
                 <table class="table-base table-system-table">
@@ -276,7 +727,12 @@
                     </thead>
                     <tbody>
                         @forelse($users as $user)
-                            <tr>
+                            <tr
+                                data-live-search-row
+                                data-live-search-title="{{ $user->name }}"
+                                data-live-search-meta="{{ $user->roleLabel() }} / {{ $user->branch->branch_name ?? 'No branch assigned' }}"
+                                data-live-search-text="{{ $user->name }} {{ $user->email }} {{ $user->roleLabel() }} {{ $user->branch->branch_name ?? '' }} {{ $user->position }} {{ $user->contact_number }} {{ $user->is_active ? 'Active' : 'Inactive' }}"
+                            >
                                 <td class="table-primary">{{ $user->name }}</td>
                                 <td class="table-secondary">{{ $user->email }}</td>
                                 <td>{{ $user->roleLabel() }}</td>

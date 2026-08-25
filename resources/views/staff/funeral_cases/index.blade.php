@@ -793,8 +793,20 @@
 
     .records-page .case-records-controls .case-compact-advanced {
         grid-area: advanced;
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 1200 !important;
+        display: flex !important;
+        justify-content: flex-end !important;
         width: 100%;
-        margin-top: .15rem !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+    }
+
+    .records-page .case-records-controls .case-compact-advanced[hidden] {
+        display: none !important;
     }
 
     .records-page .case-records-tabs-row {
@@ -838,7 +850,8 @@
 
     .records-page .case-compact-search-field .case-compact-input {
         display: block;
-        padding-inline: .95rem;
+        padding-left: 2.55rem !important;
+        padding-right: 2.65rem !important;
     }
 
     .records-page .case-compact-date-filter {

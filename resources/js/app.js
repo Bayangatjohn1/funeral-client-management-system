@@ -384,19 +384,172 @@ function initLiveSearchSuggestions() {
 }
 
 function initCaseCompactFilters() {
+    if (document.body.dataset.caseFilterDismissReady !== '1') {
+        document.body.dataset.caseFilterDismissReady = '1';
+        document.addEventListener('click', (event) => {
+            const target = event.target instanceof Element ? event.target.closest('[data-case-more-dismiss]') : null;
+            if (!target) return;
+
+            const form = target.closest('[data-case-filter]');
+            const panel = form?.querySelector('[data-case-more-panel]');
+            const toggle = form?.querySelector('[data-case-more-toggle]');
+            const icon = form?.querySelector('[data-case-more-icon]');
+            const text = form?.querySelector('[data-case-more-text]');
+            if (!form || !panel || !toggle) return;
+
+            event.preventDefault();
+            panel.hidden = true;
+            toggle.setAttribute('aria-expanded', 'false');
+            toggle.classList.toggle('active', toggle.dataset.hasActiveFilters === '1');
+            if (text) text.textContent = 'More Filters';
+            if (icon) {
+                icon.classList.add('bi-chevron-down');
+                icon.classList.remove('bi-chevron-up');
+            }
+        });
+    }
+
     document.querySelectorAll('[data-case-filter]').forEach((form) => {
+        if (form.dataset.caseFilterReady === '1') return;
+        form.dataset.caseFilterReady = '1';
+
         const customToggle = form.querySelector('[data-case-custom-toggle]');
         const customPanel = form.querySelector('[data-case-custom-panel]');
+        const datePreset = form.querySelector('[data-case-date-preset-select]');
         const moreToggle = form.querySelector('[data-case-more-toggle]');
         const morePanel = form.querySelector('[data-case-more-panel]');
         const moreIcon = form.querySelector('[data-case-more-icon]');
         const moreText = form.querySelector('[data-case-more-text]');
+        const searchInput = form.querySelector('[data-case-search-input]');
+        const searchClear = form.querySelector('[data-case-search-clear]');
+        const searchPanel = form.querySelector('[data-case-search-suggestions]');
         const hasAdvancedFilters = moreToggle?.classList.contains('active') || false;
+        if (moreToggle) {
+            moreToggle.dataset.hasActiveFilters = hasAdvancedFilters ? '1' : '0';
+        }
+        const page = form.closest('.records-page, .master-records-page, .owner-page-shell, .admin-table-page') || document;
+        const isStaffRecordsPage = !!form.closest('.records-page');
+
+        const rowSelector = [
+            '.table-system-table tbody tr[data-clickable-row]',
+            '.table-system-table tbody tr',
+            '.records-worklist-table tbody tr',
+        ].join(',');
+
+        const normalize = (value) => String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+        const getRows = () => Array.from(page.querySelectorAll(rowSelector)).filter((row) => {
+            const cells = row.querySelectorAll('td');
+            return cells.length > 1 && !row.querySelector('[colspan]');
+        });
+
+        const getRowTitle = (row) => {
+            const firstPrimary = row.querySelector('.table-primary');
+            const code = firstPrimary?.textContent?.trim() || row.cells?.[0]?.textContent?.trim() || '';
+            const person = row.cells?.[2]?.querySelector('.table-primary')?.textContent?.trim()
+                || row.cells?.[1]?.querySelector('.table-primary')?.textContent?.trim()
+                || '';
+            return [code, person].filter(Boolean).join(' - ') || row.textContent.trim();
+        };
+
+        const getRowMeta = (row) => {
+            const metaParts = [];
+            const branch = row.cells?.[1]?.textContent?.trim();
+            const service = row.cells?.[3]?.querySelector('.table-primary')?.textContent?.trim()
+                || row.cells?.[2]?.querySelector('.table-secondary')?.textContent?.trim();
+            if (branch) metaParts.push(branch.replace(/\s+/g, ' '));
+            if (service) metaParts.push(service);
+            return metaParts.join(' • ');
+        };
+
+        const setUpdating = (isUpdating) => {
+            if (!(page instanceof Element)) return;
+            page.classList.toggle('is-updating', isUpdating);
+        };
+
+        const replaceSelector = (doc, selector) => {
+            const current = page.querySelector(selector);
+            const nextPage = doc.querySelector('.records-page, .master-records-page, .owner-page-shell, .admin-table-page') || doc;
+            const next = nextPage.querySelector(selector);
+            if (current && next) {
+                current.replaceWith(next);
+                return true;
+            }
+            return false;
+        };
+
+        const replacePageSections = (doc) => {
+            if (isStaffRecordsPage) return;
+
+            if (page.classList?.contains('master-records-page')) {
+                replaceSelector(doc, '.table-system-card');
+                return;
+            }
+
+            if (page.classList?.contains('owner-page-shell')) {
+                [
+                    '.owner-history-filter-panel',
+                    '.owner-history-chip-row',
+                    '.list-card',
+                    '.owner-page-shell > .mt-4',
+                ].forEach((selector) => replaceSelector(doc, selector));
+            }
+        };
+
+        const buildUrl = (submitter = null) => {
+            const url = new URL(form.action, window.location.origin);
+            const data = submitter ? new FormData(form, submitter) : new FormData(form);
+            const selectedPreset = String(data.get('date_preset') || '');
+
+            Array.from(url.searchParams.keys()).forEach((key) => url.searchParams.delete(key));
+            data.forEach((value, key) => {
+                if (key === 'page') return;
+                if (selectedPreset !== 'CUSTOM' && (key === 'date_from' || key === 'date_to')) return;
+                if (value !== null && String(value).trim() !== '') {
+                    url.searchParams.append(key, value);
+                }
+            });
+            return url;
+        };
+
+        const submitFilter = async (submitter = null) => {
+            if (isStaffRecordsPage) {
+                if (typeof form.requestSubmit === 'function' && !submitter) {
+                    form.requestSubmit();
+                }
+                return;
+            }
+
+            const url = buildUrl(submitter);
+            setUpdating(true);
+            try {
+                const response = await fetch(url.toString(), {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'text/html',
+                    },
+                    credentials: 'same-origin',
+                });
+                if (!response.ok) throw new Error(`Filter request failed: ${response.status}`);
+                const html = await response.text();
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                replacePageSections(doc);
+                window.history.pushState({}, '', url.toString());
+                document.dispatchEvent(new CustomEvent('panel-ui:reset'));
+                initCaseCompactFilters();
+                initClickableRecordRows();
+            } catch (error) {
+                window.location.href = url.toString();
+            } finally {
+                requestAnimationFrame(() => setUpdating(false));
+            }
+        };
 
         const setCustomOpen = (open) => {
-            if (!customToggle || !customPanel) return;
+            if (!customPanel) return;
             customPanel.hidden = !open;
-            customToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            customToggle?.setAttribute('aria-expanded', open ? 'true' : 'false');
+            datePreset?.setAttribute('aria-expanded', open ? 'true' : 'false');
         };
 
         const setMoreOpen = (open) => {
@@ -417,13 +570,151 @@ function initCaseCompactFilters() {
             setCustomOpen(customToggle.getAttribute('aria-expanded') !== 'true');
         });
 
+        datePreset?.addEventListener('change', () => {
+            if (isStaffRecordsPage) return;
+            if (datePreset.value === 'CUSTOM') {
+                setCustomOpen(true);
+                return;
+            }
+            setCustomOpen(false);
+            submitFilter();
+        });
+
+        form.querySelectorAll('[data-case-auto-submit]').forEach((field) => {
+            field.addEventListener('change', () => {
+                if (isStaffRecordsPage) return;
+                submitFilter();
+            });
+        });
+
+        form.addEventListener('submit', (event) => {
+            if (isStaffRecordsPage) return;
+            event.preventDefault();
+            searchPanel && (searchPanel.hidden = true);
+            submitFilter(event.submitter || null);
+        });
+
+        form.querySelectorAll('[data-case-clear-filters], .case-compact-pop-reset, .case-compact-advanced-clear').forEach((link) => {
+            link.addEventListener('click', async (event) => {
+                if (!(link instanceof HTMLAnchorElement)) return;
+                if (isStaffRecordsPage) return;
+                event.preventDefault();
+                setUpdating(true);
+                try {
+                    const response = await fetch(link.href, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'text/html',
+                        },
+                        credentials: 'same-origin',
+                    });
+                    if (!response.ok) throw new Error(`Reset request failed: ${response.status}`);
+                    const html = await response.text();
+                    const doc = new DOMParser().parseFromString(html, 'text/html');
+                    replacePageSections(doc);
+                    window.history.pushState({}, '', link.href);
+                    document.dispatchEvent(new CustomEvent('panel-ui:reset'));
+                    initCaseCompactFilters();
+                    initClickableRecordRows();
+                } catch (error) {
+                    window.location.href = link.href;
+                } finally {
+                    requestAnimationFrame(() => setUpdating(false));
+                }
+            });
+        });
+
+        const hideSuggestions = () => {
+            if (searchPanel) searchPanel.hidden = true;
+        };
+
+        const renderSuggestions = () => {
+            if (!(searchInput instanceof HTMLInputElement) || !searchPanel) return;
+            const query = normalize(searchInput.value);
+            if (searchClear) searchClear.hidden = query.length === 0;
+
+            searchPanel.innerHTML = '';
+            if (!query) {
+                searchPanel.hidden = true;
+                return;
+            }
+
+            const seen = new Set();
+            const matches = getRows().filter((row) => normalize(row.textContent).includes(query)).filter((row) => {
+                const title = getRowTitle(row);
+                if (seen.has(title)) return false;
+                seen.add(title);
+                return true;
+            }).slice(0, 5);
+
+            if (!matches.length) {
+                const empty = document.createElement('div');
+                empty.className = 'case-compact-search-empty';
+                empty.textContent = 'No quick matches. Press Enter to search all records.';
+                searchPanel.appendChild(empty);
+                searchPanel.hidden = false;
+                return;
+            }
+
+            matches.forEach((row) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'case-compact-search-option';
+                button.innerHTML = `
+                    <span class="case-compact-search-title"></span>
+                    <span class="case-compact-search-meta"></span>
+                `;
+                button.querySelector('.case-compact-search-title').textContent = getRowTitle(row);
+                button.querySelector('.case-compact-search-meta').textContent = getRowMeta(row) || 'Click to apply search';
+                button.addEventListener('click', () => {
+                    searchInput.value = getRowTitle(row).split(' - ')[0] || searchInput.value;
+                    hideSuggestions();
+                    submitFilter();
+                });
+                searchPanel.appendChild(button);
+            });
+            searchPanel.hidden = false;
+        };
+
+        searchInput?.addEventListener('input', renderSuggestions);
+        searchInput?.addEventListener('focus', renderSuggestions);
+        searchInput?.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                hideSuggestions();
+                submitFilter();
+            }
+            if (event.key === 'Escape') {
+                hideSuggestions();
+            }
+        });
+
+        searchClear?.addEventListener('click', () => {
+            if (!(searchInput instanceof HTMLInputElement)) return;
+            searchInput.value = '';
+            hideSuggestions();
+            submitFilter();
+        });
+
         moreToggle?.addEventListener('click', () => {
             setMoreOpen(moreToggle.getAttribute('aria-expanded') !== 'true');
         });
 
+        form.querySelectorAll('[data-case-more-dismiss]').forEach((dismiss) => {
+            dismiss.addEventListener('click', () => setMoreOpen(false));
+        });
+
         document.addEventListener('click', (event) => {
             if (!(event.target instanceof Element)) return;
-            if (customPanel && customToggle && !customPanel.contains(event.target) && !customToggle.contains(event.target)) {
+            if (searchPanel && searchInput && !searchPanel.contains(event.target) && !searchInput.contains(event.target)) {
+                hideSuggestions();
+            }
+            if (
+                customPanel
+                && !customPanel.contains(event.target)
+                && !customToggle?.contains(event.target)
+                && !datePreset?.contains(event.target)
+            ) {
                 setCustomOpen(false);
             }
         });
@@ -431,6 +722,7 @@ function initCaseCompactFilters() {
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
                 setCustomOpen(false);
+                hideSuggestions();
             }
         });
     });

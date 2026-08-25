@@ -1,7 +1,8 @@
 @extends('layouts.panel')
 
 @section('page_title', 'Branch Analytics')
-@section('page_desc', 'Analyze branch trends, revenue, and operational metrics.')
+@section('page_desc', 'Review branch performance, payments, collections, and revenue trends for the selected period.')
+@section('hide_layout_topbar', '1')
 
 @section('content')
 @php
@@ -20,6 +21,10 @@
         ? ($selectedBranch->branch_code . ' - ' . $selectedBranch->branch_name)
         : 'All Branches';
     $periodChipLabel = $isCustomRange ? 'CUSTOM RANGE' : str_replace('_', ' ', strtoupper($range));
+    $periodContextLabel = $isCustomRange
+        ? (\Carbon\Carbon::parse($dateFrom)->format('M d, Y') . ' - ' . \Carbon\Carbon::parse($dateTo)->format('M d, Y'))
+        : ucwords(strtolower(str_replace('_', ' ', $range)));
+    $hasPageFilters = $branchId || $range !== 'TODAY' || $isCustomRange;
 
     $comparisonLabels = $chart['bar']['labels'] ?? [];
     $comparisonRevenue = $chart['bar']['revenue'] ?? [];
@@ -48,6 +53,7 @@
     $periodServiceAmounts = $chart['period']['service_amount'] ?? [];
     $periodCollectedAmounts = $chart['period']['collected_amount'] ?? [];
     $periodOutstandingBalances = $chart['period']['outstanding_balance'] ?? [];
+    $trendLineData = $chart['line']['data'] ?? [];
     $masterCaseRecordsUrl = route('owner.history');
     $analyticsCaseCollection = collect($allAnalyticsCases ?? []);
     $branchRankingRows = $branches->map(function ($branch) use ($analyticsCaseCollection) {
@@ -73,18 +79,94 @@
         ->sortByDesc('total_revenue')
         ->values()
         ->all();
+    $hasComparisonData = collect($comparisonRevenue)->merge($comparisonVolume)->contains(fn ($value) => (float) $value > 0);
+    $hasPeriodData = collect($periodCases)->merge($periodServiceAmounts)->merge($periodCollectedAmounts)->merge($periodOutstandingBalances)->contains(fn ($value) => (float) $value > 0);
+    $hasPaymentData = ((int) $statusCounts['paid'] + (int) $statusCounts['partial'] + (int) $statusCounts['unpaid'] + (int) $statusCounts['ongoing']) > 0;
+    $hasTrendData = collect($periodServiceAmounts)->merge($trendLineData)->contains(fn ($value) => (float) $value > 0);
+    $hasCollectionData = ((float) $totalCollected + (float) $totalOutstanding + (float) $totalSales) > 0;
+    $selectedBranchDisplay = $selectedBranch
+        ? ($selectedBranch->branch_code . ' - ' . $selectedBranch->branch_name)
+        : null;
+    $branchPerformanceTitle = $selectedBranch
+        ? ($selectedBranch->branch_code . ' Performance Trend')
+        : 'Branch Comparison';
+    $branchChartContext = $branchPerformanceTitle . ' · ' . $filterScopeLabel . ' · ' . $periodContextLabel;
+    $needsAttentionCount = (int) $statusCounts['partial'] + (int) $statusCounts['unpaid'];
+    $needsAttentionAmount = (float) $totalOutstanding;
 @endphp
 
 <div class="ba-shell">
 
     <section class="ba-card ba-workspace">
+        <header class="ba-page-intro ba-visually-hidden">
+            <div>
+                <h3 class="ba-title">Branch Analytics</h3>
+                <p class="ba-subtitle">Review branch performance, payments, collections, and revenue trends for the selected period.</p>
+            </div>
+        </header>
+
+        <section class="ba-summary-grid" aria-label="Analytics summary">
+            <article class="ba-summary-card">
+                <div class="ba-summary-icon">
+                    <i class="bi bi-briefcase"></i>
+                </div>
+                <div>
+                    <span>Total Cases</span>
+                    <strong>{{ number_format($totalCases) }}</strong>
+                </div>
+            </article>
+            <article class="ba-summary-card">
+                <div class="ba-summary-icon">
+                    <i class="bi bi-receipt"></i>
+                </div>
+                <div>
+                    <span>Total Service Amount</span>
+                    <strong>PHP {{ number_format($totalSales, 2) }}</strong>
+                </div>
+            </article>
+            <article class="ba-summary-card">
+                <div class="ba-summary-icon">
+                    <i class="bi bi-cash-coin"></i>
+                </div>
+                <div>
+                    <span>Collected Amount</span>
+                    <strong>PHP {{ number_format($totalCollected, 2) }}</strong>
+                </div>
+            </article>
+            <article class="ba-summary-card ba-summary-card-warning">
+                <div class="ba-summary-icon">
+                    <i class="bi bi-exclamation-circle"></i>
+                </div>
+                <div>
+                    <span>Outstanding Balance</span>
+                    <strong>PHP {{ number_format($totalOutstanding, 2) }}</strong>
+                </div>
+            </article>
+        </section>
+
         <header class="ba-workspace-head">
             <div class="ba-head-row ba-head-row-top">
-                <div class="ba-workspace-head-copy">
-                    <h3 class="ba-title">Branch Analytics</h3>
-                    <p class="ba-subtitle">View branch summaries, payment status, revenue trends, and collection updates.</p>
+                <div class="ba-tabs" role="tablist" aria-label="Analytics views">
+                    <button class="ba-tab-btn active" data-target="ba-panel-performance" role="tab" aria-selected="true">
+                        <i class="bi bi-bar-chart-line"></i>
+                        Overview
+                    </button>
+                    <button class="ba-tab-btn" data-target="ba-panel-payment" role="tab" aria-selected="false">
+                        <i class="bi bi-wallet2"></i>
+                        Payments
+                    </button>
+                    <button class="ba-tab-btn" data-target="ba-panel-collection" role="tab" aria-selected="false">
+                        <i class="bi bi-cash-stack"></i>
+                        Collections
+                    </button>
+                    <button class="ba-tab-btn" data-target="ba-panel-trend" role="tab" aria-selected="false">
+                        <i class="bi bi-graph-up-arrow"></i>
+                        Revenue Trend
+                    </button>
                 </div>
+            </div>
 
+            <div class="ba-head-row ba-filter-row">
                 <div class="ba-workspace-filters" role="group" aria-label="Branch Analytics Filters">
                     <form method="GET" action="{{ route('owner.analytics') }}" class="ba-branch-form ba-branch-form-inline">
                         @if($isCustomRange)
@@ -112,26 +194,26 @@
                     <div class="ba-filter-group">
                         <span class="ba-filter-label ba-visually-hidden">Period Filter</span>
                         <div class="ba-seg" role="group" aria-label="Period Filter">
-                            @foreach (['TODAY', 'THIS_MONTH', 'THIS_YEAR'] as $rangeKey)
-                                <a href="{{ $dateRangeLinks[$rangeKey] }}" class="ba-seg-item {{ $range === $rangeKey ? 'active' : '' }}">
-                                    {{ ucwords(strtolower(str_replace('_', ' ', $rangeKey))) }}
-                                </a>
-                            @endforeach
-                            <div class="ba-custom-range-wrap">
-                                <button
-                                    type="button"
-                                    id="baCustomRangeBtn"
-                                    class="ba-seg-item {{ $isCustomRange ? 'active' : '' }}"
-                                    aria-expanded="false"
-                                    aria-controls="baDatePopover"
-                                    title="Open custom date range"
-                                >
+                            <form method="GET" action="{{ route('owner.analytics') }}" class="ba-period-form">
+                                @if($branchId)
+                                    <input type="hidden" name="branch_id" value="{{ $branchId }}">
+                                @endif
+                                <label for="baPeriodFilter" class="ba-filter-label ba-visually-hidden">Date Range Filter</label>
+                                <div class="ba-period-select-wrap">
                                     <i class="bi bi-calendar3"></i>
-                                    <span>Custom Range</span>
-                                    <i class="bi bi-chevron-down ba-date-chev"></i>
-                                </button>
-
-                                <div class="ba-date-popover" id="baDatePopover" style="display: none;">
+                                    <select id="baPeriodFilter" name="range" class="ba-period-select">
+                                        @foreach (['TODAY', 'THIS_MONTH', 'THIS_YEAR'] as $rangeKey)
+                                            <option value="{{ $rangeKey }}" @selected($range === $rangeKey)>
+                                                {{ ucwords(strtolower(str_replace('_', ' ', $rangeKey))) }}
+                                            </option>
+                                        @endforeach
+                                        <option value="CUSTOM" @selected($isCustomRange)>Custom Range</option>
+                                    </select>
+                                    <i class="bi bi-chevron-down ba-branch-select-chev"></i>
+                                </div>
+                            </form>
+                            <div class="ba-custom-range-wrap">
+                                <div class="ba-date-popover ba-date-popover-inline" id="baDatePopover" style="{{ $isCustomRange ? 'display: block;' : 'display: none;' }}">
                                     <form method="GET" action="{{ route('owner.analytics') }}">
                                         @if($branchId)
                                             <input type="hidden" name="branch_id" value="{{ $branchId }}">
@@ -174,28 +256,15 @@
                         </div>
                     </div>
                 </div>
+                @if($hasPageFilters)
+                    <a href="{{ route('owner.analytics') }}" class="ba-filter-clear">
+                        <i class="bi bi-x-circle"></i>
+                        <span>Clear filters</span>
+                    </a>
+                @endif
             </div>
 
             <div class="ba-head-row ba-head-row-nav">
-                <div class="ba-tabs" role="tablist" aria-label="Analytics views">
-                    <button class="ba-tab-btn active" data-target="ba-panel-performance" role="tab" aria-selected="true">
-                        <i class="bi bi-bar-chart-line"></i>
-                        Branch Performance
-                    </button>
-                    <button class="ba-tab-btn" data-target="ba-panel-payment" role="tab" aria-selected="false">
-                        <i class="bi bi-wallet2"></i>
-                        Payment Status
-                    </button>
-                    <button class="ba-tab-btn" data-target="ba-panel-trend" role="tab" aria-selected="false">
-                        <i class="bi bi-graph-up-arrow"></i>
-                        Gross Revenue Trend
-                    </button>
-                    <button class="ba-tab-btn" data-target="ba-panel-collection" role="tab" aria-selected="false">
-                        <i class="bi bi-cash-stack"></i>
-                        Collection Status
-                    </button>
-                </div>
-
                 <div class="ba-workspace-chips" aria-label="Applied filters">
                     <div class="ba-context-chip" title="Applied Date Range">
                         <i class="bi bi-calendar3"></i>
@@ -218,26 +287,49 @@
                 <span class="ba-global-filter-label">Active chart filters</span>
                 <div class="ba-global-filter-chips" id="baGlobalFilterChips"></div>
             </div>
-            <button type="button" class="ba-global-clear" id="baGlobalClearFiltersBtn">
-                Clear all filters
-            </button>
+            <div class="ba-global-filter-actions">
+                <button type="button" class="ba-global-clear" id="baGlobalClearFiltersBtn">
+                    <i class="bi bi-x-circle"></i>
+                    <span>Clear all filters</span>
+                </button>
+            </div>
         </div>
 
         <div class="ba-panels">
             <article class="ba-panel active" id="ba-panel-performance" role="tabpanel">
                 @if($chart['mode'] === 'all')
-                    <div class="ba-panel-head">
-                        <h4 class="ba-panel-title">Branch Performance Overview</h4>
-                        <span class="ba-panel-note">Total service amount and case comparison</span>
-                    </div>
-                    <div class="ba-insight-row" id="baBranchInsights" aria-label="Branch performance insights"></div>
-                    <p class="ba-chart-helper"><i class="bi bi-cursor"></i> Shows total service amount and total number of cases per branch for the selected period. Click a branch bar or insight card to view matching cases below.</p>
-                    <div class="ba-chart-frame">
-                        <canvas id="serviceCasesChart"></canvas>
+                    <div class="ba-performance-card">
+                        <div class="ba-panel-head">
+                            <div>
+                                <h4 class="ba-panel-title">Branch Comparison</h4>
+                            </div>
+                            <div class="ba-panel-actions">
+                                <span class="ba-panel-note">Revenue and case volume</span>
+                                <button type="button" class="ba-expand-chart-btn" data-chart-expand="serviceCasesChart" data-chart-title="{{ $branchChartContext }}">
+                                    <i class="bi bi-arrows-fullscreen"></i>
+                                    <span>Full screen</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="ba-chart-frame ba-branch-comparison-chart {{ ! $hasComparisonData ? 'has-empty-state' : '' }}">
+                            @unless($hasComparisonData)
+                                <div class="ba-chart-empty">
+                                    <i class="bi bi-bar-chart"></i>
+                                    <strong>No data available for {{ $periodContextLabel }}</strong>
+                                    <span>Try selecting a wider date range or another branch.</span>
+                                </div>
+                            @endunless
+                            <canvas id="serviceCasesChart"></canvas>
+                        </div>
+                        <div class="ba-insight-row ba-insights-hidden" id="baBranchInsights" aria-label="Branch performance insights"></div>
                     </div>
 
-                    <div class="ba-compare-card">
-                        <div class="ba-compare-title">Branch Performance Ranking</div>
+                    <div class="ba-compare-card ba-branch-ranking-card">
+                        <div class="ba-compare-title">
+                            <i class="bi bi-list-ol"></i>
+                            <span>Branch Ranking</span>
+                        </div>
                         <div class="ba-compare-table-wrap">
                             <table class="ba-compare-table">
                                 <thead>
@@ -247,14 +339,17 @@
                                         <th>Total Revenue</th>
                                         <th>Total Cases</th>
                                         <th>Avg per Case</th>
-                                        <th>Payment Mix</th>
-                                        <th>Collection Rate</th>
-                                        <th>Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @forelse($branchRankingRows as $index => $row)
-                                        <tr class="ba-ranking-row" data-branch-code="{{ $row['branch_code'] }}">
+                                        <tr
+                                            class="ba-ranking-row"
+                                            data-branch-code="{{ $row['branch_code'] }}"
+                                            role="button"
+                                            tabindex="0"
+                                            aria-label="View {{ $row['branch_code'] }} - {{ $row['branch_name'] }} records"
+                                        >
                                             <td>{{ $index + 1 }}</td>
                                             <td title="{{ $row['branch_code'] }} - {{ $row['branch_name'] }}">
                                                 {{ $row['branch_code'] }} - {{ $row['branch_name'] }}
@@ -262,21 +357,10 @@
                                             <td>PHP {{ number_format($row['total_revenue'], 2) }}</td>
                                             <td>{{ number_format($row['total_cases']) }}</td>
                                             <td>PHP {{ number_format($row['average_per_case'], 2) }}</td>
-                                            <td>
-                                                Paid {{ number_format($row['paid_cases']) }} /
-                                                Partial {{ number_format($row['partial_cases']) }} /
-                                                Unpaid {{ number_format($row['unpaid_cases']) }}
-                                            </td>
-                                            <td>{{ number_format($row['collection_rate'], 1) }}%</td>
-                                            <td>
-                                                <button type="button" class="ba-row-filter-btn" data-branch-code="{{ $row['branch_code'] }}">
-                                                    View branch
-                                                </button>
-                                            </td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="8" class="ba-empty-cell">No branch performance data available for selected filters.</td>
+                                            <td colspan="5" class="ba-empty-cell">No branch performance data available for selected filters.</td>
                                         </tr>
                                     @endforelse
                                 </tbody>
@@ -285,45 +369,36 @@
                     </div>
                 @else
                     <div class="ba-branch-perf-head">
-                        <h4 class="ba-panel-title">Branch Performance Summary</h4>
-                        <p class="ba-panel-subtitle">Operational and financial overview of the selected branch.</p>
+                        <h4 class="ba-panel-title">{{ $branchPerformanceTitle }}</h4>
+                        <p class="ba-panel-subtitle">Period movement for {{ $selectedBranchDisplay }}.</p>
                     </div>
 
-                    <div class="ba-branch-kpi-grid">
-                        <article class="ba-branch-kpi-card">
-                            <span>Total Cases</span>
-                            <strong>{{ number_format($totalCases) }}</strong>
-                        </article>
-                        <article class="ba-branch-kpi-card">
-                            <span>Total Service Amount</span>
-                            <strong>PHP {{ number_format($totalSales, 2) }}</strong>
-                        </article>
-                        <article class="ba-branch-kpi-card">
-                            <span>Collected Amount</span>
-                            <strong>PHP {{ number_format($totalCollected, 2) }}</strong>
-                        </article>
-                        <article class="ba-branch-kpi-card">
-                            <span>Outstanding Balance</span>
-                            <strong>PHP {{ number_format($totalOutstanding, 2) }}</strong>
-                        </article>
-                        <article class="ba-branch-kpi-card">
-                            <span>Collection Rate</span>
-                            <strong>{{ number_format($overallCollectionRate, 1) }}%</strong>
-                        </article>
+                    <div class="ba-panel-head">
+                        <h4 class="ba-panel-title">{{ $branchPerformanceTitle }}</h4>
+                        <div class="ba-panel-actions">
+                            <span class="ba-panel-note">Cases and service amount by period</span>
+                            <button type="button" class="ba-expand-chart-btn" data-chart-expand="branchPerformanceChart" data-chart-title="{{ $branchChartContext }}">
+                                <i class="bi bi-arrows-fullscreen"></i>
+                                <span>Full screen</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="ba-chart-frame {{ ! $hasPeriodData ? 'has-empty-state' : '' }}">
+                        @unless($hasPeriodData)
+                            <div class="ba-chart-empty">
+                                <i class="bi bi-calendar-range"></i>
+                                <strong>No data available for {{ $periodContextLabel }}</strong>
+                                <span>Try selecting a wider date range or another branch.</span>
+                            </div>
+                        @endunless
+                        <canvas id="branchPerformanceChart"></canvas>
+                    </div>
+
+                    <div class="ba-branch-kpi-grid ba-branch-kpi-grid-compact">
                         <article class="ba-branch-kpi-card">
                             <span>Average Service Amount per Case</span>
                             <strong>PHP {{ number_format($overallAvgRevenuePerCase, 2) }}</strong>
                         </article>
-                    </div>
-
-                    <div class="ba-panel-head">
-                        <h4 class="ba-panel-title">Cases and Total Service Amount by Period</h4>
-                        <span class="ba-panel-note">Total service amount and case comparison</span>
-                    </div>
-                    <div class="ba-insight-row" id="baBranchInsights" aria-label="Branch performance insights"></div>
-                    <p class="ba-chart-helper"><i class="bi bi-cursor"></i> Shows total service amount and total number of cases by period for the selected branch. Click a period bar or insight card to view matching cases below.</p>
-                    <div class="ba-chart-frame">
-                        <canvas id="branchPerformanceChart"></canvas>
                     </div>
 
                     <div class="ba-compare-card">
@@ -335,9 +410,6 @@
                                         <th>Period</th>
                                         <th>Total Cases</th>
                                         <th>Total Service Amount</th>
-                                        <th>Collected Amount</th>
-                                        <th>Outstanding Balance</th>
-                                        <th>Collection Rate</th>
                                         <th>Average Service Amount per Case</th>
                                     </tr>
                                 </thead>
@@ -346,25 +418,17 @@
                                         @php
                                             $periodCaseCount = (float) ($periodCases[$index] ?? 0);
                                             $periodService = (float) ($periodServiceAmounts[$index] ?? 0);
-                                            $periodCollected = (float) ($periodCollectedAmounts[$index] ?? 0);
-                                            $periodOutstanding = (float) ($periodOutstandingBalances[$index] ?? 0);
-                                            $periodCollectionRate = ($periodCollected + $periodOutstanding) > 0
-                                                ? (($periodCollected / ($periodCollected + $periodOutstanding)) * 100)
-                                                : 0;
                                             $periodAvgRevenue = $periodCaseCount > 0 ? ($periodService / $periodCaseCount) : 0;
                                         @endphp
                                         <tr>
                                             <td>{{ (string) ($periodLabels[$index] ?? $_periodLabel ?? '-') }}</td>
                                             <td>{{ number_format($periodCaseCount) }}</td>
                                             <td>PHP {{ number_format($periodService, 2) }}</td>
-                                            <td>PHP {{ number_format($periodCollected, 2) }}</td>
-                                            <td>PHP {{ number_format($periodOutstanding, 2) }}</td>
-                                            <td>{{ number_format($periodCollectionRate, 1) }}%</td>
                                             <td>PHP {{ number_format($periodAvgRevenue, 2) }}</td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="7" class="ba-empty-cell">No period performance data available for selected filters.</td>
+                                            <td colspan="4" class="ba-empty-cell">No period performance data available for selected filters.</td>
                                         </tr>
                                     @endforelse
                                 </tbody>
@@ -377,47 +441,83 @@
             <article class="ba-panel" id="ba-panel-payment" role="tabpanel" hidden>
                 <div class="ba-panel-head">
                     <h4 class="ba-panel-title">Payment Status</h4>
-                    <span class="ba-panel-note" data-default-note="Paid vs partial vs unpaid case distribution">Paid vs partial vs unpaid case distribution</span>
+                    <div class="ba-panel-actions">
+                        <span class="ba-panel-note" data-default-note="Paid vs partial vs unpaid case distribution">Paid vs partial vs unpaid case distribution</span>
+                        <button type="button" class="ba-expand-chart-btn" data-chart-expand="paymentChart" data-chart-title="Payment Status · {{ $filterScopeLabel }} · {{ $periodContextLabel }}">
+                            <i class="bi bi-arrows-fullscreen"></i>
+                            <span>Full screen</span>
+                        </button>
+                    </div>
                 </div>
                 <div class="ba-tab-context" data-context-tab="payment" hidden></div>
-                <div class="ba-insight-row" id="baPaymentInsights" aria-label="Payment status insights"></div>
                 <div class="ba-status-pills">
                     <span class="ba-status-pill ba-paid">Paid: {{ number_format($statusCounts['paid']) }}</span>
                     <span class="ba-status-pill ba-partial">Partial: {{ number_format($statusCounts['partial']) }}</span>
                     <span class="ba-status-pill ba-unpaid">Unpaid: {{ number_format($statusCounts['unpaid']) }}</span>
                     <span class="ba-status-pill ba-ongoing">Ongoing: {{ number_format($statusCounts['ongoing']) }}</span>
                 </div>
-                <div class="ba-chart-frame ba-chart-frame-narrow">
+                <div class="ba-chart-frame ba-chart-frame-narrow {{ ! $hasPaymentData ? 'has-empty-state' : '' }}">
+                    @unless($hasPaymentData)
+                        <div class="ba-chart-empty">
+                            <i class="bi bi-wallet2"></i>
+                            <strong>No data available for {{ $periodContextLabel }}</strong>
+                            <span>Try selecting a wider date range or another branch.</span>
+                        </div>
+                    @endunless
                     <canvas id="paymentChart"></canvas>
                 </div>
-                <p class="ba-chart-helper"><i class="bi bi-cursor"></i> Shows paid, partial, and unpaid case distribution for the selected period. Click a slice or insight card to view matching cases below.</p>
+                <div class="ba-insight-row ba-insights-hidden" id="baPaymentInsights" aria-label="Payment status insights"></div>
             </article>
 
             <article class="ba-panel" id="ba-panel-trend" role="tabpanel" hidden>
                 <div class="ba-panel-head">
-                    <h4 class="ba-panel-title">Gross Revenue Trend</h4>
-                    <span class="ba-panel-note" data-default-note="Trend line for period-based movement analysis">Trend line for period-based movement analysis</span>
+                    <h4 class="ba-panel-title">Revenue Trend</h4>
+                    <div class="ba-panel-actions">
+                        <span class="ba-panel-note" data-default-note="Period movement">Period movement</span>
+                        <button type="button" class="ba-expand-chart-btn" data-chart-expand="trendChart" data-chart-title="Revenue Trend · {{ $filterScopeLabel }} · {{ $periodContextLabel }}">
+                            <i class="bi bi-arrows-fullscreen"></i>
+                            <span>Full screen</span>
+                        </button>
+                    </div>
                 </div>
                 <div class="ba-tab-context" data-context-tab="trend" hidden></div>
-                <div class="ba-insight-row" id="baRevenueInsights" aria-label="Gross revenue trend insights"></div>
-                <div class="ba-chart-frame">
+                <div class="ba-chart-frame {{ ! $hasTrendData ? 'has-empty-state' : '' }}">
+                    @unless($hasTrendData)
+                        <div class="ba-chart-empty">
+                            <i class="bi bi-graph-up"></i>
+                            <strong>No data available for {{ $periodContextLabel }}</strong>
+                            <span>Try selecting a wider date range or another branch.</span>
+                        </div>
+                    @endunless
                     <canvas id="trendChart"></canvas>
                 </div>
-                <p class="ba-chart-helper"><i class="bi bi-cursor"></i> Shows revenue movement by period. Click a point or insight card to view matching cases below.</p>
+                <div class="ba-insight-row ba-insights-hidden" id="baRevenueInsights" aria-label="Gross revenue trend insights"></div>
             </article>
 
             <article class="ba-panel" id="ba-panel-collection" role="tabpanel" hidden>
                 <div class="ba-panel-head">
-                    <h4 class="ba-panel-title">Collection Status</h4>
-                    <span class="ba-panel-note" data-default-note="Collected vs outstanding amount performance">Collected vs outstanding amount performance</span>
+                    <h4 class="ba-panel-title">Collections</h4>
+                    <div class="ba-panel-actions">
+                        <span class="ba-panel-note" data-default-note="Collected vs outstanding">Collected vs outstanding</span>
+                        <button type="button" class="ba-expand-chart-btn" data-chart-expand="collectionChart" data-chart-title="Collections · {{ $filterScopeLabel }} · {{ $periodContextLabel }}">
+                            <i class="bi bi-arrows-fullscreen"></i>
+                            <span>Full screen</span>
+                        </button>
+                    </div>
                 </div>
                 <div class="ba-tab-context" data-context-tab="collection" hidden></div>
 
-                <div class="ba-insight-row" id="baCollectionInsights" aria-label="Collection status insights"></div>
-                <div class="ba-chart-frame">
+                <div class="ba-chart-frame {{ ! $hasCollectionData ? 'has-empty-state' : '' }}">
+                    @unless($hasCollectionData)
+                        <div class="ba-chart-empty">
+                            <i class="bi bi-cash-stack"></i>
+                            <strong>No data available for {{ $periodContextLabel }}</strong>
+                            <span>Try selecting a wider date range or another branch.</span>
+                        </div>
+                    @endunless
                     <canvas id="collectionChart"></canvas>
                 </div>
-                <p class="ba-chart-helper"><i class="bi bi-cursor"></i> Shows collected amount, outstanding balance, and total service amount. Click a bar or insight card to view matching cases below.</p>
+                <div class="ba-insight-row ba-insights-hidden" id="baCollectionInsights" aria-label="Collection status insights"></div>
             </article>
         </div>
 
@@ -495,6 +595,27 @@
                 </div>
             </div>
         </section>
+    </section>
+</div>
+
+<div class="ba-chart-modal" id="baChartModal" hidden aria-hidden="true">
+    <div class="ba-chart-modal__backdrop" data-chart-modal-close aria-hidden="true"></div>
+    <section class="ba-chart-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="baChartModalTitle">
+        <header class="ba-chart-modal__head">
+            <h3 id="baChartModalTitle">Analytics Chart</h3>
+            <div class="ba-chart-modal__workspace" aria-label="Expanded analytics sections">
+                <button type="button" class="ba-chart-modal__view is-active" data-modal-view="chart" aria-pressed="true">Chart</button>
+                <button type="button" class="ba-chart-modal__view" data-modal-view="records" aria-pressed="false" disabled>Records</button>
+                <span class="ba-chart-modal__record-count" id="baModalRecordCount">0 records</span>
+            </div>
+            <button type="button" class="ba-chart-modal__close" data-chart-modal-close aria-label="Close expanded chart">
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
+        </header>
+        <div class="ba-chart-modal__body" id="baChartModalBody">
+            <div class="ba-chart-modal__chart-slot" id="baChartModalChartSlot"></div>
+            <section class="ba-modal-drilldown" id="baModalDrilldown" aria-live="polite" hidden></section>
+        </div>
     </section>
 </div>
 
@@ -653,6 +774,13 @@
     border-radius: 12px;
     box-shadow: 0 16px 32px rgba(15, 23, 42, 0.14);
     padding: 0.8rem;
+}
+
+.ba-date-popover-inline {
+    position: static;
+    min-width: min(460px, calc(100vw - 3rem));
+    max-width: 100%;
+    box-shadow: none;
 }
 
 .ba-pop-label {
@@ -880,6 +1008,14 @@
     flex-direction: column;
     gap: 0.85rem;
     background: #fff;
+}
+
+.ba-page-intro {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 0.2rem;
 }
 
 .ba-workspace-head {
@@ -1138,6 +1274,7 @@
     background: #fff;
     padding: 0.85rem;
     height: 360px;
+    position: relative;
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -1149,6 +1286,10 @@
 
 .ba-chart-frame canvas {
     cursor: pointer;
+}
+
+.ba-chart-frame.has-empty-state canvas {
+    display: none !important;
 }
 
 .ba-chart-helper {
@@ -1215,7 +1356,6 @@
     cursor: default;
 }
 
-/* "View details →" hint shown on clickable revenue cards */
 .ba-insight-hint {
     color: #3E4A3D;
     font-size: 10px;
@@ -1283,6 +1423,10 @@
     gap: 0.55rem;
 }
 
+.ba-branch-kpi-grid-compact {
+    grid-template-columns: minmax(260px, 420px);
+}
+
 .ba-branch-kpi-card {
     border: 1px solid #e2e8f0;
     border-radius: 10px;
@@ -1305,6 +1449,15 @@
     font-weight: 800;
     color: #0f172a;
     letter-spacing: 0;
+}
+
+.ba-branch-kpi-card small {
+    display: block;
+    margin-top: 0.18rem;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1.25;
 }
 
 .ba-compare-card {
@@ -2248,6 +2401,2616 @@ html[data-theme='dark'] .ba-compare-table th {
 html[data-theme='dark'] .ba-head-row-nav {
     border-bottom-color: #2e4560;
 }
+
+/* Botanical Operations Console alignment for Owner Branch Analytics. */
+.ba-shell {
+    padding: 1rem var(--panel-content-inline, 1.5rem) 2rem;
+    gap: 1rem;
+    color: var(--ink);
+    background: var(--surface);
+}
+
+.ba-card,
+.ba-workspace,
+.ba-chart-frame,
+.ba-compare-card,
+.ba-drilldown,
+.ba-insight-card,
+.ba-branch-kpi-card,
+.ba-summary-card {
+    border-color: var(--border);
+    border-radius: var(--radius-ops);
+    background: var(--card);
+    box-shadow: var(--shadow-sm);
+}
+
+.ba-workspace {
+    padding: 1rem;
+    gap: 1rem;
+}
+
+.ba-workspace-head {
+    gap: 0.55rem;
+}
+
+.ba-head-row-top {
+    justify-content: center;
+    padding: 0.15rem 0 0.25rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+}
+
+.ba-filter-row {
+    justify-content: space-between;
+    padding: 0.62rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-ops);
+    background: var(--surface-muted);
+    gap: 0.75rem;
+}
+
+.ba-head-row-nav {
+    justify-content: flex-end;
+    padding-bottom: 0;
+    border-bottom: 0;
+    display: none;
+}
+
+.ba-title {
+    font-family: var(--font-heading);
+    font-size: 1.22rem;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.ba-subtitle,
+.ba-panel-subtitle,
+.ba-panel-note,
+.ba-chart-helper,
+.ba-filter-label,
+.ba-branch-kpi-card span,
+.ba-summary-card span,
+.ba-insight-label,
+.ba-insight-note,
+.ba-compare-table th {
+    color: var(--ink-muted);
+}
+
+.ba-head-row-nav {
+    border-bottom-color: var(--border);
+}
+
+.ba-workspace-filters {
+    width: auto;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+}
+
+.ba-tabs {
+    width: auto;
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    justify-content: center;
+    padding-inline: 0.25rem;
+}
+
+.ba-tab-btn,
+.ba-seg-item,
+.ba-branch-select-wrap,
+.ba-period-select-wrap,
+.ba-filter-clear {
+    min-height: 38px;
+    height: 38px;
+}
+
+.ba-tab-btn,
+.ba-seg-item {
+    padding-inline: 0.78rem;
+}
+
+.ba-tab-btn {
+    position: relative;
+    border-color: transparent;
+    background: transparent;
+    border-radius: 0;
+    color: var(--ink-muted);
+    box-shadow: none;
+}
+
+.ba-tab-btn::after {
+    content: "";
+    position: absolute;
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: 0;
+    height: 2px;
+    border-radius: 999px;
+    background: transparent;
+}
+
+.ba-branch-select-wrap {
+    min-width: 168px;
+    max-width: 210px;
+}
+
+.ba-period-form {
+    margin: 0;
+}
+
+.ba-period-select-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    box-sizing: border-box;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-ops);
+    background: var(--surface-muted);
+    padding: 0 0.42rem;
+    min-width: 160px;
+}
+
+.ba-period-select-wrap i {
+    font-size: 14px;
+    color: var(--ink-muted);
+}
+
+.ba-period-select {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 100%;
+    border: 0;
+    background: transparent;
+    color: var(--ink-muted);
+    font-size: 12px;
+    font-weight: 700;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+
+.ba-filter-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.38rem;
+    flex: 0 0 auto;
+    padding: 0 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-ops);
+    background: var(--surface-muted);
+    color: var(--ink-muted);
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.ba-filter-clear:hover {
+    background: var(--card);
+    border-color: var(--border-strong);
+    color: var(--brand);
+}
+
+.ba-workspace-chips {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+.ba-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.65rem;
+}
+
+.ba-summary-card {
+    min-height: 82px;
+    padding: 0.72rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    background: var(--surface-panel);
+}
+
+.ba-summary-card:nth-child(2) {
+    background: rgba(139, 154, 139, 0.14);
+}
+
+.ba-summary-card:nth-child(3) {
+    background: rgba(139, 154, 139, 0.18);
+}
+
+.ba-summary-card-warning {
+    background: rgba(184, 121, 86, 0.12);
+}
+
+.ba-summary-card-wide {
+    grid-column: span 2;
+}
+
+.ba-summary-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-ops);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    color: var(--brand);
+    background: rgba(139, 154, 139, 0.16);
+    border: 1px solid rgba(139, 154, 139, 0.32);
+}
+
+.ba-summary-card-warning .ba-summary-icon {
+    color: var(--warning);
+    background: rgba(184, 121, 86, 0.14);
+    border-color: rgba(184, 121, 86, 0.28);
+}
+
+.ba-summary-card span {
+    display: block;
+    margin-bottom: 0.18rem;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.ba-summary-card strong {
+    display: block;
+    color: var(--ink);
+    font-size: 0.95rem;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+.ba-branch-ranking-card {
+    order: 1;
+}
+
+.ba-insights-hidden {
+    display: none;
+}
+
+.ba-branch-comparison-chart {
+    order: 2;
+}
+
+.ba-seg-item,
+.ba-branch-select-wrap,
+.ba-tab-btn,
+.ba-context-chip,
+.ba-panel-note,
+.ba-pop-input,
+.ba-pop-apply,
+.ba-pop-reset,
+.ba-row-filter-btn,
+.ba-clear-filters,
+.ba-master-records-btn,
+.ba-global-clear {
+    border-radius: var(--radius-ops);
+}
+
+.ba-seg-item,
+.ba-branch-select-wrap,
+.ba-tab-btn,
+.ba-context-chip,
+.ba-panel-note,
+.ba-pop-input,
+.ba-pop-reset,
+.ba-row-filter-btn,
+.ba-clear-filters,
+.ba-global-clear {
+    background: var(--surface-muted);
+    border-color: var(--border);
+    color: var(--ink-muted);
+}
+
+.ba-seg-item:hover,
+.ba-tab-btn:hover,
+.ba-pop-reset:hover,
+.ba-clear-filters:hover,
+.ba-row-filter-btn:hover,
+.ba-global-clear:hover {
+    background: var(--card);
+    border-color: var(--border-strong);
+    color: var(--ink);
+    box-shadow: none;
+}
+
+.ba-tab-btn:hover {
+    background: transparent;
+    border-color: transparent;
+    color: var(--brand);
+}
+
+.ba-row-filter-btn,
+.ba-global-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+}
+
+.ba-seg-item.active,
+.ba-pop-apply,
+.ba-master-records-btn,
+.ba-ranking-row.is-selected .ba-row-filter-btn {
+    background: var(--brand);
+    border-color: var(--brand);
+    color: #fff;
+    box-shadow: none;
+}
+
+.ba-tab-btn.active {
+    background: transparent;
+    border-color: transparent;
+    color: var(--brand);
+    box-shadow: none;
+}
+
+.ba-tab-btn.active::after {
+    background: var(--brand);
+}
+
+html:not([data-theme='dark']) .ba-tab-btn.active,
+html[data-theme='dark'] .ba-tab-btn.active {
+    background: transparent;
+    border-color: transparent;
+    color: var(--brand);
+    box-shadow: none;
+}
+
+.ba-pop-apply:hover,
+.ba-master-records-btn:hover {
+    background: var(--brand-hover);
+    border-color: var(--brand-hover);
+}
+
+.ba-global-filterbar,
+.ba-tab-context,
+.ba-drilldown.has-active-filter {
+    background: rgba(139, 154, 139, 0.14);
+    border-color: rgba(139, 154, 139, 0.34);
+    box-shadow: none;
+    color: var(--brand);
+}
+
+.ba-drilldown:not(.has-active-filter) {
+    display: none;
+}
+
+.ba-chart-frame {
+    position: relative;
+    height: 340px;
+    padding: 0.9rem;
+    overflow: hidden;
+}
+
+.ba-chart-frame:hover {
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-sm);
+}
+
+.ba-chart-frame canvas {
+    position: relative;
+    z-index: 2;
+}
+
+.ba-chart-empty {
+    position: absolute;
+    inset: 0.9rem;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    text-align: center;
+    color: var(--ink-muted);
+    pointer-events: none;
+}
+
+.ba-chart-empty i {
+    font-size: 1.35rem;
+    color: var(--info);
+}
+
+.ba-chart-empty strong {
+    color: var(--ink);
+    font-size: 13px;
+}
+
+.ba-chart-empty span {
+    max-width: 280px;
+    font-size: 11px;
+}
+
+.ba-insight-card.tone-blue,
+.ba-kpi-revenue,
+.ba-active-filter-chip {
+    background: rgba(139, 154, 139, 0.14);
+    border-color: rgba(139, 154, 139, 0.34);
+    color: var(--brand);
+}
+
+.ba-insight-card.tone-green,
+.ba-paid,
+.ba-status-badge.status-positive,
+.ba-active-filter-chip.filter-positive,
+.ba-kpi-outstanding.is-zero {
+    background: rgba(139, 154, 139, 0.16);
+    border-color: rgba(139, 154, 139, 0.36);
+    color: var(--brand);
+}
+
+.ba-insight-card.tone-amber,
+.ba-partial,
+.ba-status-badge.status-warning,
+.ba-active-filter-chip.filter-warning,
+.ba-kpi-outstanding {
+    background: rgba(184, 121, 86, 0.14);
+    border-color: rgba(184, 121, 86, 0.30);
+    color: var(--warning);
+}
+
+.ba-insight-card.tone-red,
+.ba-unpaid,
+.ba-status-badge.status-danger,
+.ba-active-filter-chip.filter-danger {
+    background: rgba(158, 75, 63, 0.12);
+    border-color: rgba(158, 75, 63, 0.26);
+    color: var(--danger);
+}
+
+.ba-ongoing {
+    background: var(--surface-muted);
+    border-color: var(--border);
+    color: var(--ink-muted);
+}
+
+.ba-compare-title,
+.ba-compare-table th {
+    background: var(--surface-muted);
+    color: var(--ink-muted);
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.ba-compare-title {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.ba-compare-table td,
+.ba-compare-table th,
+.ba-breakdown-row {
+    border-bottom-color: var(--border);
+}
+
+.ba-compare-table tbody tr:hover {
+    background: rgba(139, 154, 139, 0.10);
+}
+
+.ba-ranking-row.is-selected {
+    background: rgba(139, 154, 139, 0.16);
+    box-shadow: inset 3px 0 0 var(--brand);
+}
+
+.ba-ranking-row.is-selected:hover {
+    background: rgba(139, 154, 139, 0.20);
+}
+
+.ba-empty-state,
+.ba-empty-cell {
+    color: var(--ink-muted);
+}
+
+@media (max-width: 1280px) {
+    .ba-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 760px) {
+    .ba-shell {
+        padding-inline: 0.85rem;
+    }
+
+    .ba-summary-grid,
+    .ba-branch-kpi-grid,
+    .ba-drilldown-kpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .ba-summary-card,
+    .ba-summary-card-wide {
+        grid-column: auto;
+    }
+
+    .ba-summary-card {
+        min-height: 76px;
+        padding: 0.62rem;
+    }
+
+    .ba-summary-icon {
+        display: none;
+    }
+
+    .ba-summary-card strong {
+        font-size: 0.88rem;
+    }
+
+    .ba-tabs,
+    .ba-seg {
+        overflow-x: auto;
+        padding-bottom: 0.15rem;
+    }
+
+    .ba-chart-frame {
+        height: 290px;
+    }
+}
+
+@media (max-width: 480px) {
+    .ba-summary-grid,
+    .ba-branch-kpi-grid,
+    .ba-drilldown-kpis {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Readability and hierarchy polish. */
+.ba-shell {
+    background: linear-gradient(180deg, var(--surface) 0%, var(--surface-panel) 100%);
+}
+
+.ba-workspace {
+    background: var(--records-card-alt);
+    border-color: var(--border-strong);
+}
+
+.ba-filter-row {
+    background: var(--records-card);
+}
+
+.ba-summary-card {
+    padding: 0.9rem;
+    background: var(--surface-panel);
+    border-color: var(--border-strong);
+}
+
+.ba-summary-card:nth-child(1) {
+    background: linear-gradient(180deg, var(--surface-panel) 0%, var(--records-card-alt) 100%);
+}
+
+.ba-summary-card:nth-child(2),
+.ba-summary-card:nth-child(3) {
+    background: rgba(139, 154, 139, 0.20);
+}
+
+.ba-summary-card-warning {
+    background: rgba(184, 121, 86, 0.16);
+}
+
+.ba-summary-card span,
+.ba-branch-kpi-card span,
+.ba-panel-note,
+.ba-filter-label {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--ink);
+}
+
+.ba-summary-card strong {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--ink);
+}
+
+.ba-panel-title {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--ink);
+}
+
+.ba-chart-frame {
+    order: 1;
+    height: 380px;
+    padding: 1rem;
+    background: var(--card);
+    border-color: var(--border-strong);
+}
+
+.ba-compare-card {
+    background: var(--card);
+    border-color: var(--border-strong);
+}
+
+.ba-branch-ranking-card {
+    order: 2;
+}
+
+.ba-compare-title,
+.ba-compare-table th {
+    background: var(--records-card-alt);
+    color: var(--ink);
+}
+
+.ba-compare-title {
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.ba-compare-table th {
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.ba-compare-table td {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.ba-tab-btn,
+.ba-period-select,
+.ba-branch-select,
+.ba-filter-clear,
+.ba-seg-item {
+    font-size: 13px;
+    font-weight: 800;
+}
+
+@media (max-width: 760px) {
+    .ba-chart-frame {
+        height: 320px;
+    }
+}
+
+/* Single-page analytics command center. */
+.ba-head-row-top {
+    display: none;
+}
+
+.ba-panels {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    align-items: start;
+}
+
+.ba-panel {
+    display: flex !important;
+    min-width: 0;
+    height: auto;
+    padding: 0.75rem;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-ops);
+    background: var(--card);
+    box-shadow: var(--shadow-sm);
+    gap: 0.55rem;
+}
+
+#ba-panel-performance {
+    display: contents !important;
+}
+
+#ba-panel-performance > .ba-panel-head {
+    grid-column: 1 / -1;
+    order: 0;
+}
+
+#ba-panel-performance > .ba-chart-frame {
+    grid-column: span 1;
+    order: 1;
+}
+
+#ba-panel-payment {
+    order: 2;
+}
+
+#ba-panel-collection {
+    order: 3;
+}
+
+#ba-panel-trend {
+    order: 4;
+}
+
+#ba-panel-performance > .ba-compare-card {
+    grid-column: 1 / -1;
+    order: 8;
+}
+
+.ba-panel .ba-chart-frame,
+#ba-panel-performance > .ba-chart-frame {
+    width: 100%;
+    height: 270px;
+    box-shadow: none;
+}
+
+.ba-panel.is-expanded,
+#ba-panel-performance > .ba-chart-frame.is-expanded {
+    grid-column: 1 / -1;
+}
+
+.ba-panel.is-expanded .ba-chart-frame,
+#ba-panel-performance > .ba-chart-frame.is-expanded {
+    height: 520px;
+}
+
+.ba-panel.is-expanded .ba-expand-chart-btn,
+#ba-panel-performance > .ba-panel-head:has(+ .ba-insights-hidden + .ba-chart-frame.is-expanded) .ba-expand-chart-btn {
+    background: var(--brand);
+    border-color: var(--brand);
+    color: #fff;
+}
+
+.ba-panel .ba-status-pills,
+.ba-panel .ba-chart-helper {
+    margin-top: 0;
+}
+
+.ba-global-filterbar[hidden],
+.ba-tab-context[hidden] {
+    display: none !important;
+}
+
+.ba-panel-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.ba-panel-head {
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.ba-status-pills {
+    gap: 0.35rem;
+}
+
+.ba-status-pill {
+    padding: 0.28rem 0.55rem;
+    font-size: 11.5px;
+}
+
+.ba-chart-helper {
+    font-size: 11.5px;
+    line-height: 1.35;
+}
+
+.ba-expand-chart-btn {
+    height: 30px;
+    padding: 0 0.58rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-ops);
+    background: var(--surface-muted);
+    color: var(--ink);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.ba-expand-chart-btn:hover {
+    border-color: var(--border-strong);
+    background: var(--records-card-alt);
+    color: var(--brand);
+}
+
+@media (max-width: 1180px) {
+    .ba-panels {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 760px) {
+    .ba-panels {
+        grid-template-columns: 1fr;
+    }
+
+    #ba-panel-performance > .ba-chart-frame {
+        grid-column: 1;
+    }
+
+    .ba-panel .ba-chart-frame,
+    #ba-panel-performance > .ba-chart-frame {
+        height: 260px;
+    }
+
+    .ba-panel.is-expanded .ba-chart-frame,
+    #ba-panel-performance > .ba-chart-frame.is-expanded {
+        height: 380px;
+    }
+}
+
+/* Expanded modal and balanced 2x2 chart cards. */
+.ba-performance-card,
+.ba-panel {
+    min-width: 0;
+    padding: 0.75rem;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-ops);
+    background: var(--card);
+    box-shadow: var(--shadow-sm);
+}
+
+.ba-performance-card {
+    order: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+#ba-panel-payment {
+    order: 2;
+}
+
+#ba-panel-collection {
+    order: 3;
+}
+
+#ba-panel-trend {
+    order: 4;
+}
+
+#ba-panel-performance > .ba-panel-head {
+    display: none;
+}
+
+#ba-panel-performance > .ba-compare-card {
+    grid-column: 1 / -1;
+    order: 9;
+}
+
+.ba-panel-head {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.ba-panel-title {
+    grid-column: 2;
+    text-align: center;
+}
+
+.ba-panel-actions {
+    grid-column: 3;
+    justify-content: flex-end;
+}
+
+.ba-performance-card .ba-chart-frame,
+.ba-panel .ba-chart-frame {
+    height: 300px;
+}
+
+.ba-chart-frame-narrow {
+    max-width: none;
+}
+
+.ba-chart-frame-narrow canvas {
+    display: block;
+    max-width: 520px;
+    margin: 0 auto;
+}
+
+.ba-global-filter-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.ba-filter-downcue {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--brand);
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.ba-chart-modal[hidden] {
+    display: none;
+}
+
+.ba-chart-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    display: block;
+    padding: 0;
+    overflow: hidden;
+    overscroll-behavior: contain;
+}
+
+.ba-chart-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(35, 43, 34, 0.52);
+}
+
+.ba-chart-modal__dialog {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    max-height: none;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 0;
+    border-radius: 0;
+    background: var(--card);
+    box-shadow: none;
+}
+
+.ba-chart-modal__head {
+    flex: 0 0 auto;
+    z-index: 4;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--records-card-alt);
+}
+
+.ba-chart-modal__head h3 {
+    grid-column: 2;
+    margin: 0;
+    text-align: center;
+    font-family: var(--font-heading);
+    font-size: 1.12rem;
+    font-weight: 800;
+    color: var(--ink);
+}
+
+.ba-chart-modal__close {
+    grid-column: 3;
+    justify-self: end;
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-ops);
+    background: var(--card);
+    color: var(--ink);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.ba-chart-modal__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 0.9rem;
+    background: var(--surface-panel);
+    overflow-x: auto;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    overscroll-behavior: contain;
+}
+
+.ba-chart-modal__body.has-drilldown {
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+.ba-chart-modal__body.has-drilldown > .ba-chart-modal__chart-slot,
+.ba-chart-modal__body.has-drilldown > .ba-modal-drilldown {
+    min-width: 1240px;
+}
+
+.ba-chart-modal__chart-slot {
+    flex: 0 0 auto;
+    display: flex;
+    min-height: 0;
+    height: clamp(320px, 42dvh, 460px);
+    overflow: visible;
+}
+
+.ba-chart-modal__body.has-drilldown .ba-chart-modal__chart-slot {
+    height: clamp(240px, 32dvh, 340px);
+}
+
+.ba-chart-modal__chart-slot .ba-chart-frame,
+.ba-chart-modal__chart-slot .ba-chart-frame.is-in-modal {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    margin: 0;
+    padding: 0.65rem;
+    overflow: hidden;
+}
+
+.ba-chart-modal__chart-slot .ba-chart-frame canvas {
+    width: 100% !important;
+    height: 100% !important;
+    cursor: pointer;
+}
+
+.ba-modal-drilldown {
+    flex: 0 0 auto;
+    min-height: 0;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-ops);
+    background: var(--card);
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+}
+
+.ba-modal-drilldown[hidden] {
+    display: none;
+}
+
+.ba-modal-drilldown__head {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--records-card-alt);
+}
+
+.ba-modal-drilldown__eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-bottom: 0.12rem;
+    color: var(--brand);
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.ba-modal-drilldown__title {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--ink);
+}
+
+.ba-modal-drilldown__subtitle {
+    margin: 0.08rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 650;
+}
+
+.ba-modal-drilldown__content {
+    min-height: 0;
+    padding: 0.65rem;
+    display: grid;
+    grid-template-rows: auto auto;
+    gap: 0.6rem;
+    overflow: visible;
+}
+
+.ba-modal-drilldown__kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.45rem;
+}
+
+.ba-modal-kpi {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-ops-sm);
+    background: var(--surface-muted);
+    padding: 0.42rem 0.55rem;
+}
+
+.ba-modal-kpi span {
+    display: block;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.ba-modal-kpi strong {
+    display: block;
+    margin-top: 0.1rem;
+    color: var(--ink);
+    font-size: 0.9rem;
+    font-weight: 900;
+}
+
+.ba-modal-drilldown .ba-compare-table-wrap {
+    max-height: none;
+    min-height: 0;
+    flex: 1 1 auto;
+    height: auto;
+    overflow-x: visible;
+    overflow-y: visible;
+    scrollbar-gutter: stable;
+}
+
+.ba-modal-drilldown .ba-compare-card {
+    min-height: 0;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+}
+
+.ba-modal-drilldown .ba-compare-title {
+    flex: 0 0 auto;
+    padding: 0.48rem 0.65rem;
+}
+
+.ba-modal-drilldown .ba-compare-table {
+    width: 100%;
+    min-width: 1240px;
+    table-layout: fixed;
+}
+
+.ba-modal-drilldown .ba-compare-table th,
+.ba-modal-drilldown .ba-compare-table td {
+    padding: 0.48rem 0.45rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    line-height: 1.25;
+    font-size: 12px;
+}
+
+.ba-modal-drilldown .ba-compare-table th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.ba-modal-drilldown .ba-compare-table th:nth-child(1),
+.ba-modal-drilldown .ba-compare-table td:nth-child(1) {
+    width: 7%;
+}
+
+.ba-modal-drilldown .ba-compare-table th:nth-child(2),
+.ba-modal-drilldown .ba-compare-table td:nth-child(2) {
+    width: 8%;
+}
+
+.ba-modal-drilldown .ba-compare-table th:nth-child(3),
+.ba-modal-drilldown .ba-compare-table td:nth-child(3) {
+    width: 15%;
+}
+
+.ba-modal-drilldown .ba-compare-table th:nth-child(4),
+.ba-modal-drilldown .ba-compare-table td:nth-child(4),
+.ba-modal-drilldown .ba-compare-table th:nth-child(5),
+.ba-modal-drilldown .ba-compare-table td:nth-child(5) {
+    width: 13%;
+}
+
+.ba-modal-drilldown .ba-compare-table th:nth-child(6),
+.ba-modal-drilldown .ba-compare-table td:nth-child(6),
+.ba-modal-drilldown .ba-compare-table th:nth-child(7),
+.ba-modal-drilldown .ba-compare-table td:nth-child(7) {
+    width: 10%;
+}
+
+.ba-modal-drilldown .ba-compare-table th:nth-child(8),
+.ba-modal-drilldown .ba-compare-table td:nth-child(8),
+.ba-modal-drilldown .ba-compare-table th:nth-child(9),
+.ba-modal-drilldown .ba-compare-table td:nth-child(9) {
+    width: 12%;
+}
+
+.ba-modal-drilldown .ba-status-badge {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+    .ba-panel-head,
+    .ba-chart-modal__head {
+        grid-template-columns: 1fr auto;
+    }
+
+    .ba-panel-title,
+    .ba-chart-modal__head h3 {
+        grid-column: 1;
+        text-align: left;
+    }
+
+    .ba-panel-actions,
+    .ba-chart-modal__close {
+        grid-column: 2;
+    }
+
+    .ba-performance-card .ba-chart-frame,
+    .ba-panel .ba-chart-frame {
+        height: 270px;
+    }
+
+    .ba-chart-modal__dialog {
+        width: 100vw;
+        height: 100vh;
+        height: 100dvh;
+    }
+
+    .ba-chart-modal__body {
+        padding: 0.65rem;
+    }
+
+    .ba-chart-modal__body.has-drilldown {
+        overflow: visible;
+    }
+
+    .ba-chart-modal__body.has-drilldown > .ba-chart-modal__chart-slot,
+    .ba-chart-modal__body.has-drilldown > .ba-modal-drilldown {
+        min-width: 1100px;
+    }
+
+    .ba-chart-modal__chart-slot .ba-chart-frame {
+        height: 100%;
+    }
+
+    .ba-chart-modal__chart-slot {
+        height: clamp(220px, 34dvh, 300px);
+    }
+
+    .ba-chart-modal__body.has-drilldown .ba-chart-modal__chart-slot {
+        height: clamp(200px, 30dvh, 260px);
+    }
+
+    .ba-modal-drilldown__head {
+        flex-direction: column;
+    }
+
+    .ba-modal-drilldown__kpis {
+        grid-template-columns: repeat(4, minmax(120px, 1fr));
+        overflow-x: auto;
+    }
+
+    .ba-modal-drilldown .ba-compare-table th,
+    .ba-modal-drilldown .ba-compare-table td {
+        padding: 0.42rem 0.35rem;
+        font-size: 11px;
+    }
+
+    .ba-modal-drilldown .ba-compare-table {
+        min-width: 1100px;
+    }
+}
+
+.ba-shell {
+    background: #f6f7f2;
+}
+
+.ba-workspace {
+    max-width: 1440px;
+    margin-inline: auto;
+    border-radius: 10px;
+    box-shadow: none;
+}
+
+.ba-page-intro {
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.ba-title,
+.ba-panel-title,
+.ba-chart-modal__head h3 {
+    letter-spacing: 0;
+}
+
+.ba-summary-card,
+.ba-branch-kpi-card,
+.ba-insight-card,
+.ba-compare-card,
+.ba-chart-frame {
+    border-radius: var(--radius-ops);
+    box-shadow: none;
+}
+
+.ba-summary-card {
+    min-height: 86px;
+    background: var(--card);
+    border-color: var(--border);
+}
+
+.ba-summary-card strong {
+    font-size: 1.04rem;
+}
+
+.ba-tabs {
+    width: 100%;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.ba-tab-btn {
+    height: 42px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: var(--ink-muted);
+    padding-inline: 0.9rem;
+}
+
+.ba-tab-btn:hover,
+.ba-tab-btn.active {
+    background: transparent;
+    box-shadow: none;
+    color: var(--brand);
+}
+
+.ba-tab-btn.active::after {
+    left: 0.9rem;
+    right: 0.9rem;
+    height: 3px;
+    background: var(--brand);
+}
+
+.ba-panel-head {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+}
+
+.ba-panel-title {
+    grid-column: 1;
+    text-align: left;
+    font-size: 1rem;
+}
+
+.ba-panel-actions {
+    grid-column: 2;
+}
+
+.ba-panel-note {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: var(--text-muted);
+}
+
+.ba-chart-helper,
+.ba-status-pills {
+    display: none;
+}
+
+.ba-chart-frame {
+    height: 340px;
+    background: #fffdf8;
+}
+
+.ba-chart-frame:hover {
+    border-color: var(--border-strong);
+    box-shadow: none;
+}
+
+.ba-insights-hidden {
+    display: grid;
+}
+
+.ba-insight-card {
+    min-height: 76px;
+    background: var(--card);
+    border-color: var(--border);
+}
+
+.ba-insight-card.is-clickable:hover,
+.ba-insight-card.is-clickable:active {
+    transform: none;
+    background: var(--surface-muted);
+    box-shadow: none;
+}
+
+.ba-insight-card.tone-blue,
+.ba-insight-card.tone-green,
+.ba-insight-card.tone-amber,
+.ba-insight-card.tone-red {
+    background: var(--card);
+}
+
+.ba-insight-card.tone-blue {
+    border-left: 3px solid #496458;
+}
+
+.ba-insight-card.tone-green {
+    border-left: 3px solid #2f6f4e;
+}
+
+.ba-insight-card.tone-amber {
+    border-left: 3px solid #9a6a2f;
+}
+
+.ba-insight-card.tone-red {
+    border-left: 3px solid #a04747;
+}
+
+.ba-insight-hint {
+    color: var(--brand);
+    letter-spacing: 0;
+}
+
+.ba-compare-title {
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.ba-compare-table-wrap {
+    overflow-x: auto;
+    scrollbar-gutter: stable;
+}
+
+.ba-compare-table {
+    min-width: 980px;
+}
+
+.ba-compare-table th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.ba-row-filter-btn,
+.ba-expand-chart-btn,
+.ba-clear-filters,
+.ba-master-records-btn,
+.ba-global-clear,
+.ba-filter-clear,
+.ba-chart-modal__close,
+.ba-filter-chip-remove,
+.ba-tab-btn,
+.ba-period-select,
+.ba-branch-select {
+    outline-offset: 2px;
+}
+
+.ba-row-filter-btn:focus-visible,
+.ba-expand-chart-btn:focus-visible,
+.ba-clear-filters:focus-visible,
+.ba-master-records-btn:focus-visible,
+.ba-global-clear:focus-visible,
+.ba-filter-clear:focus-visible,
+.ba-chart-modal__close:focus-visible,
+.ba-filter-chip-remove:focus-visible,
+.ba-tab-btn:focus-visible,
+.ba-period-select:focus-visible,
+.ba-branch-select:focus-visible {
+    outline: 3px solid rgba(62, 74, 61, 0.28);
+    outline-offset: 2px;
+}
+
+.ba-chart-modal__head {
+    min-height: 64px;
+    grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.ba-chart-modal__head h3 {
+    grid-column: 1;
+    text-align: left;
+    font-size: 1rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ba-chart-modal__close {
+    grid-column: 2;
+    width: 40px;
+    height: 40px;
+}
+
+.ba-chart-modal__body {
+    padding: 1rem;
+    gap: 1rem;
+}
+
+.ba-chart-modal__body.has-drilldown {
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.ba-chart-modal__body.has-drilldown > .ba-chart-modal__chart-slot,
+.ba-chart-modal__body.has-drilldown > .ba-modal-drilldown {
+    min-width: 0;
+    width: 100%;
+}
+
+.ba-chart-modal__chart-slot {
+    height: clamp(360px, 50dvh, 560px);
+}
+
+.ba-chart-modal__body.has-drilldown .ba-chart-modal__chart-slot {
+    height: clamp(280px, 38dvh, 420px);
+}
+
+.ba-modal-drilldown {
+    border-radius: var(--radius-ops);
+}
+
+.ba-modal-drilldown__head {
+    position: sticky;
+    top: -1rem;
+    z-index: 3;
+}
+
+.ba-modal-drilldown__content {
+    overflow: hidden;
+}
+
+.ba-modal-drilldown .ba-compare-table-wrap {
+    overflow-x: auto;
+    overflow-y: visible;
+}
+
+.ba-modal-drilldown .ba-compare-table th {
+    top: 0;
+    box-shadow: inset 0 -1px 0 var(--border);
+}
+
+@media (max-width: 760px) {
+    .ba-tabs {
+        overflow-x: auto;
+        scrollbar-width: thin;
+    }
+
+    .ba-tab-btn {
+        min-width: max-content;
+    }
+
+    .ba-panel-head,
+    .ba-chart-modal__head {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .ba-chart-modal__body {
+        padding: 0.75rem;
+    }
+
+    .ba-chart-modal__chart-slot {
+        height: clamp(260px, 42dvh, 340px);
+    }
+
+    .ba-chart-modal__body.has-drilldown {
+        overflow-x: auto;
+        overflow-y: auto;
+    }
+}
+
+.ba-chart-modal__head {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 0.75rem;
+}
+
+.ba-chart-modal__workspace {
+    grid-column: 2;
+    justify-self: end;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.ba-chart-modal__view {
+    height: 34px;
+    padding: 0 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-ops-sm);
+    background: var(--card);
+    color: var(--ink-muted);
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.ba-chart-modal__view.is-active {
+    background: var(--brand);
+    border-color: var(--brand);
+    color: #fff;
+}
+
+.ba-chart-modal__view:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.ba-chart-modal__record-count {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 750;
+    white-space: nowrap;
+}
+
+.ba-chart-modal__close {
+    grid-column: 3;
+}
+
+.ba-chart-modal__body {
+    scroll-padding-top: 1rem;
+}
+
+.ba-chart-modal__body[data-view="records"] .ba-chart-modal__chart-slot {
+    display: none;
+}
+
+.ba-chart-modal__body.has-drilldown[data-view="chart"] .ba-chart-modal__chart-slot {
+    height: clamp(300px, 44dvh, 480px);
+    min-height: 300px;
+}
+
+.ba-chart-modal__body.has-drilldown[data-view="chart"] .ba-modal-drilldown {
+    display: flex;
+}
+
+.ba-chart-modal__body.has-drilldown[data-view="records"] .ba-modal-drilldown {
+    display: flex;
+}
+
+.ba-modal-drilldown .ba-compare-title {
+    justify-content: space-between;
+}
+
+.ba-table-scroll-hint {
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 750;
+    white-space: nowrap;
+}
+
+.ba-modal-drilldown .ba-compare-table th:first-child,
+.ba-modal-drilldown .ba-compare-table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    background: var(--card);
+    box-shadow: inset -1px 0 0 var(--border);
+}
+
+.ba-modal-drilldown .ba-compare-table th:first-child {
+    z-index: 4;
+    background: var(--records-card-alt);
+}
+
+@media (max-width: 760px) {
+    .ba-chart-modal__head {
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: start;
+    }
+
+    .ba-chart-modal__workspace {
+        grid-column: 1 / -1;
+        justify-self: stretch;
+        order: 3;
+        overflow-x: auto;
+        padding-top: 0.25rem;
+    }
+
+    .ba-chart-modal__view {
+        min-width: max-content;
+    }
+
+    .ba-chart-modal__record-count {
+        margin-left: auto;
+    }
+
+    .ba-chart-modal__body.has-drilldown[data-view="chart"] .ba-chart-modal__chart-slot {
+        height: clamp(240px, 38dvh, 340px);
+        min-height: 240px;
+    }
+}
+
+.ba-panels {
+    display: block !important;
+}
+
+.ba-panel,
+.ba-panel[hidden],
+.ba-panel:not(.active) {
+    display: none !important;
+}
+
+.ba-panel {
+    scroll-margin-top: 1rem;
+}
+
+.ba-panel.active:not([hidden]) {
+    display: flex !important;
+    width: 100%;
+}
+
+.ba-performance-card {
+    order: 1 !important;
+}
+
+.ba-performance-card > .ba-panel-head,
+.ba-panel.active > .ba-panel-head,
+.ba-panel.active > .ba-branch-perf-head {
+    order: 0;
+}
+
+.ba-performance-card > .ba-chart-frame,
+.ba-panel.active > .ba-chart-frame {
+    order: 1 !important;
+}
+
+.ba-performance-card > .ba-insight-row,
+.ba-panel.active > .ba-insight-row,
+.ba-panel.active > .ba-branch-kpi-grid {
+    order: 2 !important;
+}
+
+.ba-panel.active > .ba-compare-card,
+.ba-branch-ranking-card {
+    order: 3 !important;
+}
+
+#ba-panel-performance,
+#ba-panel-payment,
+#ba-panel-collection,
+#ba-panel-trend {
+    grid-column: auto !important;
+}
+
+#ba-panel-performance[hidden],
+#ba-panel-payment[hidden],
+#ba-panel-collection[hidden],
+#ba-panel-trend[hidden],
+#ba-panel-performance:not(.active),
+#ba-panel-payment:not(.active),
+#ba-panel-collection:not(.active),
+#ba-panel-trend:not(.active) {
+    display: none !important;
+}
+
+#ba-panel-performance.active:not([hidden]),
+#ba-panel-payment.active:not([hidden]),
+#ba-panel-collection.active:not([hidden]),
+#ba-panel-trend.active:not([hidden]) {
+    display: flex !important;
+}
+
+.ba-head-row-top {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    order: 1;
+    margin-top: 0.15rem;
+    padding: 0.45rem 0.5rem 0.35rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-ops);
+    background: var(--surface-muted);
+}
+
+.ba-workspace-head {
+    position: relative;
+    z-index: 2;
+    background: var(--card);
+    padding-top: 0;
+}
+
+.ba-head-row-top .ba-tabs {
+    display: flex !important;
+    justify-content: center;
+    width: 100%;
+    border-bottom: 0;
+    background: transparent;
+}
+
+.ba-head-row-top .ba-tab-btn {
+    border-radius: var(--radius-ops-sm);
+}
+
+.ba-head-row-top .ba-tab-btn.active {
+    background: var(--card);
+}
+
+.ba-filter-row {
+    order: 0;
+}
+
+.ba-head-row-nav {
+    display: flex !important;
+    order: 2;
+    justify-content: flex-end;
+    padding-top: 0.1rem;
+    border-bottom: 0;
+}
+
+.ba-global-filterbar {
+    margin-top: 0.15rem;
+}
+
+/* Owner visual-system consistency pass */
+.ba-shell {
+    --ba-card: var(--records-card, #D3DEC9);
+    --ba-card-alt: var(--records-card-alt, #DCE6D6);
+    --ba-card-strong: var(--records-card-strong, #C7D5BE);
+    --ba-card-warm: #E1DFCC;
+    --ba-hover: var(--records-hover, #C5D3BC);
+    --ba-active: var(--records-active, #B8C9AF);
+    --ba-border: var(--records-border, #AEBCA5);
+    --ba-text: var(--records-text, #2D342C);
+    --ba-muted: var(--records-muted, #5F685F);
+    font-family: var(--font-body);
+    color: var(--ba-text);
+    background: var(--surface);
+}
+
+.ba-workspace,
+.ba-workspace-head,
+.ba-card,
+.ba-performance-card,
+.ba-summary-card,
+.ba-branch-kpi-card,
+.ba-insight-card,
+.ba-compare-card,
+.ba-modal-drilldown,
+.ba-modal-kpi {
+    background: var(--ba-card) !important;
+    border-color: var(--ba-border) !important;
+    color: var(--ba-text) !important;
+    box-shadow: none !important;
+}
+
+.ba-summary-card:nth-child(even),
+.ba-branch-kpi-card:nth-child(even),
+.ba-insight-card:nth-child(even),
+.ba-modal-kpi:nth-child(even) {
+    background: var(--ba-card-alt) !important;
+}
+
+.ba-summary-card-warning,
+.ba-insight-card.tone-amber,
+.ba-insight-card.tone-red {
+    background: var(--ba-card-warm) !important;
+}
+
+.ba-title,
+.ba-panel-title,
+.ba-compare-title,
+.ba-summary-card strong,
+.ba-branch-kpi-card strong,
+.ba-insight-value,
+.ba-modal-kpi strong,
+.ba-chart-modal__head h3 {
+    font-family: var(--font-heading);
+    color: #232821 !important;
+    letter-spacing: 0;
+}
+
+.ba-subtitle,
+.ba-filter-label,
+.ba-panel-note,
+.ba-summary-card span,
+.ba-branch-kpi-card span,
+.ba-insight-label,
+.ba-insight-note,
+.ba-global-filter-label,
+.ba-context-chip,
+.ba-modal-drilldown__eyebrow,
+.ba-modal-drilldown__subtitle,
+.ba-table-scroll-hint {
+    color: var(--ba-muted) !important;
+    opacity: 1;
+}
+
+.ba-head-row-top,
+.ba-filter-row,
+.ba-global-filterbar,
+.ba-tab-context {
+    background: var(--ba-card-alt) !important;
+    border-color: var(--ba-border) !important;
+    box-shadow: none !important;
+}
+
+.ba-chart-frame,
+.ba-chart-empty,
+.ba-date-popover,
+.ba-chart-modal__dialog {
+    background: var(--card) !important;
+    border-color: var(--ba-border) !important;
+    box-shadow: none !important;
+}
+
+.ba-chart-modal__head,
+.ba-compare-title,
+.ba-compare-table th,
+.ba-modal-drilldown .ba-compare-table th:first-child {
+    background: var(--ba-card-strong) !important;
+    border-color: var(--ba-border) !important;
+}
+
+.ba-compare-table td,
+.ba-compare-table th {
+    border-color: var(--ba-border) !important;
+    color: var(--ba-text) !important;
+}
+
+.ba-compare-table tbody tr:hover td {
+    background: var(--ba-hover) !important;
+}
+
+.ba-seg-item,
+.ba-date-btn,
+.ba-date-clear,
+.ba-pop-reset,
+.ba-global-clear,
+.ba-filter-clear,
+.ba-row-filter-btn,
+.ba-expand-chart-btn,
+.ba-clear-filters,
+.ba-master-records-btn,
+.ba-period-select-wrap,
+.ba-branch-select-wrap,
+.ba-context-chip,
+.ba-chart-modal__view,
+.ba-chart-modal__close {
+    background: var(--card) !important;
+    border-color: var(--ba-border) !important;
+    color: var(--ba-text) !important;
+    box-shadow: none !important;
+}
+
+.ba-seg-item:hover,
+.ba-date-btn:hover,
+.ba-date-clear:hover,
+.ba-pop-reset:hover,
+.ba-global-clear:hover,
+.ba-filter-clear:hover,
+.ba-row-filter-btn:hover,
+.ba-expand-chart-btn:hover,
+.ba-clear-filters:hover,
+.ba-master-records-btn:hover,
+.ba-period-select-wrap:hover,
+.ba-branch-select-wrap:hover,
+.ba-chart-modal__view:hover,
+.ba-chart-modal__close:hover,
+.ba-insight-card.is-clickable:hover {
+    background: var(--ba-hover) !important;
+    border-color: #8EA083 !important;
+    color: #232821 !important;
+}
+
+.ba-seg-item.active,
+.ba-date-btn.active,
+.ba-tab-btn.active,
+.ba-chart-modal__view.is-active,
+.ba-filter-chip {
+    background: var(--ba-active) !important;
+    border-color: var(--brand) !important;
+    color: #232821 !important;
+}
+
+.ba-pop-apply,
+.ba-tab-btn.active::after {
+    background: var(--brand) !important;
+}
+
+.ba-pop-input,
+.ba-branch-select,
+.ba-period-select {
+    color: var(--ba-text) !important;
+    font-family: var(--font-body);
+}
+
+.ba-pop-input {
+    background: var(--card) !important;
+    border-color: var(--ba-border) !important;
+}
+
+.ba-shell {
+    background-color: var(--surface);
+    background-image:
+        linear-gradient(90deg, rgba(73, 87, 69, 0.026) 0 1px, transparent 1px),
+        linear-gradient(180deg, rgba(73, 87, 69, 0.022) 0 1px, transparent 1px),
+        repeating-linear-gradient(135deg, rgba(73, 87, 69, 0.014) 0 1px, transparent 1px 12px);
+    background-size: 24px 24px, 24px 24px, 18px 18px;
+    transition: background-color .22s ease, color .18s ease;
+}
+
+.ba-summary-card,
+.ba-branch-kpi-card,
+.ba-insight-card,
+.ba-compare-card,
+.ba-chart-frame,
+.ba-tab-btn,
+.ba-expand-chart-btn,
+.ba-row-filter-btn,
+.ba-global-clear,
+.ba-filter-clear,
+.ba-chart-modal__view,
+.ba-chart-modal__close,
+.ba-period-select-wrap,
+.ba-branch-select-wrap {
+    transition:
+        background-color .18s ease,
+        border-color .18s ease,
+        color .18s ease,
+        opacity .18s ease,
+        transform .18s ease;
+}
+
+.ba-chart-modal {
+    animation: baModalFadeIn .16s ease-out both;
+}
+
+.ba-chart-modal.is-closing {
+    animation: baModalFadeOut .14s ease-in both;
+}
+
+.ba-chart-modal__dialog {
+    animation: baModalSettle .18s ease-out both;
+}
+
+.ba-chart-modal.is-closing .ba-chart-modal__dialog {
+    animation: baModalLeave .14s ease-in both;
+}
+
+.ba-chart-modal__backdrop {
+    background:
+        linear-gradient(rgba(35, 43, 34, 0.52), rgba(35, 43, 34, 0.52)),
+        linear-gradient(90deg, rgba(232, 237, 226, 0.035) 0 1px, transparent 1px),
+        linear-gradient(180deg, rgba(232, 237, 226, 0.03) 0 1px, transparent 1px);
+    background-size: auto, 24px 24px, 24px 24px;
+}
+
+.ba-chart-modal__body {
+    background: var(--surface-panel) !important;
+    transition: background-color .18s ease;
+}
+
+.ba-chart-modal__body .ba-chart-frame,
+.ba-chart-modal .ba-compare-card,
+.ba-chart-modal .ba-modal-drilldown,
+.ba-chart-modal .ba-modal-kpi {
+    border-color: rgba(174, 188, 165, 0.62) !important;
+}
+
+.ba-chart-modal__body .ba-chart-frame {
+    background: rgba(251, 252, 247, 0.92) !important;
+}
+
+.ba-chart-modal .ba-compare-title,
+.ba-chart-modal .ba-compare-table th,
+.ba-chart-modal .ba-modal-drilldown .ba-compare-table th:first-child {
+    background: rgba(199, 213, 190, 0.82) !important;
+}
+
+.ba-chart-modal .ba-modal-drilldown .ba-compare-table td:first-child {
+    box-shadow: inset -1px 0 0 rgba(174, 188, 165, 0.45);
+}
+
+@keyframes baModalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes baModalFadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@keyframes baModalSettle {
+    from { transform: translateY(8px); }
+    to { transform: translateY(0); }
+}
+
+@keyframes baModalLeave {
+    from { transform: translateY(0); }
+    to { transform: translateY(6px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ba-summary-card,
+    .ba-branch-kpi-card,
+    .ba-insight-card,
+    .ba-compare-card,
+    .ba-chart-frame,
+    .ba-tab-btn,
+    .ba-expand-chart-btn,
+    .ba-row-filter-btn,
+    .ba-global-clear,
+    .ba-filter-clear,
+    .ba-chart-modal,
+    .ba-chart-modal__dialog {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+.ba-shell {
+    padding: 0.75rem clamp(0.75rem, 1.1vw, 1.25rem) 1.5rem;
+}
+
+.ba-workspace {
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
+}
+
+.ba-summary-grid {
+    margin-top: 0;
+}
+
+.ba-summary-card,
+.ba-branch-kpi-card,
+.ba-insight-card,
+.ba-modal-kpi {
+    border-width: 1.25px;
+}
+
+.ba-summary-card {
+    min-height: 98px;
+    padding: 1.05rem 1.1rem;
+}
+
+.ba-summary-icon {
+    width: 42px;
+    height: 42px;
+    color: var(--brand) !important;
+    background: rgba(251, 252, 247, 0.58) !important;
+    border-color: rgba(62, 74, 61, 0.18) !important;
+}
+
+.ba-summary-card span,
+.ba-branch-kpi-card span,
+.ba-insight-label,
+.ba-modal-kpi span,
+.ba-compare-table th {
+    font-size: 12px;
+    font-weight: 850;
+    text-transform: uppercase;
+    letter-spacing: .035em;
+}
+
+.ba-summary-card strong {
+    margin-top: 0.2rem;
+    display: block;
+    font-size: clamp(1.18rem, 1.45vw, 1.55rem);
+    line-height: 1.1;
+    font-weight: 800;
+}
+
+.ba-branch-kpi-card strong,
+.ba-insight-value,
+.ba-modal-kpi strong {
+    font-size: clamp(1rem, 1.05vw, 1.22rem);
+    line-height: 1.16;
+    font-weight: 800;
+}
+
+.ba-panel-title {
+    font-size: 1.16rem;
+    font-weight: 800;
+}
+
+.ba-panel-note,
+.ba-tab-btn,
+.ba-expand-chart-btn,
+.ba-row-filter-btn,
+.ba-global-clear,
+.ba-filter-clear,
+.ba-context-chip,
+.ba-branch-select,
+.ba-period-select {
+    font-weight: 800;
+}
+
+.ba-compare-table td {
+    font-size: 13.5px;
+    font-weight: 650;
+}
+
+.ba-compare-table td:nth-child(1),
+.ba-compare-table td:nth-child(2),
+.ba-compare-table td:nth-child(8),
+.ba-compare-table td:nth-child(9) {
+    font-weight: 800;
+}
+
+.ba-status-badge,
+.ba-active-filter-chip {
+    font-weight: 850;
+}
+
+.ba-chart-frame {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background:
+        linear-gradient(180deg, rgba(251, 252, 247, 0.98), rgba(245, 248, 240, 0.95)),
+        linear-gradient(90deg, rgba(73, 87, 69, 0.03) 0 1px, transparent 1px),
+        linear-gradient(180deg, rgba(73, 87, 69, 0.026) 0 1px, transparent 1px) !important;
+    background-size: auto, 28px 28px, 28px 28px !important;
+    border-color: rgba(142, 160, 131, 0.82) !important;
+}
+
+.ba-chart-frame::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+        linear-gradient(90deg, rgba(62, 74, 61, 0.045), transparent 24%, transparent 76%, rgba(184, 121, 86, 0.035)),
+        radial-gradient(circle at 15% 10%, rgba(255, 255, 255, 0.55), transparent 32%);
+    opacity: .85;
+}
+
+.ba-chart-frame canvas {
+    position: relative;
+    z-index: 1;
+    filter: saturate(1.04) contrast(1.02);
+}
+
+.ba-chart-modal__body .ba-chart-frame {
+    background:
+        linear-gradient(180deg, rgba(251, 252, 247, 0.98), rgba(241, 246, 236, 0.96)),
+        linear-gradient(90deg, rgba(73, 87, 69, 0.026) 0 1px, transparent 1px),
+        linear-gradient(180deg, rgba(73, 87, 69, 0.024) 0 1px, transparent 1px) !important;
+    background-size: auto, 30px 30px, 30px 30px !important;
+}
+
+.ba-shell {
+    --ba-panel-surface: #DCE6D6;
+    --ba-graph-surface: #EAF1E2;
+    --ba-graph-surface-soft: #F4F7ED;
+    --ba-graph-surface-glow: #FFF7E7;
+    --ba-control-surface: #F6F8F1;
+    --ba-control-hover: #C5D3BC;
+    --ba-control-active: #B8C9AF;
+    --ba-control-border: #AEBCA5;
+}
+
+.ba-filter-row,
+.ba-head-row-top,
+.ba-global-filterbar,
+.ba-tab-context,
+.ba-chart-modal__body,
+.ba-performance-card,
+.ba-panel.active > .ba-chart-frame,
+.ba-panel.active > .ba-insight-row,
+.ba-panel.active > .ba-branch-kpi-grid {
+    background: var(--ba-panel-surface) !important;
+    border-color: var(--ba-control-border) !important;
+}
+
+.ba-chart-frame,
+.ba-chart-empty,
+.ba-chart-modal__body .ba-chart-frame {
+    background:
+        radial-gradient(circle at 12% 10%, rgba(255, 247, 231, 0.78), transparent 30%),
+        radial-gradient(circle at 88% 0%, rgba(197, 211, 188, 0.46), transparent 34%),
+        linear-gradient(180deg, var(--ba-graph-surface-soft) 0%, var(--ba-graph-surface) 100%),
+        linear-gradient(90deg, rgba(73, 87, 69, 0.035) 0 1px, transparent 1px),
+        linear-gradient(180deg, rgba(73, 87, 69, 0.03) 0 1px, transparent 1px) !important;
+    background-size: auto, 28px 28px, 28px 28px !important;
+    border-color: var(--ba-control-border) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.72),
+        inset 0 -1px 0 rgba(73, 87, 69, 0.08),
+        0 14px 34px rgba(45, 52, 44, 0.08) !important;
+}
+
+.ba-chart-frame::before {
+    background:
+        linear-gradient(90deg, rgba(62, 74, 61, 0.04), transparent 24%, transparent 74%, rgba(184, 121, 86, 0.055)),
+        radial-gradient(circle at 16% 18%, rgba(255, 255, 255, 0.58), transparent 32%);
+}
+
+.ba-seg-item,
+.ba-date-btn,
+.ba-date-clear,
+.ba-pop-reset,
+.ba-global-clear,
+.ba-filter-clear,
+.ba-row-filter-btn,
+.ba-expand-chart-btn,
+.ba-clear-filters,
+.ba-master-records-btn,
+.ba-period-select-wrap,
+.ba-branch-select-wrap,
+.ba-context-chip,
+.ba-chart-modal__view,
+.ba-chart-modal__close,
+.ba-pop-input {
+    background: var(--ba-control-surface) !important;
+    border-color: var(--ba-control-border) !important;
+    color: var(--ba-text) !important;
+}
+
+.ba-branch-select,
+.ba-period-select {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    background: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    padding-right: 0.15rem !important;
+}
+
+.ba-branch-select::-ms-expand,
+.ba-period-select::-ms-expand {
+    display: none;
+}
+
+.ba-branch-select-chev {
+    flex: 0 0 auto;
+    margin-left: 0.15rem;
+    color: var(--ba-muted) !important;
+}
+
+.ba-seg-item:hover,
+.ba-date-btn:hover,
+.ba-date-clear:hover,
+.ba-pop-reset:hover,
+.ba-global-clear:hover,
+.ba-filter-clear:hover,
+.ba-row-filter-btn:hover,
+.ba-expand-chart-btn:hover,
+.ba-clear-filters:hover,
+.ba-master-records-btn:hover,
+.ba-period-select-wrap:hover,
+.ba-branch-select-wrap:hover,
+.ba-chart-modal__view:hover,
+.ba-chart-modal__close:hover {
+    background: var(--ba-control-hover) !important;
+    border-color: #8EA083 !important;
+    color: #232821 !important;
+}
+
+.ba-seg-item.active,
+.ba-date-btn.active,
+.ba-tab-btn.active,
+.ba-chart-modal__view.is-active,
+.ba-filter-chip,
+.ba-pop-apply {
+    background: var(--brand) !important;
+    border-color: var(--brand) !important;
+    color: #fff !important;
+}
+
+.ba-tab-btn.active {
+    color: #232821 !important;
+    background: var(--ba-control-active) !important;
+}
+
+.ba-expand-chart-btn {
+    min-height: 38px;
+}
+
+.ba-chart-modal__dialog {
+    background: var(--ba-panel-surface) !important;
+}
+
+.ba-chart-modal__head {
+    background: var(--ba-card-strong) !important;
+}
+
+.ba-chart-modal__view,
+.ba-chart-modal__close {
+    background: var(--ba-control-surface) !important;
+}
+
+.ba-ranking-row {
+    cursor: pointer;
+}
+
+.ba-ranking-row:hover td {
+    background: var(--ba-control-hover) !important;
+}
+
+.ba-ranking-row:focus-visible td {
+    outline: 2px solid var(--brand);
+    outline-offset: -2px;
+}
+
+.ba-ranking-row.is-selected td {
+    background: var(--ba-control-active) !important;
+}
+
+.ba-ranking-row.is-selected td:first-child {
+    box-shadow: inset 3px 0 0 var(--brand);
+}
+
+.ba-chart-modal {
+    --ba-card: var(--records-card, #D3DEC9);
+    --ba-card-alt: var(--records-card-alt, #DCE6D6);
+    --ba-card-strong: var(--records-card-strong, #C7D5BE);
+    --ba-panel-surface: #DCE6D6;
+    --ba-graph-surface: #EAF1E2;
+    --ba-graph-surface-soft: #F4F7ED;
+    --ba-graph-surface-glow: #FFF7E7;
+    --ba-control-surface: #F6F8F1;
+    --ba-control-hover: #C5D3BC;
+    --ba-control-active: #B8C9AF;
+    --ba-control-border: #AEBCA5;
+    --ba-text: var(--records-text, #2D342C);
+    --ba-muted: var(--records-muted, #5F685F);
+}
+
+.ba-chart-modal__backdrop {
+    background: rgba(35, 43, 34, 0.72) !important;
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+
+.ba-chart-modal__dialog {
+    background: var(--ba-panel-surface) !important;
+    color: var(--ba-text) !important;
+}
+
+.ba-chart-modal__head {
+    background: var(--ba-card-strong) !important;
+    border-bottom-color: var(--ba-control-border) !important;
+}
+
+.ba-chart-modal__body {
+    background: var(--ba-panel-surface) !important;
+}
+
+.ba-chart-modal__body .ba-chart-frame,
+.ba-chart-modal__body .ba-chart-frame.is-in-modal {
+    background:
+        radial-gradient(circle at 12% 10%, rgba(255, 247, 231, 0.78), transparent 30%),
+        radial-gradient(circle at 88% 0%, rgba(197, 211, 188, 0.46), transparent 34%),
+        linear-gradient(180deg, var(--ba-graph-surface-soft) 0%, var(--ba-graph-surface) 100%),
+        linear-gradient(90deg, rgba(73, 87, 69, 0.035) 0 1px, transparent 1px),
+        linear-gradient(180deg, rgba(73, 87, 69, 0.03) 0 1px, transparent 1px) !important;
+    background-size: auto, 28px 28px, 28px 28px !important;
+    border-color: var(--ba-control-border) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.72),
+        inset 0 -1px 0 rgba(73, 87, 69, 0.08),
+        0 16px 36px rgba(45, 52, 44, 0.1) !important;
+}
+
+.ba-chart-modal .ba-modal-drilldown,
+.ba-chart-modal .ba-compare-card,
+.ba-chart-modal .ba-modal-kpi {
+    background: var(--ba-card) !important;
+    border-color: var(--ba-control-border) !important;
+    color: var(--ba-text) !important;
+}
+
+.ba-chart-modal .ba-modal-drilldown__head,
+.ba-chart-modal .ba-compare-title,
+.ba-chart-modal .ba-compare-table th {
+    background: var(--ba-card-strong) !important;
+    border-color: var(--ba-control-border) !important;
+    color: var(--ba-text) !important;
+}
+
+.ba-chart-modal .ba-compare-table td {
+    background: var(--card) !important;
+    border-color: var(--ba-control-border) !important;
+    color: var(--ba-text) !important;
+}
+
+.ba-chart-modal .ba-compare-table tbody tr:hover td {
+    background: var(--ba-control-hover) !important;
+}
+
+.ba-chart-modal .ba-chart-modal__view,
+.ba-chart-modal .ba-chart-modal__close {
+    background: var(--ba-control-surface) !important;
+    border-color: var(--ba-control-border) !important;
+    color: var(--ba-text) !important;
+}
+
+.ba-chart-modal .ba-chart-modal__view.is-active {
+    background: var(--brand) !important;
+    border-color: var(--brand) !important;
+    color: #fff !important;
+}
+
+.ba-workspace,
+.ba-card.ba-workspace {
+    background:
+        linear-gradient(180deg, rgba(220, 230, 214, 0.98), rgba(211, 222, 201, 0.96)),
+        linear-gradient(90deg, rgba(73, 87, 69, 0.018) 0 1px, transparent 1px),
+        linear-gradient(180deg, rgba(73, 87, 69, 0.016) 0 1px, transparent 1px) !important;
+    background-size: auto, 28px 28px, 28px 28px !important;
+    border-color: var(--ba-control-border) !important;
+    box-shadow: inset 0 1px 0 rgba(251, 252, 247, 0.48) !important;
+}
+
+.ba-summary-card,
+.ba-performance-card,
+.ba-compare-card,
+.ba-drilldown {
+    background: var(--ba-panel-surface) !important;
+}
+
+@media (max-width: 760px) {
+    .ba-shell {
+        padding-inline: 0.65rem;
+    }
+
+    .ba-summary-card {
+        min-height: 86px;
+    }
+
+    .ba-summary-card strong {
+        font-size: 1.08rem;
+    }
+}
+
+/* Final chart-surface pass: keeps every embedded and fullscreen graph off plain white. */
+.ba-shell,
+.ba-chart-modal {
+    --ba-chart-panel: #DCE6D6;
+    --ba-chart-panel-strong: #D2DEC9;
+    --ba-chart-canvas: #EAF1E2;
+    --ba-chart-canvas-soft: #F5F7ED;
+    --ba-chart-canvas-warm: #FFF5DD;
+    --ba-chart-border: #A7B79F;
+}
+
+.ba-panel.active,
+.ba-performance-card {
+    background:
+        linear-gradient(180deg, var(--ba-chart-panel) 0%, var(--ba-chart-panel-strong) 100%) !important;
+    border-color: var(--ba-chart-border) !important;
+}
+
+.ba-panel.active > .ba-panel-head,
+.ba-performance-card > .ba-panel-head {
+    background: transparent !important;
+    border-color: transparent !important;
+}
+
+.ba-performance-card .ba-chart-frame,
+.ba-panel.active > .ba-chart-frame,
+.ba-chart-modal__body .ba-chart-frame,
+.ba-chart-modal__body .ba-chart-frame.is-in-modal {
+    background:
+        radial-gradient(circle at 10% 8%, rgba(255, 245, 221, 0.78), transparent 30%),
+        radial-gradient(circle at 92% 0%, rgba(188, 204, 178, 0.52), transparent 36%),
+        linear-gradient(180deg, var(--ba-chart-canvas-soft) 0%, var(--ba-chart-canvas) 100%),
+        linear-gradient(90deg, rgba(59, 75, 55, 0.04) 0 1px, transparent 1px),
+        linear-gradient(180deg, rgba(59, 75, 55, 0.035) 0 1px, transparent 1px) !important;
+    background-size: auto, auto, auto, 30px 30px, 30px 30px !important;
+    border-color: var(--ba-chart-border) !important;
+}
+
+.ba-chart-modal__body,
+.ba-chart-modal__dialog {
+    background:
+        linear-gradient(180deg, var(--ba-chart-panel) 0%, #CAD8C1 100%) !important;
+}
+
+.ba-chart-empty {
+    color: var(--ba-text) !important;
+}
 </style>
 
 <script>
@@ -2283,19 +5046,19 @@ html[data-theme='dark'] .ba-head-row-nav {
 
     const isDark = document.documentElement.dataset.theme === 'dark';
     const chartTheme = {
-        primary: '#3E4A3D',
-        secondary: '#8B9A8B',
-        success: '#6F8A6D',
-        warning: '#B87956',
-        danger: '#9E4B3F',
-        neutral: '#7A8076',
-        surface: '#FAFAF7',
-        border: '#C9C5BB',
-        text: '#333333',
-        textMuted: '#5F685F',
-        grid: '#D8D1C5',
+        primary: '#344332',
+        secondary: '#93A58D',
+        success: '#56755A',
+        warning: '#BD7A55',
+        danger: '#A24B42',
+        neutral: '#6F796B',
+        surface: '#EAF1E2',
+        border: '#AEBCA5',
+        text: '#232821',
+        textMuted: '#4E5B4B',
+        grid: '#C8D4C0',
     };
-    const gridColor = isDark ? 'rgba(138, 167, 197, 0.18)' : 'rgba(216, 209, 197, 0.78)';
+    const gridColor = isDark ? 'rgba(138, 167, 197, 0.18)' : 'rgba(166, 180, 156, 0.44)';
     const textColor = isDark ? '#cfe0f5' : chartTheme.textMuted;
 
     const money = new Intl.NumberFormat('en-PH', {
@@ -2313,6 +5076,16 @@ html[data-theme='dark'] .ba-head-row-nav {
         revenuePeriod: null,
         collectionStatus: null,
     };
+    const chartModal = document.getElementById('baChartModal');
+    const chartModalChartSlot = document.getElementById('baChartModalChartSlot');
+    const chartModalBody = document.getElementById('baChartModalBody');
+    const chartModalTitle = document.getElementById('baChartModalTitle');
+    const chartModalCloseBtn = chartModal?.querySelector('.ba-chart-modal__close');
+    const modalViewButtons = Array.from(chartModal?.querySelectorAll('[data-modal-view]') || []);
+    const modalRecordCount = document.getElementById('baModalRecordCount');
+    const modalDrilldown = document.getElementById('baModalDrilldown');
+    let activeModalChart = null;
+    let modalView = 'chart';
 
     const statusLabels = {
         PAID: 'Paid',
@@ -2524,14 +5297,17 @@ html[data-theme='dark'] .ba-head-row-nav {
         const target = document.getElementById(targetId);
         if (!target) return;
 
-        target.innerHTML = cards.map((card, index) => `
-            <article class="ba-insight-card tone-${card.tone || 'blue'} ${card.onClick ? 'is-clickable' : ''} ${card.isSelected ? 'is-selected' : ''}" data-insight-index="${index}" ${card.onClick ? 'role="button" tabindex="0"' : ''}>
+        target.innerHTML = cards.map((card, index) => {
+            const accessibleLabel = `${card.label}: ${card.value}. ${card.note || 'Open matching records.'}`;
+
+            return `
+            <article class="ba-insight-card tone-${card.tone || 'blue'} ${card.onClick ? 'is-clickable' : ''} ${card.isSelected ? 'is-selected' : ''}" data-insight-index="${index}" ${card.onClick ? `role="button" tabindex="0" aria-label="${escapeHtml(accessibleLabel)}"` : ''}>
                 <span class="ba-insight-label">${escapeHtml(card.label)}</span>
                 <strong class="ba-insight-value">${escapeHtml(card.value)}</strong>
                 <span class="ba-insight-note">${escapeHtml(card.note || '')}</span>
-                ${card.hint ? `<span class="ba-insight-hint" aria-hidden="true">${escapeHtml(card.hint)}</span>` : ''}
             </article>
-        `).join('');
+        `;
+        }).join('');
 
         cards.forEach((card, index) => {
             if (!card.onClick) return;
@@ -2634,46 +5410,38 @@ html[data-theme='dark'] .ba-head-row-nav {
         const branchRows = buildBranchInsightRows();
         const topRevenue = maxBy(branchRows, (row) => row.revenue);
         const mostActive = maxBy(branchRows, (row) => row.cases);
-        const highestAverage = maxBy(branchRows, (row) => row.average);
-        const zeroActivityBranch = branchRows.find((row) => row.cases === 0 || row.revenue === 0);
-        const needsAttention = zeroActivityBranch || minBy(branchRows, (row) => row.revenue);
 
-        renderInsightCards('baBranchInsights', [
-            {
-                label: 'Top Revenue Branch',
-                value: topRevenue ? `${shortMoney(topRevenue.revenue)} revenue` : 'No revenue yet',
-                note: branchDisplay(topRevenue),
-                tone: 'blue',
-                onClick: topRevenue?.code ? () => handleBranchClick(topRevenue.code) : null,
-                hint: topRevenue?.code ? 'View details →' : null,
-            },
-            {
-                label: 'Most Active Branch',
-                value: mostActive ? pluralizeCase(mostActive.cases) : 'No cases yet',
-                note: branchDisplay(mostActive),
-                tone: 'blue',
-                onClick: mostActive?.code ? () => handleBranchClick(mostActive.code) : null,
-                hint: mostActive?.code ? 'View details →' : null,
-            },
-            {
-                label: 'Highest Average per Case',
-                value: highestAverage ? `${shortMoney(highestAverage.average)} avg / case` : 'No average yet',
-                note: branchDisplay(highestAverage),
-                tone: 'blue',
-                onClick: highestAverage?.code ? () => handleBranchClick(highestAverage.code) : null,
-                hint: highestAverage?.code ? 'View details →' : null,
-            },
-            {
-                label: 'Needs Attention',
-                value: needsAttention
-                    ? (needsAttention.cases === 0 ? 'No cases recorded' : `${shortMoney(needsAttention.revenue)} revenue`)
-                    : 'No cases recorded',
-                note: branchDisplay(needsAttention),
-                tone: 'amber',
-                onClick: needsAttention?.code ? () => handleBranchClick(needsAttention.code) : null,
-                hint: needsAttention?.code ? 'View details →' : null,
-            },
-        ]);
+        if (selectedBranchMeta) {
+            const selected = branchRows[0] || { cases: 0, revenue: 0, average: 0 };
+
+            renderInsightCards('baBranchInsights', [
+                {
+                    label: 'Average per Case',
+                    value: shortMoney(selected.average || 0),
+                    note: `${number.format(selected.cases || 0)} cases included`,
+                    tone: 'blue',
+                },
+            ]);
+        } else {
+            renderInsightCards('baBranchInsights', [
+                {
+                    label: 'Top Revenue Branch',
+                    value: topRevenue ? `${shortMoney(topRevenue.revenue)} revenue` : 'No revenue yet',
+                    note: branchDisplay(topRevenue),
+                    tone: 'blue',
+                    onClick: topRevenue?.code ? () => handleBranchClick(topRevenue.code) : null,
+                    hint: topRevenue?.code ? 'Open records' : null,
+                },
+                {
+                    label: 'Most Active Branch',
+                    value: mostActive ? pluralizeCase(mostActive.cases) : 'No cases yet',
+                    note: branchDisplay(mostActive),
+                    tone: 'blue',
+                    onClick: mostActive?.code ? () => handleBranchClick(mostActive.code) : null,
+                    hint: mostActive?.code ? 'Open records' : null,
+                },
+            ]);
+        }
 
         const paymentRows = buildPaymentInsightRows();
         const needsFollowUpCount = paymentRows.PARTIAL.count + paymentRows.UNPAID.count;
@@ -2685,7 +5453,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                 note: `${shortMoney(paymentRows.PAID.amount)} fully paid`,
                 tone: 'green',
                 onClick: () => handlePaymentStatusClick('PAID'),
-                hint: 'View details →',
+                hint: 'Open records',
             },
             {
                 label: 'Partial Payment Cases',
@@ -2693,7 +5461,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                 note: `${shortMoney(paymentRows.PARTIAL.balance)} balance`,
                 tone: 'amber',
                 onClick: () => handlePaymentStatusClick('PARTIAL'),
-                hint: 'View details →',
+                hint: 'Open records',
             },
             {
                 label: 'Unpaid Cases',
@@ -2701,23 +5469,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                 note: `${shortMoney(paymentRows.UNPAID.balance)} outstanding`,
                 tone: 'red',
                 onClick: () => handlePaymentStatusClick('UNPAID'),
-                hint: 'View details →',
-            },
-            {
-                label: 'Outstanding Balance',
-                value: shortMoney(paymentRows.PARTIAL.balance + paymentRows.UNPAID.balance),
-                note: `${number.format(needsFollowUpCount)} cases need follow-up`,
-                tone: needsFollowUpBalance > 0 ? 'amber' : 'green',
-                onClick: needsFollowUpBalance > 0 ? () => handlePaymentStatusClick(paymentRows.PARTIAL.count > 0 ? 'PARTIAL' : 'UNPAID') : null,
-                hint: needsFollowUpBalance > 0 ? 'View details →' : null,
-            },
-            {
-                label: 'Needs Follow-up',
-                value: number.format(needsFollowUpCount),
-                note: `${shortMoney(needsFollowUpBalance)} still open`,
-                tone: needsFollowUpCount > 0 ? 'red' : 'green',
-                onClick: needsFollowUpCount > 0 ? () => handlePaymentStatusClick(paymentRows.UNPAID.count > 0 ? 'UNPAID' : 'PARTIAL') : null,
-                hint: needsFollowUpCount > 0 ? 'View details →' : null,
+                hint: 'Open records',
             },
         ]);
 
@@ -2737,23 +5489,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                 tone: 'blue',
                 onClick: revenueRows.peak?.period ? () => handleRevenuePeriodClick(revenueRows.peak.period) : null,
                 isSelected: !!revenueRows.peak?.period && analyticsFilters.revenuePeriod?.label === revenueRows.peak?.period?.label,
-                hint: revenueRows.peak?.period ? 'View details →' : null,
-            },
-            {
-                label: 'Lowest Revenue Period',
-                value: revenueRows.lowest?.period?.label || revenueRows.lowest?.label || '-',
-                note: revenueRows.lowest ? shortMoney(revenueRows.lowest.revenue) : 'No revenue yet',
-                tone: 'amber',
-                onClick: revenueRows.lowest?.period ? () => handleRevenuePeriodClick(revenueRows.lowest.period) : null,
-                isSelected: !!revenueRows.lowest?.period && analyticsFilters.revenuePeriod?.label === revenueRows.lowest?.period?.label,
-                hint: revenueRows.lowest?.period ? 'View details →' : null,
-            },
-            {
-                label: 'Average Revenue per Period',
-                value: shortMoney(revenueRows.average),
-                note: `${number.format(revenueRows.rows.length)} periods included`,
-                tone: 'blue',
-                // Non-clickable: no onClick, no hint, never selected
+                hint: revenueRows.peak?.period ? 'Open records' : null,
             },
             (() => {
                 const rows = revenueRows.rows;
@@ -2798,7 +5534,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                 note: `${collectionRows.collectionRate.toFixed(1)}% collection rate`,
                 tone: 'green',
                 onClick: () => handleCollectionStatusClick('COLLECTED'),
-                hint: 'View details →',
+                hint: 'Open records',
             },
             {
                 label: 'Outstanding Amount',
@@ -2806,7 +5542,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                 note: `${number.format(collectionRows.outstandingCases)} cases open`,
                 tone: collectionRows.outstanding > 0 ? 'amber' : 'green',
                 onClick: collectionRows.outstanding > 0 ? () => handleCollectionStatusClick('OUTSTANDING') : null,
-                hint: collectionRows.outstanding > 0 ? 'View details →' : null,
+                hint: collectionRows.outstanding > 0 ? 'Open records' : null,
             },
             {
                 label: 'Collection Rate',
@@ -2814,22 +5550,6 @@ html[data-theme='dark'] .ba-head-row-nav {
                 note: 'Collected vs collectible',
                 tone: collectionRows.collectionRate >= 80 ? 'green' : 'amber',
                 // Non-clickable: informational only
-            },
-            {
-                label: 'Cases Needing Collection',
-                value: number.format(collectionRows.outstandingCases),
-                note: 'Not fully collected',
-                tone: collectionRows.outstandingCases > 0 ? 'amber' : 'green',
-                onClick: collectionRows.outstandingCases > 0 ? () => handleCollectionStatusClick('OUTSTANDING') : null,
-                hint: collectionRows.outstandingCases > 0 ? 'View details →' : null,
-            },
-            {
-                label: 'Collection Risk',
-                value: shortMoney(collectionRows.outstanding),
-                note: `${number.format(collectionRows.outstandingCases)} affected cases`,
-                tone: collectionRows.outstanding > 0 ? 'red' : 'green',
-                onClick: collectionRows.outstanding > 0 ? () => handleCollectionStatusClick('OUTSTANDING') : null,
-                hint: collectionRows.outstanding > 0 ? 'View details →' : null,
             },
         ]);
     };
@@ -2884,7 +5604,7 @@ html[data-theme='dark'] .ba-head-row-nav {
         chipTarget.innerHTML = chips.map(({ key, label, value, rawValue }) => `
             <span class="ba-active-filter-chip ${filterTone(label, rawValue)}">
                 ${label}: ${escapeHtml(value)}
-                <button type="button" class="ba-filter-chip-remove" data-filter-key="${key}" aria-label="Remove ${escapeHtml(label)} filter">x</button>
+                <button type="button" class="ba-filter-chip-remove" data-filter-key="${key}" aria-label="Remove ${escapeHtml(label)} filter"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
             </span>
         `).join('');
 
@@ -2900,15 +5620,15 @@ html[data-theme='dark'] .ba-head-row-nav {
         const branchLabel = branchLabelForCode(analyticsFilters.branchCode);
         const messages = {
             payment: {
-                note: branchLabel ? `Showing payment status for ${branchLabel}.` : 'Paid vs partial vs unpaid case distribution',
+                note: branchLabel ? `Payments for ${branchLabel}.` : 'Paid, partial, and unpaid',
                 context: branchLabel ? `This view is filtered by ${branchLabel}.` : '',
             },
             trend: {
-                note: branchLabel ? `Showing revenue trend for ${branchLabel}.` : 'Trend line for period-based movement analysis',
+                note: branchLabel ? `Revenue trend for ${branchLabel}.` : 'Period movement',
                 context: branchLabel ? `This view is filtered by ${branchLabel}.` : '',
             },
             collection: {
-                note: branchLabel ? `Showing collection status for ${branchLabel}.` : 'Collected vs outstanding amount performance',
+                note: branchLabel ? `Collections for ${branchLabel}.` : 'Collected vs outstanding',
                 context: branchLabel ? `This view is filtered by ${branchLabel}.` : '',
             },
         };
@@ -2931,10 +5651,7 @@ html[data-theme='dark'] .ba-head-row-nav {
         });
     };
 
-    const renderFilteredTable = (cases) => {
-        const body = document.getElementById('baFilteredCasesBody');
-        if (!body) return;
-
+    const filteredRowsHtml = (cases) => {
         if (!cases.length) {
             const onlyPeriodFilter = analyticsFilters.revenuePeriod
                 && !analyticsFilters.branchCode
@@ -2946,7 +5663,7 @@ html[data-theme='dark'] .ba-head-row-nav {
             const emptyHint = onlyPeriodFilter
                 ? 'There are no cases recorded for the selected revenue period.'
                 : 'Try clearing filters or selecting a different chart item.';
-            body.innerHTML = `
+            return `
                 <tr>
                     <td colspan="9" class="ba-empty-cell">
                         <div class="ba-empty-state">
@@ -2956,10 +5673,9 @@ html[data-theme='dark'] .ba-head-row-nav {
                     </td>
                 </tr>
             `;
-            return;
         }
 
-        body.innerHTML = cases.map((item) => `
+        return cases.map((item) => `
             <tr>
                 <td>${escapeHtml(item.caseCode || '-')}</td>
                 <td>${escapeHtml(item.caseDateLabel || '-')}</td>
@@ -2972,6 +5688,113 @@ html[data-theme='dark'] .ba-head-row-nav {
                 <td>${money.format(Number(item.balanceAmount || 0))}</td>
             </tr>
         `).join('');
+    };
+
+    const renderFilteredTable = (cases) => {
+        const body = document.getElementById('baFilteredCasesBody');
+        if (!body) return;
+        body.innerHTML = filteredRowsHtml(cases);
+    };
+
+    const syncModalWorkspace = (recordsCount = 0) => {
+        const hasRecords = activeFilterCount() > 0;
+        if (!hasRecords) {
+            modalView = 'chart';
+        }
+
+        chartModalBody?.setAttribute('data-view', modalView);
+        if (modalRecordCount) {
+            modalRecordCount.textContent = `${number.format(recordsCount)} ${recordsCount === 1 ? 'record' : 'records'}`;
+        }
+
+        modalViewButtons.forEach((button) => {
+            const view = button.dataset.modalView;
+            const isRecords = view === 'records';
+            button.disabled = isRecords && !hasRecords;
+            button.classList.toggle('is-active', view === modalView);
+            button.setAttribute('aria-pressed', view === modalView ? 'true' : 'false');
+        });
+    };
+
+    const setModalView = (view) => {
+        if (view === 'records' && activeFilterCount() === 0) return;
+        modalView = view === 'records' ? 'records' : 'chart';
+        syncModalWorkspace(modalDrilldown?.hidden ? 0 : getFilteredCases().length);
+    };
+
+    const renderModalDrilldown = (cases, filteredSummary, title, subtitle, tableTitle) => {
+        if (!modalDrilldown || !chartModalBody) return;
+
+        const filtersCount = activeFilterCount();
+        chartModalBody.classList.toggle('has-drilldown', filtersCount > 0);
+        modalDrilldown.hidden = filtersCount === 0;
+        if (filtersCount === 0) {
+            modalDrilldown.textContent = '';
+            syncModalWorkspace(0);
+            return;
+        }
+
+        syncModalWorkspace(cases.length);
+        const activeChips = activeFilterItems();
+        const chipHtml = activeChips.map(({ label, value, rawValue }) => `<span class="ba-active-filter-chip ${filterTone(label, rawValue)}">${label}: ${escapeHtml(value)}</span>`).join('');
+
+        modalDrilldown.innerHTML = `
+            <div class="ba-modal-drilldown__head">
+                <div>
+                    <span class="ba-modal-drilldown__eyebrow">
+                        <i class="bi bi-arrow-down-circle"></i>
+                        Matching records
+                    </span>
+                    <h4 class="ba-modal-drilldown__title">${escapeHtml(title)}</h4>
+                    <p class="ba-modal-drilldown__subtitle">${escapeHtml(subtitle)}</p>
+                </div>
+                <div class="ba-active-filters">${chipHtml}</div>
+            </div>
+            <div class="ba-modal-drilldown__content">
+                <div class="ba-modal-drilldown__kpis">
+                    <article class="ba-modal-kpi">
+                        <span>Total Revenue</span>
+                        <strong>${money.format(filteredSummary.totalRevenue)}</strong>
+                    </article>
+                    <article class="ba-modal-kpi">
+                        <span>Total Cases</span>
+                        <strong>${number.format(filteredSummary.totalCases)}</strong>
+                    </article>
+                    <article class="ba-modal-kpi">
+                        <span>Average per Case</span>
+                        <strong>${money.format(filteredSummary.averagePerCase)}</strong>
+                    </article>
+                    <article class="ba-modal-kpi">
+                        <span>Outstanding</span>
+                        <strong>${money.format(filteredSummary.totalOutstanding)}</strong>
+                    </article>
+                </div>
+                <div class="ba-compare-card">
+                    <div class="ba-compare-title">
+                        <span>${escapeHtml(filtersCount > 0 ? tableTitle : 'Matching Cases')}</span>
+                        <span class="ba-table-scroll-hint">Scroll sideways for all columns</span>
+                    </div>
+                    <div class="ba-compare-table-wrap">
+                        <table class="ba-compare-table ba-cases-table">
+                            <thead>
+                                <tr>
+                                    <th>Case</th>
+                                    <th>Date</th>
+                                    <th>Branch</th>
+                                    <th>Client</th>
+                                    <th>Deceased</th>
+                                    <th>Payment</th>
+                                    <th>Collection</th>
+                                    <th>Total Revenue</th>
+                                    <th>Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody>${filteredRowsHtml(cases)}</tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
     };
 
     const updateMasterRecordsLink = () => {
@@ -3073,29 +5896,47 @@ html[data-theme='dark'] .ba-head-row-nav {
         updateBranchRankingSelection();
         renderGlobalFilterBar();
         renderTabContext();
+        if (activeModalChart) {
+            renderModalDrilldown(filteredCases, filteredSummary, title, subtitle, tableTitle);
+        }
     };
 
-    const setAnalyticsFilters = (nextFilters) => {
+    const setAnalyticsFilters = (nextFilters, options = {}) => {
         analyticsFilters = { ...analyticsFilters, ...nextFilters };
         renderAnalyticsResults();
+        if (options.expandChartId) {
+            setTimeout(() => {
+                openChartModalById(options.expandChartId, { focusDrilldown: true }).catch(() => {});
+            }, 0);
+        }
     };
 
-    const handleBranchClick = (branchCode) => {
-        setAnalyticsFilters({ branchCode: analyticsFilters.branchCode === branchCode ? null : branchCode });
+    const handleBranchClick = (branchCode, expandChartId = null, forceSelect = false) => {
+        setAnalyticsFilters(
+            { branchCode: !forceSelect && analyticsFilters.branchCode === branchCode ? null : branchCode },
+            { expandChartId }
+        );
     };
 
-    const handlePaymentStatusClick = (status) => {
-        setAnalyticsFilters({ paymentStatus: analyticsFilters.paymentStatus === status ? null : status });
+    const handlePaymentStatusClick = (status, expandChartId = null, forceSelect = false) => {
+        setAnalyticsFilters(
+            { paymentStatus: !forceSelect && analyticsFilters.paymentStatus === status ? null : status },
+            { expandChartId }
+        );
     };
 
-    const handleRevenuePeriodClick = (period) => {
-        setAnalyticsFilters({
-            revenuePeriod: analyticsFilters.revenuePeriod?.label === period?.label ? null : period,
-        });
+    const handleRevenuePeriodClick = (period, expandChartId = null, forceSelect = false) => {
+        setAnalyticsFilters(
+            { revenuePeriod: !forceSelect && analyticsFilters.revenuePeriod?.label === period?.label ? null : period },
+            { expandChartId }
+        );
     };
 
-    const handleCollectionStatusClick = (status) => {
-        setAnalyticsFilters({ collectionStatus: analyticsFilters.collectionStatus === status ? null : status });
+    const handleCollectionStatusClick = (status, expandChartId = null, forceSelect = false) => {
+        setAnalyticsFilters(
+            { collectionStatus: !forceSelect && analyticsFilters.collectionStatus === status ? null : status },
+            { expandChartId }
+        );
     };
 
     const clearAnalyticsFilters = () => {
@@ -3110,10 +5951,17 @@ html[data-theme='dark'] .ba-head-row-nav {
     document.getElementById('baClearFiltersBtn')?.addEventListener('click', clearAnalyticsFilters);
     document.getElementById('baGlobalClearFiltersBtn')?.addEventListener('click', clearAnalyticsFilters);
     document.querySelectorAll('.ba-ranking-row').forEach((row) => {
-        row.addEventListener('click', () => {
+        const selectBranchRow = () => {
             if (row.dataset.branchCode) {
                 handleBranchClick(row.dataset.branchCode);
             }
+        };
+
+        row.addEventListener('click', selectBranchRow);
+        row.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            selectBranchRow();
         });
     });
 
@@ -3241,7 +6089,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                         const hit = elements?.[0] || chart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true)?.[0];
                         if (!hit) return;
                         const branchCode = branchMeta[hit.index]?.code;
-                        if (branchCode) handleBranchClick(branchCode);
+                        if (branchCode) handleBranchClick(branchCode, 'serviceCasesChart', true);
                     },
                     scales: {
                         yRevenue: {
@@ -3347,7 +6195,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                     const hit = elements?.[0] || chart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true)?.[0];
                     if (!hit) return;
                     const period = parsePeriodFromLabel(periodLabels[hit.index]);
-                    if (period) handleRevenuePeriodClick(period);
+                    if (period) handleRevenuePeriodClick(period, 'branchPerformanceChart', true);
                 },
                 scales: {
                         yRevenue: {
@@ -3442,7 +6290,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                 onClick: (event, elements, chart) => {
                     const hit = elements?.[0] || chart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true)?.[0];
                     const statuses = ['PAID', 'PARTIAL', 'UNPAID'];
-                    if (hit && statuses[hit.index]) handlePaymentStatusClick(statuses[hit.index]);
+                    if (hit && statuses[hit.index]) handlePaymentStatusClick(statuses[hit.index], 'paymentChart', true);
                 },
                 plugins: {
                     ...sharedOptions.plugins,
@@ -3466,7 +6314,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                         borderColor: chartTheme.primary,
                         backgroundColor: 'rgba(62, 74, 61, 0.14)',
                         borderWidth: 2.5,
-                        fill: true,
+                        fill: false,
                         tension: 0.32,
                         pointRadius: (ctx) => {
                             const period = parsePeriodFromLabel((payload.line.labels ?? [])[ctx.dataIndex]);
@@ -3491,7 +6339,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                     const hit = elements?.[0] || chart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true)?.[0];
                     if (!hit) return;
                     const period = parsePeriodFromLabel((payload.line.labels ?? [])[hit.index]);
-                    if (period) handleRevenuePeriodClick(period);
+                    if (period) handleRevenuePeriodClick(period, 'trendChart', true);
                 },
                 scales: {
                     y: {
@@ -3561,7 +6409,7 @@ html[data-theme='dark'] .ba-head-row-nav {
                     if (!hit) return;
                     const statuses = ['COLLECTED', 'OUTSTANDING', null];
                     if (statuses[hit.index]) {
-                        handleCollectionStatusClick(statuses[hit.index]);
+                        handleCollectionStatusClick(statuses[hit.index], 'collectionChart', true);
                     } else {
                         setAnalyticsFilters({ collectionStatus: null });
                     }
@@ -3665,7 +6513,30 @@ html[data-theme='dark'] .ba-head-row-nav {
         });
     };
 
-    const activatePanel = async (targetId) => {
+    const clearFiltersOutsidePanel = (targetId) => {
+        const allowedByPanel = {
+            'ba-panel-performance': ['branchCode'],
+            'ba-panel-payment': ['paymentStatus'],
+            'ba-panel-collection': ['collectionStatus'],
+            'ba-panel-trend': ['revenuePeriod'],
+        };
+        const allowed = new Set(allowedByPanel[targetId] || []);
+        const scopedKeys = ['branchCode', 'paymentStatus', 'collectionStatus', 'revenuePeriod'];
+        let changed = false;
+
+        scopedKeys.forEach((key) => {
+            if (!allowed.has(key) && analyticsFilters[key]) {
+                analyticsFilters[key] = null;
+                changed = true;
+            }
+        });
+
+        if (changed) {
+            renderAnalyticsResults();
+        }
+    };
+
+    const activatePanel = async (targetId, options = {}) => {
         if (!validPanelIds.has(targetId)) {
             targetId = 'ba-panel-performance';
         }
@@ -3683,21 +6554,26 @@ html[data-theme='dark'] .ba-head-row-nav {
         });
 
         const activePanel = document.getElementById(targetId);
-        const canvas = activePanel?.querySelector('canvas');
-        if (canvas) {
+        const canvases = Array.from(activePanel?.querySelectorAll('canvas') || []);
+        await Promise.all(canvases.map(async (canvas) => {
             const chart = await ensureChart(canvas.id);
             if (chart) {
                 requestAnimationFrame(() => chart.resize());
             }
-        }
+        }));
 
         rememberActivePanel(targetId);
         syncGlobalFilterControls(targetId);
+        clearFiltersOutsidePanel(targetId);
+
+        if (options.scrollIntoView) {
+            activePanel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
     };
 
     tabButtons.forEach((button) => {
         button.addEventListener('click', () => {
-            activatePanel(button.dataset.target).catch(() => {});
+            activatePanel(button.dataset.target, { scrollIntoView: true }).catch(() => {});
         });
     });
 
@@ -3712,30 +6588,257 @@ html[data-theme='dark'] .ba-head-row-nav {
     renderAnalyticsResults();
     renderAnalyticsInsights();
 
-    const customRangeBtn = document.getElementById('baCustomRangeBtn');
+    const chartFrameFor = (button) => {
+        const chartId = button.dataset.chartExpand;
+        const canvas = document.getElementById(chartId);
+        return canvas ? canvas.closest('.ba-chart-frame') : null;
+    };
+
+    const resizeChart = (chart) => {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                chart.resize();
+                chart.update('none');
+            });
+        });
+    };
+
+    const setExpandButtonState = (button, isExpanded) => {
+        if (!button) return;
+
+        button.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+        const label = button.querySelector('span');
+        if (label) {
+            label.textContent = isExpanded ? 'Exit full screen' : 'Full screen';
+        }
+    };
+
+    let modalCloseTimer = null;
+
+    const closeChartModal = (immediate = false) => {
+        if (!chartModal || !chartModalChartSlot) return;
+
+        if (modalCloseTimer) {
+            window.clearTimeout(modalCloseTimer);
+            modalCloseTimer = null;
+        }
+
+        const closingChart = activeModalChart;
+        const finishClose = () => {
+            chartModal.classList.remove('is-closing');
+
+            if (closingChart) {
+                const {
+                    frame,
+                    chart,
+                    button,
+                    placeholder,
+                    originalParent,
+                    originalNextSibling,
+                } = closingChart;
+
+                const placeholderParent = placeholder?.parentNode;
+                if (placeholderParent) {
+                    placeholderParent.insertBefore(frame, placeholder);
+                } else if (originalParent && originalNextSibling?.parentNode === originalParent) {
+                    originalParent.insertBefore(frame, originalNextSibling);
+                } else if (originalParent) {
+                    originalParent.appendChild(frame);
+                }
+
+                placeholder?.remove();
+                frame.classList.remove('is-in-modal');
+                setExpandButtonState(button, false);
+                if (button) {
+                    button.focus({ preventScroll: true });
+                }
+                activeModalChart = null;
+                resizeChart(chart);
+            }
+
+            chartModalChartSlot.textContent = '';
+            if (modalDrilldown) {
+                modalDrilldown.hidden = true;
+                modalDrilldown.textContent = '';
+            }
+            chartModalBody?.classList.remove('has-drilldown');
+            chartModalBody?.setAttribute('data-view', 'chart');
+            modalView = 'chart';
+            syncModalWorkspace(0);
+            chartModal.hidden = true;
+            chartModal.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+            document.documentElement.style.overflow = '';
+        };
+
+        if (immediate) {
+            finishClose();
+            return;
+        }
+
+        chartModal.classList.add('is-closing');
+        modalCloseTimer = window.setTimeout(finishClose, 150);
+    };
+
+    const focusModalDrilldown = () => {
+        if (!modalDrilldown || modalDrilldown.hidden || !chartModal || !chartModalBody) return;
+        modalView = 'chart';
+        syncModalWorkspace(getFilteredCases().length);
+        const tableWrap = modalDrilldown.querySelector('.ba-compare-table-wrap');
+        if (tableWrap) {
+            tableWrap.scrollTop = 0;
+            tableWrap.scrollLeft = 0;
+        }
+
+        window.requestAnimationFrame(() => {
+            chartModalBody.scrollTo({
+                top: Math.max(0, modalDrilldown.offsetTop - 12),
+                behavior: 'smooth',
+            });
+        });
+    };
+
+    const openChartModal = async (button, options = {}) => {
+        if (!chartModal || !chartModalChartSlot || !chartModalTitle) return;
+
+        if (chartModal.parentNode !== document.body) {
+            document.body.appendChild(chartModal);
+        }
+
+        const chartId = button.dataset.chartExpand;
+        const frame = chartFrameFor(button);
+        const chart = await ensureChart(chartId);
+        if (!frame || !chart) return;
+
+        if (activeModalChart?.chartId === chartId) {
+            renderAnalyticsResults();
+            resizeChart(chart);
+            if (options.focusDrilldown) focusModalDrilldown();
+            return;
+        }
+
+        if (activeModalChart) {
+            closeChartModal(true);
+        }
+
+        const placeholder = document.createComment('ba-chart-placeholder');
+        const originalParent = frame.parentNode;
+        const originalNextSibling = frame.nextSibling;
+        if (!originalParent) return;
+
+        originalParent.insertBefore(placeholder, frame);
+
+        chartModalTitle.textContent = button.dataset.chartTitle || 'Analytics Chart';
+        modalView = 'chart';
+        chartModalBody.setAttribute('data-view', modalView);
+        chartModalChartSlot.appendChild(frame);
+        frame.classList.add('is-in-modal');
+        chartModal.classList.remove('is-closing');
+        chartModal.hidden = false;
+        chartModal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+
+        setExpandButtonState(button, true);
+        activeModalChart = {
+            chartId,
+            frame,
+            chart,
+            button,
+            placeholder,
+            originalParent,
+            originalNextSibling,
+        };
+
+        chartModalCloseBtn?.focus({ preventScroll: true });
+        renderAnalyticsResults();
+        resizeChart(chart);
+        if (options.focusDrilldown) focusModalDrilldown();
+    };
+
+    const openChartModalById = async (chartId, options = {}) => {
+        const button = document.querySelector(`[data-chart-expand="${chartId}"]`);
+        if (!button) return;
+        await openChartModal(button, options);
+    };
+
+    document.querySelectorAll('[data-chart-expand]').forEach((button) => {
+        button.setAttribute('aria-expanded', 'false');
+        button.addEventListener('click', () => openChartModal(button).catch(() => {}));
+    });
+
+    document.querySelectorAll('[data-chart-modal-close]').forEach((control) => {
+        control.addEventListener('click', closeChartModal);
+    });
+
+    modalViewButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            setModalView(button.dataset.modalView);
+            if (button.dataset.modalView === 'records') {
+                const tableWrap = modalDrilldown?.querySelector('.ba-compare-table-wrap');
+                if (tableWrap) {
+                    tableWrap.scrollTop = 0;
+                    tableWrap.scrollLeft = 0;
+                }
+            } else if (activeModalChart?.chart) {
+                resizeChart(activeModalChart.chart);
+            }
+        });
+    });
+
+    const modalFocusableElements = () => Array.from(chartModal?.querySelectorAll(
+        'a[href], button:not([disabled]), select:not([disabled]), textarea:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    ) || []).filter((el) => {
+        const style = window.getComputedStyle(el);
+        return style.display !== 'none' && style.visibility !== 'hidden';
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            closeChartModal();
+            return;
+        }
+
+        if (event.key !== 'Tab' || !activeModalChart || chartModal?.hidden) {
+            return;
+        }
+
+        const focusable = modalFocusableElements();
+        if (!focusable.length) {
+            event.preventDefault();
+            chartModalCloseBtn?.focus({ preventScroll: true });
+            return;
+        }
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus({ preventScroll: true });
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus({ preventScroll: true });
+        }
+    });
+
+    const periodFilter = document.getElementById('baPeriodFilter');
     const datePopover = document.getElementById('baDatePopover');
-    if (customRangeBtn && datePopover) {
-        const setPopoverState = (isOpen) => {
-            datePopover.style.display = isOpen ? 'block' : 'none';
-            customRangeBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    if (periodFilter && datePopover) {
+        const setCustomRangeState = () => {
+            const isCustom = periodFilter.value === 'CUSTOM';
+            datePopover.style.display = isCustom ? 'block' : 'none';
+            return isCustom;
         };
 
-        const togglePopover = (event) => {
-            event.stopPropagation();
-            const isOpen = datePopover.style.display === 'block';
-            setPopoverState(!isOpen);
-        };
-
-        setPopoverState(false);
-        customRangeBtn.addEventListener('click', togglePopover);
-
-        document.addEventListener('click', () => {
-            setPopoverState(false);
+        periodFilter.addEventListener('change', () => {
+            if (setCustomRangeState()) {
+                datePopover.querySelector('input')?.focus();
+                return;
+            }
+            periodFilter.form?.submit();
         });
 
-        datePopover.addEventListener('click', (event) => {
-            event.stopPropagation();
-        });
+        setCustomRangeState();
     }
 })();
 </script>

@@ -60,11 +60,14 @@
 .directory-page .admin-table-card {
     display:flex;
     flex-direction:column;
+    gap:0;
 }
 .directory-page .table-system-head {
-    background:transparent !important;
-    border:0 !important;
-    padding:0 0 .85rem;
+    background:#D0DDC8 !important;
+    border:1px solid #52654E !important;
+    border-bottom:0 !important;
+    border-radius:.35rem .35rem 0 0 !important;
+    padding:.75rem !important;
     order:2;
 }
 .directory-page .admin-table-head-row {
@@ -100,12 +103,16 @@
     gap:.6rem;
     flex-wrap:wrap;
 }
+.directory-page .admin-table-head-actions {
+    width:100%;
+    justify-content:space-between;
+}
 .directory-page .table-system-toolbar {
-    background:#D0DDC8;
-    border:1px solid #B8C7AF;
-    border-radius:.75rem;
+    background:#D0DDC8 !important;
+    border:1px solid #52654E !important;
+    border-radius:.35rem !important;
     padding:.75rem;
-    margin-bottom:.8rem;
+    margin-bottom:.85rem;
     order:1;
 }
 .directory-page .directory-card-view,
@@ -131,13 +138,13 @@
 .directory-page .table-toolbar-sort {
     min-height:2.9rem !important;
     height:2.9rem !important;
-    border-radius:.5rem !important;
-    border:1px solid #AEBFA6 !important;
+    border-radius:.32rem !important;
+    border:1px solid #52654E !important;
     background:#E9F0E4 !important;
     background-color:#E9F0E4 !important;
-    color:#293229 !important;
+    color:#263026 !important;
     font-size:.92rem !important;
-    font-weight:650 !important;
+    font-weight:660 !important;
     box-shadow:none !important;
     cursor:pointer;
     appearance:none !important;
@@ -158,10 +165,7 @@
     flex:0 0 14.75rem;
     min-width:14.75rem;
 }
-.directory-page .table-toolbar-reset-wrap {
-    flex:0 0 auto;
-    margin-left:auto;
-}
+.directory-page .table-toolbar-reset-wrap { display:none !important; }
 .directory-page .table-toolbar-input-wrap,
 .directory-page .table-toolbar-select-wrap,
 .directory-page .table-toolbar-field,
@@ -189,7 +193,7 @@
     right:1rem;
     top:50%;
     transform:translateY(-50%);
-    color:#657563;
+    color:#4F5E4C;
     font-size:.9rem;
 }
 .directory-page .table-toolbar-leading-icon {
@@ -197,7 +201,7 @@
     left:1rem;
     top:50%;
     transform:translateY(-50%);
-    color:#657563;
+    color:#4F5E4C;
     font-size:1rem;
     pointer-events:none;
 }
@@ -206,12 +210,12 @@
 .directory-page .table-toolbar-sort:hover {
     background:#DFE9D9 !important;
     background-color:#DFE9D9 !important;
-    border-color:#8EA083 !important;
+    border-color:#2F3A2E !important;
 }
 .directory-page .table-toolbar-search:focus,
 .directory-page .table-toolbar-select:focus,
 .directory-page .table-toolbar-sort:focus {
-    border-color:#8EA083 !important;
+    border-color:#1F2A20 !important;
     background:#EEF5E9 !important;
     background-color:#EEF5E9 !important;
     box-shadow:none !important;
@@ -276,12 +280,12 @@
     color:#fff !important;
 }
 .directory-page .admin-table-head-actions .btn-primary-custom {
-    min-width:10rem;
-    min-height:2.85rem;
+    min-width:8.25rem;
+    min-height:2.7rem;
     background:#344333 !important;
     border-color:#344333 !important;
     color:#fff !important;
-    font-weight:700;
+    font-weight:650;
 }
 .directory-page .admin-table-head-actions .btn-primary-custom i {
     color:#F7FAF3;
@@ -289,28 +293,37 @@
 .directory-page .admin-table-head-actions > .inline-flex {
     background:#E1E7D9 !important;
     border:1px solid var(--border) !important;
-    border-radius:.75rem !important;
+    border-radius:.65rem !important;
     overflow:hidden;
     box-shadow:none !important;
+    min-height:2.7rem;
 }
 .directory-page .admin-table-head-actions > .inline-flex button {
-    min-height:2.45rem;
-    color:var(--ink-muted);
+    min-height:2.7rem;
+    color:var(--ink);
     cursor:pointer;
+    font-weight:650;
+    background:transparent !important;
 }
 .directory-page .admin-table-head-actions > .inline-flex button:hover {
-    background:#C7D5BE !important;
-    color:var(--ink) !important;
+    background:#8EA083 !important;
+    color:#F7FAF3 !important;
 }
 .directory-page .admin-table-head-actions > .inline-flex .bg-slate-900 {
-    background:var(--accent) !important;
+    background:#344333 !important;
+    color:#fff !important;
+}
+.directory-page .admin-table-head-actions > .inline-flex .bg-slate-900:hover {
+    background:#2F3A2E !important;
     color:#fff !important;
 }
 .directory-page .directory-card-view,
 .directory-page .table-system-list {
-    background:transparent !important;
+    background:#D0DDC8 !important;
+    border:1px solid #93A28C !important;
     border-top:0 !important;
-    padding:0 !important;
+    border-radius:0 0 .55rem .55rem !important;
+    padding:.75rem !important;
     overflow:visible !important;
 }
 .directory-page .directory-card-view > .grid {
@@ -319,15 +332,87 @@
 }
 .directory-page .directory-item-card {
     background:#DCE6D6 !important;
-    border:1px solid var(--border) !important;
-    border-radius:.75rem !important;
+    border:1px solid #52654E !important;
+    border-radius:.35rem !important;
     box-shadow:none !important;
     cursor:pointer;
     overflow:visible;
+    position:relative;
+}
+.directory-page .directory-item-card::before {
+    display:none !important;
 }
 .directory-page .directory-item-card:hover {
     background:#C7D5BE !important;
-    border-color:#8EA083 !important;
+    border-color:#2F3A2E !important;
+}
+.directory-page .directory-user-card-head {
+    background:#C7D5BE;
+    border-bottom:1px solid #6F806B;
+    border-radius:.3rem .3rem 0 0;
+    margin:-1px -1px 0;
+    padding:1rem 1rem .95rem;
+}
+.directory-page .directory-user-card-head h3 {
+    font-size:1rem;
+    line-height:1.25;
+}
+.directory-page .directory-user-role-strip {
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:.45rem;
+    margin-bottom:.55rem;
+}
+.directory-page .directory-user-role-strip span {
+    background:#E9F0E4 !important;
+    border:1px solid #AEBFA6;
+    color:#4D5A4A !important;
+    font-size:.66rem !important;
+    font-weight:650 !important;
+    letter-spacing:.04em !important;
+}
+.directory-page .directory-user-card-actions {
+    opacity:.72;
+    visibility:visible;
+    transform:translateY(0);
+    transition:opacity .16s ease, transform .16s ease;
+}
+.directory-page .directory-item-card:hover .directory-user-card-actions,
+.directory-page .directory-item-card:focus-within .directory-user-card-actions,
+.directory-page .directory-user-card-menu[open] {
+    opacity:1;
+    visibility:visible;
+    transform:translateY(-1px);
+}
+.directory-page .directory-user-card-menu {
+    position:relative;
+    display:inline-flex;
+    justify-content:flex-end;
+}
+.directory-page .directory-user-card-menu summary {
+    list-style:none;
+}
+.directory-page .directory-user-card-menu summary::-webkit-details-marker {
+    display:none;
+}
+.directory-page .directory-user-card-menu[open] {
+    z-index:170;
+}
+.directory-page .directory-user-card-menu[open] .directory-user-card-dropdown {
+    display:block;
+}
+.directory-page .directory-user-card-dropdown {
+    position:absolute;
+    right:0;
+    bottom:calc(100% + .45rem);
+    display:none;
+    min-width:12rem;
+    border:1px solid #93A28C;
+    border-radius:.55rem;
+    background:#E1E7D9;
+    padding:.35rem;
+    z-index:180;
 }
 .directory-page .directory-item-card .border-t {
     border-color:var(--border) !important;
@@ -392,7 +477,7 @@
 }
 .directory-page .table-system-wrap {
     margin:0 !important;
-    border:1px solid var(--border);
+    border:1.25px solid var(--border);
     border-radius:.75rem;
     overflow-x:auto;
     overflow-y:visible;
@@ -472,6 +557,13 @@
                         <span class="hidden sm:inline text-xs">Table</span>
                     </button>
                 </div>
+                <a
+                    href="{{ route('admin.users.create', ['return_to' => request()->fullUrl()]) }}"
+                    class="btn btn-primary-custom btn-sm"
+                >
+                    <i class="bi bi-plus-circle"></i>
+                    <span>Add User</span>
+                </a>
             </div>
         </div>
     </div>
@@ -568,16 +660,6 @@
                 </div>
             </div>
             <div class="table-toolbar-reset-wrap">
-                <span class="table-toolbar-label opacity-0 select-none" aria-hidden="true">Actions</span>
-                <div class="filter-actions">
-                    <a
-                        href="{{ route('admin.users.create', ['return_to' => request()->fullUrl()]) }}"
-                        class="btn btn-primary-custom btn-sm"
-                    >
-                        <i class="bi bi-plus-circle"></i>
-                        <span>Add User</span>
-                    </a>
-                </div>
             </div>
         </form>
     </div>
@@ -617,9 +699,9 @@
                         data-live-search-meta="{{ $user->roleLabel() }} / {{ $user->branch->branch_name ?? 'No branch assigned' }}"
                         data-live-search-text="{{ $user->name }} {{ $user->email }} {{ $user->roleLabel() }} {{ $user->branch->branch_name ?? '' }} {{ $user->position }} {{ $user->contact_number }} {{ $user->is_active ? 'Active' : 'Inactive' }}"
                     >
-                        <div class="p-5 flex items-start justify-between gap-3">
+                        <div class="directory-user-card-head flex items-start justify-between gap-3">
                             <div class="flex-1 min-w-0">
-                                <div class="flex flex-wrap items-center gap-1.5 mb-2">
+                                <div class="directory-user-role-strip">
                                     <span class="inline-flex items-center rounded-lg bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5">
                                         {{ $user->roleLabel() }}
                                     </span>
@@ -631,13 +713,6 @@
                                 </div>
                                 <h3 class="font-bold text-slate-900 text-[15px] leading-snug truncate">{{ $user->name }}</h3>
                                 <p class="text-xs text-slate-500 mt-0.5 truncate">{{ $user->email }}</p>
-                            </div>
-                            <div class="flex-shrink-0">
-                                @if($user->is_active)
-                                    <span class="status-badge status-badge-success">Active</span>
-                                @else
-                                    <span class="status-badge status-badge-danger">Inactive</span>
-                                @endif
                             </div>
                         </div>
 
@@ -656,23 +731,16 @@
                             </div>
                         </div>
 
-                        <div class="px-5 py-3 border-t border-slate-100 flex items-center justify-between gap-2 mt-auto">
-                            <span class="text-[11px] text-slate-400">
-                                <i class="bi bi-clock text-[10px] mr-0.5"></i>
-                                {{ $user->updated_at?->diffForHumans() ?? '-' }}
-                            </span>
-                            <div class="row-action-menu" data-row-menu>
-                                <button
-                                    type="button"
+                        <div class="directory-user-card-actions px-5 py-3 border-t border-slate-100 flex items-center justify-end gap-2 mt-auto">
+                            <details class="directory-user-card-menu" data-row-menu>
+                                <summary
                                     class="row-action-trigger"
-                                    data-row-menu-trigger
                                     aria-haspopup="menu"
-                                    aria-expanded="false"
-                                    aria-label="Open row actions"
+                                    aria-label="Open user actions"
                                 >
                                     <i class="bi bi-three-dots-vertical"></i>
-                                </button>
-                                <div class="row-action-dropdown" role="menu">
+                                </summary>
+                                <div class="directory-user-card-dropdown" role="menu">
                                     <a
                                         class="row-action-item"
                                         data-row-menu-item
@@ -690,7 +758,7 @@
                                         </button>
                                     </form>
                                 </div>
-                            </div>
+                            </details>
                         </div>
                     </div>
                 @endforeach
@@ -812,6 +880,14 @@ function userCatalog() {
         },
     };  
 }
+
+document.addEventListener('click', (event) => {
+    document.querySelectorAll('.directory-user-card-menu[open]').forEach((menu) => {
+        if (!menu.contains(event.target)) {
+            menu.removeAttribute('open');
+        }
+    });
+});
 
 </script>
 @endsection

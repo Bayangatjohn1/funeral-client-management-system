@@ -199,23 +199,19 @@
         .master-records-page .admin-table-toolbar .case-compact-filter {
             display:flex !important;
             flex-wrap:wrap;
-            align-items:stretch;
-            gap:.7rem;
-        }
-
-        .master-records-page .admin-table-toolbar .case-compact-search-row {
-            display:flex !important;
-            order:1 !important;
-            width:100% !important;
             align-items:center;
             gap:.7rem;
         }
 
+        .master-records-page .admin-table-toolbar .case-compact-search-row {
+            display:contents !important;
+        }
+
         .master-records-page .admin-table-toolbar .case-compact-search-field {
-            order:initial !important;
+            order:1 !important;
             flex:1 1 320px !important;
             display:block !important;
-            width:100% !important;
+            width:auto !important;
             min-width:0 !important;
             max-width:none !important;
             height:auto !important;
@@ -234,7 +230,7 @@
             justify-content:flex-start;
             flex-wrap:wrap;
             gap:.6rem;
-            width:100% !important;
+            width:auto !important;
             min-width:0 !important;
             background:transparent !important;
             border:0 !important;
@@ -243,7 +239,7 @@
         }
 
         .master-records-page .admin-table-toolbar .case-compact-actions {
-            order:initial !important;
+            order:3 !important;
             display:flex !important;
             align-items:center;
             justify-content:flex-end;
@@ -255,12 +251,39 @@
 
         .master-records-page .admin-table-toolbar .case-compact-advanced {
             order:3 !important;
+            position:fixed !important;
+            inset:0 !important;
+            z-index:1200 !important;
+            display:flex !important;
+            justify-content:flex-end !important;
             width:100% !important;
             flex:none !important;
-            background:var(--records-card-alt) !important;
-            border:1px solid var(--records-border) !important;
-            border-radius:8px !important;
-            padding:.75rem !important;
+            background:transparent !important;
+            border:0 !important;
+            border-radius:0 !important;
+            padding:0 !important;
+            overflow:visible;
+        }
+
+        .master-records-page .admin-table-toolbar .case-compact-advanced[hidden] {
+            display:none !important;
+        }
+
+        .master-records-page .case-compact-advanced-grid {
+            display:grid;
+            grid-template-columns:1fr;
+            gap:.7rem;
+            align-items:end;
+        }
+
+        .master-records-page .case-compact-advanced-actions {
+            display:flex;
+            justify-content:flex-end;
+            gap:.55rem;
+            margin:.1rem -.85rem -.85rem;
+            padding:.75rem .85rem;
+            border-top:1px solid var(--records-border);
+            background:var(--records-card);
         }
 
         .master-records-page .case-compact-search-field {
@@ -272,16 +295,8 @@
         }
 
         .master-records-page .case-compact-search-field::before {
-            content:"\F52A";
-            font-family:"bootstrap-icons";
-            position:absolute;
-            left:1rem;
-            top:50%;
-            transform:translateY(-50%);
-            color:var(--records-muted);
-            font-size:.95rem;
-            pointer-events:none;
-            z-index:1;
+            display:none !important;
+            content:none !important;
         }
 
         .master-records-page .case-compact-search-field .case-compact-input {
@@ -536,6 +551,15 @@
             .master-records-page .case-records-master-chip-row,
             .master-records-page .case-compact-inline-chips {
                 justify-content:flex-start;
+            }
+
+            .master-records-page .case-compact-advanced-grid {
+                grid-template-columns:1fr;
+            }
+
+            .master-records-page .case-compact-advanced-actions {
+                flex-direction:column;
+                align-items:stretch;
             }
         }
 
@@ -1067,6 +1091,7 @@
 
             const form = select.closest('[data-case-filter]');
             if (!form) return;
+            if (form.dataset.caseFilterReady === '1') return;
 
             if (select.value === 'CUSTOM') {
                 setCompactCustomOpen(form, true);

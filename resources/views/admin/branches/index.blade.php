@@ -58,11 +58,14 @@
 .branch-management-page .admin-table-card {
     display:flex;
     flex-direction:column;
+    gap:0;
 }
 .branch-management-page .table-system-head {
-    background:transparent !important;
-    border:0 !important;
-    padding:0 0 .85rem;
+    background:#D0DDC8 !important;
+    border:1px solid #6F806B !important;
+    border-bottom:0 !important;
+    border-radius:.45rem .45rem 0 0 !important;
+    padding:.75rem !important;
     order:2;
 }
 .branch-management-page .admin-table-head-row {
@@ -98,12 +101,16 @@
     gap:.6rem;
     flex-wrap:wrap;
 }
+.branch-management-page .admin-table-head-actions {
+    width:100%;
+    justify-content:space-between;
+}
 .branch-management-page .table-system-toolbar {
-    background:#D0DDC8;
-    border:1px solid #B8C7AF;
-    border-radius:.75rem;
+    background:#D0DDC8 !important;
+    border:1px solid #6F806B !important;
+    border-radius:.45rem !important;
     padding:.75rem;
-    margin-bottom:.8rem;
+    margin-bottom:.85rem;
     order:1;
 }
 .branch-management-page .branch-directory-card-view,
@@ -128,13 +135,13 @@
 .branch-management-page .table-toolbar-sort {
     min-height:2.9rem !important;
     height:2.9rem !important;
-    border-radius:.5rem !important;
-    border:1px solid #AEBFA6 !important;
+    border-radius:.38rem !important;
+    border:1px solid #6F806B !important;
     background:#E9F0E4 !important;
     background-color:#E9F0E4 !important;
-    color:#293229 !important;
+    color:#263026 !important;
     font-size:.92rem !important;
-    font-weight:650 !important;
+    font-weight:660 !important;
     box-shadow:none !important;
     cursor:pointer;
     appearance:none !important;
@@ -155,10 +162,7 @@
     flex:0 0 15.5rem;
     min-width:15.5rem;
 }
-.branch-management-page .table-toolbar-reset-wrap {
-    flex:0 0 auto;
-    margin-left:auto;
-}
+.branch-management-page .table-toolbar-reset-wrap { display:none !important; }
 .branch-management-page .table-toolbar-input-wrap,
 .branch-management-page .table-toolbar-select-wrap,
 .branch-management-page .table-toolbar-field,
@@ -186,7 +190,7 @@
     right:1rem;
     top:50%;
     transform:translateY(-50%);
-    color:#657563;
+    color:#4F5E4C;
     font-size:.9rem;
 }
 .branch-management-page .table-toolbar-leading-icon {
@@ -194,7 +198,7 @@
     left:1rem;
     top:50%;
     transform:translateY(-50%);
-    color:#657563;
+    color:#4F5E4C;
     font-size:1rem;
     pointer-events:none;
 }
@@ -203,12 +207,12 @@
 .branch-management-page .table-toolbar-sort:hover {
     background:#DFE9D9 !important;
     background-color:#DFE9D9 !important;
-    border-color:#8EA083 !important;
+    border-color:#52654E !important;
 }
 .branch-management-page .table-toolbar-search:focus,
 .branch-management-page .table-toolbar-select:focus,
 .branch-management-page .table-toolbar-sort:focus {
-    border-color:#8EA083 !important;
+    border-color:#344333 !important;
     background:#EEF5E9 !important;
     background-color:#EEF5E9 !important;
     box-shadow:none !important;
@@ -217,7 +221,7 @@
 .branch-management-page .btn-primary-custom {
     min-height:2.9rem;
     height:2.9rem;
-    border-radius:.5rem;
+    border-radius:.4rem;
     padding:0 .95rem;
     font-size:.84rem;
     font-weight:650;
@@ -260,12 +264,12 @@
     color:#fff !important;
 }
 .branch-management-page .admin-table-head-actions .btn-primary-custom {
-    min-width:10rem;
-    min-height:2.85rem;
+    min-width:8.75rem;
+    min-height:2.7rem;
     background:#344333 !important;
     border-color:#344333 !important;
     color:#fff !important;
-    font-weight:700;
+    font-weight:650;
 }
 .branch-management-page .admin-table-head-actions .btn-primary-custom i {
     color:#F7FAF3;
@@ -273,27 +277,40 @@
 .branch-management-page .admin-table-head-actions > .inline-flex {
     background:#E1E7D9 !important;
     border:1px solid var(--border) !important;
-    border-radius:.75rem !important;
+    border-radius:.65rem !important;
     overflow:hidden;
     box-shadow:none !important;
+    min-height:2.7rem;
 }
 .branch-management-page .admin-table-head-actions > .inline-flex button {
-    min-height:2.45rem;
-    color:var(--ink-muted);
+    min-height:2.7rem;
+    color:var(--ink);
+    font-weight:650;
+    background:transparent !important;
     cursor:pointer;
 }
 .branch-management-page .admin-table-head-actions > .inline-flex button:hover {
-    background:#C7D5BE !important;
-    color:var(--ink) !important;
+    background:#8EA083 !important;
+    color:#F7FAF3 !important;
 }
 .branch-management-page .admin-table-head-actions > .inline-flex .bg-slate-900 {
-    background:var(--accent) !important;
+    background:#344333 !important;
+    color:#fff !important;
+}
+.branch-management-page .admin-table-head-actions > .inline-flex .bg-slate-900:hover {
+    background:#2F3A2E !important;
     color:#fff !important;
 }
 .branch-kpi-strip {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 0.75rem;
+    gap: 0.65rem;
+    background:#D0DDC8;
+    border:1px solid #6F806B;
+    border-radius:.45rem;
+    padding:.55rem;
+    margin-top:0;
+    margin-bottom:-.35rem;
 }
 @media (max-width: 1024px) {
     .branch-kpi-strip { grid-template-columns: repeat(2, 1fr); }
@@ -304,8 +321,8 @@
 .branch-kpi-card {
     display: block;
     background: #DCE6D6;
-    border: 1px solid var(--border);
-    border-radius: .75rem;
+    border: 1px solid #6F806B;
+    border-radius: .38rem;
     text-decoration: none;
     cursor: pointer;
     transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
@@ -313,24 +330,24 @@
 }
 .branch-kpi-card:hover {
     background: #C7D5BE;
-    border-color: #8EA083;
+    border-color: #52654E;
 }
 .branch-kpi-card__inner {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 0.7rem 1rem;
+    padding: 0.58rem 0.9rem;
 }
 .branch-kpi-card__icon {
     width: 2rem;
     height: 2rem;
-    border-radius: 7px;
+    border-radius: 6px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     font-size: 0.82rem;
     flex-shrink: 0;
-    color: #3E4A3D;
+    color: #2F3A2E;
 }
 .branch-kpi-card__body {
     flex: 1;
@@ -341,8 +358,8 @@
 }
 .branch-kpi-card__label {
     font-size: 0.65rem;
-    font-weight: 650;
-    color: var(--ink-muted);
+    font-weight: 640;
+    color: #465344;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     white-space: nowrap;
@@ -350,15 +367,15 @@
 }
 .branch-kpi-card__value {
     font-size: 1.15rem;
-    font-weight: 750;
+    font-weight: 730;
     line-height: 1.15;
-    color: var(--ink);
+    color: #263026;
     font-variant-numeric: tabular-nums;
 }
 .branch-kpi-card__desc {
     font-size: 0.63rem;
-    color: var(--ink-muted);
-    font-weight: 600;
+    color: #4F5E4C;
+    font-weight: 610;
     line-height: 1.3;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -381,9 +398,11 @@
 }
 .branch-management-page .branch-directory-card-view,
 .branch-management-page .table-system-list {
-    background:transparent !important;
+    background:#D0DDC8 !important;
+    border:1px solid #93A28C !important;
     border-top:0 !important;
-    padding:0 !important;
+    border-radius:0 0 .55rem .55rem !important;
+    padding:.75rem !important;
     overflow:visible !important;
 }
 .branch-management-page .branch-directory-card-view > .grid {
@@ -392,14 +411,145 @@
 }
 .branch-management-page .directory-item-card {
     background:#DCE6D6 !important;
-    border:1px solid var(--border) !important;
-    border-radius:.75rem !important;
+    border:1px solid #7F917A !important;
+    border-radius:.45rem !important;
     box-shadow:none !important;
     overflow:visible;
+    min-height:13.25rem;
 }
 .branch-management-page .directory-item-card:hover {
     background:#C7D5BE !important;
-    border-color:#8EA083 !important;
+    border-color:#52654E !important;
+}
+.branch-management-page .directory-item-card:hover .branch-card-identity {
+    background:#BFD0B6;
+}
+.branch-management-page .directory-item-card:hover .branch-card-metric,
+.branch-management-page .directory-item-card:hover .branch-card-footer {
+    background:#C7D5BE;
+}
+.branch-management-page .branch-card-identity {
+    background:#C7D5BE;
+    border-bottom:1px solid #8EA083;
+    border-radius:.4rem .4rem 0 0;
+    text-align:center;
+}
+.branch-management-page .branch-code-pill {
+    display:block;
+    width:100%;
+    color:#4B5949 !important;
+    font-size:.72rem;
+    font-weight:680;
+    letter-spacing:.075em;
+    line-height:1.2;
+    text-transform:uppercase;
+}
+.branch-management-page .branch-main-pill,
+.branch-management-page .branch-highlight-pill {
+    display:inline-flex;
+    align-items:center;
+    gap:.22rem;
+    color:#684B1C !important;
+    font-size:.68rem;
+    font-weight:660;
+    letter-spacing:.04em;
+    line-height:1;
+}
+.branch-management-page .branch-card-name {
+    color:#293229 !important;
+    font-size:1rem;
+    font-weight:680;
+    line-height:1.25;
+    margin-top:.7rem;
+}
+.branch-management-page .branch-card-address {
+    color:#5E695C !important;
+    font-size:.8rem;
+    font-weight:590;
+    line-height:1.35;
+    justify-content:center;
+    margin-top:.35rem;
+}
+.branch-management-page .branch-card-metric {
+    background:#DCE6D6;
+    text-align:center;
+}
+.branch-management-page .branch-card-metric-label {
+    color:#5E695C !important;
+    font-size:.68rem;
+    font-weight:640;
+    letter-spacing:.055em;
+    text-transform:uppercase;
+}
+.branch-management-page .branch-card-metric-value {
+    color:#293229 !important;
+    font-size:1.9rem;
+    font-weight:720;
+    letter-spacing:0;
+    line-height:1;
+}
+.branch-management-page .table-toolbar-select option,
+.branch-management-page .table-toolbar-sort option {
+    background:#E9F0E4;
+    color:#263026;
+    font-weight:620;
+}
+.branch-management-page .table-toolbar-select option:checked,
+.branch-management-page .table-toolbar-sort option:checked {
+    background:#C7D5BE;
+    color:#263026;
+}
+.branch-management-page .branch-card-footer {
+    min-height:3.65rem;
+    background:#DCE6D6;
+    border-radius:0 0 .4rem .4rem;
+}
+.branch-management-page .branch-card-actions {
+    opacity:.72;
+    visibility:visible;
+    transform:translateY(0);
+    transition:opacity .16s ease, transform .16s ease;
+}
+.branch-management-page .directory-item-card:hover .branch-card-actions,
+.branch-management-page .directory-item-card:focus-within .branch-card-actions,
+.branch-management-page .directory-item-card:has(.row-action-menu.is-open) .branch-card-actions,
+.branch-management-page .branch-card-actions.is-open {
+    opacity:1;
+    visibility:visible;
+    transform:translateY(-1px);
+}
+.branch-management-page .branch-card-actions.is-open {
+    z-index:160;
+}
+.branch-management-page .branch-card-menu {
+    position:relative;
+    display:inline-flex;
+    justify-content:flex-end;
+}
+.branch-management-page .branch-card-menu summary {
+    list-style:none;
+}
+.branch-management-page .branch-card-menu summary::-webkit-details-marker {
+    display:none;
+}
+.branch-management-page .branch-card-menu[open] {
+    opacity:1;
+    z-index:170;
+}
+.branch-management-page .branch-card-menu[open] .branch-card-dropdown {
+    display:block;
+}
+.branch-management-page .branch-card-dropdown {
+    position:absolute;
+    right:0;
+    bottom:calc(100% + .45rem);
+    display:none;
+    min-width:12rem;
+    border:1px solid #93A28C;
+    border-radius:.55rem;
+    background:#E1E7D9;
+    padding:.35rem;
+    z-index:180;
 }
 .branch-management-page .directory-item-card .border-t {
     border-color:var(--border) !important;
@@ -464,7 +614,7 @@
 }
 .branch-management-page .table-system-wrap {
     margin:0 !important;
-    border:1px solid var(--border);
+    border:1.25px solid var(--border);
     border-radius:.75rem;
     overflow:auto;
 }
@@ -631,8 +781,8 @@
 }
 </style>
 <div class="admin-table-page directory-page admin-catalog-page branch-management-page" x-data="branchCatalog()">
-<div class="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-8 py-6">
-<div class="space-y-6">
+<div class="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-8 py-4">
+<div class="space-y-4">
 
 @if(session('success'))
     <div class="flash-success">{{ session('success') }}</div>
@@ -705,6 +855,14 @@
                     </button>
                 </div>
 
+                <button
+                    id="openBranchCreateModal"
+                    type="button"
+                    class="btn btn-primary-custom btn-sm"
+                >
+                    <i class="bi bi-plus-circle"></i>
+                    <span>Add Branch</span>
+                </button>
             </div>
         </div>
     </div>
@@ -773,17 +931,6 @@
                 </div>
             </div>
             <div class="table-toolbar-reset-wrap">
-                <span class="table-toolbar-label opacity-0 select-none" aria-hidden="true">Actions</span>
-                <div class="filter-actions">
-                    <button
-                        id="openBranchCreateModal"
-                        type="button"
-                        class="btn btn-primary-custom btn-sm"
-                    >
-                        <i class="bi bi-plus-circle"></i>
-                        <span>Add Branch</span>
-                    </button>
-                </div>
             </div>
         </form>
     </div>
@@ -839,63 +986,49 @@
                     aria-label="View master case records for {{ $branch->branch_name }}"
                 >
 
-                    {{-- Card header: code badge + name + status --}}
-                    <div class="p-5 flex items-start justify-between gap-3">
-                        <div class="flex-1 min-w-0">
-                            <div class="flex flex-wrap items-center gap-1.5 mb-2">
-                                <span class="inline-flex items-center rounded-lg bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5">
+                    {{-- Card header: code badge + name --}}
+                    <div class="branch-card-identity p-5">
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center justify-center gap-2">
+                                <span class="branch-code-pill">
                                     {{ $branch->branch_code }}
                                 </span>
                                 @if($branch->isMain())
-                                    <span class="inline-flex items-center rounded-lg bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5">
-                                        <i class="bi bi-star-fill text-[8px] mr-1"></i>Main
+                                    <span class="branch-main-pill">
+                                        <i class="bi bi-star-fill text-[8px]"></i>Main
                                     </span>
                                 @endif
                                 @if($isHighlightedBranch)
-                                    <span class="inline-flex items-center rounded-lg bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5">
+                                    <span class="branch-highlight-pill">
                                         Highlighted
                                     </span>
                                 @endif
                             </div>
-                            <h3 class="font-bold text-slate-900 text-[15px] leading-snug">{{ $branch->branch_name }}</h3>
-                            <p class="text-xs text-slate-500 mt-0.5 flex items-start gap-1">
+                            <h3 class="branch-card-name">{{ $branch->branch_name }}</h3>
+                            <p class="branch-card-address flex items-start gap-1">
                                 <i class="bi bi-geo-alt-fill text-[10px] mt-0.5 flex-shrink-0"></i>
                                 <span class="truncate">{{ $branch->address ?: '—' }}</span>
                             </p>
                         </div>
-                        <div class="flex-shrink-0">
-                            @if($branch->is_active)
-                                <span class="status-badge status-badge-success">Active</span>
-                            @else
-                                <span class="status-badge status-badge-danger">Inactive</span>
-                            @endif
-                        </div>
                     </div>
 
                     {{-- Records count --}}
-                    <div class="px-5 pb-4 pt-4 border-t border-slate-100">
-                        <p class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Total Records</p>
-                        <p class="text-2xl font-bold text-slate-900 leading-none mt-0.5">{{ number_format($branch->funeral_cases_count) }}</p>
+                    <div class="branch-card-metric px-5 py-4 border-t border-slate-100">
+                        <p class="branch-card-metric-label">Total Records</p>
+                        <p class="branch-card-metric-value mt-1">{{ number_format($branch->funeral_cases_count) }}</p>
                     </div>
 
                     {{-- Card footer --}}
-                    <div class="px-5 py-3 border-t border-slate-100 flex items-center justify-between gap-2 mt-auto">
-                        <span class="text-[11px] text-slate-400">
-                            <i class="bi bi-clock text-[10px] mr-0.5"></i>
-                            {{ $branch->updated_at?->diffForHumans() ?? '—' }}
-                        </span>
-                        <div class="row-action-menu" data-row-menu>
-                            <button
-                                type="button"
+                    <div class="branch-card-footer px-5 py-3 border-t border-slate-100 flex items-center justify-end gap-2 mt-auto">
+                        <details class="branch-card-menu branch-card-actions" data-row-menu>
+                            <summary
                                 class="row-action-trigger"
-                                data-row-menu-trigger
                                 aria-haspopup="menu"
-                                aria-expanded="false"
-                                aria-label="Open row actions"
+                                aria-label="Open branch actions"
                             >
                                 <i class="bi bi-three-dots-vertical"></i>
-                            </button>
-                            <div class="row-action-dropdown" role="menu">
+                            </summary>
+                            <div class="branch-card-dropdown" role="menu">
                                 <button
                                     type="button"
                                     class="row-action-item open-branch-modal"
@@ -914,7 +1047,7 @@
                                     </button>
                                 </form>
                             </div>
-                        </div>
+                        </details>
                     </div>
                 </div>
                 @endforeach
@@ -1344,6 +1477,14 @@ function branchCatalog() {
     if (createCloseBtn)  createCloseBtn.addEventListener('click',  () => hideModal(createOverlay, createSheet));
     if (createCancelBtn) createCancelBtn.addEventListener('click', () => hideModal(createOverlay, createSheet));
     if (createOverlay)   createOverlay.addEventListener('click',   (e) => { if (e.target === createOverlay) hideModal(createOverlay, createSheet); });
+
+    document.addEventListener('click', (event) => {
+        document.querySelectorAll('.branch-card-menu[open]').forEach((menu) => {
+            if (!menu.contains(event.target)) {
+                menu.removeAttribute('open');
+            }
+        });
+    });
 
     editLinks.forEach((link) => {
         link.addEventListener('click', (e) => {

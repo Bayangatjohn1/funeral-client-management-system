@@ -241,7 +241,7 @@ class PaymentController extends Controller
             'q' => ['nullable', 'string', 'max:100', "regex:/^[A-Za-z0-9\\s.'-]+$/"],
             'paid_from' => ['nullable', 'date'],
             'paid_to' => ['nullable', 'date', 'after_or_equal:paid_from'],
-            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
+            'branch_id' => ['nullable', Rule::in(array_merge(['all'], array_map('strval', $viewBranchScopeIds)))],
             'payment_status' => ['nullable', 'in:PAID,PARTIAL,UNPAID'],
             'case_status' => ['nullable', 'in:DRAFT,ACTIVE,COMPLETED'],
             'payment_method' => ['nullable', 'in:cash,cashless,bank_transfer'],
@@ -252,9 +252,19 @@ class PaymentController extends Controller
             'q.regex' => 'Search may contain letters, numbers, spaces, apostrophes, periods, and hyphens only.',
         ]);
 
-        $branchScopeIds = $this->selectedPaymentBranchIds($viewBranchScopeIds, $validated['branch_id'] ?? null);
+        $requestedBranchId = $validated['branch_id'] ?? null;
+        $defaultBranchId = (
+            !$request->has('branch_id')
+            && $user?->isMainBranchAdmin()
+            && $user->branch_id
+            && in_array((int) $user->branch_id, $viewBranchScopeIds, true)
+        ) ? (int) $user->branch_id : null;
+        $effectiveBranchId = $requestedBranchId === 'all' ? null : ($requestedBranchId ?? $defaultBranchId);
+        $branchScopeIds = $this->selectedPaymentBranchIds($viewBranchScopeIds, $effectiveBranchId);
         $mainBranchId = $branchScopeIds[0] ?? null;
-        $selectedBranchId = count($branchScopeIds) === 1 ? $branchScopeIds[0] : ($validated['branch_id'] ?? null);
+        $selectedBranchId = $requestedBranchId === 'all'
+            ? 'all'
+            : (count($branchScopeIds) === 1 ? $branchScopeIds[0] : $effectiveBranchId);
         $branches = Branch::query()
             ->whereIn('id', $viewBranchScopeIds)
             ->orderBy('branch_code')
@@ -536,6 +546,7 @@ class PaymentController extends Controller
             'sort' => $sort,
             'activeTab' => $activeTab,
             'mainBranchId' => $mainBranchId,
+            'defaultPaymentBranchId' => $defaultBranchId,
             'branches' => $branches,
             'assignedBranch' => $assignedBranch,
             'selectedBranchId' => $selectedBranchId,

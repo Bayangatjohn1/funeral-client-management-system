@@ -13,11 +13,28 @@
     $isMainAdmin = $user?->isMainBranchAdmin();
     $isOwner = $user?->isOwner();
     $activeTab = 'summary';
+    $defaultPaymentBranchId = $defaultPaymentBranchId ?? null;
     $monitoringRoute = request()->routeIs('admin.payments.index') || request()->routeIs('admin.payment-monitoring')
         ? 'admin.payments.index'
         : 'payments.history';
     $paymentStatus = $paymentStatus ?? $statusAfterPayment ?? null;
     $dateRange = request('date_preset') ?: ((request()->filled('paid_from') || request()->filled('paid_to')) ? 'custom' : 'all');
+    $branchFilterIsActive = !$isStaff
+        && request()->has('branch_id')
+        && filled(request('branch_id'))
+        && (
+            $defaultPaymentBranchId
+                ? (string) request('branch_id') !== (string) $defaultPaymentBranchId
+                : request('branch_id') !== 'all'
+        );
+    $hasPaymentFilters = filled($q ?? null)
+        || filled($paymentStatus)
+        || filled($caseStatus ?? null)
+        || filled($paymentMethod ?? null)
+        || ($dateRange !== 'all' && $dateRange !== 'any')
+        || filled($paidFrom ?? null)
+        || filled($paidTo ?? null)
+        || $branchFilterIsActive;
     $emptyMessage = $isBranchAdmin
         ? 'No payment records found for your assigned branch.'
         : 'No payment records found for the selected filters.';
@@ -86,6 +103,8 @@
     .pm-kpi.is-link:hover .pm-kpi-action { opacity:1; }
 
     .pm-toolbar-shell { background:#D3DEC9; border:1px solid var(--border); border-radius:.75rem; padding:.7rem; margin-bottom:1rem; overflow:visible; box-shadow:none; }
+    .pm-page.is-loading .pm-kpis,
+    .pm-page.is-loading .pm-panel { opacity:.62; pointer-events:none; transition:opacity .16s ease; }
     .pm-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:.55rem; }
     .pm-field { flex:1 1 8rem; min-width:0; }
     .pm-field.branch { flex:1.5 1 11rem; }
@@ -104,6 +123,31 @@
     .pm-control:hover { background:#C7D5BE; border-color:#8EA083; }
     .pm-control:focus { outline:none; box-shadow:none; border-color:var(--accent); background:#FBFCF7; }
     .pm-control:disabled { background:var(--surface-muted); color:var(--ink-muted); opacity:1; }
+    .pm-search-clear {
+        position:absolute; right:.68rem; top:50%; transform:translateY(-50%);
+        width:1.65rem; height:1.65rem; border:0; border-radius:999px;
+        display:inline-flex; align-items:center; justify-content:center;
+        background:transparent; color:var(--ink-muted); cursor:pointer;
+        transition:background-color .16s ease, color .16s ease;
+    }
+    .pm-search-clear:hover { background:#C7D5BE; color:var(--ink); }
+    .pm-field.search .pm-control { padding-right:2.45rem; cursor:text; }
+    .pm-search-suggestions {
+        position:absolute; left:0; right:0; top:calc(100% + .35rem); z-index:40;
+        background:#E1E7D9; border:1px solid var(--border); border-radius:.75rem;
+        padding:.35rem; display:grid; gap:.25rem; max-height:16rem; overflow:auto;
+    }
+    .pm-search-suggestions[hidden] { display:none !important; }
+    .pm-search-option {
+        width:100%; border:0; border-radius:.55rem; background:transparent;
+        color:var(--ink); display:grid; gap:.08rem; text-align:left;
+        padding:.55rem .65rem; cursor:pointer;
+        transition:background-color .16s ease, color .16s ease;
+    }
+    .pm-search-option:hover,
+    .pm-search-option:focus-visible { outline:none; background:#C7D5BE; }
+    .pm-search-title { font-size:.83rem; font-weight:700; }
+    .pm-search-meta { font-size:.72rem; color:var(--ink-muted); font-weight:600; }
     .pm-readonly-control {
         display:flex; align-items:center; min-height:2.75rem; height:2.75rem;
         background:var(--surface-muted); color:var(--ink-muted); cursor:default;
@@ -333,7 +377,7 @@
     }
 </style>
 
-<div class="pm-page">
+<div class="pm-page ops-page payment-monitoring-page">
     @if(session('success'))
         <div class="flash-success">{{ session('success') }}</div>
     @endif
@@ -342,82 +386,97 @@
         <div class="flash-error">{{ $errors->first() }}</div>
     @endif
 
+    <header class="ops-page-header" aria-labelledby="paymentMonitoringTitle">
+        <div class="ops-page-header__copy">
+            <div class="ops-page-kicker">
+                <i class="bi bi-clock-history" aria-hidden="true"></i>
+                <span>Payment Operations</span>
+            </div>
+            <h1 id="paymentMonitoringTitle" class="ops-page-title">Payment Monitoring</h1>
+            <p class="ops-page-desc">Review payment progress, transaction history, branch scope, and outstanding balances.</p>
+        </div>
+    </header>
+
     @if(!$isStaff)
-    <div class="pm-kpis">
+    <div class="pm-kpis ops-stat-grid">
         {{-- Total Cases With Payments — links to Case Payment Summary tab --}}
-        <div class="pm-kpi">
-            <div class="pm-kpi-inner">
-                <span class="pm-kpi-icon"><i class="bi bi-folder-check"></i></span>
-                <div class="pm-kpi-body">
-                    <span class="pm-kpi-label">Cases with Payments</span>
-                    <strong class="pm-kpi-value">{{ number_format($totalCasesWithPayments ?? 0) }}</strong>
-                    <span class="pm-kpi-desc">Cases with at least one payment</span>
+        <div class="pm-kpi ops-stat-card">
+            <div class="pm-kpi-inner ops-stat-card__inner">
+                <span class="pm-kpi-icon ops-stat-card__icon"><i class="bi bi-folder-check" aria-hidden="true"></i></span>
+                <div class="pm-kpi-body ops-stat-card__body">
+                    <span class="pm-kpi-label ops-stat-card__label">Cases with Payments</span>
+                    <strong class="pm-kpi-value ops-stat-card__value">{{ number_format($totalCasesWithPayments ?? 0) }}</strong>
+                    <span class="pm-kpi-desc ops-stat-card__desc">Cases with at least one payment</span>
                 </div>
             </div>
         </div>
         {{-- Total Payment Transactions — links to Transaction History tab --}}
-        <div class="pm-kpi">
-            <div class="pm-kpi-inner">
-                <span class="pm-kpi-icon"><i class="bi bi-receipt"></i></span>
-                <div class="pm-kpi-body">
-                    <span class="pm-kpi-label">Payment Transactions</span>
-                    <strong class="pm-kpi-value">{{ number_format($paymentRecordsCount ?? 0) }}</strong>
-                    <span class="pm-kpi-desc">All recorded payment entries</span>
+        <div class="pm-kpi ops-stat-card">
+            <div class="pm-kpi-inner ops-stat-card__inner">
+                <span class="pm-kpi-icon ops-stat-card__icon"><i class="bi bi-receipt" aria-hidden="true"></i></span>
+                <div class="pm-kpi-body ops-stat-card__body">
+                    <span class="pm-kpi-label ops-stat-card__label">Payment Transactions</span>
+                    <strong class="pm-kpi-value ops-stat-card__value">{{ number_format($paymentRecordsCount ?? 0) }}</strong>
+                    <span class="pm-kpi-desc ops-stat-card__desc">All recorded payment entries</span>
                 </div>
             </div>
         </div>
         {{-- Total Collected — links to Transaction History tab --}}
-        <div class="pm-kpi">
-            <div class="pm-kpi-inner">
-                <span class="pm-kpi-icon" style="color:#6F8A6D;"><i class="bi bi-cash-stack"></i></span>
-                <div class="pm-kpi-body">
-                    <span class="pm-kpi-label">Total Collected</span>
-                    <strong class="pm-kpi-value good">&#8369;{{ number_format((float) ($totalCollected ?? 0), 2) }}</strong>
-                    <span class="pm-kpi-desc">Actual money received</span>
+        <div class="pm-kpi ops-stat-card">
+            <div class="pm-kpi-inner ops-stat-card__inner">
+                <span class="pm-kpi-icon ops-stat-card__icon" style="color:#6F8A6D;"><i class="bi bi-cash-stack" aria-hidden="true"></i></span>
+                <div class="pm-kpi-body ops-stat-card__body">
+                    <span class="pm-kpi-label ops-stat-card__label">Total Collected</span>
+                    <strong class="pm-kpi-value ops-stat-card__value good">&#8369;{{ number_format((float) ($totalCollected ?? 0), 2) }}</strong>
+                    <span class="pm-kpi-desc ops-stat-card__desc">Actual money received</span>
                 </div>
             </div>
         </div>
         {{-- Outstanding Balance — non-clickable; no combined UNPAID+PARTIAL filter exists --}}
-        <div class="pm-kpi">
-            <div class="pm-kpi-inner">
-                <span class="pm-kpi-icon" style="color:#B87956;"><i class="bi bi-exclamation-circle"></i></span>
-                <div class="pm-kpi-body">
-                    <span class="pm-kpi-label">Outstanding Balance</span>
-                    <strong class="pm-kpi-value warn">&#8369;{{ number_format((float) ($totalOutstanding ?? 0), 2) }}</strong>
-                    <span class="pm-kpi-desc">Remaining unpaid balance</span>
+        <div class="pm-kpi ops-stat-card">
+            <div class="pm-kpi-inner ops-stat-card__inner">
+                <span class="pm-kpi-icon ops-stat-card__icon" style="color:#B87956;"><i class="bi bi-exclamation-circle" aria-hidden="true"></i></span>
+                <div class="pm-kpi-body ops-stat-card__body">
+                    <span class="pm-kpi-label ops-stat-card__label">Outstanding Balance</span>
+                    <strong class="pm-kpi-value ops-stat-card__value warn">&#8369;{{ number_format((float) ($totalOutstanding ?? 0), 2) }}</strong>
+                    <span class="pm-kpi-desc ops-stat-card__desc">Remaining unpaid balance</span>
                 </div>
             </div>
         </div>
     </div>
     @endif
 
-    <div class="pm-toolbar-shell">
-        <form id="pmFilterForm" method="GET" action="{{ route($monitoringRoute) }}" class="pm-toolbar">
+    <div class="pm-toolbar-shell ops-toolbar-shell">
+        <form id="pmFilterForm" method="GET" action="{{ route($monitoringRoute) }}" class="pm-toolbar ops-toolbar" data-pm-default-branch="{{ $defaultPaymentBranchId ?? '' }}">
             <input type="hidden" name="tab" value="summary">
 
-            <div class="pm-field search has-icon">
-                <i class="bi bi-search"></i>
-                <input class="pm-control" name="q" value="{{ $q ?? '' }}" placeholder="Search client, deceased, case no., payment record, accounting ref, transaction ref..." autocomplete="off">
+            <div class="pm-field search has-icon ops-field ops-field--search">
+                <i class="bi bi-search" aria-hidden="true"></i>
+                <input class="pm-control ops-control" name="q" value="{{ $q ?? '' }}" placeholder="Search client, deceased, case no., payment record, accounting ref, transaction ref..." autocomplete="off" data-pm-search-input>
+                <button type="button" class="pm-search-clear" data-pm-search-clear @if(blank($q ?? null)) hidden @endif aria-label="Clear search">
+                    <i class="bi bi-x" aria-hidden="true"></i>
+                </button>
+                <div class="pm-search-suggestions" data-pm-search-suggestions hidden></div>
             </div>
 
             @if(!$isStaff && ($isMainAdmin || !$isBranchOnly))
-                <div class="pm-field branch has-icon">
-                    <i class="bi bi-building"></i>
-                    <select name="branch_id" class="pm-control" title="Branch">
-                        <option value="">All Branches</option>
+                <div class="pm-field branch has-icon ops-field">
+                    <i class="bi bi-building" aria-hidden="true"></i>
+                    <select name="branch_id" class="pm-control ops-control" title="Branch">
+                        <option value="all" @selected(($selectedBranchId ?? null) === 'all')>All Branches</option>
                         @foreach($branches as $branch)
                             <option value="{{ $branch->id }}" @selected((string) ($selectedBranchId ?? '') === (string) $branch->id)>
                                 {{ $branch->branch_code }} - {{ $branch->branch_name }}
                             </option>
                         @endforeach
                     </select>
-                    <i class="bi bi-chevron-down pm-sel-chev"></i>
+                    <i class="bi bi-chevron-down pm-sel-chev" aria-hidden="true"></i>
                 </div>
             @elseif(!$isStaff && $assignedBranch)
-                <div class="pm-field branch branch-readonly has-icon">
-                    <i class="bi bi-building"></i>
+                <div class="pm-field branch branch-readonly has-icon ops-field">
+                    <i class="bi bi-building" aria-hidden="true"></i>
                     <div
-                        class="pm-control pm-readonly-control"
+                        class="pm-control ops-control pm-readonly-control"
                         role="status"
                         title="{{ trim(($assignedBranch->branch_code ?? 'Assigned Branch') . ' - ' . ($assignedBranch->branch_name ?? '')) }}"
                         aria-label="Assigned Branch: {{ $assignedBranch->branch_code ?? 'Assigned Branch' }}"
@@ -427,41 +486,41 @@
                 </div>
             @endif
 
-            <div class="pm-field has-icon">
-                <i class="bi bi-credit-card"></i>
-                <select name="payment_status" class="pm-control" title="Payment Status">
+            <div class="pm-field has-icon ops-field">
+                <i class="bi bi-credit-card" aria-hidden="true"></i>
+                <select name="payment_status" class="pm-control ops-control" title="Payment Status">
                     <option value="">All Status</option>
                     <option value="UNPAID" @selected($paymentStatus === 'UNPAID')>Unpaid</option>
                     <option value="PARTIAL" @selected($paymentStatus === 'PARTIAL')>Partial</option>
                     <option value="PAID" @selected($paymentStatus === 'PAID')>Paid</option>
                 </select>
-                <i class="bi bi-chevron-down pm-sel-chev"></i>
+                <i class="bi bi-chevron-down pm-sel-chev" aria-hidden="true"></i>
             </div>
 
-            <div class="pm-field has-icon">
-                <i class="bi bi-clipboard-check"></i>
-                <select name="case_status" class="pm-control" title="Case Status">
+            <div class="pm-field has-icon ops-field">
+                <i class="bi bi-clipboard-check" aria-hidden="true"></i>
+                <select name="case_status" class="pm-control ops-control" title="Case Status">
                     <option value="">All Cases</option>
                     <option value="DRAFT" @selected(($caseStatus ?? '') === 'DRAFT')>Draft</option>
                     <option value="ACTIVE" @selected(($caseStatus ?? '') === 'ACTIVE')>Active</option>
                     <option value="COMPLETED" @selected(($caseStatus ?? '') === 'COMPLETED')>Completed</option>
                 </select>
-                <i class="bi bi-chevron-down pm-sel-chev"></i>
+                <i class="bi bi-chevron-down pm-sel-chev" aria-hidden="true"></i>
             </div>
 
-            <div class="pm-field has-icon">
-                <i class="bi bi-wallet2"></i>
-                <select name="payment_method" class="pm-control" title="Payment Method">
+            <div class="pm-field has-icon ops-field">
+                <i class="bi bi-wallet2" aria-hidden="true"></i>
+                <select name="payment_method" class="pm-control ops-control" title="Payment Method">
                     <option value="">All Methods</option>
                     <option value="cash" @selected(($paymentMethod ?? '') === 'cash')>Cash</option>
                     <option value="cashless" @selected(($paymentMethod ?? '') === 'cashless')>Cashless</option>
                 </select>
-                <i class="bi bi-chevron-down pm-sel-chev"></i>
+                <i class="bi bi-chevron-down pm-sel-chev" aria-hidden="true"></i>
             </div>
 
-            <div class="pm-field has-icon">
-                <i class="bi bi-calendar3"></i>
-                <select id="pmDateRange" name="date_preset" class="pm-control" title="Date Range">
+            <div class="pm-field has-icon ops-field">
+                <i class="bi bi-calendar3" aria-hidden="true"></i>
+                <select id="pmDateRange" name="date_preset" class="pm-control ops-control" title="Date Range">
                     <option value="all" @selected($dateRange === 'all' || $dateRange === 'any')>All Dates</option>
                     <option value="today" @selected($dateRange === 'today')>Today</option>
                     <option value="week" @selected($dateRange === 'week')>This Week</option>
@@ -469,7 +528,7 @@
                     <option value="year" @selected($dateRange === 'year')>This Year</option>
                     <option value="custom" @selected($dateRange === 'custom')>Custom</option>
                 </select>
-                <i class="bi bi-chevron-down pm-sel-chev"></i>
+                <i class="bi bi-chevron-down pm-sel-chev" aria-hidden="true"></i>
             </div>
 
             <div class="pm-hidden-date-fields">
@@ -478,15 +537,14 @@
             </div>
 
             <div class="pm-actions">
-                <a href="{{ route($monitoringRoute) }}" class="pm-btn"><i class="bi bi-arrow-counterclockwise"></i><span>Reset</span></a>
-                <button type="submit" class="pm-btn primary"><i class="bi bi-funnel"></i><span>Apply</span></button>
+                <a href="{{ route($monitoringRoute) }}" class="pm-btn ops-btn-outline" data-pm-clear-filters @if(!$hasPaymentFilters) hidden @endif><i class="bi bi-x-circle" aria-hidden="true"></i><span>Clear</span></a>
             </div>
         </form>
     </div>
 
     @if($activeTab === 'summary')
-        <div class="pm-panel">
-            <div class="pm-records-body">
+        <div class="pm-panel ops-list-panel">
+            <div class="pm-records-body ops-list-body">
             <div class="pm-row-list">
                 @forelse($paymentCases as $case)
                     @php
@@ -495,8 +553,14 @@
                         $summaryId = 'summary-case-' . $case->id;
                         $transactionsModalId = 'transactions-modal-case-' . $case->id;
                     @endphp
-                    <article class="pm-case-item">
-                    <div class="pm-case-row is-toggle" data-pm-summary-toggle="{{ $summaryId }}" aria-expanded="false" role="button" tabindex="0">
+                    <article
+                        class="pm-case-item ops-list-row"
+                        data-pm-search-row
+                        data-pm-search-title="{{ trim(($case->case_code ?? '') . ' ' . ($case->client?->full_name ?? '') . ' ' . ($case->deceased?->full_name ?? '')) }}"
+                        data-pm-search-meta="{{ trim(($case->branch?->branch_code ?? '') . ' ' . ($case->branch?->branch_name ?? '') . ' ' . \Illuminate\Support\Str::headline($case->payment_status ?? 'UNPAID')) }}"
+                        data-pm-search-text="{{ trim(($case->case_code ?? '') . ' ' . ($case->client?->full_name ?? '') . ' ' . ($case->deceased?->full_name ?? '') . ' ' . ($case->branch?->branch_code ?? '') . ' ' . ($case->branch?->branch_name ?? '') . ' ' . \Illuminate\Support\Str::headline($case->payment_status ?? 'UNPAID')) }}"
+                    >
+                    <div class="pm-case-row is-toggle ops-clickable" data-pm-summary-toggle="{{ $summaryId }}" aria-expanded="false" role="button" tabindex="0">
                         <div class="pm-case">{{ $case->case_code ?? '-' }}</div>
                         <div class="pm-row-main">
                             <div class="pm-row-title">{{ $case->client?->full_name ?? '-' }} &ndash; {{ $case->deceased?->full_name ?? '-' }}</div>
@@ -507,10 +571,10 @@
                         <div class="pm-row-date">Last payment: {{ $latestPaymentAt?->format('M d, Y h:i A') ?? '-' }}</div>
                         <div class="pm-row-actions">
                             <span class="pm-status {{ $statusClass($case->payment_status) }}">{{ \Illuminate\Support\Str::headline($case->payment_status ?? 'UNPAID') }}</span>
-                            <button type="button" class="pm-light-link" data-pm-stop-row-toggle data-pm-open-transactions-modal="{{ $transactionsModalId }}">
-                                <i class="bi bi-list-ul"></i><span>View Transactions</span>
+                            <button type="button" class="pm-light-link ops-btn-outline" data-pm-stop-row-toggle data-pm-open-transactions-modal="{{ $transactionsModalId }}">
+                                <i class="bi bi-list-ul" aria-hidden="true"></i><span>View Transactions</span>
                             </button>
-                            <span class="pm-icon-toggle" aria-hidden="true"><i class="bi bi-chevron-down pm-chev"></i></span>
+                            <span class="pm-icon-toggle" aria-hidden="true"><i class="bi bi-chevron-down pm-chev" aria-hidden="true"></i></span>
                         </div>
                     </div>
                     <div id="{{ $summaryId }}" class="pm-summary-detail">
@@ -519,16 +583,16 @@
                         <div class="pm-summary-stat"><span>Remaining Balance</span><strong>PHP {{ number_format((float) $case->balance_amount, 2) }}</strong></div>
                         <div class="pm-summary-stat"><span>Transactions</span><strong>{{ number_format($case->payments_count ?? 0) }}</strong></div>
                     </div>
-                    <div id="{{ $transactionsModalId }}" class="pm-modal-backdrop pm-transactions-backdrop" aria-hidden="true">
-                        <div class="pm-modal pm-transactions-modal" role="dialog" aria-modal="true" aria-labelledby="{{ $transactionsModalId }}-title">
-                            <div class="pm-modal-hd">
+                    <div id="{{ $transactionsModalId }}" class="pm-modal-backdrop ops-modal-backdrop pm-transactions-backdrop" aria-hidden="true">
+                        <div class="pm-modal ops-modal pm-transactions-modal" role="dialog" aria-modal="true" aria-labelledby="{{ $transactionsModalId }}-title">
+                            <div class="pm-modal-hd ops-modal__head">
                                 <div>
                                     <div class="pm-modal-title" id="{{ $transactionsModalId }}-title">Transactions for {{ $case->case_code ?? 'Case' }}</div>
                                     <div class="pm-sub">{{ $case->client?->full_name ?? '-' }} &ndash; {{ $case->deceased?->full_name ?? '-' }}</div>
                                 </div>
-                                <button type="button" class="pm-btn compact" data-pm-close-transactions-modal aria-label="Close transactions"><i class="bi bi-x-lg"></i></button>
+                                <button type="button" class="pm-btn compact ops-btn-outline" data-pm-close-transactions-modal aria-label="Close transactions"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
                             </div>
-                            <div class="pm-modal-body">
+                            <div class="pm-modal-body ops-modal__body">
                                 <div class="pm-case-overview">
                                     <div class="pm-summary-stat"><span>Service Amount</span><strong>PHP {{ number_format((float) $case->total_amount, 2) }}</strong></div>
                                     <div class="pm-summary-stat"><span>Total Paid</span><strong>PHP {{ number_format((float) $case->total_paid, 2) }}</strong></div>
@@ -587,8 +651,8 @@
                                                     <span>Encoded by <strong>{{ $encodedBy }}</strong></span>
                                                 </div>
                                             @endif
-                                            <button type="button" class="pm-txn-tog" data-pm-txn-det="{{ $txnDetId }}" aria-expanded="false">
-                                                <i class="bi bi-info-circle"></i> Details <i class="bi bi-chevron-down pm-chev"></i>
+                                            <button type="button" class="pm-txn-tog ops-btn-outline" data-pm-txn-det="{{ $txnDetId }}" aria-expanded="false">
+                                                <i class="bi bi-info-circle" aria-hidden="true"></i> Details <i class="bi bi-chevron-down pm-chev" aria-hidden="true"></i>
                                             </button>
                                             <div id="{{ $txnDetId }}" class="pm-txn-det" hidden>
                                                 <div class="pm-txn-det-grid">
@@ -612,21 +676,21 @@
                                             </div>
                                         </div>
                                     @empty
-                                        <div class="pm-empty">No payment transactions found for this case.</div>
+                                        <div class="pm-empty ops-empty">No payment transactions found for this case.</div>
                                     @endforelse
                                 </div>
                             </div>
-                            <div class="pm-modal-ft">
+                            <div class="pm-modal-ft ops-modal__foot">
                                 @if($case)
-                                    <a class="pm-btn primary" href="{{ $caseRoute($case) }}"><i class="bi bi-eye"></i><span>View Case</span></a>
+                                    <a class="pm-btn primary ops-btn-primary" href="{{ $caseRoute($case) }}"><i class="bi bi-eye" aria-hidden="true"></i><span>View Case</span></a>
                                 @endif
-                                <button type="button" class="pm-btn" data-pm-close-transactions-modal>Close</button>
+                                <button type="button" class="pm-btn ops-btn-outline" data-pm-close-transactions-modal>Close</button>
                             </div>
                         </div>
                     </div>
                     </article>
                 @empty
-                    <div class="pm-empty">{{ $emptyMessage }}</div>
+                    <div class="pm-empty ops-empty">{{ $emptyMessage }}</div>
                 @endforelse
             </div>
             </div>{{-- /.pm-records-body --}}
@@ -637,8 +701,8 @@
             @endif
         </div>
     @else
-        <div class="pm-panel">
-            <div class="pm-records-body">
+        <div class="pm-panel ops-list-panel">
+            <div class="pm-records-body ops-list-body">
             <div class="pm-trans-list">
                 @forelse($transactionCases as $case)
                     @php
@@ -649,8 +713,8 @@
                         $latestAmount = $latestPayment?->amount;
                         $detailId = 'case-transactions-' . $case->id;
                     @endphp
-                    <div class="pm-trans-item">
-                        <button type="button" class="pm-trans-row" data-pm-transaction-toggle="{{ $detailId }}" data-case-code="{{ $case->case_code }}" aria-expanded="false">
+                    <div class="pm-trans-item ops-list-row">
+                        <button type="button" class="pm-trans-row ops-clickable" data-pm-transaction-toggle="{{ $detailId }}" data-case-code="{{ $case->case_code }}" aria-expanded="false">
                             <div class="pm-case">{{ $case->case_code ?? '-' }}</div>
                             <div class="pm-trans-main">
                                 <div class="pm-trans-title">{{ $case->client?->full_name ?? '-' }} &ndash; {{ $case->deceased?->full_name ?? '-' }}</div>
@@ -662,7 +726,7 @@
                             <div class="pm-trans-side">
                                 <span class="pm-status {{ $statusClass($case->payment_status) }}">{{ \Illuminate\Support\Str::headline($case->payment_status ?? 'UNPAID') }}</span>
                                 <span class="pm-expand-label">View Full Transactions</span>
-                                <i class="bi bi-chevron-down pm-chev"></i>
+                                <i class="bi bi-chevron-down pm-chev" aria-hidden="true"></i>
                             </div>
                         </button>
 
@@ -727,8 +791,8 @@
                                                 <span>Encoded by <strong>{{ $encodedBy }}</strong></span>
                                             </div>
                                         @endif
-                                        <button type="button" class="pm-txn-tog" data-pm-txn-det="{{ $txnDetId }}" aria-expanded="false">
-                                            <i class="bi bi-info-circle"></i> Details <i class="bi bi-chevron-down pm-chev"></i>
+                                        <button type="button" class="pm-txn-tog ops-btn-outline" data-pm-txn-det="{{ $txnDetId }}" aria-expanded="false">
+                                            <i class="bi bi-info-circle" aria-hidden="true"></i> Details <i class="bi bi-chevron-down pm-chev" aria-hidden="true"></i>
                                         </button>
                                         <div id="{{ $txnDetId }}" class="pm-txn-det" hidden>
                                             <div class="pm-txn-det-grid">
@@ -782,18 +846,18 @@
                                         </div>
                                     </div>
                                 @empty
-                                    <div class="pm-empty">No payment transactions match the selected filters for this case.</div>
+                                    <div class="pm-empty ops-empty">No payment transactions match the selected filters for this case.</div>
                                 @endforelse
                             </div>
                             <div class="pm-detail-actions">
                                 @if($case)
-                                    <a class="pm-btn primary" href="{{ $caseRoute($case) }}"><i class="bi bi-eye"></i><span>View Case</span></a>
+                                    <a class="pm-btn primary ops-btn-primary" href="{{ $caseRoute($case) }}"><i class="bi bi-eye" aria-hidden="true"></i><span>View Case</span></a>
                                 @endif
                             </div>
                         </div>
                     </div>
                 @empty
-                    <div class="pm-empty">{{ $emptyMessage }}</div>
+                    <div class="pm-empty ops-empty">{{ $emptyMessage }}</div>
                 @endforelse
             </div>
             </div>{{-- /.pm-records-body --}}
@@ -806,31 +870,34 @@
     @endif
 </div>
 
-<div id="pmDateModal" class="pm-modal-backdrop" aria-hidden="true">
-    <div class="pm-modal" role="dialog" aria-modal="true" aria-labelledby="pmDateModalTitle">
-        <div class="pm-modal-hd">
-            <div class="pm-modal-title" id="pmDateModalTitle">Custom Payment Date Range</div>
-            <button type="button" class="pm-btn compact" data-pm-date-cancel aria-label="Close date range modal"><i class="bi bi-x-lg"></i></button>
+<div id="pmDateModal" class="pm-modal-backdrop ops-modal-backdrop" aria-hidden="true">
+    <div class="pm-modal ops-modal" role="dialog" aria-modal="true" aria-labelledby="pmDateModalTitle">
+        <div class="pm-modal-hd ops-modal__head">
+            <div class="pm-modal-title ops-modal__title" id="pmDateModalTitle">Custom Payment Date Range</div>
+            <button type="button" class="pm-btn compact ops-btn-outline" data-pm-date-cancel aria-label="Close date range modal"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
         </div>
-        <div class="pm-modal-body">
+        <div class="pm-modal-body ops-modal__body">
             <label>
-                <span class="pm-txn-rec-label">Date Range From</span>
-                <input id="pmModalPaidFrom" class="pm-control" type="date" value="{{ $paidFrom ?? '' }}">
+                <span class="pm-txn-rec-label ops-label">Date Range From</span>
+                <input id="pmModalPaidFrom" class="pm-control ops-control" type="date" value="{{ $paidFrom ?? '' }}">
             </label>
             <label>
-                <span class="pm-txn-rec-label">Date Range To</span>
-                <input id="pmModalPaidTo" class="pm-control" type="date" value="{{ $paidTo ?? '' }}">
+                <span class="pm-txn-rec-label ops-label">Date Range To</span>
+                <input id="pmModalPaidTo" class="pm-control ops-control" type="date" value="{{ $paidTo ?? '' }}">
             </label>
         </div>
-        <div class="pm-modal-ft">
-            <button type="button" class="pm-btn" data-pm-date-cancel>Cancel</button>
-            <button type="button" class="pm-btn primary" id="pmApplyCustomDates">Apply Date Range</button>
+        <div class="pm-modal-ft ops-modal__foot">
+            <button type="button" class="pm-btn ops-btn-outline" data-pm-date-cancel>Cancel</button>
+            <button type="button" class="pm-btn primary ops-btn-primary" id="pmApplyCustomDates">Apply Date Range</button>
         </div>
     </div>
 </div>
 
 <script>
-(() => {
+window.initPaymentMonitoring = () => {
+    window.pmMonitoringAbort?.abort();
+    window.pmMonitoringAbort = new AbortController();
+    const listenerSignal = window.pmMonitoringAbort.signal;
     const form = document.getElementById('pmFilterForm');
     const range = document.getElementById('pmDateRange');
     const paidFrom = document.getElementById('pmPaidFrom');
@@ -840,10 +907,144 @@
     const modalTo = document.getElementById('pmModalPaidTo');
     const applyCustomDates = document.getElementById('pmApplyCustomDates');
     const openCase = new URLSearchParams(window.location.search).get('open_case');
-    let searchTimer = null;
+    const searchInput = form?.querySelector('[data-pm-search-input]');
+    const searchClear = form?.querySelector('[data-pm-search-clear]');
+    const searchSuggestions = form?.querySelector('[data-pm-search-suggestions]');
+    const clearFilters = form?.querySelector('[data-pm-clear-filters]');
+    let isFetching = false;
 
     const toDateValue = (date) => date.toISOString().slice(0, 10);
     const submitFilters = () => form?.requestSubmit();
+    const hasActiveFilters = () => {
+        if (!form) return false;
+        return Array.from(new FormData(form).entries()).some(([key, value]) => {
+            if (key === 'tab') return false;
+            if (key === 'date_preset') return value && value !== 'all' && value !== 'any';
+            if (key === 'branch_id') {
+                const defaultBranch = form.dataset.pmDefaultBranch || '';
+                return defaultBranch ? String(value || '') !== defaultBranch : (value && value !== 'all');
+            }
+            return String(value || '').trim() !== '';
+        });
+    };
+    const updateClearVisibility = () => {
+        if (clearFilters) clearFilters.hidden = !hasActiveFilters();
+    };
+    const replacePaymentMonitoringContent = (html, url, push = true) => {
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const nextPage = doc.querySelector('.pm-page');
+        const currentPage = document.querySelector('.pm-page');
+        const nextDateModal = doc.getElementById('pmDateModal');
+        const currentDateModal = document.getElementById('pmDateModal');
+
+        if (!nextPage || !currentPage) {
+            window.location.href = url;
+            return;
+        }
+
+        nextPage.querySelectorAll('.flash-success, .flash-error, .flash-info, .flash-warning').forEach(el => el.remove());
+        currentPage.replaceWith(nextPage);
+        if (nextDateModal && currentDateModal) {
+            currentDateModal.replaceWith(nextDateModal);
+        }
+        if (push) window.history.pushState({}, '', url);
+        window.initPaymentMonitoring();
+    };
+    const fetchFilters = async (url, push = true) => {
+        if (isFetching) return;
+        isFetching = true;
+        const page = document.querySelector('.pm-page');
+        page?.classList.add('is-loading');
+
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'text/html',
+                },
+            });
+
+            if (!response.ok) throw new Error('Payment monitoring filter failed.');
+            replacePaymentMonitoringContent(await response.text(), url, push);
+        } catch (error) {
+            window.location.href = url;
+        } finally {
+            isFetching = false;
+            page?.classList.remove('is-loading');
+        }
+    };
+    const submitFiltersAsync = (push = true) => {
+        if (!form) return;
+        const url = new URL(form.action, window.location.origin);
+        new FormData(form).forEach((value, key) => {
+            if (value !== null && String(value).trim() !== '') {
+                url.searchParams.set(key, value);
+            } else {
+                url.searchParams.delete(key);
+            }
+        });
+        url.searchParams.delete('page');
+        url.searchParams.delete('transactions_page');
+        fetchFilters(url.toString(), push);
+    };
+    const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;',
+    }[char]));
+    const closeSearchSuggestions = () => {
+        if (!searchSuggestions) return;
+        searchSuggestions.hidden = true;
+        searchSuggestions.innerHTML = '';
+    };
+    const commitSearch = (value = searchInput?.value || '') => {
+        if (!searchInput) return;
+        searchInput.value = value.trim();
+        closeSearchSuggestions();
+        submitFiltersAsync();
+    };
+    const renderSearchSuggestions = () => {
+        if (!searchInput || !searchClear || !searchSuggestions) return;
+
+        const term = searchInput.value.trim().toLowerCase();
+        searchClear.hidden = term.length === 0;
+
+        if (term.length < 2) {
+            closeSearchSuggestions();
+            return;
+        }
+
+        const matches = [];
+        const seen = new Set();
+        document.querySelectorAll('[data-pm-search-row]').forEach(row => {
+            const haystack = (row.dataset.pmSearchText || '').toLowerCase();
+            if (!haystack.includes(term)) return;
+
+            const title = row.dataset.pmSearchTitle || 'Payment record';
+            if (seen.has(title)) return;
+            seen.add(title);
+            matches.push({
+                title,
+                meta: row.dataset.pmSearchMeta || 'Payment monitoring result',
+            });
+        });
+
+        if (!matches.length) {
+            searchSuggestions.innerHTML = '<div class="pm-search-option" role="status"><span class="pm-search-title">No match found</span><span class="pm-search-meta">Press Enter to search all records.</span></div>';
+            searchSuggestions.hidden = false;
+            return;
+        }
+
+        searchSuggestions.innerHTML = matches.slice(0, 6).map(match => `
+            <button type="button" class="pm-search-option" data-pm-search-value="${escapeHtml(match.title)}">
+                <span class="pm-search-title">${escapeHtml(match.title)}</span>
+                <span class="pm-search-meta">${escapeHtml(match.meta)}</span>
+            </button>
+        `).join('');
+        searchSuggestions.hidden = false;
+    };
 
     const setDateRange = (preset) => {
         const now = new Date();
@@ -887,6 +1088,25 @@
         modal?.setAttribute('aria-hidden', 'true');
     };
 
+    form?.addEventListener('submit', event => {
+        event.preventDefault();
+        closeSearchSuggestions();
+        updateClearVisibility();
+        submitFiltersAsync();
+    }, { signal: listenerSignal });
+
+    clearFilters?.addEventListener('click', event => {
+        event.preventDefault();
+        fetchFilters(clearFilters.href);
+    }, { signal: listenerSignal });
+
+    document.querySelectorAll('.pm-foot a[href]').forEach(link => {
+        link.addEventListener('click', event => {
+            event.preventDefault();
+            fetchFilters(link.href);
+        }, { signal: listenerSignal });
+    });
+
     range?.addEventListener('change', () => {
         if (range.value === 'custom') {
             openDateModal();
@@ -895,28 +1115,28 @@
 
         setDateRange(range.value);
         submitFilters();
-    });
+    }, { signal: listenerSignal });
 
     applyCustomDates?.addEventListener('click', () => {
         if (paidFrom && modalFrom) paidFrom.value = modalFrom.value;
         if (paidTo && modalTo) paidTo.value = modalTo.value;
         closeDateModal();
         submitFilters();
-    });
+    }, { signal: listenerSignal });
 
     document.querySelectorAll('[data-pm-date-cancel]').forEach(button => {
         button.addEventListener('click', () => {
             closeDateModal();
             if (range && (!paidFrom?.value && !paidTo?.value)) range.value = 'all';
-        });
+        }, { signal: listenerSignal });
     });
 
     modal?.addEventListener('click', event => {
         if (event.target === modal) closeDateModal();
-    });
+    }, { signal: listenerSignal });
 
     document.querySelectorAll('[data-pm-stop-row-toggle]').forEach(link => {
-        link.addEventListener('click', event => event.stopPropagation());
+        link.addEventListener('click', event => event.stopPropagation(), { signal: listenerSignal });
     });
 
     const setTransactionsModalOpen = (modal, open) => {
@@ -932,15 +1152,15 @@
             event.stopPropagation();
             const modal = document.getElementById(button.dataset.pmOpenTransactionsModal);
             setTransactionsModalOpen(modal, true);
-        });
+        }, { signal: listenerSignal });
     });
 
     document.querySelectorAll('.pm-transactions-backdrop').forEach(modal => {
         modal.addEventListener('click', event => {
             if (event.target === modal) setTransactionsModalOpen(modal, false);
-        });
+        }, { signal: listenerSignal });
         modal.querySelectorAll('[data-pm-close-transactions-modal]').forEach(button => {
-            button.addEventListener('click', () => setTransactionsModalOpen(modal, false));
+            button.addEventListener('click', () => setTransactionsModalOpen(modal, false), { signal: listenerSignal });
         });
     });
 
@@ -949,7 +1169,7 @@
         document.querySelectorAll('.pm-transactions-backdrop.open').forEach(modal => {
             setTransactionsModalOpen(modal, false);
         });
-    });
+    }, { signal: listenerSignal });
 
     document.querySelectorAll('[data-pm-summary-toggle]').forEach(button => {
         const toggleSummary = () => {
@@ -960,12 +1180,12 @@
             button.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
         };
 
-        button.addEventListener('click', toggleSummary);
+        button.addEventListener('click', toggleSummary, { signal: listenerSignal });
         button.addEventListener('keydown', event => {
             if (event.key !== 'Enter' && event.key !== ' ') return;
             event.preventDefault();
             toggleSummary();
-        });
+        }, { signal: listenerSignal });
     });
 
     document.querySelectorAll('[data-pm-transaction-toggle]').forEach(button => {
@@ -977,7 +1197,7 @@
             button.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
         };
 
-        button.addEventListener('click', () => toggle());
+        button.addEventListener('click', () => toggle(), { signal: listenerSignal });
 
         if (openCase && button.dataset.caseCode === openCase) {
             toggle(true);
@@ -991,17 +1211,78 @@
             const nextOpen = target.hidden;
             target.hidden = !nextOpen;
             button.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
-        });
+        }, { signal: listenerSignal });
     });
 
     form?.querySelectorAll('select[name="branch_id"], select[name="payment_status"], select[name="case_status"], select[name="payment_method"]').forEach(control => {
-        control.addEventListener('change', submitFilters);
+        control.addEventListener('change', () => {
+            updateClearVisibility();
+            submitFilters();
+        }, { signal: listenerSignal });
     });
 
-    form?.querySelector('input[name="q"]')?.addEventListener('input', () => {
-        window.clearTimeout(searchTimer);
-        searchTimer = window.setTimeout(submitFilters, 450);
-    });
-})();
+    searchInput?.addEventListener('input', () => {
+        renderSearchSuggestions();
+        updateClearVisibility();
+    }, { signal: listenerSignal });
+    searchInput?.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            commitSearch();
+        }
+
+        if (event.key === 'Escape') {
+            closeSearchSuggestions();
+        }
+    }, { signal: listenerSignal });
+    searchClear?.addEventListener('click', () => {
+        if (!searchInput) return;
+        searchInput.value = '';
+        searchClear.hidden = true;
+        closeSearchSuggestions();
+        updateClearVisibility();
+        submitFiltersAsync();
+    }, { signal: listenerSignal });
+    searchSuggestions?.addEventListener('click', event => {
+        const option = event.target.closest('[data-pm-search-value]');
+        if (!option) return;
+        commitSearch(option.dataset.pmSearchValue || '');
+    }, { signal: listenerSignal });
+    document.addEventListener('click', event => {
+        if (!form?.contains(event.target)) {
+            closeSearchSuggestions();
+        }
+    }, { signal: listenerSignal });
+
+    updateClearVisibility();
+};
+window.addEventListener('popstate', () => {
+    fetch(window.location.href, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'text/html',
+        },
+    })
+        .then(response => response.ok ? response.text() : Promise.reject())
+        .then(html => {
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const nextPage = doc.querySelector('.pm-page');
+            const currentPage = document.querySelector('.pm-page');
+            const nextDateModal = doc.getElementById('pmDateModal');
+            const currentDateModal = document.getElementById('pmDateModal');
+
+            if (!nextPage || !currentPage) {
+                window.location.reload();
+                return;
+            }
+
+            nextPage.querySelectorAll('.flash-success, .flash-error, .flash-info, .flash-warning').forEach(el => el.remove());
+            currentPage.replaceWith(nextPage);
+            if (nextDateModal && currentDateModal) currentDateModal.replaceWith(nextDateModal);
+            window.initPaymentMonitoring();
+        })
+        .catch(() => window.location.reload());
+});
+window.initPaymentMonitoring();
 </script>
 @endsection

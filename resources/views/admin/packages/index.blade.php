@@ -599,8 +599,8 @@ html[data-theme='dark'] .table-row-action-link:hover {
 .package-management-page .table-system-head {
     background: transparent !important;
     border: 0 !important;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
 }
 .package-management-page .table-system-toolbar {
     background: #D3DEC9 !important;
@@ -610,7 +610,7 @@ html[data-theme='dark'] .table-row-action-link:hover {
     margin-bottom: .8rem !important;
 }
 .package-management-page .table-system-head {
-    padding-top: 0 !important;
+    padding-top: .85rem !important;
     padding-bottom: .85rem !important;
 }
 .package-management-page .table-toolbar {
@@ -620,7 +620,7 @@ html[data-theme='dark'] .table-row-action-link:hover {
     order: 3;
     background: transparent !important;
     border-top: 0 !important;
-    padding: 0 !important;
+    padding: .75rem 1rem 0 !important;
     overflow: visible !important;
 }
 .package-management-page .package-table-view {
@@ -741,30 +741,43 @@ html[data-theme='dark'] .table-row-action-link:hover {
 .package-management-page .admin-table-head-actions > .inline-flex {
     background: #E1E7D9 !important;
     border: 1px solid var(--border) !important;
-    border-radius: .75rem !important;
+    border-radius: .65rem !important;
     box-shadow: none !important;
+    min-height: 2.7rem;
 }
 .package-management-page .admin-table-head-row,
 .package-management-page .admin-table-head-actions {
-    justify-content: flex-start !important;
+    justify-content: space-between !important;
+}
+.package-management-page .admin-table-head-actions {
+    width: 100%;
 }
 .package-management-page .admin-table-head-actions > .inline-flex button {
-    min-height: 2.65rem;
-    color: var(--ink-muted);
+    min-height: 2.7rem;
+    color: var(--ink);
+    font-weight: 650;
+    background: transparent !important;
     cursor: pointer;
 }
 .package-management-page .admin-table-head-actions > .inline-flex button:hover {
-    background: #C7D5BE !important;
-    color: var(--ink) !important;
+    background: #8EA083 !important;
+    color: #F7FAF3 !important;
 }
 .package-management-page .admin-table-head-actions > .inline-flex .bg-slate-900 {
     background: #344333 !important;
+    color: #fff !important;
+}
+.package-management-page .admin-table-head-actions > .inline-flex .bg-slate-900:hover {
+    background: #2F3A2E !important;
     color: #fff !important;
 }
 .package-management-page .admin-table-head-actions .btn-primary-custom {
     background: #344333 !important;
     border-color: #344333 !important;
     color: #fff !important;
+    min-width: 8.75rem;
+    min-height: 2.7rem;
+    font-weight: 650;
 }
 .package-management-page .admin-table-head-actions .btn-primary-custom:hover {
     background: #2F3A2E !important;
@@ -773,6 +786,9 @@ html[data-theme='dark'] .table-row-action-link:hover {
 }
 .package-management-page .table-system-wrap {
     margin-top: 0;
+}
+.package-management-page .table-toolbar-reset-wrap {
+    display: none !important;
 }
 @media (max-width: 900px) {
     .package-management-page .table-toolbar {
@@ -829,6 +845,15 @@ html[data-theme='dark'] .table-row-action-link:hover {
                         <span class="hidden sm:inline text-xs">Table</span>
                     </button>
                 </div>
+                @if($isMainAdmin)
+                    <a
+                        href="{{ route('admin.packages.create') }}"
+                        class="btn btn-primary-custom btn-sm"
+                    >
+                        <i class="bi bi-plus-circle"></i>
+                        <span>Add Package</span>
+                    </a>
+                @endif
             </div>
         </div>
     </div>
@@ -891,18 +916,6 @@ html[data-theme='dark'] .table-row-action-link:hover {
                 </div>
             </div>
             <div class="table-toolbar-reset-wrap">
-                <span class="table-toolbar-label opacity-0 select-none" aria-hidden="true">Actions</span>
-                <div class="filter-actions">
-                    @if($isMainAdmin)
-                        <a
-                            href="{{ route('admin.packages.create') }}"
-                            class="btn btn-primary-custom btn-sm"
-                        >
-                            <i class="bi bi-plus-circle"></i>
-                            <span>Add Package</span>
-                        </a>
-                    @endif
-                </div>
             </div>
         </form>
     </div>

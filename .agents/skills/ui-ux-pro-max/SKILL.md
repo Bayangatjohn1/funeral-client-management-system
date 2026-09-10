@@ -348,6 +348,12 @@ Scope notice: The rules below are for App UI (iOS/Android/React Native/Flutter),
 | **Gesture conflict prevention** | Keep one primary gesture per region and avoid nested tap/drag conflicts | Overlapping gestures causing accidental actions |
 | **Semantic native controls** | Prefer native interactive primitives (`Button`, `Pressable`, platform equivalents) with proper accessibility roles | Generic containers used as primary controls without semantics |
 
+### Navigation & Return Behavior
+
+| Rule | Do | Don't | Why It Matters |
+|------|----|-------|----------------|
+| **Source-page return for resumed workflows** | When a user resumes, edits, or enters a nested workflow from a list/detail page, preserve a safe local `return_to` URL and make Cancel/Back return to that originating page. Provide a sensible fallback when no source is available. | Always redirect Cancel/Back to one fixed page, or use external/unvalidated URLs for return navigation. | Keeps the user's mental model intact, reduces surprise after canceling, and prevents unsafe open redirects. |
+
 ### Light/Dark Mode Contrast
 
 | Rule | Do | Don't |

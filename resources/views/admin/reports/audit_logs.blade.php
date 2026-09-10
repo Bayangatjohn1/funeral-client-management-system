@@ -126,6 +126,12 @@
         color:#657563;
         font-size:.85rem;
         pointer-events:none;
+        transition:transform .16s ease,color .16s ease,opacity .16s ease;
+        transform-origin:center;
+    }
+    .audit-filter-control.is-select.is-open::after {
+        color:#2f3a2e;
+        transform:rotate(180deg);
     }
 
     .audit-select {

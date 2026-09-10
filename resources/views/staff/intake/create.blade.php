@@ -98,7 +98,7 @@
 @php($backUrl = !empty($entryMode) && $entryMode === 'other'
     ? route('funeral-cases.other-reports')
     : route('funeral-cases.index', ['record_scope' => 'main']))
-@php($cancelUrl = $backUrl)
+@php($cancelUrl = $returnTo ?? $backUrl)
 @php($initialStep = $intakeErrorStep ?? 1)
 @include('staff.intake._form')
 @endsection

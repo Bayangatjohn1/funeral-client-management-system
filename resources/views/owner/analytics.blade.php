@@ -1,7 +1,7 @@
 @extends('layouts.panel')
 
-@section('page_title', 'Branch Analytics')
-@section('page_desc', 'Review branch performance, payments, collections, and revenue trends for the selected period.')
+@section('page_title', 'Reports & Analytics')
+@section('page_desc', 'Analytics charts, branch performance, and operational reports.')
 @section('hide_layout_topbar', '1')
 
 @section('content')
@@ -93,10 +93,44 @@
     $branchChartContext = $branchPerformanceTitle . ' · ' . $filterScopeLabel . ' · ' . $periodContextLabel;
     $needsAttentionCount = (int) $statusCounts['partial'] + (int) $statusCounts['unpaid'];
     $needsAttentionAmount = (float) $totalOutstanding;
+    $formatCompactPeso = function ($amount) {
+        $amount = (float) $amount;
+
+        if (abs($amount) >= 1000000) {
+            return 'PHP ' . rtrim(rtrim(number_format($amount / 1000000, 2), '0'), '.') . 'M';
+        }
+
+        if (abs($amount) >= 1000) {
+            return 'PHP ' . number_format($amount / 1000, 0) . 'K';
+        }
+
+        return 'PHP ' . number_format($amount, 2);
+    };
+    $branchPerformanceReportUrl = route('reports.index', ['report_type' => 'owner_branch_analytics']);
 @endphp
 
 <div class="ba-shell">
+    @include('reports.partials.module-tabs', [
+        'activeModule' => 'analytics',
+        'reportTypes' => [
+            'owner_branch_analytics' => 'Branch Performance Report',
+        ],
+        'branches' => $branches,
+        'branchId' => $branchId,
+        'range' => $range,
+    ])
 
+    <div class="reports-module-layout">
+        @include('reports.partials.module-rail', [
+            'activeModule' => 'analytics',
+            'quickStats' => [
+                ['label' => 'Active Cases', 'value' => number_format($totalCases)],
+                ['label' => 'Branches', 'value' => number_format($branches->count())],
+                ['label' => 'Period', 'value' => $periodContextLabel],
+            ],
+        ])
+
+        <div class="reports-module-main">
     <section class="ba-card ba-workspace">
         <header class="ba-page-intro ba-visually-hidden">
             <div>
@@ -105,41 +139,69 @@
             </div>
         </header>
 
-        <section class="ba-summary-grid" aria-label="Analytics summary">
+        <section class="ba-summary-grid" aria-label="Overview summary">
             <article class="ba-summary-card">
                 <div class="ba-summary-icon">
                     <i class="bi bi-briefcase"></i>
                 </div>
-                <div>
+                <div class="ba-summary-content">
                     <span>Total Cases</span>
                     <strong>{{ number_format($totalCases) }}</strong>
+                    <small>{{ $filterScopeLabel }} · {{ $periodContextLabel }}</small>
+                    <div class="ba-kpi-actions" aria-label="Total cases actions">
+                        <a class="ba-kpi-action" href="{{ $branchPerformanceReportUrl }}" aria-label="Open branch performance report">
+                            Open Report
+                            <i class="bi bi-arrow-right-short" aria-hidden="true"></i>
+                        </a>
+                    </div>
                 </div>
             </article>
             <article class="ba-summary-card">
                 <div class="ba-summary-icon">
                     <i class="bi bi-receipt"></i>
                 </div>
-                <div>
-                    <span>Total Service Amount</span>
-                    <strong>PHP {{ number_format($totalSales, 2) }}</strong>
+                <div class="ba-summary-content">
+                    <span>Gross Amount</span>
+                    <strong>{{ $formatCompactPeso($totalSales) }}</strong>
+                    <small>For selected range</small>
+                    <div class="ba-kpi-actions" aria-label="Gross amount actions">
+                        <button type="button" class="ba-kpi-action ba-kpi-jump" data-target="ba-panel-trend" aria-label="View revenue trend analytics">
+                            View Trend
+                            <i class="bi bi-arrow-right-short" aria-hidden="true"></i>
+                        </button>
+                    </div>
                 </div>
             </article>
             <article class="ba-summary-card">
                 <div class="ba-summary-icon">
                     <i class="bi bi-cash-coin"></i>
                 </div>
-                <div>
-                    <span>Collected Amount</span>
-                    <strong>PHP {{ number_format($totalCollected, 2) }}</strong>
+                <div class="ba-summary-content">
+                    <span>Collected</span>
+                    <strong>{{ $formatCompactPeso($totalCollected) }}</strong>
+                    <small>{{ number_format($overallCollectionRate, 1) }}% collection rate</small>
+                    <div class="ba-kpi-actions" aria-label="Collected amount actions">
+                        <button type="button" class="ba-kpi-action ba-kpi-jump" data-target="ba-panel-collection" aria-label="View collections analytics">
+                            View Collections
+                            <i class="bi bi-arrow-right-short" aria-hidden="true"></i>
+                        </button>
+                    </div>
                 </div>
             </article>
             <article class="ba-summary-card ba-summary-card-warning">
                 <div class="ba-summary-icon">
                     <i class="bi bi-exclamation-circle"></i>
                 </div>
-                <div>
-                    <span>Outstanding Balance</span>
-                    <strong>PHP {{ number_format($totalOutstanding, 2) }}</strong>
+                <div class="ba-summary-content">
+                    <span>Outstanding</span>
+                    <strong>{{ $formatCompactPeso($totalOutstanding) }}</strong>
+                    <small>{{ number_format(max(0, 100 - $overallCollectionRate), 1) }}% remaining</small>
+                    <div class="ba-kpi-actions" aria-label="Outstanding amount actions">
+                        <button type="button" class="ba-kpi-action ba-kpi-jump" data-target="ba-panel-payment" aria-label="View payment status analytics">
+                            View Payments
+                            <i class="bi bi-arrow-right-short" aria-hidden="true"></i>
+                        </button>
+                    </div>
                 </div>
             </article>
         </section>
@@ -481,6 +543,7 @@
                     </div>
                 </div>
                 <div class="ba-tab-context" data-context-tab="trend" hidden></div>
+                <div class="ba-insight-row ba-insights-hidden" id="baRevenueInsights" aria-label="Revenue trend key metrics"></div>
                 <div class="ba-chart-frame {{ ! $hasTrendData ? 'has-empty-state' : '' }}">
                     @unless($hasTrendData)
                         <div class="ba-chart-empty">
@@ -491,7 +554,6 @@
                     @endunless
                     <canvas id="trendChart"></canvas>
                 </div>
-                <div class="ba-insight-row ba-insights-hidden" id="baRevenueInsights" aria-label="Gross revenue trend insights"></div>
             </article>
 
             <article class="ba-panel" id="ba-panel-collection" role="tabpanel" hidden>
@@ -499,6 +561,14 @@
                     <h4 class="ba-panel-title">Collections</h4>
                     <div class="ba-panel-actions">
                         <span class="ba-panel-note" data-default-note="Collected vs outstanding">Collected vs outstanding</span>
+                        <div class="ba-chart-mode-toggle" role="group" aria-label="Collections chart view">
+                            <button type="button" class="ba-chart-mode-btn active" data-collection-view="snapshot" aria-pressed="true">
+                                Snapshot
+                            </button>
+                            <button type="button" class="ba-chart-mode-btn" data-collection-view="by_period" aria-pressed="false">
+                                By Period
+                            </button>
+                        </div>
                         <button type="button" class="ba-expand-chart-btn" data-chart-expand="collectionChart" data-chart-title="Collections · {{ $filterScopeLabel }} · {{ $periodContextLabel }}">
                             <i class="bi bi-arrows-fullscreen"></i>
                             <span>Full screen</span>
@@ -562,16 +632,27 @@
                 </article>
             </div>
 
-            <div class="ba-breakdown-grid">
-                <div class="ba-compare-card">
-                    <div class="ba-compare-title">Payment Status Breakdown</div>
-                    <div class="ba-breakdown-list" id="baPaymentBreakdown"></div>
+            <details class="ba-breakdown-section" open>
+                <summary class="ba-breakdown-summary">
+                    <span>
+                        <i class="bi bi-pie-chart" aria-hidden="true"></i>
+                        Status Breakdowns
+                    </span>
+                    <small>Payment and collection mix</small>
+                    <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                </summary>
+
+                <div class="ba-breakdown-grid">
+                    <div class="ba-compare-card ba-breakdown-card">
+                        <div class="ba-compare-title">Payment Status Breakdown</div>
+                        <div class="ba-breakdown-list" id="baPaymentBreakdown"></div>
+                    </div>
+                    <div class="ba-compare-card ba-breakdown-card">
+                        <div class="ba-compare-title">Collection Status Breakdown</div>
+                        <div class="ba-breakdown-list" id="baCollectionBreakdown"></div>
+                    </div>
                 </div>
-                <div class="ba-compare-card">
-                    <div class="ba-compare-title">Collection Status Breakdown</div>
-                    <div class="ba-breakdown-list" id="baCollectionBreakdown"></div>
-                </div>
-            </div>
+            </details>
 
             <div class="ba-compare-card">
                 <div class="ba-compare-title" id="baCasesTableTitle">All Cases</div>
@@ -596,6 +677,8 @@
             </div>
         </section>
     </section>
+        </div>
+    </div>
 </div>
 
 <div class="ba-chart-modal" id="baChartModal" hidden aria-hidden="true">
@@ -1798,6 +1881,65 @@
     gap: 0.65rem;
 }
 
+.ba-breakdown-section {
+    border: 1px solid #d9e5d2;
+    border-radius: 12px;
+    background: rgba(244, 247, 237, 0.56);
+    overflow: hidden;
+}
+
+.ba-breakdown-section[open] {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.48);
+}
+
+.ba-breakdown-summary {
+    min-height: 44px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.72rem 0.85rem;
+    color: #263126;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+
+.ba-breakdown-summary::-webkit-details-marker {
+    display: none;
+}
+
+.ba-breakdown-summary > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 850;
+}
+
+.ba-breakdown-summary small {
+    color: #6B7568;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-align: right;
+}
+
+.ba-breakdown-summary > i:last-child {
+    color: #6B7568;
+    transition: transform 0.16s ease;
+}
+
+.ba-breakdown-section[open] .ba-breakdown-summary > i:last-child {
+    transform: rotate(180deg);
+}
+
+.ba-breakdown-section .ba-breakdown-grid {
+    padding: 0 0.72rem 0.72rem;
+}
+
+.ba-breakdown-card {
+    overflow: hidden;
+}
+
 .ba-breakdown-list {
     display: flex;
     flex-direction: column;
@@ -1812,6 +1954,15 @@
     border-bottom: 1px solid #e2e8f0;
     font-size: 12px;
     color: #1e293b;
+}
+
+.ba-breakdown-row::after {
+    content: "";
+    grid-column: 1 / -1;
+    height: 5px;
+    border-radius: 999px;
+    background:
+        linear-gradient(90deg, var(--ba-breakdown-tone, #8EA083) var(--ba-breakdown-percent, 0%), rgba(142, 160, 131, 0.18) 0);
 }
 
 .ba-breakdown-row:last-child {
@@ -3745,8 +3896,9 @@ html[data-theme='dark'] .ba-tab-btn.active {
 
 .ba-tabs {
     width: 100%;
-    gap: 0;
+    gap: 0.45rem;
     border-bottom: 1px solid var(--border);
+    padding-inline: 0.35rem;
 }
 
 .ba-tab-btn {
@@ -3756,7 +3908,7 @@ html[data-theme='dark'] .ba-tab-btn.active {
     background: transparent;
     box-shadow: none;
     color: var(--ink-muted);
-    padding-inline: 0.9rem;
+    padding-inline: 1rem;
 }
 
 .ba-tab-btn:hover,
@@ -3767,8 +3919,8 @@ html[data-theme='dark'] .ba-tab-btn.active {
 }
 
 .ba-tab-btn.active::after {
-    left: 0.9rem;
-    right: 0.9rem;
+    left: 1rem;
+    right: 1rem;
     height: 3px;
     background: var(--brand);
 }
@@ -4200,7 +4352,7 @@ html[data-theme='dark'] .ba-tab-btn.active {
     align-items: center;
     justify-content: center;
     width: 100%;
-    order: 1;
+    order: 0;
     margin-top: 0.15rem;
     padding: 0.45rem 0.5rem 0.35rem;
     border: 1px solid var(--border);
@@ -4219,6 +4371,8 @@ html[data-theme='dark'] .ba-tab-btn.active {
     display: flex !important;
     justify-content: center;
     width: 100%;
+    gap: 0.55rem;
+    padding-inline: 0.45rem;
     border-bottom: 0;
     background: transparent;
 }
@@ -4232,7 +4386,7 @@ html[data-theme='dark'] .ba-tab-btn.active {
 }
 
 .ba-filter-row {
-    order: 0;
+    order: 1;
 }
 
 .ba-head-row-nav {
@@ -5011,9 +5165,489 @@ html[data-theme='dark'] .ba-tab-btn.active {
 .ba-chart-empty {
     color: var(--ba-text) !important;
 }
+
+/* Branch Analytics reference chart UI: preserve old graph layout inside the unified module. */
+html body .ba-shell .ba-panel.active,
+html body .ba-shell .ba-performance-card {
+    background: #FAFBF7 !important;
+    border: 1.25px solid #AEBFA6 !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+}
+
+html body .ba-shell .ba-panel.active {
+    padding: 1rem !important;
+}
+
+html body .ba-shell .ba-performance-card {
+    padding: 0.9rem !important;
+}
+
+html body .ba-shell .ba-panel.active > .ba-panel-head,
+html body .ba-shell .ba-performance-card > .ba-panel-head {
+    align-items: center !important;
+    background: transparent !important;
+    border: 0 !important;
+    margin: 0 !important;
+    padding: 0 0 0.65rem !important;
+}
+
+html body .ba-shell .ba-panel-title {
+    color: #263126 !important;
+    font-size: 1.22rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0 !important;
+    line-height: 1.2 !important;
+}
+
+html body .ba-shell .ba-panel-actions {
+    align-items: center !important;
+    gap: 0.45rem !important;
+}
+
+html body .ba-shell .ba-panel-note {
+    background: #E7EEDF !important;
+    border: 0 !important;
+    border-radius: 999px !important;
+    color: #667160 !important;
+    font-size: 0.78rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0 !important;
+    line-height: 1 !important;
+    padding: 0.28rem 0.5rem !important;
+    white-space: nowrap !important;
+}
+
+html body .ba-shell .ba-expand-chart-btn {
+    background: #FCFDF9 !important;
+    border: 1.25px solid #AEBFA6 !important;
+    border-radius: 7px !important;
+    box-shadow: none !important;
+    color: #354232 !important;
+    font-size: 0.86rem !important;
+    font-weight: 800 !important;
+    min-height: 40px !important;
+    padding: 0.45rem 0.65rem !important;
+}
+
+html body .ba-shell .ba-expand-chart-btn:hover {
+    background: #F2F6EC !important;
+    border-color: #8EA083 !important;
+    transform: none !important;
+}
+
+html body .ba-shell .ba-chart-mode-toggle {
+    min-height: 40px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.2rem !important;
+    border: 1.25px solid #AEBFA6 !important;
+    border-radius: 7px !important;
+    background: #FCFDF9 !important;
+    padding: 0.22rem !important;
+}
+
+html body .ba-shell .ba-chart-mode-btn {
+    min-height: 30px !important;
+    border: 0 !important;
+    border-radius: 5px !important;
+    background: transparent !important;
+    color: #667160 !important;
+    padding: 0.36rem 0.64rem !important;
+    font: inherit !important;
+    font-size: 0.78rem !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    cursor: pointer !important;
+    transition: background-color 0.16s ease, color 0.16s ease !important;
+}
+
+html body .ba-shell .ba-chart-mode-btn:hover,
+html body .ba-shell .ba-chart-mode-btn:focus-visible {
+    background: rgba(142, 160, 131, 0.18) !important;
+    color: #2F5233 !important;
+    outline: none !important;
+}
+
+html body .ba-shell .ba-chart-mode-btn.active,
+html body .ba-shell .ba-chart-mode-btn[aria-pressed="true"] {
+    background: #2F5233 !important;
+    color: #FAFBF7 !important;
+}
+
+html body .ba-shell .ba-performance-card .ba-chart-frame,
+html body .ba-shell .ba-panel.active > .ba-chart-frame {
+    background: linear-gradient(180deg, #FFFDF8 0%, #F8FAF2 100%) !important;
+    background-size: auto !important;
+    border: 1.25px solid #AEBFA6 !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+    height: clamp(335px, 40vh, 425px) !important;
+    min-height: 335px !important;
+    overflow: hidden !important;
+    padding: 1.05rem !important;
+}
+
+html body .ba-shell .ba-chart-frame::before {
+    display: none !important;
+}
+
+html body .ba-shell .ba-chart-frame canvas {
+    filter: none !important;
+}
+
+html body .ba-shell .ba-chart-frame-narrow {
+    margin-inline: 0 !important;
+    max-width: none !important;
+}
+
+html body .ba-shell .ba-performance-card > .ba-insight-row,
+html body .ba-shell .ba-panel.active > .ba-insight-row,
+html body .ba-shell .ba-panel.active > .ba-branch-kpi-grid {
+    background: transparent !important;
+    border: 0 !important;
+    gap: 0.5rem !important;
+    margin-top: 0.55rem !important;
+    padding: 0 !important;
+}
+
+html body .ba-shell .ba-insight-card,
+html body .ba-shell .ba-branch-kpi-card {
+    background: #DCE6D6 !important;
+    border: 1.25px solid #AEBFA6 !important;
+    border-radius: 7px !important;
+    box-shadow: none !important;
+    min-height: 82px !important;
+    padding: 0.85rem 0.95rem !important;
+}
+
+html body .ba-shell .ba-insight-card:nth-child(even),
+html body .ba-shell .ba-branch-kpi-card:nth-child(even),
+html body .ba-shell .ba-insight-card.tone-amber,
+html body .ba-shell .ba-insight-card.tone-red {
+    background: #E4DFCB !important;
+}
+
+html body .ba-shell .ba-insight-label,
+html body .ba-shell .ba-branch-kpi-card span {
+    color: #65715F !important;
+    font-size: 0.78rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+}
+
+html body .ba-shell .ba-insight-value,
+html body .ba-shell .ba-branch-kpi-card strong {
+    color: #263126 !important;
+    font-size: 1.1rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0 !important;
+}
+
+html body .ba-shell .ba-insight-note,
+html body .ba-shell .ba-branch-kpi-card small {
+    color: #65715F !important;
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+}
+
+html body .ba-shell .ba-summary-card small {
+    color: #6B8065 !important;
+    display: block !important;
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0 !important;
+    line-height: 1.35 !important;
+    margin-top: 0.35rem !important;
+    text-transform: none !important;
+}
+
+html body .ba-shell .ba-summary-content {
+    min-width: 0 !important;
+}
+
+html body .ba-shell .ba-kpi-actions {
+    position: absolute !important;
+    top: 0.62rem !important;
+    right: 0.62rem !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 0.35rem !important;
+    margin-top: 0 !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: translateY(-2px) !important;
+    transition: opacity 0.16s ease, transform 0.16s ease !important;
+    z-index: 2 !important;
+}
+
+html body .ba-shell .ba-summary-card {
+    position: relative !important;
+}
+
+html body .ba-shell .ba-summary-card:hover .ba-kpi-actions,
+html body .ba-shell .ba-summary-card:focus-within .ba-kpi-actions {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transform: translateY(0) !important;
+}
+
+html body .ba-shell .ba-kpi-action {
+    min-height: 24px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.12rem !important;
+    border: 1px solid rgba(62, 74, 61, 0.20) !important;
+    border-radius: 999px !important;
+    background: rgba(250, 251, 247, 0.92) !important;
+    color: #2F5233 !important;
+    padding: 0.23rem 0.48rem !important;
+    font: inherit !important;
+    font-size: 0.72rem !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    text-decoration: none !important;
+    cursor: pointer !important;
+    box-shadow: 0 8px 18px rgba(35, 40, 33, 0.08) !important;
+    transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease, transform 0.16s ease !important;
+}
+
+html body .ba-shell .ba-kpi-action:hover,
+html body .ba-shell .ba-kpi-action:focus-visible {
+    background: #2F5233 !important;
+    border-color: #2F5233 !important;
+    color: #FAFBF7 !important;
+    outline: none !important;
+    transform: translateY(-1px) !important;
+}
+
+html body .ba-shell .reports-module-main > .ba-workspace {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+html body .ba-shell .ba-workspace[data-active-analytics-panel="ba-panel-payment"] > .ba-summary-grid,
+html body .ba-shell .ba-workspace[data-active-analytics-panel="ba-panel-collection"] > .ba-summary-grid,
+html body .ba-shell .ba-workspace[data-active-analytics-panel="ba-panel-trend"] > .ba-summary-grid {
+    display: none !important;
+}
+
+html body .ba-shell #ba-panel-trend.active > .ba-panel-head {
+    order: 0 !important;
+}
+
+html body .ba-shell #ba-panel-trend.active > .ba-tab-context {
+    order: 1 !important;
+}
+
+html body .ba-shell #ba-panel-trend.active > #baRevenueInsights {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    order: 2 !important;
+    margin: 0 0 0.75rem !important;
+}
+
+html body .ba-shell #ba-panel-trend.active > .ba-chart-frame {
+    order: 3 !important;
+}
+
+html body .ba-shell .ba-breakdown-section {
+    border-color: rgba(174, 191, 166, 0.78) !important;
+    border-radius: 8px !important;
+    background: rgba(220, 230, 214, 0.42) !important;
+}
+
+html body .ba-shell .ba-breakdown-summary {
+    min-height: 46px !important;
+    padding: 0.72rem 0.9rem !important;
+}
+
+html body .ba-shell .ba-breakdown-card {
+    background: #FAFBF7 !important;
+    border-color: rgba(174, 191, 166, 0.78) !important;
+}
+
+html body .ba-shell .ba-breakdown-row {
+    grid-template-columns: minmax(132px, 1fr) auto minmax(96px, auto) auto !important;
+    row-gap: 0.42rem !important;
+}
+
+html[data-theme='dark'] body .ba-shell .ba-breakdown-section {
+    background: rgba(26, 47, 70, 0.58) !important;
+    border-color: #2e4560 !important;
+}
+
+html[data-theme='dark'] body .ba-shell .ba-breakdown-summary,
+html[data-theme='dark'] body .ba-shell .ba-breakdown-summary small {
+    color: #d8e6f7 !important;
+}
+
+@media (max-width: 1180px) {
+    html body .ba-shell #ba-panel-trend.active > #baRevenueInsights {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (max-width: 760px) {
+    html body .ba-shell .ba-breakdown-summary {
+        grid-template-columns: minmax(0, 1fr) auto !important;
+    }
+
+    html body .ba-shell .ba-breakdown-summary small {
+        display: none !important;
+    }
+
+    html body .ba-shell .ba-breakdown-row {
+        grid-template-columns: 1fr auto !important;
+    }
+
+    html body .ba-shell .ba-breakdown-amount,
+    html body .ba-shell .ba-breakdown-percent {
+        text-align: left !important;
+    }
+}
+
+@media (max-width: 640px) {
+    html body .ba-shell #ba-panel-trend.active > #baRevenueInsights {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+html.ba-soft-loading .ba-shell {
+    cursor: progress;
+    opacity: 0.68;
+    pointer-events: none;
+    transition: opacity 0.16s ease;
+}
+
+html body .ba-shell .ba-panels > .ba-panel[hidden],
+html body .ba-shell .ba-panels > .ba-panel:not(.active) {
+    display: none !important;
+}
+
+html body .ba-shell .ba-panels > .ba-panel.active:not([hidden]) {
+    display: flex !important;
+}
 </style>
 
-<script>
+<script data-ba-analytics-script>
+window.SabanganAnalyticsSoftNav = window.SabanganAnalyticsSoftNav || (() => {
+    let isLoading = false;
+
+    const analyticsPath = @json(parse_url(route('owner.analytics'), PHP_URL_PATH));
+    const isAnalyticsUrl = (url) => {
+        try {
+            return new URL(url, window.location.origin).pathname === analyticsPath;
+        } catch (_) {
+            return false;
+        }
+    };
+
+    const formUrl = (form) => {
+        const data = new FormData(form);
+        const url = new URL(form.action || window.location.href, window.location.origin);
+        url.search = '';
+        data.forEach((value, key) => {
+            if (value !== null && String(value) !== '') {
+                url.searchParams.set(key, value);
+            }
+        });
+        return url;
+    };
+
+    const executeAnalyticsScript = (doc) => {
+        const script = doc.querySelector('script[data-ba-analytics-script]');
+        if (!script?.textContent) return;
+        window.setTimeout(() => {
+            try {
+                new Function(script.textContent)();
+            } catch (error) {
+                console.error('Unable to initialize analytics after soft navigation.', error);
+            }
+        }, 0);
+    };
+
+    const load = async (url) => {
+        if (isLoading) return;
+        isLoading = true;
+        document.documentElement.classList.add('ba-soft-loading');
+
+        try {
+            const response = await fetch(url.toString(), {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'text/html',
+                },
+                credentials: 'same-origin',
+            });
+
+            if (!response.ok) {
+                window.location.href = url.toString();
+                return;
+            }
+
+            const html = await response.text();
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const nextShell = doc.querySelector('.ba-shell');
+            const currentShell = document.querySelector('.ba-shell');
+
+            if (!nextShell || !currentShell) {
+                window.location.href = url.toString();
+                return;
+            }
+
+            currentShell.replaceWith(nextShell);
+            document.title = doc.title || document.title;
+            window.history.pushState({}, '', url.toString());
+            executeAnalyticsScript(doc);
+        } catch (error) {
+            console.error('Analytics soft navigation failed.', error);
+            window.location.href = url.toString();
+        } finally {
+            isLoading = false;
+            document.documentElement.classList.remove('ba-soft-loading');
+        }
+    };
+
+    const init = () => {
+        if (window.__sabanganAnalyticsSoftNavBound) return;
+        window.__sabanganAnalyticsSoftNavBound = true;
+
+        document.addEventListener('change', (event) => {
+            const select = event.target;
+            if (!(select instanceof HTMLSelectElement)) return;
+            const form = select.form;
+            if (!form || !isAnalyticsUrl(form.action)) return;
+
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            load(formUrl(form));
+        }, true);
+
+        document.addEventListener('submit', (event) => {
+            const form = event.target;
+            if (!(form instanceof HTMLFormElement) || !isAnalyticsUrl(form.action)) return;
+
+            event.preventDefault();
+            load(formUrl(form));
+        }, true);
+
+        window.addEventListener('popstate', () => {
+            if (isAnalyticsUrl(window.location.href)) {
+                load(new URL(window.location.href));
+            }
+        });
+    };
+
+    return { init, load };
+})();
+
+window.SabanganAnalyticsSoftNav.init();
+
 (function () {
     const payload = @json($chart);
     if (!payload) return;
@@ -5031,9 +5665,11 @@ html[data-theme='dark'] .ba-tab-btn.active {
     const globalRange = @json($range);
     const masterCaseRecordsUrl = @json($masterCaseRecordsUrl);
     const barRawLabels = payload.bar.labels ?? [];
-    const periodLabels = payload.period?.labels ?? payload.bar.labels ?? [];
-    const periodCases = payload.period?.cases ?? payload.bar.volume ?? [];
-    const periodServiceAmounts = payload.period?.service_amount ?? payload.bar.revenue ?? [];
+    const periodLabels = payload.period?.labels ?? payload.line?.labels ?? [];
+    const periodCases = payload.period?.cases ?? [];
+    const periodServiceAmounts = payload.period?.service_amount ?? payload.line?.data ?? [];
+    const periodCollectedAmounts = payload.period?.collected_amount ?? [];
+    const periodOutstandingBalances = payload.period?.outstanding_balance ?? [];
     const barAxisLabels = payload.mode === 'all'
         ? barRawLabels.map((label, index) => branchMeta[index]?.code || label)
         : barRawLabels;
@@ -5068,7 +5704,22 @@ html[data-theme='dark'] .ba-tab-btn.active {
     });
 
     const number = new Intl.NumberFormat('en-PH');
+    const shortPeso = (value) => {
+        const amount = Number(value || 0);
+        if (Math.abs(amount) >= 1000000) {
+            return `₱${(amount / 1000000).toFixed(amount % 1000000 === 0 ? 0 : 1)}M`;
+        }
+        if (Math.abs(amount) >= 1000) {
+            return `₱${Math.round(amount / 1000)}K`;
+        }
+        return `₱${number.format(amount)}`;
+    };
     const charts = {};
+    const collectionViewStorageKey = 'ownerBranchAnalytics.collectionView';
+    const storedCollectionChartView = sessionStorage.getItem(collectionViewStorageKey);
+    let collectionChartView = ['snapshot', 'by_period'].includes(storedCollectionChartView)
+        ? storedCollectionChartView
+        : (storedCollectionChartView === 'monthly' ? 'by_period' : 'snapshot');
     let chartLoader = null;
     let analyticsFilters = {
         branchCode: null,
@@ -5345,11 +5996,15 @@ html[data-theme='dark'] .ba-tab-btn.active {
             row.cases += 1;
             row.revenue += Number(item.totalAmount || 0);
             row.outstanding += Number(item.balanceAmount || 0);
+            if (Number(item.balanceAmount || 0) > 0) {
+                row.needsAttention = (row.needsAttention || 0) + 1;
+            }
             rowsByBranch.set(code, row);
         });
 
         return Array.from(rowsByBranch.values()).map((row) => ({
             ...row,
+            needsAttention: row.needsAttention || 0,
             average: row.cases > 0 ? row.revenue / row.cases : 0,
         }));
     };
@@ -5385,12 +6040,21 @@ html[data-theme='dark'] .ba-tab-btn.active {
         };
     };
 
+    const trendChartLabels = () => payload.line?.labels ?? periodLabels;
+
+    const buildTrendSeries = () => {
+        const labels = trendChartLabels();
+        const lineValues = payload.line?.data ?? [];
+        const revenue = labels.map((label, index) => Number(lineValues[index] ?? periodServiceAmounts[index] ?? 0));
+
+        return { labels, revenue };
+    };
+
     const buildRevenueInsightRows = () => {
-        const labels = payload.line?.labels ?? [];
-        const values = payload.line?.data ?? [];
+        const { labels, revenue: revenueValues } = buildTrendSeries();
         const rows = labels.map((label, index) => ({
             label,
-            revenue: Number(values[index] || 0),
+            revenue: Number(revenueValues[index] || 0),
             period: parsePeriodFromLabel(label),
         }));
         const peak = maxBy(rows, (row) => row.revenue);
@@ -5410,6 +6074,7 @@ html[data-theme='dark'] .ba-tab-btn.active {
         const branchRows = buildBranchInsightRows();
         const topRevenue = maxBy(branchRows, (row) => row.revenue);
         const mostActive = maxBy(branchRows, (row) => row.cases);
+        const needsAttention = maxBy(branchRows, (row) => row.needsAttention || 0);
 
         if (selectedBranchMeta) {
             const selected = branchRows[0] || { cases: 0, revenue: 0, average: 0 };
@@ -5439,6 +6104,20 @@ html[data-theme='dark'] .ba-tab-btn.active {
                     tone: 'blue',
                     onClick: mostActive?.code ? () => handleBranchClick(mostActive.code) : null,
                     hint: mostActive?.code ? 'Open records' : null,
+                },
+                {
+                    label: 'Needs Attention',
+                    value: needsAttention && needsAttention.needsAttention > 0
+                        ? pluralizeCase(needsAttention.needsAttention)
+                        : 'No open balances',
+                    note: needsAttention && needsAttention.outstanding > 0
+                        ? `${shortMoney(needsAttention.outstanding)} outstanding`
+                        : 'All selected balances are clear',
+                    tone: needsAttention && needsAttention.needsAttention > 0 ? 'amber' : 'green',
+                    onClick: needsAttention?.code && needsAttention.needsAttention > 0
+                        ? () => handleBranchClick(needsAttention.code)
+                        : null,
+                    hint: needsAttention?.code && needsAttention.needsAttention > 0 ? 'Open records' : null,
                 },
             ]);
         }
@@ -5474,56 +6153,46 @@ html[data-theme='dark'] .ba-tab-btn.active {
         ]);
 
         const revenueRows = buildRevenueInsightRows();
+        const firstRevenueRow = revenueRows.rows[0] || null;
+        const lastRevenueRow = revenueRows.rows[revenueRows.rows.length - 1] || null;
+        const firstRevenue = Number(firstRevenueRow?.revenue || 0);
+        const lastRevenue = Number(lastRevenueRow?.revenue || 0);
+        const growthPct = firstRevenue === 0
+            ? (lastRevenue > 0 ? 100 : 0)
+            : ((lastRevenue - firstRevenue) / firstRevenue) * 100;
+        const growthPrefix = growthPct > 0 ? '+' : growthPct < 0 ? '-' : '';
+        const growthValue = `${growthPrefix}${Math.abs(growthPct).toFixed(0)}%`;
+        const growthNote = firstRevenueRow && lastRevenueRow
+            ? `${firstRevenueRow.label} -> ${lastRevenueRow.label}`
+            : 'Selected range';
         renderInsightCards('baRevenueInsights', [
             {
                 label: 'Total Revenue',
                 value: shortMoney(revenueRows.total),
                 note: 'For selected range',
                 tone: 'blue',
-                // Non-clickable: no onClick, no hint, never selected
             },
             {
-                label: 'Peak Revenue Period',
+                label: 'Avg Monthly Revenue',
+                value: shortMoney(revenueRows.average),
+                note: 'Gross service amount',
+                tone: 'blue',
+            },
+            {
+                label: 'Peak Month',
                 value: revenueRows.peak?.period?.label || revenueRows.peak?.label || '-',
-                note: revenueRows.peak ? shortMoney(revenueRows.peak.revenue) : 'No revenue yet',
+                note: revenueRows.peak ? `${shortMoney(revenueRows.peak.revenue)} revenue` : 'No revenue yet',
                 tone: 'blue',
                 onClick: revenueRows.peak?.period ? () => handleRevenuePeriodClick(revenueRows.peak.period) : null,
                 isSelected: !!revenueRows.peak?.period && analyticsFilters.revenuePeriod?.label === revenueRows.peak?.period?.label,
                 hint: revenueRows.peak?.period ? 'Open records' : null,
             },
-            (() => {
-                const rows = revenueRows.rows;
-                if (rows.length < 2) {
-                    return {
-                        label: 'Revenue Trend',
-                        value: 'No comparison',
-                        note: 'Need at least 2 periods to compare.',
-                        tone: 'blue',
-                    };
-                }
-                const mid = Math.floor(rows.length / 2);
-                const firstHalf = rows.slice(0, mid);
-                const secondHalf = rows.slice(mid);
-                const avgFirst = firstHalf.reduce((s, r) => s + r.revenue, 0) / firstHalf.length;
-                const avgSecond = secondHalf.reduce((s, r) => s + r.revenue, 0) / secondHalf.length;
-                const pctChange = avgFirst === 0
-                    ? (avgSecond > 0 ? 100 : 0)
-                    : ((avgSecond - avgFirst) / avgFirst) * 100;
-                const isUp = pctChange > 1;
-                const isDown = pctChange < -1;
-                const trendLabel = isUp ? `↑ Up ${pctChange.toFixed(1)}%` : isDown ? `↓ Down ${Math.abs(pctChange).toFixed(1)}%` : '→ Flat';
-                const trendNote = isUp
-                    ? `${shortMoney(avgSecond)} avg (vs ${shortMoney(avgFirst)} earlier)`
-                    : isDown
-                        ? `${shortMoney(avgSecond)} avg (vs ${shortMoney(avgFirst)} earlier)`
-                        : 'Revenue is steady across periods';
-                return {
-                    label: 'Revenue Trend',
-                    value: trendLabel,
-                    note: trendNote,
-                    tone: isUp ? 'green' : isDown ? 'red' : 'blue',
-                };
-            })(),
+            {
+                label: 'Growth',
+                value: growthValue,
+                note: growthNote,
+                tone: growthPct >= 0 ? 'green' : 'red',
+            },
         ]);
 
         const collectionRows = buildCollectionInsightRows();
@@ -5562,8 +6231,15 @@ html[data-theme='dark'] .ba-tab-btn.active {
             const row = breakdown[key] || { count: 0, amount: 0 };
             const percentage = totalCases > 0 ? ((row.count / totalCases) * 100) : 0;
             const tone = statusTone(key);
+            const toneColor = tone === 'status-positive'
+                ? '#597A5C'
+                : tone === 'status-warning'
+                    ? '#BF7A49'
+                    : tone === 'status-danger'
+                        ? '#AE3D31'
+                        : '#8EA083';
             return `
-                <div class="ba-breakdown-row">
+                <div class="ba-breakdown-row" style="--ba-breakdown-percent: ${percentage.toFixed(2)}%; --ba-breakdown-tone: ${toneColor};">
                     <span class="ba-breakdown-label"><span class="ba-status-dot ${tone}"></span>${statusLabels[key] || key}</span>
                     <span class="ba-breakdown-count">${pluralizeCase(row.count)}</span>
                     <span class="ba-breakdown-amount">${money.format(row.amount)}</span>
@@ -5624,7 +6300,7 @@ html[data-theme='dark'] .ba-tab-btn.active {
                 context: branchLabel ? `This view is filtered by ${branchLabel}.` : '',
             },
             trend: {
-                note: branchLabel ? `Revenue trend for ${branchLabel}.` : 'Period movement',
+                note: branchLabel ? `Revenue trend for ${branchLabel}.` : 'Total revenue movement',
                 context: branchLabel ? `This view is filtered by ${branchLabel}.` : '',
             },
             collection: {
@@ -6259,6 +6935,36 @@ html[data-theme='dark'] .ba-tab-btn.active {
 
     const billedTotal = summary.totalCollected + summary.totalOutstanding;
     const collectionRate = billedTotal > 0 ? ((summary.totalCollected / billedTotal) * 100) : 0;
+    const doughnutPercentLabels = {
+        id: 'doughnutPercentLabels',
+        afterDatasetsDraw(chart) {
+            const dataset = chart.data.datasets?.[0];
+            const values = dataset?.data?.map((value) => Number(value || 0)) || [];
+            const total = values.reduce((sum, value) => sum + value, 0);
+            if (!total) return;
+
+            const { ctx } = chart;
+            const meta = chart.getDatasetMeta(0);
+            ctx.save();
+            ctx.font = '700 12px Inter, system-ui, sans-serif';
+            ctx.fillStyle = '#FFFDF8';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = 'rgba(35, 40, 33, 0.24)';
+            ctx.shadowBlur = 2;
+
+            meta.data.forEach((arc, index) => {
+                const value = values[index] || 0;
+                const percent = total > 0 ? Math.round((value / total) * 100) : 0;
+                if (!percent || percent < 4) return;
+
+                const position = arc.tooltipPosition();
+                ctx.fillText(`${percent}%`, position.x, position.y);
+            });
+
+            ctx.restore();
+        },
+    };
     const chartFactories = {
         paymentChart: () => buildChart('paymentChart', {
             type: 'doughnut',
@@ -6281,6 +6987,7 @@ html[data-theme='dark'] .ba-tab-btn.active {
                     },
                 ],
             },
+            plugins: [doughnutPercentLabels],
             options: {
                 ...sharedOptions,
                 cutout: '60%',
@@ -6300,33 +7007,55 @@ html[data-theme='dark'] .ba-tab-btn.active {
                             label: (ctx) => `${ctx.label}: ${number.format(Number(ctx.raw || 0))} cases`,
                         },
                     },
+                    legend: {
+                        labels: {
+                            ...sharedOptions.plugins.legend.labels,
+                            generateLabels: (chart) => {
+                                const values = chart.data.datasets?.[0]?.data?.map((value) => Number(value || 0)) || [];
+                                const total = values.reduce((sum, value) => sum + value, 0);
+                                const colors = [chartTheme.success, chartTheme.warning, chartTheme.danger];
+
+                                return chart.data.labels.map((label, index) => ({
+                                    text: `${label} (${number.format(values[index] || 0)}/${number.format(total)})`,
+                                    fillStyle: colors[index],
+                                    strokeStyle: colors[index],
+                                    lineWidth: 0,
+                                    hidden: false,
+                                    index,
+                                    pointStyle: 'circle',
+                                }));
+                            },
+                        },
+                    },
                 },
             },
         }),
         trendChart: () => buildChart('trendChart', {
             type: 'line',
             data: {
-                labels: payload.line.labels ?? [],
+                labels: buildTrendSeries().labels,
                 datasets: [
                     {
                         label: 'Total Service Amount',
-                        data: payload.line.data ?? [],
+                        data: buildTrendSeries().revenue,
                         borderColor: chartTheme.primary,
-                        backgroundColor: 'rgba(62, 74, 61, 0.14)',
+                        backgroundColor: 'rgba(52, 67, 50, 0.10)',
                         borderWidth: 2.5,
                         fill: false,
                         tension: 0.32,
                         pointRadius: (ctx) => {
-                            const period = parsePeriodFromLabel((payload.line.labels ?? [])[ctx.dataIndex]);
+                            const period = parsePeriodFromLabel(buildTrendSeries().labels[ctx.dataIndex]);
                             return analyticsFilters.revenuePeriod?.label === period?.label ? 5.5 : 2.8;
                         },
                         pointHoverRadius: 4.5,
                         pointBackgroundColor: (ctx) => {
-                            const period = parsePeriodFromLabel((payload.line.labels ?? [])[ctx.dataIndex]);
+                            const period = parsePeriodFromLabel(buildTrendSeries().labels[ctx.dataIndex]);
                             return analyticsFilters.revenuePeriod && analyticsFilters.revenuePeriod.label !== period?.label
                                 ? fadeHex(chartTheme.primary, 0.40)
                                 : chartTheme.primary;
                         },
+                        pointBorderColor: '#FFFDF8',
+                        pointBorderWidth: 2,
                     },
                 ],
             },
@@ -6338,7 +7067,7 @@ html[data-theme='dark'] .ba-tab-btn.active {
                 onClick: (event, elements, chart) => {
                     const hit = elements?.[0] || chart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true)?.[0];
                     if (!hit) return;
-                    const period = parsePeriodFromLabel((payload.line.labels ?? [])[hit.index]);
+                    const period = parsePeriodFromLabel(buildTrendSeries().labels[hit.index]);
                     if (period) handleRevenuePeriodClick(period, 'trendChart', true);
                 },
                 scales: {
@@ -6378,87 +7107,180 @@ html[data-theme='dark'] .ba-tab-btn.active {
                 },
             },
         }),
-        collectionChart: () => buildChart('collectionChart', {
-            type: 'bar',
-            data: {
-                labels: ['Collected', 'Outstanding', 'Total Service Amount'],
-                datasets: [
-                    {
-                        label: 'Amount',
-                        data: [summary.totalCollected, summary.totalOutstanding, summary.totalSales],
-                        backgroundColor: (ctx) => {
-                            const statuses = ['COLLECTED', 'OUTSTANDING', null];
-                            const colors = [chartTheme.success, chartTheme.warning, chartTheme.primary];
-                            const index = ctx.dataIndex ?? 0;
-                            return analyticsFilters.collectionStatus && statuses[index] !== analyticsFilters.collectionStatus
-                                ? fadeHex(colors[index], 0.40)
-                                : colors[index];
-                        },
-                        borderRadius: 6,
-                    },
-                ],
-            },
-            options: {
-                ...sharedOptions,
-                indexAxis: 'y',
-                onHover: (event, elements) => {
-                    if (event.native?.target) event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+        collectionChart: () => {
+            const isByPeriod = collectionChartView === 'by_period';
+            const collectionStatusForHit = (hit) => {
+                if (!hit) return null;
+
+                if (isByPeriod) {
+                    return ['COLLECTED', 'OUTSTANDING'][hit.datasetIndex] || null;
+                }
+
+                return ['COLLECTED', 'OUTSTANDING', null][hit.index] || null;
+            };
+            const periodForHit = (hit) => {
+                if (!isByPeriod || !hit) return null;
+                return parsePeriodFromLabel(periodLabels[hit.index]);
+            };
+            const collectionPeriodColor = (ctx, baseColor, dimmedByStatus) => {
+                const period = parsePeriodFromLabel(periodLabels[ctx.dataIndex]);
+                const dimmedByPeriod = analyticsFilters.revenuePeriod && period?.label !== analyticsFilters.revenuePeriod.label;
+
+                return dimmedByStatus || dimmedByPeriod ? fadeHex(baseColor, 0.38) : baseColor;
+            };
+            const periodDatasets = [
+                {
+                    label: 'Collected',
+                    data: periodCollectedAmounts,
+                    backgroundColor: (ctx) => collectionPeriodColor(ctx, chartTheme.success, analyticsFilters.collectionStatus === 'OUTSTANDING'),
+                    borderColor: (ctx) => collectionPeriodColor(ctx, chartTheme.success, analyticsFilters.collectionStatus === 'OUTSTANDING'),
+                    borderRadius: 6,
                 },
-                onClick: (event, elements, chart) => {
-                    const hit = elements?.[0] || chart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true)?.[0];
-                    if (!hit) return;
-                    const statuses = ['COLLECTED', 'OUTSTANDING', null];
-                    if (statuses[hit.index]) {
-                        handleCollectionStatusClick(statuses[hit.index], 'collectionChart', true);
-                    } else {
-                        setAnalyticsFilters({ collectionStatus: null });
+                {
+                    label: 'Outstanding',
+                    data: periodOutstandingBalances,
+                    backgroundColor: (ctx) => collectionPeriodColor(ctx, chartTheme.warning, analyticsFilters.collectionStatus === 'COLLECTED'),
+                    borderColor: (ctx) => collectionPeriodColor(ctx, chartTheme.warning, analyticsFilters.collectionStatus === 'COLLECTED'),
+                    borderRadius: 6,
+                },
+            ];
+
+            return buildChart('collectionChart', {
+                type: 'bar',
+                data: isByPeriod
+                    ? {
+                        labels: periodLabels,
+                        datasets: periodDatasets,
                     }
-                },
-                scales: {
-                    x: {
-                        beginAtZero: true,
-                        grid: { color: gridColor },
-                        title: {
+                    : {
+                        labels: ['Collected', 'Outstanding', 'Total Service Amount'],
+                        datasets: [
+                            {
+                                label: 'Amount',
+                                data: [summary.totalCollected, summary.totalOutstanding, summary.totalSales],
+                                backgroundColor: (ctx) => {
+                                    const statuses = ['COLLECTED', 'OUTSTANDING', null];
+                                    const colors = [chartTheme.success, chartTheme.warning, chartTheme.primary];
+                                    const index = ctx.dataIndex ?? 0;
+                                    return analyticsFilters.collectionStatus && statuses[index] !== analyticsFilters.collectionStatus
+                                        ? fadeHex(colors[index], 0.40)
+                                        : colors[index];
+                                },
+                                borderRadius: 6,
+                            },
+                        ],
+                    },
+                options: {
+                    ...sharedOptions,
+                    indexAxis: isByPeriod ? 'x' : 'y',
+                    onHover: (event, elements) => {
+                        if (event.native?.target) {
+                            const status = collectionStatusForHit(elements?.[0]);
+                            event.native.target.style.cursor = status ? 'pointer' : 'default';
+                        }
+                    },
+                    onClick: (event, elements, chart) => {
+                        const hit = elements?.[0] || chart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true)?.[0];
+                        if (!hit) return;
+
+                        const status = collectionStatusForHit(hit);
+                        if (status) {
+                            if (isByPeriod) {
+                                setAnalyticsFilters({
+                                    collectionStatus: status,
+                                    revenuePeriod: periodForHit(hit),
+                                });
+                            } else {
+                                handleCollectionStatusClick(status);
+                            }
+                            return;
+                        }
+
+                        if (!isByPeriod) {
+                            setAnalyticsFilters({ collectionStatus: null });
+                        }
+                    },
+                    scales: {
+                        x: isByPeriod
+                            ? {
+                                grid: { color: gridColor },
+                                title: {
+                                    display: true,
+                                    text: 'Periods',
+                                    color: textColor,
+                                    font: { size: 11, weight: '700' },
+                                },
+                                ticks: { color: textColor },
+                            }
+                            : {
+                                beginAtZero: true,
+                                grid: { color: gridColor },
+                                title: {
+                                    display: true,
+                                    text: 'Amount (PHP)',
+                                    color: textColor,
+                                    font: { size: 11, weight: '700' },
+                                },
+                                ticks: {
+                                    color: textColor,
+                                    maxRotation: 0,
+                                    minRotation: 0,
+                                    callback: (value) => shortPeso(value),
+                                },
+                            },
+                        y: isByPeriod
+                            ? {
+                                beginAtZero: true,
+                                grid: { color: gridColor },
+                                title: {
+                                    display: true,
+                                    text: 'Amount (PHP)',
+                                    color: textColor,
+                                    font: { size: 11, weight: '700' },
+                                },
+                                ticks: {
+                                    color: textColor,
+                                    callback: (value) => shortPeso(value),
+                                },
+                            }
+                            : {
+                                grid: { display: false },
+                                title: {
+                                    display: true,
+                                    text: 'Collection Status',
+                                    color: textColor,
+                                    font: { size: 11, weight: '700' },
+                                },
+                                ticks: { color: textColor },
+                            },
+                    },
+                    plugins: {
+                        ...sharedOptions.plugins,
+                        subtitle: {
                             display: true,
-                            text: 'Amount (PHP)',
+                            text: isByPeriod
+                                ? `Collected vs outstanding by period · Collection Rate: ${collectionRate.toFixed(1)}%`
+                                : `Collection Rate: ${collectionRate.toFixed(1)}%`,
                             color: textColor,
                             font: { size: 11, weight: '700' },
+                            padding: { bottom: 8 },
                         },
-                        ticks: {
-                            color: textColor,
-                            callback: (value) => money.format(Number(value)),
+                        tooltip: {
+                            ...sharedOptions.plugins.tooltip,
+                            callbacks: {
+                                label: (ctx) => isByPeriod
+                                    ? `${ctx.dataset.label}: ${money.format(Number(ctx.raw || 0))}`
+                                    : `${ctx.label}: ${money.format(Number(ctx.raw || 0))}`,
+                            },
                         },
-                    },
-                    y: {
-                        grid: { display: false },
-                        title: {
-                            display: true,
-                            text: 'Collection Status',
-                            color: textColor,
-                            font: { size: 11, weight: '700' },
+                        legend: {
+                            display: isByPeriod,
+                            labels: sharedOptions.plugins.legend.labels,
                         },
-                        ticks: { color: textColor },
                     },
                 },
-                plugins: {
-                    ...sharedOptions.plugins,
-                    subtitle: {
-                        display: true,
-                        text: `Collection Rate: ${collectionRate.toFixed(1)}%`,
-                        color: textColor,
-                        font: { size: 11, weight: '700' },
-                        padding: { bottom: 8 },
-                    },
-                    tooltip: {
-                        ...sharedOptions.plugins.tooltip,
-                        callbacks: {
-                            label: (ctx) => `${ctx.label}: ${money.format(Number(ctx.raw || 0))}`,
-                        },
-                    },
-                    legend: { display: false },
-                },
-            },
-        }),
+            });
+        },
     };
 
     const ensureChart = async (chartId) => {
@@ -6477,6 +7299,47 @@ html[data-theme='dark'] .ba-tab-btn.active {
 
         return factory();
     };
+
+    const syncCollectionChartMode = () => {
+        document.querySelectorAll('[data-collection-view]').forEach((button) => {
+            const active = button.dataset.collectionView === collectionChartView;
+            button.classList.toggle('active', active);
+            button.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+
+        const collectionNote = document.querySelector('#ba-panel-collection .ba-panel-note');
+        if (collectionNote) {
+            collectionNote.textContent = collectionChartView === 'by_period'
+                ? 'Collected vs outstanding by period'
+                : (collectionNote.dataset.defaultNote || 'Collected vs outstanding');
+        }
+    };
+
+    const rebuildCollectionChart = async () => {
+        if (charts.collectionChart) {
+            charts.collectionChart.destroy();
+            delete charts.collectionChart;
+        }
+
+        const chart = await ensureChart('collectionChart');
+        if (chart) {
+            requestAnimationFrame(() => chart.resize());
+        }
+    };
+
+    document.querySelectorAll('[data-collection-view]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const nextView = button.dataset.collectionView;
+            if (!['snapshot', 'by_period'].includes(nextView) || nextView === collectionChartView) return;
+
+            collectionChartView = nextView;
+            sessionStorage.setItem(collectionViewStorageKey, collectionChartView);
+            syncCollectionChartMode();
+            rebuildCollectionChart().catch(() => {});
+        });
+    });
+
+    syncCollectionChartMode();
 
     const tabButtons = Array.from(document.querySelectorAll('.ba-tab-btn'));
     const panels = Array.from(document.querySelectorAll('.ba-panel'));
@@ -6517,7 +7380,7 @@ html[data-theme='dark'] .ba-tab-btn.active {
         const allowedByPanel = {
             'ba-panel-performance': ['branchCode'],
             'ba-panel-payment': ['paymentStatus'],
-            'ba-panel-collection': ['collectionStatus'],
+            'ba-panel-collection': ['collectionStatus', 'revenuePeriod'],
             'ba-panel-trend': ['revenuePeriod'],
         };
         const allowed = new Set(allowedByPanel[targetId] || []);
@@ -6540,6 +7403,8 @@ html[data-theme='dark'] .ba-tab-btn.active {
         if (!validPanelIds.has(targetId)) {
             targetId = 'ba-panel-performance';
         }
+
+        document.querySelector('.ba-workspace')?.setAttribute('data-active-analytics-panel', targetId);
 
         tabButtons.forEach((btn) => {
             const active = btn.dataset.target === targetId;
@@ -6572,6 +7437,12 @@ html[data-theme='dark'] .ba-tab-btn.active {
     };
 
     tabButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            activatePanel(button.dataset.target, { scrollIntoView: true }).catch(() => {});
+        });
+    });
+
+    document.querySelectorAll('.ba-kpi-jump').forEach((button) => {
         button.addEventListener('click', () => {
             activatePanel(button.dataset.target, { scrollIntoView: true }).catch(() => {});
         });

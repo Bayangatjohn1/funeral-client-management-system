@@ -12,8 +12,8 @@
 <div class="nav-section">
     <div class="nav-list">
         <a href="{{ route('intake.main.create') }}"
-           class="{{ $isActive(request()->routeIs('intake.main.create') || (request()->routeIs('funeral-cases.index') && request()->boolean('open_wizard'))) }}">
-            <svg class="{{ $iconState(request()->routeIs('intake.main.create') || (request()->routeIs('funeral-cases.index') && request()->boolean('open_wizard'))) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+           class="{{ $isActive((request()->routeIs('intake.main.create') || request()->routeIs('intake.drafts.edit')) || (request()->routeIs('funeral-cases.index') && request()->boolean('open_wizard'))) }}">
+            <svg class="{{ $iconState((request()->routeIs('intake.main.create') || request()->routeIs('intake.drafts.edit')) || (request()->routeIs('funeral-cases.index') && request()->boolean('open_wizard'))) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
             </svg>
             <span>New Case</span>
@@ -52,7 +52,7 @@
             <svg class="{{ $iconState(request()->is('clients*')) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 005.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
             </svg>
-            <span>Client List</span>
+            <span>Client Directory</span>
         </a>
 
     </div>

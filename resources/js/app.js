@@ -171,6 +171,8 @@ function initRowActionMenus() {
 }
 
 function initTableToolbarBehavior() {
+    initFilterSelectAffordances();
+
     const forms = document.querySelectorAll('form[data-table-toolbar]');
     if (!forms.length) return;
 
@@ -262,6 +264,106 @@ function initTableToolbarBehavior() {
         });
 
         form.addEventListener('submit', markNavigationIntent);
+    });
+}
+
+function initFilterSelectAffordances() {
+    if (document.body.dataset.filterSelectDismissReady !== '1') {
+        document.body.dataset.filterSelectDismissReady = '1';
+        document.addEventListener('pointerdown', (event) => {
+            if (!(event.target instanceof Element)) return;
+            document.querySelectorAll('[data-filter-select-wrap].is-open').forEach((wrap) => {
+                if (!wrap.contains(event.target)) {
+                    wrap.classList.remove('is-open');
+                    wrap.querySelector('select')?.setAttribute('aria-expanded', 'false');
+                }
+            });
+        }, true);
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key !== 'Escape') return;
+            document.querySelectorAll('[data-filter-select-wrap].is-open').forEach((wrap) => {
+                wrap.classList.remove('is-open');
+                wrap.querySelector('select')?.setAttribute('aria-expanded', 'false');
+            });
+        });
+    }
+
+    const selector = [
+        '.table-system-toolbar select.table-toolbar-select',
+        '.table-system-toolbar select.table-toolbar-sort',
+        'form[data-table-toolbar] select.table-toolbar-select',
+        'form[data-table-toolbar] select.table-toolbar-sort',
+        '.sales-filter select.filter-select',
+        '.audit-filter-control.is-select select.audit-select',
+        '.ba-branch-select-wrap select.ba-branch-select',
+        '.eb-branch-select-wrap select.eb-branch-select',
+        '.reports-analytics-branch select.reports-analytics-select',
+        '.owner-sales-field-control select.owner-sales-control',
+        '.topbar-filter-bar select.filter-select',
+        '.payments-filter-control.has-dropdown select',
+        '.case-compact-date-filter select',
+        '.case-compact-sort-filter select',
+        '.case-compact-branch select',
+        '.pm-field.has-icon select.pm-control',
+    ].join(',');
+
+    document.querySelectorAll(selector).forEach((select) => {
+        if (!(select instanceof HTMLSelectElement) || select.dataset.filterSelectReady === '1') return;
+        select.dataset.filterSelectReady = '1';
+
+        let wrap = select.closest('.table-toolbar-select-wrap, .audit-filter-control.is-select, .ba-branch-select-wrap, .eb-branch-select-wrap, .reports-analytics-branch, .payments-filter-control.has-dropdown, .case-compact-date-filter, .case-compact-sort-filter, .case-compact-branch, .pm-field.has-icon, .global-filter-select-wrap');
+
+        if (!wrap && select.parentElement) {
+            const isTableToolbarSelect = select.classList.contains('table-toolbar-select') || select.classList.contains('table-toolbar-sort');
+            wrap = document.createElement('span');
+            wrap.className = isTableToolbarSelect ? 'table-toolbar-select-wrap' : 'global-filter-select-wrap';
+            select.parentElement.insertBefore(wrap, select);
+            wrap.appendChild(select);
+        }
+
+        if (!wrap) return;
+        wrap.setAttribute('data-filter-select-wrap', '');
+
+        let icon = wrap.querySelector('.table-toolbar-select-icon, .payments-filter-dropdown-icon, .ba-branch-select-chev, .eb-branch-select-chev, .case-compact-date-chev, .case-compact-sort-chev, .case-compact-select-chev, .pm-sel-chev, [data-filter-select-icon]');
+        if (!icon && (wrap.classList.contains('table-toolbar-select-wrap') || wrap.classList.contains('global-filter-select-wrap'))) {
+            icon = document.createElement('i');
+            icon.className = 'bi bi-chevron-down table-toolbar-select-icon';
+            icon.setAttribute('aria-hidden', 'true');
+            icon.setAttribute('data-filter-select-icon', '');
+            wrap.appendChild(icon);
+        }
+
+        const setOpen = (isOpen) => {
+            if (isOpen) {
+                document.querySelectorAll('[data-filter-select-wrap].is-open').forEach((openWrap) => {
+                    if (openWrap !== wrap) {
+                        openWrap.classList.remove('is-open');
+                        openWrap.querySelector('select')?.setAttribute('aria-expanded', 'false');
+                    }
+                });
+            }
+
+            wrap.classList.toggle('is-open', isOpen);
+            select.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        };
+
+        select.setAttribute('aria-haspopup', 'listbox');
+        select.setAttribute('aria-expanded', 'false');
+
+        select.addEventListener('pointerdown', () => {
+            if (select.disabled) return;
+            setOpen(!wrap.classList.contains('is-open'));
+        });
+        select.addEventListener('keydown', (event) => {
+            if (['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(event.key)) setOpen(true);
+            if (event.key === 'Escape') setOpen(false);
+        });
+        select.addEventListener('change', () => setOpen(false));
+        select.addEventListener('focus', () => {
+            if (select.matches(':focus-visible')) setOpen(true);
+        });
+        select.addEventListener('blur', () => window.setTimeout(() => setOpen(false), 120));
     });
 }
 
@@ -840,11 +942,14 @@ function initCaseRecordTabTransitions() {
 
 initTheme();
 initRowActionMenus();
+initFilterSelectAffordances();
 initTableToolbarBehavior();
 initLiveSearchSuggestions();
 initCaseCompactFilters();
 initClickableRecordRows();
 initCaseRecordTabTransitions();
+
+document.addEventListener('panel-ui:reset', initFilterSelectAffordances);
 
 window.Alpine = Alpine;
 

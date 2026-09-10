@@ -12,7 +12,7 @@
     $isStaff = $user?->isStaff();
     $isMainAdmin = $user?->isMainBranchAdmin();
     $isOwner = $user?->isOwner();
-    $activeTab = 'summary';
+    $activeTab = request('tab') === 'transactions' ? 'transactions' : 'summary';
     $defaultPaymentBranchId = $defaultPaymentBranchId ?? null;
     $monitoringRoute = request()->routeIs('admin.payments.index') || request()->routeIs('admin.payment-monitoring')
         ? 'admin.payments.index'
@@ -111,10 +111,11 @@
     .pm-field.branch-readonly { flex:0 1 18rem; min-width:14rem; max-width:18rem; }
     .pm-field.search { flex:2 1 15rem; min-width:12rem; }
     .pm-field.has-icon { position:relative; }
-    .pm-field.has-icon > i { position:absolute; left:.85rem; top:50%; transform:translateY(-50%); color:var(--ink-muted); pointer-events:none; z-index:1; }
+    .pm-field.has-icon > i:first-child { position:absolute; left:.85rem; top:50%; transform:translateY(-50%); color:var(--ink-muted); pointer-events:none; z-index:1; }
     .pm-field.has-icon .pm-control { padding-left:2.35rem; }
     .pm-field.has-icon select.pm-control { -webkit-appearance:none; appearance:none; padding-right:2.2rem; }
-    .pm-sel-chev { position:absolute; right:.72rem; top:50%; transform:translateY(-50%); color:var(--ink-muted); pointer-events:none; font-size:.72rem; z-index:1; }
+    .pm-sel-chev { position:absolute; left:auto; right:.72rem; top:50%; transform:translateY(-50%); color:var(--ink-muted); pointer-events:none; font-size:.72rem; z-index:1; transition:transform .16s ease,color .16s ease,opacity .16s ease; transform-origin:center; }
+    .pm-field.has-icon.is-open > .pm-sel-chev { color:var(--ink); transform:translateY(-50%) rotate(180deg); }
     .pm-control {
         width:100%; height:2.65rem; border:1px solid var(--border); border-radius:.75rem;
         background:#E1E7D9; color:var(--ink); font-size:.82rem; padding:0 .72rem;
@@ -448,7 +449,7 @@
 
     <div class="pm-toolbar-shell ops-toolbar-shell">
         <form id="pmFilterForm" method="GET" action="{{ route($monitoringRoute) }}" class="pm-toolbar ops-toolbar" data-pm-default-branch="{{ $defaultPaymentBranchId ?? '' }}">
-            <input type="hidden" name="tab" value="summary">
+            <input type="hidden" name="tab" value="{{ $activeTab }}">
 
             <div class="pm-field search has-icon ops-field ops-field--search">
                 <i class="bi bi-search" aria-hidden="true"></i>
@@ -949,6 +950,7 @@ window.initPaymentMonitoring = () => {
         }
         if (push) window.history.pushState({}, '', url);
         window.initPaymentMonitoring();
+        document.dispatchEvent(new CustomEvent('panel-ui:reset'));
     };
     const fetchFilters = async (url, push = true) => {
         if (isFetching) return;
@@ -1280,6 +1282,7 @@ window.addEventListener('popstate', () => {
             currentPage.replaceWith(nextPage);
             if (nextDateModal && currentDateModal) currentDateModal.replaceWith(nextDateModal);
             window.initPaymentMonitoring();
+            document.dispatchEvent(new CustomEvent('panel-ui:reset'));
         })
         .catch(() => window.location.reload());
 });

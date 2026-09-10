@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\Client;
 use App\Models\Deceased;
 use App\Models\FuneralCase;
+use App\Models\IntakeDraft;
 use App\Models\Package;
 use App\Models\ServiceDetail;
 use App\Support\CaseSnapshotPricingService;
@@ -47,6 +48,7 @@ class FuneralCaseController extends Controller
             'request_date_to' => ['nullable', 'date', 'after_or_equal:request_date_from'],
             'service_type' => ['nullable', 'string', 'max:100'],
             'package_id' => ['nullable', 'integer', 'exists:packages,id'],
+            'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'interment_from' => ['nullable', 'date'],
             'interment_to' => ['nullable', 'date', 'after_or_equal:interment_from'],
             'sort' => ['nullable', 'in:newest,oldest,alpha_asc,alpha_desc'],
@@ -150,6 +152,9 @@ class FuneralCaseController extends Controller
         if ($request->filled('package_id')) {
             $query->where('package_id', (int) $request->query('package_id'));
         }
+        if ($request->filled('client_id')) {
+            $query->where('client_id', (int) $request->query('client_id'));
+        }
 
         $datePreset = $request->string('date_preset')->toString();
         if ($datePreset === '' && $request->filled('date_range')) {
@@ -193,6 +198,16 @@ class FuneralCaseController extends Controller
         $this->applyCaseRecordSort($query, $sort);
 
         $cases = $query->paginate(20)->withQueryString();
+        $intakeDrafts = collect();
+        if ($currentTab === 'draft') {
+            $intakeDrafts = IntakeDraft::with(['branch:id,branch_code,branch_name'])
+                ->where('created_by', $user->id)
+                ->where('branch_id', $operationalBranchId)
+                ->where('status', IntakeDraft::STATUS_IN_PROGRESS)
+                ->latest('last_saved_at')
+                ->latest()
+                ->get();
+        }
 
         $openWizard = $request->boolean('open_wizard') && $currentTab === 'active';
         $packages = Package::query()
@@ -200,6 +215,13 @@ class FuneralCaseController extends Controller
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
+        $selectedClient = null;
+        if ($request->filled('client_id')) {
+            $selectedClient = Client::query()
+                ->select(['id', 'full_name'])
+                ->where('branch_id', $operationalBranchId)
+                ->find((int) $request->query('client_id'));
+        }
         $branches = $operationalBranch ? collect([$operationalBranch]) : collect();
         $serviceTypes = FuneralCase::query()
             ->where('branch_id', $operationalBranchId)
@@ -245,7 +267,9 @@ class FuneralCaseController extends Controller
             'dateTo',
             'intermentFrom',
             'intermentTo',
-            'serviceTypes'
+            'serviceTypes',
+            'intakeDrafts',
+            'selectedClient'
         ));
     }
 

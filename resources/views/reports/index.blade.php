@@ -1,7 +1,7 @@
 @extends('layouts.panel')
 
-@section('page_title', 'Reports')
-@section('page_desc', 'Generate, preview, and export filtered operational reports.')
+@section('page_title', 'Reports & Analytics')
+@section('page_desc', 'Analytics charts, branch performance, and operational reports.')
 @section('hide_layout_topbar', '1')
 
 @section('content')
@@ -30,6 +30,12 @@
     })"
     x-init="init()"
 >
+    @include('reports.partials.module-tabs', [
+        'activeModule' => 'reports',
+        'reportTypes' => $reportTypes,
+        'currentReportType' => $defaultReportType,
+    ])
+
     <style>
         [x-cloak] { display: none !important; }
         .reports-page { max-width: none; margin: 0; padding: 12px var(--panel-content-inline, 20px) 20px; display: grid; gap: 14px; }
@@ -99,6 +105,7 @@
         .reports-action-chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-width: 0; }
         .reports-action-chips .reports-chip { display: inline-flex; align-items: center; gap: 6px; }
         .reports-action-buttons { display: flex; flex-wrap: nowrap; gap: 8px; justify-content: flex-end; margin-left: auto; }
+        .reports-filter-reset { flex: 0 0 auto; margin-left: auto; }
         .reports-btn {
             min-height: 38px; border-radius: 10px; padding: 0 12px; display: inline-flex; align-items: center; justify-content: center;
             gap: 7px; font-size: 12.5px; font-weight: 800; border: 1px solid transparent; white-space: nowrap; transition: opacity .16s ease, transform .16s ease, background .16s ease;
@@ -313,6 +320,7 @@
             .reports-actions { justify-content: stretch; }
             .reports-action-chips,
             .reports-action-buttons { width: 100%; margin-left: 0; }
+            .reports-filter-reset { width: 100%; margin-left: 0 !important; }
             .reports-btn { width: 100%; }
         }
 
@@ -504,8 +512,12 @@
         }
 
         .reports-page {
-            min-height:100%;
+            min-height:calc(100vh - var(--topbar-h, 62px));
             padding:18px !important;
+            display:flex !important;
+            flex-direction:column;
+            align-items:stretch;
+            gap:14px;
             background:
                 linear-gradient(90deg, rgba(73,87,69,0.04) 0 1px, transparent 1px),
                 linear-gradient(180deg, rgba(73,87,69,0.034) 0 1px, transparent 1px),
@@ -545,12 +557,31 @@
             to { opacity:0; transform:translateY(-.35rem); visibility:hidden; }
         }
 
+        @media (max-width: 720px) {
+            .reports-toast {
+                top:auto;
+                right:1rem;
+                bottom:1rem;
+                left:1rem;
+                justify-content:center;
+            }
+        }
+
         .reports-card {
             background:#D3DEC9 !important;
             border:1px solid #AEBFA6 !important;
             border-radius:.75rem !important;
             box-shadow:none !important;
             overflow:visible;
+            flex:0 0 auto;
+        }
+
+        .reports-card:last-of-type {
+            display:flex;
+            flex:1 1 auto;
+            min-height:24rem;
+            flex-direction:column;
+            overflow:hidden;
         }
 
         .reports-card-head,
@@ -577,21 +608,41 @@
         }
 
         .reports-config-form {
-            padding:.75rem !important;
-            gap:.75rem !important;
+            padding:.65rem .75rem !important;
+            gap:.6rem !important;
+            align-content:start;
         }
 
         .reports-config-toolbar {
             align-items:center !important;
-            gap:.65rem !important;
+            gap:.55rem !important;
+            flex-wrap:wrap !important;
         }
 
         .reports-filter-grid {
-            gap:.65rem !important;
+            gap:.55rem !important;
+            flex-wrap:wrap !important;
         }
 
         .reports-field {
             position:relative;
+        }
+
+        .reports-field-control {
+            position:relative;
+            display:block;
+        }
+
+        .reports-field-control > .bi {
+            position:absolute;
+            left:.8rem;
+            top:50%;
+            z-index:2;
+            transform:translateY(-50%);
+            color:#566653;
+            font-size:.86rem;
+            line-height:1;
+            pointer-events:none;
         }
 
         .reports-config-toolbar > .reports-field,
@@ -620,8 +671,23 @@
             letter-spacing:.04em !important;
         }
 
-        .reports-config-toolbar > .reports-field .reports-label {
+        .reports-config-toolbar > .reports-field .reports-label,
+        .reports-filter-grid .reports-label,
+        .reports-analytics-bar .reports-label {
+            display:none !important;
+        }
+
+        .reports-advanced-filter-row .reports-label,
+        .reports-analytics-advanced .reports-label {
             display:block !important;
+            position:static !important;
+            background:transparent !important;
+            padding:0 !important;
+            color:#566653 !important;
+            font-size:.7rem !important;
+            font-weight:680 !important;
+            line-height:1.2 !important;
+            letter-spacing:.04em !important;
         }
 
         .reports-help {
@@ -634,26 +700,30 @@
         .reports-analytics-more,
         .reports-more-filters,
         .reports-analytics-pop-input {
-            min-height:2.65rem !important;
+            min-height:2.5rem !important;
             border:1.25px solid #AEBFA6 !important;
-            border-radius:.5rem !important;
-            background:#E9F0E4 !important;
+            border-radius:.625rem !important;
+            background:#F7F9F3 !important;
             color:#293229 !important;
-            font-size:.9rem !important;
+            font-size:.84rem !important;
             font-weight:650 !important;
             box-shadow:none !important;
             cursor:pointer;
         }
 
         .reports-input {
-            padding:.45rem 2.45rem .45rem .9rem !important;
+            padding:.42rem 2.25rem .42rem .85rem !important;
+        }
+
+        .reports-field-control .reports-input {
+            padding-left:2.2rem !important;
         }
 
         select.reports-input {
             appearance:none !important;
             -webkit-appearance:none !important;
             -moz-appearance:none !important;
-            background-color:#E9F0E4 !important;
+            background-color:#F7F9F3 !important;
             background-image:url("data:image/svg+xml,%3Csvg width='14' height='14' viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7.5L10 12.5L15 7.5' stroke='%235F685F' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
             background-position:right .85rem center !important;
             background-repeat:no-repeat !important;
@@ -668,7 +738,7 @@
         .reports-btn-secondary:hover:not(:disabled),
         .reports-btn-neutral:hover:not(:disabled),
         .reports-metric:hover:not(.is-selected) {
-            background:#DDE8D6 !important;
+            background-color:#DDE8D6 !important;
             border-color:#8EA083 !important;
             transform:none !important;
         }
@@ -676,7 +746,7 @@
         .reports-input:focus,
         .reports-analytics-pop-input:focus {
             border-color:#8EA083 !important;
-            background:#F4F8EF !important;
+            background-color:#F4F8EF !important;
             box-shadow:none !important;
         }
 
@@ -690,24 +760,30 @@
 
         .reports-advanced-filter-row {
             border-top:1px solid #AEBFA6 !important;
-            padding-top:.85rem !important;
+            padding-top:.75rem !important;
             gap:.65rem !important;
         }
 
         .reports-actions {
             border-top:1px solid #AEBFA6 !important;
-            padding-top:.75rem !important;
-            gap:.65rem !important;
+            padding-top:.6rem !important;
+            gap:.55rem !important;
+            flex:0 0 auto;
         }
 
         .reports-action-buttons {
-            gap:.55rem !important;
+            gap:.5rem !important;
+        }
+
+        .reports-filter-reset {
+            flex:0 0 auto !important;
+            margin-left:auto !important;
         }
 
         .reports-btn {
-            min-height:2.65rem !important;
-            border-radius:.5rem !important;
-            padding:0 .95rem !important;
+            min-height:2.5rem !important;
+            border-radius:.625rem !important;
+            padding:0 .9rem !important;
             font-size:.84rem !important;
             font-weight:650 !important;
             box-shadow:none !important;
@@ -825,6 +901,8 @@
         .reports-table-wrap {
             background:#D3DEC9 !important;
             padding:.75rem;
+            flex:1 1 auto;
+            min-height:0;
         }
 
         .reports-table {
@@ -852,8 +930,271 @@
             background:#E9F0E4 !important;
         }
 
+        .reports-table-wrap {
+            border-radius:.875rem;
+            border:1px solid #AEBFA6;
+            background:#C7D5BE !important;
+            overflow:auto;
+        }
+
+        .reports-table {
+            min-width:76rem;
+            border:0;
+            border-radius:.75rem;
+            overflow:hidden;
+            background:#F7F9F3;
+        }
+
+        .reports-table th {
+            position:sticky;
+            top:0;
+            z-index:2;
+            padding:.78rem 1rem !important;
+            background:#C4D2BC !important;
+            color:#4E5D4D !important;
+            border-bottom:1px solid #9FAF98 !important;
+            font-size:.72rem !important;
+            font-weight:760 !important;
+            letter-spacing:.045em !important;
+            line-height:1.15;
+            vertical-align:middle;
+        }
+
+        .reports-table td {
+            padding:.86rem 1rem !important;
+            border-bottom:1px solid #D7E0D0 !important;
+            background:#F8FAF4;
+            color:#253026 !important;
+            font-size:.84rem !important;
+            font-weight:570;
+            line-height:1.45;
+            vertical-align:middle;
+        }
+
+        .reports-table tbody tr:nth-child(even) td {
+            background:#F1F5EC;
+        }
+
+        .reports-table tbody tr:last-child td {
+            border-bottom:0 !important;
+        }
+
+        .reports-table tbody tr:hover td {
+            background:#E6EFDE !important;
+        }
+
+        .reports-table td:first-child,
+        .reports-table th:first-child {
+            padding-left:1.1rem !important;
+        }
+
+        .reports-table td:last-child,
+        .reports-table th:last-child {
+            padding-right:1.1rem !important;
+        }
+
+        .reports-cell-number {
+            text-align:right !important;
+            white-space:nowrap;
+            font-variant-numeric:tabular-nums;
+        }
+
+        .reports-table td.reports-cell-number {
+            font-weight:680;
+        }
+
+        .reports-table .reports-col-case_no,
+        .reports-table .reports-col-case_code,
+        .reports-table .reports-col-payment_record_no,
+        .reports-table .reports-col-record_id {
+            width:7.25rem;
+            min-width:7.25rem;
+            white-space:nowrap;
+            font-weight:760;
+        }
+
+        .reports-table .reports-col-branch {
+            min-width:13.5rem;
+        }
+
+        .reports-table .reports-col-client,
+        .reports-table .reports-col-deceased,
+        .reports-table .reports-col-client_deceased,
+        .reports-table .reports-col-user,
+        .reports-table .reports-col-encoded_by {
+            min-width:12rem;
+            max-width:18rem;
+            overflow-wrap:anywhere;
+        }
+
+        .reports-table .reports-col-service,
+        .reports-table .reports-col-service_type,
+        .reports-table .reports-col-package,
+        .reports-table .reports-col-payment_method,
+        .reports-table .reports-col-role,
+        .reports-table .reports-col-module,
+        .reports-table .reports-col-action_type {
+            min-width:9.5rem;
+            white-space:nowrap;
+        }
+
+        .reports-table .reports-col-payment_status,
+        .reports-table .reports-col-case_status,
+        .reports-table .reports-col-verification_status,
+        .reports-table .reports-col-status {
+            width:9rem;
+            min-width:9rem;
+            text-align:center;
+        }
+
+        .reports-table .reports-col-payment_status .reports-status-badge,
+        .reports-table .reports-col-case_status .reports-status-badge,
+        .reports-table .reports-col-verification_status .reports-status-badge,
+        .reports-table .reports-col-status .reports-status-badge {
+            justify-content:center;
+            min-width:5.75rem;
+        }
+
+        .reports-table .reports-col-date,
+        .reports-table .reports-col-date_created,
+        .reports-table .reports-col-payment_date,
+        .reports-table .reports-col-last_payment_date,
+        .reports-table .reports-col-interment_date {
+            width:10.25rem;
+            min-width:10.25rem;
+            white-space:nowrap;
+            color:#4E5D4D !important;
+            font-variant-numeric:tabular-nums;
+        }
+
+        .reports-table .reports-col-total_amount,
+        .reports-table .reports-col-total_paid,
+        .reports-table .reports-col-balance,
+        .reports-table .reports-col-gross_amount,
+        .reports-table .reports-col-collected_amount,
+        .reports-table .reports-col-remaining_balance,
+        .reports-table .reports-col-amount_paid {
+            min-width:10.75rem;
+        }
+
+        .reports-table .reports-col-action,
+        .reports-table .reports-col-remarks {
+            min-width:16rem;
+            max-width:26rem;
+            overflow-wrap:anywhere;
+        }
+
+        .reports-branch-strip {
+            margin:.75rem 1rem 0;
+            border:1px solid #AEBFA6;
+            border-radius:.875rem;
+            overflow:hidden;
+            background:#F7F9F3;
+        }
+
+        .reports-branch-strip-head {
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:.75rem;
+            padding:.68rem .9rem;
+            background:#E9F0E4;
+            border-bottom:1px solid #AEBFA6;
+            color:#4E5D4D;
+            font-size:.72rem;
+            font-weight:780;
+            letter-spacing:.045em;
+            text-transform:uppercase;
+        }
+
+        .reports-branch-strip-title {
+            display:inline-flex;
+            align-items:center;
+            gap:.45rem;
+            min-width:0;
+        }
+
+        .reports-branch-strip-note {
+            color:#667362;
+            font-size:.72rem;
+            font-weight:650;
+            letter-spacing:0;
+            text-transform:none;
+            white-space:nowrap;
+        }
+
+        .reports-branch-strip-table {
+            width:100%;
+            min-width:56rem;
+            border-collapse:separate;
+            border-spacing:0;
+            background:#F7F9F3;
+        }
+
+        .reports-branch-strip-table th {
+            padding:.62rem .85rem;
+            background:#F4F7EF;
+            border-bottom:1px solid #D4DEC9;
+            color:#5C6959;
+            font-size:.68rem;
+            font-weight:760;
+            letter-spacing:.045em;
+            line-height:1.15;
+            text-align:left;
+            text-transform:uppercase;
+            white-space:nowrap;
+        }
+
+        .reports-branch-strip-table td {
+            padding:.7rem .85rem;
+            border-bottom:1px solid #DCE4D6;
+            background:#F9FBF6;
+            color:#293229;
+            font-size:.82rem;
+            font-weight:560;
+        }
+
+        .reports-branch-strip-table tbody tr:nth-child(even) td {
+            background:#F2F6EE;
+        }
+
+        .reports-branch-strip-table tbody tr:hover td {
+            background:#E8F0E1;
+        }
+
+        .reports-branch-strip-table tbody tr:last-child td {
+            border-bottom:0;
+        }
+
+        .reports-branch-strip-table .reports-col-branch {
+            min-width:15rem;
+            font-weight:720;
+        }
+
+        .reports-branch-strip-table td.reports-cell-number {
+            font-weight:680;
+        }
+
+        @media (max-width: 720px) {
+            .reports-branch-strip {
+                margin-inline:0;
+            }
+
+            .reports-branch-strip-head {
+                align-items:flex-start;
+                flex-direction:column;
+                gap:.35rem;
+            }
+
+            .reports-branch-strip-note {
+                white-space:normal;
+            }
+        }
+
         .reports-state {
             background:#D3DEC9 !important;
+            flex:1 1 auto;
+            min-height:20rem !important;
         }
 
         .reports-state-icon {
@@ -879,11 +1220,30 @@
         <span>You are viewing the reports page.</span>
     </div>
 
+    <div class="reports-module-layout">
+        @include('reports.partials.module-rail', [
+            'activeModule' => 'reports',
+            'reportTypes' => $reportTypes,
+            'currentReportType' => $defaultReportType,
+            'quickStats' => [
+                ['label' => 'Branches', 'value' => number_format($branches->count())],
+                ['label' => 'Period', 'value' => 'This Year'],
+                ['label' => 'Mode', 'value' => $userRole === 'owner' ? 'Owner' : 'Admin'],
+            ],
+        ])
+
+        <div class="reports-module-main">
     <section class="reports-card">
         <div class="reports-card-head">
             <div>
                 <h2 class="reports-card-title">Report Configuration</h2>
-                <div class="reports-card-copy">Choose a report type and apply server-side filters before previewing.</div>
+                <div class="reports-card-copy">
+                    @if ($userRole === 'owner')
+                        Review branch performance with focused server-side filters before previewing.
+                    @else
+                        Use the module tabs above, then apply server-side filters before previewing.
+                    @endif
+                </div>
             </div>
             <div class="reports-role-badge">
                 <i class="bi bi-shield-check"></i>
@@ -893,84 +1253,41 @@
 
         <form class="reports-config-form" @submit.prevent="loadPreview">
             <div class="reports-config-toolbar" :class="{ 'is-owner-analytics': isOwnerAnalytics() }">
-                <div class="reports-field">
-                    <label class="reports-label" for="report_type">Report Type</label>
-                    <select id="report_type" x-model="filters.report_type" class="reports-input" @change="resetReportSpecificFilters()">
-                        <template x-for="[value, label] in Object.entries(reportTypes)" :key="value">
-                            <option :value="value" x-text="label"></option>
-                        </template>
-                    </select>
-                    <div class="reports-help">Preview and print use the same query.</div>
-                </div>
-
                 @include('reports.partials.analytics-filter-bar')
 
                 <div class="reports-filter-grid" x-show="!isOwnerAnalytics()" x-cloak>
-                <template x-if="shows('branch_id')">
-                    <div class="reports-field reports-field-wide">
-                        <label class="reports-label" for="branch_id">Branch</label>
-                        <select id="branch_id" x-model="filters.branch_id" class="reports-input" :disabled="isBranchAdmin">
-                            <template x-if="!isBranchAdmin">
-                                <option value="">All Branches</option>
-                            </template>
-                            <template x-for="branch in branches" :key="branch.id">
-                                <option :value="branch.id" x-text="`${branch.branch_code} - ${branch.branch_name}`"></option>
-                            </template>
-                        </select>
-                        <div class="reports-scope-pill" x-show="isBranchAdmin" x-cloak>
-                            <i class="bi bi-lock-fill"></i>
-                            <span>Assigned Branch Only</span>
-                        </div>
-                    </div>
-                </template>
-
-                <template x-if="shows('date_range')">
-                    <div class="reports-field">
-                        <label class="reports-label" for="date_preset">Date Range</label>
-                        <select id="date_preset" x-model="datePreset" class="reports-input" @change="selectReportDatePreset(datePreset)">
-                            <option value="">Any Time</option>
-                            <option value="TODAY">Today</option>
-                            <option value="THIS_MONTH">This Month</option>
-                            <option value="THIS_YEAR">This Year</option>
-                            <option value="CUSTOM">Custom Range</option>
-                        </select>
-                    </div>
-                </template>
-
                 <template x-if="shows('payment_status')">
                     <div class="reports-field">
                         <label class="reports-label" for="payment_status">Payment Status</label>
-                        <select id="payment_status" x-model="filters.payment_status" class="reports-input">
-                            <option value="">All Payment Statuses</option>
-                            <option value="PAID">Paid</option>
-                            <option value="PARTIAL">Partial</option>
-                            <option value="UNPAID">Unpaid</option>
-                        </select>
+                        <span class="reports-field-control">
+                            <i class="bi bi-wallet2" aria-hidden="true"></i>
+                            <select id="payment_status" x-model="filters.payment_status" class="reports-input">
+                                <option value="">All Payment Statuses</option>
+                                <option value="PAID">Paid</option>
+                                <option value="PARTIAL">Partial</option>
+                                <option value="UNPAID">Unpaid</option>
+                            </select>
+                        </span>
                     </div>
                 </template>
 
                 <template x-if="shows('audit_user') && auditOptions.supports_user">
                     <div class="reports-field reports-field-wide">
                         <label class="reports-label" for="user_id">Audit User</label>
-                        <select id="user_id" x-model="filters.user_id" class="reports-input">
-                            <option value="">All Users</option>
-                            <template x-for="user in users" :key="user.id">
-                                <option :value="user.id" x-text="user.name"></option>
-                            </template>
-                        </select>
+                        <span class="reports-field-control">
+                            <i class="bi bi-person" aria-hidden="true"></i>
+                            <select id="user_id" x-model="filters.user_id" class="reports-input">
+                                <option value="">All Users</option>
+                                <template x-for="user in users" :key="user.id">
+                                    <option :value="user.id" x-text="user.name"></option>
+                                </template>
+                            </select>
+                        </span>
                     </div>
                 </template>
-                <button
-                    type="button"
-                    class="reports-more-filters"
-                    :class="{ 'active': advancedFiltersOpen }"
-                    x-show="hasAdvancedFilters()"
-                    x-cloak
-                    @click="advancedFiltersOpen = !advancedFiltersOpen"
-                >
-                    <i class="bi bi-sliders"></i>
-                    <span>More Filters</span>
-                    <i class="bi bi-chevron-down"></i>
+                <button type="button" class="reports-btn reports-btn-neutral reports-filter-reset" @click="resetFilters">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                    <span>Reset Filters</span>
                 </button>
                 </div>
             </div>
@@ -978,90 +1295,120 @@
                     <template x-if="shows('date_range') && datePreset === 'CUSTOM'">
                         <div class="reports-field">
                             <label class="reports-label" for="date_from">Date From</label>
-                            <input id="date_from" type="date" x-model="filters.date_from" class="reports-input">
+                            <span class="reports-field-control">
+                                <i class="bi bi-calendar-event" aria-hidden="true"></i>
+                                <input id="date_from" type="date" x-model="filters.date_from" class="reports-input">
+                            </span>
                         </div>
                     </template>
 
                     <template x-if="shows('date_range') && datePreset === 'CUSTOM'">
                         <div class="reports-field">
                             <label class="reports-label" for="date_to">Date To</label>
-                            <input id="date_to" type="date" x-model="filters.date_to" class="reports-input">
+                            <span class="reports-field-control">
+                                <i class="bi bi-calendar-event" aria-hidden="true"></i>
+                                <input id="date_to" type="date" x-model="filters.date_to" class="reports-input">
+                            </span>
                         </div>
                     </template>
 
                     <template x-if="shows('case_status')">
                         <div class="reports-field">
                             <label class="reports-label" for="case_status">Case Status</label>
-                            <select id="case_status" x-model="filters.case_status" class="reports-input">
-                                <option value="">All Case Statuses</option>
-                                <option value="DRAFT">Draft</option>
-                                <option value="ACTIVE">Active</option>
-                                <option value="COMPLETED">Completed</option>
-                            </select>
+                            <span class="reports-field-control">
+                                <i class="bi bi-clipboard-check" aria-hidden="true"></i>
+                                <select id="case_status" x-model="filters.case_status" class="reports-input">
+                                    <option value="">All Case Statuses</option>
+                                    <option value="DRAFT">Draft</option>
+                                    <option value="ACTIVE">Active</option>
+                                    <option value="COMPLETED">Completed</option>
+                                </select>
+                            </span>
                         </div>
                     </template>
 
                     <template x-if="shows('verification_status')">
                         <div class="reports-field">
                             <label class="reports-label" for="verification_status">Verification Status</label>
-                            <select id="verification_status" x-model="filters.verification_status" class="reports-input">
-                                <option value="">All Verification</option>
-                                <option value="PENDING">Pending</option>
-                                <option value="VERIFIED">Verified</option>
-                                <option value="DISPUTED">Disputed</option>
-                            </select>
+                            <span class="reports-field-control">
+                                <i class="bi bi-shield-check" aria-hidden="true"></i>
+                                <select id="verification_status" x-model="filters.verification_status" class="reports-input">
+                                    <option value="">All Verification</option>
+                                    <option value="PENDING">Pending</option>
+                                    <option value="VERIFIED">Verified</option>
+                                    <option value="DISPUTED">Disputed</option>
+                                </select>
+                            </span>
                         </div>
                     </template>
 
                     <template x-if="shows('package_id')">
                         <div class="reports-field">
                             <label class="reports-label" for="package_id">Package</label>
-                            <select id="package_id" x-model="filters.package_id" class="reports-input">
-                                <option value="">All Packages</option>
-                                <template x-for="pkg in packages" :key="pkg.id">
-                                    <option :value="pkg.id" x-text="pkg.name"></option>
-                                </template>
-                            </select>
+                            <span class="reports-field-control">
+                                <i class="bi bi-box-seam" aria-hidden="true"></i>
+                                <select id="package_id" x-model="filters.package_id" class="reports-input">
+                                    <option value="">All Packages</option>
+                                    <template x-for="pkg in packages" :key="pkg.id">
+                                        <option :value="pkg.id" x-text="pkg.name"></option>
+                                    </template>
+                                </select>
+                            </span>
                         </div>
                     </template>
 
                     <template x-if="shows('service_type')">
                         <div class="reports-field">
                             <label class="reports-label" for="service_type">Service Type</label>
-                            <input id="service_type" type="text" x-model="filters.service_type" class="reports-input" placeholder="Burial">
+                            <span class="reports-field-control">
+                                <i class="bi bi-briefcase" aria-hidden="true"></i>
+                                <input id="service_type" type="text" x-model="filters.service_type" class="reports-input" placeholder="Burial">
+                            </span>
                         </div>
                     </template>
 
                     <template x-if="shows('encoded_by')">
                         <div class="reports-field">
                             <label class="reports-label" for="encoded_by">Encoded By</label>
-                            <select id="encoded_by" x-model="filters.encoded_by" class="reports-input">
-                                <option value="">All Users</option>
-                                <template x-for="user in users" :key="user.id">
-                                    <option :value="user.id" x-text="user.name"></option>
-                                </template>
-                            </select>
+                            <span class="reports-field-control">
+                                <i class="bi bi-person-check" aria-hidden="true"></i>
+                                <select id="encoded_by" x-model="filters.encoded_by" class="reports-input">
+                                    <option value="">All Users</option>
+                                    <template x-for="user in users" :key="user.id">
+                                        <option :value="user.id" x-text="user.name"></option>
+                                    </template>
+                                </select>
+                            </span>
                         </div>
                     </template>
 
                     <template x-if="shows('interment_range')">
                         <div class="reports-field">
                             <label class="reports-label" for="interment_from">Interment From</label>
-                            <input id="interment_from" type="date" x-model="filters.interment_from" class="reports-input">
+                            <span class="reports-field-control">
+                                <i class="bi bi-calendar-event" aria-hidden="true"></i>
+                                <input id="interment_from" type="date" x-model="filters.interment_from" class="reports-input">
+                            </span>
                         </div>
                     </template>
 
                     <template x-if="shows('interment_range')">
                         <div class="reports-field">
                             <label class="reports-label" for="interment_to">Interment To</label>
-                            <input id="interment_to" type="date" x-model="filters.interment_to" class="reports-input">
+                            <span class="reports-field-control">
+                                <i class="bi bi-calendar-event" aria-hidden="true"></i>
+                                <input id="interment_to" type="date" x-model="filters.interment_to" class="reports-input">
+                            </span>
                         </div>
                     </template>
 
                     <template x-if="shows('audit_action') && auditOptions.supports_action">
                         <div class="reports-field">
                             <label class="reports-label" for="action">Action</label>
-                            <input id="action" type="text" x-model="filters.action" list="audit-actions" class="reports-input" placeholder="Search action">
+                            <span class="reports-field-control">
+                                <i class="bi bi-activity" aria-hidden="true"></i>
+                                <input id="action" type="text" x-model="filters.action" list="audit-actions" class="reports-input" placeholder="Search action">
+                            </span>
                             <datalist id="audit-actions">
                                 <template x-for="action in auditOptions.actions" :key="action">
                                     <option :value="action"></option>
@@ -1073,7 +1420,10 @@
                     <template x-if="shows('audit_module') && auditOptions.supports_module">
                         <div class="reports-field">
                             <label class="reports-label" for="module">Module</label>
-                            <input id="module" type="text" x-model="filters.module" list="audit-modules" class="reports-input" placeholder="Module or entity">
+                            <span class="reports-field-control">
+                                <i class="bi bi-grid" aria-hidden="true"></i>
+                                <input id="module" type="text" x-model="filters.module" list="audit-modules" class="reports-input" placeholder="Module or entity">
+                            </span>
                             <datalist id="audit-modules">
                                 <template x-for="module in auditOptions.modules" :key="module">
                                     <option :value="module"></option>
@@ -1098,30 +1448,6 @@
                         <span class="reports-spin" x-show="loading" aria-hidden="true"></span>
                         <i class="bi bi-eye" x-show="!loading"></i>
                         <span x-text="loading ? 'Generating...' : 'Preview Report'"></span>
-                    </button>
-                    <details
-                        class="reports-export-menu"
-                        :aria-disabled="loading || rows.length === 0 ? 'true' : 'false'"
-                    >
-                        <summary class="reports-btn reports-btn-secondary">
-                            <i class="bi bi-download"></i>
-                            <span>Export</span>
-                            <i class="bi bi-chevron-down"></i>
-                        </summary>
-                        <div class="reports-export-options">
-                            <button type="button" @click="openPrint">
-                                <i class="bi bi-filetype-pdf"></i>
-                                <span>Print / Save as PDF</span>
-                            </button>
-                            <button type="button" @click="openCsv">
-                                <i class="bi bi-filetype-csv"></i>
-                                <span>Export CSV</span>
-                            </button>
-                        </div>
-                    </details>
-                    <button type="button" class="reports-btn reports-btn-neutral" @click="resetFilters">
-                        <i class="bi bi-arrow-counterclockwise"></i>
-                        <span>Reset Filters</span>
                     </button>
                 </div>
             </div>
@@ -1189,6 +1515,19 @@
             </button>
         </div>
 
+        {{-- Branch scoped preview banner --}}
+        <div class="reports-drill-banner" x-show="hasPreview && isBranchFilteredPreview()" x-cloak>
+            <i class="bi bi-building reports-drill-banner-icon"></i>
+            <div class="reports-drill-banner-text">
+                <span>Branch filtered</span>
+                <span class="reports-drill-banner-hint" x-text="' — Showing ' + analyticsBranchLabel() + ' only.'"></span>
+            </div>
+            <button type="button" class="reports-drill-clear" @click="returnToBranchSummary()">
+                <i class="bi bi-arrow-left"></i>
+                Back to Branch Summary
+            </button>
+        </div>
+
         <template x-if="error">
             <div class="reports-alert">
                 <i class="bi bi-exclamation-triangle-fill"></i>
@@ -1213,8 +1552,8 @@
             <div class="reports-state">
                 <div>
                     <div class="reports-state-icon"><i class="bi bi-bar-chart-line"></i></div>
-                    <div class="reports-state-title">No report generated yet.</div>
-                    <div class="reports-state-copy">Select filters and click Preview Report to view results.</div>
+                    <div class="reports-state-title">Data table is ready to generate.</div>
+                    <div class="reports-state-copy">Choose filters, then click Preview Report to load the table and summary.</div>
                 </div>
             </div>
         </template>
@@ -1258,14 +1597,16 @@
                 <template x-if="reportType === 'owner_branch_analytics' && selectedMetric && branchSummaryRows().length > 0">
                     <div class="reports-branch-strip">
                         <div class="reports-branch-strip-head">
-                            <i class="bi bi-building"></i>
-                            Branch Summary
+                            <span class="reports-branch-strip-title">
+                                <i class="bi bi-building" aria-hidden="true"></i>
+                                <span>Branch Summary</span>
+                            </span>
                         </div>
                         <div style="overflow-x: auto;">
                             <table class="reports-branch-strip-table">
                                 <thead>
                                     <tr>
-                                        <th>Branch</th>
+                                        <th class="reports-col-branch">Branch</th>
                                         <th class="reports-cell-number">Total Cases</th>
                                         <th class="reports-cell-number">Paid</th>
                                         <th class="reports-cell-number">Partial</th>
@@ -1278,7 +1619,9 @@
                                 <tbody>
                                     <template x-for="(br, i) in branchSummaryRows()" :key="i">
                                         <tr>
-                                            <td x-text="br.branch"></td>
+                                            <td class="reports-col-branch">
+                                                <span x-text="br.branch"></span>
+                                            </td>
                                             <td class="reports-cell-number" x-text="number(br.total_cases)"></td>
                                             <td class="reports-cell-number" x-text="number(br.paid_cases)"></td>
                                             <td class="reports-cell-number" x-text="number(br.partial_cases)"></td>
@@ -1300,7 +1643,7 @@
                         <thead>
                             <tr>
                                 <template x-for="column in columns()" :key="column.key">
-                                    <th :class="isNumericColumn(column.key) ? 'reports-cell-number' : ''" x-text="column.label"></th>
+                                    <th :class="[columnClass(column.key), isNumericColumn(column.key) ? 'reports-cell-number' : '']" x-text="column.label"></th>
                                 </template>
                             </tr>
                         </thead>
@@ -1308,7 +1651,7 @@
                             <template x-for="(row, index) in drillDownRows()" :key="index">
                                 <tr>
                                     <template x-for="column in columns()" :key="column.key">
-                                        <td :class="isNumericColumn(column.key) ? 'reports-cell-number' : ''">
+                                        <td :class="[columnClass(column.key), isNumericColumn(column.key) ? 'reports-cell-number' : '']">
                                             <template x-if="isStatusColumn(column.key)">
                                                 <span :class="statusClass(row[column.key])" x-text="formatStatus(row[column.key])"></span>
                                             </template>
@@ -1325,6 +1668,8 @@
             </div>
         </template>
     </section>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -1389,6 +1734,7 @@ function reportsModule(config) {
             } else {
                 this.syncReportPresetFromDates();
             }
+            this.$nextTick(() => this.loadPreview());
         },
         enforceAssignedBranch() {
             if (this.isBranchAdmin && this.assignedBranchId) {
@@ -1447,6 +1793,7 @@ function reportsModule(config) {
                 clearTimeout(this.previewTimer);
                 this.previewTimer = null;
             }
+            this.closeExportMenu();
             this.loading = true;
             this.error = '';
             this.hasPreview = true;
@@ -1460,17 +1807,31 @@ function reportsModule(config) {
                 this.rows = response.data.rows || [];
                 this.summary = response.data.summary || {};
                 this.selectedFilters = response.data.filters || {};
+                if (this.exportDisabled()) {
+                    this.closeExportMenu();
+                }
             } catch (error) {
                 this.rows = [];
                 this.summary = {};
                 this.selectedFilters = {};
+                this.closeExportMenu();
                 const validation = error.response?.data?.errors;
                 this.error = validation
                     ? Object.values(validation).flat().join(' ')
                     : (error.response?.data?.message || 'Unable to generate report preview.');
             } finally {
                 this.loading = false;
+                if (this.exportDisabled()) {
+                    this.closeExportMenu();
+                }
             }
+        },
+        exportDisabled() {
+            return this.loading || this.rows.length === 0;
+        },
+        closeExportMenu() {
+            this.$refs.exportMenu?.removeAttribute('open');
+            this.$refs.headerExportMenu?.removeAttribute('open');
         },
         openPrint() {
             if (!this.rows.length) return;
@@ -1681,15 +2042,15 @@ function reportsModule(config) {
             }
             const allColumns = {
                 sales: [
-                    ['case_no', 'Case No.'], ['client', 'Client'], ['deceased', 'Deceased'], ['branch', 'Branch'],
+                    ['case_code', 'Case Code'], ['client', 'Client'], ['deceased', 'Deceased'], ['branch', 'Branch'],
                     ['package', 'Package'], ['service_type', 'Service Type'], ['total_amount', 'Total Amount'],
                     ['total_paid', 'Total Paid'], ['balance', 'Balance'], ['payment_status', 'Payment Status'],
                     ['case_status', 'Case Status'], ['date', 'Date Created or Paid Date'],
                 ],
                 master_cases: [
-                    ['case_no', 'Case No.'], ['case_code', 'Case Code'], ['client', 'Client'], ['deceased', 'Deceased'],
+                    ['case_code', 'Case Code'], ['client', 'Client'], ['deceased', 'Deceased'],
                     ['branch', 'Branch'], ['service_type', 'Service Type'], ['package', 'Package'], ['interment_date', 'Interment Date'],
-                    ['payment_status', 'Payment Status'], ['case_status', 'Case Status'], ['verification_status', 'Verification Status'],
+                    ['payment_status', 'Payment Status'], ['case_status', 'Case Status'],
                     ['encoded_by', 'Encoded By'], ['date_created', 'Date Created'],
                 ],
                 audit_logs: [
@@ -1731,6 +2092,25 @@ function reportsModule(config) {
             if (this.moneyColumns().includes(column.key)) return this.money(row[column.key] || 0);
             if (this.countColumns().includes(column.key)) return this.number(row[column.key] || 0);
             return row[column.key] ?? '-';
+        },
+        columnClass(key) {
+            return `reports-col-${String(key || '')}`;
+        },
+        isBranchFilteredPreview() {
+            return this.reportType === 'owner_branch_analytics'
+                && !this.isBranchAdmin
+                && Boolean(this.filters.branch_id);
+        },
+        async returnToBranchSummary() {
+            if (this.reportType !== 'owner_branch_analytics' || this.isBranchAdmin) return;
+
+            this.filters.branch_id = '';
+            this.selectedMetric = null;
+            this.drilldownRows = [];
+            this.drilldownLoading = false;
+            this.drilldownMode = 'cases';
+            this.syncAnalyticsPresetFromDates();
+            await this.loadPreview();
         },
         isNumericColumn(key) {
             return this.moneyColumns().includes(key) || this.countColumns().includes(key);
@@ -1836,7 +2216,7 @@ function reportsModule(config) {
             if (this.drilldownMode === 'payments') {
                 return [
                     { key: 'payment_record_no', label: 'Payment Record No.' },
-                    { key: 'case_no',           label: 'Case No.' },
+                    { key: 'case_code',         label: 'Case Code' },
                     { key: 'branch',            label: 'Branch' },
                     { key: 'client_deceased',   label: 'Client / Deceased' },
                     { key: 'payment_method',    label: 'Payment Method' },
@@ -1845,11 +2225,10 @@ function reportsModule(config) {
                 ];
             }
             return [
-                { key: 'case_no',           label: 'Case No.' },
+                { key: 'case_code',         label: 'Case Code' },
                 { key: 'branch',            label: 'Branch' },
                 { key: 'client',            label: 'Client' },
                 { key: 'deceased',          label: 'Deceased' },
-                { key: 'service',           label: 'Service' },
                 { key: 'payment_status',    label: 'Payment Status' },
                 { key: 'gross_amount',      label: 'Gross Amount' },
                 { key: 'collected_amount',  label: 'Collected Amount' },

@@ -42,6 +42,9 @@
         $selectedPackage = ($packages ?? collect())->firstWhere('id', (int) request('package_id'));
         $caseRecordsChips->push(['icon' => 'bi-box', 'label' => 'Package: ' . ($selectedPackage?->name ?? 'Selected Package')]);
     }
+    if (!empty($selectedClient)) {
+        $caseRecordsChips->push(['icon' => 'bi-person-lines-fill', 'label' => 'Representative: ' . $selectedClient->full_name]);
+    }
     if (filled($datePreset ?? null)) {
         $caseRecordsChips->push(['icon' => 'bi-calendar3', 'label' => 'Encoded: ' . \Illuminate\Support\Str::headline(strtolower((string) $datePreset))]);
     }
@@ -56,6 +59,7 @@
         'payment_status' => request('payment_status'),
         'service_type' => request('service_type'),
         'package_id' => request('package_id'),
+        'client_id' => request('client_id'),
         'date_preset' => request('date_preset'),
         'date_from' => request('date_from'),
         'date_to' => request('date_to'),
@@ -83,6 +87,14 @@
         'tab' => 'completed',
     ]), fn ($value) => !is_null($value) && $value !== ''));
 @endphp
+
+@if($caseRecordsChips->isNotEmpty())
+    <div class="sr-only">
+        @foreach($caseRecordsChips as $chip)
+            <span>{{ $chip['label'] }}</span>
+        @endforeach
+    </div>
+@endif
 
 <style>
     .records-page {
@@ -361,6 +373,20 @@
     .records-page .case-compact-sort-filter > .case-compact-sort-chev {
         right: .85rem;
         font-size: .82rem;
+    }
+
+    .records-page .case-compact-date-filter > .case-compact-date-chev,
+    .records-page .case-compact-sort-filter > .case-compact-sort-chev,
+    .records-page .case-compact-branch > .case-compact-select-chev {
+        transition: transform .16s ease, color .16s ease, opacity .16s ease;
+        transform-origin: center;
+    }
+
+    .records-page .case-compact-date-filter.is-open > .case-compact-date-chev,
+    .records-page .case-compact-sort-filter.is-open > .case-compact-sort-chev,
+    .records-page .case-compact-branch.is-open > .case-compact-select-chev {
+        color: var(--records-text) !important;
+        transform: translateY(-50%) rotate(180deg);
     }
 
     .records-page .case-compact-date-filter .case-compact-custom {
@@ -968,6 +994,7 @@
 </style>
 
 <div class="records-page">
+    <div class="panel-page-header sr-only" aria-hidden="true">Case Records</div>
     @if(session('success'))
         <div class="flash-success">
             {{ session('success') }}
@@ -1021,7 +1048,7 @@
                     'intermentTo' => $intermentTo ?? null,
                     'serviceTypes' => $serviceTypes ?? collect(),
                     'packages' => $packages ?? collect(),
-                    'hiddenInputs' => ['tab' => $activeTab, 'record_scope' => $recordScope],
+                    'hiddenInputs' => ['tab' => $activeTab, 'record_scope' => $recordScope, 'client_id' => request('client_id')],
                     'showVerificationStatus' => false,
                     'showPackage' => true,
                     'showEncodedBy' => false,
@@ -1037,6 +1064,9 @@
                 <form id="caseRecordsFilterForm" method="GET" action="{{ route('funeral-cases.index') }}" class="table-toolbar hidden" data-table-toolbar data-search-debounce="400">
                     <input type="hidden" name="tab" value="{{ $activeTab }}">
                     <input type="hidden" name="record_scope" value="{{ $recordScope }}">
+                    @if(request('client_id'))
+                        <input type="hidden" name="client_id" value="{{ request('client_id') }}">
+                    @endif
                     <input type="hidden" name="branch_id" value="{{ $operationalBranch?->id ?? auth()->user()?->branch_id }}">
 
                     <div class="table-toolbar-field">
@@ -1169,19 +1199,110 @@
                 <div class="table-system-list-header">
                     <div>
                         <div class="table-system-list-title">
-                            {{ $isAllTab ? 'All Case Records' : ($isActiveTab ? 'Active Case Records' : ($isDraftTab ? 'Draft Case Records' : 'Completed Case Records')) }}
+                            {{ !empty($selectedClient)
+                                ? 'Cases for ' . $selectedClient->full_name
+                                : ($isAllTab ? 'All Case Records' : ($isActiveTab ? 'Active Case Records' : ($isDraftTab ? 'Draft Case Records' : 'Completed Case Records'))) }}
                         </div>
                         <div class="table-system-list-copy">
-                            {{ $isAllTab
+                            {{ !empty($selectedClient)
+                                ? 'Showing case records linked to this family representative.'
+                                : ($isAllTab
                                 ? 'Review all branch case records in one simplified list.'
                                 : ($isActiveTab
                                 ? 'Track ongoing case activity, balances, and workflow status.'
                                 : ($isDraftTab
                                 ? 'Review saved draft records before they move into active work.'
-                                : 'Review completed records, payment standing, and follow-up actions.')) }}
+                                : 'Review completed records, payment standing, and follow-up actions.'))) }}
                         </div>
                     </div>
                 </div>
+
+                @if($isDraftTab)
+                    <div class="border-t border-[var(--records-border)] bg-[var(--records-card-alt)] px-3 py-3">
+                        <div class="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <div class="text-sm font-semibold text-[var(--records-text)]">Incomplete Intake Drafts</div>
+                                <div class="text-xs font-semibold text-[var(--records-muted)]">Saved intake work that has not created official client, deceased, case, or payment records yet.</div>
+                            </div>
+                            <a href="{{ route('intake.main.create') }}" class="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--records-border)] bg-white px-3 py-2 text-xs font-bold text-[var(--records-text)] hover:bg-[var(--records-hover)]">
+                                <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                                New Intake
+                            </a>
+                        </div>
+
+                        <div class="table-wrapper table-system-wrap">
+                            <table class="table-base table-system-table">
+                                <thead>
+                                    <tr>
+                                        <th class="text-left">Draft</th>
+                                        <th class="text-left">Family / Client</th>
+                                        <th class="text-left">Deceased</th>
+                                        <th class="text-left">Step</th>
+                                        <th class="text-left">Last Saved</th>
+                                        <th class="text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse(($intakeDrafts ?? collect()) as $draft)
+                                        @php
+                                            $fields = $draft->payload['fields'] ?? [];
+                                            $clientDraftName = trim(implode(' ', array_filter([
+                                                $fields['client_first_name'] ?? null,
+                                                $fields['client_middle_name'] ?? null,
+                                                $fields['client_last_name'] ?? null,
+                                                $fields['client_suffix'] ?? null,
+                                            ])));
+                                            $deceasedDraftName = trim(implode(' ', array_filter([
+                                                $fields['deceased_first_name'] ?? null,
+                                                $fields['deceased_middle_name'] ?? null,
+                                                $fields['deceased_last_name'] ?? null,
+                                                $fields['deceased_suffix'] ?? null,
+                                            ])));
+                                        @endphp
+                                        <tr>
+                                            <td>
+                                                <div class="table-primary whitespace-nowrap">{{ $draft->draft_number }}</div>
+                                                <div class="table-secondary">{{ $draft->branch?->branch_code ?? 'Assigned Branch' }}</div>
+                                            </td>
+                                            <td>
+                                                <div class="table-primary">{{ \Illuminate\Support\Str::limit($clientDraftName !== '' ? $clientDraftName : '-', 30) }}</div>
+                                                <div class="table-secondary">{{ $fields['client_contact_number'] ?? 'Contact pending' }}</div>
+                                            </td>
+                                            <td>
+                                                <div class="table-primary">{{ \Illuminate\Support\Str::limit($deceasedDraftName !== '' ? $deceasedDraftName : '-', 30) }}</div>
+                                                <div class="table-secondary">Incomplete intake</div>
+                                            </td>
+                                            <td>Step {{ $draft->current_step }}</td>
+                                            <td>{{ optional($draft->last_saved_at ?? $draft->updated_at)->format('M d, Y h:i A') }}</td>
+                                            <td>
+                                                <div class="flex items-center justify-end gap-2">
+                                                    <a href="{{ route('intake.drafts.edit', ['draft' => $draft, 'return_to' => request()->fullUrl()]) }}" class="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--records-border)] bg-white px-3 py-2 text-xs font-bold text-[var(--records-text)] hover:bg-[var(--records-hover)]">
+                                                        <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                                                        Resume
+                                                    </a>
+                                                    <form method="POST" action="{{ route('intake.drafts.destroy', $draft) }}" onsubmit="return confirm('Discard this intake draft?');">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-lg border border-[#CFA9A2] bg-white px-3 py-2 text-xs font-bold text-[#7F3A32] hover:bg-[#F8E7E3]">
+                                                            <i class="bi bi-trash3" aria-hidden="true"></i>
+                                                            Discard
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="6" class="table-system-empty">
+                                                No incomplete intake drafts.
+                                            </td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                @endif
 
                 <div class="table-wrapper table-system-wrap">
                     <table class="table-base table-system-table case-records-table records-worklist-table">
@@ -1260,7 +1381,7 @@
                             @empty
                                 <tr>
                                     <td colspan="7" class="table-system-empty">
-                                        No case records found.
+                                        {{ $isDraftTab ? 'No official draft case records found.' : 'No case records found.' }}
                                     </td>
                                 </tr>
                             @endforelse

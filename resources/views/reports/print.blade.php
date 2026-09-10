@@ -111,15 +111,15 @@
     // otherwise use the standard column map for the report type.
     $standardColumns = [
         'sales' => [
-            'case_no' => 'Case No.', 'client' => 'Client', 'deceased' => 'Deceased', 'branch' => 'Branch',
+            'case_code' => 'Case Code', 'client' => 'Client', 'deceased' => 'Deceased', 'branch' => 'Branch',
             'package' => 'Package', 'service_type' => 'Service Type', 'total_amount' => 'Total Amount',
             'total_paid' => 'Total Paid', 'balance' => 'Balance', 'payment_status' => 'Payment Status',
             'case_status' => 'Case Status', 'date' => 'Date Created or Paid Date',
         ],
         'master_cases' => [
-            'case_no' => 'Case No.', 'case_code' => 'Case Code', 'client' => 'Client', 'deceased' => 'Deceased',
+            'case_code' => 'Case Code', 'client' => 'Client', 'deceased' => 'Deceased',
             'branch' => 'Branch', 'service_type' => 'Service Type', 'package' => 'Package', 'interment_date' => 'Interment Date',
-            'payment_status' => 'Payment Status', 'case_status' => 'Case Status', 'verification_status' => 'Verification Status',
+            'payment_status' => 'Payment Status', 'case_status' => 'Case Status',
             'encoded_by' => 'Encoded By', 'date_created' => 'Date Created',
         ],
         'audit_logs' => [

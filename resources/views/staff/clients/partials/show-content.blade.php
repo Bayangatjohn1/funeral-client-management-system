@@ -12,17 +12,17 @@
         <img src="{{ asset('images/login-logo.png') }}" alt="Sabangan Caguioa Logo" class="h-14 w-auto">
         <div>
             <h1 class="text-2xl font-bold uppercase text-black tracking-wide">Sabangan Caguioa Funeral Home</h1>
-            <p class="text-sm font-medium text-gray-600">Official Client Record</p>
+            <p class="text-sm font-medium text-gray-600">Family Representative Record</p>
         </div>
     </div>
 
     <div class="flex justify-between items-end border-b border-gray-300 pb-3">
         <div>
-            <span class="text-[10px] uppercase font-bold text-gray-500 block">Client Name</span>
+            <span class="text-[10px] uppercase font-bold text-gray-500 block">Family Representative</span>
             <h2 class="text-3xl font-bold text-black uppercase">{{ $client->full_name }}</h2>
         </div>
         <div class="text-right">
-            <span class="text-[10px] uppercase font-bold text-gray-500 block">Client ID</span>
+            <span class="text-[10px] uppercase font-bold text-gray-500 block">Directory ID</span>
             <span class="text-lg font-mono font-bold text-black">{{ $client->client_code ?? 'CL-' . str_pad($client->id,3,'0',STR_PAD_LEFT) }}</span>
         </div>
     </div>
@@ -158,7 +158,7 @@
 
     <div class="mt-8 flex justify-center no-print">
         <button id="printClientBtn" type="button" class="px-12 py-3 bg-black text-white font-bold uppercase tracking-widest hover:bg-gray-800 transition-colors shadow-lg rounded">
-            Print Record
+            Print Representative Record
         </button>
     </div>
 </div>

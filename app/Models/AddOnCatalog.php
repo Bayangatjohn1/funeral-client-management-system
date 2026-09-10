@@ -9,8 +9,10 @@ class AddOnCatalog extends Model
     public const CATEGORY_OPTIONS = [
         'General',
         'Flowers',
+        'Facilities',
         'Transportation',
         'Viewing Setup',
+        'Memorial Decor',
         'Media',
         'Documents',
         'Food & Refreshments',

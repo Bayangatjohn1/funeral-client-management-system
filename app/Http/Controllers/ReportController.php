@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\FuneralCase;
 use App\Models\Package;
 use App\Models\User;
+use App\Services\BranchAnalyticsService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -28,7 +29,9 @@ class ReportController extends Controller
         $user = auth()->user();
         $availableReportTypes = $this->availableReportTypes();
         $requestedReportType = $request->string('report_type')->toString();
-        $fallbackReportType = $user->isOwner() ? self::REPORT_OWNER_BRANCH_ANALYTICS : self::REPORT_SALES;
+        $fallbackReportType = ($user->isOwner() || $user->isAdmin())
+            ? self::REPORT_OWNER_BRANCH_ANALYTICS
+            : self::REPORT_SALES;
         $defaultReportType = array_key_exists($requestedReportType, $availableReportTypes)
             ? $requestedReportType
             : $fallbackReportType;
@@ -59,6 +62,9 @@ class ReportController extends Controller
             'report_type' => $validated['report_type'],
             'rows' => $data['rows'],
             'summary' => $this->getSummary($data['rows'], $validated['report_type']),
+            'charts' => $validated['report_type'] === self::REPORT_OWNER_BRANCH_ANALYTICS
+                ? app(BranchAnalyticsService::class)->reportChartData($request->all(), $branchScope)
+                : null,
             'filters' => $this->presentFilters($validated, $branchScope),
         ]);
     }
@@ -210,6 +216,7 @@ class ReportController extends Controller
 
         $rows = $query->get()->map(fn (FuneralCase $case) => [
             'case_no' => $case->case_number ?: $case->case_code,
+            'case_code' => $case->case_code ?: '-',
             'client' => $this->personName($case->client),
             'deceased' => $this->personName($case->deceased),
             'branch' => $this->branchName($case->branch),
@@ -229,7 +236,7 @@ class ReportController extends Controller
 
     private function getMasterCasesReportData(Request $request, array $branchScope): array
     {
-        $query = FuneralCase::with(['branch', 'client', 'deceased', 'package', 'encodedBy'])
+        $query = FuneralCase::with(['branch', 'client', 'deceased', 'package', 'encodedBy', 'serviceDetail'])
             ->latest('created_at');
 
         $this->applyCommonCaseFilters($query, $request, $branchScope);
@@ -260,7 +267,7 @@ class ReportController extends Controller
             'branch' => $this->branchName($case->branch),
             'service_type' => $case->service_type ?: '-',
             'package' => $this->packageName($case),
-            'interment_date' => $this->formatDate($case->interment_at),
+            'interment_date' => $this->formatDate($this->caseIntermentDate($case)),
             'payment_status' => $case->payment_status ?: '-',
             'case_status' => $case->case_status ?: '-',
             'verification_status' => $case->verification_status ?: '-',
@@ -322,54 +329,7 @@ class ReportController extends Controller
 
     private function getOwnerBranchAnalyticsData(Request $request, array $branchScope): array
     {
-        $query = FuneralCase::query()
-            ->select('branch_id')
-            ->where('verification_status', 'VERIFIED')
-            ->selectRaw('COUNT(*) as total_cases')
-            ->selectRaw("SUM(CASE WHEN payment_status = 'PAID' THEN 1 ELSE 0 END) as paid_cases")
-            ->selectRaw("SUM(CASE WHEN payment_status = 'PARTIAL' THEN 1 ELSE 0 END) as partial_cases")
-            ->selectRaw("SUM(CASE WHEN payment_status = 'UNPAID' THEN 1 ELSE 0 END) as unpaid_cases")
-            ->selectRaw('COALESCE(SUM(total_amount), 0) as gross_amount')
-            ->selectRaw('COALESCE(SUM(total_paid), 0) as collected_amount')
-            ->selectRaw('COALESCE(SUM(balance_amount), 0) as remaining_balance')
-            ->with('branch:id,branch_code,branch_name')
-            ->groupBy('branch_id')
-            ->orderBy('branch_id');
-
-        $this->applyReportBranchScope($query, $request, $branchScope);
-
-        [$startAt, $endAt] = $this->parseDateBounds(
-            $request->filled('date_from') ? $request->input('date_from') : null,
-            $request->filled('date_to') ? $request->input('date_to') : null,
-        );
-        if ($startAt) {
-            $query->where('created_at', '>=', $startAt);
-        }
-        if ($endAt) {
-            $query->where('created_at', '<=', $endAt);
-        }
-
-        [$intermentStart, $intermentEnd] = $this->parseDateBounds(
-            $request->filled('interment_from') ? $request->input('interment_from') : null,
-            $request->filled('interment_to') ? $request->input('interment_to') : null,
-        );
-        if ($intermentStart) {
-            $query->where('interment_at', '>=', $intermentStart);
-        }
-        if ($intermentEnd) {
-            $query->where('interment_at', '<=', $intermentEnd);
-        }
-
-        $rows = $query->get()->map(fn ($row) => [
-            'branch' => $this->branchName($row->branch),
-            'total_cases' => (int) $row->total_cases,
-            'paid_cases' => (int) $row->paid_cases,
-            'partial_cases' => (int) $row->partial_cases,
-            'unpaid_cases' => (int) $row->unpaid_cases,
-            'gross_amount' => (float) $row->gross_amount,
-            'collected_amount' => (float) $row->collected_amount,
-            'remaining_balance' => (float) $row->remaining_balance,
-        ])->values();
+        $rows = app(BranchAnalyticsService::class)->reportRows($request->all(), $branchScope);
 
         return ['rows' => $rows];
     }
@@ -422,6 +382,8 @@ class ReportController extends Controller
 
         return $query->get()->map(fn (FuneralCase $case) => [
             'case_no'           => $case->case_number ?: $case->case_code,
+            'case_code'         => $case->case_code ?: '-',
+            'branch_id'         => (int) $case->branch_id,
             'branch'            => $this->branchName($case->branch),
             'client'            => $this->personName($case->client),
             'deceased'          => $this->personName($case->deceased),
@@ -475,6 +437,8 @@ class ReportController extends Controller
             return [
                 'payment_record_no' => $pay->payment_record_no ?: ($pay->receipt_number ?: '-'),
                 'case_no'           => $pay->funeralCase?->case_number ?: ($pay->funeralCase?->case_code ?? '-'),
+                'case_code'         => $pay->funeralCase?->case_code ?? '-',
+                'branch_id'         => (int) ($pay->branch_id ?: $pay->funeralCase?->branch_id),
                 'branch'            => $this->branchName($pay->funeralCase?->branch),
                 'client_deceased'   => implode(' / ', $parts) ?: '-',
                 'payment_method'    => $pay->payment_method ?: ($pay->payment_mode ?: ($pay->method ?? '-')),
@@ -488,7 +452,7 @@ class ReportController extends Controller
     private function ownerDrilldownCaseColumns(): array
     {
         return [
-            'case_no'           => 'Case No.',
+            'case_code'         => 'Case Code',
             'branch'            => 'Branch',
             'client'            => 'Client',
             'deceased'          => 'Deceased',
@@ -505,7 +469,7 @@ class ReportController extends Controller
     {
         return [
             'payment_record_no' => 'Payment Record No.',
-            'case_no'           => 'Case No.',
+            'case_code'         => 'Case Code',
             'branch'            => 'Branch',
             'client_deceased'   => 'Client / Deceased',
             'payment_method'    => 'Payment Method',
@@ -633,15 +597,15 @@ class ReportController extends Controller
         $user = auth()->user();
         if ($user?->isOwner()) {
             return [
-                self::REPORT_OWNER_BRANCH_ANALYTICS => 'Owner Sales per Branch',
+                self::REPORT_OWNER_BRANCH_ANALYTICS => 'Branch Performance Report',
             ];
         }
 
         return [
+            self::REPORT_OWNER_BRANCH_ANALYTICS => 'Branch Performance Report',
             self::REPORT_SALES => 'Sales Report',
             self::REPORT_MASTER_CASES => 'Master Case Monitoring',
             self::REPORT_AUDIT_LOGS => 'Audit Logs',
-            self::REPORT_OWNER_BRANCH_ANALYTICS => 'Owner Sales per Branch',
         ];
     }
 
@@ -770,7 +734,6 @@ class ReportController extends Controller
                 'remarks' => 'Remarks',
             ],
             self::REPORT_MASTER_CASES => [
-                'case_no' => 'Case No.',
                 'case_code' => 'Case Code',
                 'client' => 'Client',
                 'deceased' => 'Deceased',
@@ -780,12 +743,11 @@ class ReportController extends Controller
                 'interment_date' => 'Interment Date',
                 'payment_status' => 'Payment Status',
                 'case_status' => 'Case Status',
-                'verification_status' => 'Verification Status',
                 'encoded_by' => 'Encoded By',
                 'date_created' => 'Date Created',
             ],
             default => [
-                'case_no' => 'Case No.',
+                'case_code' => 'Case Code',
                 'client' => 'Client',
                 'deceased' => 'Deceased',
                 'branch' => 'Branch',
@@ -834,6 +796,14 @@ class ReportController extends Controller
             ?: $case->custom_package_name
             ?: $case->service_package
             ?: '-';
+    }
+
+    private function caseIntermentDate(FuneralCase $case)
+    {
+        return $case->interment_at
+            ?: $case->serviceDetail?->internment_date
+            ?: $case->deceased?->interment_at
+            ?: $case->deceased?->interment;
     }
 
     private function formatDate($value): string

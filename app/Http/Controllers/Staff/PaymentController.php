@@ -33,7 +33,7 @@ class PaymentController extends Controller
         $viewBranchScopeIds = $this->paymentViewBranchIds($user);
 
         $validated = $request->validate([
-            'q' => ['nullable', 'string', 'max:100', "regex:/^[A-Za-z0-9\\s.'-]+$/"],
+            'q' => ['nullable', 'string', 'max:100', "regex:/^[\\p{L}\\p{M}0-9\\s.'-]+$/u"],
             'payment_status' => ['nullable', 'in:PAID,PARTIAL,UNPAID'],
             'case_status' => ['nullable', 'in:DRAFT,ACTIVE,COMPLETED'],
             'request_date_from' => ['nullable', 'date'],
@@ -42,7 +42,7 @@ class PaymentController extends Controller
             'case_id' => ['nullable', 'integer', 'exists:funeral_cases,id'],
             'open_payment' => ['nullable', 'boolean'],
         ], [
-            'q.regex' => 'Search may contain letters, numbers, spaces, apostrophes, periods, and hyphens only.',
+            'q.regex' => 'Search may contain letters, numbers, spaces, accents, apostrophes, periods, and hyphens only.',
         ]);
 
         $branchScopeIds = $this->selectedPaymentBranchIds($viewBranchScopeIds, $validated['branch_id'] ?? null);
@@ -241,7 +241,7 @@ class PaymentController extends Controller
             'q' => ['nullable', 'string', 'max:100', "regex:/^[A-Za-z0-9\\s.'-]+$/"],
             'paid_from' => ['nullable', 'date'],
             'paid_to' => ['nullable', 'date', 'after_or_equal:paid_from'],
-            'branch_id' => ['nullable', Rule::in(array_merge(['all'], array_map('strval', $viewBranchScopeIds)))],
+            'branch_id' => ['nullable', 'string', 'max:20'],
             'payment_status' => ['nullable', 'in:PAID,PARTIAL,UNPAID'],
             'case_status' => ['nullable', 'in:DRAFT,ACTIVE,COMPLETED'],
             'payment_method' => ['nullable', 'in:cash,cashless,bank_transfer'],
@@ -255,7 +255,7 @@ class PaymentController extends Controller
         $requestedBranchId = $validated['branch_id'] ?? null;
         $defaultBranchId = (
             !$request->has('branch_id')
-            && $user?->isMainBranchAdmin()
+            && $user?->role === 'staff'
             && $user->branch_id
             && in_array((int) $user->branch_id, $viewBranchScopeIds, true)
         ) ? (int) $user->branch_id : null;

@@ -1,4 +1,6 @@
 ﻿@php
+    $intakeDraft = $intakeDraft ?? null;
+    $intakeDraftPayload = $intakeDraftPayload ?? null;
     $isOtherEntryMode = !empty($entryMode) && $entryMode === 'other';
     $otherBranchCutoffHour = max(min((int) config('funeral.other_branch_report_cutoff_hour', 18), 23), 0);
     $todayStart = now()->copy()->startOfDay();
@@ -329,10 +331,35 @@
         box-shadow: 0 0 0 4px rgba(27,51,88,.09);
         outline: none; background: #fafcff;
     }
-    .form-input.field-error, .form-textarea.field-error {
+    .form-input.field-error,
+    .form-textarea.field-error,
+    .form-select.field-error,
+    .schedule-time-display.field-error {
         border-color: #e11d48 !important;
         background: #fff7f8 !important;
+        color: #9f1239 !important;
         box-shadow: 0 0 0 4px rgba(225,29,72,.08) !important;
+    }
+    .intake-field-error {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        margin-top: 7px;
+        color: #9f1239 !important;
+        font-size: 0.82rem;
+        font-weight: 750;
+        line-height: 1.35;
+    }
+    .intake-field-error::before {
+        content: "\F33A";
+        flex: 0 0 auto;
+        color: #e11d48;
+        font-family: "bootstrap-icons";
+        font-size: 0.86rem;
+        line-height: 1.25;
+    }
+    .intake-field-error.hidden {
+        display: none !important;
     }
     .form-input::placeholder, .form-textarea::placeholder { color: #b0beca; font-weight: 400; }
     .intake-root input::placeholder, .intake-root textarea::placeholder { color: #b0beca !important; font-weight: 400 !important; opacity: 1; }
@@ -539,17 +566,36 @@
         -webkit-appearance: none;
         padding-right: 2.4rem;
     }
+    .form-select-wrap .form-input.field-error {
+        color: #2f3a2e !important;
+        padding-right: 2.75rem;
+    }
     .form-select-wrap::after {
         content: "";
         position: absolute;
         right: 14px;
         top: 50%;
-        width: 8px;
-        height: 8px;
-        border-right: 2px solid #7A8076;
-        border-bottom: 2px solid #7A8076;
-        transform: translateY(-65%) rotate(45deg);
+        width: 0;
+        height: 0;
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-top: 6px solid #7A8076;
+        transform: translateY(-35%);
+        transition: transform .14s ease, border-top-color .14s ease, opacity .14s ease;
         pointer-events: none;
+    }
+    .form-select-wrap:focus-within::after {
+        border-top-color: #3E4A3D;
+        transform: translateY(-10%);
+        opacity: .95;
+    }
+    .form-select-wrap.is-error::after,
+    .form-select-wrap:has(.form-input.field-error)::after {
+        right: 16px;
+        border-left-width: 5px;
+        border-right-width: 5px;
+        border-top-color: #6f786d;
+        opacity: .72;
     }
     @media (min-width: 640px) {
         .intake-name-grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr); }
@@ -781,34 +827,40 @@
     #intakeCancelModal { background: rgba(0,0,0,.45); }
     #intakeCancelModal .cancel-modal-box {
         background: #FAFAF7; border: 1px solid #C9C5BB;
-        border-radius: 18px; padding: 28px 28px 24px;
+        border-radius: 18px; padding: 28px;
         box-shadow: 0 20px 50px rgba(0,0,0,.18);
-        max-width: 380px; width: 100%; position: relative;
+        max-width: 430px; width: 100%; position: relative;
     }
     #intakeCancelModal .cancel-modal-title {
         font-size: 15px; font-weight: 700; color: #3E4A3D; margin: 0 0 8px;
     }
     #intakeCancelModal .cancel-modal-msg {
-        font-size: 13px; color: #5F685F; margin: 0 0 22px; line-height: 1.5;
+        font-size: 13px; color: #5F685F; margin: 0 0 24px; line-height: 1.55;
     }
     #intakeCancelModal .cancel-modal-actions {
-        display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+        display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
     }
-    #intakeCancelModalKeep {
-        padding: 9px 18px; border-radius: 9px;
-        background: #FAFAF7; color: #5F685F; border: 1px solid #C9C5BB;
+    #intakeCancelModalKeep,
+    #intakeCancelModalDiscard,
+    #intakeCancelModalSaveDraft {
+        min-height: 48px; padding: 10px 16px; border-radius: 10px;
         font-size: 13px; font-weight: 600; cursor: pointer;
-        transition: background .15s;
+        transition: background .15s, border-color .15s, color .15s;
+        display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+        text-align: center; white-space: nowrap;
+    }
+    #intakeCancelModalKeep,
+    #intakeCancelModalDiscard {
+        background: #FAFAF7; color: #5F685F; border: 1px solid #C9C5BB;
     }
     #intakeCancelModalKeep:hover { background: #F3F0E8; }
-    #intakeCancelModalConfirm {
-        padding: 9px 18px; border-radius: 9px;
+    #intakeCancelModalDiscard:hover { background: #FDF2F2; border-color: #D8A6A6; color: #9B3D3D; }
+    #intakeCancelModalSaveDraft {
         background: #3E4A3D; color: #ffffff; border: 1px solid #3E4A3D;
-        font-size: 13px; font-weight: 700; cursor: pointer;
-        transition: background .15s;
+        font-weight: 700; grid-column: 1 / -1;
     }
-    #intakeCancelModalConfirm:hover { background: #344033; }
-    #intakeCancelModalConfirm:active { background: #2F3A2E; }
+    #intakeCancelModalSaveDraft:hover { background: #344033; }
+    #intakeCancelModalSaveDraft:active { background: #2F3A2E; }
 
     /* Botanical Suite theme overrides for cancel button */
     #intakeCancelBtn {
@@ -1571,7 +1623,7 @@
     #saveIntakeRecord,
     #choose_add_ons_btn,
     #apply_add_ons_btn,
-    #intakeCancelModalConfirm,
+    #intakeCancelModalSaveDraft,
     .pkg-premium-card:has(.package-radio:checked) .pkg-select-btn {
         background: var(--intake-dark) !important;
         border: 1px solid var(--intake-dark) !important;
@@ -1582,7 +1634,7 @@
     #saveIntakeRecord:hover:not(:disabled),
     #choose_add_ons_btn:hover,
     #apply_add_ons_btn:hover,
-    #intakeCancelModalConfirm:hover {
+    #intakeCancelModalSaveDraft:hover {
         background: var(--intake-dark-hover) !important;
         border-color: var(--intake-dark-hover) !important;
         color: #fff !important;
@@ -2267,8 +2319,11 @@
         .footer-action-bar { flex-direction: column; align-items: stretch; gap: 8px; }
         .footer-left-group,
         .footer-right-group { flex-direction: row; }
-        #intakeCancelBtn, #wizardPrev, #wizardNext, #saveIntakeRecord { text-align: center; width: 100%; }
-        #intakeCancelBtn, #wizardPrev, #wizardNext, #saveIntakeRecord { flex: 1; }
+        #intakeCancelBtn, #saveIntakeDraft, #wizardPrev, #wizardNext, #saveIntakeRecord { text-align: center; width: 100%; }
+        #intakeCancelBtn, #saveIntakeDraft, #wizardPrev, #wizardNext, #saveIntakeRecord { flex: 1; }
+        #intakeCancelModal .cancel-modal-box { padding: 24px; max-width: 360px; }
+        #intakeCancelModal .cancel-modal-actions { grid-template-columns: 1fr; }
+        #intakeCancelModalSaveDraft { grid-column: auto; }
     }
     html[data-theme='dark'] #structured_pricing_section {
         background: #111827 !important;
@@ -2339,7 +2394,10 @@
         <div class="mb-6 rounded-2xl border px-5 py-4 text-sm {{ $otherBranchWindowClosed ? 'border-rose-200 bg-rose-50 text-rose-900' : 'border-amber-200 bg-amber-50 text-amber-900' }} shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
             <div class="font-bold flex items-center gap-2">
                 <i class="bi {{ $otherBranchWindowClosed ? 'bi-x-circle-fill text-rose-500' : 'bi-exclamation-triangle-fill text-amber-500' }}"></i>
-                {{ $otherBranchWindowClosed ? 'Intake Window Closed' : 'External Branch Report' }}
+                <span>External Branch Report</span>
+                @if($otherBranchWindowClosed)
+                    <span class="text-xs font-black uppercase tracking-widest opacity-80">Intake Window Closed</span>
+                @endif
             </div>
             <div class="mt-2 text-[10px] font-black uppercase tracking-widest">Other-Branch Intake Rules</div>
             <div class="mt-1 text-xs font-medium opacity-90">
@@ -2408,7 +2466,24 @@
             @csrf
 
             <input type="hidden" name="branch_id" id="branch_id" value="{{ $initialSelectedBranchId }}">
+            <input type="hidden" name="intake_draft_id" id="intake_draft_id" value="{{ $intakeDraft?->id }}">
+            <input type="hidden" name="entry_mode" value="{{ $isOtherEntryMode ? 'other' : 'main' }}">
+            <input type="hidden" name="current_step" id="current_step" value="{{ $initialStep ?? 1 }}">
+            <input type="hidden" name="return_to" value="{{ $returnTo ?? '' }}">
             <input type="hidden" id="branch_code_main_default" value="{{ optional($branches->first())->branch_code ?? 'BR001' }}">
+
+            @if($intakeDraft)
+                <div class="mx-4 mb-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-4 py-3 text-sm text-[var(--color-text-secondary)] flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="min-w-0">
+                        <div class="font-semibold text-[var(--color-text-primary)]">Resuming {{ $intakeDraft->draft_number }}</div>
+                        <div class="text-xs">Last saved {{ optional($intakeDraft->last_saved_at)->format('Y-m-d H:i') ?? 'recently' }}</div>
+                    </div>
+                    <a href="{{ route('funeral-cases.index', ['tab' => 'draft', 'record_scope' => 'main']) }}" class="ops-btn-outline inline-flex items-center justify-center gap-2">
+                        <i class="bi bi-list-check" aria-hidden="true"></i>
+                        Intake Drafts
+                    </a>
+                </div>
+            @endif
 
             <div id="intakeFormContent">
                 <section class="wizard-panel" data-step="1">
@@ -2459,17 +2534,17 @@
                                 <div>
                                     <label class="field-label">First Name <span class="text-rose-500">*</span></label>
                                     <input type="text" name="client_first_name" value="{{ old('client_first_name') }}" data-label="client first name" class="form-input" placeholder="First name" required>
-                                    @error('client_first_name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                                    @error('client_first_name') <p class="intake-field-error">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
                                     <label class="field-label">Middle Name</label>
                                     <input type="text" name="client_middle_name" value="{{ old('client_middle_name') }}" data-label="client middle name" class="form-input" placeholder="Middle name">
-                                    @error('client_middle_name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                                    @error('client_middle_name') <p class="intake-field-error">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
                                     <label class="field-label">Last Name <span class="text-rose-500">*</span></label>
                                     <input type="text" name="client_last_name" value="{{ old('client_last_name') }}" data-label="client last name" class="form-input" placeholder="Last name" required>
-                                    @error('client_last_name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                                    @error('client_last_name') <p class="intake-field-error">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
                                     <label class="field-label">Suffix</label>
@@ -2481,7 +2556,7 @@
                                             @endforeach
                                         </select>
                                     </div>
-                                    @error('client_suffix') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                                    @error('client_suffix') <p class="intake-field-error">{{ $message }}</p> @enderror
                                 </div>
                             </div>
                         </div>
@@ -2548,17 +2623,17 @@
                                 <div>
                                     <label class="field-label">First Name <span class="text-rose-500">*</span></label>
                                     <input type="text" name="deceased_first_name" value="{{ old('deceased_first_name') }}" data-label="deceased first name" class="form-input" placeholder="First name" required>
-                                    @error('deceased_first_name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                                    @error('deceased_first_name') <p class="intake-field-error">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
                                     <label class="field-label">Middle Name</label>
                                     <input type="text" name="deceased_middle_name" value="{{ old('deceased_middle_name') }}" data-label="deceased middle name" class="form-input" placeholder="Middle name">
-                                    @error('deceased_middle_name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                                    @error('deceased_middle_name') <p class="intake-field-error">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
                                     <label class="field-label">Last Name <span class="text-rose-500">*</span></label>
                                     <input type="text" name="deceased_last_name" value="{{ old('deceased_last_name') }}" data-label="deceased last name" class="form-input" placeholder="Last name" required>
-                                    @error('deceased_last_name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                                    @error('deceased_last_name') <p class="intake-field-error">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
                                     <label class="field-label">Suffix</label>
@@ -2570,7 +2645,7 @@
                                             @endforeach
                                         </select>
                                     </div>
-                                    @error('deceased_suffix') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                                    @error('deceased_suffix') <p class="intake-field-error">{{ $message }}</p> @enderror
                                 </div>
                             </div>
                         </div>
@@ -2587,9 +2662,9 @@
                                         </span>
                                     </div>
                                     @error('born')
-                                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                        <p class="intake-field-error">{{ $message }}</p>
                                     @enderror
-                                    <p id="born_error" class="mt-1 text-sm text-red-600 hidden"></p>
+                                    <p id="born_error" class="intake-field-error hidden"></p>
                                 </div>
 
                                 <div>
@@ -2601,9 +2676,9 @@
                                         </span>
                                     </div>
                                     @error('died')
-                                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                        <p class="intake-field-error">{{ $message }}</p>
                                     @enderror
-                                    <p id="died_error" class="mt-1 text-sm text-red-600 hidden"></p>
+                                    <p id="died_error" class="intake-field-error hidden"></p>
                                 </div>
 
                                 <div>
@@ -2654,7 +2729,7 @@
                             <p class="pkg-section-title">Service Packages</p>
                             <p class="pkg-section-sub">Select the appropriate service package for this case.</p>
                         </div>
-                        <div id="package_error" class="hidden text-xs font-bold text-rose-500 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-lg flex items-center gap-1">
+                        <div id="package_error" class="intake-field-error hidden rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
                             <i class="bi bi-exclamation-circle-fill"></i> Selection required
                         </div>
                     </div>
@@ -2949,7 +3024,7 @@
                                 </div>
                             </div>
                         </div>
-                        @error('selected_add_ons') <div class="mt-2 text-xs font-bold text-[#9E4B3F]">{{ $message }}</div> @enderror
+                        @error('selected_add_ons') <div class="intake-field-error">{{ $message }}</div> @enderror
                     </div>
                     </div>
 
@@ -3010,7 +3085,7 @@
                                                 @endforeach
                                             </select>
                                             <p id="casket_upgrade_preview" class="mt-1 text-xs text-slate-500">Select a replacement casket to calculate the upgrade difference.</p>
-                                            @error('replacement_casket_catalog_id') <div class="mt-1 text-xs font-bold text-rose-600">{{ $message }}</div> @enderror
+                                            @error('replacement_casket_catalog_id') <div class="intake-field-error">{{ $message }}</div> @enderror
                                         </div>
                                     </div>
                                 </div>
@@ -3149,7 +3224,7 @@
                                         <div id="retrieval_excess_wrap" class="mt-3 hidden">
                                             <label class="field-label">Excess KM</label>
                                             <input type="number" step="0.01" min="0" name="retrieval_excess_kilometers" id="retrieval_excess_kilometers" value="{{ old('retrieval_excess_kilometers') }}" class="form-input" placeholder="0" data-label="retrieval excess kilometers">
-                                            @error('retrieval_excess_kilometers') <div class="mt-1 text-xs font-bold text-rose-600">{{ $message }}</div> @enderror
+                                            @error('retrieval_excess_kilometers') <div class="intake-field-error">{{ $message }}</div> @enderror
                                         </div>
                                         <p id="retrieval_charge_preview" class="mt-2 text-xs text-slate-500">Within included coverage unless excess kilometers are added.</p>
                                     </div>
@@ -3199,7 +3274,7 @@
                                         <div id="hearse_excess_wrap" class="mt-3 hidden">
                                             <label class="field-label">Excess KM</label>
                                             <input type="number" step="0.01" min="0" name="hearse_excess_kilometers" id="hearse_excess_kilometers" value="{{ old('hearse_excess_kilometers') }}" class="form-input" placeholder="0" data-label="hearse excess kilometers">
-                                            @error('hearse_excess_kilometers') <div class="mt-1 text-xs font-bold text-rose-600">{{ $message }}</div> @enderror
+                                            @error('hearse_excess_kilometers') <div class="intake-field-error">{{ $message }}</div> @enderror
                                         </div>
                                         <p id="hearse_charge_preview" class="mt-2 text-xs text-slate-500">Within included coverage unless excess kilometers are added.</p>
                                     </div>
@@ -3228,7 +3303,7 @@
                     <input type="hidden" name="service_requested_at" id="service_requested_at" value="{{ now()->toDateString() }}">
                     <input type="hidden" name="service_type" id="service_type" value="Burial">
                     @error('service_requested_at')
-                        <p class="mb-3 text-sm text-red-600">{{ $message }}</p>
+                        <p class="intake-field-error mb-3">{{ $message }}</p>
                     @enderror
 
                     <div class="service-details-grid">
@@ -3290,12 +3365,12 @@
                                 </div>
                             </div>
                             @error('wake_start_date')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                <p class="intake-field-error">{{ $message }}</p>
                             @enderror
                             @error('wake_start_time')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                <p class="intake-field-error">{{ $message }}</p>
                             @enderror
-                            <p id="wake_start_error" class="mt-1 text-sm text-red-600 hidden"></p>
+                            <p id="wake_start_error" class="intake-field-error hidden"></p>
                             </div>
                         </div>
 
@@ -3346,12 +3421,12 @@
                                 </div>
                             </div>
                             @error('funeral_service_at')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                <p class="intake-field-error">{{ $message }}</p>
                             @enderror
                             @error('funeral_service_time')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                <p class="intake-field-error">{{ $message }}</p>
                             @enderror
-                            <p id="funeral_service_at_error" class="mt-1 text-sm text-red-600 hidden"></p>
+                            <p id="funeral_service_at_error" class="intake-field-error hidden"></p>
                             </div>
                         </div>
 
@@ -3402,12 +3477,12 @@
                                 </div>
                             </div>
                             @error('interment_at')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                <p class="intake-field-error">{{ $message }}</p>
                             @enderror
                             @error('interment_time')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                <p class="intake-field-error">{{ $message }}</p>
                             @enderror
-                            <div id="interment_at_error" class="hidden text-xs font-bold text-rose-500 mt-1">Interment date cannot be before the funeral service date.</div>
+                            <div id="interment_at_error" class="intake-field-error hidden">Interment date cannot be before the funeral service date.</div>
                             <p id="interment_schedule_warning" class="hidden text-xs font-bold text-amber-600 mt-1">Funeral service and interment are usually on the same day. Please confirm if interment is scheduled on a different date.</p>
                             </div>
                         </div>
@@ -3691,7 +3766,7 @@
                                                     <span class="text-sm font-bold text-slate-700">Partial Payment</span>
                                                 </label>
                                             </div>
-                                            <div id="payment_type_error" class="hidden text-xs font-bold text-rose-500 mt-2">Please select a type.</div>
+                                            <div id="payment_type_error" class="intake-field-error hidden">Please select a type.</div>
                                         </div>
                                     @endif
 
@@ -3894,6 +3969,19 @@
 
                 {{-- Right group: Back + Continue / Save --}}
                 <div class="footer-right-group flex flex-1 sm:flex-none sm:ml-auto items-center gap-2">
+                    <button
+                        type="submit"
+                        id="saveIntakeDraft"
+                        formaction="{{ route('intake.drafts.save') }}"
+                        formmethod="POST"
+                        formnovalidate
+                        class="hidden"
+                        aria-hidden="true"
+                        tabindex="-1"
+                    >
+                        <i class="bi bi-save2" aria-hidden="true"></i>
+                        Save Draft
+                    </button>
                     <button type="button" id="wizardPrev" class="w-auto shrink-0 px-6 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all disabled:opacity-30 disabled:hover:bg-white">
                         Back
                     </button>
@@ -3914,11 +4002,15 @@
     <div id="intakeCancelModal" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4" style="backdrop-filter:blur(3px);">
         <div class="absolute inset-0" id="intakeCancelModalBackdrop" style="background:rgba(0,0,0,.45);"></div>
         <div class="cancel-modal-box">
-            <p class="cancel-modal-title">Cancel case intake?</p>
-            <p class="cancel-modal-msg">Your unsaved changes will be lost.</p>
+            <p class="cancel-modal-title">Save this intake before leaving?</p>
+            <p class="cancel-modal-msg">You have unsaved intake details. Save them as a draft so staff can continue later, or leave without saving.</p>
             <div class="cancel-modal-actions">
                 <button type="button" id="intakeCancelModalKeep">Keep Editing</button>
-                <button type="button" id="intakeCancelModalConfirm">Yes, Cancel</button>
+                <button type="button" id="intakeCancelModalDiscard">Leave without saving</button>
+                <button type="button" id="intakeCancelModalSaveDraft">
+                    <i class="bi bi-save2" aria-hidden="true"></i>
+                    Save as Draft
+                </button>
             </div>
         </div>
     </div>
@@ -3937,6 +4029,7 @@
     const prev = document.getElementById('wizardPrev');
     const next = document.getElementById('wizardNext');
     const save = document.getElementById('saveIntakeRecord');
+    const currentStepField = document.getElementById('current_step');
 
     const formContent = document.getElementById('intakeFormContent');
     const wizardSteps = document.getElementById('wizardSteps');
@@ -4168,6 +4261,7 @@
     const initialStep = Math.max(1, Math.min(totalSteps, Number(@json($initialStep ?? 1))));
     const serverInitialBranchId = @json((string) $initialSelectedBranchId);
     const serverOldBranchExists = @json(old('branch_id') !== null);
+    const serverDraftPayload = @json($intakeDraftPayload);
 
     let step = 1;
     let maxUnlockedStep = initialStep;
@@ -4540,6 +4634,7 @@
         if (field?.setCustomValidity) field.setCustomValidity('');
         field?.classList?.remove('field-error');
         field?.removeAttribute?.('aria-invalid');
+        field?.closest?.('.form-select-wrap')?.classList.remove('is-error');
 
         const errorEl = fieldErrorElement(field, false);
         if (errorEl) {
@@ -4562,8 +4657,10 @@
         if (!errorEl && create) {
             errorEl = document.createElement('p');
             errorEl.id = `${safeName}_inline_error`;
-            errorEl.className = 'mt-1 text-sm text-red-600 hidden';
-            field.insertAdjacentElement('afterend', errorEl);
+            errorEl.className = 'intake-field-error hidden';
+
+            const selectWrap = field.matches('select') ? field.closest('.form-select-wrap') : null;
+            (selectWrap || field).insertAdjacentElement('afterend', errorEl);
         }
 
         return errorEl;
@@ -5566,11 +5663,13 @@
 
         if (message) {
             targets.forEach(t => t && t.classList.add('field-error'));
+            targets.forEach(t => t?.closest?.('.form-select-wrap')?.classList.add('is-error'));
             targets.forEach(t => t && t.setAttribute('aria-invalid', 'true'));
             errEl.textContent = message;
             errEl.classList.remove('hidden');
         } else {
             targets.forEach(t => t && t.classList.remove('field-error'));
+            targets.forEach(t => t?.closest?.('.form-select-wrap')?.classList.remove('is-error'));
             targets.forEach(t => t && t.removeAttribute('aria-invalid'));
             errEl.textContent = '';
             errEl.classList.add('hidden');
@@ -7501,8 +7600,18 @@
     });
 
     f.addEventListener('submit', (event) => {
+        if (currentStepField) currentStepField.value = String(step);
         restoreAppliedAddOns();
         setAddOnsPanelOpen(false);
+
+        if (event.submitter?.id === 'saveIntakeDraft') {
+            try {
+                localStorage.removeItem(intakeAutosaveKey);
+            } catch (error) {
+                // Autosave cleanup is best-effort only.
+            }
+            return;
+        }
 
         if (isOtherEntryMode && otherBranchWindowClosed) {
             event.preventDefault();
@@ -7569,15 +7678,7 @@
         }
     };
 
-    const restoreLocalDraft = () => {
-        let draft = null;
-
-        try {
-            draft = JSON.parse(localStorage.getItem(intakeAutosaveKey) || 'null');
-        } catch (error) {
-            draft = null;
-        }
-
+    const restoreDraftPayload = (draft) => {
         if (!draft?.fields || typeof draft.fields !== 'object') return false;
 
         const grouped = new Map();
@@ -7639,6 +7740,18 @@
         return true;
     };
 
+    const restoreLocalDraft = () => {
+        let draft = null;
+
+        try {
+            draft = JSON.parse(localStorage.getItem(intakeAutosaveKey) || 'null');
+        } catch (error) {
+            draft = null;
+        }
+
+        return restoreDraftPayload(draft);
+    };
+
     const initializeBranchState = () => {
         if (isOtherEntryMode) {
             if (serverOldBranchExists) {
@@ -7652,7 +7765,8 @@
     };
 
     initializeBranchState();
-    const restoredLocalDraft = restoreLocalDraft();
+    const restoredServerDraft = restoreDraftPayload(serverDraftPayload);
+    const restoredLocalDraft = restoredServerDraft ? false : restoreLocalDraft();
     syncBranch(false);
     syncRequestDate();
     syncControls();
@@ -7671,14 +7785,18 @@
     renderPkg(false);
     render();
     go(initialStep, { scroll: false, smooth: false });
-    showBranchToast(restoredLocalDraft ? 'Unsaved local draft restored. Submit to save it officially.' : branchPromptMessage());
+    showBranchToast(restoredServerDraft
+        ? 'Server draft restored. Continue editing or save the official record.'
+        : (restoredLocalDraft ? 'Unsaved local draft restored. Submit to save it officially.' : branchPromptMessage()));
 
     // ── Cancel button & dirty-state tracking ─────────────────────────────
     const cancelBtn      = document.getElementById('intakeCancelBtn');
     const cancelModal    = document.getElementById('intakeCancelModal');
     const cancelKeep     = document.getElementById('intakeCancelModalKeep');
-    const cancelConfirm  = document.getElementById('intakeCancelModalConfirm');
+    const cancelDiscard  = document.getElementById('intakeCancelModalDiscard');
+    const cancelSaveDraft = document.getElementById('intakeCancelModalSaveDraft');
     const cancelBackdrop = document.getElementById('intakeCancelModalBackdrop');
+    const saveDraftBtn   = document.getElementById('saveIntakeDraft');
     const cancelUrl      = @json($cancelUrl ?? '/');
 
     let formIsDirty = false;
@@ -7702,6 +7820,17 @@
         document.body.style.overflow = '';
     };
     const doCancel = () => { window.location.href = cancelUrl; };
+    const saveDraftFromCancel = () => {
+        closeCancelModal();
+        if (currentStepField) currentStepField.value = String(step);
+
+        if (saveDraftBtn && typeof f.requestSubmit === 'function') {
+            f.requestSubmit(saveDraftBtn);
+            return;
+        }
+
+        saveDraftBtn?.click();
+    };
 
     cancelBtn?.addEventListener('click', () => {
         formIsDirty ? openCancelModal() : doCancel();
@@ -7709,7 +7838,8 @@
 
     cancelKeep?.addEventListener('click',     closeCancelModal);
     cancelBackdrop?.addEventListener('click', closeCancelModal);
-    cancelConfirm?.addEventListener('click',  doCancel);
+    cancelDiscard?.addEventListener('click',  doCancel);
+    cancelSaveDraft?.addEventListener('click', saveDraftFromCancel);
 
     // Close on Escape key
     document.addEventListener('keydown', (e) => {

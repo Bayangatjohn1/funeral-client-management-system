@@ -20,14 +20,14 @@ class ClientController extends Controller
         $mainBranchId = $this->mainBranchIdForDirectory();
 
         $request->validate([
-            'q' => FieldRules::searchName(),
+            'q' => ['nullable', 'string', 'max:100', "regex:/^[\\pL\\pM0-9\\s.'\\-+()#,]+$/u"],
             'added_from' => 'nullable|date',
             'added_to' => 'nullable|date|after_or_equal:added_from',
             'type_filter' => 'nullable|in:all,needs_attention,recent,with_balance',
             'date_range' => 'nullable|in:any,today,7d,30d,this_month,custom',
             'sort' => 'nullable|in:newest,oldest,name_asc,name_desc',
         ], [
-            'q.regex' => 'Search may contain letters, spaces, apostrophes, periods, and hyphens only.',
+            'q.regex' => 'Search may contain letters, numbers, spaces, apostrophes, periods, hyphens, plus signs, parentheses, #, and commas only.',
             'added_to.after_or_equal' => 'Date Added (to) must be on or after Date Added (from).',
         ]);
 
@@ -46,6 +46,7 @@ class ClientController extends Controller
                     'funeral_cases.id',
                     'funeral_cases.client_id',
                     'funeral_cases.deceased_id',
+                    'funeral_cases.case_code',
                     'funeral_cases.service_package',
                     'funeral_cases.case_status',
                     'funeral_cases.payment_status',
@@ -53,16 +54,18 @@ class ClientController extends Controller
                 ]),
                 'latestFuneralCase.deceased:id,full_name',
             ])
+            ->withCount('funeralCases')
             ->where('branch_id', $mainBranchId);
 
-        // Optional search
         if ($request->filled('q')) {
             $q = $request->q;
             $query->where(function ($nameQuery) use ($q) {
                 $nameQuery->where('full_name', 'like', "%{$q}%")
                     ->orWhere('first_name', 'like', "%{$q}%")
                     ->orWhere('middle_name', 'like', "%{$q}%")
-                    ->orWhere('last_name', 'like', "%{$q}%");
+                    ->orWhere('last_name', 'like', "%{$q}%")
+                    ->orWhere('contact_number', 'like', "%{$q}%")
+                    ->orWhere('address', 'like', "%{$q}%");
             });
         }
 

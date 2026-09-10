@@ -28,6 +28,9 @@
         && (($funeral_case->entry_source ?? 'MAIN') !== 'OTHER_BRANCH')
         && (int) $funeral_case->branch_id === (int) (auth()->user()?->branch_id ?? 0)
         && (float) $funeral_case->balance_amount > 0;
+    $paymentLockedMessage = (($funeral_case->entry_source ?? 'MAIN') === 'OTHER_BRANCH')
+        ? 'This other-branch case is locked for payment updates.'
+        : null;
     $isOverlay = request()->boolean('overlay');
     $printSnapshot = app(\App\Support\CaseSnapshotDisplayService::class)->data($funeral_case);
     $printPackageName = $printSnapshot['package_name'] ?? $funeral_case->service_package ?? 'Saved Package';
@@ -47,6 +50,19 @@
 @endif
 @if($errors->any())
     <div class="flash-error">{{ $errors->first() }}</div>
+@endif
+@if($paymentLockedMessage)
+    <div class="flash-info">{{ $paymentLockedMessage }}</div>
+@endif
+@if($canRecordPayment)
+    <section class="case-record-toolbar" aria-label="Case payment entry">
+        <div class="case-record-actions">
+            <a class="btn-outline" href="{{ route('payments.index', ['case_id' => $funeral_case->id, 'open_payment' => 1]) }}">
+                Add Payment
+            </a>
+            <span class="text-sm">Resulting Payment Status</span>
+        </div>
+    </section>
 @endif
 
 <style>

@@ -79,7 +79,7 @@ class DashboardAccessTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Owner Overview');
-        $response->assertSee('Reports & Analytics', false);
+        $response->assertSee('Reports &amp; Analytics', false);
         $response->assertDontSee('Recent Cases');
         $response->assertDontSee('Reminders &amp; Alerts', false);
         $response->assertDontSee('bi-bell', false);

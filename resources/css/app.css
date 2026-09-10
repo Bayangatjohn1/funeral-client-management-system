@@ -236,6 +236,8 @@ html[data-theme='dark'] {
     }
 
     .table-toolbar-select-wrap:has(.table-toolbar-select-icon) select,
+    .global-filter-select-wrap:has(.table-toolbar-select-icon) select,
+    .audit-filter-control.is-select select,
     .case-compact-select-wrap:has(.case-compact-select-chev) select,
     .pf-control:has(.pf-control-icon) select,
     .reports-analytics-branch:has(.reports-analytics-select-chev) select,
@@ -1285,8 +1287,17 @@ html[data-theme='dark'] {
         width: 100%;
     }
 
+    .global-filter-select-wrap {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        min-width: 0;
+        width: 100%;
+    }
+
     .table-toolbar-select-wrap .table-toolbar-select,
-    .table-toolbar-select-wrap .table-toolbar-sort {
+    .table-toolbar-select-wrap .table-toolbar-sort,
+    .global-filter-select-wrap > select {
         width: 100%;
         padding-right: 36px;
         appearance: none;
@@ -1303,6 +1314,48 @@ html[data-theme='dark'] {
         font-size: 12px;
         line-height: 1;
         pointer-events: none;
+        transition: transform .16s ease, color .16s ease, opacity .16s ease;
+    }
+
+    .global-filter-select-wrap .table-toolbar-select-icon {
+        position: absolute;
+    }
+
+    .table-toolbar-select-wrap.is-open .table-toolbar-select-icon,
+    .global-filter-select-wrap.is-open .table-toolbar-select-icon {
+        color: var(--ink);
+        transform: translateY(-50%) rotate(180deg);
+    }
+
+    .case-compact-date-filter > .case-compact-date-chev,
+    .case-compact-sort-filter > .case-compact-sort-chev,
+    .case-compact-branch > .case-compact-select-chev,
+    .pm-field.has-icon > .pm-sel-chev {
+        transition: transform .16s ease, color .16s ease, opacity .16s ease;
+        transform-origin: center;
+    }
+
+    .case-compact-date-filter.is-open > .case-compact-date-chev,
+    .case-compact-sort-filter.is-open > .case-compact-sort-chev,
+    .case-compact-branch.is-open > .case-compact-select-chev,
+    .pm-field.has-icon.is-open > .pm-sel-chev {
+        color: var(--ink);
+        transform: translateY(-50%) rotate(180deg);
+    }
+
+    .ba-branch-select-chev,
+    .eb-branch-select-chev,
+    .reports-analytics-select-chev {
+        transition: transform .16s ease, color .16s ease, opacity .16s ease;
+        transform-origin: center;
+    }
+
+    .ba-branch-select-wrap.is-open .ba-branch-select-chev,
+    .eb-branch-select-wrap.is-open .eb-branch-select-chev,
+    .reports-analytics-branch.is-open .reports-analytics-select-chev {
+        transform: rotate(180deg) !important;
+        color: var(--ink, #232821) !important;
+        opacity: .95;
     }
 
     .table-toolbar-search::placeholder,
@@ -8616,6 +8669,7 @@ html[data-theme='dark'] .owner-page-shell button.border:hover {
 
 .pm-sel-chev {
     position: absolute;
+    left: auto;
     right: 12px;
     top: 50%;
     z-index: 1;

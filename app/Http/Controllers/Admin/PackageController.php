@@ -346,6 +346,7 @@ class PackageController extends Controller
                 $legacyIncludedServices[Package::SERVICE_CASKET] = [
                     'enabled' => 1,
                     'casket_type' => $coffinType,
+                    'legacy_casket_text' => 1,
                 ];
             }
 
@@ -468,7 +469,8 @@ class PackageController extends Controller
             }
 
             $catalogId = $casket['casket_catalog_id'] ?? null;
-            if (! is_numeric($catalogId) || (int) $catalogId <= 0) {
+            $legacyCasketType = trim((string) ($casket['casket_type'] ?? ''));
+            if ((! is_numeric($catalogId) || (int) $catalogId <= 0) && $legacyCasketType === '') {
                 $fail('Please select a casket before saving.');
             }
         };

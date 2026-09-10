@@ -7,6 +7,7 @@ use App\Models\Client;
 use App\Models\Deceased;
 use App\Models\FuneralCase;
 use App\Models\Package;
+use App\Models\ServiceDetail;
 use App\Models\User;
 use App\Models\AuditLog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -199,6 +200,27 @@ class ReportsModuleTest extends TestCase
             ->assertJsonValidationErrors(['date_to']);
     }
 
+    public function test_master_case_report_uses_service_detail_interment_date_fallback(): void
+    {
+        $admin = $this->user('admin');
+        $case = $this->case($admin->branch, [
+            'case_code' => 'FALLBACK-001',
+            'interment_at' => null,
+        ]);
+
+        ServiceDetail::create([
+            'funeral_case_id' => $case->id,
+            'internment_date' => '2026-07-21',
+            'case_status' => 'ongoing',
+        ]);
+
+        $this->actingAs($admin)
+            ->getJson('/reports/preview?report_type=master_cases')
+            ->assertOk()
+            ->assertJsonPath('rows.0.case_code', 'FALLBACK-001')
+            ->assertJsonPath('rows.0.interment_date', '2026-07-21');
+    }
+
     public function test_owner_branch_analytics_returns_grouped_branch_rows(): void
     {
         $owner = $this->user('owner');
@@ -223,6 +245,14 @@ class ReportsModuleTest extends TestCase
             ->assertJsonPath('summary.gross_amount', 25000)
             ->assertJsonPath('summary.collected_amount', 15000)
             ->assertJsonPath('summary.remaining_balance', 10000)
+            ->assertJsonStructure([
+                'charts' => [
+                    'bar' => ['labels', 'revenue', 'volume', 'colors'],
+                    'donut' => ['labels', 'values', 'colors'],
+                    'period' => ['labels', 'cases', 'service_amount', 'collected_amount', 'outstanding_balance'],
+                    'line' => ['labels', 'data'],
+                ],
+            ])
             ->assertJsonCount(2, 'rows');
     }
 

@@ -15,6 +15,7 @@ use App\Http\Controllers\Staff\CaseAttachmentController;
 use App\Http\Controllers\Staff\CaseDocumentController;
 use App\Http\Controllers\Staff\ClientController;
 use App\Http\Controllers\Staff\DeceasedController;
+use App\Http\Controllers\Staff\IntakeDraftController;
 use App\Http\Controllers\Staff\FuneralCaseController;
 use App\Http\Controllers\Staff\IntakeController;
 use App\Http\Controllers\Staff\PaymentController;
@@ -436,6 +437,10 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->grou
     Route::post('intake/main', [IntakeController::class, 'storeMain'])->name('intake.main.store');
     Route::get('intake/other', [IntakeController::class, 'createOther'])->name('intake.other.create');
     Route::post('intake/other', [IntakeController::class, 'storeOther'])->name('intake.other.store');
+    Route::get('intake/drafts', [IntakeDraftController::class, 'index'])->name('intake.drafts.index');
+    Route::post('intake/drafts', [IntakeDraftController::class, 'save'])->name('intake.drafts.save');
+    Route::get('intake/drafts/{draft}', [IntakeDraftController::class, 'edit'])->name('intake.drafts.edit');
+    Route::delete('intake/drafts/{draft}', [IntakeDraftController::class, 'destroy'])->name('intake.drafts.destroy');
     Route::resource('clients', ClientController::class)->except(['create', 'store', 'destroy']);
     Route::get('deceased', [DeceasedController::class, 'index'])->name('deceased.index');
     Route::resource('deceased', DeceasedController::class)->only(['edit', 'update', 'show']);
@@ -490,8 +495,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'main_admin'])->prefix('admin')
     Route::patch('/branches/{branch}/toggle-status', [BranchController::class, 'toggleStatus'])->name('admin.branches.toggleStatus');
 });
 
-// Audit logs — accessible by any admin; branch admins are scoped to their own branch via the controller/policy
-Route::middleware(['auth', 'no_cache', 'active', 'admin'])->prefix('admin')->group(function () {
+Route::middleware(['auth', 'no_cache', 'active', 'main_admin'])->prefix('admin')->group(function () {
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('admin.audit-logs.index');
     Route::get('/audit-logs/{audit_log}', [AuditLogController::class, 'show'])->name('admin.audit-logs.show');
 });

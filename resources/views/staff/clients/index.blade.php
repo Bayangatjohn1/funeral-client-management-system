@@ -1,7 +1,7 @@
 @extends('layouts.panel')
 
-@section('page_title', 'Clients')
-@section('page_desc', 'Browse and manage all client records.')
+@section('page_title', 'Client Directory')
+@section('page_desc', 'Family representatives, contact details, and linked case history.')
 
 @section('content')
 <div class="records-page">
@@ -16,7 +16,7 @@
         <form id="clientFilterForm" method="GET" action="{{ route('clients.index') }}" class="table-toolbar" data-table-toolbar data-search-debounce="400">
             <div class="table-toolbar-field">
                 <label for="client-filter-q" class="table-toolbar-label">Search</label>
-                <input id="client-filter-q" name="q" value="{{ request('q') }}" class="form-input table-toolbar-search" data-table-search placeholder="Search client name...">
+                <input id="client-filter-q" name="q" value="{{ request('q') }}" class="form-input table-toolbar-search" data-table-search placeholder="Search representative, phone, or address...">
             </div>
 
             <div class="table-toolbar-field">
@@ -72,7 +72,7 @@
         <div class="table-system-list-header">
             <div>
                 <div class="table-system-list-title">Client Directory</div>
-                <div class="table-system-list-copy">View client contact records and recent case activity.</div>
+                <div class="table-system-list-copy">View family representative contacts and their latest linked case activity.</div>
             </div>
         </div>
 
@@ -80,38 +80,49 @@
                 <table class="table-base table-system-table">
                 <thead>
                     <tr>
-                        <th class="text-left">Client Name</th>
-                        <th class="text-left">Relationship</th>
-                        <th class="text-left">Deceased Name</th>
-                        <th class="text-left">Service</th>
-                        <th class="text-left">Status</th>
-                        <th class="text-left">Payment</th>
+                        <th class="text-left">Family Representative</th>
+                        <th class="text-left">Contact</th>
+                        <th class="text-left">Linked Cases</th>
+                        <th class="text-left">Latest Activity</th>
                         <th class="table-col-actions">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                 @forelse($clients as $client)
-                    @php($latestCase = $client->latestFuneralCase)
+                    @php
+                        $latestCase = $client->latestFuneralCase;
+                        $linkedCasesUrl = route('funeral-cases.index', [
+                            'tab' => 'all',
+                            'record_scope' => 'main',
+                            'client_id' => $client->id,
+                            'return_to' => request()->fullUrl(),
+                        ]);
+                    @endphp
                     <tr>
                         <td>
                             <div class="table-primary">{{ $client->full_name }}</div>
                             <div class="table-secondary">{{ $client->client_code ?? 'CL-' . str_pad($client->id, 3, '0', STR_PAD_LEFT) }}</div>
                         </td>
-                        <td>{{ $client->relationship_to_deceased ?? '-' }}</td>
-                        <td>{{ $latestCase?->deceased?->full_name ?: '-' }}</td>
-                        <td>{{ $latestCase?->service_package ?: '-' }}</td>
                         <td>
-                            @if($latestCase?->case_status)
-                                <x-status-badge :status="$latestCase->case_status" />
-                            @else
-                                <span class="table-secondary">-</span>
-                            @endif
+                            <div class="table-primary">{{ $client->contact_number ?: '-' }}</div>
+                            <div class="table-secondary">{{ \Illuminate\Support\Str::limit($client->address ?: 'Address not recorded', 42) }}</div>
                         </td>
                         <td>
-                            @if($latestCase?->payment_status)
-                                <x-status-badge :status="$latestCase->payment_status" />
+                            <div class="table-primary">{{ $client->funeral_cases_count }} linked {{ \Illuminate\Support\Str::plural('case', $client->funeral_cases_count) }}</div>
+                            <div class="table-secondary">{{ $latestCase?->deceased?->full_name ? \Illuminate\Support\Str::limit($latestCase->deceased->full_name, 34) : 'No linked case yet' }}</div>
+                        </td>
+                        <td>
+                            @if($latestCase)
+                                <div class="table-primary">{{ $latestCase->case_code ?? 'Latest case' }}</div>
+                                <div class="table-secondary">
+                                    {{ $latestCase->created_at?->format('M d, Y') ?? 'Date pending' }}
+                                    @if($latestCase->case_status)
+                                        &middot; {{ \Illuminate\Support\Str::headline(strtolower($latestCase->case_status)) }}
+                                    @endif
+                                </div>
                             @else
-                                <span class="table-secondary">-</span>
+                                <div class="table-primary">No activity yet</div>
+                                <div class="table-secondary">Created {{ $client->created_at?->format('M d, Y') ?? 'recently' }}</div>
                             @endif
                         </td>
                         <td class="table-col-actions">
@@ -135,7 +146,15 @@
                                             data-row-menu-item
                                         >
                                             <i class="bi bi-eye"></i>
-                                            <span>View</span>
+                                            <span>View Profile</span>
+                                        </a>
+                                        <a
+                                            href="{{ $linkedCasesUrl }}"
+                                            class="row-action-item"
+                                            data-row-menu-item
+                                        >
+                                            <i class="bi bi-folder2-open"></i>
+                                            <span>View Linked Cases</span>
                                         </a>
                                         @if(auth()->user()?->role !== 'staff')
                                             <a
@@ -145,7 +164,7 @@
                                                 data-row-menu-item
                                             >
                                                 <i class="bi bi-pencil-square"></i>
-                                                <span>Edit</span>
+                                                <span>Edit Contact</span>
                                             </a>
                                         @endif
                                     </div>
@@ -155,8 +174,8 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" class="table-system-empty">
-                            No clients yet.
+                        <td colspan="5" class="table-system-empty">
+                            No family representatives found.
                         </td>
                     </tr>
                 @endforelse

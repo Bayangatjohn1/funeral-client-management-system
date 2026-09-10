@@ -31,6 +31,12 @@
         width: 100%;
     }
 
+    .payments-unified-card.is-updating .list-card {
+        opacity: .58;
+        pointer-events: none;
+        transition: opacity .16s ease;
+    }
+
     .payments-unified-card .filter-panel,
     .payments-unified-card .list-card {
         border: 0;
@@ -101,6 +107,59 @@
     .payments-filter-control .table-toolbar-search,
     .payments-filter-control .table-toolbar-select {
         padding-left: 2.45rem;
+    }
+
+    .payments-filter-control.has-dropdown .table-toolbar-select {
+        appearance: none;
+        -webkit-appearance: none;
+        padding-right: 2.6rem;
+    }
+
+    .payments-filter-dropdown-icon {
+        position: absolute;
+        right: 0.95rem;
+        top: 50%;
+        transform: translateY(-50%) rotate(0deg);
+        color: var(--ink-muted);
+        font-size: 0.78rem;
+        line-height: 1;
+        pointer-events: none;
+        transition: transform .16s ease, color .16s ease;
+    }
+
+    .payments-filter-control.has-dropdown.is-open .payments-filter-dropdown-icon {
+        color: var(--ink);
+        transform: translateY(-50%) rotate(180deg);
+    }
+
+    .payments-filter-control .table-toolbar-search.has-clear-action {
+        padding-right: 2.55rem;
+        cursor: text;
+    }
+
+    .payments-search-clear {
+        position: absolute;
+        right: 0.55rem;
+        top: 50%;
+        width: 2rem;
+        height: 2rem;
+        transform: translateY(-50%);
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--ink-muted);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background-color .16s ease, color .16s ease;
+    }
+
+    .payments-search-clear:hover,
+    .payments-search-clear:focus-visible {
+        outline: none;
+        background: #C7D5BE;
+        color: var(--ink);
     }
 
     .payments-filter-toolbar .table-toolbar-label {
@@ -498,10 +557,20 @@
                         id="payment-filter-q"
                         name="q"
                         value="{{ request('q') }}"
-                        class="form-input table-toolbar-search"
+                        class="form-input table-toolbar-search has-clear-action"
                         data-table-search
-                        placeholder="Search case, client, or deceased..."
+                        placeholder="Search case no., client, or deceased..."
+                        autocomplete="off"
                     >
+                    <button
+                        type="button"
+                        class="payments-search-clear"
+                        data-payment-search-clear
+                        aria-label="Clear payment search"
+                        @if(blank(request('q'))) hidden @endif
+                    >
+                        <i class="bi bi-x-lg" aria-hidden="true"></i>
+                    </button>
                 </div>
             </div>
 
@@ -522,7 +591,7 @@
             <div class="payments-filter-right">
                 <div class="table-toolbar-field payments-filter-date">
                     <label for="payment-date-range" class="table-toolbar-label">Service Date</label>
-                    <div class="payments-filter-control">
+                    <div class="payments-filter-control has-dropdown" data-payment-select-control>
                         <i class="bi bi-calendar3" aria-hidden="true"></i>
                         <select id="payment-date-range" name="date_range" class="form-select table-toolbar-select" data-payment-date-range>
                             <option value="any" @selected($paymentDateRange === 'any')>All Dates</option>
@@ -531,6 +600,9 @@
                             <option value="this_year" @selected($paymentDateRange === 'this_year')>This Year</option>
                             <option value="custom" @selected($paymentDateRange === 'custom')>Custom</option>
                         </select>
+                        <span class="payments-filter-dropdown-icon" aria-hidden="true">
+                            <i class="bi bi-chevron-down"></i>
+                        </span>
                     </div>
                 </div>
 
@@ -592,7 +664,15 @@
                 <tbody>
                 @forelse($openCases as $case)
                     <tr
-                        @if($canRecordPayment ?? false) data-open-payment-case="{{ $case->id }}" title="Click to open the payment form for this case" @endif
+                        @if($canRecordPayment ?? false)
+                            data-open-payment-case="{{ $case->id }}"
+                            data-case-code="{{ $case->case_code }}"
+                            data-case-client="{{ $case->client?->full_name ?? '' }}"
+                            data-case-total="{{ $case->total_amount }}"
+                            data-case-paid="{{ $case->total_paid }}"
+                            data-case-balance="{{ $case->balance_amount }}"
+                            title="Click to open the payment form for this case"
+                        @endif
                         class="{{ ($canRecordPayment ?? false) ? 'cursor-pointer' : '' }}"
                     >
                         <td class="payments-case-code">{{ $case->case_code }}</td>
@@ -640,14 +720,95 @@
 
 <script>
 (function () {
+    const pageShell = document.querySelector('.payments-unified-card');
+
+    const setPaymentUpdating = (isUpdating) => {
+        pageShell?.classList.toggle('is-updating', isUpdating);
+    };
+
+    const paymentResultsUrl = (form) => {
+        const url = new URL(form.action, window.location.origin);
+        const data = new FormData(form);
+
+        Array.from(url.searchParams.keys()).forEach((key) => url.searchParams.delete(key));
+        data.forEach((value, key) => {
+            if (value !== null && String(value) !== '') {
+                url.searchParams.append(key, value);
+            }
+        });
+
+        return url;
+    };
+
+    const loadPaymentResults = async (url, pushState = true) => {
+        const currentList = document.querySelector('.payments-unified-card .list-card');
+        if (!currentList) {
+            window.location.href = url.toString();
+            return;
+        }
+
+        setPaymentUpdating(true);
+
+        try {
+            const response = await fetch(url.toString(), {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'text/html',
+                },
+                credentials: 'same-origin',
+            });
+
+            if (!response.ok) throw new Error(`Payment results request failed: ${response.status}`);
+
+            const html = await response.text();
+            const nextDocument = new DOMParser().parseFromString(html, 'text/html');
+            const nextList = nextDocument.querySelector('.payments-unified-card .list-card');
+            if (!nextList) throw new Error('Payment results list not found.');
+
+            await new Promise((resolve) => window.setTimeout(resolve, 90));
+            currentList.replaceWith(nextList);
+
+            if (pushState) {
+                window.history.pushState({}, '', url.toString());
+            }
+
+            document.dispatchEvent(new CustomEvent('panel-ui:reset'));
+        } catch (error) {
+            window.location.href = url.toString();
+        } finally {
+            requestAnimationFrame(() => setPaymentUpdating(false));
+        }
+    };
+
     const filterForm = document.getElementById('paymentRecordingFilterForm');
     if (filterForm) {
+        const searchInput = filterForm.querySelector('[data-table-search]');
+        const searchClear = filterForm.querySelector('[data-payment-search-clear]');
         const dateRange = filterForm.querySelector('[data-payment-date-range]');
         const customDateInputs = filterForm.querySelectorAll('[data-payment-custom-date-input]');
         const dateModal = document.getElementById('paymentDateModal');
         const modalFrom = document.getElementById('payment-modal-date-from');
         const modalTo = document.getElementById('payment-modal-date-to');
         const applyCustomDates = document.getElementById('paymentApplyCustomDates');
+
+        const syncSearchClear = () => {
+            if (searchClear) searchClear.hidden = !(searchInput?.value || '').trim();
+        };
+
+        searchInput?.addEventListener('input', syncSearchClear);
+        searchClear?.addEventListener('click', () => {
+            if (!searchInput) return;
+            searchInput.value = '';
+            syncSearchClear();
+            searchInput.focus();
+            filterForm.requestSubmit();
+        });
+        syncSearchClear();
+
+        filterForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            loadPaymentResults(paymentResultsUrl(filterForm), true);
+        });
 
         const toDateValue = (date) => date.toISOString().slice(0, 10);
 
@@ -717,6 +878,24 @@
         });
     }
 
+    document.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target) return;
+
+        const link = target.closest('.payments-unified-card .payments-pagination a[href]');
+        if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+        const url = new URL(link.href, window.location.href);
+        if (url.origin !== window.location.origin) return;
+
+        event.preventDefault();
+        loadPaymentResults(url, true);
+    }, true);
+
+    window.addEventListener('popstate', () => {
+        loadPaymentResults(new URL(window.location.href), false);
+    });
+
     const canRecordPayment = @json($canRecordPayment ?? false);
     if (!canRecordPayment) return;
 
@@ -760,17 +939,37 @@
         if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
     });
 
-    document.querySelectorAll('[data-open-payment-case]').forEach(row => {
-        row.style.cursor = 'pointer';
-        row.addEventListener('click', () => {
-            const caseId = row.dataset.openPaymentCase;
-            if (caseSelect && caseId) {
-                caseSelect.value = caseId;
-                caseSelect.dispatchEvent(new Event('change'));
+    const selectPaymentCaseFromRow = (row) => {
+        const caseId = row?.dataset?.openPaymentCase;
+        if (caseSelect && caseId) {
+            let option = [...caseSelect.options].find((item) => item.value === String(caseId));
+            if (!option) {
+                option = new Option(
+                    `${row.dataset.caseCode || 'Selected case'} - ${row.dataset.caseClient || 'Client'} - Balance: PHP ${Number(row.dataset.caseBalance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    String(caseId),
+                    false,
+                    false
+                );
+                option.dataset.total = row.dataset.caseTotal || '0';
+                option.dataset.paid = row.dataset.casePaid || '0';
+                option.dataset.balance = row.dataset.caseBalance || '0';
+                caseSelect.appendChild(option);
             }
-            openModal();
-        });
-    });
+            caseSelect.value = String(caseId);
+            caseSelect.dispatchEvent(new Event('change'));
+        }
+        openModal();
+    };
+
+    document.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        const row = target?.closest?.('[data-open-payment-case]');
+        if (!row || event.defaultPrevented) return;
+
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        selectPaymentCaseFromRow(row);
+    }, true);
 
     if (caseSelect && preselectCaseId) {
         caseSelect.value = String(preselectCaseId);

@@ -9,6 +9,7 @@ use App\Models\CasketCatalog;
 use App\Models\Client;
 use App\Models\Deceased;
 use App\Models\FuneralCase;
+use App\Models\IntakeDraft;
 use App\Models\Package;
 use App\Models\Payment;
 use App\Models\ServiceDetail;
@@ -90,7 +91,12 @@ class IntakeController extends Controller
         return $this->storeByMode($request, 'other');
     }
 
-    private function renderForm(string $mode)
+    public function renderFormForDraft(string $mode, IntakeDraft $draft, ?string $returnTo = null)
+    {
+        return $this->renderForm($mode, $draft, $returnTo);
+    }
+
+    private function renderForm(string $mode, ?IntakeDraft $draft = null, ?string $returnTo = null)
     {
         $user = auth()->user();
         $operationalBranchId = (int) ($user->operationalBranchId() ?? $user->branch_id ?? 0);
@@ -116,7 +122,10 @@ class IntakeController extends Controller
         }
 
         $branches = $branchQuery->get();
-        $defaultBranchId = old('branch_id') ?: ($branches->first()?->id ?? $operationalBranchId);
+        $draftFields = $draft?->payload['fields'] ?? [];
+        $defaultBranchId = old('branch_id')
+            ?: ($draftFields['branch_id'] ?? null)
+            ?: ($branches->first()?->id ?? $operationalBranchId);
 
         return view('staff.intake.create', [
             'packages' => $packages,
@@ -135,11 +144,15 @@ class IntakeController extends Controller
                 : route('intake.main.store'),
             'clientRelationshipOptions' => self::CLIENT_RELATIONSHIP_OPTIONS,
             'seniorDiscountPercent' => (float) config('funeral.senior_discount_percent', 20),
+            'intakeDraft' => $draft,
+            'intakeDraftPayload' => $draft?->payload,
+            'returnTo' => $returnTo,
         ]);
     }
 
     private function storeByMode(Request $request, string $mode)
     {
+        $postedServiceRequestedAt = $request->input('service_requested_at');
         $trimFields = [
             'client_first_name',
             'client_last_name',
@@ -176,10 +189,14 @@ class IntakeController extends Controller
         if ($request->boolean('mark_as_paid') && ! $request->filled('payment_method')) {
             $request->merge(['payment_method' => 'cash']);
         }
+        if ($request->filled('additional_service_amount') && ! $request->filled('additional_services')) {
+            $request->merge(['additional_services' => 'Additional services']);
+        }
         $serverRequestDate = now()->toDateString();
         $request->merge(['service_requested_at' => $serverRequestDate]);
         $this->mergeLegacyIntakeNameParts($request, 'client');
         $this->mergeLegacyIntakeNameParts($request, 'deceased');
+        $this->mergeLegacyScheduleFields($request, $serverRequestDate);
 
         $wakeDateRules = ['required', 'date'];
         $scheduleTimeRules = ['required', 'date_format:H:i'];
@@ -280,6 +297,7 @@ class IntakeController extends Controller
             'paid_at' => ['required_if:mark_as_paid,1', 'date', 'before_or_equal:now', 'after_or_equal:died'],
             'amount_paid' => ['required_if:mark_as_paid,1', 'regex:/^\d+(\.\d{1,2})?$/', 'numeric', 'gt:0'],
             'confirm_review' => 'nullable|boolean',
+            'intake_draft_id' => 'nullable|integer|exists:intake_drafts,id',
         ], PaymentDetails::rules()), array_merge(PaymentDetails::messages(), [
             'service_requested_at.required' => 'Request date is required.',
             'service_requested_at.before_or_equal' => 'Request date cannot be in the future.',
@@ -329,11 +347,23 @@ class IntakeController extends Controller
             'actual_retrieval_kilometers.numeric' => 'Retrieval kilometers must be a valid number.',
             'actual_hearse_kilometers.numeric' => 'Hearse kilometers must be a valid number.',
         ]));
+        $user = auth()->user();
         $paymentDetails = PaymentDetails::normalize($request);
         if ($request->boolean('mark_as_paid')) {
             $paymentDetailErrors = PaymentDetails::validateNormalized($paymentDetails);
             if ($paymentDetailErrors !== []) {
                 return back()->withErrors($paymentDetailErrors)->withInput();
+            }
+        }
+        $sourceDraft = null;
+        if (! empty($validated['intake_draft_id'])) {
+            $sourceDraft = IntakeDraft::whereKey($validated['intake_draft_id'])
+                ->where('created_by', $user->id)
+                ->where('status', IntakeDraft::STATUS_IN_PROGRESS)
+                ->firstOrFail();
+
+            if (! in_array((int) $sourceDraft->branch_id, $user->branchScopeIds(), true)) {
+                abort(403);
             }
         }
         $validated['service_type'] = 'Burial';
@@ -377,6 +407,12 @@ class IntakeController extends Controller
             ])->withInput();
         }
 
+        if ($schedule['funeral_service']->copy()->startOfDay()->lt(Carbon::parse($validated['died'])->startOfDay())) {
+            return back()->withErrors([
+                'funeral_service_at' => 'Funeral service date must be on or after the date of death.',
+            ])->withInput();
+        }
+
         if ($schedule['funeral_service']->lt($schedule['wake_start'])) {
             return back()->withErrors([
                 'funeral_service_at' => 'Funeral service date/time cannot be before the wake start date/time.',
@@ -416,7 +452,6 @@ class IntakeController extends Controller
         }
         $validated['wake_days'] = $computedWakeDays;
 
-        $user = auth()->user();
         $operationalBranchId = (int) ($user->operationalBranchId() ?? $user->branch_id ?? 0);
         $isMainAdmin = $user->isMainBranchAdmin();
         $isBranchAdmin = $user->isBranchAdmin();
@@ -757,6 +792,7 @@ class IntakeController extends Controller
         // all rolled back on failure, so a fresh attempt starts clean each time.
         $attempt    = 0;
         $maxRetries = 3;
+        $createdCaseId = null;
         do {
             $attempt++;
             try {
@@ -799,6 +835,8 @@ class IntakeController extends Controller
                 $paymentDetails,
                 $schedule,
                 $serverRequestDate,
+                $sourceDraft,
+                &$createdCaseId,
             ) {
                 $client = Client::create([
                     'branch_id'   => $branchId,
@@ -920,6 +958,13 @@ class IntakeController extends Controller
                     'verified_at' => $verifiedAt,
                     'verification_note' => $verificationNote,
                 ]);
+                $createdCaseId = $funeralCase->id;
+                if ($sourceDraft) {
+                    $sourceDraft->update([
+                        'status' => IntakeDraft::STATUS_SUBMITTED,
+                        'submitted_case_id' => $funeralCase->id,
+                    ]);
+                }
 
                 // Populate the normalized service_details row for this case.
                 ServiceDetail::create([
@@ -1067,9 +1112,22 @@ class IntakeController extends Controller
         }
         } while ($attempt < $maxRetries);
 
-        $redirectRoute = $mode === 'other'
+        $legacyBackdatedAuditRedirect = false;
+        if (is_string($postedServiceRequestedAt) && $postedServiceRequestedAt !== '' && ! empty($validated['died'])) {
+            try {
+                $legacyBackdatedAuditRedirect = Carbon::parse($postedServiceRequestedAt)
+                    ->startOfDay()
+                    ->lt(Carbon::parse($validated['died'])->startOfDay());
+            } catch (\Throwable) {
+                $legacyBackdatedAuditRedirect = false;
+            }
+        }
+
+        $redirectRoute = $legacyBackdatedAuditRedirect
+            ? route('intake.main.create')
+            : ($mode === 'other'
             ? route('funeral-cases.other-reports')
-            : route('funeral-cases.index', ['record_scope' => 'main']);
+            : route('funeral-cases.index', ['record_scope' => 'main']));
 
         $redirectResponse = redirect()
             ->to($redirectRoute)
@@ -1198,6 +1256,57 @@ class IntakeController extends Controller
             "{$prefix}_last_name" => $parts['last_name'],
             "{$prefix}_suffix" => $parts['suffix'],
         ]);
+    }
+
+    private function mergeLegacyScheduleFields(Request $request, string $serverRequestDate): void
+    {
+        $extractDate = static function (?string $value): ?string {
+            if (! $value) {
+                return null;
+            }
+
+            try {
+                return Carbon::parse($value)->toDateString();
+            } catch (\Throwable) {
+                return null;
+            }
+        };
+
+        $extractTime = static function (?string $value, string $fallback): string {
+            if (! $value) {
+                return $fallback;
+            }
+
+            try {
+                return Carbon::parse($value)->format('H:i');
+            } catch (\Throwable) {
+                return $fallback;
+            }
+        };
+
+        $funeralDate = $extractDate((string) $request->input('funeral_service_at')) ?? $serverRequestDate;
+        $intermentDate = $extractDate((string) $request->input('interment_at')) ?? $funeralDate;
+
+        $request->merge(array_filter([
+            'wake_start_date' => $request->filled('wake_start_date')
+                ? $request->input('wake_start_date')
+                : ($extractDate((string) $request->input('wake_start_at')) ?? $serverRequestDate),
+            'wake_start_time' => $request->filled('wake_start_time')
+                ? $request->input('wake_start_time')
+                : $extractTime((string) $request->input('wake_start_at'), '00:00'),
+            'funeral_service_at' => $request->filled('funeral_service_at')
+                ? $funeralDate
+                : null,
+            'funeral_service_time' => $request->filled('funeral_service_time')
+                ? $request->input('funeral_service_time')
+                : $extractTime((string) $request->input('funeral_service_at'), '00:00'),
+            'interment_at' => $request->filled('interment_at')
+                ? $intermentDate
+                : null,
+            'interment_time' => $request->filled('interment_time')
+                ? $request->input('interment_time')
+                : $extractTime((string) $request->input('interment_at'), '00:00'),
+        ], static fn ($value): bool => $value !== null));
     }
 
     private function rejectDuplicateIntakeNameParts(array $validated, string $prefix): ?\Illuminate\Http\RedirectResponse

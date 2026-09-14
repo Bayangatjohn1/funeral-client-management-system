@@ -21,18 +21,22 @@ class AuditLogPolicy
             return true;
         }
 
-        // Branch admins may only view logs whose actor is themselves or staff in their branch
         if ($user->isBranchAdmin()) {
-            if ($log->actor_id === $user->id) {
-                return true;
-            }
-
-            return \App\Models\User::where('id', $log->actor_id)
-                ->where('role', 'staff')
-                ->where('branch_id', $user->branch_id)
-                ->exists();
+            return $this->logBelongsToAssignedBranch($user, $log);
         }
 
         return false;
+    }
+
+    private function logBelongsToAssignedBranch(User $user, AuditLog $log): bool
+    {
+        if (! $user->branch_id) {
+            return false;
+        }
+
+        $assignedBranchId = (int) $user->branch_id;
+
+        return (int) $log->branch_id === $assignedBranchId
+            || (int) $log->target_branch_id === $assignedBranchId;
     }
 }

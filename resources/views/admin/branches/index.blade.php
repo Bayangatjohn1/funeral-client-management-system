@@ -794,7 +794,7 @@
     </div>
 @endif
 
-<div class="management-toast no-print" role="status" aria-live="polite">
+<div class="management-toast no-print" role="status" aria-live="polite" data-page-context-toast>
     <i class="bi bi-building"></i>
     <span>You are viewing Branch Management.</span>
 </div>

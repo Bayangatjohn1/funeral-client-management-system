@@ -95,6 +95,22 @@ class FreebieCatalogController extends Controller
             ->with('success', 'Freebie saved successfully.');
     }
 
+    public function show(Request $request, FreebieCatalog $freebie_catalog)
+    {
+        $this->ensureCanView();
+
+        if ($request->user()->isBranchAdmin() && ! $freebie_catalog->is_active) {
+            abort(404);
+        }
+
+        $freebie_catalog->loadCount('packageFreebies');
+
+        return view('admin.freebie-catalogs.show', [
+            'catalog' => $freebie_catalog,
+            'canManage' => $request->user()->isMainAdmin(),
+        ]);
+    }
+
     public function edit(FreebieCatalog $freebie_catalog)
     {
         $this->ensureCanManage();

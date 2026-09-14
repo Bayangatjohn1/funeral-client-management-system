@@ -161,7 +161,7 @@
 
 <div class="user-edit-page w-full min-h-screen pt-4 pb-8 px-4 sm:px-6 lg:px-8 flex justify-center font-ui-body">
     <div class="w-full max-w-5xl space-y-5">
-        <div class="user-edit-toast no-print" role="status" aria-live="polite">
+        <div class="user-edit-toast no-print" role="status" aria-live="polite" data-page-context-toast>
             <i class="bi bi-person-gear"></i>
             <span>You are editing a user account.</span>
         </div>

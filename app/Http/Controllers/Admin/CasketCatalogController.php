@@ -93,6 +93,22 @@ class CasketCatalogController extends Controller
             ->with('success', 'Casket saved successfully.');
     }
 
+    public function show(Request $request, CasketCatalog $casket_catalog)
+    {
+        $this->ensureCanView();
+
+        if ($request->user()->isBranchAdmin() && ! $casket_catalog->is_active) {
+            abort(404);
+        }
+
+        $casket_catalog->loadCount('packageInclusions');
+
+        return view('admin.casket-catalogs.show', [
+            'catalog' => $casket_catalog,
+            'canManage' => $request->user()->isMainAdmin(),
+        ]);
+    }
+
     public function edit(CasketCatalog $casket_catalog)
     {
         $this->ensureCanManage();

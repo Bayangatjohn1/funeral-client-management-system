@@ -1343,6 +1343,8 @@ html[data-theme='dark'] {
         transform: translateY(-50%) rotate(180deg);
     }
 
+    .admin-filter-chevron,
+    .reports-module-chevron,
     .ba-branch-select-chev,
     .eb-branch-select-chev,
     .reports-analytics-select-chev {
@@ -1350,7 +1352,11 @@ html[data-theme='dark'] {
         transform-origin: center;
     }
 
+    .admin-filter-control.is-open .admin-filter-chevron,
+    .reports-module-control-wrap.is-open .reports-module-chevron,
+    .ba-period-select-wrap.is-open .ba-branch-select-chev,
     .ba-branch-select-wrap.is-open .ba-branch-select-chev,
+    .eb-period-select-wrap.is-open .eb-branch-select-chev,
     .eb-branch-select-wrap.is-open .eb-branch-select-chev,
     .reports-analytics-branch.is-open .reports-analytics-select-chev {
         transform: rotate(180deg) !important;
@@ -1904,7 +1910,9 @@ html[data-theme='dark'] {
 
     .case-compact-select-chev {
         position: absolute;
+        top: 50%;
         right: 12px;
+        transform: translateY(-50%);
         pointer-events: none;
         color: var(--ink-muted);
         font-size: 12px;
@@ -8249,6 +8257,13 @@ html:not([data-theme='dark']) select.case-compact-select,
 html:not([data-theme='dark']) select.case-compact-date-select,
 html:not([data-theme='dark']) select.case-compact-sort-select,
 html:not([data-theme='dark']) select.pm-control,
+html:not([data-theme='dark']) select.form-select,
+html:not([data-theme='dark']) select.filter-select,
+html:not([data-theme='dark']) select.ba-branch-select,
+html:not([data-theme='dark']) select.ba-period-select,
+html:not([data-theme='dark']) select.eb-branch-select,
+html:not([data-theme='dark']) select.pf-select,
+html:not([data-theme='dark']) select.reports-module-control,
 html:not([data-theme='dark']) select.reports-input,
 html:not([data-theme='dark']) select.reports-analytics-select {
     appearance: none !important;
@@ -8262,11 +8277,40 @@ html:not([data-theme='dark']) select.case-compact-select option,
 html:not([data-theme='dark']) select.case-compact-date-select option,
 html:not([data-theme='dark']) select.case-compact-sort-select option,
 html:not([data-theme='dark']) select.pm-control option,
+html:not([data-theme='dark']) select.form-select option,
+html:not([data-theme='dark']) select.filter-select option,
+html:not([data-theme='dark']) select.ba-branch-select option,
+html:not([data-theme='dark']) select.ba-period-select option,
+html:not([data-theme='dark']) select.eb-branch-select option,
+html:not([data-theme='dark']) select.pf-select option,
+html:not([data-theme='dark']) select.reports-module-control option,
 html:not([data-theme='dark']) select.reports-input option,
 html:not([data-theme='dark']) select.reports-analytics-select option {
-    background: var(--records-card-alt) !important;
-    color: var(--records-text) !important;
-    font-weight: 620;
+    background: #f7f8f1 !important;
+    background-color: #f7f8f1 !important;
+    color: #1f2d20 !important;
+    font-weight: 650;
+    padding: 10px 12px;
+}
+
+html:not([data-theme='dark']) select.table-toolbar-select option:hover,
+html:not([data-theme='dark']) select.table-toolbar-sort option:hover,
+html:not([data-theme='dark']) select.case-compact-select option:hover,
+html:not([data-theme='dark']) select.case-compact-date-select option:hover,
+html:not([data-theme='dark']) select.case-compact-sort-select option:hover,
+html:not([data-theme='dark']) select.pm-control option:hover,
+html:not([data-theme='dark']) select.form-select option:hover,
+html:not([data-theme='dark']) select.filter-select option:hover,
+html:not([data-theme='dark']) select.ba-branch-select option:hover,
+html:not([data-theme='dark']) select.ba-period-select option:hover,
+html:not([data-theme='dark']) select.eb-branch-select option:hover,
+html:not([data-theme='dark']) select.pf-select option:hover,
+html:not([data-theme='dark']) select.reports-module-control option:hover,
+html:not([data-theme='dark']) select.reports-input option:hover,
+html:not([data-theme='dark']) select.reports-analytics-select option:hover {
+    background: #e5eedc !important;
+    background-color: #e5eedc !important;
+    color: #1f2d20 !important;
 }
 
 html:not([data-theme='dark']) select.table-toolbar-select option:checked,
@@ -8275,10 +8319,493 @@ html:not([data-theme='dark']) select.case-compact-select option:checked,
 html:not([data-theme='dark']) select.case-compact-date-select option:checked,
 html:not([data-theme='dark']) select.case-compact-sort-select option:checked,
 html:not([data-theme='dark']) select.pm-control option:checked,
+html:not([data-theme='dark']) select.form-select option:checked,
+html:not([data-theme='dark']) select.filter-select option:checked,
+html:not([data-theme='dark']) select.ba-branch-select option:checked,
+html:not([data-theme='dark']) select.ba-period-select option:checked,
+html:not([data-theme='dark']) select.eb-branch-select option:checked,
+html:not([data-theme='dark']) select.pf-select option:checked,
+html:not([data-theme='dark']) select.reports-module-control option:checked,
 html:not([data-theme='dark']) select.reports-input option:checked,
 html:not([data-theme='dark']) select.reports-analytics-select option:checked {
-    background: var(--records-active) !important;
-    color: var(--records-text) !important;
+    background: #2f5131 !important;
+    background-color: #2f5131 !important;
+    box-shadow: 0 0 0 100vmax #2f5131 inset !important;
+    color: #f7f8f1 !important;
+    -webkit-text-fill-color: #f7f8f1 !important;
+    font-weight: 800;
+}
+
+html:not([data-theme='dark']) select option {
+    background-color: #f7f8f1 !important;
+    color: #1f2d20 !important;
+}
+
+html:not([data-theme='dark']) select option:checked {
+    background-color: #2f5131 !important;
+    background: #2f5131 !important;
+    box-shadow: 0 0 0 100vmax #2f5131 inset !important;
+    color: #f7f8f1 !important;
+    -webkit-text-fill-color: #f7f8f1 !important;
+}
+
+/* Global filter UI system: shared by reports, analytics, dashboards, table toolbars, and compact case filters. */
+html:not([data-theme='dark']) {
+    --filter-ui-bg: #f7f8f1;
+    --filter-ui-bg-hover: #e5eedc;
+    --filter-ui-border: #b9cbb1;
+    --filter-ui-border-strong: #9faf97;
+    --filter-ui-text: #1f2d20;
+    --filter-ui-muted: #5f685f;
+    --filter-ui-active: #2f5131;
+    --filter-ui-focus: rgba(47, 81, 49, .14);
+}
+
+[data-filter-select-wrap] {
+    position: relative;
+}
+
+.filter-select-menu[hidden] {
+    display: none !important;
+}
+
+html:not([data-theme='dark']) .filter-select-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    min-width: 100%;
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 4px;
+    background: var(--filter-ui-bg);
+    border: 1px solid var(--filter-ui-border);
+    border-radius: 10px;
+    box-shadow: 0 14px 32px rgba(31, 45, 32, .16);
+}
+
+html:not([data-theme='dark']) .filter-select-menu__item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 36px;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--filter-ui-text);
+    font: inherit;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: left;
+    cursor: pointer;
+}
+
+html:not([data-theme='dark']) .filter-select-menu__item:hover,
+html:not([data-theme='dark']) .filter-select-menu__item:focus-visible {
+    background: var(--filter-ui-bg-hover);
+    color: var(--filter-ui-text);
+    outline: none;
+}
+
+html:not([data-theme='dark']) .filter-select-menu__item.is-selected,
+html:not([data-theme='dark']) .filter-select-menu__item[aria-selected='true'] {
+    background: var(--filter-ui-active);
+    color: #f7f8f1;
+}
+
+html[data-theme='dark'] .filter-select-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    min-width: 100%;
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 4px;
+    background: #1f2a22;
+    border: 1px solid rgba(199, 213, 190, .24);
+    border-radius: 10px;
+    box-shadow: 0 14px 32px rgba(0, 0, 0, .34);
+}
+
+html[data-theme='dark'] .filter-select-menu__item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 36px;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: #f3f6ed;
+    font: inherit;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: left;
+    cursor: pointer;
+}
+
+html[data-theme='dark'] .filter-select-menu__item:hover,
+html[data-theme='dark'] .filter-select-menu__item:focus-visible {
+    background: rgba(199, 213, 190, .14);
+    outline: none;
+}
+
+html[data-theme='dark'] .filter-select-menu__item.is-selected,
+html[data-theme='dark'] .filter-select-menu__item[aria-selected='true'] {
+    background: #9db98f;
+    color: #142018;
+}
+
+html:not([data-theme='dark']) .table-toolbar-select-wrap,
+html:not([data-theme='dark']) .case-compact-branch,
+html:not([data-theme='dark']) .case-compact-date-filter,
+html:not([data-theme='dark']) .case-compact-sort-filter,
+html:not([data-theme='dark']) .reports-module-control-wrap,
+html:not([data-theme='dark']) .reports-analytics-branch,
+html:not([data-theme='dark']) .ba-period-select-wrap,
+html:not([data-theme='dark']) .ba-branch-select-wrap,
+html:not([data-theme='dark']) .eb-period-select-wrap,
+html:not([data-theme='dark']) .eb-branch-select-wrap,
+html:not([data-theme='dark']) .audit-filter-control.is-select {
+    background: var(--filter-ui-bg) !important;
+    border-color: var(--filter-ui-border) !important;
+    color: var(--filter-ui-text) !important;
+    border-radius: 10px !important;
+    transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+
+html:not([data-theme='dark']) .table-toolbar-select-wrap:hover,
+html:not([data-theme='dark']) .case-compact-branch:hover,
+html:not([data-theme='dark']) .case-compact-date-filter:hover,
+html:not([data-theme='dark']) .case-compact-sort-filter:hover,
+html:not([data-theme='dark']) .reports-module-control-wrap:hover,
+html:not([data-theme='dark']) .reports-analytics-branch:hover,
+html:not([data-theme='dark']) .ba-period-select-wrap:hover,
+html:not([data-theme='dark']) .ba-branch-select-wrap:hover,
+html:not([data-theme='dark']) .eb-period-select-wrap:hover,
+html:not([data-theme='dark']) .eb-branch-select-wrap:hover,
+html:not([data-theme='dark']) .audit-filter-control.is-select:hover {
+    background: var(--filter-ui-bg-hover) !important;
+    border-color: var(--filter-ui-border-strong) !important;
+}
+
+html:not([data-theme='dark']) .table-toolbar-select-wrap:focus-within,
+html:not([data-theme='dark']) .case-compact-branch:focus-within,
+html:not([data-theme='dark']) .case-compact-date-filter:focus-within,
+html:not([data-theme='dark']) .case-compact-sort-filter:focus-within,
+html:not([data-theme='dark']) .reports-module-control-wrap:focus-within,
+html:not([data-theme='dark']) .reports-analytics-branch:focus-within,
+html:not([data-theme='dark']) .ba-period-select-wrap:focus-within,
+html:not([data-theme='dark']) .ba-branch-select-wrap:focus-within,
+html:not([data-theme='dark']) .eb-period-select-wrap:focus-within,
+html:not([data-theme='dark']) .eb-branch-select-wrap:focus-within,
+html:not([data-theme='dark']) .audit-filter-control.is-select:focus-within {
+    border-color: var(--filter-ui-active) !important;
+    box-shadow: 0 0 0 3px var(--filter-ui-focus) !important;
+}
+
+html:not([data-theme='dark']) select.form-select,
+html:not([data-theme='dark']) select.filter-select,
+html:not([data-theme='dark']) select.table-toolbar-select,
+html:not([data-theme='dark']) select.table-toolbar-sort,
+html:not([data-theme='dark']) select.case-compact-select,
+html:not([data-theme='dark']) select.case-compact-date-select,
+html:not([data-theme='dark']) select.case-compact-sort-select,
+html:not([data-theme='dark']) select.case-compact-input,
+html:not([data-theme='dark']) select.pm-control,
+html:not([data-theme='dark']) select.pf-select,
+html:not([data-theme='dark']) select.reports-module-control,
+html:not([data-theme='dark']) select.reports-input,
+html:not([data-theme='dark']) select.reports-analytics-select,
+html:not([data-theme='dark']) select.ba-period-select,
+html:not([data-theme='dark']) select.ba-branch-select,
+html:not([data-theme='dark']) select.eb-period-select,
+html:not([data-theme='dark']) select.eb-branch-select,
+html:not([data-theme='dark']) select.owner-sales-control,
+html:not([data-theme='dark']) select.input-custom,
+html:not([data-theme='dark']) select.audit-select {
+    background-color: var(--filter-ui-bg) !important;
+    border-color: var(--filter-ui-border) !important;
+    color: var(--filter-ui-text) !important;
+    font-weight: 700 !important;
+    min-height: 44px !important;
+    border-width: 1px !important;
+    border-style: solid !important;
+    border-radius: 10px !important;
+    line-height: 1.2 !important;
+    transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+
+html:not([data-theme='dark']) .case-compact-branch > select.case-compact-select {
+    min-height: 0 !important;
+    height: 100% !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    border-width: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+html:not([data-theme='dark']) input.table-toolbar-select,
+html:not([data-theme='dark']) input.case-compact-input,
+html:not([data-theme='dark']) input.pm-control,
+html:not([data-theme='dark']) input.reports-input,
+html:not([data-theme='dark']) input.audit-select,
+html:not([data-theme='dark']) input.eb-pop-input,
+html:not([data-theme='dark']) input.owner-sales-control,
+html:not([data-theme='dark']) input.input-custom,
+html:not([data-theme='dark']) input#pmPaidFrom,
+html:not([data-theme='dark']) input#pmPaidTo,
+html:not([data-theme='dark']) input.filter-select {
+    background-color: var(--filter-ui-bg) !important;
+    border-color: var(--filter-ui-border) !important;
+    color: var(--filter-ui-text) !important;
+    font-weight: 700 !important;
+    min-height: 44px !important;
+    border-width: 1px !important;
+    border-style: solid !important;
+    border-radius: 10px !important;
+    line-height: 1.2 !important;
+    transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+
+html:not([data-theme='dark']) select.form-select:hover,
+html:not([data-theme='dark']) select.filter-select:hover,
+html:not([data-theme='dark']) select.table-toolbar-select:hover,
+html:not([data-theme='dark']) select.table-toolbar-sort:hover,
+html:not([data-theme='dark']) select.case-compact-select:hover,
+html:not([data-theme='dark']) select.case-compact-date-select:hover,
+html:not([data-theme='dark']) select.case-compact-sort-select:hover,
+html:not([data-theme='dark']) select.case-compact-input:hover,
+html:not([data-theme='dark']) select.pm-control:hover,
+html:not([data-theme='dark']) select.pf-select:hover,
+html:not([data-theme='dark']) select.reports-module-control:hover,
+html:not([data-theme='dark']) select.reports-input:hover,
+html:not([data-theme='dark']) select.reports-analytics-select:hover,
+html:not([data-theme='dark']) select.ba-period-select:hover,
+html:not([data-theme='dark']) select.ba-branch-select:hover,
+html:not([data-theme='dark']) select.eb-period-select:hover,
+html:not([data-theme='dark']) select.eb-branch-select:hover,
+html:not([data-theme='dark']) select.owner-sales-control:hover,
+html:not([data-theme='dark']) select.input-custom:hover,
+html:not([data-theme='dark']) select.audit-select:hover,
+html:not([data-theme='dark']) input.table-toolbar-select:hover,
+html:not([data-theme='dark']) input.case-compact-input:hover,
+html:not([data-theme='dark']) input.pm-control:hover,
+html:not([data-theme='dark']) input.reports-input:hover,
+html:not([data-theme='dark']) input.audit-select:hover,
+html:not([data-theme='dark']) input.eb-pop-input:hover,
+html:not([data-theme='dark']) input.owner-sales-control:hover,
+html:not([data-theme='dark']) input.input-custom:hover,
+html:not([data-theme='dark']) input#pmPaidFrom:hover,
+html:not([data-theme='dark']) input#pmPaidTo:hover,
+html:not([data-theme='dark']) input.filter-select:hover {
+    background-color: var(--filter-ui-bg-hover) !important;
+    border-color: var(--filter-ui-border-strong) !important;
+}
+
+html:not([data-theme='dark']) select.form-select:focus,
+html:not([data-theme='dark']) select.filter-select:focus,
+html:not([data-theme='dark']) select.table-toolbar-select:focus,
+html:not([data-theme='dark']) select.table-toolbar-sort:focus,
+html:not([data-theme='dark']) select.case-compact-select:focus,
+html:not([data-theme='dark']) select.case-compact-date-select:focus,
+html:not([data-theme='dark']) select.case-compact-sort-select:focus,
+html:not([data-theme='dark']) select.case-compact-input:focus,
+html:not([data-theme='dark']) select.pm-control:focus,
+html:not([data-theme='dark']) select.pf-select:focus,
+html:not([data-theme='dark']) select.reports-module-control:focus,
+html:not([data-theme='dark']) select.reports-input:focus,
+html:not([data-theme='dark']) select.reports-analytics-select:focus,
+html:not([data-theme='dark']) select.ba-period-select:focus,
+html:not([data-theme='dark']) select.ba-branch-select:focus,
+html:not([data-theme='dark']) select.eb-period-select:focus,
+html:not([data-theme='dark']) select.eb-branch-select:focus,
+html:not([data-theme='dark']) select.owner-sales-control:focus,
+html:not([data-theme='dark']) select.input-custom:focus,
+html:not([data-theme='dark']) select.audit-select:focus,
+html:not([data-theme='dark']) input.table-toolbar-select:focus,
+html:not([data-theme='dark']) input.case-compact-input:focus,
+html:not([data-theme='dark']) input.pm-control:focus,
+html:not([data-theme='dark']) input.reports-input:focus,
+html:not([data-theme='dark']) input.audit-select:focus,
+html:not([data-theme='dark']) input.eb-pop-input:focus,
+html:not([data-theme='dark']) input.owner-sales-control:focus,
+html:not([data-theme='dark']) input.input-custom:focus,
+html:not([data-theme='dark']) input#pmPaidFrom:focus,
+html:not([data-theme='dark']) input#pmPaidTo:focus,
+html:not([data-theme='dark']) input.filter-select:focus {
+    border-color: var(--filter-ui-active) !important;
+    box-shadow: 0 0 0 3px var(--filter-ui-focus) !important;
+    outline: none !important;
+}
+
+html:not([data-theme='dark']) .case-compact-branch > select.case-compact-select,
+html:not([data-theme='dark']) .case-compact-branch > select.case-compact-select:hover,
+html:not([data-theme='dark']) .case-compact-branch > select.case-compact-select:focus {
+    min-height: 0 !important;
+    height: 100% !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    border-width: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+html:not([data-theme='dark']) .table-toolbar-select-icon,
+html:not([data-theme='dark']) .case-compact-select-chev,
+html:not([data-theme='dark']) .case-compact-date-chev,
+html:not([data-theme='dark']) .case-compact-sort-chev,
+html:not([data-theme='dark']) .reports-module-chevron,
+html:not([data-theme='dark']) .admin-filter-chevron,
+html:not([data-theme='dark']) .ba-branch-select-chev,
+html:not([data-theme='dark']) .eb-branch-select-chev,
+html:not([data-theme='dark']) .reports-analytics-select-chev {
+    color: var(--filter-ui-muted) !important;
+    transition: transform .16s ease, color .16s ease;
+}
+
+html:not([data-theme='dark']) .table-toolbar-select-wrap:focus-within .table-toolbar-select-icon,
+html:not([data-theme='dark']) .case-compact-branch:focus-within .case-compact-select-chev,
+html:not([data-theme='dark']) .case-compact-date-filter:focus-within .case-compact-date-chev,
+html:not([data-theme='dark']) .case-compact-sort-filter:focus-within .case-compact-sort-chev,
+html:not([data-theme='dark']) .reports-module-control-wrap:focus-within .reports-module-chevron,
+html:not([data-theme='dark']) .admin-filter-control:focus-within .admin-filter-chevron,
+html:not([data-theme='dark']) .ba-period-select-wrap:focus-within .ba-branch-select-chev,
+html:not([data-theme='dark']) .ba-branch-select-wrap:focus-within .ba-branch-select-chev,
+html:not([data-theme='dark']) .eb-period-select-wrap:focus-within .eb-branch-select-chev,
+html:not([data-theme='dark']) .eb-branch-select-wrap:focus-within .eb-branch-select-chev,
+html:not([data-theme='dark']) .reports-analytics-branch:focus-within .reports-analytics-select-chev {
+    color: var(--filter-ui-active) !important;
+}
+
+html:not([data-theme='dark']) .table-toolbar-select-wrap.is-open .table-toolbar-select-icon,
+html:not([data-theme='dark']) .global-filter-select-wrap.is-open .table-toolbar-select-icon,
+html:not([data-theme='dark']) .admin-filter-control.is-open .admin-filter-chevron {
+    color: var(--filter-ui-active) !important;
+    transform: translateY(-50%) rotate(180deg);
+}
+
+html:not([data-theme='dark']) .case-compact-branch.is-open .case-compact-select-chev,
+html:not([data-theme='dark']) .case-compact-date-filter.is-open .case-compact-date-chev,
+html:not([data-theme='dark']) .case-compact-sort-filter.is-open .case-compact-sort-chev {
+    color: var(--filter-ui-active) !important;
+    transform: translateY(-50%) rotate(180deg);
+}
+
+html:not([data-theme='dark']) .reports-module-control-wrap.is-open .reports-module-chevron,
+html:not([data-theme='dark']) .ba-period-select-wrap.is-open .ba-branch-select-chev,
+html:not([data-theme='dark']) .ba-branch-select-wrap.is-open .ba-branch-select-chev,
+html:not([data-theme='dark']) .eb-period-select-wrap.is-open .eb-branch-select-chev,
+html:not([data-theme='dark']) .eb-branch-select-wrap.is-open .eb-branch-select-chev,
+html:not([data-theme='dark']) .reports-analytics-branch.is-open .reports-analytics-select-chev {
+    color: var(--filter-ui-active) !important;
+    transform: rotate(180deg);
+}
+
+html:not([data-theme='dark']) select:disabled,
+html:not([data-theme='dark']) input:disabled {
+    cursor: not-allowed !important;
+    opacity: .68 !important;
+    background-color: #edf2e8 !important;
+    color: #657061 !important;
+}
+
+html:not([data-theme='dark']) .btn-filter-reset,
+html:not([data-theme='dark']) .case-compact-reset,
+html:not([data-theme='dark']) .case-compact-pop-reset,
+html:not([data-theme='dark']) .pm-btn.ops-btn-outline,
+html:not([data-theme='dark']) .rp-filter-reset,
+html:not([data-theme='dark']) .filter-reset,
+html:not([data-theme='dark']) .reports-btn-neutral,
+html:not([data-theme='dark']) .reports-filter-reset,
+html:not([data-theme='dark']) .reports-analytics-pop-reset,
+html:not([data-theme='dark']) .ba-date-btn,
+html:not([data-theme='dark']) .ba-pop-reset,
+html:not([data-theme='dark']) .ba-clear-filters,
+html:not([data-theme='dark']) .ba-global-clear,
+html:not([data-theme='dark']) .eb-pop-reset {
+    background: var(--filter-ui-bg) !important;
+    border-color: var(--filter-ui-border) !important;
+    color: var(--filter-ui-text) !important;
+    border-radius: 10px !important;
+    font-weight: 700 !important;
+    transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease;
+}
+
+html:not([data-theme='dark']) .case-compact-chip,
+html:not([data-theme='dark']) .filter-tag,
+html:not([data-theme='dark']) .ba-context-chip,
+html:not([data-theme='dark']) .ba-active-filter-chip,
+html:not([data-theme='dark']) .ba-filter-chip,
+html:not([data-theme='dark']) .reports-chip,
+html:not([data-theme='dark']) .topbar-filter-bar .filter-tag {
+    background: #eef4e8 !important;
+    border-color: var(--filter-ui-border) !important;
+    color: var(--filter-ui-muted) !important;
+    border-radius: 999px !important;
+    font-weight: 700 !important;
+}
+
+html:not([data-theme='dark']) .ba-filter-chip-remove {
+    background: transparent !important;
+    color: var(--filter-ui-muted) !important;
+    border-color: transparent !important;
+}
+
+html:not([data-theme='dark']) .ba-date-btn.active,
+html:not([data-theme='dark']) .case-compact-seg-item.active,
+html:not([data-theme='dark']) .table-quick-tab-active {
+    background: #d9e7d2 !important;
+    border-color: var(--filter-ui-active) !important;
+    color: var(--filter-ui-text) !important;
+}
+
+html:not([data-theme='dark']) .btn-filter-reset:hover,
+html:not([data-theme='dark']) .case-compact-reset:hover,
+html:not([data-theme='dark']) .case-compact-pop-reset:hover,
+html:not([data-theme='dark']) .pm-btn.ops-btn-outline:hover,
+html:not([data-theme='dark']) .rp-filter-reset:hover,
+html:not([data-theme='dark']) .filter-reset:hover,
+html:not([data-theme='dark']) .reports-btn-neutral:hover:not(:disabled),
+html:not([data-theme='dark']) .reports-filter-reset:hover,
+html:not([data-theme='dark']) .reports-analytics-pop-reset:hover,
+html:not([data-theme='dark']) .ba-date-btn:hover,
+html:not([data-theme='dark']) .ba-pop-reset:hover,
+html:not([data-theme='dark']) .ba-clear-filters:hover,
+html:not([data-theme='dark']) .ba-global-clear:hover,
+html:not([data-theme='dark']) .eb-pop-reset:hover,
+html:not([data-theme='dark']) .ba-filter-chip-remove:hover {
+    background: var(--filter-ui-bg-hover) !important;
+    border-color: var(--filter-ui-border-strong) !important;
+    color: var(--filter-ui-text) !important;
+}
+
+html:not([data-theme='dark']) .btn-filter-reset:focus-visible,
+html:not([data-theme='dark']) .case-compact-reset:focus-visible,
+html:not([data-theme='dark']) .case-compact-pop-reset:focus-visible,
+html:not([data-theme='dark']) .pm-btn.ops-btn-outline:focus-visible,
+html:not([data-theme='dark']) .rp-filter-reset:focus-visible,
+html:not([data-theme='dark']) .filter-reset:focus-visible,
+html:not([data-theme='dark']) .reports-btn-neutral:focus-visible,
+html:not([data-theme='dark']) .reports-filter-reset:focus-visible,
+html:not([data-theme='dark']) .reports-analytics-pop-reset:focus-visible,
+html:not([data-theme='dark']) .ba-date-btn:focus-visible,
+html:not([data-theme='dark']) .ba-pop-reset:focus-visible,
+html:not([data-theme='dark']) .ba-clear-filters:focus-visible,
+html:not([data-theme='dark']) .ba-global-clear:focus-visible,
+html:not([data-theme='dark']) .eb-pop-reset:focus-visible,
+html:not([data-theme='dark']) .ba-filter-chip-remove:focus-visible {
+    outline: none !important;
+    border-color: var(--filter-ui-active) !important;
+    box-shadow: 0 0 0 3px var(--filter-ui-focus) !important;
 }
 
 html:not([data-theme='dark']) .table-toolbar-search,

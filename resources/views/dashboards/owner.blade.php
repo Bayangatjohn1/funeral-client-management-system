@@ -2156,6 +2156,8 @@ a.eb-overview-card:hover {
         stack.dataset.ready = '1';
 
         var showToast = function () {
+            if (document.documentElement.getAttribute('data-sidebar-nav-entry') !== 'true') return;
+
             window.setTimeout(function () {
                 var toast = document.createElement('div');
                 toast.className = 'eb-owner-toast';

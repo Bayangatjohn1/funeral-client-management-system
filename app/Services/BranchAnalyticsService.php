@@ -10,7 +10,7 @@ use Illuminate\Support\Collection;
 
 class BranchAnalyticsService
 {
-    public function ownerPageData(array $filters): array
+    public function ownerPageData(array $filters, ?array $branchScope = null): array
     {
         $range = $filters['range'] ?? 'TODAY';
         [$dateFrom, $dateTo] = $this->resolveRange(
@@ -21,7 +21,18 @@ class BranchAnalyticsService
 
         [$startAt, $endAt] = $this->dateBounds($dateFrom, $dateTo);
         $branchId = $filters['branch_id'] ?? null;
-        $branches = Branch::orderBy('branch_code')->get();
+
+        if ($branchScope['forced_branch_id'] ?? null) {
+            $branchId = (int) $branchScope['forced_branch_id'];
+        }
+
+        $branches = Branch::query()
+            ->when(
+                $branchScope && ! ($branchScope['can_select_all'] ?? false),
+                fn ($query) => $query->where('id', (int) ($branchScope['forced_branch_id'] ?? 0))
+            )
+            ->orderBy('branch_code')
+            ->get();
         $branchColors = $this->branchColorMap($branches);
         $base = $this->verifiedCasesQuery($startAt, $endAt, $branchId);
         $summary = $this->aggregateSummary(clone $base);

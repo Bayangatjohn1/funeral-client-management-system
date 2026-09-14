@@ -7,18 +7,34 @@
 @php
     $remindersRoute = request()->routeIs('admin.*') ? 'admin.reminders.index' : 'staff.reminders.index';
     $dashboardUrl   = request()->routeIs('admin.*') ? url('/admin') : url('/staff');
+    $selectedBranch = $branchChoices->firstWhere('id', $selectedBranchId ?? null) ?? $branchChoices->first();
+    $hasBranchSwitcher = $branchChoices->count() > 1;
+    $dueWindow = $filters['due_window'] ?? (request()->filled('date') ? 'custom' : 'any');
+    $hasCustomDate = $dueWindow === 'custom';
+    $hasActiveReminderFilters = request()->filled('date')
+        || request()->filled('case_status')
+        || request()->filled('payment_status')
+        || ($hasBranchSwitcher && request()->filled('branch_id'))
+        || ($dueWindow !== 'any');
 @endphp
 <style>
     /* ── Page wrapper ─────────────────────────────────────────── */
     .rp-wrap {
         width: 100%;
-        max-width: 1200px;
+        max-width: 1440px;
         margin: 0 auto;
-        padding: 0 24px 36px;
+        padding: 0 24px 40px;
         display: flex;
         flex-direction: column;
         gap: 16px;
         box-sizing: border-box;
+    }
+
+    .rp-topline {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
     }
 
     /* ── Back button ──────────────────────────────────────────── */
@@ -27,13 +43,13 @@
         align-items: center;
         gap: 6px;
         width: fit-content;
-        padding: 7px 14px;
-        border: 1px solid #d9e3ee;
+        padding: 8px 13px;
+        border: 1px solid #c8d6c3;
         border-radius: 10px;
         font-size: 11px;
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.04em;
         color: #3a3f3a;
         background: #FAFAF7;
         text-decoration: none;
@@ -44,16 +60,22 @@
 
     /* ── Filter card ──────────────────────────────────────────── */
     .rp-filter-card {
-        background: #ffffff;
-        border: 1px solid #e4ebf3;
-        border-radius: 16px;
-        padding: 20px 22px;
+        background: rgba(235, 243, 227, 0.74);
+        border: 1px solid #b9cbb1;
+        border-radius: 12px;
+        padding: 12px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        flex-wrap: wrap;
     }
     .rp-filter-card__head {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        margin-bottom: 16px;
+        justify-content: flex-start;
+        gap: 10px;
+        min-width: 220px;
     }
     .rp-filter-card__title {
         font-size: 11px;
@@ -65,18 +87,34 @@
         align-items: center;
         gap: 6px;
     }
+    .rp-scope-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        min-height: 34px;
+        padding: 7px 12px;
+        border: 1px solid #bfd0b8;
+        border-radius: 999px;
+        background: #edf4e8;
+        color: #426043;
+        font-size: 11px;
+        font-weight: 800;
+        white-space: nowrap;
+    }
+    .rp-scope-pill i { color: #0f766e; }
 
     .rp-filter-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 14px;
-        align-items: end;
+        display: flex;
+        align-items: flex-end;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        flex: 1;
     }
     .rp-filter-footer {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        margin-top: 14px;
+        justify-content: flex-end;
         gap: 10px;
     }
     .rp-filter-note {
@@ -106,13 +144,19 @@
     .rp-field {
         display: flex;
         flex-direction: column;
-        gap: 5px;
+        gap: 4px;
+        min-width: 180px;
     }
+    .rp-field--date { max-width: 190px; }
+    .rp-field--custom-date { max-width: 190px; }
+    .rp-field--custom-date.is-hidden { display: none; }
+    .rp-field--status { min-width: 190px; max-width: 210px; }
+    .rp-field--branch { min-width: 260px; flex: 1; }
     .rp-field label {
-        font-size: 10px;
+        font-size: 9px;
         font-weight: 800;
         text-transform: uppercase;
-        letter-spacing: 0.09em;
+        letter-spacing: 0.08em;
         color: #8a9590;
         display: flex;
         align-items: center;
@@ -122,40 +166,43 @@
     .rp-field input,
     .rp-field select {
         width: 100%;
-        height: 40px;
-        min-height: 40px;
+        height: 38px;
+        min-height: 38px;
         margin-top: 0 !important;
         border-radius: 10px;
         box-sizing: border-box;
+        border-color: #bccab5;
+        background-color: #fffef9;
     }
 
     /* ── Tabs card ────────────────────────────────────────────── */
     .rp-tabs-card {
-        background: #ffffff;
-        border: 1px solid #e4ebf3;
-        border-radius: 16px;
-        padding: 20px 22px;
+        background: rgba(235, 243, 227, 0.74);
+        border: 1px solid #b9cbb1;
+        border-radius: 12px;
+        padding: 16px;
     }
     .rp-tabs-row {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
-        margin-bottom: 18px;
-        padding-bottom: 18px;
-        border-bottom: 1px solid #eef2f7;
+        margin-bottom: 14px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid #c7d5bf;
     }
 
     /* ── Tab + tooltip ────────────────────────────────────────── */
     .rp-tab {
         position: relative;
-        padding: 8px 14px;
-        font-size: 11px;
+        min-height: 44px;
+        padding: 10px 15px;
+        font-size: 12px;
         font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        border-radius: 10px;
-        border: 1px solid #dbe4ee;
-        transition: color .15s, border-color .15s, background-color .15s;
+        text-transform: none;
+        letter-spacing: 0;
+        border-radius: 9px;
+        border: 1px solid #c7d2bf;
+        transition: color .15s, border-color .15s, background-color .15s, box-shadow .15s;
         display: inline-flex;
         align-items: center;
         gap: 6px;
@@ -163,19 +210,20 @@
         white-space: nowrap;
     }
     .rp-tab.is-active {
-        background: #3E4A3D;
-        border-color: #3E4A3D;
-        color: #ffffff;
+        background: #cfddc6;
+        border-color: #2f5131;
+        color: #29382c;
         cursor: default;
+        box-shadow: inset 0 -3px 0 #324a35;
     }
     .rp-tab.is-idle {
-        background: #ffffff;
-        color: #5F685F;
+        background: #f7f8f1;
+        color: #5f685f;
     }
     .rp-tab.is-idle:hover {
         border-color: #3E4A3D;
         color: #3E4A3D;
-        background: #F3F0E8;
+        background: #eef4e8;
         cursor: pointer;
     }
     .rp-tab:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(62,74,61,0.18); }
@@ -233,33 +281,34 @@
         font-weight: 800;
         line-height: 1;
     }
-    .is-active .rp-tab__count { background: rgba(255,255,255,0.22); color: #fff; }
-    .is-idle  .rp-tab__count  { background: #eef2f7; color: #5e6d7e; }
+    .is-active .rp-tab__count { background: rgba(47,81,49,0.14); color: #2f5131; }
+    .is-idle  .rp-tab__count  { background: #e7ede1; color: #5e6d5e; }
 
     /* ── Empty state ──────────────────────────────────────────── */
     .rp-empty {
-        padding: 44px 20px;
-        background: #f8fbff;
-        border: 1px dashed #d9e3ee;
+        padding: 42px 20px;
+        background: linear-gradient(135deg, rgba(255,255,249,0.95), rgba(245,250,240,0.95));
+        border: 1px dashed #c3d3bc;
         border-radius: 14px;
         text-align: center;
     }
+    .rp-empty i { color: #8ea184; }
 
     /* ── Item list ────────────────────────────────────────────── */
     .rp-list { display: grid; gap: 10px; }
 
     .rp-item {
         padding: 16px 18px;
-        background: #ffffff;
-        border: 1px solid #e4ebf3;
+        background: #fbfcf7;
+        border: 1px solid #c8d6c3;
         border-left-width: 4px;
         border-radius: 12px;
         transition: border-color .16s, background .16s;
     }
     .rp-item:hover {
-        border-color: #C9C5BB;
+        border-color: #9faf97;
         border-left-color: inherit;
-        background: #FAFAF9;
+        background: #ffffff;
     }
     .rp-item__body {
         display: flex;
@@ -418,37 +467,71 @@
 
     /* ── Responsive ───────────────────────────────────────────── */
     @media (max-width: 900px) {
-        .rp-filter-grid { grid-template-columns: 1fr 1fr; }
+        .rp-topline { align-items: flex-start; flex-direction: column; }
+        .rp-filter-card { align-items: stretch; }
+        .rp-filter-card__head { justify-content: space-between; }
+        .rp-filter-grid { justify-content: flex-start; }
+        .rp-field,
+        .rp-field--status,
+        .rp-field--branch { flex: 1 1 220px; }
     }
     @media (max-width: 640px) {
         .rp-wrap { padding: 0 14px 24px; }
-        .rp-filter-grid { grid-template-columns: 1fr; }
+        .rp-filter-grid { display: grid; grid-template-columns: 1fr; }
         .rp-item__body { flex-direction: column; gap: 12px; }
         .rp-item__actions { align-items: flex-start; width: 100%; flex-direction: row; flex-wrap: wrap; }
+        .rp-tabs-row { overflow-x: auto; flex-wrap: nowrap; }
     }
 </style>
 
 <div class="rp-wrap">
 
-    {{-- ── Back button ──────────────────────────────────────────── --}}
-    <a href="{{ $dashboardUrl }}" class="rp-back">
-        <i class="bi bi-arrow-left"></i> Back to Dashboard
-    </a>
+    <div class="rp-topline">
+        <a href="{{ $dashboardUrl }}" class="rp-back">
+            <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </a>
+
+        @if($selectedBranch && !$hasBranchSwitcher)
+            <span class="rp-scope-pill" title="Branch scope for this reminders page">
+                <i class="bi bi-lock-fill"></i>
+                Assigned Branch Only
+            </span>
+        @endif
+    </div>
 
     {{-- ── Filter card ──────────────────────────────────────────── --}}
     <div class="rp-filter-card">
         <div class="rp-filter-card__head">
             <span class="rp-filter-card__title">
-                <i class="bi bi-funnel-fill"></i> Filter Reminders
+                <i class="bi bi-funnel-fill"></i> Filters
             </span>
+            @if($selectedBranch && !$hasBranchSwitcher)
+                <span class="rp-scope-pill">
+                    <i class="bi bi-building"></i>
+                    {{ $selectedBranch->branch_code }} - {{ $selectedBranch->branch_name }}
+                </span>
+            @endif
         </div>
 
         <form method="GET" action="{{ route($remindersRoute) }}" class="rp-filter-grid" id="rpFilterForm">
             <input type="hidden" name="tab" value="{{ $activeTab ?? 'all' }}">
 
-            {{-- Schedule Date --}}
-            <div class="rp-field">
-                <label for="rp_date"><i class="bi bi-calendar3"></i> Schedule Date</label>
+            {{-- Due Date --}}
+            <div class="rp-field rp-field--date">
+                <label for="rp_due_window"><i class="bi bi-calendar3"></i> Due Date</label>
+                <select id="rp_due_window" name="due_window" class="form-select" onchange="window.handleReminderDueWindowChange(this)">
+                    <option value="any" {{ $dueWindow === 'any' ? 'selected' : '' }}>All Dates</option>
+                    <option value="today" {{ $dueWindow === 'today' ? 'selected' : '' }}>Today</option>
+                    <option value="tomorrow" {{ $dueWindow === 'tomorrow' ? 'selected' : '' }}>Tomorrow</option>
+                    <option value="this_week" {{ $dueWindow === 'this_week' ? 'selected' : '' }}>This Week</option>
+                    <option value="next_7" {{ $dueWindow === 'next_7' ? 'selected' : '' }}>Next 7 Days</option>
+                    <option value="this_month" {{ $dueWindow === 'this_month' ? 'selected' : '' }}>This Month</option>
+                    <option value="custom" {{ $dueWindow === 'custom' ? 'selected' : '' }}>Custom Date</option>
+                </select>
+            </div>
+
+            <div class="rp-field rp-field--custom-date {{ $hasCustomDate ? '' : 'is-hidden' }}" id="rpCustomDateField">
+                <label for="rp_date"><i class="bi bi-calendar-check"></i> Custom Date</label>
                 <input
                     id="rp_date"
                     type="date"
@@ -460,7 +543,7 @@
             </div>
 
             {{-- Case Status (no Draft) --}}
-            <div class="rp-field">
+            <div class="rp-field rp-field--status">
                 <label for="rp_status"><i class="bi bi-tag"></i> Case Status</label>
                 <select id="rp_status" name="case_status" class="form-select" onchange="this.form.submit()">
                     <option value="">All Statuses</option>
@@ -470,31 +553,29 @@
             </div>
 
             {{-- Branch --}}
-            <div class="rp-field">
-                <label for="rp_branch"><i class="bi bi-building"></i> Branch</label>
-                <select id="rp_branch" name="branch_id" class="form-select" onchange="this.form.submit()">
-                    @forelse($branchChoices as $branch)
-                        <option value="{{ $branch->id }}" {{ ($selectedBranchId ?? null) === $branch->id ? 'selected' : '' }}>
-                            {{ $branch->branch_code }} — {{ $branch->branch_name }}
-                        </option>
-                    @empty
-                        <option value="{{ $selectedBranchId ?? '' }}">Main Branch (operational)</option>
-                    @endforelse
-                </select>
-            </div>
+            @if($hasBranchSwitcher)
+                <div class="rp-field rp-field--branch">
+                    <label for="rp_branch"><i class="bi bi-building"></i> Branch</label>
+                    <select id="rp_branch" name="branch_id" class="form-select" onchange="this.form.submit()">
+                        @foreach($branchChoices as $branch)
+                            <option value="{{ $branch->id }}" {{ ($selectedBranchId ?? null) === $branch->id ? 'selected' : '' }}>
+                                {{ $branch->branch_code }} - {{ $branch->branch_name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+            @else
+                <input type="hidden" name="branch_id" value="{{ $selectedBranchId ?? '' }}">
+            @endif
         </form>
 
-        <div class="rp-filter-footer">
-            <span class="rp-filter-note">
-                <i class="bi bi-info-circle"></i>
-                This page displays reminders and schedules for your assigned branch only.
-            </span>
-            @if(array_filter(request()->only(['date','case_status','branch_id'])))
+        @if($hasActiveReminderFilters)
+            <div class="rp-filter-footer">
                 <a href="{{ route($remindersRoute, ['tab' => $activeTab ?? 'all']) }}" class="rp-filter-reset">
                     <i class="bi bi-x-circle"></i> Clear Filters
                 </a>
-            @endif
-        </div>
+            </div>
+        @endif
     </div>
 
     {{-- ── Tabs + list card ─────────────────────────────────────── --}}
@@ -620,8 +701,20 @@
         @if($displayCards->isEmpty())
             <div class="rp-empty">
                 <i class="bi bi-calendar-check text-slate-300 text-3xl mb-3 block"></i>
-                <p class="text-sm font-semibold text-slate-500 mb-1">No matching reminders found.</p>
-                <p class="text-[11px] text-slate-400">Try changing or clearing the filters.</p>
+                <p class="text-sm font-semibold text-slate-500 mb-1">
+                    @if(($activeTab ?? 'all') === 'today')
+                        No reminders due today.
+                    @elseif(($activeTab ?? 'all') === 'upcoming')
+                        No upcoming schedules found.
+                    @elseif(($activeTab ?? 'all') === 'warnings')
+                        No items need attention.
+                    @elseif(($activeTab ?? 'all') === 'unpaid')
+                        No unpaid or partial reminders found.
+                    @else
+                        No reminders found.
+                    @endif
+                </p>
+                <p class="text-[11px] text-slate-400">Try a wider date range or clear the filters.</p>
             </div>
         @else
             <div class="rp-list">
@@ -757,4 +850,23 @@
 
     </div>
 </div>
+<script>
+    window.handleReminderDueWindowChange = function (select) {
+        const form = select.form;
+        const customField = document.getElementById('rpCustomDateField');
+        const dateInput = document.getElementById('rp_date');
+
+        if (select.value === 'custom') {
+            customField?.classList.remove('is-hidden');
+            dateInput?.focus();
+            return;
+        }
+
+        if (dateInput) {
+            dateInput.value = '';
+        }
+
+        form?.submit();
+    };
+</script>
 @endsection

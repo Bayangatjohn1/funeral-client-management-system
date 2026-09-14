@@ -29,6 +29,11 @@ class ReportController extends Controller
         $user = auth()->user();
         $availableReportTypes = $this->availableReportTypes();
         $requestedReportType = $request->string('report_type')->toString();
+
+        if ($requestedReportType === '' && ($user->isOwner() || $user->isAdmin())) {
+            return redirect()->route($user->isOwner() ? 'owner.analytics' : 'reports.analytics');
+        }
+
         $fallbackReportType = ($user->isOwner() || $user->isAdmin())
             ? self::REPORT_OWNER_BRANCH_ANALYTICS
             : self::REPORT_SALES;
@@ -41,13 +46,34 @@ class ReportController extends Controller
             'reportTypes' => $availableReportTypes,
             'branches' => $this->reportBranches($user),
             'packages' => Package::orderBy('name')->get(['id', 'name']),
-            'users' => User::orderBy('name')->get(['id', 'name', 'role']),
+            'users' => $this->reportUsers($user),
             'auditOptions' => $this->auditFilterOptions(),
             'userRole' => $user->role,
             'isBranchAdmin' => $user->isBranchAdmin(),
             'assignedBranchId' => $user->isBranchAdmin() ? (int) $user->branch_id : null,
             'assignedBranchLabel' => $user->isBranchAdmin() ? $this->branchName($user->branch) : null,
         ]);
+    }
+
+    public function analytics(Request $request)
+    {
+        $this->authorizeReports(self::REPORT_OWNER_BRANCH_ANALYTICS);
+
+        $validated = $request->validate([
+            'branch_id' => 'nullable|integer|exists:branches,id',
+            'range' => 'nullable|in:TODAY,THIS_MONTH,THIS_YEAR,CUSTOM',
+            'date_from' => 'nullable|date',
+            'date_to' => 'nullable|date|after_or_equal:date_from',
+            'analytics_tab' => 'nullable|string|max:80',
+        ]);
+
+        $branchScope = $this->reportBranchScope($request);
+        $data = app(BranchAnalyticsService::class)->ownerPageData($validated, $branchScope);
+
+        return view('owner.analytics', array_merge($data, [
+            'analyticsRouteName' => 'reports.analytics',
+            'analyticsBranchScope' => $branchScope,
+        ]));
     }
 
     public function preview(Request $request)
@@ -674,6 +700,21 @@ class ReportController extends Controller
         }
 
         return $query->get(['id', 'branch_code', 'branch_name']);
+    }
+
+    private function reportUsers(User $user): Collection
+    {
+        $query = User::query()->orderBy('name');
+
+        if ($user->isBranchAdmin()) {
+            $query->where('branch_id', (int) $user->branch_id)
+                ->where(function ($scope) use ($user) {
+                    $scope->where('id', $user->id)
+                        ->orWhere('role', 'staff');
+                });
+        }
+
+        return $query->get(['id', 'name', 'role']);
     }
 
     private function presentFilters(array $validated, array $branchScope): array

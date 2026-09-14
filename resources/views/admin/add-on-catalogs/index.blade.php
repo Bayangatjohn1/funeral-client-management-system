@@ -13,7 +13,7 @@
 @endphp
 <div class="admin-table-page admin-catalog-page service-management-page add-on-catalog-page px-4 sm:px-6 lg:px-8 py-6">
     <div class="mx-auto max-w-[1200px] space-y-5">
-        <div class="management-toast no-print" role="status" aria-live="polite">
+        <div class="management-toast no-print" role="status" aria-live="polite" data-page-context-toast>
             <i class="bi bi-plus-square" aria-hidden="true"></i>
             <span>You are viewing optional add-on records.</span>
         </div>

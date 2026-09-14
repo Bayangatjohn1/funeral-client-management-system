@@ -7,10 +7,12 @@
 @section('content')
 <div
     class="reports-page"
+    data-reports-module-shell
     x-data="reportsModule({
         defaultReportType: @js($defaultReportType),
         reportTypes: @js($reportTypes),
         previewUrl: @js(route('reports.preview')),
+        indexUrl: @js(route('reports.index')),
         printUrl: @js(route('reports.print')),
         csvUrl: @js(route('reports.exportCsv')),
         drilldownUrl: @js(route('reports.ownerDrilldown')),
@@ -34,6 +36,8 @@
         'activeModule' => 'reports',
         'reportTypes' => $reportTypes,
         'currentReportType' => $defaultReportType,
+        'users' => $users,
+        'auditOptions' => $auditOptions,
     ])
 
     <style>
@@ -45,6 +49,23 @@
             border-radius: 12px;
             box-shadow: none;
         }
+        .reports-filter-card {
+            min-height: 76px;
+            display: flex;
+            align-items: center;
+            padding: 0;
+        }
+        .reports-sr-only {
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
+            padding: 0 !important;
+            margin: -1px !important;
+            overflow: hidden !important;
+            clip: rect(0, 0, 0, 0) !important;
+            white-space: nowrap !important;
+            border: 0 !important;
+        }
         .reports-role-badge {
             display: inline-flex; align-items: center; gap: 8px; border: 1px solid #dbe4ef; background: #FAFAF7;
             color: #333333; border-radius: 999px; padding: 7px 12px; font-size: 12px; font-weight: 700; white-space: nowrap;
@@ -52,7 +73,7 @@
         .reports-card-head { padding: 16px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 12px; align-items: center; }
         .reports-card-title { margin: 0; font-family: var(--font-heading); color: var(--ink); font-size: 18px; font-weight: 700; }
         .reports-card-copy { margin-top: 3px; color: var(--ink-muted); font-size: 12px; }
-        .reports-config-form { padding: 14px; display: grid; gap: 12px; }
+        .reports-config-form { width: 100%; padding: 12px 14px; display: grid; gap: 12px; }
         .reports-config-toolbar { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; min-width: 0; }
         .reports-config-toolbar > .reports-field { flex: 0 0 260px; width: 260px; gap: 0; position: relative; }
         .reports-config-toolbar > .reports-field .reports-label,
@@ -73,6 +94,11 @@
         }
         .reports-filter-grid .reports-field { position: relative; width: auto; min-width: 0; max-width: none; flex: 1 1 122px; gap: 0; }
         .reports-filter-grid .reports-field.reports-field-wide { flex: 1.35 1 170px; min-width: 0; max-width: none; }
+        .reports-filter-grid .reports-field.reports-field-status {
+            flex: 0 0 260px;
+            width: 260px;
+            max-width: 260px;
+        }
         .reports-filter-grid .reports-label {
             position: absolute; top: -7px; left: 10px; z-index: 1; background: var(--card); padding: 0 5px;
             font-size: 9px; line-height: 1; color: #5F685F;
@@ -96,16 +122,37 @@
             background-repeat: no-repeat;
             background-size: 14px 14px;
         }
+        select.reports-input option {
+            background-color: #f7f8f1 !important;
+            color: #1f2d20 !important;
+            font-weight: 650;
+        }
+        select.reports-input option:checked {
+            background-color: #2f5131 !important;
+            background: #2f5131 !important;
+            box-shadow: 0 0 0 100vmax #2f5131 inset !important;
+            color: #f7f8f1 !important;
+            -webkit-text-fill-color: #f7f8f1 !important;
+            font-weight: 800;
+        }
         .reports-input:hover { background-color: var(--records-hover, #C5D3BC); border-color: #8EA083; }
         .reports-input:focus { border-color: #8EA083; background-color: var(--records-card-alt, #DCE6D6); box-shadow: none; }
         .reports-actions {
             display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center;
             border-top: 1px solid var(--border); padding-top: 12px;
         }
+        .reports-toolbar-trailing {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-left: auto;
+            min-width: 0;
+        }
         .reports-action-chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-width: 0; }
         .reports-action-chips .reports-chip { display: inline-flex; align-items: center; gap: 6px; }
         .reports-action-buttons { display: flex; flex-wrap: nowrap; gap: 8px; justify-content: flex-end; margin-left: auto; }
-        .reports-filter-reset { flex: 0 0 auto; margin-left: auto; }
+        .reports-filter-reset { flex: 0 0 auto; }
         .reports-btn {
             min-height: 38px; border-radius: 10px; padding: 0 12px; display: inline-flex; align-items: center; justify-content: center;
             gap: 7px; font-size: 12.5px; font-weight: 800; border: 1px solid transparent; white-space: nowrap; transition: opacity .16s ease, transform .16s ease, background .16s ease;
@@ -118,6 +165,13 @@
         .reports-spin { width: 14px; height: 14px; border-radius: 999px; border: 2px solid rgba(255,255,255,.45); border-top-color: #fff; animation: reportsSpin .75s linear infinite; }
         @keyframes reportsSpin { to { transform: rotate(360deg); } }
         .reports-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 16px; }
+        .reports-card-head-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            flex: 0 0 auto;
+        }
         .reports-metric {
             border: 1.25px solid var(--records-border, var(--border)); border-radius: 12px; background: var(--records-card-alt, #fff); padding: 14px;
             display: flex; gap: 12px; align-items: flex-start; min-width: 0;
@@ -130,6 +184,48 @@
         .reports-chip { border: 1px solid #dbe4ef; background: #FAFAF7; color: #5F685F; border-radius: 999px; padding: 4px 9px; font-size: 11px; font-weight: 700; }
         .reports-scope-pill { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; color: #0f766e; font-size: 11px; font-weight: 800; }
         .reports-alert { margin: 16px; padding: 12px 14px; border-radius: 12px; display: flex; gap: 10px; background: #fef2f2; border: 1px solid #fecaca; color: #7F3A32; font-size: 13px; }
+        .reports-preview-body {
+            position: relative;
+            min-height: 260px;
+        }
+        .reports-preview-body.is-updating {
+            cursor: progress;
+        }
+        .reports-preview-loading-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 6;
+            display: grid;
+            place-items: start end;
+            padding: 14px;
+            background: linear-gradient(180deg, rgba(234, 241, 226, 0.76), rgba(234, 241, 226, 0.22));
+            pointer-events: none;
+        }
+        .reports-preview-loading-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 34px;
+            padding: 0 12px;
+            border-radius: 999px;
+            border: 1px solid var(--records-border, var(--border));
+            background: var(--records-card-alt, #fff);
+            color: var(--ink, #263126);
+            font-size: 12px;
+            font-weight: 800;
+            box-shadow: 0 8px 18px rgba(30, 54, 33, 0.10);
+        }
+        .reports-preview-loading-pill .reports-spin {
+            border-color: rgba(62, 74, 61, 0.22);
+            border-top-color: #3E4A3D;
+        }
+        .reports-preview-body.is-switching {
+            animation: reportsPreviewSoftHold 0.18s ease-out both;
+        }
+        @keyframes reportsPreviewSoftHold {
+            from { opacity: 0.82; }
+            to { opacity: 1; }
+        }
         .reports-state { min-height: 260px; display: grid; place-items: center; padding: 24px; text-align: center; }
         .reports-state-icon { width: 54px; height: 54px; border-radius: 16px; display: grid; place-items: center; margin: 0 auto 12px; background: #f1f5f9; color: #5F685F; font-size: 24px; }
         .reports-state-title { color: var(--ink); font-family: var(--font-heading); font-size: 18px; font-weight: 700; }
@@ -307,7 +403,14 @@
             .reports-config-toolbar > .reports-field,
             .reports-config-toolbar .reports-analytics-filter,
             .reports-filter-grid,
-            .reports-filter-grid .reports-field { flex-basis: 100%; width: 100%; max-width: none; }
+            .reports-filter-grid .reports-field,
+            .reports-filter-grid .reports-field.reports-field-status,
+            .reports-filter-grid .reports-field.reports-field-audit-user {
+                flex-basis: 100% !important;
+                width: 100% !important;
+                min-width: 0 !important;
+                max-width: none !important;
+            }
             .reports-summary-grid { grid-template-columns: 1fr; }
             .reports-analytics-bar,
             .reports-analytics-seg,
@@ -318,8 +421,16 @@
             .reports-analytics-popover { left: 0; right: auto; }
             .reports-advanced-filter-row { grid-template-columns: 1fr; }
             .reports-actions { justify-content: stretch; }
+            .reports-toolbar-trailing {
+                width: 100%;
+                margin-left: 0;
+                flex-direction: column;
+                align-items: stretch;
+            }
             .reports-action-chips,
             .reports-action-buttons { width: 100%; margin-left: 0; }
+            .reports-card-head-actions { width: 100%; justify-content: stretch; }
+            .reports-card-head-actions .reports-btn { width: 100%; }
             .reports-filter-reset { width: 100%; margin-left: 0 !important; }
             .reports-btn { width: 100%; }
         }
@@ -373,6 +484,9 @@
         html[data-theme='dark'] .reports-loading-dot {
             border-color: #2e4560;
             border-top-color: #60a5fa;
+        }
+        html[data-theme='dark'] .reports-preview-loading-overlay {
+            background: linear-gradient(180deg, rgba(20, 28, 36, 0.72), rgba(20, 28, 36, 0.28));
         }
         html[data-theme='dark'] .reports-table th {
             background: #1f344d;
@@ -651,6 +765,20 @@
             flex:1 1 13.5rem !important;
             min-width:12.5rem !important;
             max-width:none !important;
+        }
+
+        .reports-filter-grid .reports-field.reports-field-status {
+            flex:0 0 16.25rem !important;
+            width:16.25rem !important;
+            min-width:16.25rem !important;
+            max-width:16.25rem !important;
+        }
+
+        .reports-filter-grid .reports-field.reports-field-audit-user {
+            flex:0 0 17.5rem !important;
+            width:17.5rem !important;
+            min-width:17.5rem !important;
+            max-width:17.5rem !important;
         }
 
         .reports-config-toolbar > .reports-field:first-child {
@@ -1213,9 +1341,304 @@
             border:1px solid #AEBFA6 !important;
             box-shadow:none !important;
         }
+
+        /* Shared Reports & Analytics component layer */
+        .reports-page {
+            --module-surface: #D3DEC9;
+            --module-surface-soft: #DCE6D6;
+            --module-surface-strong: #C7D5BE;
+            --module-canvas: #F8FAF4;
+            --module-canvas-soft: #F1F5EC;
+            --module-warm: #E4DFCB;
+            --module-border: #AEBFA6;
+            --module-border-strong: #9FAF98;
+            --module-text: #263126;
+            --module-muted: #5F6D59;
+            --module-brand: #2F5233;
+        }
+
+        .reports-card {
+            background: var(--module-surface) !important;
+            border-color: var(--module-border) !important;
+            border-radius: 8px !important;
+        }
+
+        .reports-card-head,
+        .reports-preview-head {
+            min-height: 58px;
+            padding: 0.9rem 1rem !important;
+            background: transparent !important;
+            border-bottom-color: var(--module-border) !important;
+        }
+
+        .reports-card-title {
+            color: var(--module-text) !important;
+            font-size: 1.08rem !important;
+            font-weight: 800 !important;
+            letter-spacing: 0 !important;
+        }
+
+        .reports-card-copy {
+            color: var(--module-muted) !important;
+            font-size: 0.84rem !important;
+            font-weight: 650 !important;
+        }
+
+        .reports-summary-grid {
+            gap: 0.7rem !important;
+            padding: 0.75rem !important;
+        }
+
+        .reports-metric {
+            min-height: 82px !important;
+            align-items: center !important;
+            gap: 0.85rem !important;
+            padding: 0.85rem 0.95rem !important;
+            background: var(--module-surface-soft) !important;
+            border-color: var(--module-border) !important;
+            border-radius: 7px !important;
+        }
+
+        .reports-metric:nth-child(even) {
+            background: var(--module-warm) !important;
+        }
+
+        .reports-metric-icon {
+            width: 2.2rem !important;
+            height: 2.2rem !important;
+            border-radius: 8px !important;
+            background: rgba(250, 251, 247, 0.58) !important;
+            color: var(--module-muted) !important;
+            font-size: 0.98rem !important;
+        }
+
+        .reports-metric-label {
+            color: var(--module-muted) !important;
+            font-size: 0.76rem !important;
+            font-weight: 800 !important;
+            letter-spacing: 0.08em !important;
+        }
+
+        .reports-metric-value {
+            color: var(--module-text) !important;
+            font-size: 1.22rem !important;
+            font-weight: 800 !important;
+            letter-spacing: 0 !important;
+        }
+
+        .reports-chip,
+        .reports-role-badge,
+        .reports-status-badge {
+            border-color: var(--module-border) !important;
+            box-shadow: none !important;
+        }
+
+        .reports-btn,
+        .reports-input,
+        .reports-filter-reset {
+            border-radius: 7px !important;
+        }
+
+        .reports-table-wrap,
+        .reports-branch-strip {
+            border-color: var(--module-border) !important;
+            border-radius: 8px !important;
+            background: var(--module-surface-strong) !important;
+        }
+
+        .reports-table,
+        .reports-branch-strip-table {
+            background: var(--module-canvas) !important;
+        }
+
+        .reports-table th,
+        .reports-branch-strip-table th {
+            background: var(--module-surface-strong) !important;
+            border-bottom-color: var(--module-border-strong) !important;
+            color: var(--module-muted) !important;
+            font-size: 0.72rem !important;
+            font-weight: 800 !important;
+            letter-spacing: 0.055em !important;
+        }
+
+        .reports-table td,
+        .reports-branch-strip-table td {
+            background: var(--module-canvas) !important;
+            border-bottom-color: #D7E0D0 !important;
+            color: var(--module-text) !important;
+            font-size: 0.84rem !important;
+        }
+
+        .reports-table tbody tr:nth-child(even) td,
+        .reports-branch-strip-table tbody tr:nth-child(even) td {
+            background: var(--module-canvas-soft) !important;
+        }
+
+        .reports-table tbody tr:hover td,
+        .reports-branch-strip-table tbody tr:hover td {
+            background: #E6EFDE !important;
+        }
+
+        .reports-preview-head {
+            align-items: flex-start !important;
+            padding: 1rem 1.1rem !important;
+        }
+
+        .reports-preview-meta {
+            gap: 0.45rem !important;
+            margin-top: 0.7rem !important;
+        }
+
+        .reports-preview-meta .reports-chip,
+        .reports-preview-head > .reports-chip {
+            background: #EAF1E3 !important;
+            border-color: #B8C8AE !important;
+            color: #566653 !important;
+            font-size: 0.72rem !important;
+            font-weight: 760 !important;
+        }
+
+        .reports-drill-banner {
+            margin: 0.75rem 1rem 0 !important;
+            min-height: 3rem !important;
+            padding: 0.65rem 0.75rem !important;
+            border: 1px solid #B8C8AE !important;
+            border-radius: 8px !important;
+            background: #E5ECDE !important;
+            box-shadow: none !important;
+        }
+
+        .reports-drill-banner-icon {
+            width: 1.85rem !important;
+            height: 1.85rem !important;
+            display: inline-grid !important;
+            place-items: center !important;
+            border-radius: 7px !important;
+            background: rgba(248, 250, 244, 0.72) !important;
+            color: #3E4A3D !important;
+            font-size: 0.86rem !important;
+        }
+
+        .reports-drill-banner-text {
+            display: flex !important;
+            align-items: baseline !important;
+            gap: 0.45rem !important;
+            color: #2B352A !important;
+            font-size: 0.86rem !important;
+            font-weight: 780 !important;
+            line-height: 1.25 !important;
+        }
+
+        .reports-drill-banner-hint {
+            color: #667362 !important;
+            font-size: 0.82rem !important;
+            font-weight: 620 !important;
+        }
+
+        .reports-drill-clear {
+            min-height: 2.2rem !important;
+            padding: 0 0.75rem !important;
+            border-radius: 7px !important;
+            border: 1px solid #B8C8AE !important;
+            background: #F8FAF4 !important;
+            color: #4E5D4D !important;
+            font-size: 0.78rem !important;
+            font-weight: 760 !important;
+            box-shadow: none !important;
+        }
+
+        .reports-branch-strip {
+            margin: 0.7rem 1rem 0 !important;
+            border-radius: 8px !important;
+            background: #F7FAF3 !important;
+        }
+
+        .reports-branch-strip-head {
+            min-height: 2.7rem !important;
+            padding: 0.65rem 0.85rem !important;
+            background: #EAF1E3 !important;
+            border-bottom-color: #B8C8AE !important;
+            color: #566653 !important;
+        }
+
+        .reports-branch-strip-table {
+            min-width: 0 !important;
+            table-layout: fixed !important;
+        }
+
+        .reports-branch-strip-table th,
+        .reports-branch-strip-table td {
+            padding: 0.65rem 0.8rem !important;
+            font-size: 0.78rem !important;
+        }
+
+        .reports-table-wrap.is-drilldown {
+            margin: 0.7rem 1rem 1rem !important;
+            padding: 0 !important;
+            border-radius: 8px !important;
+            background: #F7FAF3 !important;
+            border: 1px solid #AEBFA6 !important;
+            scrollbar-color: #879782 #E6EFDE;
+        }
+
+        .reports-table.is-drilldown-table {
+            min-width: 68rem !important;
+            border-radius: 0 !important;
+        }
+
+        .reports-table.is-drilldown-table th {
+            padding: 0.72rem 0.85rem !important;
+            font-size: 0.7rem !important;
+        }
+
+        .reports-table.is-drilldown-table td {
+            padding: 0.78rem 0.85rem !important;
+            font-size: 0.82rem !important;
+        }
+
+        .reports-table.is-drilldown-table .reports-col-branch {
+            min-width: 11rem !important;
+        }
+
+        .reports-table.is-drilldown-table .reports-col-client,
+        .reports-table.is-drilldown-table .reports-col-deceased,
+        .reports-table.is-drilldown-table .reports-col-client_deceased {
+            min-width: 10.5rem !important;
+            max-width: 14rem !important;
+        }
+
+        .reports-table.is-drilldown-table .reports-col-gross_amount,
+        .reports-table.is-drilldown-table .reports-col-collected_amount,
+        .reports-table.is-drilldown-table .reports-col-remaining_balance,
+        .reports-table.is-drilldown-table .reports-col-amount_paid {
+            min-width: 9.25rem !important;
+        }
+
+        .reports-table.is-drilldown-table .reports-col-last_payment_date {
+            min-width: 7.5rem !important;
+            width: 7.5rem !important;
+        }
+
+        @media (max-width: 900px) {
+            .reports-drill-banner,
+            .reports-preview-head {
+                align-items: stretch !important;
+                flex-direction: column !important;
+            }
+
+            .reports-drill-banner-text {
+                align-items: flex-start !important;
+                flex-direction: column !important;
+                gap: 0.2rem !important;
+            }
+
+            .reports-drill-clear {
+                align-self: flex-start !important;
+            }
+        }
     </style>
 
-    <div class="reports-toast no-print" role="status" aria-live="polite">
+    <div class="reports-toast no-print" role="status" aria-live="polite" data-page-context-toast>
         <i class="bi bi-clipboard-data"></i>
         <span>You are viewing the reports page.</span>
     </div>
@@ -1233,62 +1656,28 @@
         ])
 
         <div class="reports-module-main">
-    <section class="reports-card">
-        <div class="reports-card-head">
-            <div>
-                <h2 class="reports-card-title">Report Configuration</h2>
-                <div class="reports-card-copy">
-                    @if ($userRole === 'owner')
-                        Review branch performance with focused server-side filters before previewing.
-                    @else
-                        Use the module tabs above, then apply server-side filters before previewing.
-                    @endif
-                </div>
-            </div>
-            <div class="reports-role-badge">
-                <i class="bi bi-shield-check"></i>
-                <span x-text="userRole === 'owner' ? 'Owner View' : 'Administrator View'"></span>
-            </div>
-        </div>
-
-        <form class="reports-config-form" @submit.prevent="loadPreview">
+    <section class="reports-card reports-filter-card" aria-label="Report filters">
+        <form id="reportsConfigForm" class="reports-config-form" @submit.prevent="loadPreview">
+            <h2 class="reports-sr-only">Report Configuration</h2>
             <div class="reports-config-toolbar" :class="{ 'is-owner-analytics': isOwnerAnalytics() }">
                 @include('reports.partials.analytics-filter-bar')
 
                 <div class="reports-filter-grid" x-show="!isOwnerAnalytics()" x-cloak>
-                <template x-if="shows('payment_status')">
-                    <div class="reports-field">
-                        <label class="reports-label" for="payment_status">Payment Status</label>
-                        <span class="reports-field-control">
-                            <i class="bi bi-wallet2" aria-hidden="true"></i>
-                            <select id="payment_status" x-model="filters.payment_status" class="reports-input">
-                                <option value="">All Payment Statuses</option>
-                                <option value="PAID">Paid</option>
-                                <option value="PARTIAL">Partial</option>
-                                <option value="UNPAID">Unpaid</option>
-                            </select>
-                        </span>
+                <div class="reports-toolbar-trailing">
+                    <div class="reports-action-chips" x-show="activeToolbarChips().length" x-cloak>
+                        <template x-for="chip in activeToolbarChips()" :key="chip.label">
+                            <span class="reports-chip">
+                                <i :class="`bi ${chip.icon}`"></i>
+                                <span x-text="chip.label"></span>
+                            </span>
+                        </template>
                     </div>
-                </template>
 
-                <template x-if="shows('audit_user') && auditOptions.supports_user">
-                    <div class="reports-field reports-field-wide">
-                        <label class="reports-label" for="user_id">Audit User</label>
-                        <span class="reports-field-control">
-                            <i class="bi bi-person" aria-hidden="true"></i>
-                            <select id="user_id" x-model="filters.user_id" class="reports-input">
-                                <option value="">All Users</option>
-                                <template x-for="user in users" :key="user.id">
-                                    <option :value="user.id" x-text="user.name"></option>
-                                </template>
-                            </select>
-                        </span>
-                    </div>
-                </template>
-                <button type="button" class="reports-btn reports-btn-neutral reports-filter-reset" @click="resetFilters">
-                    <i class="bi bi-arrow-counterclockwise"></i>
-                    <span>Reset Filters</span>
-                </button>
+                    <button type="button" class="reports-btn reports-btn-neutral reports-filter-reset" @click="resetFilters(); loadPreview()">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                        <span>Reset Filters</span>
+                    </button>
+                </div>
                 </div>
             </div>
                 <div class="reports-advanced-filter-row" x-show="advancedFiltersOpen && hasAdvancedFilters()" x-cloak>
@@ -1433,32 +1822,21 @@
                     </template>
                 </div>
 
-            <div class="reports-actions">
-                <div class="reports-action-chips" x-show="activeToolbarChips().length" x-cloak>
-                    <template x-for="chip in activeToolbarChips()" :key="chip.label">
-                        <span class="reports-chip">
-                            <i :class="`bi ${chip.icon}`"></i>
-                            <span x-text="chip.label"></span>
-                        </span>
-                    </template>
-                </div>
-
-                <div class="reports-action-buttons">
-                    <button type="submit" class="reports-btn reports-btn-primary" :disabled="loading">
-                        <span class="reports-spin" x-show="loading" aria-hidden="true"></span>
-                        <i class="bi bi-eye" x-show="!loading"></i>
-                        <span x-text="loading ? 'Generating...' : 'Preview Report'"></span>
-                    </button>
-                </div>
-            </div>
         </form>
     </section>
 
-    <section class="reports-card" x-show="hasPreview || loading" x-cloak>
+    <section class="reports-card">
         <div class="reports-card-head">
             <div>
                 <h2 class="reports-card-title">Summary Metrics</h2>
                 <div class="reports-card-copy">Snapshot of the generated preview.</div>
+            </div>
+            <div class="reports-card-head-actions">
+                <button type="submit" form="reportsConfigForm" class="reports-btn reports-btn-primary" :disabled="loading">
+                    <span class="reports-spin" x-show="loading" aria-hidden="true"></span>
+                    <i class="bi bi-eye" x-show="!loading"></i>
+                    <span x-text="loading ? 'Generating...' : 'Preview Report'"></span>
+                </button>
             </div>
         </div>
         <div class="reports-summary-grid">
@@ -1483,7 +1861,7 @@
     <section class="reports-card">
         <div class="reports-preview-head">
             <div>
-                <h2 class="reports-card-title" x-text="selectedMetric ? 'Report Preview — ' + metricDrillLabel() : 'Report Preview'"></h2>
+                <h2 class="reports-card-title" x-text="selectedMetric ? metricDrillLabel() + ' Preview' : 'Report Preview'"></h2>
                 <div class="reports-card-copy" x-text="selectedMetric ? metricDrillHint() : (reportTypes[reportType] || 'Select a report type')"></div>
                 <div class="reports-preview-meta" x-show="hasPreview && filterChips().length" x-cloak>
                     <template x-for="chip in filterChips()" :key="chip">
@@ -1507,7 +1885,7 @@
             <i class="bi bi-funnel-fill reports-drill-banner-icon"></i>
             <div class="reports-drill-banner-text">
                 <span x-text="metricDrillLabel()"></span>
-                <span class="reports-drill-banner-hint" x-text="' — ' + metricDrillHint()"></span>
+                <span class="reports-drill-banner-hint" x-text="metricDrillHint()"></span>
             </div>
             <button type="button" class="reports-drill-clear" @click="clearMetric()">
                 <i class="bi bi-x-lg"></i>
@@ -1538,7 +1916,15 @@
             </div>
         </template>
 
-        <template x-if="loading">
+        <div class="reports-preview-body" :class="{ 'is-updating': loading, 'is-switching': tabTransitioning }" :aria-busy="loading ? 'true' : 'false'">
+        <div class="reports-preview-loading-overlay" x-show="loading && (previewLoaded || tabTransitioning)" x-cloak>
+            <div class="reports-preview-loading-pill">
+                <span class="reports-spin" aria-hidden="true"></span>
+                <span x-text="tabTransitioning ? 'Switching report...' : 'Updating preview...'"></span>
+            </div>
+        </div>
+
+        <template x-if="loading && !previewLoaded && !tabTransitioning">
             <div class="reports-state">
                 <div>
                     <div class="reports-loading-dot"></div>
@@ -1638,8 +2024,8 @@
                 </template>
 
                 {{-- Main drill-down / normal records table --}}
-                <div class="reports-table-wrap" :style="selectedMetric && reportType === 'owner_branch_analytics' ? 'margin-top: 10px;' : ''">
-                    <table class="reports-table">
+                <div class="reports-table-wrap" :class="{ 'is-drilldown': selectedMetric && reportType === 'owner_branch_analytics' }">
+                    <table class="reports-table" :class="{ 'is-drilldown-table': selectedMetric && reportType === 'owner_branch_analytics' }">
                         <thead>
                             <tr>
                                 <template x-for="column in columns()" :key="column.key">
@@ -1667,13 +2053,14 @@
                 </div>
             </div>
         </template>
+        </div>
     </section>
         </div>
     </div>
 </div>
 
-<script>
-function reportsModule(config) {
+<script data-reports-module-page-script>
+window.reportsModule = function reportsModule(config) {
     return {
         reportTypes: config.reportTypes,
         branches: config.branches,
@@ -1708,6 +2095,8 @@ function reportsModule(config) {
         loading: false,
         error: '',
         hasPreview: false,
+        previewLoaded: false,
+        tabTransitioning: false,
         selectedMetric: null,
         drilldownRows: [],
         drilldownLoading: false,
@@ -1734,6 +2123,20 @@ function reportsModule(config) {
             } else {
                 this.syncReportPresetFromDates();
             }
+            window.addEventListener('popstate', () => {
+                const restoredParams = new URLSearchParams(window.location.search);
+                Object.keys(this.filters).forEach((key) => {
+                    this.filters[key] = restoredParams.get(key) || '';
+                });
+                if (!this.reportTypes[this.filters.report_type]) {
+                    this.filters.report_type = config.defaultReportType;
+                }
+                this.enforceAssignedBranch();
+                this.applyReportDefaults();
+                this.reportType = this.filters.report_type;
+                this.syncReportPresetFromDates();
+                this.$nextTick(() => this.loadPreview());
+            });
             this.$nextTick(() => this.loadPreview());
         },
         enforceAssignedBranch() {
@@ -1788,6 +2191,32 @@ function reportsModule(config) {
             this.applyReportDefaults();
             return Object.fromEntries(Object.entries(this.filters).filter(([, value]) => value !== '' && value !== null));
         },
+        syncAddressBar(mode = 'replace') {
+            if (!config.indexUrl) return;
+
+            const url = new URL(config.indexUrl, window.location.origin);
+            Object.entries(this.params()).forEach(([key, value]) => {
+                if (value !== '' && value !== null) {
+                    url.searchParams.set(key, value);
+                }
+            });
+
+            const method = mode === 'push' ? 'pushState' : 'replaceState';
+            window.history[method]({ reportsModule: true }, '', url.toString());
+        },
+        selectReportType(type) {
+            if (!this.reportTypes[type] || this.filters.report_type === type) return;
+
+            this.tabTransitioning = true;
+            this.filters.report_type = type;
+            this.reportType = type;
+            this.selectedMetric = '';
+            this.resetReportSpecificFilters();
+            this.syncAddressBar('push');
+            window.setTimeout(() => {
+                this.tabTransitioning = false;
+            }, 180);
+        },
         async loadPreview() {
             if (this.previewTimer) {
                 clearTimeout(this.previewTimer);
@@ -1796,7 +2225,6 @@ function reportsModule(config) {
             this.closeExportMenu();
             this.loading = true;
             this.error = '';
-            this.hasPreview = true;
             this.selectedMetric = null;
             this.drilldownRows = [];
             this.drilldownLoading = false;
@@ -1807,6 +2235,9 @@ function reportsModule(config) {
                 this.rows = response.data.rows || [];
                 this.summary = response.data.summary || {};
                 this.selectedFilters = response.data.filters || {};
+                this.hasPreview = true;
+                this.previewLoaded = true;
+                this.syncAddressBar();
                 if (this.exportDisabled()) {
                     this.closeExportMenu();
                 }
@@ -1819,8 +2250,11 @@ function reportsModule(config) {
                 this.error = validation
                     ? Object.values(validation).flat().join(' ')
                     : (error.response?.data?.message || 'Unable to generate report preview.');
+                this.hasPreview = true;
+                this.previewLoaded = true;
             } finally {
                 this.loading = false;
+                this.tabTransitioning = false;
                 if (this.exportDisabled()) {
                     this.closeExportMenu();
                 }
@@ -1871,8 +2305,9 @@ function reportsModule(config) {
             this.selectedFilters = {};
             this.error = '';
             this.hasPreview = false;
+            this.previewLoaded = false;
         },
-        resetReportSpecificFilters() {
+        resetReportSpecificFilters(options = {}) {
             const reportType = this.filters.report_type;
             Object.keys(this.filters).forEach((key) => this.filters[key] = '');
             this.filters.report_type = reportType;
@@ -1896,6 +2331,7 @@ function reportsModule(config) {
             this.selectedFilters = {};
             this.error = '';
             this.hasPreview = false;
+            this.previewLoaded = Boolean(options.preservePreviewLoaded);
         },
         selectReportDatePreset(preset) {
             if (this.isOwnerAnalytics()) {
@@ -2263,6 +2699,6 @@ function reportsModule(config) {
             return map[this.selectedMetric] || '';
         },
     };
-}
+};
 </script>
 @endsection

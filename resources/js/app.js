@@ -276,6 +276,7 @@ function initFilterSelectAffordances() {
                 if (!wrap.contains(event.target)) {
                     wrap.classList.remove('is-open');
                     wrap.querySelector('select')?.setAttribute('aria-expanded', 'false');
+                    wrap.querySelector('.filter-select-menu')?.setAttribute('hidden', '');
                 }
             });
         }, true);
@@ -285,6 +286,7 @@ function initFilterSelectAffordances() {
             document.querySelectorAll('[data-filter-select-wrap].is-open').forEach((wrap) => {
                 wrap.classList.remove('is-open');
                 wrap.querySelector('select')?.setAttribute('aria-expanded', 'false');
+                wrap.querySelector('.filter-select-menu')?.setAttribute('hidden', '');
             });
         });
     }
@@ -296,8 +298,12 @@ function initFilterSelectAffordances() {
         'form[data-table-toolbar] select.table-toolbar-sort',
         '.sales-filter select.filter-select',
         '.audit-filter-control.is-select select.audit-select',
+        '.admin-filter-control select.input-custom',
         '.ba-branch-select-wrap select.ba-branch-select',
+        '.ba-period-select-wrap select.ba-period-select',
         '.eb-branch-select-wrap select.eb-branch-select',
+        '.eb-period-select-wrap select.eb-period-select',
+        '.reports-module-control-wrap select.reports-module-control',
         '.reports-analytics-branch select.reports-analytics-select',
         '.owner-sales-field-control select.owner-sales-control',
         '.topbar-filter-bar select.filter-select',
@@ -312,7 +318,7 @@ function initFilterSelectAffordances() {
         if (!(select instanceof HTMLSelectElement) || select.dataset.filterSelectReady === '1') return;
         select.dataset.filterSelectReady = '1';
 
-        let wrap = select.closest('.table-toolbar-select-wrap, .audit-filter-control.is-select, .ba-branch-select-wrap, .eb-branch-select-wrap, .reports-analytics-branch, .payments-filter-control.has-dropdown, .case-compact-date-filter, .case-compact-sort-filter, .case-compact-branch, .pm-field.has-icon, .global-filter-select-wrap');
+        let wrap = select.closest('.table-toolbar-select-wrap, .audit-filter-control.is-select, .admin-filter-control, .ba-period-select-wrap, .ba-branch-select-wrap, .eb-period-select-wrap, .eb-branch-select-wrap, .reports-module-control-wrap, .reports-analytics-branch, .payments-filter-control.has-dropdown, .case-compact-date-filter, .case-compact-sort-filter, .case-compact-branch, .pm-field.has-icon, .global-filter-select-wrap');
 
         if (!wrap && select.parentElement) {
             const isTableToolbarSelect = select.classList.contains('table-toolbar-select') || select.classList.contains('table-toolbar-sort');
@@ -325,7 +331,7 @@ function initFilterSelectAffordances() {
         if (!wrap) return;
         wrap.setAttribute('data-filter-select-wrap', '');
 
-        let icon = wrap.querySelector('.table-toolbar-select-icon, .payments-filter-dropdown-icon, .ba-branch-select-chev, .eb-branch-select-chev, .case-compact-date-chev, .case-compact-sort-chev, .case-compact-select-chev, .pm-sel-chev, [data-filter-select-icon]');
+        let icon = wrap.querySelector('.table-toolbar-select-icon, .payments-filter-dropdown-icon, .admin-filter-chevron, .reports-module-chevron, .ba-branch-select-chev, .eb-branch-select-chev, .case-compact-date-chev, .case-compact-sort-chev, .case-compact-select-chev, .pm-sel-chev, [data-filter-select-icon]');
         if (!icon && (wrap.classList.contains('table-toolbar-select-wrap') || wrap.classList.contains('global-filter-select-wrap'))) {
             icon = document.createElement('i');
             icon.className = 'bi bi-chevron-down table-toolbar-select-icon';
@@ -334,36 +340,77 @@ function initFilterSelectAffordances() {
             wrap.appendChild(icon);
         }
 
+        const menu = document.createElement('div');
+        menu.className = 'filter-select-menu';
+        menu.setAttribute('role', 'listbox');
+        menu.hidden = true;
+        wrap.appendChild(menu);
+
+        const optionLabel = (option) => option.textContent?.trim() || option.value || 'Option';
+        const syncMenu = () => {
+            menu.innerHTML = '';
+
+            Array.from(select.options).forEach((option) => {
+                if (option.disabled) return;
+
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'filter-select-menu__item';
+                item.setAttribute('role', 'option');
+                item.setAttribute('aria-selected', option.selected ? 'true' : 'false');
+                item.dataset.value = option.value;
+                item.textContent = optionLabel(option);
+
+                if (option.selected) item.classList.add('is-selected');
+
+                item.addEventListener('click', () => {
+                    select.value = option.value;
+                    select.dispatchEvent(new Event('input', { bubbles: true }));
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                    setOpen(false);
+                });
+
+                menu.appendChild(item);
+            });
+        };
+
         const setOpen = (isOpen) => {
             if (isOpen) {
                 document.querySelectorAll('[data-filter-select-wrap].is-open').forEach((openWrap) => {
                     if (openWrap !== wrap) {
                         openWrap.classList.remove('is-open');
                         openWrap.querySelector('select')?.setAttribute('aria-expanded', 'false');
+                        openWrap.querySelector('.filter-select-menu')?.setAttribute('hidden', '');
                     }
                 });
+                syncMenu();
             }
 
             wrap.classList.toggle('is-open', isOpen);
             select.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            menu.hidden = !isOpen;
         };
 
         select.setAttribute('aria-haspopup', 'listbox');
         select.setAttribute('aria-expanded', 'false');
 
-        select.addEventListener('pointerdown', () => {
+        select.addEventListener('pointerdown', (event) => {
             if (select.disabled) return;
+            event.preventDefault();
+            select.focus({ preventScroll: true });
             setOpen(!wrap.classList.contains('is-open'));
         });
         select.addEventListener('keydown', (event) => {
-            if (['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(event.key)) setOpen(true);
+            if (['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(event.key)) {
+                event.preventDefault();
+                setOpen(true);
+            }
             if (event.key === 'Escape') setOpen(false);
         });
         select.addEventListener('change', () => setOpen(false));
-        select.addEventListener('focus', () => {
-            if (select.matches(':focus-visible')) setOpen(true);
-        });
-        select.addEventListener('blur', () => window.setTimeout(() => setOpen(false), 120));
+        select.addEventListener('blur', () => window.setTimeout(() => {
+            if (!wrap.matches(':focus-within')) setOpen(false);
+        }, 120));
     });
 }
 
@@ -940,6 +987,182 @@ function initCaseRecordTabTransitions() {
     });
 }
 
+function initServiceManagementHub() {
+    const hub = document.querySelector('[data-service-hub]');
+    if (!hub || hub.dataset.serviceHubInitialized === 'true') return;
+
+    const tabs = [...hub.querySelectorAll('[data-service-tab]')];
+    const panels = [...hub.querySelectorAll('[data-service-panel]')];
+    const createActions = [...hub.querySelectorAll('[data-service-create]')];
+    const contextCopy = hub.querySelector('[data-service-context-copy]');
+    const search = hub.querySelector('[data-service-search]');
+    const status = hub.querySelector('[data-service-status]');
+    const clearSearch = hub.querySelector('[data-service-clear-search]');
+    const reset = hub.querySelector('[data-service-reset]');
+    const empty = hub.querySelector('[data-service-filter-empty]');
+    const viewButtons = [...hub.querySelectorAll('[data-catalog-view]')];
+    const viewPanels = [...hub.querySelectorAll('[data-catalog-view-panel]')];
+    const modal = document.querySelector('[data-service-modal]');
+    const modalFrame = modal?.querySelector('[data-service-modal-frame]');
+    const modalTitle = modal?.querySelector('[data-service-modal-title]');
+    const modalCopy = modal?.querySelector('[data-service-modal-copy]');
+    const pageContent = document.querySelector('.page-content');
+    let catalogView = localStorage.getItem('service-catalog-view') || 'cards';
+    let modalScrollY = 0;
+
+    if (modal && modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+    }
+
+    const closeModal = () => {
+        if (!modal) return;
+        modal.hidden = true;
+        document.documentElement.classList.remove('service-modal-open');
+        document.body.classList.remove('service-modal-open');
+        if (pageContent) pageContent.scrollTop = modalScrollY;
+        if (modalFrame) modalFrame.src = 'about:blank';
+    };
+
+    const openModal = (action, event) => {
+        if (!modal || !modalFrame || !action) return false;
+        event?.preventDefault();
+
+        const title = action.dataset.serviceModalTitle || 'Catalog Item';
+        if (modalTitle) modalTitle.textContent = title;
+        if (modalCopy) {
+            modalCopy.textContent = title.toLowerCase().startsWith('add')
+                ? 'Create a new catalog item without leaving Service Management.'
+                : 'Review this catalog item without leaving Service Management.';
+        }
+
+        const modalUrl = new URL(action.dataset.serviceModalUrl || action.href, window.location.origin);
+        modalUrl.searchParams.set('modal', '1');
+        modalFrame.src = modalUrl.toString();
+        modalScrollY = pageContent?.scrollTop || window.scrollY || document.documentElement.scrollTop || 0;
+        modal.hidden = false;
+        document.documentElement.classList.add('service-modal-open');
+        document.body.classList.add('service-modal-open');
+
+        return false;
+    };
+
+    window.openServiceCatalogModal = openModal;
+    window.closeServiceCatalogModal = closeModal;
+    hub.dataset.serviceHubInitialized = 'true';
+
+    const sectionCopy = JSON.parse(hub.dataset.serviceCopy || '{}');
+
+    const applyFilters = () => {
+        const panel = hub.querySelector('.service-hub-panel.is-active');
+        if (!panel) return;
+
+        const query = (search?.value || '').trim().toLowerCase();
+        const currentStatus = status?.value || '';
+        let shown = 0;
+
+        panel.querySelectorAll('[data-service-row]').forEach((row) => {
+            const matchesText = !query || (row.dataset.search || '').includes(query);
+            const matchesStatus = !currentStatus || row.dataset.status === currentStatus;
+            const visible = matchesText && matchesStatus;
+            row.hidden = !visible;
+            if (visible && !row.closest('[hidden]')) shown += 1;
+        });
+
+        if (clearSearch) clearSearch.hidden = query === '';
+        if (empty) empty.hidden = shown > 0 || panel.querySelector('[data-service-empty]');
+    };
+
+    const setCatalogView = (view) => {
+        catalogView = view === 'table' ? 'table' : 'cards';
+        localStorage.setItem('service-catalog-view', catalogView);
+
+        viewButtons.forEach((button) => {
+            const selected = button.dataset.catalogView === catalogView;
+            button.classList.toggle('is-active', selected);
+            button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+        });
+
+        viewPanels.forEach((panel) => {
+            panel.hidden = panel.dataset.catalogViewPanel !== catalogView;
+        });
+
+        applyFilters();
+    };
+
+    const activate = (key) => {
+        tabs.forEach((tab) => {
+            const selected = tab.dataset.serviceTab === key;
+            tab.classList.toggle('is-active', selected);
+            tab.setAttribute('aria-selected', selected ? 'true' : 'false');
+        });
+        panels.forEach((panel) => panel.classList.toggle('is-active', panel.dataset.servicePanel === key));
+        createActions.forEach((action) => action.classList.toggle('is-active', action.dataset.serviceCreate === key));
+        if (contextCopy && sectionCopy[key]) contextCopy.textContent = sectionCopy[key];
+
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', key);
+        window.history.replaceState({}, '', url);
+
+        setCatalogView(catalogView);
+        applyFilters();
+    };
+
+    tabs.forEach((tab) => tab.addEventListener('click', () => activate(tab.dataset.serviceTab)));
+    viewButtons.forEach((button) => button.addEventListener('click', () => setCatalogView(button.dataset.catalogView)));
+    search?.addEventListener('input', applyFilters);
+    status?.addEventListener('change', applyFilters);
+    clearSearch?.addEventListener('click', () => {
+        search.value = '';
+        search.focus();
+        applyFilters();
+    });
+    reset?.addEventListener('click', () => {
+        if (search) search.value = '';
+        if (status) status.value = '';
+        applyFilters();
+    });
+
+    document.addEventListener('click', (event) => {
+        const trigger = event.target.closest?.('[data-service-modal-url]');
+        if (!trigger) return;
+        openModal(trigger, event);
+    });
+
+    modalFrame?.addEventListener('load', () => {
+        try {
+            const frameUrl = new URL(modalFrame.contentWindow.location.href);
+            if (frameUrl.pathname === window.location.pathname && frameUrl.searchParams.has('tab')) {
+                window.location.href = frameUrl.toString();
+            }
+        } catch (_) {
+            // Ignore inaccessible or initial iframe states.
+        }
+    });
+
+    modal?.querySelectorAll('[data-service-modal-close]').forEach((button) => {
+        button.addEventListener('click', closeModal);
+    });
+
+    modal?.addEventListener('wheel', (event) => {
+        if (event.target === modal || event.target?.dataset?.serviceModalClose !== undefined) {
+            event.preventDefault();
+        }
+    }, { passive: false });
+
+    modal?.addEventListener('touchmove', (event) => {
+        if (event.target === modal || event.target?.dataset?.serviceModalClose !== undefined) {
+            event.preventDefault();
+        }
+    }, { passive: false });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && modal && !modal.hidden) closeModal();
+    });
+
+    setCatalogView(catalogView);
+    activate(hub.dataset.activeTab || 'packages');
+}
+
 initTheme();
 initRowActionMenus();
 initFilterSelectAffordances();
@@ -948,6 +1171,7 @@ initLiveSearchSuggestions();
 initCaseCompactFilters();
 initClickableRecordRows();
 initCaseRecordTabTransitions();
+initServiceManagementHub();
 
 document.addEventListener('panel-ui:reset', initFilterSelectAffordances);
 

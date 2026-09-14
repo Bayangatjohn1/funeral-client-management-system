@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
 use App\Models\Branch;
 use App\Models\Package;
 use App\Models\User;
@@ -48,7 +49,7 @@ class AdminScopeAuthorizationTest extends TestCase
         $this->actingAs($branchAdmin)->get('/admin/branches')->assertForbidden();
         $this->actingAs($branchAdmin)->get('/admin/packages')->assertOk();
         $this->actingAs($branchAdmin)->get('/admin/reports/sales')->assertOk();
-        $this->actingAs($branchAdmin)->get('/admin/audit-logs')->assertForbidden();
+        $this->actingAs($branchAdmin)->get('/admin/audit-logs')->assertOk();
     }
 
     public function test_branch_admin_sidebar_shows_user_management_only(): void
@@ -513,6 +514,54 @@ class AdminScopeAuthorizationTest extends TestCase
         $this->actingAs($branchAdmin)->get('/payments/history')->assertOk();
         $this->actingAs($branchAdmin)->get('/admin/reminders')->assertOk();
         $this->actingAs($branchAdmin)->get('/reminders')->assertOk();
+    }
+
+    public function test_branch_admin_audit_log_page_is_limited_to_assigned_branch(): void
+    {
+        $branch = $this->createBranch('BR002', 'Branch Two');
+        $otherBranch = $this->createBranch('BR003', 'Branch Three');
+        $branchAdmin = $this->createBranchAdmin($branch);
+
+        $assignedLog = AuditLog::create([
+            'actor_id' => $branchAdmin->id,
+            'actor_role' => 'admin',
+            'action' => 'assigned.action',
+            'action_label' => 'Assigned Branch Action',
+            'action_type' => 'create',
+            'entity_type' => 'funeral_case',
+            'entity_id' => 1,
+            'branch_id' => $branch->id,
+            'target_branch_id' => $branch->id,
+            'status' => 'success',
+        ]);
+
+        $otherLog = AuditLog::create([
+            'actor_id' => $branchAdmin->id,
+            'actor_role' => 'admin',
+            'action' => 'other.action',
+            'action_label' => 'Other Branch Action',
+            'action_type' => 'create',
+            'entity_type' => 'funeral_case',
+            'entity_id' => 2,
+            'branch_id' => $otherBranch->id,
+            'target_branch_id' => $otherBranch->id,
+            'status' => 'success',
+        ]);
+
+        $this->actingAs($branchAdmin)
+            ->get('/admin/audit-logs?branch_id=' . $otherBranch->id)
+            ->assertOk()
+            ->assertSee('Assigned Branch Action')
+            ->assertDontSee('Other Branch Action');
+
+        $this->actingAs($branchAdmin)
+            ->getJson("/admin/audit-logs/{$assignedLog->id}")
+            ->assertOk()
+            ->assertJsonPath('action_label', 'Assigned Branch Action');
+
+        $this->actingAs($branchAdmin)
+            ->getJson("/admin/audit-logs/{$otherLog->id}")
+            ->assertForbidden();
     }
 
     public function test_branch_admin_cannot_filter_admin_dashboard_to_another_branch(): void

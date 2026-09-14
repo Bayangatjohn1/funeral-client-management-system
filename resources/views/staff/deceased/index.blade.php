@@ -34,7 +34,7 @@
             <div class="table-toolbar-field">
                 <label for="deceased-date-range" class="table-toolbar-label">Date</label>
                 <select id="deceased-date-range" name="date_range" class="form-select table-toolbar-select">
-                    <option value="any" @selected(request('date_range','any') === 'any')>Any Time</option>
+                    <option value="any" @selected(request('date_range','any') === 'any')>All Dates</option>
                     <option value="today" @selected(request('date_range') === 'today')>Today</option>
                     <option value="7d" @selected(request('date_range') === '7d')>Last 7 Days</option>
                     <option value="30d" @selected(request('date_range') === '30d')>Last 30 Days</option>

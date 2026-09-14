@@ -41,7 +41,7 @@
 <div class="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-8 py-6">
 <div class="space-y-6">
 
-<div class="management-toast no-print" role="status" aria-live="polite">
+<div class="management-toast no-print" role="status" aria-live="polite" data-page-context-toast>
     <i class="bi bi-box-seam" aria-hidden="true"></i>
     <span>You are viewing service package records.</span>
 </div>

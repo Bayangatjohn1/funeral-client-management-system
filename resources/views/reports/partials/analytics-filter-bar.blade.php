@@ -5,10 +5,21 @@
             <span>Assigned Branch Only</span>
         </span>
 
-        <button type="button" class="reports-btn reports-btn-neutral reports-filter-reset" @click="resetFilters">
-            <i class="bi bi-arrow-counterclockwise"></i>
-            <span>Reset Filters</span>
-        </button>
+        <div class="reports-toolbar-trailing">
+            <div class="reports-action-chips" x-show="activeToolbarChips().length" x-cloak>
+                <template x-for="chip in activeToolbarChips()" :key="chip.label">
+                    <span class="reports-chip">
+                        <i :class="`bi ${chip.icon}`"></i>
+                        <span x-text="chip.label"></span>
+                    </span>
+                </template>
+            </div>
+
+            <button type="button" class="reports-btn reports-btn-neutral reports-filter-reset" @click="resetFilters">
+                <i class="bi bi-arrow-counterclockwise"></i>
+                <span>Reset Filters</span>
+            </button>
+        </div>
     </div>
 
     <div class="reports-analytics-advanced" x-show="advancedFiltersOpen || datePreset === 'CUSTOM'" x-transition x-cloak>

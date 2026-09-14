@@ -23,7 +23,7 @@
         'THIS_MONTH' => 'This Month',
         'THIS_YEAR' => 'This Year',
         'CUSTOM' => 'Custom Range',
-        default => 'Any Time',
+        default => 'All Dates',
     };
 
     $createdFromLabel = filled($dateFrom) ? \Carbon\Carbon::parse($dateFrom)->format('M d, Y') : 'Any';
@@ -804,7 +804,7 @@
 </style>
 
 <div class="admin-table-page sales-ref-page">
-    <div class="sales-report-toast no-print" role="status" aria-live="polite">
+    <div class="sales-report-toast no-print" role="status" aria-live="polite" data-page-context-toast>
         <i class="bi bi-graph-up-arrow"></i>
         <span>You are viewing sales reports.</span>
     </div>
@@ -878,7 +878,7 @@
                 <span class="sales-filter-control">
                     <i class="bi bi-calendar3"></i>
                     <select id="sales-created-preset" name="date_preset" class="filter-select">
-                        <option value="ANY" {{ $resolvedDatePreset === 'ANY' ? 'selected' : '' }}>Any Time</option>
+                        <option value="ANY" {{ $resolvedDatePreset === 'ANY' ? 'selected' : '' }}>All Dates</option>
                         <option value="TODAY" {{ $resolvedDatePreset === 'TODAY' ? 'selected' : '' }}>Today</option>
                         <option value="THIS_MONTH" {{ $resolvedDatePreset === 'THIS_MONTH' ? 'selected' : '' }}>This Month</option>
                         <option value="THIS_YEAR" {{ $resolvedDatePreset === 'THIS_YEAR' ? 'selected' : '' }}>This Year</option>

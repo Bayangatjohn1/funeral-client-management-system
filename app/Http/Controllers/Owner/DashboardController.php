@@ -258,7 +258,13 @@ class DashboardController extends Controller
 
         $data = app(BranchAnalyticsService::class)->ownerPageData($validated);
 
-        return view('owner.analytics', $data);
+        return view('owner.analytics', array_merge($data, [
+            'analyticsRouteName' => 'owner.analytics',
+            'analyticsBranchScope' => [
+                'forced_branch_id' => null,
+                'can_select_all' => true,
+            ],
+        ]));
     }
 
     public function history(Request $request)

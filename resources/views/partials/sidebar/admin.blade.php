@@ -51,7 +51,8 @@
 
 @if(auth()->user()?->isMainBranchAdmin() || auth()->user()?->isBranchAdmin())
 @php
-    $serviceManagementActive = request()->is('admin/packages*')
+    $serviceManagementActive = request()->routeIs('admin.service-management.*')
+        || request()->is('admin/packages*')
         || request()->is('admin/casket-catalogs*')
         || request()->is('admin/add-on-catalogs*')
         || request()->is('admin/freebie-catalogs*');
@@ -59,37 +60,16 @@
 <div class="nav-section">
     <div class="nav-list nav-list--service" data-service-nav data-service-active="{{ $serviceManagementActive ? '1' : '0' }}">
         <a
-            href="#"
-            class="nav-link nav-link--parent {{ $serviceManagementActive ? 'is-service-active' : '' }}"
-            data-service-nav-parent
+            href="{{ route('admin.service-management.index') }}"
+            class="{{ $isActive($serviceManagementActive) }}"
             title="Service Management"
             aria-label="Service Management"
-            aria-expanded="{{ $serviceManagementActive ? 'true' : 'false' }}"
         >
             <svg class="nav-link__icon {{ $serviceManagementActive ? 'is-service-icon-active' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
             </svg>
             <span>Service Management</span>
-            <i class="bi bi-chevron-down nav-link__caret" aria-hidden="true"></i>
         </a>
-        <div class="nav-submenu {{ $serviceManagementActive ? 'is-expanded' : '' }}" data-service-nav-submenu aria-label="Service Management submenu">
-            <a href="{{ route('admin.packages.index') }}" class="{{ $isActive(request()->is('admin/packages*')) }} nav-link--child" title="Service Packages" aria-label="Service Packages">
-                <i class="bi bi-collection nav-link__icon" aria-hidden="true"></i>
-                <span>Service Packages</span>
-            </a>
-            <a href="{{ route('admin.casket-catalogs.index') }}" class="{{ $isActive(request()->is('admin/casket-catalogs*')) }} nav-link--child" title="Caskets / Coffins" aria-label="Caskets / Coffins">
-                <i class="bi bi-box2-heart nav-link__icon" aria-hidden="true"></i>
-                <span>Caskets / Coffins</span>
-            </a>
-            <a href="{{ route('admin.add-on-catalogs.index') }}" class="{{ $isActive(request()->is('admin/add-on-catalogs*')) }} nav-link--child" title="Add-ons" aria-label="Add-ons">
-                <i class="bi bi-plus-circle nav-link__icon" aria-hidden="true"></i>
-                <span>Add-ons</span>
-            </a>
-            <a href="{{ route('admin.freebie-catalogs.index') }}" class="{{ $isActive(request()->is('admin/freebie-catalogs*')) }} nav-link--child" title="Freebies" aria-label="Freebies">
-                <i class="bi bi-gift nav-link__icon" aria-hidden="true"></i>
-                <span>Freebies</span>
-            </a>
-        </div>
     </div>
 </div>
 @endif

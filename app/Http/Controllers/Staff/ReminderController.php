@@ -25,14 +25,18 @@ class ReminderController extends Controller
         $validated = $request->validate([
             'alert_type' => 'nullable|in:balance,service_today,interment_today,upcoming_service,upcoming_interment,schedule_warning,all',
             'date' => 'nullable|date',
+            'due_window' => 'nullable|in:any,today,tomorrow,this_week,next_7,this_month,custom',
             'case_status' => 'nullable|in:DRAFT,ACTIVE,COMPLETED',
             'payment_status' => 'nullable|in:UNPAID,PARTIAL,PAID',
             'branch_id' => 'nullable|integer',
         ]);
 
+        $dueWindow = $validated['due_window'] ?? ($request->filled('date') ? 'custom' : 'any');
+
         $filters = [
             'alert_type' => $validated['alert_type'] ?? 'all',
             'date' => $validated['date'] ?? null,
+            'due_window' => $dueWindow,
             'case_status' => $validated['case_status'] ?? null,
             'payment_status' => $validated['payment_status'] ?? null,
             'branch_id' => $branchId,

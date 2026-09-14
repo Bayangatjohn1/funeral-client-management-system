@@ -152,6 +152,22 @@ class PackageController extends Controller
         return redirect()->route('admin.packages.index')->with('success', 'Package created successfully.');
     }
 
+    public function show(Request $request, Package $package)
+    {
+        $this->ensureCanViewPackages();
+
+        if ($request->user()->isBranchAdmin() && ! $package->is_active) {
+            abort(404);
+        }
+
+        $package->load(['packageInclusions.casketCatalog', 'packageFreebies.catalog']);
+
+        return view('admin.packages.show', [
+            'package' => $package,
+            'canManage' => $request->user()->isMainAdmin(),
+        ]);
+    }
+
     public function edit(Package $package)
     {
         $this->ensureCanManagePackages();

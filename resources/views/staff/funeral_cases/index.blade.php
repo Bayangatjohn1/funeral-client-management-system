@@ -1096,7 +1096,7 @@
                     <div class="table-toolbar-field">
                         <label for="case-record-date-range" class="table-toolbar-label">Date</label>
                         <select id="case-record-date-range" name="date_range" class="form-select table-toolbar-select">
-                            <option value="any" @selected($selectedDateRange === 'any')>Any Time</option>
+                            <option value="any" @selected($selectedDateRange === 'any')>All Dates</option>
                             <option value="today" @selected($selectedDateRange === 'today')>Today</option>
                             <option value="7d" @selected($selectedDateRange === '7d')>Last 7 Days</option>
                             <option value="30d" @selected($selectedDateRange === '30d')>Last 30 Days</option>

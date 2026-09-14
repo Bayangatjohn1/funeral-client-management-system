@@ -166,7 +166,7 @@
 
 <div class="w-full max-w-5xl mx-auto">
 
-<div class="user-create-toast no-print" role="status" aria-live="polite">
+<div class="user-create-toast no-print" role="status" aria-live="polite" data-page-context-toast>
     <i class="bi bi-person-plus"></i>
     <span>You are adding a new user account.</span>
 </div>

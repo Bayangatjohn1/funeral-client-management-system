@@ -32,14 +32,78 @@ class ReportsModuleTest extends TestCase
         $staff = $this->user('staff', $this->branch('BR001', 'Main Branch'));
 
         $this->actingAs($staff)->get('/reports')->assertForbidden();
+        $this->actingAs($staff)->get('/reports/analytics')->assertForbidden();
         $this->actingAs($staff)->getJson('/reports/preview?report_type=sales')->assertForbidden();
         $this->actingAs($staff)->get('/reports/print?report_type=sales')->assertForbidden();
     }
 
-    public function test_admin_and_owner_can_access_reports_index(): void
+    public function test_admin_and_owner_default_to_analytics_from_reports_entry(): void
     {
-        $this->actingAs($this->user('admin'))->get('/reports')->assertOk();
-        $this->actingAs($this->user('owner'))->get('/reports')->assertOk();
+        $this->actingAs($this->user('admin'))
+            ->get('/reports')
+            ->assertRedirect(route('reports.analytics', absolute: false));
+
+        $this->actingAs($this->user('owner'))
+            ->get('/reports')
+            ->assertRedirect(route('owner.analytics', absolute: false));
+    }
+
+    public function test_admin_and_owner_can_access_reports_index_with_report_type(): void
+    {
+        $this->actingAs($this->user('admin'))
+            ->get('/reports?report_type=owner_branch_analytics')
+            ->assertOk();
+
+        $this->actingAs($this->user('owner'))
+            ->get('/reports?report_type=owner_branch_analytics')
+            ->assertOk();
+    }
+
+    public function test_admin_can_access_shared_analytics_dashboard(): void
+    {
+        $admin = $this->user('admin');
+
+        $this->actingAs($admin)
+            ->get('/reports')
+            ->assertRedirect(route('reports.analytics', absolute: false));
+
+        $this->actingAs($admin)
+            ->get('/reports/analytics')
+            ->assertOk()
+            ->assertSee('Revenue Trend')
+            ->assertSee('Reports');
+    }
+
+    public function test_branch_admin_analytics_dashboard_is_forced_to_assigned_branch(): void
+    {
+        $assigned = $this->branch('BR002', 'Second Branch');
+        $other = $this->branch('BR001', 'Main Branch');
+        $branchAdmin = $this->branchAdmin($assigned);
+
+        $this->case($assigned, ['case_code' => 'ASSIGNED-001']);
+        $this->case($other, ['case_code' => 'OTHER-001']);
+
+        $this->actingAs($branchAdmin)
+            ->get('/reports/analytics?branch_id=' . $other->id)
+            ->assertOk()
+            ->assertSee('BR002')
+            ->assertDontSee('BR001');
+    }
+
+    public function test_branch_admin_report_user_filter_only_lists_assigned_branch_users(): void
+    {
+        $assigned = $this->branch('BR002', 'Second Branch');
+        $other = $this->branch('BR003', 'Other Branch');
+        $branchAdmin = $this->branchAdmin($assigned);
+        $assignedStaff = $this->user('staff', $assigned);
+        $otherStaff = $this->user('staff', $other);
+
+        $this->actingAs($branchAdmin)
+            ->get('/reports?report_type=master_cases')
+            ->assertOk()
+            ->assertSee($branchAdmin->name)
+            ->assertSee($assignedStaff->name)
+            ->assertDontSee($otherStaff->name);
     }
 
     public function test_old_owner_sales_route_redirects_to_central_reports_module(): void

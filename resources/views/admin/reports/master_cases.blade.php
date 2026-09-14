@@ -32,7 +32,7 @@
             'LAST_30_DAYS' => 'Last 30 Days',
             'THIS_MONTH' => 'This Month',
             'CUSTOM' => 'Custom Range',
-            default => 'Any Time',
+            default => 'All Dates',
         };
         $adminMasterChips = collect();
         if ($isBranchAdmin && $branchId) {
@@ -231,11 +231,16 @@
             flex-wrap:wrap;
             gap:.6rem;
             width:auto !important;
+            min-height:2.85rem;
             min-width:0 !important;
             background:transparent !important;
             border:0 !important;
             border-radius:0 !important;
             padding:0 !important;
+        }
+
+        .master-records-page .admin-table-toolbar .case-compact-filter-bar > * {
+            flex-shrink:0 !important;
         }
 
         .master-records-page .admin-table-toolbar .case-compact-actions {
@@ -352,8 +357,10 @@
         .master-records-page .case-compact-branch {
             display:flex !important;
             align-items:center;
+            flex:0 0 16.5rem !important;
+            width:16.5rem !important;
             min-width:16.5rem !important;
-            max-width:20rem !important;
+            max-width:16.5rem !important;
             padding:0 2.35rem 0 .9rem !important;
         }
 
@@ -361,9 +368,17 @@
             position:relative;
             display:inline-flex !important;
             align-items:center;
-            width:auto !important;
+            flex:0 0 12rem !important;
+            width:12rem !important;
             min-width:12rem !important;
+            max-width:12rem !important;
             padding:0 !important;
+        }
+
+        .master-records-page .case-compact-more,
+        .master-records-page .case-compact-reset,
+        .master-records-page .case-compact-apply {
+            flex:0 0 auto !important;
         }
 
         .master-records-page .case-compact-date-select,
@@ -410,7 +425,9 @@
         .master-records-page .case-compact-date-chev,
         .master-records-page .case-compact-sort-chev {
             position:absolute;
+            top:50%;
             right:.85rem;
+            transform:translateY(-50%);
             z-index:1;
         }
 
@@ -540,6 +557,7 @@
             .master-records-page .case-compact-branch,
             .master-records-page .case-compact-seg,
             .master-records-page .case-compact-more {
+                flex-basis:100% !important;
                 width:100% !important;
                 max-width:none !important;
             }
@@ -745,7 +763,7 @@
         </div>
     @endif
 
-    <div class="master-records-toast no-print" role="status" aria-live="polite">
+    <div class="master-records-toast no-print" role="status" aria-live="polite" data-page-context-toast>
         <i class="bi bi-folder2-open"></i>
         <span>You are viewing Master Case Records.</span>
     </div>
@@ -852,7 +870,7 @@
 
                         <div class="table-toolbar-field">
                             <select name="date_preset" class="table-toolbar-select">
-                                <option value="ANY" {{ $resolvedDatePreset === 'ANY' ? 'selected' : '' }}>Any Time</option>
+                                <option value="ANY" {{ $resolvedDatePreset === 'ANY' ? 'selected' : '' }}>All Dates</option>
                                 <option value="TODAY" {{ $resolvedDatePreset === 'TODAY' ? 'selected' : '' }}>Today</option>
                                 <option value="LAST_7_DAYS" {{ $resolvedDatePreset === 'LAST_7_DAYS' ? 'selected' : '' }}>Last 7 Days</option>
                                 <option value="LAST_30_DAYS" {{ $resolvedDatePreset === 'LAST_30_DAYS' ? 'selected' : '' }}>Last 30 Days</option>

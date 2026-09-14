@@ -44,19 +44,14 @@ class AuditLogController extends Controller
             ->latest();
 
         if ($isBranchAdmin) {
-            // Branch admins may only see their own actions and those of staff in their branch.
-            // Build the allowed actor set: themselves + staff assigned to their branch.
-            $allowedActorIds = User::where('branch_id', $authUser->branch_id)
-                ->where(function ($q) use ($authUser) {
-                    $q->where('id', $authUser->id)
-                      ->orWhere('role', 'staff');
-                })
-                ->pluck('id');
+            $assignedBranchId = (int) $authUser->branch_id;
 
-            $query->whereIn('actor_id', $allowedActorIds);
+            $query->where(function ($scope) use ($assignedBranchId) {
+                $scope->where('branch_id', $assignedBranchId)
+                    ->orWhere('target_branch_id', $assignedBranchId);
+            });
 
-            // If the user filtered by a specific actor, honour it only within the allowed set
-            if ($request->filled('user_id') && $allowedActorIds->contains((int) $validated['user_id'])) {
+            if ($request->filled('user_id')) {
                 $query->where('actor_id', (int) $validated['user_id']);
             }
         } else {

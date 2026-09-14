@@ -60,15 +60,17 @@ class ReminderService
             $allReminders = $allReminders->where('type', $alertType);
         }
 
-        if (!empty($filters['date'])) {
-            try {
-                $filterDate = Carbon::parse($filters['date'])->toDateString();
-                $allReminders = $allReminders->filter(function ($item) use ($filterDate) {
-                    return $item['date']?->toDateString() === $filterDate;
-                });
-            } catch (\Throwable $e) {
-                // ignore invalid date filter silently
-            }
+        [$dateFrom, $dateTo] = $this->resolveDueWindow($filters, $today);
+
+        if ($dateFrom && $dateTo) {
+            $allReminders = $allReminders->filter(function ($item) use ($dateFrom, $dateTo) {
+                if (empty($item['date'])) {
+                    return true;
+                }
+
+                $itemDate = $item['date']->copy()->startOfDay();
+                return $itemDate->betweenIncluded($dateFrom, $dateTo);
+            });
         }
 
         if (!empty($filters['payment_status'])) {
@@ -89,6 +91,27 @@ class ReminderService
                 ['sort_date', 'asc'],
             ])
             ->values();
+    }
+
+    private function resolveDueWindow(array $filters, Carbon $today): array
+    {
+        $window = $filters['due_window'] ?? 'any';
+
+        try {
+            return match ($window) {
+                'today' => [$today->copy(), $today->copy()],
+                'tomorrow' => [$today->copy()->addDay(), $today->copy()->addDay()],
+                'this_week' => [$today->copy()->startOfWeek(), $today->copy()->endOfWeek()],
+                'next_7' => [$today->copy(), $today->copy()->addDays(7)],
+                'this_month' => [$today->copy()->startOfMonth(), $today->copy()->endOfMonth()],
+                'custom' => !empty($filters['date'])
+                    ? [Carbon::parse($filters['date'])->startOfDay(), Carbon::parse($filters['date'])->startOfDay()]
+                    : [null, null],
+                default => [null, null],
+            };
+        } catch (\Throwable $e) {
+            return [null, null];
+        }
     }
 
     /**

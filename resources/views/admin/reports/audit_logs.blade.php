@@ -371,7 +371,7 @@
 </style>
 
 <div class="admin-table-page audit-ref-page">
-    <div class="audit-toast no-print" role="status" aria-live="polite">
+    <div class="audit-toast no-print" role="status" aria-live="polite" data-page-context-toast>
         <i class="bi bi-activity"></i>
         <span>You are viewing audit logs.</span>
     </div>

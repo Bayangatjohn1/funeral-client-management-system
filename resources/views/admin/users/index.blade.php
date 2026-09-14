@@ -5,6 +5,9 @@
 @section('hide_layout_topbar', '1')
 
 @section('content')
+@php
+    $isBranchAdminView = auth()->user()?->isBranchAdmin() ?? false;
+@endphp
 <style>
 [x-cloak] { display: none !important; }
 .admin-table-page.directory-page {
@@ -522,7 +525,7 @@
     </div>
 @endif
 
-<div class="management-toast no-print" role="status" aria-live="polite">
+<div class="management-toast no-print" role="status" aria-live="polite" data-page-context-toast>
     <i class="bi bi-people"></i>
     <span>You are viewing User Management.</span>
 </div>
@@ -626,11 +629,17 @@
                 <label class="table-toolbar-label">Role</label>
                 <div class="table-toolbar-select-wrap">
                     <i class="bi bi-person-badge table-toolbar-leading-icon" aria-hidden="true"></i>
-                    <select name="role" class="form-select table-toolbar-select" data-table-auto-submit>
-                        <option value="">All Roles</option>
-                        <option value="admin" {{ request('role') === 'admin' ? 'selected' : '' }}>Admin</option>
-                        <option value="staff" {{ request('role') === 'staff' ? 'selected' : '' }}>Staff</option>
-                    </select>
+                    @if($isBranchAdminView)
+                        <select class="form-select table-toolbar-select" disabled aria-label="Role filter locked to staff">
+                            <option>Staff Only</option>
+                        </select>
+                    @else
+                        <select name="role" class="form-select table-toolbar-select" data-table-auto-submit>
+                            <option value="">All Roles</option>
+                            <option value="admin" {{ request('role') === 'admin' ? 'selected' : '' }}>Admin</option>
+                            <option value="staff" {{ request('role') === 'staff' ? 'selected' : '' }}>Staff</option>
+                        </select>
+                    @endif
                     <i class="bi bi-chevron-down table-toolbar-select-icon" aria-hidden="true"></i>
                 </div>
             </div>

@@ -6,16 +6,25 @@
 
 @section('content')
 @php
+    $analyticsRouteName = $analyticsRouteName ?? 'owner.analytics';
+    $analyticsBranchScope = $analyticsBranchScope ?? [
+        'forced_branch_id' => null,
+        'can_select_all' => true,
+    ];
+    $validAnalyticsPanels = ['ba-panel-performance', 'ba-panel-payment', 'ba-panel-collection', 'ba-panel-trend'];
+    $activeAnalyticsPanel = in_array(request('analytics_tab'), $validAnalyticsPanels, true)
+        ? request('analytics_tab')
+        : 'ba-panel-performance';
     $baseQuery = request()->query();
     unset($baseQuery['range'], $baseQuery['date_from'], $baseQuery['date_to']);
 
     $dateRangeLinks = [
-        'TODAY' => route('owner.analytics', array_merge($baseQuery, ['range' => 'TODAY'])),
-        'THIS_MONTH' => route('owner.analytics', array_merge($baseQuery, ['range' => 'THIS_MONTH'])),
-        'THIS_YEAR' => route('owner.analytics', array_merge($baseQuery, ['range' => 'THIS_YEAR'])),
+        'TODAY' => route($analyticsRouteName, array_merge($baseQuery, ['range' => 'TODAY'])),
+        'THIS_MONTH' => route($analyticsRouteName, array_merge($baseQuery, ['range' => 'THIS_MONTH'])),
+        'THIS_YEAR' => route($analyticsRouteName, array_merge($baseQuery, ['range' => 'THIS_YEAR'])),
     ];
 
-    $clearCustomUrl = route('owner.analytics', array_merge($baseQuery, ['range' => 'THIS_YEAR']));
+    $clearCustomUrl = route($analyticsRouteName, array_merge($baseQuery, ['range' => 'THIS_YEAR']));
     $isCustomRange = $range === 'CUSTOM';
     $filterScopeLabel = $selectedBranch
         ? ($selectedBranch->branch_code . ' - ' . $selectedBranch->branch_name)
@@ -54,7 +63,9 @@
     $periodCollectedAmounts = $chart['period']['collected_amount'] ?? [];
     $periodOutstandingBalances = $chart['period']['outstanding_balance'] ?? [];
     $trendLineData = $chart['line']['data'] ?? [];
-    $masterCaseRecordsUrl = route('owner.history');
+    $masterCaseRecordsUrl = auth()->user()?->isOwner()
+        ? route('owner.history')
+        : route('reports.index', ['report_type' => 'master_cases']);
     $analyticsCaseCollection = collect($allAnalyticsCases ?? []);
     $branchRankingRows = $branches->map(function ($branch) use ($analyticsCaseCollection) {
         $branchCases = $analyticsCaseCollection->where('branchCode', (string) $branch->branch_code);
@@ -109,9 +120,11 @@
     $branchPerformanceReportUrl = route('reports.index', ['report_type' => 'owner_branch_analytics']);
 @endphp
 
-<div class="ba-shell">
+<div class="ba-shell" data-reports-module-shell>
     @include('reports.partials.module-tabs', [
         'activeModule' => 'analytics',
+        'analyticsRouteName' => $analyticsRouteName,
+        'analyticsBranchScope' => $analyticsBranchScope,
         'reportTypes' => [
             'owner_branch_analytics' => 'Branch Performance Report',
         ],
@@ -123,6 +136,8 @@
     <div class="reports-module-layout">
         @include('reports.partials.module-rail', [
             'activeModule' => 'analytics',
+            'analyticsRouteName' => $analyticsRouteName,
+            'analyticsBranchScope' => $analyticsBranchScope,
             'quickStats' => [
                 ['label' => 'Active Cases', 'value' => number_format($totalCases)],
                 ['label' => 'Branches', 'value' => number_format($branches->count())],
@@ -207,30 +222,9 @@
         </section>
 
         <header class="ba-workspace-head">
-            <div class="ba-head-row ba-head-row-top">
-                <div class="ba-tabs" role="tablist" aria-label="Analytics views">
-                    <button class="ba-tab-btn active" data-target="ba-panel-performance" role="tab" aria-selected="true">
-                        <i class="bi bi-bar-chart-line"></i>
-                        Overview
-                    </button>
-                    <button class="ba-tab-btn" data-target="ba-panel-payment" role="tab" aria-selected="false">
-                        <i class="bi bi-wallet2"></i>
-                        Payments
-                    </button>
-                    <button class="ba-tab-btn" data-target="ba-panel-collection" role="tab" aria-selected="false">
-                        <i class="bi bi-cash-stack"></i>
-                        Collections
-                    </button>
-                    <button class="ba-tab-btn" data-target="ba-panel-trend" role="tab" aria-selected="false">
-                        <i class="bi bi-graph-up-arrow"></i>
-                        Revenue Trend
-                    </button>
-                </div>
-            </div>
-
             <div class="ba-head-row ba-filter-row">
                 <div class="ba-workspace-filters" role="group" aria-label="Branch Analytics Filters">
-                    <form method="GET" action="{{ route('owner.analytics') }}" class="ba-branch-form ba-branch-form-inline">
+                    <form method="GET" action="{{ route($analyticsRouteName) }}" class="ba-branch-form ba-branch-form-inline">
                         @if($isCustomRange)
                             <input type="hidden" name="range" value="CUSTOM">
                             <input type="hidden" name="date_from" value="{{ $dateFrom }}">
@@ -242,7 +236,9 @@
                         <div class="ba-branch-select-wrap" title="{{ $filterScopeLabel }}">
                             <i class="bi bi-building"></i>
                             <select id="baBranchFilter" name="branch_id" class="ba-branch-select" onchange="this.form.submit()">
-                                <option value="">All Branches</option>
+                                @if($analyticsBranchScope['can_select_all'] ?? true)
+                                    <option value="">All Branches</option>
+                                @endif
                                 @foreach($branches as $branch)
                                     <option value="{{ $branch->id }}" @selected((string) $branchId === (string) $branch->id)>
                                         {{ $branch->branch_code }}
@@ -256,7 +252,7 @@
                     <div class="ba-filter-group">
                         <span class="ba-filter-label ba-visually-hidden">Period Filter</span>
                         <div class="ba-seg" role="group" aria-label="Period Filter">
-                            <form method="GET" action="{{ route('owner.analytics') }}" class="ba-period-form">
+                            <form method="GET" action="{{ route($analyticsRouteName) }}" class="ba-period-form">
                                 @if($branchId)
                                     <input type="hidden" name="branch_id" value="{{ $branchId }}">
                                 @endif
@@ -276,7 +272,7 @@
                             </form>
                             <div class="ba-custom-range-wrap">
                                 <div class="ba-date-popover ba-date-popover-inline" id="baDatePopover" style="{{ $isCustomRange ? 'display: block;' : 'display: none;' }}">
-                                    <form method="GET" action="{{ route('owner.analytics') }}">
+                                    <form method="GET" action="{{ route($analyticsRouteName) }}">
                                         @if($branchId)
                                             <input type="hidden" name="branch_id" value="{{ $branchId }}">
                                         @endif
@@ -319,7 +315,7 @@
                     </div>
                 </div>
                 @if($hasPageFilters)
-                    <a href="{{ route('owner.analytics') }}" class="ba-filter-clear">
+                    <a href="{{ route($analyticsRouteName) }}" class="ba-filter-clear">
                         <i class="bi bi-x-circle"></i>
                         <span>Clear filters</span>
                     </a>
@@ -358,7 +354,7 @@
         </div>
 
         <div class="ba-panels">
-            <article class="ba-panel active" id="ba-panel-performance" role="tabpanel">
+            <article class="ba-panel {{ $activeAnalyticsPanel === 'ba-panel-performance' ? 'active' : '' }}" id="ba-panel-performance" role="tabpanel" @if($activeAnalyticsPanel !== 'ba-panel-performance') hidden @endif>
                 @if($chart['mode'] === 'all')
                     <div class="ba-performance-card">
                         <div class="ba-panel-head">
@@ -367,10 +363,6 @@
                             </div>
                             <div class="ba-panel-actions">
                                 <span class="ba-panel-note">Revenue and case volume</span>
-                                <button type="button" class="ba-expand-chart-btn" data-chart-expand="serviceCasesChart" data-chart-title="{{ $branchChartContext }}">
-                                    <i class="bi bi-arrows-fullscreen"></i>
-                                    <span>Full screen</span>
-                                </button>
                             </div>
                         </div>
 
@@ -439,10 +431,6 @@
                         <h4 class="ba-panel-title">{{ $branchPerformanceTitle }}</h4>
                         <div class="ba-panel-actions">
                             <span class="ba-panel-note">Cases and service amount by period</span>
-                            <button type="button" class="ba-expand-chart-btn" data-chart-expand="branchPerformanceChart" data-chart-title="{{ $branchChartContext }}">
-                                <i class="bi bi-arrows-fullscreen"></i>
-                                <span>Full screen</span>
-                            </button>
                         </div>
                     </div>
                     <div class="ba-chart-frame {{ ! $hasPeriodData ? 'has-empty-state' : '' }}">
@@ -500,15 +488,11 @@
                 @endif
             </article>
 
-            <article class="ba-panel" id="ba-panel-payment" role="tabpanel" hidden>
+            <article class="ba-panel {{ $activeAnalyticsPanel === 'ba-panel-payment' ? 'active' : '' }}" id="ba-panel-payment" role="tabpanel" @if($activeAnalyticsPanel !== 'ba-panel-payment') hidden @endif>
                 <div class="ba-panel-head">
                     <h4 class="ba-panel-title">Payment Status</h4>
                     <div class="ba-panel-actions">
                         <span class="ba-panel-note" data-default-note="Paid vs partial vs unpaid case distribution">Paid vs partial vs unpaid case distribution</span>
-                        <button type="button" class="ba-expand-chart-btn" data-chart-expand="paymentChart" data-chart-title="Payment Status · {{ $filterScopeLabel }} · {{ $periodContextLabel }}">
-                            <i class="bi bi-arrows-fullscreen"></i>
-                            <span>Full screen</span>
-                        </button>
                     </div>
                 </div>
                 <div class="ba-tab-context" data-context-tab="payment" hidden></div>
@@ -531,15 +515,11 @@
                 <div class="ba-insight-row ba-insights-hidden" id="baPaymentInsights" aria-label="Payment status insights"></div>
             </article>
 
-            <article class="ba-panel" id="ba-panel-trend" role="tabpanel" hidden>
+            <article class="ba-panel {{ $activeAnalyticsPanel === 'ba-panel-trend' ? 'active' : '' }}" id="ba-panel-trend" role="tabpanel" @if($activeAnalyticsPanel !== 'ba-panel-trend') hidden @endif>
                 <div class="ba-panel-head">
                     <h4 class="ba-panel-title">Revenue Trend</h4>
                     <div class="ba-panel-actions">
                         <span class="ba-panel-note" data-default-note="Period movement">Period movement</span>
-                        <button type="button" class="ba-expand-chart-btn" data-chart-expand="trendChart" data-chart-title="Revenue Trend · {{ $filterScopeLabel }} · {{ $periodContextLabel }}">
-                            <i class="bi bi-arrows-fullscreen"></i>
-                            <span>Full screen</span>
-                        </button>
                     </div>
                 </div>
                 <div class="ba-tab-context" data-context-tab="trend" hidden></div>
@@ -556,7 +536,7 @@
                 </div>
             </article>
 
-            <article class="ba-panel" id="ba-panel-collection" role="tabpanel" hidden>
+            <article class="ba-panel {{ $activeAnalyticsPanel === 'ba-panel-collection' ? 'active' : '' }}" id="ba-panel-collection" role="tabpanel" @if($activeAnalyticsPanel !== 'ba-panel-collection') hidden @endif>
                 <div class="ba-panel-head">
                     <h4 class="ba-panel-title">Collections</h4>
                     <div class="ba-panel-actions">
@@ -569,10 +549,6 @@
                                 By Period
                             </button>
                         </div>
-                        <button type="button" class="ba-expand-chart-btn" data-chart-expand="collectionChart" data-chart-title="Collections · {{ $filterScopeLabel }} · {{ $periodContextLabel }}">
-                            <i class="bi bi-arrows-fullscreen"></i>
-                            <span>Full screen</span>
-                        </button>
                     </div>
                 </div>
                 <div class="ba-tab-context" data-context-tab="collection" hidden></div>
@@ -2697,11 +2673,23 @@ html[data-theme='dark'] .ba-head-row-nav {
     align-items: center;
     gap: 0.35rem;
     box-sizing: border-box;
-    border: 1px solid var(--border);
+    border: 1px solid #b9cbb1;
     border-radius: var(--radius-ops);
-    background: var(--surface-muted);
+    background: #f7f8f1;
     padding: 0 0.42rem;
     min-width: 160px;
+    transition: border-color .16s ease, background-color .16s ease, box-shadow .16s ease;
+}
+
+.ba-period-select-wrap:hover {
+    border-color: #9faf97;
+    background: #e5eedc;
+}
+
+.ba-period-select-wrap:focus-within {
+    border-color: #2f5131;
+    background: #f7f8f1;
+    box-shadow: 0 0 0 3px rgba(47, 81, 49, 0.14);
 }
 
 .ba-period-select-wrap i {
@@ -2715,7 +2703,7 @@ html[data-theme='dark'] .ba-head-row-nav {
     height: 100%;
     border: 0;
     background: transparent;
-    color: var(--ink-muted);
+    color: var(--ink);
     font-size: 12px;
     font-weight: 700;
     outline: none;
@@ -4922,6 +4910,49 @@ html[data-theme='dark'] .ba-tab-btn.active {
     color: var(--ba-muted) !important;
 }
 
+html:not([data-theme='dark']) .ba-period-select-wrap,
+html:not([data-theme='dark']) .ba-branch-select-wrap {
+    background: #f7f8f1 !important;
+    border-color: #b9cbb1 !important;
+    color: #1f2d20 !important;
+}
+
+html:not([data-theme='dark']) .ba-period-select-wrap:hover,
+html:not([data-theme='dark']) .ba-branch-select-wrap:hover {
+    background: #e5eedc !important;
+    border-color: #9faf97 !important;
+    color: #1f2d20 !important;
+}
+
+html:not([data-theme='dark']) .ba-period-select-wrap:focus-within,
+html:not([data-theme='dark']) .ba-branch-select-wrap:focus-within {
+    background: #f7f8f1 !important;
+    border-color: #2f5131 !important;
+    box-shadow: 0 0 0 3px rgba(47, 81, 49, 0.14) !important;
+}
+
+html:not([data-theme='dark']) .ba-period-select,
+html:not([data-theme='dark']) .ba-branch-select {
+    color: #1f2d20 !important;
+}
+
+html:not([data-theme='dark']) .ba-period-select option,
+html:not([data-theme='dark']) .ba-branch-select option {
+    background-color: #f7f8f1 !important;
+    color: #1f2d20 !important;
+    font-weight: 650;
+}
+
+html:not([data-theme='dark']) .ba-period-select option:checked,
+html:not([data-theme='dark']) .ba-branch-select option:checked {
+    background-color: #2f5131 !important;
+    background: #2f5131 !important;
+    box-shadow: 0 0 0 100vmax #2f5131 inset !important;
+    color: #f7f8f1 !important;
+    -webkit-text-fill-color: #f7f8f1 !important;
+    font-weight: 800;
+}
+
 .ba-seg-item:hover,
 .ba-date-btn:hover,
 .ba-date-clear:hover,
@@ -5532,13 +5563,214 @@ html body .ba-shell .ba-panels > .ba-panel:not(.active) {
 html body .ba-shell .ba-panels > .ba-panel.active:not([hidden]) {
     display: flex !important;
 }
+
+html body .ba-shell .ba-workspace.is-switching-panel .ba-panels > .ba-panel.active:not([hidden]) {
+    animation: baPanelSoftIn 0.2s ease-out both;
+}
+
+@keyframes baPanelSoftIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Shared Reports & Analytics component layer */
+html body .ba-shell {
+    --module-surface: #D3DEC9;
+    --module-surface-soft: #DCE6D6;
+    --module-surface-strong: #C7D5BE;
+    --module-canvas: #F8FAF4;
+    --module-canvas-soft: #F1F5EC;
+    --module-warm: #E4DFCB;
+    --module-border: #AEBFA6;
+    --module-border-strong: #9FAF98;
+    --module-text: #263126;
+    --module-muted: #5F6D59;
+    --module-brand: #2F5233;
+}
+
+html body .ba-shell .ba-card,
+html body .ba-shell .ba-workspace,
+html body .ba-shell .ba-panel.active,
+html body .ba-shell .ba-performance-card,
+html body .ba-shell .ba-compare-card,
+html body .ba-shell .ba-drilldown {
+    background: var(--module-surface) !important;
+    border: 1.25px solid var(--module-border) !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+}
+
+html body .ba-shell .ba-workspace,
+html body .ba-shell .ba-card.ba-workspace {
+    gap: 0.75rem !important;
+    padding: 0.75rem !important;
+}
+
+html body .ba-shell .ba-panel.active,
+html body .ba-shell .ba-performance-card {
+    padding: 0.9rem !important;
+}
+
+html body .ba-shell .ba-panel-head,
+html body .ba-shell .ba-performance-card > .ba-panel-head,
+html body .ba-shell .ba-branch-perf-head {
+    min-height: 58px !important;
+    padding: 0 0 0.7rem !important;
+    background: transparent !important;
+    border: 0 !important;
+}
+
+html body .ba-shell .ba-panel-title,
+html body .ba-shell .ba-compare-title {
+    color: var(--module-text) !important;
+    font-size: 1.08rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0 !important;
+}
+
+html body .ba-shell .ba-panel-subtitle,
+html body .ba-shell .ba-panel-note,
+html body .ba-shell .ba-table-scroll-hint {
+    color: var(--module-muted) !important;
+    font-size: 0.84rem !important;
+    font-weight: 650 !important;
+}
+
+html body .ba-shell .ba-panel-note {
+    background: #E7EEDF !important;
+    border-radius: 999px !important;
+    padding: 0.28rem 0.5rem !important;
+    font-size: 0.78rem !important;
+    font-weight: 800 !important;
+}
+
+html body .ba-shell .ba-summary-grid,
+html body .ba-shell .ba-insight-row,
+html body .ba-shell .ba-branch-kpi-grid {
+    gap: 0.7rem !important;
+}
+
+html body .ba-shell .ba-summary-card,
+html body .ba-shell .ba-insight-card,
+html body .ba-shell .ba-branch-kpi-card {
+    min-height: 82px !important;
+    background: var(--module-surface-soft) !important;
+    border: 1.25px solid var(--module-border) !important;
+    border-radius: 7px !important;
+    box-shadow: none !important;
+    padding: 0.85rem 0.95rem !important;
+}
+
+html body .ba-shell .ba-summary-card:nth-child(even),
+html body .ba-shell .ba-insight-card:nth-child(even),
+html body .ba-shell .ba-branch-kpi-card:nth-child(even),
+html body .ba-shell .ba-summary-card-warning,
+html body .ba-shell .ba-insight-card.tone-amber,
+html body .ba-shell .ba-insight-card.tone-red {
+    background: var(--module-warm) !important;
+}
+
+html body .ba-shell .ba-summary-icon {
+    width: 2.2rem !important;
+    height: 2.2rem !important;
+    border-radius: 8px !important;
+    background: rgba(250, 251, 247, 0.58) !important;
+    color: var(--module-muted) !important;
+    font-size: 0.98rem !important;
+}
+
+html body .ba-shell .ba-summary-card span,
+html body .ba-shell .ba-insight-label,
+html body .ba-shell .ba-branch-kpi-card span {
+    color: var(--module-muted) !important;
+    font-size: 0.76rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+}
+
+html body .ba-shell .ba-summary-card strong,
+html body .ba-shell .ba-insight-value,
+html body .ba-shell .ba-branch-kpi-card strong {
+    color: var(--module-text) !important;
+    font-size: 1.22rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0 !important;
+}
+
+html body .ba-shell .ba-summary-card small,
+html body .ba-shell .ba-insight-note,
+html body .ba-shell .ba-branch-kpi-card small {
+    color: var(--module-muted) !important;
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+}
+
+html body .ba-shell .ba-chart-frame,
+html body .ba-shell .ba-performance-card .ba-chart-frame,
+html body .ba-shell .ba-panel.active > .ba-chart-frame {
+    background: linear-gradient(180deg, #FFFDF8 0%, var(--module-canvas) 100%) !important;
+    border: 1.25px solid var(--module-border) !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+}
+
+html body .ba-shell .ba-compare-table-wrap {
+    border: 1px solid var(--module-border) !important;
+    border-radius: 8px !important;
+    background: var(--module-surface-strong) !important;
+    overflow: auto !important;
+}
+
+html body .ba-shell .ba-compare-table {
+    background: var(--module-canvas) !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+}
+
+html body .ba-shell .ba-compare-table th {
+    background: var(--module-surface-strong) !important;
+    border-bottom: 1px solid var(--module-border-strong) !important;
+    color: var(--module-muted) !important;
+    font-size: 0.72rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.055em !important;
+}
+
+html body .ba-shell .ba-compare-table td {
+    background: var(--module-canvas) !important;
+    border-bottom: 1px solid #D7E0D0 !important;
+    color: var(--module-text) !important;
+    font-size: 0.84rem !important;
+}
+
+html body .ba-shell .ba-compare-table tbody tr:nth-child(even) td {
+    background: var(--module-canvas-soft) !important;
+}
+
+html body .ba-shell .ba-compare-table tbody tr:hover td {
+    background: #E6EFDE !important;
+}
+
+html body .ba-shell .ba-expand-chart-btn,
+html body .ba-shell .ba-chart-mode-toggle,
+html body .ba-shell .ba-chart-mode-btn,
+html body .ba-shell .ba-kpi-action {
+    border-radius: 7px !important;
+}
 </style>
 
 <script data-ba-analytics-script>
 window.SabanganAnalyticsSoftNav = window.SabanganAnalyticsSoftNav || (() => {
     let isLoading = false;
 
-    const analyticsPath = @json(parse_url(route('owner.analytics'), PHP_URL_PATH));
+    const analyticsPath = @json(parse_url(route($analyticsRouteName), PHP_URL_PATH));
     const isAnalyticsUrl = (url) => {
         try {
             return new URL(url, window.location.origin).pathname === analyticsPath;
@@ -5572,6 +5804,11 @@ window.SabanganAnalyticsSoftNav = window.SabanganAnalyticsSoftNav || (() => {
     };
 
     const load = async (url) => {
+        if (window.SabanganReportsModuleNavigation?.load) {
+            window.SabanganReportsModuleNavigation.load(url.toString());
+            return;
+        }
+
         if (isLoading) return;
         isLoading = true;
         document.documentElement.classList.add('ba-soft-loading');
@@ -5586,7 +5823,7 @@ window.SabanganAnalyticsSoftNav = window.SabanganAnalyticsSoftNav || (() => {
             });
 
             if (!response.ok) {
-                window.location.href = url.toString();
+                console.warn('Analytics soft navigation returned an error response.', response.status);
                 return;
             }
 
@@ -5596,7 +5833,7 @@ window.SabanganAnalyticsSoftNav = window.SabanganAnalyticsSoftNav || (() => {
             const currentShell = document.querySelector('.ba-shell');
 
             if (!nextShell || !currentShell) {
-                window.location.href = url.toString();
+                console.warn('Analytics soft navigation response did not include a shell.');
                 return;
             }
 
@@ -5606,7 +5843,6 @@ window.SabanganAnalyticsSoftNav = window.SabanganAnalyticsSoftNav || (() => {
             executeAnalyticsScript(doc);
         } catch (error) {
             console.error('Analytics soft navigation failed.', error);
-            window.location.href = url.toString();
         } finally {
             isLoading = false;
             document.documentElement.classList.remove('ba-soft-loading');
@@ -6966,70 +7202,89 @@ window.SabanganAnalyticsSoftNav.init();
         },
     };
     const chartFactories = {
-        paymentChart: () => buildChart('paymentChart', {
-            type: 'doughnut',
-            data: {
-                labels: ['Paid', 'Partial', 'Unpaid'],
-                datasets: [
-                    {
-                        data: [summary.status.paid, summary.status.partial, summary.status.unpaid],
-                        backgroundColor: (ctx) => {
-                            const statuses = ['PAID', 'PARTIAL', 'UNPAID'];
-                            const colors = [chartTheme.success, chartTheme.warning, chartTheme.danger];
-                            const index = ctx.dataIndex ?? 0;
-                            return analyticsFilters.paymentStatus && statuses[index] !== analyticsFilters.paymentStatus
-                                ? fadeHex(colors[index], 0.40)
-                                : colors[index];
-                        },
-                        borderColor: isDark ? '#17283b' : chartTheme.surface,
-                        borderWidth: 2,
-                        hoverOffset: 6,
-                    },
-                ],
-            },
-            plugins: [doughnutPercentLabels],
-            options: {
-                ...sharedOptions,
-                cutout: '60%',
-                onHover: (event, elements) => {
-                    if (event.native?.target) event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
-                },
-                onClick: (event, elements, chart) => {
-                    const hit = elements?.[0] || chart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true)?.[0];
-                    const statuses = ['PAID', 'PARTIAL', 'UNPAID'];
-                    if (hit && statuses[hit.index]) handlePaymentStatusClick(statuses[hit.index], 'paymentChart', true);
-                },
-                plugins: {
-                    ...sharedOptions.plugins,
-                    tooltip: {
-                        ...sharedOptions.plugins.tooltip,
-                        callbacks: {
-                            label: (ctx) => `${ctx.label}: ${number.format(Number(ctx.raw || 0))} cases`,
-                        },
-                    },
-                    legend: {
-                        labels: {
-                            ...sharedOptions.plugins.legend.labels,
-                            generateLabels: (chart) => {
-                                const values = chart.data.datasets?.[0]?.data?.map((value) => Number(value || 0)) || [];
-                                const total = values.reduce((sum, value) => sum + value, 0);
-                                const colors = [chartTheme.success, chartTheme.warning, chartTheme.danger];
+        paymentChart: () => {
+            const fullPaymentSegments = [
+                { label: 'Paid', status: 'PAID', value: Number(summary.status.paid || 0), color: chartTheme.success },
+                { label: 'Partial', status: 'PARTIAL', value: Number(summary.status.partial || 0), color: chartTheme.warning },
+                { label: 'Unpaid', status: 'UNPAID', value: Number(summary.status.unpaid || 0), color: chartTheme.danger },
+            ];
+            const visiblePaymentSegments = fullPaymentSegments.filter((segment) => segment.value > 0);
+            const totalPaymentCases = fullPaymentSegments.reduce((sum, segment) => sum + segment.value, 0);
 
-                                return chart.data.labels.map((label, index) => ({
-                                    text: `${label} (${number.format(values[index] || 0)}/${number.format(total)})`,
-                                    fillStyle: colors[index],
-                                    strokeStyle: colors[index],
+            return buildChart('paymentChart', {
+                type: 'doughnut',
+                data: {
+                    labels: visiblePaymentSegments.map((segment) => segment.label),
+                    datasets: [
+                        {
+                            data: visiblePaymentSegments.map((segment) => segment.value),
+                            backgroundColor: (ctx) => {
+                                const segment = visiblePaymentSegments[ctx.dataIndex ?? 0];
+                                if (!segment) return chartTheme.surface;
+
+                                return analyticsFilters.paymentStatus && segment.status !== analyticsFilters.paymentStatus
+                                    ? fadeHex(segment.color, 0.40)
+                                    : segment.color;
+                            },
+                            borderColor: isDark ? '#17283b' : chartTheme.surface,
+                            borderWidth: 2,
+                            hoverOffset: 6,
+                        },
+                    ],
+                },
+                plugins: [doughnutPercentLabels],
+                options: {
+                    ...sharedOptions,
+                    cutout: '60%',
+                    interaction: {
+                        mode: 'nearest',
+                        intersect: true,
+                    },
+                    onHover: (event, elements) => {
+                        if (event.native?.target) {
+                            const hit = elements?.[0];
+                            event.native.target.style.cursor = visiblePaymentSegments[hit?.index]?.status ? 'pointer' : 'default';
+                        }
+                    },
+                    onClick: (event, elements, chart) => {
+                        const hit = elements?.[0] || chart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true)?.[0];
+                        const segment = visiblePaymentSegments[hit?.index];
+                        if (segment?.status) handlePaymentStatusClick(segment.status, 'paymentChart', true);
+                    },
+                    plugins: {
+                        ...sharedOptions.plugins,
+                        tooltip: {
+                            ...sharedOptions.plugins.tooltip,
+                            filter: (ctx) => Number(ctx.raw || 0) > 0,
+                            callbacks: {
+                                label: (ctx) => {
+                                    const segment = visiblePaymentSegments[ctx.dataIndex ?? 0];
+                                    const value = Number(ctx.raw || 0);
+                                    const percent = totalPaymentCases > 0 ? Math.round((value / totalPaymentCases) * 100) : 0;
+
+                                    return `${segment?.label || ctx.label}: ${number.format(value)} case${value === 1 ? '' : 's'} (${percent}%)`;
+                                },
+                            },
+                        },
+                        legend: {
+                            labels: {
+                                ...sharedOptions.plugins.legend.labels,
+                                generateLabels: () => fullPaymentSegments.map((segment, index) => ({
+                                    text: `${segment.label} (${number.format(segment.value)}/${number.format(totalPaymentCases)})`,
+                                    fillStyle: segment.color,
+                                    strokeStyle: segment.color,
                                     lineWidth: 0,
                                     hidden: false,
                                     index,
                                     pointStyle: 'circle',
-                                }));
+                                })),
                             },
+                            onClick: null,
                         },
                     },
                 },
-            },
-        }),
+            });
+        },
         trendChart: () => buildChart('trendChart', {
             type: 'line',
             data: {
@@ -7364,7 +7619,9 @@ window.SabanganAnalyticsSoftNav.init();
             link.href = url.toString();
         });
 
-        document.querySelectorAll('form[action*="branch-analytics"]').forEach((form) => {
+        document.querySelectorAll('form').forEach((form) => {
+            if (!isAnalyticsUrl(form.action)) return;
+
             let input = form.querySelector('input[name="analytics_tab"]');
             if (!input) {
                 input = document.createElement('input');
@@ -7404,11 +7661,14 @@ window.SabanganAnalyticsSoftNav.init();
             targetId = 'ba-panel-performance';
         }
 
-        document.querySelector('.ba-workspace')?.setAttribute('data-active-analytics-panel', targetId);
+        const workspace = document.querySelector('.ba-workspace');
+        workspace?.classList.add('is-switching-panel');
+        workspace?.setAttribute('data-active-analytics-panel', targetId);
 
         tabButtons.forEach((btn) => {
             const active = btn.dataset.target === targetId;
             btn.classList.toggle('active', active);
+            btn.classList.toggle('is-active', active);
             btn.setAttribute('aria-selected', active ? 'true' : 'false');
         });
 
@@ -7434,6 +7694,10 @@ window.SabanganAnalyticsSoftNav.init();
         if (options.scrollIntoView) {
             activePanel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
+
+        setTimeout(() => {
+            workspace?.classList.remove('is-switching-panel');
+        }, 240);
     };
 
     tabButtons.forEach((button) => {
@@ -7449,13 +7713,16 @@ window.SabanganAnalyticsSoftNav.init();
     });
 
     const requestedPanelId = new URLSearchParams(window.location.search).get('analytics_tab');
-    const storedPanelId = sessionStorage.getItem(tabStorageKey);
     const initialPanelId = validPanelIds.has(requestedPanelId)
         ? requestedPanelId
-        : validPanelIds.has(storedPanelId)
-            ? storedPanelId
-            : 'ba-panel-performance';
-    activatePanel(initialPanelId).catch(() => {});
+        : 'ba-panel-performance';
+    activatePanel(initialPanelId)
+        .catch(() => {})
+        .finally(() => {
+            requestAnimationFrame(() => {
+                document.querySelector('[data-reports-module-shell]')?.setAttribute('data-module-ready', 'true');
+            });
+        });
     renderAnalyticsResults();
     renderAnalyticsInsights();
 

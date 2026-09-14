@@ -10,8 +10,32 @@
             const stored = localStorage.getItem('app-theme');
             const theme = stored === 'dark' || stored === 'light' ? stored : 'light';
             document.documentElement.setAttribute('data-theme', theme);
+
+            try {
+                const raw = sessionStorage.getItem('sidebar-nav-entry');
+                sessionStorage.removeItem('sidebar-nav-entry');
+                const entry = raw ? JSON.parse(raw) : null;
+                const currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
+                const targetPath = entry?.targetPath?.replace(/\/+$/, '') || '';
+
+                if (entry?.sourcePath && entry.sourcePath !== currentPath && targetPath === currentPath) {
+                    document.documentElement.setAttribute('data-sidebar-nav-entry', 'true');
+                }
+            } catch (_) {
+                sessionStorage.removeItem('sidebar-nav-entry');
+            }
         })();
     </script>
+
+    <style>
+        [data-page-context-toast] {
+            display: none !important;
+        }
+
+        html[data-sidebar-nav-entry='true'] [data-page-context-toast] {
+            display: flex !important;
+        }
+    </style>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -524,8 +548,29 @@
             });
 
             document.addEventListener('click', (event) => {
+                const sidebarNavLink = event.target.closest('.sidebar a[href]');
+                if (sidebarNavLink) {
+                    try {
+                        const target = new URL(sidebarNavLink.getAttribute('href'), window.location.href);
+                        const currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
+                        const targetPath = target.pathname.replace(/\/+$/, '') || '/';
+
+                        if (
+                            target.origin === window.location.origin &&
+                            !sidebarNavLink.hasAttribute('download') &&
+                            targetPath !== currentPath &&
+                            !sidebarNavLink.getAttribute('href').startsWith('#')
+                        ) {
+                            sessionStorage.setItem('sidebar-nav-entry', JSON.stringify({
+                                sourcePath: currentPath,
+                                targetPath,
+                            }));
+                        }
+                    } catch (_) {}
+                }
+
                 if (window.innerWidth >= 1024) return;
-                const navLink = event.target.closest('.sidebar a[href]');
+                const navLink = sidebarNavLink;
                 if (navLink) closeSidebar();
             });
         })();

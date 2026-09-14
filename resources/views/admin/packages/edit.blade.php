@@ -1,4 +1,4 @@
-@extends('layouts.panel')
+@extends(request()->boolean('modal') ? 'layouts.modal-frame' : 'layouts.panel')
 
 @section('page_title', 'Edit Package')
 @section('page_desc', 'Update structured package details, included services, freebies, and promo settings.')

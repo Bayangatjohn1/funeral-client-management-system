@@ -108,6 +108,22 @@ class AddOnCatalogController extends Controller
             ->with('success', 'Add-on saved successfully.');
     }
 
+    public function show(Request $request, AddOnCatalog $add_on_catalog)
+    {
+        $this->ensureCanView();
+
+        if ($request->user()->isBranchAdmin() && ! $add_on_catalog->is_active) {
+            abort(404);
+        }
+
+        $add_on_catalog->loadCount('legacyPackageAddOns');
+
+        return view('admin.add-on-catalogs.show', [
+            'catalog' => $add_on_catalog,
+            'canManage' => $request->user()->isMainAdmin(),
+        ]);
+    }
+
     public function edit(AddOnCatalog $add_on_catalog)
     {
         $this->ensureCanManage();

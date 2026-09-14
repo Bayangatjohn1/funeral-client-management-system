@@ -1710,12 +1710,12 @@
                 ? [
                     ['label' => 'Network Branches', 'val' => $branchCount ?? 0, 'icon' => 'bi-building', 'url' => route('admin.branches.index')],
                     ['label' => 'Active Terminals', 'val' => $activeStaffCount ?? 0, 'icon' => 'bi-laptop'],
-                    ['label' => 'Service Catalogs', 'val' => $activePackageCount ?? 0, 'icon' => 'bi-layers', 'url' => route('admin.packages.index')],
+                    ['label' => 'Service Catalogs', 'val' => $activePackageCount ?? 0, 'icon' => 'bi-layers', 'url' => route('admin.service-management.index')],
                 ]
                 : [
                     ['label' => 'Open Service Records', 'val' => $totalCases ?? 0, 'icon' => 'bi-folder2-open', 'url' => $caseRecordsUrl],
                     ['label' => 'Payment Monitoring', 'val' => 'Review balances', 'icon' => 'bi-credit-card', 'url' => route('admin.payment-monitoring', $branchLinkParams)],
-                    ['label' => 'Service Catalogs', 'val' => $activePackageCount ?? 0, 'icon' => 'bi-layers', 'url' => route('admin.packages.index')],
+                    ['label' => 'Service Catalogs', 'val' => $activePackageCount ?? 0, 'icon' => 'bi-layers', 'url' => route('admin.service-management.index')],
                 ];
         @endphp
         

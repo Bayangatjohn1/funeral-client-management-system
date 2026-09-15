@@ -43,6 +43,8 @@ class SampleDataSeeder extends Seeder
                 'relationship_to_deceased' => 'Son',
                 'contact_number' => '09171234567',
                 'address' => 'Quezon City',
+                'valid_id_type' => 'QA Seed ID',
+                'valid_id_number' => 'QA-SEED-0001',
             ]
         );
 
@@ -60,6 +62,10 @@ class SampleDataSeeder extends Seeder
             [
                 'client_id' => $client->id,
                 'deceased_id' => $deceased->id,
+                'service_requested_at' => now()->subDay()->toDateString(),
+                'wake_location' => 'Quezon City',
+                'funeral_service_at' => now()->addDay()->toDateString(),
+                'service_package' => 'Demo Service Package',
                 'subtotal_amount' => 150000,
                 'discount_type' => 'NONE',
                 'discount_amount' => 0,

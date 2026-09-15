@@ -503,7 +503,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->pref
 
 Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->prefix('admin')->group(function () {
     Route::get('/service-management', [ServiceManagementController::class, 'index'])->name('admin.service-management.index');
-    Route::get('/packages', fn () => redirect()->route('admin.service-management.index', ['tab' => 'packages']))->name('admin.packages.index');
+    Route::get('/packages', [PackageController::class, 'index'])->name('admin.packages.index');
     Route::get('/packages/create', [PackageController::class, 'create'])->name('admin.packages.create');
     Route::post('/packages', [PackageController::class, 'store'])->name('admin.packages.store');
     Route::get('/packages/{package}', [PackageController::class, 'show'])->name('admin.packages.show');
@@ -511,21 +511,21 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->pref
     Route::put('/packages/{package}', [PackageController::class, 'update'])->name('admin.packages.update');
     Route::patch('/packages/{package}/quick-price', [PackageController::class, 'quickUpdatePrice'])->name('admin.packages.quickPrice');
     Route::patch('/packages/{package}/toggle-active', [PackageController::class, 'toggleActive'])->name('admin.packages.toggleActive');
-    Route::get('/add-on-catalogs', fn () => redirect()->route('admin.service-management.index', ['tab' => 'addons']))->name('admin.add-on-catalogs.index');
+    Route::get('/add-on-catalogs', [AddOnCatalogController::class, 'index'])->name('admin.add-on-catalogs.index');
     Route::get('/add-on-catalogs/create', [AddOnCatalogController::class, 'create'])->name('admin.add-on-catalogs.create');
     Route::post('/add-on-catalogs', [AddOnCatalogController::class, 'store'])->name('admin.add-on-catalogs.store');
     Route::get('/add-on-catalogs/{add_on_catalog}', [AddOnCatalogController::class, 'show'])->name('admin.add-on-catalogs.show');
     Route::get('/add-on-catalogs/{add_on_catalog}/edit', [AddOnCatalogController::class, 'edit'])->name('admin.add-on-catalogs.edit');
     Route::put('/add-on-catalogs/{add_on_catalog}', [AddOnCatalogController::class, 'update'])->name('admin.add-on-catalogs.update');
     Route::patch('/add-on-catalogs/{add_on_catalog}/toggle-active', [AddOnCatalogController::class, 'toggleActive'])->name('admin.add-on-catalogs.toggleActive');
-    Route::get('/freebie-catalogs', fn () => redirect()->route('admin.service-management.index', ['tab' => 'freebies']))->name('admin.freebie-catalogs.index');
+    Route::get('/freebie-catalogs', [FreebieCatalogController::class, 'index'])->name('admin.freebie-catalogs.index');
     Route::get('/freebie-catalogs/create', [FreebieCatalogController::class, 'create'])->name('admin.freebie-catalogs.create');
     Route::post('/freebie-catalogs', [FreebieCatalogController::class, 'store'])->name('admin.freebie-catalogs.store');
     Route::get('/freebie-catalogs/{freebie_catalog}', [FreebieCatalogController::class, 'show'])->name('admin.freebie-catalogs.show');
     Route::get('/freebie-catalogs/{freebie_catalog}/edit', [FreebieCatalogController::class, 'edit'])->name('admin.freebie-catalogs.edit');
     Route::put('/freebie-catalogs/{freebie_catalog}', [FreebieCatalogController::class, 'update'])->name('admin.freebie-catalogs.update');
     Route::patch('/freebie-catalogs/{freebie_catalog}/toggle-active', [FreebieCatalogController::class, 'toggleActive'])->name('admin.freebie-catalogs.toggleActive');
-    Route::get('/casket-catalogs', fn () => redirect()->route('admin.service-management.index', ['tab' => 'caskets']))->name('admin.casket-catalogs.index');
+    Route::get('/casket-catalogs', [CasketCatalogController::class, 'index'])->name('admin.casket-catalogs.index');
     Route::get('/casket-catalogs/create', [CasketCatalogController::class, 'create'])->name('admin.casket-catalogs.create');
     Route::post('/casket-catalogs', [CasketCatalogController::class, 'store'])->name('admin.casket-catalogs.store');
     Route::get('/casket-catalogs/{casket_catalog}', [CasketCatalogController::class, 'show'])->name('admin.casket-catalogs.show');

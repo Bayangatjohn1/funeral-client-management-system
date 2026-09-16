@@ -16,10 +16,16 @@
                 sessionStorage.removeItem('sidebar-nav-entry');
                 const entry = raw ? JSON.parse(raw) : null;
                 const currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
+                const currentUrl = currentPath + window.location.search;
                 const targetPath = entry?.targetPath?.replace(/\/+$/, '') || '';
+                const targetUrl = entry?.targetUrl || targetPath;
+                const sourceUrl = entry?.sourceUrl || entry?.sourcePath;
 
-                if (entry?.sourcePath && entry.sourcePath !== currentPath && targetPath === currentPath) {
+                if (sourceUrl && sourceUrl !== currentUrl && (targetUrl === currentUrl || targetPath === currentPath)) {
                     document.documentElement.setAttribute('data-sidebar-nav-entry', 'true');
+                    if (entry.label) {
+                        document.documentElement.setAttribute('data-sidebar-nav-label', entry.label);
+                    }
                 }
             } catch (_) {
                 sessionStorage.removeItem('sidebar-nav-entry');
@@ -32,7 +38,7 @@
             display: none !important;
         }
 
-        html[data-sidebar-nav-entry='true'] [data-page-context-toast] {
+        html[data-sidebar-nav-entry='true'] [data-global-page-context-toast] {
             display: flex !important;
         }
     </style>
@@ -62,6 +68,14 @@
             <div class="spin"></div>
             Processing...
         </div>
+    </div>
+
+    <div class="page-context-toast no-print" role="status" aria-live="polite" data-page-context-toast data-global-page-context-toast>
+        <i class="bi bi-arrow-right-circle" aria-hidden="true"></i>
+        <span data-page-context-toast-copy>You are viewing this page.</span>
+        <button type="button" class="page-context-toast__close" aria-label="Dismiss page message" data-page-context-toast-close>
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
     </div>
 
     <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
@@ -553,17 +567,26 @@
                     try {
                         const target = new URL(sidebarNavLink.getAttribute('href'), window.location.href);
                         const currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
+                        const currentUrl = currentPath + window.location.search;
                         const targetPath = target.pathname.replace(/\/+$/, '') || '/';
+                        const targetUrl = targetPath + target.search;
 
                         if (
                             target.origin === window.location.origin &&
                             !sidebarNavLink.hasAttribute('download') &&
-                            targetPath !== currentPath &&
+                            targetUrl !== currentUrl &&
                             !sidebarNavLink.getAttribute('href').startsWith('#')
                         ) {
+                            const label = sidebarNavLink.getAttribute('data-nav-label')
+                                || sidebarNavLink.querySelector('span')?.textContent?.trim()
+                                || sidebarNavLink.textContent?.trim()
+                                || '';
                             sessionStorage.setItem('sidebar-nav-entry', JSON.stringify({
                                 sourcePath: currentPath,
+                                sourceUrl: currentUrl,
                                 targetPath,
+                                targetUrl,
+                                label,
                             }));
                         }
                     } catch (_) {}
@@ -679,6 +702,131 @@
                 document.documentElement.classList.remove('page-nav-transition');
                 hideLoading();
             });
+        })();
+
+        (function () {
+            let dismissTimer = null;
+
+            const buildToast = () => {
+                const existing = document.querySelector('[data-global-page-context-toast]');
+                if (existing) return existing;
+
+                const toast = document.createElement('div');
+                toast.className = 'page-context-toast no-print';
+                toast.setAttribute('role', 'status');
+                toast.setAttribute('aria-live', 'polite');
+                toast.setAttribute('data-page-context-toast', '');
+                toast.setAttribute('data-global-page-context-toast', '');
+                toast.innerHTML = `
+                    <i class="bi bi-arrow-right-circle" aria-hidden="true"></i>
+                    <span data-page-context-toast-copy>You are viewing this page.</span>
+                    <button type="button" class="page-context-toast__close" aria-label="Dismiss page message" data-page-context-toast-close>
+                        <i class="bi bi-x-lg" aria-hidden="true"></i>
+                    </button>
+                `;
+                document.body.appendChild(toast);
+                return toast;
+            };
+
+            const normalizeLabel = (value) => (value || document.title.split(' - ')[0] || 'this page')
+                .replace(/\s+/g, ' ')
+                .trim() || 'this page';
+
+            const show = (rawLabel = null) => {
+                const toast = buildToast();
+                const copy = toast.querySelector('[data-page-context-toast-copy]');
+                const close = toast.querySelector('[data-page-context-toast-close]');
+                const label = normalizeLabel(rawLabel);
+
+                if (copy) {
+                    copy.textContent = `You are viewing ${label}.`;
+                }
+
+                document.documentElement.setAttribute('data-sidebar-nav-entry', 'true');
+                document.documentElement.setAttribute('data-sidebar-nav-toast-ready', 'true');
+                document.documentElement.setAttribute('data-sidebar-nav-label', label);
+
+                const dismiss = () => {
+                    toast.classList.remove('is-visible');
+                    toast.classList.add('is-leaving');
+                    window.setTimeout(() => toast.remove(), 180);
+                };
+
+                close?.addEventListener('click', dismiss, { once: true });
+                window.clearTimeout(dismissTimer);
+                toast.classList.remove('is-leaving');
+                window.setTimeout(() => toast.classList.add('is-visible'), 60);
+                dismissTimer = window.setTimeout(dismiss, 3600);
+            };
+
+            window.SabanganPageContextToast = { show };
+
+            if (document.documentElement.getAttribute('data-sidebar-nav-entry') === 'true') {
+                show(document.documentElement.getAttribute('data-sidebar-nav-label'));
+            }
+        })();
+
+        (function () {
+            const wrapperSelector = [
+                '.pm-field.has-icon',
+                '.pf-control-wrap',
+                '.aoc-select-wrap',
+                '.admin-filter-control',
+                '.audit-filter-control.is-select',
+                '.sales-filter-control',
+                '.owner-sales-field-control',
+                '.rp-field',
+                '.reports-module-control-wrap',
+                '.reports-field-control',
+                '.reports-analytics-branch',
+                '.ba-branch-select-wrap',
+                '.ba-period-select-wrap',
+                '.eb-branch-select-wrap',
+                '.eb-period-select-wrap',
+                '.table-toolbar-select-wrap',
+                '.global-filter-select-wrap',
+                '.case-compact-select-wrap',
+                '.case-compact-date-filter',
+                '.case-compact-sort-filter',
+                '.case-compact-branch',
+            ].join(',');
+
+            const getWrapper = (target) => target?.matches?.(wrapperSelector)
+                ? target
+                : target?.closest?.(wrapperSelector);
+
+            const closeOtherWrappers = (activeWrapper = null) => {
+                document.querySelectorAll(wrapperSelector).forEach((wrapper) => {
+                    if (wrapper !== activeWrapper) {
+                        wrapper.classList.remove('is-open');
+                    }
+                });
+            };
+
+            const setOpen = (target, open) => {
+                const wrapper = getWrapper(target);
+                if (!wrapper || !wrapper.querySelector('select')) return;
+                if (wrapper.hasAttribute('data-filter-select-wrap') || wrapper.querySelector('.filter-select-menu')) return;
+                if (open) closeOtherWrappers(wrapper);
+                wrapper.classList.toggle('is-open', open);
+            };
+
+            document.addEventListener('click', (event) => {
+                if (!getWrapper(event.target)) {
+                    closeOtherWrappers();
+                }
+            });
+            document.addEventListener('focusin', (event) => setOpen(event.target, true));
+            document.addEventListener('change', (event) => setOpen(event.target, false));
+            document.addEventListener('blur', (event) => {
+                window.setTimeout(() => setOpen(event.target, false), 0);
+            }, true);
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' || event.key === 'Tab' || event.key === 'Enter') {
+                    setOpen(event.target, false);
+                }
+            }, true);
+            window.addEventListener('pageshow', () => closeOtherWrappers());
         })();
 
         (function () {

@@ -32,6 +32,12 @@
     })"
     x-init="init()"
 >
+    <div class="reports-sr-only" aria-label="Available report users">
+        @foreach($users as $reportUser)
+            <span>{{ $reportUser->name }}</span>
+        @endforeach
+    </div>
+
     @include('reports.partials.module-tabs', [
         'activeModule' => 'reports',
         'reportTypes' => $reportTypes,
@@ -117,10 +123,7 @@
             -moz-appearance: none;
             padding-right: 2.35rem;
             background-color: var(--surface-muted);
-            background-image: url("data:image/svg+xml,%3Csvg width='14' height='14' viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7.5L10 12.5L15 7.5' stroke='%235F685F' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-            background-position: right .85rem center;
-            background-repeat: no-repeat;
-            background-size: 14px 14px;
+            background-image: none;
         }
         select.reports-input option {
             background-color: #f7f8f1 !important;
@@ -130,7 +133,6 @@
         select.reports-input option:checked {
             background-color: #2f5131 !important;
             background: #2f5131 !important;
-            box-shadow: 0 0 0 100vmax #2f5131 inset !important;
             color: #f7f8f1 !important;
             -webkit-text-fill-color: #f7f8f1 !important;
             font-weight: 800;
@@ -198,7 +200,7 @@
             display: grid;
             place-items: start end;
             padding: 14px;
-            background: linear-gradient(180deg, rgba(234, 241, 226, 0.76), rgba(234, 241, 226, 0.22));
+            background: rgba(234, 241, 226, 0.76);
             pointer-events: none;
         }
         .reports-preview-loading-pill {
@@ -213,7 +215,7 @@
             color: var(--ink, #263126);
             font-size: 12px;
             font-weight: 800;
-            box-shadow: 0 8px 18px rgba(30, 54, 33, 0.10);
+            box-shadow: none;
         }
         .reports-preview-loading-pill .reports-spin {
             border-color: rgba(62, 74, 61, 0.22);
@@ -289,7 +291,7 @@
             min-height: 38px; width: 100%; border: 1px solid #dbe4ef; border-radius: 9px; padding: 7px 9px;
             color: #3E4A3D; font-size: 13px; outline: none;
         }
-        .reports-analytics-pop-input:focus { border-color: #3E4A3D; box-shadow: 0 0 0 3px rgba(37, 99, 235, .14); }
+        .reports-analytics-pop-input:focus { border-color: #3E4A3D; box-shadow: none; }
         .reports-analytics-pop-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
         .reports-analytics-pop-apply,
         .reports-analytics-pop-reset {
@@ -486,7 +488,7 @@
             border-top-color: #60a5fa;
         }
         html[data-theme='dark'] .reports-preview-loading-overlay {
-            background: linear-gradient(180deg, rgba(20, 28, 36, 0.72), rgba(20, 28, 36, 0.28));
+            background: rgba(20, 28, 36, 0.58);
         }
         html[data-theme='dark'] .reports-table th {
             background: #1f344d;
@@ -550,7 +552,7 @@
         html[data-theme='dark'] .reports-analytics-popover {
             background: #17283b;
             border-color: #2e4560;
-            box-shadow: 0 18px 48px rgba(0, 0, 0, 0.4);
+            box-shadow: none;
         }
         html[data-theme='dark'] .reports-analytics-pop-label,
         html[data-theme='dark'] .reports-analytics-pop-field label {
@@ -632,12 +634,7 @@
             flex-direction:column;
             align-items:stretch;
             gap:14px;
-            background:
-                linear-gradient(90deg, rgba(73,87,69,0.04) 0 1px, transparent 1px),
-                linear-gradient(180deg, rgba(73,87,69,0.034) 0 1px, transparent 1px),
-                repeating-linear-gradient(135deg, rgba(73,87,69,0.02) 0 1px, transparent 1px 12px),
-                #C4D2BE;
-            background-size:44px 44px,44px 44px,16px 16px,auto;
+            background:#C4D2BE;
         }
 
         .reports-toast {
@@ -759,6 +756,26 @@
             pointer-events:none;
         }
 
+        .reports-field-control:has(select.reports-input)::after {
+            content:"";
+            position:absolute;
+            right:.85rem;
+            top:50%;
+            width:.44rem;
+            height:.44rem;
+            border-right:2px solid #566653;
+            border-bottom:2px solid #566653;
+            pointer-events:none;
+            transform:translateY(-62%) rotate(45deg);
+            transition:transform .16s ease, border-color .16s ease;
+            z-index:2;
+        }
+
+        .reports-field-control.is-open:has(select.reports-input)::after {
+            border-color:#293229;
+            transform:translateY(-38%) rotate(225deg);
+        }
+
         .reports-config-toolbar > .reports-field,
         .reports-filter-grid .reports-field,
         .reports-filter-grid .reports-field.reports-field-wide {
@@ -852,10 +869,7 @@
             -webkit-appearance:none !important;
             -moz-appearance:none !important;
             background-color:#F7F9F3 !important;
-            background-image:url("data:image/svg+xml,%3Csvg width='14' height='14' viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7.5L10 12.5L15 7.5' stroke='%235F685F' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
-            background-position:right .85rem center !important;
-            background-repeat:no-repeat !important;
-            background-size:14px 14px !important;
+            background-image:none !important;
         }
 
         .reports-input:hover,
@@ -963,6 +977,16 @@
             border-radius:.65rem;
             background:#E9F0E4;
             overflow:hidden;
+        }
+
+        @media (max-width: 820px) {
+            .reports-export-options {
+                left: 0 !important;
+                right: auto !important;
+                width: min(12rem, calc(100vw - 1.5rem)) !important;
+                min-width: 0 !important;
+                max-width: calc(100vw - 1.5rem) !important;
+            }
         }
 
         .reports-export-options button {
@@ -1617,6 +1641,91 @@
         .reports-table.is-drilldown-table .reports-col-last_payment_date {
             min-width: 7.5rem !important;
             width: 7.5rem !important;
+        }
+
+        @media (max-width: 720px) {
+            .reports-page,
+            .reports-page *,
+            .reports-page *::before,
+            .reports-page *::after {
+                box-sizing: border-box;
+            }
+
+            .reports-page {
+                max-width: 100vw;
+                overflow-x: clip;
+                padding-inline: clamp(.5rem, 3vw, .75rem) !important;
+            }
+
+            .reports-card,
+            .reports-filter-card,
+            .reports-config-form,
+            .reports-config-toolbar,
+            .reports-filter-grid,
+            .reports-card-head,
+            .reports-preview-head,
+            .reports-card-head-actions,
+            .reports-toolbar-trailing,
+            .reports-action-buttons {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
+            }
+
+            .reports-card-head,
+            .reports-preview-head {
+                flex-direction: column !important;
+                align-items: stretch !important;
+                gap: .75rem !important;
+            }
+
+            .reports-card-head > *,
+            .reports-preview-head > * {
+                min-width: 0;
+                max-width: 100%;
+            }
+
+            .reports-card-head-actions,
+            .reports-action-buttons {
+                display: grid !important;
+                grid-template-columns: 1fr;
+                justify-content: stretch !important;
+            }
+
+            .reports-btn,
+            .reports-filter-reset {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
+                white-space: normal;
+            }
+
+            .reports-summary-grid {
+                grid-template-columns:1fr !important;
+                gap:.65rem !important;
+                padding:.75rem !important;
+            }
+
+            .reports-metric {
+                display:grid !important;
+                grid-template-columns:2.4rem minmax(0, 1fr) !important;
+                align-items:center !important;
+                min-height:4.6rem !important;
+                gap:.75rem !important;
+                padding:.8rem .9rem !important;
+            }
+
+            .reports-metric-icon {
+                width:2.25rem !important;
+                height:2.25rem !important;
+            }
+
+            .reports-metric-label,
+            .reports-metric-value {
+                min-width:0;
+                overflow-wrap:anywhere;
+                text-align:left;
+            }
         }
 
         @media (max-width: 900px) {

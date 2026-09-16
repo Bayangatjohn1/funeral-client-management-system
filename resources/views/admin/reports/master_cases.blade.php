@@ -92,11 +92,7 @@
             padding:.9rem var(--panel-content-inline) 20px;
             color:var(--records-text);
             font-family:var(--font-body);
-            background:
-                linear-gradient(90deg, rgba(73,87,69,0.04) 0 1px, transparent 1px),
-                linear-gradient(180deg, rgba(73,87,69,0.034) 0 1px, transparent 1px),
-                repeating-linear-gradient(135deg, rgba(73,87,69,0.02) 0 1px, transparent 1px 12px);
-            background-size:44px 44px,44px 44px,16px 16px;
+            background:transparent;
         }
 
         .master-records-page,
@@ -310,7 +306,7 @@
             min-height:2.85rem !important;
             height:2.85rem !important;
             display:block !important;
-            background:#E1E7D9 !important;
+            background:var(--filter-ui-bg, #f7f8f1) !important;
             border:1px solid var(--records-border) !important;
             border-radius:8px !important;
         }
@@ -338,7 +334,7 @@
         .master-records-page .case-compact-pop-reset,
         .master-records-page .case-compact-advanced-clear,
         .master-records-page .case-compact-chip {
-            background:#E1E7D9 !important;
+            background:var(--filter-ui-bg, #f7f8f1) !important;
             border:1px solid var(--records-border) !important;
             color:var(--records-text) !important;
             border-radius:8px !important;
@@ -755,6 +751,205 @@
                 flex-wrap: wrap;
             }
         }
+
+        @media (max-width: 767px) {
+            .master-records-page,
+            .master-records-page *,
+            .master-records-page *::before,
+            .master-records-page *::after {
+                box-sizing:border-box;
+            }
+
+            .master-records-page {
+                max-width:100vw;
+                overflow-x:clip;
+                padding-inline:clamp(.5rem, 3vw, .75rem) !important;
+            }
+
+            .master-records-page .table-system-toolbar,
+            .master-records-page .admin-table-toolbar,
+            .master-records-page .case-compact-filter,
+            .master-records-page .case-compact-search-row,
+            .master-records-page .case-compact-filter-bar,
+            .master-records-page .case-compact-actions,
+            .master-records-page .case-records-tabs-row,
+            .master-records-page .case-records-tabs,
+            .master-records-page .table-system-list,
+            .master-records-page .table-system-wrap {
+                width:100% !important;
+                max-width:100% !important;
+                min-width:0 !important;
+            }
+
+            .master-records-page .admin-table-toolbar .case-compact-filter {
+                display:grid !important;
+                grid-template-columns:minmax(0, 1fr);
+                gap:.65rem !important;
+            }
+
+            .master-records-page .admin-table-toolbar .case-compact-search-row {
+                display:grid !important;
+                grid-template-columns:minmax(0, 1fr);
+                gap:.55rem !important;
+            }
+
+            .master-records-page .admin-table-toolbar .case-compact-filter-bar {
+                display:grid !important;
+                grid-template-columns:minmax(0, 1fr);
+                gap:.55rem !important;
+                align-items:stretch;
+                justify-content:stretch !important;
+            }
+
+            .master-records-page .admin-table-toolbar .case-compact-search-field,
+            .master-records-page .case-compact-search-control,
+            .master-records-page .case-compact-input,
+            .master-records-page .case-compact-branch,
+            .master-records-page .case-compact-seg,
+            .master-records-page .case-compact-more,
+            .master-records-page .case-compact-reset,
+            .master-records-page .case-compact-apply {
+                width:100% !important;
+                max-width:100% !important;
+                min-width:0 !important;
+                flex-basis:auto !important;
+            }
+
+            .master-records-page .admin-table-toolbar .case-compact-filter-bar > *,
+            .master-records-page .admin-table-toolbar .case-compact-branch,
+            .master-records-page .admin-table-toolbar .case-compact-seg,
+            .master-records-page .admin-table-toolbar .case-compact-more {
+                justify-self:stretch !important;
+                flex:1 1 auto !important;
+            }
+
+            .master-records-page .admin-table-toolbar .case-compact-select,
+            .master-records-page .admin-table-toolbar .case-compact-date-select,
+            .master-records-page .admin-table-toolbar .case-compact-sort-select {
+                width:100% !important;
+                max-width:100% !important;
+                min-width:0 !important;
+            }
+
+            .master-records-page .case-records-tabs {
+                display:grid !important;
+                grid-template-columns:repeat(4, minmax(0, 1fr));
+                gap:.35rem;
+                padding:.35rem;
+            }
+
+            .master-records-page .table-quick-tab {
+                width:100%;
+                min-width:0;
+                padding-inline:.25rem;
+                overflow-wrap:anywhere;
+                text-align:center;
+                white-space:normal;
+            }
+
+            .master-records-page .table-system-list {
+                padding:.55rem;
+            }
+
+            .master-records-page .table-system-wrap {
+                margin:0 !important;
+                overflow:visible !important;
+            }
+
+            .master-records-page .admin-master-table colgroup,
+            .master-records-page .admin-master-table thead {
+                display:none;
+            }
+
+            .master-records-page .admin-master-table,
+            .master-records-page .admin-master-table tbody,
+            .master-records-page .admin-master-table tr,
+            .master-records-page .admin-master-table td {
+                display:block;
+                width:100% !important;
+                max-width:100% !important;
+                min-width:0 !important;
+            }
+
+            .master-records-page .admin-master-table {
+                border-collapse:separate;
+                border-spacing:0;
+                table-layout:auto;
+            }
+
+            .master-records-page .admin-master-table tbody {
+                display:grid;
+                gap:.7rem;
+            }
+
+            .master-records-page .admin-master-table tbody tr {
+                border:1px solid var(--records-border);
+                border-radius:8px;
+                overflow:hidden;
+                background:var(--records-card-alt) !important;
+            }
+
+            .master-records-page .admin-master-table .row-needs-attention {
+                border-left:0;
+                box-shadow:inset 4px 0 0 #A85248 !important;
+            }
+
+            .master-records-page .admin-master-table tbody td {
+                display:grid;
+                grid-template-columns:minmax(5.6rem, .4fr) minmax(0, 1fr);
+                gap:.75rem;
+                align-items:start;
+                padding:.65rem .8rem !important;
+                border:0 !important;
+                border-bottom:1px solid var(--records-border) !important;
+                background:transparent !important;
+                text-align:left !important;
+            }
+
+            .master-records-page .admin-master-table tbody td:last-child {
+                border-bottom:0 !important;
+            }
+
+            .master-records-page .admin-master-table tbody td::before {
+                content:attr(data-label);
+                grid-column:1;
+                grid-row:1 / span 3;
+                color:var(--records-muted);
+                font-size:.7rem;
+                font-weight:800;
+                line-height:1.25;
+            }
+
+            .master-records-page .admin-master-table tbody td > * {
+                grid-column:2;
+                min-width:0;
+            }
+
+            .master-records-page .admin-master-table .table-primary,
+            .master-records-page .admin-master-table .table-secondary,
+            .master-records-page .admin-master-table .table-financial-total,
+            .master-records-page .admin-master-table .table-financial-breakdown {
+                min-width:0;
+                overflow:visible;
+                overflow-wrap:anywhere;
+                text-overflow:clip;
+                white-space:normal !important;
+                text-align:left !important;
+            }
+
+            .master-records-page .admin-master-table .status-badge,
+            .master-records-page .admin-master-table .table-payment-status-badge {
+                justify-self:start;
+                max-width:100%;
+                white-space:normal;
+            }
+        }
+
+        @media (max-width: 380px) {
+            .master-records-page .case-records-tabs {
+                grid-template-columns:repeat(2, minmax(0, 1fr));
+            }
+        }
     </style>
 
     @if($errors->any())
@@ -954,19 +1149,6 @@
                 </a>
             </div>
 
-            <div class="case-records-master-chip-row">
-                <div class="case-compact-inline-chips case-records-quick-chips" aria-label="Applied branch and filters">
-                    @forelse($adminMasterChips as $chip)
-                        <span class="case-compact-chip {{ !empty($chip['locked']) ? 'case-compact-chip-locked' : '' }}">
-                            <i class="bi {{ $chip['icon'] }}"></i>{{ $chip['label'] }}
-                        </span>
-                    @empty
-                        <span class="case-compact-chip">
-                            <i class="bi bi-funnel"></i>All records
-                        </span>
-                    @endforelse
-                </div>
-            </div>
         </div>
 
         <div class="table-system-list">
@@ -1013,34 +1195,34 @@
                             role="link"
                             aria-label="Open full case details for {{ $case->case_code }}"
                         >
-                            <td>
+                            <td data-label="Case">
                                 <div class="table-primary whitespace-nowrap records-case-code">{{ $case->case_code }}</div>
                                 <div class="table-secondary">Encoded {{ $case->created_at?->format('M d, Y') }}</div>
                             </td>
-                            <td>
+                            <td data-label="Branch">
                                 <div class="table-primary whitespace-nowrap">{{ $case->branch?->branch_code ?? '-' }}</div>
-                                <div class="table-secondary">{{ \Illuminate\Support\Str::limit($case->branch?->branch_name ?? '-', 24) }}</div>
+                                <div class="table-secondary">{{ $case->branch?->branch_name ?? '-' }}</div>
                             </td>
-                            <td>
-                                <div class="table-primary">{{ \Illuminate\Support\Str::limit($case->deceased?->full_name ?? '-', 30) }}</div>
-                                <div class="table-secondary">{{ \Illuminate\Support\Str::limit($case->client?->full_name ?? '-', 28) }}</div>
+                            <td data-label="Family / Client">
+                                <div class="table-primary">{{ $case->deceased?->full_name ?? '-' }}</div>
+                                <div class="table-secondary">{{ $case->client?->full_name ?? '-' }}</div>
                             </td>
-                            <td>
+                            <td data-label="Service">
                                 <div class="table-primary">{{ $case->service_type ?? '-' }}</div>
-                                <div class="table-secondary">{{ \Illuminate\Support\Str::limit($case->package?->name ?? $case->service_package ?? '-', 30) }}</div>
+                                <div class="table-secondary">{{ $case->package?->name ?? $case->service_package ?? '-' }}</div>
                             </td>
-                            <td>
+                            <td data-label="Interment">
                                 <div class="table-primary whitespace-nowrap">{{ $intermentDate ? $intermentDate->format('M d, Y') : '-' }}</div>
                                 <div class="table-secondary">{{ $intermentDate && $intermentDate->format('H:i') !== '00:00' ? $intermentDate->format('h:i A') : 'Scheduled date' }}</div>
                             </td>
-                            <td class="table-col-number">
+                            <td class="table-col-number" data-label="Financials">
                                 <div class="table-primary table-financial-total whitespace-nowrap">{{ number_format((float) $case->total_amount, 2) }}</div>
                                 <div class="table-secondary table-financial-breakdown whitespace-nowrap">Paid {{ number_format((float) $case->total_paid, 2) }} &middot; Bal {{ number_format((float) $case->balance_amount, 2) }}</div>
                             </td>
-                            <td class="table-status-cell">
+                            <td class="table-status-cell" data-label="Case Status">
                                 <x-status-badge :status="$case->case_status" :label="\Illuminate\Support\Str::headline(strtolower((string) $case->case_status))" />
                             </td>
-                            <td class="table-status-cell table-payment-status-cell">
+                            <td class="table-status-cell table-payment-status-cell" data-label="Payment Status">
                                 <x-status-badge :status="$case->payment_status" :label="\Illuminate\Support\Str::headline(strtolower((string) $case->payment_status))" class="table-payment-status-badge" />
                             </td>
                         </tr>
@@ -1061,19 +1243,18 @@
 </div>
 
 {{-- Case view modal --}}
-<div id="adminCaseViewOverlay" style="display:none; position:fixed; inset:0; z-index:400; background:rgba(0,0,0,0.55); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); align-items:center; justify-content:center;">
-    <div id="adminCaseViewSheet" class="relative w-[92vw] max-w-4xl max-h-[92vh] rounded-2xl shadow-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border"
-         style="background:var(--card);border-color:var(--border);">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--surface-panel);flex-shrink:0;">
-            <span style="font-size:13px;font-weight:700;color:var(--ink);">Case Details</span>
-            <button id="adminCaseViewClose" type="button" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--ink-muted);cursor:pointer;" aria-label="Close">
-                <i class="bi bi-x-lg" style="font-size:.75rem;"></i>
+<div id="adminCaseViewOverlay" class="case-view-overlay">
+    <div id="adminCaseViewSheet" class="case-view-sheet relative w-[92vw] max-w-4xl max-h-[92vh] overflow-hidden transform transition-all duration-200 scale-95 opacity-0">
+        <div class="case-view-head">
+            <span class="case-view-title">Case Details</span>
+            <button id="adminCaseViewClose" type="button" class="case-view-close" aria-label="Close">
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
             </button>
         </div>
-        <div id="adminCaseViewContent" class="overflow-y-auto" style="max-height:calc(92vh - 54px);padding:16px;">
-            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 0;gap:10px;">
-                <div style="width:28px;height:28px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--brand);animation:spin 1s linear infinite;"></div>
-                <span style="font-size:13px;color:var(--ink-muted);">Loading…</span>
+        <div id="adminCaseViewContent" class="case-view-content overflow-y-auto">
+            <div class="case-view-loading">
+                <div class="case-view-spinner"></div>
+                <span>Loading...</span>
             </div>
         </div>
     </div>
@@ -1259,9 +1440,9 @@
         if (!overlay || !sheet || !content || !closeBtn) return;
 
         const loadingHtml = `
-            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 0;gap:10px;">
-                <div style="width:28px;height:28px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--brand);animation:spin 1s linear infinite;"></div>
-                <span style="font-size:13px;color:var(--ink-muted);">Loading…</span>
+            <div class="case-view-loading">
+                <div class="case-view-spinner"></div>
+                <span>Loading...</span>
             </div>`;
 
         const show = () => {
@@ -1298,10 +1479,10 @@
                         content.appendChild(script);
                     });
                 } else {
-                    content.innerHTML = `<div style="padding:20px;font-size:13px;color:#9E4B3F;">Unable to load case details.</div>`;
+                    content.innerHTML = `<div class="case-view-error">Unable to load case details.</div>`;
                 }
             } catch {
-                content.innerHTML = `<div style="padding:20px;font-size:13px;color:#9E4B3F;">Network error. Please try again.</div>`;
+                content.innerHTML = `<div class="case-view-error">Network error. Please try again.</div>`;
             }
         };
 

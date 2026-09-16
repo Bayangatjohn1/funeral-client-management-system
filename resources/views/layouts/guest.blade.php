@@ -17,18 +17,17 @@
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="font-sans antialiased" style="background: var(--color-bg-page); color: var(--color-text-primary);">
-        <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0" style="background: var(--color-bg-page);">
+    <body class="font-sans antialiased guest-shell">
+        <div class="guest-shell__inner">
             <div>
                 <a href="/">
-                    <x-application-logo class="w-20 h-20 fill-current" style="color: var(--color-text-secondary);" />
+                    <x-application-logo class="guest-logo w-20 h-20 fill-current" />
                 </a>
             </div>
 
-            <div class="w-full sm:max-w-md mt-6 px-6 py-4 shadow-md overflow-hidden sm:rounded-lg" style="background: var(--color-bg-surface); border: 1px solid var(--color-border);">
+            <div class="guest-card w-full sm:max-w-md mt-6 px-6 py-4 overflow-hidden sm:rounded-lg">
                 {{ $slot }}
             </div>
         </div>
     </body>
 </html>
-

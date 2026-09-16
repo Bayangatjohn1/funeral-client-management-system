@@ -297,13 +297,17 @@ function initFilterSelectAffordances() {
         'form[data-table-toolbar] select.table-toolbar-select',
         'form[data-table-toolbar] select.table-toolbar-sort',
         '.sales-filter select.filter-select',
+        '.rp-field select.form-select',
         '.audit-filter-control.is-select select.audit-select',
         '.admin-filter-control select.input-custom',
+        '.aoc-select-wrap select.form-select',
+        '.pf-control-wrap select.pf-select',
         '.ba-branch-select-wrap select.ba-branch-select',
         '.ba-period-select-wrap select.ba-period-select',
         '.eb-branch-select-wrap select.eb-branch-select',
         '.eb-period-select-wrap select.eb-period-select',
         '.reports-module-control-wrap select.reports-module-control',
+        '.reports-field-control select.reports-input',
         '.reports-analytics-branch select.reports-analytics-select',
         '.owner-sales-field-control select.owner-sales-control',
         '.topbar-filter-bar select.filter-select',
@@ -318,7 +322,7 @@ function initFilterSelectAffordances() {
         if (!(select instanceof HTMLSelectElement) || select.dataset.filterSelectReady === '1') return;
         select.dataset.filterSelectReady = '1';
 
-        let wrap = select.closest('.table-toolbar-select-wrap, .audit-filter-control.is-select, .admin-filter-control, .ba-period-select-wrap, .ba-branch-select-wrap, .eb-period-select-wrap, .eb-branch-select-wrap, .reports-module-control-wrap, .reports-analytics-branch, .payments-filter-control.has-dropdown, .case-compact-date-filter, .case-compact-sort-filter, .case-compact-branch, .pm-field.has-icon, .global-filter-select-wrap');
+        let wrap = select.closest('.table-toolbar-select-wrap, .audit-filter-control.is-select, .admin-filter-control, .sales-filter-control, .owner-sales-field-control, .rp-field, .aoc-select-wrap, .pf-control-wrap, .ba-period-select-wrap, .ba-branch-select-wrap, .eb-period-select-wrap, .eb-branch-select-wrap, .reports-module-control-wrap, .reports-field-control, .reports-analytics-branch, .payments-filter-control.has-dropdown, .case-compact-select-wrap, .case-compact-date-filter, .case-compact-sort-filter, .case-compact-branch, .pm-field.has-icon, .global-filter-select-wrap');
 
         if (!wrap && select.parentElement) {
             const isTableToolbarSelect = select.classList.contains('table-toolbar-select') || select.classList.contains('table-toolbar-sort');
@@ -331,7 +335,7 @@ function initFilterSelectAffordances() {
         if (!wrap) return;
         wrap.setAttribute('data-filter-select-wrap', '');
 
-        let icon = wrap.querySelector('.table-toolbar-select-icon, .payments-filter-dropdown-icon, .admin-filter-chevron, .reports-module-chevron, .ba-branch-select-chev, .eb-branch-select-chev, .case-compact-date-chev, .case-compact-sort-chev, .case-compact-select-chev, .pm-sel-chev, [data-filter-select-icon]');
+        let icon = wrap.querySelector('.table-toolbar-select-icon, .payments-filter-dropdown-icon, .admin-filter-chevron, .reports-module-chevron, .ba-branch-select-chev, .eb-branch-select-chev, .eb-chev, .case-compact-date-chev, .case-compact-sort-chev, .case-compact-select-chev, .pm-sel-chev, .pf-control-icon, .aoc-select-icon, .reports-analytics-select-chev, [data-filter-select-icon]');
         if (!icon && (wrap.classList.contains('table-toolbar-select-wrap') || wrap.classList.contains('global-filter-select-wrap'))) {
             icon = document.createElement('i');
             icon.className = 'bi bi-chevron-down table-toolbar-select-icon';
@@ -394,11 +398,25 @@ function initFilterSelectAffordances() {
         select.setAttribute('aria-haspopup', 'listbox');
         select.setAttribute('aria-expanded', 'false');
 
-        select.addEventListener('pointerdown', (event) => {
+        let lastToggleAt = 0;
+        const toggleMenu = (event) => {
             if (select.disabled) return;
             event.preventDefault();
             select.focus({ preventScroll: true });
+            lastToggleAt = Date.now();
             setOpen(!wrap.classList.contains('is-open'));
+        };
+
+        select.addEventListener('pointerdown', (event) => {
+            toggleMenu(event);
+        });
+        select.addEventListener('click', (event) => {
+            if (Date.now() - lastToggleAt < 240) {
+                event.preventDefault();
+                return;
+            }
+
+            toggleMenu(event);
         });
         select.addEventListener('keydown', (event) => {
             if (['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(event.key)) {
@@ -717,6 +735,24 @@ function initCaseCompactFilters() {
 
         customToggle?.addEventListener('click', () => {
             setCustomOpen(customToggle.getAttribute('aria-expanded') !== 'true');
+        });
+
+        form.querySelectorAll('.case-compact-branch, .case-compact-date-filter, .case-compact-sort-filter').forEach((wrap) => {
+            wrap.addEventListener('click', (event) => {
+                if (event.target.closest('.filter-select-menu, .case-compact-popover')) return;
+
+                const select = wrap.querySelector('select');
+                if (!(select instanceof HTMLSelectElement) || select.disabled || event.target === select || select.contains(event.target)) return;
+
+                event.preventDefault();
+                select.focus({ preventScroll: true });
+                const PointerCtor = typeof PointerEvent === 'function' ? PointerEvent : MouseEvent;
+                select.dispatchEvent(new PointerCtor('pointerdown', {
+                    bubbles: true,
+                    cancelable: true,
+                    pointerType: 'mouse',
+                }));
+            });
         });
 
         datePreset?.addEventListener('change', () => {

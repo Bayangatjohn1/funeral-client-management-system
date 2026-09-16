@@ -1,3 +1,3 @@
-<button {{ $attributes->merge(['type' => 'button', 'class' => 'inline-flex items-center px-4 py-2 rounded-md font-semibold text-xs uppercase tracking-widest shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 transition ease-in-out duration-150', 'style' => 'background: var(--color-bg-surface); border: 1px solid var(--color-border); color: var(--color-primary);', 'onmouseover' => "this.style.background='var(--color-bg-muted)'; this.style.borderColor='var(--color-border-strong)'", 'onmouseout' => "this.style.background='var(--color-bg-surface)'; this.style.borderColor='var(--color-border)'"]) }}>
+<button {{ $attributes->merge(['type' => 'button', 'class' => 'ui-button ui-button-secondary']) }}>
     {{ $slot }}
 </button>

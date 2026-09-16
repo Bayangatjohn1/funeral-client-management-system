@@ -1,42 +1,11 @@
 @extends('layouts.panel')
 
-@section('page_title', 'Global Case History')
+@section('page_title', 'Master Case Records')
 @section('page_desc', 'Review completed case records across all branches.')
+@section('hide_layout_topbar', '1')
 
 @section('content')
 <div class="owner-page-shell">
-@php
-    $ownerHistoryChips = collect();
-    if (filled($branchId ?? null)) {
-        $ownerBranch = ($branches ?? collect())->firstWhere('id', (int) $branchId);
-        $ownerHistoryChips->push([
-            'icon' => 'bi-building',
-            'label' => 'Branch: ' . ($ownerBranch ? trim(($ownerBranch->branch_code ?? '') . ' - ' . ($ownerBranch->branch_name ?? '')) : 'Selected Branch'),
-        ]);
-    }
-    if (filled(request('q'))) {
-        $ownerHistoryChips->push(['icon' => 'bi-search', 'label' => 'Search: ' . request('q')]);
-    }
-    if (filled(request('case_status'))) {
-        $ownerHistoryChips->push(['icon' => 'bi-clipboard-check', 'label' => 'Case: ' . \Illuminate\Support\Str::headline(strtolower(request('case_status')))]);
-    }
-    if (filled(request('payment_status'))) {
-        $ownerHistoryChips->push(['icon' => 'bi-wallet2', 'label' => 'Payment: ' . \Illuminate\Support\Str::headline(strtolower(request('payment_status')))]);
-    }
-    if (filled(request('service_type'))) {
-        $ownerHistoryChips->push(['icon' => 'bi-tag', 'label' => 'Service: ' . request('service_type')]);
-    }
-    if (filled(request('package_id'))) {
-        $selectedPackage = ($packages ?? collect())->firstWhere('id', (int) request('package_id'));
-        $ownerHistoryChips->push(['icon' => 'bi-box', 'label' => 'Package: ' . ($selectedPackage?->name ?? 'Selected Package')]);
-    }
-    if (filled($datePreset ?? null)) {
-        $ownerHistoryChips->push(['icon' => 'bi-calendar3', 'label' => 'Date: ' . \Illuminate\Support\Str::headline(strtolower((string) $datePreset))]);
-    }
-    if (filled($intermentFrom ?? null) || filled($intermentTo ?? null)) {
-        $ownerHistoryChips->push(['icon' => 'bi-calendar-event', 'label' => 'Interment: ' . (($intermentFrom ?? null) ?: 'Start') . ' - ' . (($intermentTo ?? null) ?: 'Today')]);
-    }
-@endphp
 @if($errors->any())
     <div class="flash-error">
         {{ $errors->first() }}
@@ -61,21 +30,8 @@
         'showPackage' => true,
         'showEncodedBy' => false,
         'showInlineChips' => false,
+        'useDateDisplayLabel' => true,
     ])
-</div>
-
-<div class="case-records-master-chip-row owner-history-chip-row">
-    <div class="case-compact-inline-chips case-records-quick-chips" aria-label="Applied branch and filters">
-        @forelse($ownerHistoryChips as $chip)
-            <span class="case-compact-chip">
-                <i class="bi {{ $chip['icon'] }}"></i>{{ $chip['label'] }}
-            </span>
-        @empty
-            <span class="case-compact-chip">
-                <i class="bi bi-funnel"></i>All records
-            </span>
-        @endforelse
-    </div>
 </div>
 
 <div class="list-card">
@@ -151,19 +107,18 @@
 </div>
 
 {{-- Case view modal --}}
-<div id="caseViewOverlay" style="display:none; position:fixed; inset:0; z-index:400; background:rgba(0,0,0,0.55); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); align-items:center; justify-content:center;">
-    <div id="caseViewSheet" class="relative w-[92vw] max-w-4xl max-h-[92vh] bg-white rounded-2xl shadow-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border border-slate-200"
-         style="background:var(--card);border-color:var(--border);">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--surface-panel);flex-shrink:0;">
-            <span style="font-size:13px;font-weight:700;color:var(--ink);">Case Details</span>
-            <button id="caseViewClose" type="button" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--ink-muted);cursor:pointer;" aria-label="Close">
-                <i class="bi bi-x-lg" style="font-size:.75rem;"></i>
+<div id="caseViewOverlay" class="case-view-overlay">
+    <div id="caseViewSheet" class="case-view-sheet relative w-[92vw] max-w-4xl max-h-[92vh] overflow-hidden transform transition-all duration-200 scale-95 opacity-0">
+        <div class="case-view-head">
+            <span class="case-view-title">Case Details</span>
+            <button id="caseViewClose" type="button" class="case-view-close" aria-label="Close">
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
             </button>
         </div>
-        <div id="caseViewContent" class="overflow-y-auto" style="max-height:calc(92vh - 54px);padding:16px;">
-            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 0;gap:10px;">
-                <div style="width:28px;height:28px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--brand);animation:spin 1s linear infinite;"></div>
-                <span style="font-size:13px;color:var(--ink-muted);">Loading…</span>
+        <div id="caseViewContent" class="case-view-content overflow-y-auto">
+            <div class="case-view-loading">
+                <div class="case-view-spinner"></div>
+                <span>Loading...</span>
             </div>
         </div>
     </div>
@@ -179,9 +134,9 @@
     const closeBtn = document.getElementById('caseViewClose');
 
     const loadingHtml = `
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 0;gap:10px;">
-            <div style="width:28px;height:28px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--brand);animation:spin 1s linear infinite;"></div>
-            <span style="font-size:13px;color:var(--ink-muted);">Loading…</span>
+        <div class="case-view-loading">
+            <div class="case-view-spinner"></div>
+            <span>Loading...</span>
         </div>`;
 
     const show = () => {
@@ -218,10 +173,10 @@
                     content.appendChild(script);
                 });
             } else {
-                content.innerHTML = `<div style="padding:20px;font-size:13px;color:#9E4B3F;">Unable to load case details.</div>`;
+                content.innerHTML = `<div class="case-view-error">Unable to load case details.</div>`;
             }
         } catch {
-            content.innerHTML = `<div style="padding:20px;font-size:13px;color:#9E4B3F;">Network error. Please try again.</div>`;
+            content.innerHTML = `<div class="case-view-error">Network error. Please try again.</div>`;
         }
     };
 

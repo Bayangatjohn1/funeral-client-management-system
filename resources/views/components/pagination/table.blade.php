@@ -12,12 +12,16 @@
     } else {
         $summary = "Showing records {$from}-{$to} of {$total}";
     }
+
+    $showSummary = $showSummary ?? true;
 @endphp
 
 <nav role="navigation" aria-label="{{ __('Pagination Navigation') }}" class="table-paginator">
-    <div class="table-paginator-meta">
-        {{ $summary }}
-    </div>
+    @if($showSummary)
+        <div class="table-paginator-meta">
+            {{ $summary }}
+        </div>
+    @endif
 
     <div class="table-paginator-nav">
         @if($paginator->onFirstPage())

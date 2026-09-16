@@ -16,6 +16,7 @@
     $showMoreFilters = $showMoreFilters ?? true;
     $showSort = $showSort ?? false;
     $showBranchField = $showBranchField ?? true;
+    $useDateDisplayLabel = $useDateDisplayLabel ?? false;
     $sortOptions = $sortOptions ?? [];
     $sort = $sort ?? request('sort', 'newest');
     $branchLabel = 'All Branches';
@@ -97,6 +98,13 @@
     if (filled($intermentFrom ?? null) || filled($intermentTo ?? null)) {
         $filterChips->push(['icon' => 'bi-calendar-event', 'label' => 'Interment Date: ' . (($intermentFrom ?? null) ?: 'Start') . ' - ' . (($intermentTo ?? null) ?: 'Today')]);
     }
+    $dateControlLabel = match ($datePreset) {
+        'TODAY' => 'Today',
+        'THIS_MONTH' => 'This Month',
+        'THIS_YEAR' => 'This Year',
+        'CUSTOM' => 'Custom Range',
+        default => 'All Dates',
+    };
 @endphp
 
 <form method="GET" action="{{ $action }}" class="case-compact-filter" data-case-filter data-live-search-commit-only>
@@ -183,6 +191,9 @@
 
         <div class="case-compact-seg case-compact-date-filter" role="group" aria-label="Date encoded preset filter">
             <i class="bi bi-calendar3 case-compact-date-icon"></i>
+            @if($useDateDisplayLabel)
+                <span class="case-compact-date-label" aria-hidden="true">{{ $dateControlLabel }}</span>
+            @endif
             <select name="date_preset" class="case-compact-date-select" data-case-date-preset-select aria-label="Date encoded filter">
                 <option value="" @selected(blank($datePreset))>All Dates</option>
                 <option value="TODAY" @selected($datePreset === 'TODAY')>Today</option>

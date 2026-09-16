@@ -382,7 +382,6 @@
     @if(session('success'))
         <div class="flash-success">{{ session('success') }}</div>
     @endif
-    <div class="flash-info" data-flash-icon="bi-clock-history">You are on the Payment Monitoring page.</div>
     @if($errors->any())
         <div class="flash-error">{{ $errors->first() }}</div>
     @endif
@@ -425,7 +424,7 @@
         {{-- Total Collected — links to Transaction History tab --}}
         <div class="pm-kpi ops-stat-card">
             <div class="pm-kpi-inner ops-stat-card__inner">
-                <span class="pm-kpi-icon ops-stat-card__icon" style="color:#6F8A6D;"><i class="bi bi-cash-stack" aria-hidden="true"></i></span>
+                <span class="pm-kpi-icon ops-stat-card__icon pm-kpi-icon--success"><i class="bi bi-cash-stack" aria-hidden="true"></i></span>
                 <div class="pm-kpi-body ops-stat-card__body">
                     <span class="pm-kpi-label ops-stat-card__label">Total Collected</span>
                     <strong class="pm-kpi-value ops-stat-card__value good">&#8369;{{ number_format((float) ($totalCollected ?? 0), 2) }}</strong>
@@ -436,7 +435,7 @@
         {{-- Outstanding Balance — non-clickable; no combined UNPAID+PARTIAL filter exists --}}
         <div class="pm-kpi ops-stat-card">
             <div class="pm-kpi-inner ops-stat-card__inner">
-                <span class="pm-kpi-icon ops-stat-card__icon" style="color:#B87956;"><i class="bi bi-exclamation-circle" aria-hidden="true"></i></span>
+                <span class="pm-kpi-icon ops-stat-card__icon pm-kpi-icon--warning"><i class="bi bi-exclamation-circle" aria-hidden="true"></i></span>
                 <div class="pm-kpi-body ops-stat-card__body">
                     <span class="pm-kpi-label ops-stat-card__label">Outstanding Balance</span>
                     <strong class="pm-kpi-value ops-stat-card__value warn">&#8369;{{ number_format((float) ($totalOutstanding ?? 0), 2) }}</strong>

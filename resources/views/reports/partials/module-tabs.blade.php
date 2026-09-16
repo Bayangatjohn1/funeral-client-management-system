@@ -35,6 +35,9 @@
         .reports-module-title-block {
             grid-column: 1;
         }
+        .reports-module-title-block--hidden {
+            display: none;
+        }
         .reports-module-title {
             margin: 0;
             color: var(--ink, #263126);
@@ -111,7 +114,7 @@
             background: #2F5233;
             border-color: #2F5233;
             color: #fff;
-            box-shadow: 0 6px 14px rgba(30, 54, 33, 0.16);
+            box-shadow: none;
         }
         .reports-module-subtabs .reports-module-tab.is-active,
         .reports-module-subtabs .reports-module-tab.active {
@@ -158,10 +161,9 @@
             font-weight: 700;
             outline: none;
             appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg width='14' height='14' viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7.5L10 12.5L15 7.5' stroke='%235F685F' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-            background-position: right .8rem center;
-            background-repeat: no-repeat;
-            background-size: 14px 14px;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: none;
             transition: border-color .16s ease, background-color .16s ease, box-shadow .16s ease;
         }
         .reports-module-control:hover {
@@ -172,7 +174,7 @@
         .reports-module-control:focus-visible {
             border-color: #2f5131;
             background-color: #f7f8f1;
-            box-shadow: 0 0 0 3px rgba(47, 81, 49, 0.14);
+            box-shadow: none;
         }
         .reports-module-control option {
             background-color: #f7f8f1 !important;
@@ -182,7 +184,6 @@
         .reports-module-control option:checked {
             background-color: #2f5131 !important;
             background: #2f5131 !important;
-            box-shadow: 0 0 0 100vmax #2f5131 inset !important;
             color: #f7f8f1 !important;
             -webkit-text-fill-color: #f7f8f1 !important;
             font-weight: 800;
@@ -206,6 +207,23 @@
             color: var(--ink-muted, #5F685F);
             font-size: 0.9rem;
             pointer-events: none;
+        }
+        .reports-module-control-wrap::after {
+            content: "";
+            position: absolute;
+            right: .85rem;
+            top: 50%;
+            width: .44rem;
+            height: .44rem;
+            border-right: 2px solid #566653;
+            border-bottom: 2px solid #566653;
+            pointer-events: none;
+            transform: translateY(-62%) rotate(45deg);
+            transition: transform .16s ease, border-color .16s ease;
+        }
+        .reports-module-control-wrap.is-open::after {
+            border-color: #293229;
+            transform: translateY(-38%) rotate(225deg);
         }
         .reports-module-export {
             min-height: 38px;
@@ -235,7 +253,7 @@
             color: var(--ink, #263126);
             font-size: 12px;
             font-weight: 800;
-            box-shadow: 0 8px 18px rgba(30, 54, 33, 0.10);
+            box-shadow: none;
         }
         [data-reports-module-shell].is-module-entering {
             opacity: 0.01;
@@ -264,7 +282,12 @@
                 gap: 0.75rem;
             }
             .reports-module-tabs {
-                overflow-x: auto;
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));
+                width: 100%;
+                max-width: 100%;
+                min-width: 0;
+                overflow: visible;
                 scrollbar-width: none;
             }
             .reports-module-subtabs {
@@ -274,8 +297,12 @@
             .reports-module-controls {
                 grid-column: 1;
                 grid-row: auto;
-                justify-content: flex-start;
-                overflow-x: auto;
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
+                width: 100%;
+                min-width: 0;
+                justify-content: stretch;
+                overflow: visible;
                 scrollbar-width: none;
             }
             .reports-module-tabs::-webkit-scrollbar {
@@ -285,21 +312,38 @@
                 display: none;
             }
             .reports-module-tab {
-                flex: 0 0 auto;
+                flex: 1 1 auto;
+                width: 100%;
+                min-width: 0 !important;
+                max-width: 100%;
+                padding-inline: .65rem;
+                overflow-wrap: anywhere;
+                white-space: normal;
             }
             .reports-module-control-wrap,
             .reports-module-export {
-                flex: 0 0 auto;
+                flex: 1 1 auto;
+                width: 100%;
+                min-width: 0;
+                max-width: 100%;
             }
             .reports-module-control,
             .reports-module-control.is-compact,
             .reports-module-control.is-branch {
+                width: 100%;
+                min-width: 0;
                 max-width: none;
+            }
+            .reports-module-export .reports-export-options {
+                left: 0;
+                right: auto;
+                width: min(12rem, calc(100vw - 1.5rem));
+                min-width: 0;
             }
         }
     </style>
 
-    <div class="reports-module-title-block">
+    <div class="reports-module-title-block reports-module-title-block--hidden" aria-hidden="true">
         <h1 class="reports-module-title">Reports &amp; Analytics</h1>
         <p class="reports-module-subtitle">Branch management intelligence dashboard</p>
     </div>
@@ -626,7 +670,7 @@ window.SabanganReportsModuleNavigation = window.SabanganReportsModuleNavigation 
             color: 'var(--ink, #263126)',
             fontSize: '12px',
             fontWeight: '800',
-            boxShadow: '0 8px 18px rgba(30, 54, 33, 0.10)',
+            boxShadow: 'none',
         });
 
         document.body.appendChild(overlay);
@@ -680,6 +724,7 @@ window.SabanganReportsModuleNavigation = window.SabanganReportsModuleNavigation 
             document.title = doc.title || document.title;
             executePageScripts(doc);
             window.Alpine?.initTree?.(nextShell);
+            document.dispatchEvent(new CustomEvent('panel-ui:reset'));
             window.history[mode === 'replace' ? 'replaceState' : 'pushState']({ reportsModule: true }, '', url.toString());
             await waitForModuleReady(nextShell);
             await waitForPaint();
@@ -718,7 +763,13 @@ window.SabanganReportsModuleNavigation = window.SabanganReportsModuleNavigation 
 
         event?.preventDefault();
         if (url.toString() !== window.location.href) {
-            load(url);
+            const label = link.querySelector?.('span')?.textContent?.trim()
+                || link.textContent?.trim()
+                || 'Reports & Analytics';
+
+            load(url).then(() => {
+                window.SabanganPageContextToast?.show?.(label);
+            });
         }
 
         return false;

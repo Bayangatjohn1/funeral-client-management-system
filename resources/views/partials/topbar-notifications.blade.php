@@ -10,6 +10,7 @@
     $notificationHref = $notificationHref ?? ($notificationRouteName ? route($notificationRouteName) : null);
     $isReminderPage = $isReminderPage ?? (request()->routeIs('staff.reminders.index') || request()->routeIs('admin.reminders.index'));
     $notificationCounts = $notificationCounts ?? ['all' => 0, 'due' => 0, 'today' => 0, 'upcoming' => 0];
+    $compactNotificationMenu = $compactNotificationMenu ?? false;
     $topbarNotifications = isset($topbarNotifications) ? collect($topbarNotifications) : collect();
 
     if ($showTopbarNotifications && $authUser && ! isset($payload)) {
@@ -36,39 +37,41 @@
         @endif
     </button>
 
-    <div class="topbar-notification-menu" data-notification-menu hidden>
-        <div class="topbar-notification-menu__head">
-            <div>
-                <strong>Reminders & Alerts</strong>
-                <small data-notification-summary>{{ $notificationTotal ?? 0 }} active alert{{ ($notificationTotal ?? 0) === 1 ? '' : 's' }} need your attention</small>
+    <div class="topbar-notification-menu {{ $compactNotificationMenu ? 'is-compact' : '' }}" data-notification-menu hidden>
+        @unless($compactNotificationMenu)
+            <div class="topbar-notification-menu__head">
+                <div>
+                    <strong>Reminders & Alerts</strong>
+                    <small data-notification-summary>{{ $notificationTotal ?? 0 }} active alert{{ ($notificationTotal ?? 0) === 1 ? '' : 's' }} need your attention</small>
+                </div>
+                @if($notificationHref ?? null)
+                    <a href="{{ $notificationHref }}">View all <i class="bi bi-arrow-up-right"></i></a>
+                @endif
             </div>
-            @if($notificationHref ?? null)
-                <a href="{{ $notificationHref }}">View all <i class="bi bi-arrow-up-right"></i></a>
-            @endif
-        </div>
 
-        <div class="topbar-notification-menu__chips">
-            <button type="button" class="topbar-notification-chip is-active" data-notification-filter="all">
-                <span class="topbar-notification-chip__dot"></span>
-                <span>All</span>
-                <strong data-notification-count="all">{{ $notificationCounts['all'] ?? 0 }}</strong>
-            </button>
-            <button type="button" class="topbar-notification-chip" data-notification-filter="due">
-                <span class="topbar-notification-chip__dot"></span>
-                <span>Due</span>
-                <strong data-notification-count="due">{{ $notificationCounts['due'] ?? 0 }}</strong>
-            </button>
-            <button type="button" class="topbar-notification-chip" data-notification-filter="today">
-                <span class="topbar-notification-chip__dot"></span>
-                <span>Today</span>
-                <strong data-notification-count="today">{{ $notificationCounts['today'] ?? 0 }}</strong>
-            </button>
-            <button type="button" class="topbar-notification-chip" data-notification-filter="upcoming">
-                <span class="topbar-notification-chip__dot"></span>
-                <span>Upcoming</span>
-                <strong data-notification-count="upcoming">{{ $notificationCounts['upcoming'] ?? 0 }}</strong>
-            </button>
-        </div>
+            <div class="topbar-notification-menu__chips">
+                <button type="button" class="topbar-notification-chip is-active" data-notification-filter="all">
+                    <span class="topbar-notification-chip__dot"></span>
+                    <span>All</span>
+                    <strong data-notification-count="all">{{ $notificationCounts['all'] ?? 0 }}</strong>
+                </button>
+                <button type="button" class="topbar-notification-chip" data-notification-filter="due">
+                    <span class="topbar-notification-chip__dot"></span>
+                    <span>Due</span>
+                    <strong data-notification-count="due">{{ $notificationCounts['due'] ?? 0 }}</strong>
+                </button>
+                <button type="button" class="topbar-notification-chip" data-notification-filter="today">
+                    <span class="topbar-notification-chip__dot"></span>
+                    <span>Today</span>
+                    <strong data-notification-count="today">{{ $notificationCounts['today'] ?? 0 }}</strong>
+                </button>
+                <button type="button" class="topbar-notification-chip" data-notification-filter="upcoming">
+                    <span class="topbar-notification-chip__dot"></span>
+                    <span>Upcoming</span>
+                    <strong data-notification-count="upcoming">{{ $notificationCounts['upcoming'] ?? 0 }}</strong>
+                </button>
+            </div>
+        @endunless
 
         <div class="topbar-notification-menu__list" data-notification-list>
             @forelse(($topbarNotifications ?? collect()) as $item)
@@ -152,7 +155,9 @@
         </div>
 
         <div class="topbar-notification-menu__footer">
-            <button type="button" class="topbar-notification-footer-btn" data-notification-mark-read>Mark all as read</button>
+            @unless($compactNotificationMenu)
+                <button type="button" class="topbar-notification-footer-btn" data-notification-mark-read>Mark all as read</button>
+            @endunless
             @if($notificationHref ?? null)
                 <a href="{{ $notificationHref }}" class="topbar-notification-footer-btn is-primary">Open Reminders <i class="bi bi-arrow-up-right"></i></a>
             @else

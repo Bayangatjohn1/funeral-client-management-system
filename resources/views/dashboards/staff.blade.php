@@ -6,7 +6,6 @@
 
 @section('content')
 @php
-    $staffFirstName = \Illuminate\Support\Str::of(auth()->user()->name ?? 'Staff')->trim()->explode(' ')->first();
     $branchLabel = trim(($dashboardBranch->branch_code ?? 'BR001') . ' - ' . ($dashboardBranch->branch_name ?? 'Main Branch'));
     $todayLabel = now()->format('l, F j, Y');
 
@@ -1469,6 +1468,32 @@
         border-color: #3E4A3D !important;
         color: var(--dash-text) !important;
     }
+
+    .staff-dashboard-v2 .staff-header-card {
+        overflow: visible !important;
+        position: relative;
+        z-index: 30;
+    }
+
+    .staff-dashboard-v2 .staff-header-main {
+        position: relative;
+        z-index: 80;
+    }
+
+    .staff-dashboard-v2 .staff-action-grid {
+        position: relative;
+        z-index: 1;
+    }
+
+    .staff-dashboard-v2 .staff-tools,
+    .staff-dashboard-v2 .topbar-notification-wrap {
+        position: relative;
+        z-index: 90;
+    }
+
+    .staff-dashboard-v2 .topbar-notification-menu {
+        z-index: 5000 !important;
+    }
 </style>
 
 <div class="staff-dashboard-v2">
@@ -1486,13 +1511,13 @@
                     <i class="bi bi-list"></i>
                 </button>
                 <div>
-                    <h1 class="staff-title">Good morning, {{ $staffFirstName }}</h1>
-                    <p class="staff-subtitle">Your daily workspace - <span class="staff-branch-chip">{{ $branchLabel }}</span></p>
+                    <h1 class="staff-title">Your daily workspace</h1>
+                    <p class="staff-subtitle"><span class="staff-branch-chip">{{ $branchLabel }}</span></p>
                 </div>
             </div>
             <div class="staff-tools">
                 <div class="staff-pill"><i class="bi bi-calendar3"></i> {{ $todayLabel }}</div>
-                @include('partials.topbar-notifications')
+                @include('partials.topbar-notifications', ['compactNotificationMenu' => true])
             </div>
         </div>
 
@@ -1673,7 +1698,7 @@
                             <h3>Needs Attention</h3>
                             <p>Cases requiring follow-up</p>
                         </div>
-                        <a href="{{ route('staff.reminders.index') }}" class="staff-pill" style="padding:.3rem .62rem;">{{ $attentionItems->count() }} Alert{{ $attentionItems->count() === 1 ? '' : 's' }}</a>
+                        <a href="{{ route('staff.reminders.index') }}" class="staff-pill staff-pill--compact">{{ $attentionItems->count() }} Alert{{ $attentionItems->count() === 1 ? '' : 's' }}</a>
                     </div>
 
                     <div class="staff-list">
@@ -1713,7 +1738,7 @@
                             <p>Unpaid or partial cases</p>
                         </div>
                         @if($outstandingCases->isEmpty())
-                            <span class="staff-pill" style="padding:.3rem .62rem; color:#4F6F4D; border-color:#bbf7d0; background:#dcfce7;">
+                            <span class="staff-pill staff-pill--compact staff-pill--settled">
                                 <i class="bi bi-check2"></i> All settled
                             </span>
                         @endif
@@ -1727,7 +1752,7 @@
                                     <small>{{ $case->client->full_name ?? 'No client record' }}</small>
                                 </div>
                                 <div class="text-right">
-                                    <div class="staff-money" style="color:#9E4B3F;">&#8369; {{ number_format((float) $case->balance_amount, 2) }}</div>
+                                    <div class="staff-money staff-money--danger">&#8369; {{ number_format((float) $case->balance_amount, 2) }}</div>
                                     <a href="{{ route('payments.index') }}" class="staff-balance-cta">Record Payment</a>
                                 </div>
                             </div>
@@ -1771,7 +1796,7 @@
                                     <small>{{ $item['case_code'] }}</small>
                                 </div>
                                 <div class="text-right">
-                                    <div class="staff-money" style="color:#0b4f9f;">
+                                    <div class="staff-money staff-money--info">
                                         {{ $item['date']?->isStartOfDay() ? $item['date']?->format('M d') : $item['date']?->format('h:i A') }}
                                     </div>
                                     <small class="staff-muted">{{ $item['label'] }}</small>
@@ -1789,16 +1814,16 @@
                 <div data-schedule-panel="upcoming" hidden>
                     <div class="staff-list">
                         @forelse($upcomingItems as $item)
-                            <a href="{{ route('funeral-cases.show', ['funeral_case' => $item['case_id'], 'return_to' => request()->fullUrl()]) }}" class="staff-list-row" style="align-items:center;">
+                            <a href="{{ route('funeral-cases.show', ['funeral_case' => $item['case_id'], 'return_to' => request()->fullUrl()]) }}" class="staff-list-row staff-list-row--center">
                                 <div class="staff-upcoming-date">
                                     <strong>{{ $item['date']?->format('d') }}</strong>
                                     <span>{{ $item['date']?->format('M') }}</span>
                                 </div>
-                                <div style="min-width:0; flex:1;">
+                                <div class="staff-list-main">
                                     <strong>{{ $item['deceased_name'] }}</strong>
                                     <small>{{ $item['case_code'] }} - {{ $item['label'] }}</small>
                                 </div>
-                                <div class="staff-money" style="color:#0b4f9f;">{{ $item['date']?->format('h:i A') }}</div>
+                                <div class="staff-money staff-money--info">{{ $item['date']?->format('h:i A') }}</div>
                             </a>
                         @empty
                             <div class="staff-empty">
@@ -1812,8 +1837,8 @@
 
             <article class="staff-card staff-card--month" data-month-card>
                 <div class="staff-card-head staff-card-head--compact">
-                    <h3 style="margin:0;">This Month</h3>
-                    <p style="margin:0;">{{ $monthLabel }}</p>
+                    <h3 class="staff-reset-margin">This Month</h3>
+                    <p class="staff-reset-margin">{{ $monthLabel }}</p>
                 </div>
                 <ul class="staff-monthly-list">
                     <li>

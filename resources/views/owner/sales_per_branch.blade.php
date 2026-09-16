@@ -95,10 +95,7 @@
         cursor: pointer;
         appearance: none;
         padding-right: 34px;
-        background-image: url("data:image/svg+xml,%3Csvg width='14' height='14' viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7.5L10 12.5L15 7.5' stroke='%235F685F' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-        background-position: right .75rem center;
-        background-repeat: no-repeat;
-        background-size: 14px 14px;
+        background-image: none;
     }
 
     .owner-sales-control:hover {

@@ -1307,6 +1307,12 @@ function branchCatalog() {
     const branchNamePattern = /^[\p{L}\p{M}][\p{L}\p{M}\s'.&-]*$/u;
     const invalidClass = ['border-rose-300', 'bg-rose-50', 'focus:border-rose-500', 'focus:ring-rose-500'];
 
+    [createOverlay, editOverlay].forEach((overlay) => {
+        if (overlay && overlay.parentElement !== document.body) {
+            document.body.appendChild(overlay);
+        }
+    });
+
     const normalizeBranchNameInput = (value) => String(value || '')
         .replace(/\s+/g, ' ')
         .trim();

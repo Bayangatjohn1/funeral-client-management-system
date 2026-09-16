@@ -17,6 +17,7 @@
 /public/hot
 /public/storage
 /storage/*.key
+/storage/framework/dusk-chrome-profile-*/
 /storage/pail
 /vendor
 Homestead.json

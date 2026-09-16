@@ -131,6 +131,7 @@
                     <option value="THIS_YEAR" @selected(($range ?? 'THIS_MONTH') === 'THIS_YEAR')>This Year</option>
                     <option value="CUSTOM" @selected($isCustomRange)>Custom Range</option>
                 </select>
+                <i class="bi bi-chevron-down eb-chev"></i>
             </div>
         </form>
 
@@ -837,28 +838,51 @@ html[data-theme='dark'] .eb-shell {
 }
 .eb-branch-select-wrap i,
 .eb-period-select-wrap i { font-size: 13px; color: var(--eb-text-muted); }
-.eb-chev { font-size: 10px; opacity: .55; pointer-events: none; }
+.eb-chev {
+    font-size: 10px;
+    opacity: .55;
+    pointer-events: none;
+    transition: transform .16s ease, color .16s ease, opacity .16s ease;
+    transform: rotate(0deg) !important;
+}
+.eb-branch-select-wrap.is-open .eb-chev,
+.eb-period-select-wrap.is-open .eb-chev {
+    color: var(--eb-accent) !important;
+    opacity: .95 !important;
+    transform: rotate(180deg) !important;
+}
 .eb-branch-select,
 .eb-period-select {
     flex: 1;
     min-width: 0;
-    border: 0;
-    background: transparent;
+    min-height: 0 !important;
+    height: 100% !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
     font-size: 12px;
     font-weight: 700;
     color: var(--eb-text);
     outline: none;
     cursor: pointer;
+    padding: 0 !important;
 }
 
-.eb-branch-select {
+.eb-branch-select,
+.eb-period-select {
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
 }
 
-.eb-branch-select::-ms-expand {
+.eb-branch-select::-ms-expand,
+.eb-period-select::-ms-expand {
     display: none;
+}
+
+.eb-shell .eb-period-select-wrap::after {
+    display: none !important;
 }
 
 .eb-period-form-inline {
@@ -2133,6 +2157,43 @@ a.eb-overview-card:hover {
     border-color: #8EA083 !important;
 }
 
+.eb-shell .eb-branch-select-wrap > select.eb-branch-select,
+.eb-shell .eb-period-select-wrap > select.eb-period-select,
+html:not([data-theme='dark']) .eb-shell .eb-branch-select-wrap > select.eb-branch-select,
+html:not([data-theme='dark']) .eb-shell .eb-period-select-wrap > select.eb-period-select,
+html[data-theme='dark'] .eb-shell .eb-branch-select-wrap > select.eb-branch-select,
+html[data-theme='dark'] .eb-shell .eb-period-select-wrap > select.eb-period-select {
+    display: block !important;
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    outline: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    color: var(--eb-text) !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    cursor: pointer !important;
+}
+
+.eb-shell .eb-branch-select-wrap > select.eb-branch-select:hover,
+.eb-shell .eb-branch-select-wrap > select.eb-branch-select:focus,
+.eb-shell .eb-period-select-wrap > select.eb-period-select:hover,
+.eb-shell .eb-period-select-wrap > select.eb-period-select:focus {
+    border: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
 @media (max-width: 640px) {
     .eb-shell {
         max-width: none;
@@ -2157,6 +2218,7 @@ a.eb-overview-card:hover {
 
         var showToast = function () {
             if (document.documentElement.getAttribute('data-sidebar-nav-entry') !== 'true') return;
+            if (document.querySelector('[data-global-page-context-toast]')) return;
 
             window.setTimeout(function () {
                 var toast = document.createElement('div');
@@ -2415,6 +2477,7 @@ a.eb-overview-card:hover {
                 if (pushUrl !== false) {
                     window.history.pushState({}, '', url.toString());
                 }
+                document.dispatchEvent(new CustomEvent('panel-ui:reset'));
                 document.dispatchEvent(new CustomEvent('owner-dashboard:updated'));
             })
             .catch(function () {
@@ -2476,6 +2539,27 @@ a.eb-overview-card:hover {
     window.addEventListener('popstate', function () {
         loadOwnerDashboard(new URL(window.location.href), false);
     });
+})();
+
+(function () {
+    var forwardOwnerFilterClick = function (event) {
+        var wrap = event.target.closest ? event.target.closest('.eb-branch-select-wrap, .eb-period-select-wrap') : null;
+        if (!wrap || event.target.closest('.filter-select-menu')) return;
+
+        var select = wrap.querySelector('select');
+        if (!select || event.target === select || select.contains(event.target)) return;
+
+        event.preventDefault();
+        select.focus({ preventScroll: true });
+        var PointerCtor = typeof PointerEvent === 'function' ? PointerEvent : MouseEvent;
+        select.dispatchEvent(new PointerCtor('pointerdown', {
+            bubbles: true,
+            cancelable: true,
+            pointerType: 'mouse'
+        }));
+    };
+
+    document.addEventListener('click', forwardOwnerFilterClick);
 })();
 
 (function () {

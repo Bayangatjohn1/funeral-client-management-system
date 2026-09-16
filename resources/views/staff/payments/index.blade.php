@@ -109,9 +109,11 @@
         padding-left: 2.45rem;
     }
 
-    .payments-filter-control.has-dropdown .table-toolbar-select {
-        appearance: none;
-        -webkit-appearance: none;
+    .payments-filter-control.has-dropdown #payment-date-range {
+        appearance: none !important;
+        -webkit-appearance: none !important;
+        -moz-appearance: none !important;
+        background-image: none !important;
         padding-right: 2.6rem;
     }
 
@@ -119,17 +121,19 @@
         position: absolute;
         right: 0.95rem;
         top: 50%;
-        transform: translateY(-50%) rotate(0deg);
+        width: 0.5rem;
+        height: 0.5rem;
+        transform: translateY(-62%) rotate(45deg);
+        border-right: 2px solid currentColor;
+        border-bottom: 2px solid currentColor;
         color: var(--ink-muted);
-        font-size: 0.78rem;
-        line-height: 1;
         pointer-events: none;
         transition: transform .16s ease, color .16s ease;
     }
 
     .payments-filter-control.has-dropdown.is-open .payments-filter-dropdown-icon {
         color: var(--ink);
-        transform: translateY(-50%) rotate(180deg);
+        transform: translateY(-38%) rotate(225deg);
     }
 
     .payments-filter-control .table-toolbar-search.has-clear-action {
@@ -312,13 +316,40 @@
         white-space: nowrap;
     }
 
-    .payments-money.is-paid {
-        color: #5F7D5F;
+    body.panel-shell-body .payments-unified-card .payments-table tbody td[data-payment-total-received] {
+        background: transparent !important;
+        background-color: transparent !important;
+        color: #5F7D5F !important;
+        border-color: rgba(142, 160, 131, .42) !important;
+        box-shadow: none !important;
     }
 
     .payments-money.is-balance {
         color: #9E4B3F;
         font-weight: 700;
+    }
+
+    body.panel-shell-body .payments-unified-card .payments-table tbody td > span.status-pill-success,
+    body.panel-shell-body .payments-unified-card .payments-table tbody td > span.status-pill-warning,
+    body.panel-shell-body .payments-unified-card .payments-table tbody td > span.status-pill-danger {
+        background: transparent !important;
+        background-color: transparent !important;
+        border-color: transparent !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        border-radius: 0 !important;
+    }
+
+    body.panel-shell-body .payments-unified-card .payments-table tbody td > span.status-pill-success {
+        color: #4D5852 !important;
+    }
+
+    body.panel-shell-body .payments-unified-card .payments-table tbody td > span.status-pill-warning {
+        color: #8C5A3F !important;
+    }
+
+    body.panel-shell-body .payments-unified-card .payments-table tbody td > span.status-pill-danger {
+        color: #9E4B3F !important;
     }
 
     .payments-meta-section {
@@ -509,10 +540,6 @@
     </div>
 @endif
 
-<div class="flash-info" data-flash-icon="bi-credit-card-2-front">
-    You are on the Record Payment page.
-</div>
-
 @if($errors->any())
     <div class="flash-error">
         {{ $errors->first() }}
@@ -523,19 +550,19 @@
 <div id="paymentFormModal" class="fixed inset-0 z-40 hidden panel-overlay-content">
     <div class="absolute inset-0 bg-black/60" id="paymentFormBackdrop"></div>
     <div class="payment-modal-viewport">
-        <div class="payment-modal-sheet rounded-2xl overflow-hidden" style="border:1px solid var(--border);background:#D3DEC9;box-shadow:none">
-            <div class="flex items-center justify-between px-6 py-5" style="border-bottom:1px solid var(--border);background:var(--surface-muted)">
+        <div class="payment-modal-sheet rounded-2xl overflow-hidden">
+            <div class="payment-modal-head flex items-center justify-between px-6 py-5">
                 <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-xl bg-[#3E4A3D] text-white flex items-center justify-center flex-shrink-0">
+                    <div class="payment-modal-icon w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0">
                         <i class="bi bi-cash-stack text-base"></i>
                     </div>
                     <div>
-                        <div class="text-sm font-bold" style="color:var(--ink)">Record a Case Payment</div>
-                        <div class="text-xs mt-0.5" style="color:var(--ink-muted)">Choose a case, enter the received amount, then verify the payment preview before saving.</div>
+                        <div class="payment-modal-title text-sm font-bold">Record a Case Payment</div>
+                        <div class="payment-modal-copy text-xs mt-0.5">Choose a case, enter the received amount, then verify the payment preview before saving.</div>
                     </div>
                 </div>
-                <button type="button" id="closePaymentFormTop" class="payment-modal-close inline-flex items-center justify-center w-9 h-9 rounded-xl transition-colors focus:outline-none" style="background:#E1E7D9;border:1px solid var(--border);color:var(--ink-muted)">
-                    <i class="bi bi-x-lg" style="font-size:.8rem"></i>
+                <button type="button" id="closePaymentFormTop" class="payment-modal-close inline-flex items-center justify-center w-9 h-9 rounded-xl transition-colors focus:outline-none">
+                    <i class="bi bi-x-lg text-[.8rem]"></i>
                 </button>
             </div>
             <div class="p-6">
@@ -600,9 +627,7 @@
                             <option value="this_year" @selected($paymentDateRange === 'this_year')>This Year</option>
                             <option value="custom" @selected($paymentDateRange === 'custom')>Custom</option>
                         </select>
-                        <span class="payments-filter-dropdown-icon" aria-hidden="true">
-                            <i class="bi bi-chevron-down"></i>
-                        </span>
+                        <span class="payments-filter-dropdown-icon" aria-hidden="true"></span>
                     </div>
                 </div>
 
@@ -671,7 +696,6 @@
                             data-case-total="{{ $case->total_amount }}"
                             data-case-paid="{{ $case->total_paid }}"
                             data-case-balance="{{ $case->balance_amount }}"
-                            title="Click to open the payment form for this case"
                         @endif
                         class="{{ ($canRecordPayment ?? false) ? 'cursor-pointer' : '' }}"
                     >
@@ -680,7 +704,7 @@
                         <td>{{ $case->deceased?->full_name ?? '-' }}</td>
                         <td>{{ $case->service_package ?: ($case->custom_package_name ?: '-') }}</td>
                         <td class="payments-money">{{ number_format($case->total_amount, 2) }}</td>
-                        <td class="payments-money is-paid">{{ number_format((float) $case->total_paid, 2) }}</td>
+                        <td class="payments-money" data-payment-total-received>{{ number_format((float) $case->total_paid, 2) }}</td>
                         <td class="payments-money is-balance">{{ number_format((float) $case->balance_amount, 2) }}</td>
                         <td>
                             <span class="{{ $case->payment_status === 'PARTIAL' ? 'status-pill-warning' : 'status-pill-danger' }}">
@@ -706,7 +730,7 @@
         </div>
 
         <div class="payments-pagination">
-            @if($openCases->hasPages()){{ $openCases->links() }}@endif
+            @if($openCases->hasPages()){{ $openCases->links('components.pagination.table') }}@endif
         </div>
 
         <div class="payments-meta-section">

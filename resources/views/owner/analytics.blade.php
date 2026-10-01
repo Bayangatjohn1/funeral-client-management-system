@@ -223,7 +223,7 @@
 
         <header class="ba-workspace-head">
             <div class="ba-head-row ba-filter-row">
-                <div class="ba-workspace-filters" role="group" aria-label="Branch Analytics Filters">
+                <div class="ba-workspace-filters uniform-record-filters" role="group" aria-label="Branch Analytics Filters">
                     <form method="GET" action="{{ route($analyticsRouteName) }}" class="ba-branch-form ba-branch-form-inline">
                         @if($isCustomRange)
                             <input type="hidden" name="range" value="CUSTOM">

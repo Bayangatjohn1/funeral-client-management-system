@@ -19,22 +19,22 @@ class IntakeStructuredPricingTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_wake_duration_uses_inclusive_calendar_days_and_nights(): void
+    public function test_wake_duration_uses_inclusive_calendar_days(): void
     {
         $sameDay = WakeDuration::calculate('2026-07-20', '2026-07-20');
         $this->assertSame(1, $sameDay['days']);
         $this->assertSame(0, $sameDay['nights']);
-        $this->assertSame('1D/0N', $sameDay['label']);
+        $this->assertSame('1 Wake Day', $sameDay['label']);
 
         $fourDays = WakeDuration::calculate('2026-07-20', '2026-07-23');
         $this->assertSame(4, $fourDays['days']);
         $this->assertSame(3, $fourDays['nights']);
-        $this->assertSame('4D/3N', $fourDays['label']);
+        $this->assertSame('4 Wake Days', $fourDays['label']);
 
         $fiveDays = WakeDuration::calculate('2026-07-20', '2026-07-24');
         $this->assertSame(5, $fiveDays['days']);
         $this->assertSame(4, $fiveDays['nights']);
-        $this->assertSame('5D/4N', $fiveDays['label']);
+        $this->assertSame('5 Wake Days', $fiveDays['label']);
     }
 
     public function test_pricing_service_charges_embalming_and_home_viewing_extensions_separately(): void
@@ -63,6 +63,7 @@ class IntakeStructuredPricingTest extends TestCase
 
         $pricing = app(IntakePricingService::class)->price($package->fresh(['packageInclusions.casketCatalog', 'packageFreebies']), [
             'wake_start_date' => '2026-07-20',
+            'wake_end_date' => '2026-07-24',
             'interment_at' => '2026-07-24',
             'senior_citizen_status' => 0,
             'pwd_status' => 0,
@@ -72,13 +73,13 @@ class IntakeStructuredPricingTest extends TestCase
         $charges = collect($pricing['service_charges'])->keyBy('type');
         $this->assertSame(5, $pricing['wake_days']);
         $this->assertSame(4, $pricing['wake_nights']);
-        $this->assertSame('5D/4N', $pricing['wake_duration']);
+        $this->assertSame('5 Wake Days', $pricing['wake_duration']);
         $this->assertSame(1, (int) $charges[Package::SERVICE_EMBALMING]['excess']);
         $this->assertSame(1000.0, (float) $charges[Package::SERVICE_EMBALMING]['amount']);
         $this->assertSame(1, (int) $charges[Package::SERVICE_HOME_VIEWING]['excess']);
         $this->assertSame(1500.0, (float) $charges[Package::SERVICE_HOME_VIEWING]['amount']);
         $this->assertSame(2500.0, (float) $pricing['service_charges_total']);
-        $this->assertSame('5D/4N', $pricing['snapshot']['wake_duration']);
+        $this->assertSame('5 Wake Days', $pricing['snapshot']['wake_duration']);
     }
 
     public function test_pricing_service_snapshots_applied_promo_metadata_for_future_display(): void
@@ -99,6 +100,7 @@ class IntakeStructuredPricingTest extends TestCase
 
         $pricing = app(IntakePricingService::class)->price($package->fresh(['packageInclusions.casketCatalog', 'packageFreebies']), [
             'wake_start_date' => '2026-07-20',
+            'wake_end_date' => '2026-07-20',
             'interment_at' => '2026-07-20',
             'senior_citizen_status' => 0,
             'pwd_status' => 0,
@@ -202,6 +204,8 @@ class IntakeStructuredPricingTest extends TestCase
 
         $response = $this->actingAs($staff)->post('/intake/main', $this->payload($branch, $package, [
             'wake_start_date' => '2026-07-20',
+            'wake_end_date' => '2026-07-24',
+            'wake_end_time' => '07:00',
             'funeral_service_at' => '2026-07-24',
             'interment_at' => '2026-07-24',
             'replacement_casket_catalog_id' => $upgradeCasket->id,
@@ -228,7 +232,7 @@ class IntakeStructuredPricingTest extends TestCase
         $this->assertNotNull($case->pricing_snapshot);
         $this->assertSame(5, (int) $case->pricing_snapshot['wake_days']);
         $this->assertSame(4, (int) $case->pricing_snapshot['wake_nights']);
-        $this->assertSame('5D/4N', $case->pricing_snapshot['wake_duration']);
+        $this->assertSame('5 Wake Days', $case->pricing_snapshot['wake_duration']);
         $this->assertSame('First Class', $case->pricing_snapshot['package']['name']);
         $this->assertSame(15000.0, (float) collect($case->pricing_snapshot['service_charges'])->firstWhere('type', 'casket_upgrade')['amount']);
         $this->assertCount(1, $case->pricing_snapshot['add_ons']);
@@ -443,6 +447,7 @@ class IntakeStructuredPricingTest extends TestCase
 
         $pricing = app(IntakePricingService::class)->price($package->fresh(['packageInclusions.casketCatalog', 'packageFreebies']), [
             'wake_start_date' => '2026-07-20',
+            'wake_end_date' => '2026-07-26',
             'interment_at' => '2026-07-26',
             'actual_retrieval_kilometers' => 18,
             'actual_hearse_kilometers' => 31,
@@ -581,6 +586,8 @@ class IntakeStructuredPricingTest extends TestCase
             'wake_location' => 'Family Residence',
             'wake_start_date' => '2026-07-20',
             'wake_start_time' => '08:00',
+            'wake_end_date' => '2026-07-21',
+            'wake_end_time' => '08:00',
             'funeral_service_at' => '2026-07-21',
             'funeral_service_time' => '09:00',
             'interment_at' => '2026-07-21',
@@ -654,6 +661,7 @@ class IntakeStructuredPricingTest extends TestCase
     {
         return array_merge([
             'wake_start_date' => '2026-07-20',
+            'wake_end_date' => '2026-07-20',
             'interment_at' => '2026-07-20',
             'senior_citizen_status' => 0,
             'pwd_status' => 0,

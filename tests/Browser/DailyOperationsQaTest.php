@@ -26,11 +26,11 @@ class DailyOperationsQaTest extends DuskTestCase
         $this->browse(function (Browser $browser) use ($staff) {
             $browser->loginAs($staff)
                 ->visit('/staff')
-                ->waitUntil("document.body && document.body.innerText.includes('Your daily workspace')", 10)
+                ->waitUntil("document.body && document.body.innerText.includes('Your Daily Workspace')", 10)
                 ->click('[data-activity-tab="payments"]')
                 ->click('[data-schedule-tab="upcoming"]');
 
-            $this->assertPageContains($browser, ['Your daily workspace', 'Cases Encoded', 'Latest payments recorded', 'Next schedules in queue']);
+            $this->assertPageContains($browser, ['Your Daily Workspace', 'Cases Encoded', 'Latest payments recorded', 'Next schedules in queue']);
 
             $this->assertHealthyPage($browser);
         });
@@ -64,9 +64,9 @@ class DailyOperationsQaTest extends DuskTestCase
 
             $browser->loginAs($admin)
                 ->visit('/admin')
-                ->waitUntil("document.body && document.body.innerText.includes('Good morning, Admin')", 10);
+                ->waitUntil("document.body && document.body.innerText.includes('Good day, Admin')", 10);
 
-            $this->assertPageContains($browser, ['Good morning, Admin', 'Service Status Summary']);
+            $this->assertPageContains($browser, ['Good day, Admin', 'Service Status Summary']);
 
             $this->assertHealthyPage($browser);
         });

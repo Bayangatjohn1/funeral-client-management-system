@@ -2,7 +2,7 @@
 
 @section('hide_layout_topbar', '1')
 @section('page_title', 'Case Full Information')
-@section('page_desc', '')
+@section('page_desc', 'Review case details, client information, service schedule, documents, and payment status.')
 
 @section('content')
 @php
@@ -43,6 +43,26 @@
     $printDate = fn($dt) => $dt ? $dt->format('M d, Y') : 'Not set';
     $printTime = fn($time) => $time ? \Carbon\Carbon::parse($time)->format('h:i A') : 'Time not set';
     $printSchedule = fn($date, $time) => ($date ? $date->format('M d, Y') : 'Not set') . ' at ' . $printTime($time);
+    $allowedFocusEvents = ['wake-start', 'wake-end', 'funeral-ceremony', 'interment'];
+    $requestedFocusEvent = request()->query('focus_event');
+    $focusEvent = is_string($requestedFocusEvent) && in_array($requestedFocusEvent, $allowedFocusEvents, true)
+        ? $requestedFocusEvent
+        : null;
+    $focusScheduleSection = request()->query('focus_section') === 'schedule';
+    $focusWakePeriod = request()->query('focus_section') === 'wake';
+    $requestedFocusEvents = request()->query('focus_events');
+    $focusEvents = collect(is_string($requestedFocusEvents) ? explode(',', $requestedFocusEvents) : [])
+        ->map(fn ($event) => trim($event))
+        ->filter(fn ($event) => in_array($event, $allowedFocusEvents, true))
+        ->unique()
+        ->values();
+    $focusTargetIds = $focusEvent
+        ? collect(['schedule-event-'.$focusEvent])
+        : ($focusEvents->isNotEmpty()
+            ? $focusEvents->map(fn ($event) => 'schedule-event-'.$event)
+            : ($focusWakePeriod
+                ? collect(['schedule-event-wake-start', 'schedule-event-wake-end', 'schedule-event-wake-duration'])
+                : collect(['wake-schedule'])));
 @endphp
 
 @if(session('success'))
@@ -89,6 +109,33 @@
         flex-wrap:wrap;
     }
     .case-detail-shell { padding-top:12px; padding-bottom:20px; }
+    #caseViewContent .cv-dashboard-focus {
+        position:relative;
+        outline:3px solid #8f6b2f;
+        outline-offset:3px;
+        box-shadow:0 0 0 7px rgba(143, 107, 47, .14);
+    }
+    #caseViewContent .cv-dashboard-related {
+        outline:2px solid rgba(143, 107, 47, .62);
+        outline-offset:2px;
+        background:#f0e8d7;
+    }
+    #caseViewContent .cv-dashboard-focus::after {
+        content:'Selected from dashboard';
+        position:absolute;
+        z-index:2;
+        top:.55rem;
+        right:.65rem;
+        padding:.25rem .5rem;
+        border-radius:999px;
+        background:#765522;
+        color:#fff;
+        font-size:.62rem;
+        font-weight:750;
+        letter-spacing:.04em;
+        text-transform:uppercase;
+    }
+    #caseViewContent .cv-card.cv-dashboard-focus::after { top:.75rem; right:1rem; }
     .case-record-toolbar .btn-outline {
         display:inline-flex;
         align-items:center;
@@ -146,6 +193,68 @@
 <div class="case-detail-shell">
     @include('partials.case_view_content')
 </div>
+
+@if($focusEvent || $focusEvents->isNotEmpty() || $focusWakePeriod || $focusScheduleSection)
+<script>
+    (() => {
+        const requestedTargetIds = @json($focusTargetIds->all());
+        const focusDashboardTarget = () => {
+            const targets = requestedTargetIds
+                .map((targetId) => document.getElementById(targetId))
+                .filter(Boolean);
+            const target = targets[0] || document.getElementById('wake-schedule');
+            if (!target) return;
+
+            targets.slice(1).forEach((relatedTarget) => relatedTarget.classList.add('cv-dashboard-related'));
+            target.classList.add('cv-dashboard-focus');
+            target.setAttribute('tabindex', '-1');
+            target.focus({ preventScroll: true });
+
+            const scrollContainer = target.closest('.page-content');
+            const usePageContainer = scrollContainer && scrollContainer.scrollHeight > scrollContainer.clientHeight;
+            const scroller = usePageContainer ? scrollContainer : document.scrollingElement;
+            const startY = usePageContainer ? scrollContainer.scrollTop : window.scrollY;
+            const targetRect = target.getBoundingClientRect();
+            const containerRect = usePageContainer
+                ? scrollContainer.getBoundingClientRect()
+                : { top: 0, height: window.innerHeight };
+            const targetY = Math.max(0, startY + (targetRect.top - containerRect.top) - ((containerRect.height - targetRect.height) / 2));
+            const setScrollPosition = (position) => {
+                if (usePageContainer) scroller.scrollTop = position;
+                else window.scrollTo(0, position);
+            };
+
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                setScrollPosition(targetY);
+                return;
+            }
+
+            const duration = 850;
+            const distance = targetY - startY;
+            const startedAt = performance.now();
+            const easeInOutCubic = (progress) => progress < .5
+                ? 4 * progress * progress * progress
+                : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+            const animateScroll = (now) => {
+                const progress = Math.min((now - startedAt) / duration, 1);
+                setScrollPosition(startY + (distance * easeInOutCubic(progress)));
+                if (progress < 1) window.requestAnimationFrame(animateScroll);
+            };
+
+            window.requestAnimationFrame(animateScroll);
+        };
+
+        const runAfterLayout = () => window.setTimeout(focusDashboardTarget, 120);
+
+        if (document.readyState === 'complete') {
+            runAfterLayout();
+        } else {
+            window.addEventListener('load', runAfterLayout, { once: true });
+        }
+    })();
+</script>
+@endif
 
 <template id="casePrintTemplate">
     <div class="print-record">
@@ -266,7 +375,11 @@
                     <strong>{{ $printSchedule($funeral_case->wake_start_date, $funeral_case->wake_start_time) }}</strong>
                 </div>
                 <div class="print-field">
-                    <span>Funeral Service</span>
+                    <span>Wake End</span>
+                    <strong>{{ $printSchedule($funeral_case->wake_end_date, $funeral_case->wake_end_time) }}</strong>
+                </div>
+                <div class="print-field">
+                    <span>Funeral Ceremony</span>
                     <strong>{{ $funeral_case->funeral_service_at ? $printSchedule($funeral_case->funeral_service_at, $funeral_case->funeral_service_time) : 'Not set' }}</strong>
                 </div>
                 <div class="print-field">

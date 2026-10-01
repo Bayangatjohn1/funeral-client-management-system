@@ -12,11 +12,13 @@ class CasketCatalog extends Model
         'standard_price',
         'description',
         'is_active',
+        'is_available',
     ];
 
     protected $casts = [
         'standard_price' => 'decimal:2',
         'is_active' => 'boolean',
+        'is_available' => 'boolean',
     ];
 
     public function packageInclusions()

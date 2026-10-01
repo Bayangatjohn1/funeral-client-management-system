@@ -26,15 +26,15 @@ class UserSeeder extends Seeder
             ]
         );
 
-        // ADMIN (main branch)
+        // SYSTEM ADMIN (all branches)
         User::updateOrCreate(
             ['email' => 'admin@funeral.test'],
             [
-                'name' => 'Admin',
+                'name' => 'System Admin',
                 'password' => Hash::make('Admin12345!'),
                 'role' => 'admin',
-                'admin_scope' => 'main',
-                'branch_id' => $main?->id,
+                'admin_scope' => 'system',
+                'branch_id' => null,
             ]
         );
 

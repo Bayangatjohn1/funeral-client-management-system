@@ -18,7 +18,7 @@ class IntakePricingService
     public function price(?Package $package, array $validated, bool $isCustomPackage = false, ?Carbon $referenceAt = null): array
     {
         $referenceAt ??= now();
-        $wakeDuration = WakeDuration::calculate($validated['wake_start_date'] ?? null, $validated['interment_at'] ?? null);
+        $wakeDuration = WakeDuration::calculate($validated['wake_start_date'] ?? null, $validated['wake_end_date'] ?? null);
         $wakeDays = $wakeDuration['days'] ?? 0;
         $wakeNights = $wakeDuration['nights'] ?? 0;
         $basePrice = round((float) ($isCustomPackage ? ($validated['custom_package_price'] ?? 0) : ($package?->price ?? 0)), 2);
@@ -64,6 +64,7 @@ class IntakePricingService
             $included = $this->includedCasket($package);
             $replacement = CasketCatalog::whereKey((int) $validated['replacement_casket_catalog_id'])
                 ->where('is_active', true)
+                ->where('is_available', true)
                 ->first();
 
             if (! $replacement) {

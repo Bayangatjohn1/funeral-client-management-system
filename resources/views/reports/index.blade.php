@@ -26,8 +26,17 @@
         assignedBranchLabel: @js($assignedBranchLabel),
         analyticsDates: @js([
             'today' => now()->toDateString(),
+            'weekStart' => now()->startOfWeek()->toDateString(),
+            'weekEnd' => now()->endOfWeek()->toDateString(),
             'monthStart' => now()->startOfMonth()->toDateString(),
+            'quarterStart' => now()->firstOfQuarter()->toDateString(),
+            'quarterEnd' => now()->lastOfQuarter()->toDateString(),
+            'firstHalfStart' => now()->startOfYear()->toDateString(),
+            'firstHalfEnd' => now()->startOfYear()->addMonths(5)->endOfMonth()->toDateString(),
+            'secondHalfStart' => now()->startOfYear()->addMonths(6)->toDateString(),
+            'secondHalfEnd' => now()->endOfYear()->toDateString(),
             'yearStart' => now()->startOfYear()->toDateString(),
+            'yearEnd' => now()->endOfYear()->toDateString(),
         ]),
     })"
     x-init="init()"
@@ -338,19 +347,9 @@
         .reports-branch-strip-table .reports-cell-number { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
         /* ── Metric card drill-down ── */
         .reports-metric {
-            cursor: pointer;
-            transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
+            cursor: default;
             position: relative;
             overflow: hidden;
-        }
-        .reports-metric:hover:not(.is-selected) {
-            border-color: #7A8076;
-            background: rgba(139, 154, 139, 0.06);
-        }
-        .reports-metric.is-selected {
-            border-color: #3E4A3D !important;
-            background: rgba(139, 154, 139, 0.15) !important;
-            box-shadow: none;
         }
         .reports-metric-hint {
             position: absolute;
@@ -365,7 +364,7 @@
             pointer-events: none;
             text-transform: uppercase;
         }
-        .reports-metric:hover .reports-metric-hint { opacity: 1; }
+        .reports-metric:hover .reports-metric-hint { opacity: 0; }
         .reports-metric.is-selected .reports-metric-hint { opacity: 0; }
         /* ── Drill-down active-filter banner ── */
         .reports-drill-banner {
@@ -1029,6 +1028,13 @@
             border:1px solid #AEBFA6 !important;
             border-radius:.65rem !important;
             box-shadow:none !important;
+            cursor:default !important;
+        }
+
+        .reports-metric:hover {
+            border-color:#AEBFA6 !important;
+            box-shadow:none !important;
+            transform:none !important;
         }
 
         .reports-metric-icon {
@@ -1937,8 +1943,8 @@
     <section class="reports-card">
         <div class="reports-card-head">
             <div>
-                <h2 class="reports-card-title">Summary Metrics</h2>
-                <div class="reports-card-copy">Snapshot of the generated preview.</div>
+                <h2 class="reports-card-title">Report Summary</h2>
+                <div class="reports-card-copy" x-text="summaryScopeDescription()"></div>
             </div>
             <div class="reports-card-head-actions">
                 <button type="submit" form="reportsConfigForm" class="reports-btn reports-btn-primary" :disabled="loading">
@@ -1952,16 +1958,12 @@
             <template x-for="card in summaryCards()" :key="card.label">
                 <article
                     class="reports-metric"
-                    :class="{ 'is-selected': hasPreview && selectedMetric === card.key }"
-                    @click="selectMetric(card.key)"
-                    :title="hasPreview ? 'Click to drill down into ' + card.label : ''"
                 >
                     <div class="reports-metric-icon"><i :class="`bi ${card.icon}`"></i></div>
                     <div>
                         <div class="reports-metric-label" x-text="card.label"></div>
                         <div class="reports-metric-value" x-text="card.value"></div>
                     </div>
-                    <span class="reports-metric-hint" x-show="hasPreview">View details</span>
                 </article>
             </template>
         </div>
@@ -2186,6 +2188,7 @@ window.reportsModule = function reportsModule(config) {
             date_from: '',
             date_to: '',
             payment_status: '',
+            payment_method: '',
             case_status: '',
             verification_status: '',
             package_id: '',
@@ -2258,8 +2261,8 @@ window.reportsModule = function reportsModule(config) {
         },
         shows(field) {
             const map = {
-                sales: ['branch_id', 'date_range', 'payment_status', 'case_status', 'package_id', 'service_type'],
-                master_cases: ['branch_id', 'date_range', 'payment_status', 'case_status', 'verification_status', 'package_id', 'service_type', 'encoded_by', 'interment_range'],
+                sales: ['branch_id', 'date_range', 'payment_method'],
+                master_cases: ['branch_id', 'date_range', 'payment_status', 'case_status'],
                 audit_logs: ['date_range', 'audit_user', 'audit_action', 'audit_module'],
                 owner_branch_analytics: [],
             };
@@ -2267,8 +2270,8 @@ window.reportsModule = function reportsModule(config) {
         },
         isAdvancedField(field) {
             const map = {
-                sales: ['case_status', 'package_id', 'service_type'],
-                master_cases: ['case_status', 'verification_status', 'package_id', 'service_type', 'encoded_by', 'interment_range'],
+                sales: [],
+                master_cases: ['case_status'],
                 audit_logs: ['audit_action', 'audit_module'],
                 owner_branch_analytics: [],
             };
@@ -2276,8 +2279,8 @@ window.reportsModule = function reportsModule(config) {
         },
         hasAdvancedFilters() {
             const map = {
-                sales: ['case_status', 'package_id', 'service_type'],
-                master_cases: ['case_status', 'verification_status', 'package_id', 'service_type', 'encoded_by', 'interment_range'],
+                sales: [],
+                master_cases: ['case_status'],
                 audit_logs: ['audit_action', 'audit_module'],
                 owner_branch_analytics: [],
             };
@@ -2290,11 +2293,7 @@ window.reportsModule = function reportsModule(config) {
                 return this.shows(field);
             });
         },
-        applyReportDefaults() {
-            if (this.shows('service_type') && !this.filters.service_type) {
-                this.filters.service_type = 'Burial';
-            }
-        },
+        applyReportDefaults() {},
         params() {
             this.enforceAssignedBranch();
             this.applyReportDefaults();
@@ -2458,9 +2457,21 @@ window.reportsModule = function reportsModule(config) {
             } else if (preset === 'THIS_MONTH') {
                 this.filters.date_from = config.analyticsDates.monthStart;
                 this.filters.date_to = config.analyticsDates.today;
+            } else if (preset === 'THIS_WEEK') {
+                this.filters.date_from = config.analyticsDates.weekStart;
+                this.filters.date_to = config.analyticsDates.weekEnd;
+            } else if (preset === 'THIS_QUARTER') {
+                this.filters.date_from = config.analyticsDates.quarterStart;
+                this.filters.date_to = config.analyticsDates.quarterEnd;
+            } else if (preset === 'FIRST_HALF') {
+                this.filters.date_from = config.analyticsDates.firstHalfStart;
+                this.filters.date_to = config.analyticsDates.firstHalfEnd;
+            } else if (preset === 'SECOND_HALF') {
+                this.filters.date_from = config.analyticsDates.secondHalfStart;
+                this.filters.date_to = config.analyticsDates.secondHalfEnd;
             } else if (preset === 'THIS_YEAR') {
                 this.filters.date_from = config.analyticsDates.yearStart;
-                this.filters.date_to = config.analyticsDates.today;
+                this.filters.date_to = config.analyticsDates.yearEnd;
             } else if (preset === 'CUSTOM') {
                 this.advancedFiltersOpen = true;
             }
@@ -2496,11 +2507,23 @@ window.reportsModule = function reportsModule(config) {
                 this.datePreset = 'TODAY';
                 return;
             }
+            if (from === config.analyticsDates.weekStart && to === config.analyticsDates.weekEnd) {
+                this.datePreset = 'THIS_WEEK'; return;
+            }
             if (from === config.analyticsDates.monthStart && to === config.analyticsDates.today) {
                 this.datePreset = 'THIS_MONTH';
                 return;
             }
-            if (from === config.analyticsDates.yearStart && to === config.analyticsDates.today) {
+            if (from === config.analyticsDates.quarterStart && to === config.analyticsDates.quarterEnd) {
+                this.datePreset = 'THIS_QUARTER'; return;
+            }
+            if (from === config.analyticsDates.firstHalfStart && to === config.analyticsDates.firstHalfEnd) {
+                this.datePreset = 'FIRST_HALF'; return;
+            }
+            if (from === config.analyticsDates.secondHalfStart && to === config.analyticsDates.secondHalfEnd) {
+                this.datePreset = 'SECOND_HALF'; return;
+            }
+            if (from === config.analyticsDates.yearStart && to === config.analyticsDates.yearEnd) {
                 this.datePreset = 'THIS_YEAR';
                 return;
             }
@@ -2538,7 +2561,11 @@ window.reportsModule = function reportsModule(config) {
         analyticsPresetLabel() {
             const labels = {
                 TODAY: 'Today',
+                THIS_WEEK: 'This Week',
                 THIS_MONTH: 'This Month',
+                THIS_QUARTER: 'This Quarter',
+                FIRST_HALF: 'Semi-Annual — First Half',
+                SECOND_HALF: 'Semi-Annual — Second Half',
                 THIS_YEAR: 'This Year',
                 CUSTOM: 'Custom Range',
             };
@@ -2568,6 +2595,7 @@ window.reportsModule = function reportsModule(config) {
             if (this.filters.branch_id || this.isBranchAdmin) chips.push({ icon: 'bi-building', label: this.isBranchAdmin ? (this.assignedBranchLabel || 'Assigned Branch Only') : (branch ? `${branch.branch_code} - ${branch.branch_name}` : `Branch #${this.filters.branch_id}`) });
             if (this.filters.date_from || this.filters.date_to) chips.push({ icon: 'bi-calendar3', label: this.datePreset === 'CUSTOM' ? `${this.filters.date_from || 'Start'} - ${this.filters.date_to || 'Today'}` : this.analyticsPresetLabel() });
             if (this.filters.payment_status) chips.push({ icon: 'bi-wallet2', label: `Payment: ${this.formatStatus(this.filters.payment_status)}` });
+            if (this.filters.payment_method) chips.push({ icon: 'bi-credit-card', label: `Method: ${this.formatStatus(this.filters.payment_method)}` });
             if (this.filters.case_status) chips.push({ icon: 'bi-folder2-open', label: `Case: ${this.formatStatus(this.filters.case_status)}` });
             if (this.filters.verification_status) chips.push({ icon: 'bi-shield-check', label: `Verification: ${this.formatStatus(this.filters.verification_status)}` });
             if (this.filters.package_id) chips.push({ icon: 'bi-box-seam', label: pkg ? `Package: ${pkg.name}` : `Package #${this.filters.package_id}` });
@@ -2587,48 +2615,63 @@ window.reportsModule = function reportsModule(config) {
             }
             const allColumns = {
                 sales: [
-                    ['case_code', 'Case Code'], ['client', 'Client'], ['deceased', 'Deceased'], ['branch', 'Branch'],
-                    ['package', 'Package'], ['service_type', 'Service Type'], ['total_amount', 'Total Amount'],
-                    ['total_paid', 'Total Paid'], ['balance', 'Balance'], ['payment_status', 'Payment Status'],
-                    ['case_status', 'Case Status'], ['date', 'Date Created or Paid Date'],
+                    ['payment_date', 'Payment Date'], ['case_code', 'Case No.'], ['name', 'Client / Deceased'], ['branch', 'Branch'],
+                    ['payment_method', 'Payment Method'], ['amount_collected', 'Payment Amount'], ['recorded_by', 'Recorded By'],
                 ],
                 master_cases: [
-                    ['case_code', 'Case Code'], ['client', 'Client'], ['deceased', 'Deceased'],
-                    ['branch', 'Branch'], ['service_type', 'Service Type'], ['package', 'Package'], ['interment_date', 'Interment Date'],
-                    ['payment_status', 'Payment Status'], ['case_status', 'Case Status'],
-                    ['encoded_by', 'Encoded By'], ['date_created', 'Date Created'],
+                    ['case_code', 'Case No.'], ['name', 'Client / Deceased'], ['branch', 'Branch'],
+                    ['total_amount', 'Total Amount Availed'], ['total_paid', 'All Payments'], ['balance', 'Current Balance'],
+                    ['case_status', 'Case Status'], ['payment_status', 'Payment Status'],
                 ],
                 audit_logs: [
                     ['date', 'Date'], ['user', 'User'], ['role', 'Role'], ['action', 'Action'], ['action_type', 'Action Type'],
                     ['module', 'Module'], ['record_id', 'Record ID'], ['branch', 'Branch'], ['status', 'Status'], ['remarks', 'Remarks'],
                 ],
                 owner_branch_analytics: [
-                    ['branch', 'Branch'], ['total_cases', 'Total Cases'], ['paid_cases', 'Paid'], ['partial_cases', 'Partial'],
-                    ['unpaid_cases', 'Unpaid'], ['gross_amount', 'Gross Amount'], ['collected_amount', 'Collected'],
-                    ['remaining_balance', 'Remaining Balance'],
+                    ['branch', 'Branch'], ['total_cases', 'Cases in Period'], ['gross_amount', 'Total Amount Availed'],
+                    ['collected_amount', 'All Payments'], ['remaining_balance', 'Current Collectibles'],
+                    ['paid_cases', 'Paid Cases'], ['partial_cases', 'Partially Paid Cases'], ['unpaid_cases', 'Unpaid Cases'],
                 ],
             };
             return (allColumns[this.reportType] || allColumns.sales).map(([key, label]) => ({ key, label }));
         },
         summaryCards() {
             const money = (value) => this.money(value || 0);
+            if (this.reportType === 'sales') {
+                return [
+                    { label: 'Transactions Shown', value: this.number(this.summary.total_records || 0), icon: 'bi-receipt', key: 'total_records' },
+                    { label: 'Payments Received in Period', value: money(this.summary.amount_collected), icon: 'bi-wallet2', key: 'amount_collected' },
+                ];
+            }
             if (this.reportType === 'audit_logs') {
                 return [{ label: 'Total Records', value: this.number(this.summary.total_records || 0), icon: 'bi-list-check', key: 'total_records' }];
             }
             if (this.reportType === 'owner_branch_analytics') {
                 return [
-                    { label: 'Total Cases',       value: this.number(this.summary.total_cases || 0),       icon: 'bi-folder2-open',      key: 'total_cases' },
-                    { label: 'Gross Amount',       value: money(this.summary.gross_amount),                 icon: 'bi-cash-stack',         key: 'gross_amount' },
-                    { label: 'Collected Amount',   value: money(this.summary.collected_amount),             icon: 'bi-wallet2',            key: 'collected_amount' },
-                    { label: 'Remaining Balance',  value: money(this.summary.remaining_balance),            icon: 'bi-receipt',            key: 'remaining_balance' },
+                    { label: 'Cases in Period',      value: this.number(this.summary.total_cases || 0),       icon: 'bi-folder2-open',      key: 'total_cases' },
+                    { label: 'Total Amount Availed', value: money(this.summary.gross_amount),                 icon: 'bi-cash-stack',         key: 'gross_amount' },
+                    { label: 'All Payments for These Cases', value: money(this.summary.collected_amount),     icon: 'bi-wallet2',            key: 'collected_amount' },
+                    { label: 'Current Collectibles', value: money(this.summary.remaining_balance),            icon: 'bi-receipt',            key: 'remaining_balance' },
                 ];
             }
             return [
-                { label: 'Total Records',      value: this.number(this.summary.total_records || 0), icon: 'bi-list-check',  key: 'total_records' },
-                { label: 'Gross Amount',       value: money(this.summary.gross_amount),             icon: 'bi-cash-stack',  key: 'gross_amount' },
-                { label: 'Collected Amount',   value: money(this.summary.collected_amount),         icon: 'bi-wallet2',     key: 'collected_amount' },
-                { label: 'Remaining Balance',  value: money(this.summary.remaining_balance),        icon: 'bi-receipt',     key: 'remaining_balance' },
+                { label: 'Cases in Period',              value: this.number(this.summary.total_records || 0), icon: 'bi-list-check',  key: 'total_records' },
+                { label: 'Total Amount Availed',         value: money(this.summary.gross_amount),             icon: 'bi-cash-stack',  key: 'gross_amount' },
+                { label: 'All Payments for These Cases', value: money(this.summary.collected_amount),         icon: 'bi-wallet2',     key: 'collected_amount' },
+                { label: 'Current Balance',    value: money(this.summary.remaining_balance),        icon: 'bi-receipt',     key: 'remaining_balance' },
             ];
+        },
+        summaryScopeDescription() {
+            if (this.reportType === 'sales') {
+                return 'Valid payments received within the selected payment period.';
+            }
+            if (this.reportType === 'owner_branch_analytics') {
+                return 'Cases are included by service request date. All Payments includes every valid payment recorded for these cases, including payments outside the selected period.';
+            }
+            if (this.reportType === 'master_cases') {
+                return 'Cases are included by service request date. All Payments includes every valid payment recorded for the cases shown.';
+            }
+            return 'Summary of the generated report preview.';
         },
         filterChips() {
             return Object.entries(this.selectedFilters).map(([key, value]) => `${this.headline(key)}: ${value}`);
@@ -2664,7 +2707,7 @@ window.reportsModule = function reportsModule(config) {
             return ['payment_status', 'case_status', 'verification_status', 'status'].includes(key);
         },
         moneyColumns() {
-            return ['total_amount', 'total_paid', 'balance', 'gross_amount', 'collected_amount', 'remaining_balance', 'amount_paid'];
+            return ['total_amount', 'total_paid', 'balance', 'gross_amount', 'collected_amount', 'remaining_balance', 'amount_paid', 'amount_collected'];
         },
         countColumns() {
             return ['total_cases', 'paid_cases', 'partial_cases', 'unpaid_cases'];

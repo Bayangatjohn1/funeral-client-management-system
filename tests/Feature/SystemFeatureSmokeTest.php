@@ -7,6 +7,7 @@ use App\Models\Client;
 use App\Models\Deceased;
 use App\Models\FuneralCase;
 use App\Models\Package;
+use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -85,8 +86,13 @@ class SystemFeatureSmokeTest extends TestCase
         $this->actingAs($staff)->get('/intake/main')->assertOk();
         $this->actingAs($staff)->get('/funeral-cases')->assertOk();
         $this->actingAs($staff)->get('/completed-cases')->assertOk();
-        $this->actingAs($staff)->get('/payments')->assertOk();
-        $this->actingAs($staff)->get('/payments/history')->assertOk();
+        $this->actingAs($staff)->get('/payments')
+            ->assertRedirect(route('payments.history', ['record_payment' => 1], absolute: false));
+        $this->actingAs($staff)->get('/payments/history')
+            ->assertOk()
+            ->assertSee('id="openPaymentForm"', false)
+            ->assertSee('id="paymentFormModal"', false)
+            ->assertSee('Record Payment');
         $this->actingAs($staff)->get('/clients')->assertOk();
         $this->actingAs($staff)->get('/deceased')->assertOk();
 
@@ -111,12 +117,21 @@ class SystemFeatureSmokeTest extends TestCase
                   'accounting_reference_no' => 'OR-SMOKE-001',
                   'received_by' => 'Accounting Staff',
               ])
-            ->assertRedirect(route('payments.index', absolute: false));
+            ->assertRedirect(route('payments.index', absolute: false))
+            ->assertSessionHas('payment_summary_id');
 
         $case->refresh();
         $this->assertSame('PAID', $case->payment_status);
         $this->assertEquals((float) $case->total_amount, (float) $case->total_paid);
         $this->assertEquals(0.0, (float) $case->balance_amount);
+
+        $payment = Payment::query()->firstOrFail();
+        $this->actingAs($staff)
+            ->get(route('payments.summary', $payment, absolute: false))
+            ->assertOk()
+            ->assertSee('Payment Summary')
+            ->assertSee('This document is for reference only and is not an Official Receipt.')
+            ->assertSee('Fully Paid');
     }
 
     public function test_owner_reporting_features_work(): void

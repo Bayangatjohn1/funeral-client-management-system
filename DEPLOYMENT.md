@@ -50,10 +50,15 @@ After setting the production `.env`, run:
 php artisan migrate --force
 ```
 
-If the production install needs starter data, run the appropriate seeder:
+Do not run `migrate:fresh`, `migrate:refresh`, `db:wipe`, tests, or recurring
+seeders against production. Create the first System Admin through an approved
+one-time bootstrap process; recurring deployment must preserve all records.
+
+Before every later deployment, create and verify a backup:
 
 ```bash
-php artisan db:seed --force
+php artisan system:backup --type=pre-deployment
+php artisan migrate --force
 ```
 
 ## Storage And Cache
@@ -73,6 +78,20 @@ Ensure these directories are writable by the web server:
 storage/
 bootstrap/cache/
 ```
+
+## Scheduler And Backups
+
+The scheduler creates a verified encrypted backup daily, expires backup files
+according to `BACKUP_RETENTION_DAYS`, and reviews five-year retention dates.
+Run Laravel's scheduler every minute through cron or the hosting scheduler:
+
+```cron
+* * * * * cd /path/to/funeral-system && php artisan schedule:run >> /dev/null 2>&1
+```
+
+Keep `APP_KEY` safe: it encrypts backup archives. Store a copy of the key in a
+separate password manager. Copy backup files off the application server; a local
+backup alone does not protect against server or disk loss.
 
 ## Shared Hosting Notes
 

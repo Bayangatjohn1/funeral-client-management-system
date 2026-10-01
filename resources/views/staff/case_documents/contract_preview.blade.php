@@ -1,5 +1,6 @@
 @extends('layouts.panel')
 
+@section('suppress_layout_page_header', '1')
 @section('page_title', 'Contract Preview')
 @section('page_desc', 'Review the saved case data before issuing the Funeral Contract.')
 

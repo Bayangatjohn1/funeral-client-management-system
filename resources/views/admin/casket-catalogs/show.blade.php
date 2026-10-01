@@ -2,6 +2,7 @@
 
 @section('title', 'View Casket')
 @section('page_title', 'View Casket')
+@section('page_desc', 'Review casket details, price, status, and package mapping.')
 
 @section('content')
 @php
@@ -20,9 +21,9 @@
                 <h1>{{ $catalog->name }}</h1>
                 <p class="svc-detail-subtitle">{{ $catalog->type_or_material ?: 'Material not set' }}</p>
             </div>
-            <span class="svc-detail-badge {{ $catalog->is_active ? 'is-active' : 'is-muted' }}">
-                <i class="bi bi-{{ $catalog->is_active ? 'check-circle' : 'archive' }}" aria-hidden="true"></i>
-                {{ $catalog->is_active ? 'Active' : 'Archived' }}
+            <span class="svc-detail-badge {{ $catalog->is_active && $catalog->is_available ? 'is-active' : 'is-muted' }}">
+                <i class="bi bi-{{ ! $catalog->is_active ? 'archive' : ($catalog->is_available ? 'check-circle' : 'x-circle') }}" aria-hidden="true"></i>
+                {{ ! $catalog->is_active ? 'Archived' : ($catalog->is_available ? 'Available' : 'Unavailable') }}
             </span>
         </header>
 

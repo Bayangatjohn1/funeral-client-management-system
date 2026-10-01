@@ -20,10 +20,6 @@ class PackageController extends Controller
         $user = $request->user();
         $query = Package::query()->with(['packageInclusions', 'packageFreebies']);
 
-        if ($user->isBranchAdmin()) {
-            $query->where('is_active', true);
-        }
-
         if ($q = $request->input('q')) {
             $query->where(function ($builder) use ($q) {
                 $builder->where('name', 'like', "%{$q}%")
@@ -31,9 +27,9 @@ class PackageController extends Controller
             });
         }
 
-        if ($request->input('status') === 'active') {
+        if ($request->input('status', 'active') === 'active') {
             $query->where('is_active', true);
-        } elseif ($request->input('status') === 'inactive') {
+        } elseif (in_array($request->input('status'), ['inactive', 'archived'], true)) {
             $query->where('is_active', false);
         }
 
@@ -56,10 +52,6 @@ class PackageController extends Controller
         $packages = $query->paginate(20)->withQueryString();
 
         $statsQuery = Package::query();
-
-        if ($user->isBranchAdmin()) {
-            $statsQuery->where('is_active', true);
-        }
 
         $stats = $statsQuery->selectRaw(
             'COUNT(*) as total,
@@ -155,10 +147,6 @@ class PackageController extends Controller
     public function show(Request $request, Package $package)
     {
         $this->ensureCanViewPackages();
-
-        if ($request->user()->isBranchAdmin() && ! $package->is_active) {
-            abort(404);
-        }
 
         $package->load(['packageInclusions.casketCatalog', 'packageFreebies.catalog']);
 

@@ -111,31 +111,28 @@
     // otherwise use the standard column map for the report type.
     $standardColumns = [
         'sales' => [
-            'case_code' => 'Case Code', 'client' => 'Client', 'deceased' => 'Deceased', 'branch' => 'Branch',
-            'package' => 'Package', 'service_type' => 'Service Type', 'total_amount' => 'Total Amount',
-            'total_paid' => 'Total Paid', 'balance' => 'Balance', 'payment_status' => 'Payment Status',
-            'case_status' => 'Case Status', 'date' => 'Date Created or Paid Date',
+            'payment_date' => 'Payment Date', 'case_code' => 'Case No.', 'name' => 'Client / Deceased', 'branch' => 'Branch',
+            'payment_method' => 'Payment Method', 'amount_collected' => 'Payment Amount', 'recorded_by' => 'Recorded By',
         ],
         'master_cases' => [
-            'case_code' => 'Case Code', 'client' => 'Client', 'deceased' => 'Deceased',
-            'branch' => 'Branch', 'service_type' => 'Service Type', 'package' => 'Package', 'interment_date' => 'Interment Date',
-            'payment_status' => 'Payment Status', 'case_status' => 'Case Status',
-            'encoded_by' => 'Encoded By', 'date_created' => 'Date Created',
+            'case_code' => 'Case No.', 'name' => 'Client / Deceased', 'branch' => 'Branch',
+            'total_amount' => 'Total Amount Availed', 'total_paid' => 'All Payments', 'balance' => 'Current Balance',
+            'case_status' => 'Case Status', 'payment_status' => 'Payment Status',
         ],
         'audit_logs' => [
-            'date' => 'Date', 'user' => 'User', 'role' => 'Role', 'action' => 'Action', 'action_type' => 'Action Type',
+            'log_id' => 'Log ID', 'date' => 'Date', 'user' => 'User', 'role' => 'Role', 'action' => 'Action', 'action_type' => 'Action Type',
             'module' => 'Module', 'record_id' => 'Record ID', 'branch' => 'Branch', 'status' => 'Status', 'remarks' => 'Remarks',
         ],
         'owner_branch_analytics' => [
-            'branch' => 'Branch', 'total_cases' => 'Total Cases', 'paid_cases' => 'Paid Cases', 'partial_cases' => 'Partial Cases',
-            'unpaid_cases' => 'Unpaid Cases', 'gross_amount' => 'Gross Amount', 'collected_amount' => 'Collected Amount',
-            'remaining_balance' => 'Remaining Balance',
+            'branch' => 'Branch', 'total_cases' => 'Cases in Period', 'gross_amount' => 'Total Amount Availed',
+            'collected_amount' => 'All Payments', 'remaining_balance' => 'Current Collectibles',
+            'paid_cases' => 'Paid Cases', 'partial_cases' => 'Partially Paid Cases', 'unpaid_cases' => 'Unpaid Cases',
         ],
     ];
     $columns = (isset($drilldownColumns) && $drilldownColumns)
         ? $drilldownColumns
         : ($standardColumns[$reportType] ?? []);
-    $moneyColumns  = ['total_amount', 'total_paid', 'balance', 'gross_amount', 'collected_amount', 'remaining_balance', 'amount_paid'];
+    $moneyColumns  = ['total_amount', 'total_paid', 'balance', 'gross_amount', 'collected_amount', 'remaining_balance', 'amount_paid', 'amount_collected'];
     $numberColumns = ['total_cases', 'paid_cases', 'partial_cases', 'unpaid_cases'];
     $orderedFilterKeys = ['branch', 'branch_id', 'date_from', 'date_to', 'interment_from', 'interment_to'];
     $orderedFilters = collect($orderedFilterKeys)
@@ -148,7 +145,7 @@
 <main class="sheet">
     <div class="print-actions">
         <button type="button" class="btn" onclick="window.close()">Close</button>
-        <button type="button" class="btn btn-primary" onclick="window.print()">Print / Save as PDF</button>
+        <button type="button" class="btn btn-primary" onclick="window.print()">Print</button>
     </div>
 
     <header class="report-head">
@@ -185,24 +182,6 @@
         </div>
     </section>
 
-    <section class="summary-block">
-        <h3 class="section-label">Summary</h3>
-        <div class="summary-grid">
-            @foreach($summary as $key => $value)
-                <article class="summary-card">
-                    <span>{{ \Illuminate\Support\Str::headline($key) }}</span>
-                    <strong>
-                        @if(str_contains($key, 'amount') || str_contains($key, 'balance'))
-                            {{ $money($value) }}
-                        @else
-                            {{ $number($value) }}
-                        @endif
-                    </strong>
-                </article>
-            @endforeach
-        </div>
-    </section>
-
     <div class="table-wrap">
         <table class="report-table">
             <thead>
@@ -228,11 +207,29 @@
                         @endforeach
                     </tr>
                 @empty
-                    <tr>
-                        <td colspan="{{ max(count($columns), 1) }}" class="empty">No records found based on selected filters.</td>
-                    </tr>
+                    <tr><td colspan="{{ max(count($columns), 1) }}" class="empty">No records found for the selected report and period.</td></tr>
                 @endforelse
             </tbody>
+            @if($rows->isNotEmpty())
+                <tfoot><tr>
+                    @foreach($columns as $key => $label)
+                        @php
+                            $totalKey = match ($reportType) {
+                                'sales' => $key === 'amount_collected' ? 'amount_collected' : null,
+                                'master_cases' => in_array($key, ['total_amount', 'total_paid', 'balance'], true) ? $key : null,
+                                'owner_branch_analytics' => in_array($key, ['total_cases', 'paid_cases', 'partial_cases', 'unpaid_cases', 'gross_amount', 'collected_amount', 'remaining_balance'], true) ? $key : null,
+                                default => null,
+                            };
+                        @endphp
+                        <th class="{{ in_array($key, array_merge($moneyColumns, $numberColumns), true) ? 'number' : '' }}">
+                            @if($loop->first) TOTAL
+                            @elseif($totalKey)
+                                {{ in_array($totalKey, $moneyColumns, true) ? $money($rows->sum($totalKey)) : $number($rows->sum($totalKey)) }}
+                            @endif
+                        </th>
+                    @endforeach
+                </tr></tfoot>
+            @endif
         </table>
     </div>
 

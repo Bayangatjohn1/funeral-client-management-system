@@ -4,6 +4,13 @@
 @section('page_desc', 'Manage branch details, status, and branch-wide settings.')
 @section('hide_layout_topbar', '1')
 
+@section('topbar_actions')
+    <button id="openBranchCreateModal" type="button" class="btn btn-primary-custom btn-sm">
+        <i class="bi bi-plus-circle" aria-hidden="true"></i>
+        <span>Add Branch</span>
+    </button>
+@endsection
+
 @section('content')
 <style>[x-cloak] { display: none !important; }
 .admin-table-page.branch-management-page {
@@ -838,10 +845,10 @@
                         @click="setView('card')"
                         :class="view === 'card' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'"
                         class="px-3 py-2 transition-colors flex items-center gap-1.5 font-medium"
-                        title="Card view"
+                        title="Grid view"
                     >
                         <i class="bi bi-grid-3x3-gap-fill text-xs"></i>
-                        <span class="hidden sm:inline text-xs">Cards</span>
+                        <span class="hidden sm:inline text-xs">Grid</span>
                     </button>
                     <button
                         type="button"
@@ -854,15 +861,6 @@
                         <span class="hidden sm:inline text-xs">Table</span>
                     </button>
                 </div>
-
-                <button
-                    id="openBranchCreateModal"
-                    type="button"
-                    class="btn btn-primary-custom btn-sm"
-                >
-                    <i class="bi bi-plus-circle"></i>
-                    <span>Add Branch</span>
-                </button>
             </div>
         </div>
     </div>
@@ -872,7 +870,7 @@
         <form
             method="GET"
             action="{{ route('admin.branches.index') }}"
-            class="table-toolbar"
+            class="table-toolbar uniform-record-filters"
             data-table-toolbar
             data-live-search-suggestions
             data-live-search-commit-only

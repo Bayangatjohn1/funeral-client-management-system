@@ -41,14 +41,13 @@
         $encoderLabel = $selectedEncoder?->name ?? 'Selected Encoder';
     }
     $advancedFilterCount = collect([
-        filled(request('case_status')),
+        $showCaseStatus && filled(request('case_status')),
         filled(request('payment_status')),
-        filled(request('verification_status')),
-        filled(request('service_type')),
+        $showVerificationStatus && filled(request('verification_status')),
+        $showServiceType && filled(request('service_type')),
         filled(request('package_id')),
         filled(request('encoded_by')),
-        filled($intermentFrom ?? null),
-        filled($intermentTo ?? null),
+        filled($intermentFrom ?? null) || filled($intermentTo ?? null),
     ])->filter()->count();
     $activeFilters = collect([
         filled(request('q')),
@@ -107,7 +106,7 @@
     };
 @endphp
 
-<form method="GET" action="{{ $action }}" class="case-compact-filter" data-case-filter data-live-search-commit-only>
+<form method="GET" action="{{ $action }}" class="case-compact-filter {{ ($showPerPage ?? false) ? 'case-record-filters' : '' }}" data-case-filter data-live-search-commit-only>
     @foreach(($hiddenInputs ?? []) as $name => $value)
         <input type="hidden" name="{{ $name }}" value="{{ $value }}">
     @endforeach
@@ -236,13 +235,42 @@
         @endif
 
         @if($showMoreFilters)
-            <button type="button" class="case-compact-more {{ $advancedFilterCount > 0 ? 'active' : '' }}" data-case-more-toggle aria-expanded="false">
+            <button type="button" class="case-compact-more {{ $advancedFilterCount > 0 ? 'active' : '' }}" data-case-more-toggle data-filter-count="{{ $advancedFilterCount }}" aria-expanded="false">
                 <i class="bi bi-sliders"></i>
-                <span data-case-more-text>More Filters</span>
+                <span data-case-more-text>More Filters</span><span data-case-filter-count>{{ $advancedFilterCount > 0 ? "($advancedFilterCount)" : '' }}</span>
                 <i class="bi bi-chevron-down" data-case-more-icon></i>
             </button>
         @endif
+        @if($showPerPage ?? false)
+            <div class="case-rows-per-page">
+                <label for="case-records-per-page">Rows per page</label>
+                <select id="case-records-per-page" name="per_page" class="case-compact-input" data-case-auto-submit>
+                    @foreach([10, 25, 50, 100] as $pageSize)
+                        <option value="{{ $pageSize }}" @selected($cases->perPage() === $pageSize)>{{ $pageSize }}</option>
+                    @endforeach
+                </select>
+            </div>
+        @endif
+
     </div>
+    @if(($showPerPage ?? false) && $advancedFilterCount > 0)
+        <div class="case-applied-filters" aria-label="Applied filters">
+            @foreach(['payment_status' => 'Payment', 'package_id' => 'Package', 'encoded_by' => 'Encoded by', 'interment_from' => 'Interment from', 'interment_to' => 'Interment to'] as $filterKey => $filterLabel)
+                @if(request()->filled($filterKey))
+                    @php
+                        $chipValue = match ($filterKey) {
+                            'package_id' => $packageLabel,
+                            'encoded_by' => $encoderLabel,
+                            default => \Illuminate\Support\Str::headline(strtolower(request($filterKey))),
+                        };
+                    @endphp
+                    <a href="{{ request()->url() . '?' . http_build_query(request()->except(['page', $filterKey])) }}" class="case-compact-chip" aria-label="Remove {{ $filterLabel }} filter">
+                        {{ $filterLabel }}: {{ $chipValue }} <i class="bi bi-x" aria-hidden="true"></i>
+                    </a>
+                @endif
+            @endforeach
+        </div>
+    @endif
     @if($showMoreFilters)
         <div class="case-compact-advanced" data-case-more-panel hidden>
             <div class="case-compact-drawer-backdrop" data-case-more-dismiss></div>
@@ -251,7 +279,7 @@
                     <div>
                         <div class="case-compact-advanced-title">More Filters</div>
                         <div class="case-compact-advanced-note">
-                            Narrow the records by status, service details, or interment schedule.
+                            Filter by payment, package, or interment date.
                         </div>
                     </div>
                     <button type="button" class="case-compact-drawer-close" data-case-more-dismiss aria-label="Close more filters">
@@ -274,9 +302,12 @@
 
                     @if($showPaymentStatus)
                         <div class="case-compact-field">
-                            <label>Payment Status</label>
-                            <select name="payment_status" class="case-compact-input">
+                            <label for="case-filter-payment_status">Payment Status</label>
+                            <select id="case-filter-payment_status" name="payment_status" class="case-compact-input">
                                 <option value="">All Payment Status</option>
+                                @if($showPerPage ?? false)
+                                    <option value="WITH_BALANCE" @selected(request('payment_status') === 'WITH_BALANCE')>With Balance</option>
+                                @endif
                                 <option value="UNPAID" @selected(request('payment_status') === 'UNPAID')>Unpaid</option>
                                 <option value="PARTIAL" @selected(request('payment_status') === 'PARTIAL')>Partial</option>
                                 <option value="PAID" @selected(request('payment_status') === 'PAID')>Paid</option>
@@ -310,8 +341,8 @@
 
                     @if($showPackage)
                         <div class="case-compact-field">
-                            <label>Package</label>
-                            <select name="package_id" class="case-compact-input">
+                            <label for="case-filter-package_id">Package</label>
+                            <select id="case-filter-package_id" name="package_id" class="case-compact-input">
                                 <option value="">All Packages</option>
                                 @foreach(($packages ?? collect()) as $package)
                                     <option value="{{ $package->id }}" @selected((string) request('package_id') === (string) $package->id)>{{ $package->name }}</option>
@@ -322,8 +353,8 @@
 
                     @if($showEncodedBy)
                         <div class="case-compact-field">
-                            <label>Encoded By</label>
-                            <select name="encoded_by" class="case-compact-input">
+                            <label for="case-filter-encoded_by">Encoded By</label>
+                            <select id="case-filter-encoded_by" name="encoded_by" class="case-compact-input">
                                 <option value="">All Encoders</option>
                                 @foreach(($encoders ?? collect()) as $encoder)
                                     <option value="{{ $encoder->id }}" @selected((string) request('encoded_by') === (string) $encoder->id)>{{ $encoder->name }}</option>
@@ -333,22 +364,28 @@
                     @endif
 
                     @if($showInterment)
-                        <div class="case-compact-field">
-                            <label>Interment Date From</label>
-                            <input type="date" name="interment_from" value="{{ $intermentFrom ?? '' }}" class="case-compact-input">
-                        </div>
-                        <div class="case-compact-field">
-                            <label>Interment Date To</label>
-                            <input type="date" name="interment_to" value="{{ $intermentTo ?? '' }}" class="case-compact-input">
-                        </div>
+                        <fieldset class="case-interment-range">
+                            <legend>Interment Date</legend>
+                            <div class="case-interment-fields">
+                                <div class="case-compact-field">
+                                    <label for="case-interment-from">From</label>
+                                    <input id="case-interment-from" type="date" name="interment_from" value="{{ $intermentFrom ?? '' }}" class="case-compact-input">
+                                </div>
+                                <div class="case-compact-field">
+                                    <label for="case-interment-to">To</label>
+                                    <input id="case-interment-to" type="date" name="interment_to" value="{{ $intermentTo ?? '' }}" class="case-compact-input">
+                                </div>
+                            </div>
+                        </fieldset>
                     @endif
                 </div>
 
                 <div class="case-compact-advanced-actions">
-                    <a href="{{ $resetUrl }}" class="case-compact-advanced-clear">
-                        <i class="bi bi-x-circle"></i>
-                        <span>Clear</span>
-                    </a>
+                    @if($showPerPage ?? false)
+                        <button type="button" class="case-compact-advanced-clear" data-case-more-reset>Reset</button>
+                    @else
+                        <a href="{{ $resetUrl }}" class="case-compact-advanced-clear">Clear</a>
+                    @endif
                     <button type="submit" class="case-compact-pop-apply">
                         <i class="bi bi-funnel"></i>
                         <span>Apply filters</span>
@@ -359,3 +396,7 @@
     @endif
 
 </form>
+
+@if($showPerPage ?? false)
+    @include('partials.case_record_filter_styles')
+@endif

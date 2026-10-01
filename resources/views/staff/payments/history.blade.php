@@ -2,9 +2,21 @@
 
 @section('hide_layout_topbar', '1')
 @section('page_title', 'Payment Monitoring')
-@section('page_desc', '')
+@section('page_desc', 'Review payment progress, transaction history, branch scope, and outstanding balances.')
+
+@if(auth()->user()?->isStaff())
+    @section('topbar_actions')
+        <button type="button" id="openPaymentForm" class="ops-btn-primary">
+            <i class="bi bi-cash-stack" aria-hidden="true"></i>
+            <span>Record Payment</span>
+        </button>
+    @endsection
+@endif
 
 @section('content')
+@if($canRecordPayment ?? false)
+    @include('staff.payments._record_modal')
+@endif
 @php
     $user = auth()->user();
     $isBranchOnly = ($branches ?? collect())->count() === 1;
@@ -54,6 +66,12 @@
             ? route('owner.cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()])
             : route('funeral-cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]);
     };
+    $isAllBranchScope = ($selectedBranchId ?? null) === 'all'
+        || (($branches ?? collect())->count() > 1 && blank($selectedBranchId ?? null));
+    $collectiblesLabel = $isAllBranchScope ? 'Total Collectibles' : 'Branch Collectibles';
+    $hasPeriodFilter = filled($paidFrom ?? null)
+        || filled($paidTo ?? null)
+        || !in_array($dateRange, ['all', 'any'], true);
 @endphp
 
 <style>
@@ -266,7 +284,7 @@
 
     .pm-txn-list { display:flex; flex-direction:column; gap:.5rem; padding:.75rem 1rem 0; }
     .pm-txn-card { background:#DCE6D6; border:1px solid var(--border); border-radius:.6rem; overflow:hidden; box-shadow:none; }
-    .pm-txn-hd { display:flex; justify-content:space-between; align-items:flex-start; padding:.85rem 1rem; gap:1rem; }
+    .pm-txn-hd { display:flex; justify-content:space-between; align-items:flex-start; padding:.65rem .85rem; gap:.75rem; }
     .pm-txn-info { min-width:0; flex:1 1 0; }
     .pm-txn-rec { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:750; font-size:.92rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:24rem; color:var(--ink); }
     .pm-txn-rec-label { display:block; margin-bottom:.16rem; color:var(--ink-muted); font-size:.65rem; font-family:inherit; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
@@ -287,6 +305,7 @@
     }
     .pm-txn-tog:hover { background:#C7D5BE; color:var(--ink); }
     .pm-txn-tog[aria-expanded="true"] .pm-chev { transform:rotate(180deg); }
+    .pm-txn-tog.inline { margin:.4rem 0 0; }
     .pm-txn-det { border-top:1px solid var(--border); padding:.65rem 1rem .85rem; background:#C7D5BE; }
     .pm-txn-det-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(11rem,1fr)); gap:.5rem; }
     .pm-txn-det-cell span { display:block; font-size:.65rem; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-muted); font-weight:700; margin-bottom:.2rem; }
@@ -356,12 +375,16 @@
         .pm-field, .pm-field.search, .pm-field.branch { flex:1 1 11rem; min-width:10rem; }
         .pm-actions { margin-left:0; }
     }
+    .pm-payment-summary-ready { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px; padding:14px 16px; border:1px solid #9fb398; border-radius:14px; background:#e7eee2; color:#273427; }
+    .pm-payment-summary-ready strong,.pm-payment-summary-ready span { display:block; }
+    .pm-payment-summary-ready span { margin-top:3px; color:#526052; font-size:12px; line-height:1.4; }
     @media (max-width: 900px) {
         .pm-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
         .pm-summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
         .pm-records-body { max-height:calc(100vh - 360px); }
     }
     @media (max-width: 640px) {
+        .pm-payment-summary-ready { align-items:stretch; flex-direction:column; }
         .pm-kpis { grid-template-columns:1fr; }
         .pm-toolbar { flex-wrap:wrap; min-width:0; }
         .pm-field, .pm-field.search, .pm-field.branch, .pm-field.branch-readonly, .pm-actions, .pm-actions .pm-btn { width:100%; flex-basis:100%; min-width:0; max-width:none; }
@@ -376,37 +399,45 @@
         .pm-txn-hd { flex-direction:column; gap:.5rem; }
         .pm-txn-right { align-items:flex-start; }
     }
+    @media print {
+        .sidebar, .panel-sidebar, .pm-toolbar-shell, .pm-tabs, .pm-btn, .pm-light-link,
+        .pm-icon-toggle, .pm-modal-backdrop, [data-topbar-notifications] { display:none !important; }
+        .pm-page { padding:0 !important; }
+        .pm-panel, .pm-kpi { break-inside:avoid; box-shadow:none !important; }
+        .pm-records-body { max-height:none !important; overflow:visible !important; }
+        .pm-summary-detail { display:grid !important; }
+    }
 </style>
 
 <div class="pm-page ops-page payment-monitoring-page">
     @if(session('success'))
         <div class="flash-success">{{ session('success') }}</div>
     @endif
+    @if(session('payment_summary_id'))
+        <div class="pm-payment-summary-ready">
+            <div>
+                <strong>Payment Summary is ready.</strong>
+                <span>Print a reference copy showing the package amount, payment received, and updated remaining balance. It is not an Official Receipt.</span>
+            </div>
+            <a class="pm-btn primary ops-btn-primary" href="{{ route('payments.summary', session('payment_summary_id')) }}" target="_blank" rel="noopener">
+                <i class="bi bi-printer" aria-hidden="true"></i><span>Print Payment Summary</span>
+            </a>
+        </div>
+    @endif
     @if($errors->any())
         <div class="flash-error">{{ $errors->first() }}</div>
     @endif
 
-    <header class="ops-page-header" aria-labelledby="paymentMonitoringTitle">
-        <div class="ops-page-header__copy">
-            <div class="ops-page-kicker">
-                <i class="bi bi-clock-history" aria-hidden="true"></i>
-                <span>Payment Operations</span>
-            </div>
-            <h1 id="paymentMonitoringTitle" class="ops-page-title">Payment Monitoring</h1>
-            <p class="ops-page-desc">Review payment progress, transaction history, branch scope, and outstanding balances.</p>
-        </div>
-    </header>
-
     @if(!$isStaff)
     <div class="pm-kpis ops-stat-grid">
-        {{-- Total Cases With Payments — links to Case Payment Summary tab --}}
+        {{-- Cases included by the active payment filter --}}
         <div class="pm-kpi ops-stat-card">
             <div class="pm-kpi-inner ops-stat-card__inner">
                 <span class="pm-kpi-icon ops-stat-card__icon"><i class="bi bi-folder-check" aria-hidden="true"></i></span>
                 <div class="pm-kpi-body ops-stat-card__body">
-                    <span class="pm-kpi-label ops-stat-card__label">Cases with Payments</span>
+                    <span class="pm-kpi-label ops-stat-card__label">{{ $paymentStatus === 'WITH_BALANCE' ? 'Cases With Balance' : 'Cases Shown' }}</span>
                     <strong class="pm-kpi-value ops-stat-card__value">{{ number_format($totalCasesWithPayments ?? 0) }}</strong>
-                    <span class="pm-kpi-desc ops-stat-card__desc">Cases with at least one payment</span>
+                    <span class="pm-kpi-desc ops-stat-card__desc">{{ $paymentStatus === 'WITH_BALANCE' ? 'Active or completed cases with a remaining balance' : 'Cases matching the selected filters' }}</span>
                 </div>
             </div>
         </div>
@@ -417,7 +448,7 @@
                 <div class="pm-kpi-body ops-stat-card__body">
                     <span class="pm-kpi-label ops-stat-card__label">Payment Transactions</span>
                     <strong class="pm-kpi-value ops-stat-card__value">{{ number_format($paymentRecordsCount ?? 0) }}</strong>
-                    <span class="pm-kpi-desc ops-stat-card__desc">All recorded payment entries</span>
+                    <span class="pm-kpi-desc ops-stat-card__desc">{{ $hasPeriodFilter ? 'Valid entries in the selected period' : 'All valid recorded payment entries' }}</span>
                 </div>
             </div>
         </div>
@@ -428,18 +459,18 @@
                 <div class="pm-kpi-body ops-stat-card__body">
                     <span class="pm-kpi-label ops-stat-card__label">Total Collected</span>
                     <strong class="pm-kpi-value ops-stat-card__value good">&#8369;{{ number_format((float) ($totalCollected ?? 0), 2) }}</strong>
-                    <span class="pm-kpi-desc ops-stat-card__desc">Actual money received</span>
+                    <span class="pm-kpi-desc ops-stat-card__desc">{{ $hasPeriodFilter ? 'Amount received in the selected period' : 'All valid payments received' }}</span>
                 </div>
             </div>
         </div>
-        {{-- Outstanding Balance — non-clickable; no combined UNPAID+PARTIAL filter exists --}}
+        {{-- Outstanding balance for the active filters --}}
         <div class="pm-kpi ops-stat-card">
             <div class="pm-kpi-inner ops-stat-card__inner">
                 <span class="pm-kpi-icon ops-stat-card__icon pm-kpi-icon--warning"><i class="bi bi-exclamation-circle" aria-hidden="true"></i></span>
                 <div class="pm-kpi-body ops-stat-card__body">
-                    <span class="pm-kpi-label ops-stat-card__label">Outstanding Balance</span>
+                    <span class="pm-kpi-label ops-stat-card__label">{{ $collectiblesLabel }}</span>
                     <strong class="pm-kpi-value ops-stat-card__value warn">&#8369;{{ number_format((float) ($totalOutstanding ?? 0), 2) }}</strong>
-                    <span class="pm-kpi-desc ops-stat-card__desc">Remaining unpaid balance</span>
+                    <span class="pm-kpi-desc ops-stat-card__desc">Current remaining balance of cases shown</span>
                 </div>
             </div>
         </div>
@@ -447,7 +478,10 @@
     @endif
 
     <div class="pm-toolbar-shell ops-toolbar-shell">
-        <form id="pmFilterForm" method="GET" action="{{ route($monitoringRoute) }}" class="pm-toolbar ops-toolbar" data-pm-default-branch="{{ $defaultPaymentBranchId ?? '' }}">
+        <form id="pmFilterForm" method="GET" action="{{ route($monitoringRoute) }}" class="pm-toolbar ops-toolbar uniform-record-filters" data-pm-default-branch="{{ $defaultPaymentBranchId ?? '' }}">
+            @if($caseScopePreset ?? null)
+                <input type="hidden" name="case_scope" value="{{ $caseScopePreset }}">
+            @endif
             <input type="hidden" name="tab" value="{{ $activeTab }}">
 
             <div class="pm-field search has-icon ops-field ops-field--search">
@@ -489,7 +523,9 @@
             <div class="pm-field has-icon ops-field">
                 <i class="bi bi-credit-card" aria-hidden="true"></i>
                 <select name="payment_status" class="pm-control ops-control" title="Payment Status">
-                    <option value="">All Status</option>
+                    <option value="">All Payment Statuses</option>
+                    <option value="HAS_PAYMENT" @selected($paymentStatus === 'HAS_PAYMENT')>With Payments</option>
+                    <option value="WITH_BALANCE" @selected($paymentStatus === 'WITH_BALANCE')>With Balance</option>
                     <option value="UNPAID" @selected($paymentStatus === 'UNPAID')>Unpaid</option>
                     <option value="PARTIAL" @selected($paymentStatus === 'PARTIAL')>Partial</option>
                     <option value="PAID" @selected($paymentStatus === 'PAID')>Paid</option>
@@ -538,6 +574,7 @@
 
             <div class="pm-actions">
                 <a href="{{ route($monitoringRoute) }}" class="pm-btn ops-btn-outline" data-pm-clear-filters @if(!$hasPaymentFilters) hidden @endif><i class="bi bi-x-circle" aria-hidden="true"></i><span>Clear</span></a>
+                <a class="pm-btn ops-btn-outline" href="{{ route('payments.monitoring.print', request()->except(['page', 'transactions_page', 'tab'])) }}" target="_blank" rel="noopener"><i class="bi bi-printer" aria-hidden="true"></i><span>Print Preview</span></a>
             </div>
         </form>
     </div>
@@ -567,8 +604,13 @@
                             <div class="pm-row-meta">
                                 <span>{{ $case->branch?->branch_code ?? '-' }}{{ $case->branch?->branch_name ? ' · ' . $case->branch->branch_name : '' }}</span>
                             </div>
+                            <div class="pm-row-meta">
+                                <span>Service: PHP {{ number_format((float) $case->total_amount, 2) }}</span>
+                                <span>Paid: PHP {{ number_format((float) $case->total_paid, 2) }}</span>
+                                <span>Balance: PHP {{ number_format((float) $case->balance_amount, 2) }}</span>
+                            </div>
                         </div>
-                        <div class="pm-row-date">Last payment: {{ $latestPaymentAt?->format('M d, Y h:i A') ?? '-' }}</div>
+                        <div class="pm-row-date">Last payment: {{ $latestPaymentAt?->format('M d, Y h:i A') ?? 'No payment yet' }}</div>
                         <div class="pm-row-actions">
                             <span class="pm-status {{ $statusClass($case->payment_status) }}">{{ \Illuminate\Support\Str::headline($case->payment_status ?? 'UNPAID') }}</span>
                             <button type="button" class="pm-light-link ops-btn-outline" data-pm-stop-row-toggle data-pm-open-transactions-modal="{{ $transactionsModalId }}">
@@ -589,6 +631,7 @@
                                 <div>
                                     <div class="pm-modal-title" id="{{ $transactionsModalId }}-title">Transactions for {{ $case->case_code ?? 'Case' }}</div>
                                     <div class="pm-sub">{{ $case->client?->full_name ?? '-' }} &ndash; {{ $case->deceased?->full_name ?? '-' }}</div>
+                                    <div class="pm-sub">{{ $case->branch?->branch_code ?? '-' }}{{ $case->branch?->branch_name ? ' - ' . $case->branch->branch_name : '' }}</div>
                                 </div>
                                 <button type="button" class="pm-btn compact ops-btn-outline" data-pm-close-transactions-modal aria-label="Close transactions"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
                             </div>
@@ -601,6 +644,9 @@
                                 </div>
 
                                 <div class="pm-txn-list">
+                                    @php
+                                        $runningBalance = (float) $case->total_amount;
+                                    @endphp
                                     @forelse($casePayments as $payment)
                                         @php
                                             $method = $payment->payment_method ?: $payment->payment_mode ?: 'cash';
@@ -613,12 +659,16 @@
                                             $balanceValue = $hasBalSnap ? $payment->balance_after_payment : $case->balance_amount;
                                             $txnDetId = 'summary-txnd-' . $payment->id;
                                             $txnRef = $payment->reference_number ?: $payment->transaction_reference_no ?: null;
-                                            $refLabel = \App\Support\Payments\PaymentDetails::referenceLabel($payment);
                                             $remarks = $payment->remarks ?: null;
-                                            $encodedBy = $payment->encodedBy?->name ?? $payment->recordedBy?->name ?? null;
+                                            $recordedBy = $payment->recordedBy?->name ?? $payment->encodedBy?->name ?? null;
                                             $senderName = $payment->sender_name ?: null;
                                             $statusAfter = $payment->payment_status_after_payment ?? null;
                                             $recordNo = $payment->display_payment_record_no ?? null;
+                                            $previousBalance = $runningBalance;
+                                            $computedBalanceAfter = max(0, $previousBalance - (float) $payment->amount);
+                                            $runningBalance = $computedBalanceAfter;
+                                            $balanceLabel = 'Balance After Payment';
+                                            $balanceValue = $computedBalanceAfter;
                                         @endphp
                                         <div class="pm-txn-card">
                                             <div class="pm-txn-hd">
@@ -626,45 +676,30 @@
                                                     <span class="pm-txn-rec-label">Payment Record No.</span>
                                                     <div class="pm-txn-rec">{{ $recordNo ?? 'Not provided' }}</div>
                                                     <div class="pm-txn-sub">
-                                                        <span>{{ $methodLabel }}</span>
-                                                        @if($refLabel)
-                                                            <span class="pm-dot">&middot;</span>
-                                                            <span>{{ $refLabel }}</span>
-                                                        @endif
-                                                        <span class="pm-dot">&middot;</span>
                                                         <span>{{ $paidAt?->format('M d, Y h:i A') ?? 'Not provided' }}</span>
                                                     </div>
+                                                    <button type="button" class="pm-txn-tog inline ops-btn-outline" data-pm-txn-det="{{ $txnDetId }}" aria-expanded="false">
+                                                        <i class="bi bi-info-circle" aria-hidden="true"></i> View details <i class="bi bi-chevron-down pm-chev" aria-hidden="true"></i>
+                                                    </button>
                                                 </div>
                                                 <div class="pm-txn-right">
                                                     <div class="pm-txn-amt">PHP {{ number_format((float) $payment->amount, 2) }}</div>
                                                     @if($statusAfter)
                                                         <span class="pm-status {{ $statusClass($statusAfter) }}">{{ \Illuminate\Support\Str::headline($statusAfter) }}</span>
                                                     @endif
-                                                    <div class="pm-txn-bal">
-                                                        <span class="pm-txn-bal-lbl">{{ $balanceLabel }}</span>
-                                                        <span class="pm-txn-bal-val">PHP {{ number_format((float) $balanceValue, 2) }}</span>
-                                                    </div>
                                                 </div>
                                             </div>
-                                            @if($encodedBy)
-                                                <div class="pm-txn-foot">
-                                                    <span>Encoded by <strong>{{ $encodedBy }}</strong></span>
-                                                </div>
-                                            @endif
-                                            <button type="button" class="pm-txn-tog ops-btn-outline" data-pm-txn-det="{{ $txnDetId }}" aria-expanded="false">
-                                                <i class="bi bi-info-circle" aria-hidden="true"></i> Details <i class="bi bi-chevron-down pm-chev" aria-hidden="true"></i>
-                                            </button>
                                             <div id="{{ $txnDetId }}" class="pm-txn-det" hidden>
                                                 <div class="pm-txn-det-grid">
-                                                    <div class="pm-txn-det-cell"><span>Payment Record No.</span><strong>{{ $recordNo ?? 'Not provided' }}</strong></div>
                                                     <div class="pm-txn-det-cell"><span>Payment Method</span><strong>{{ $methodLabel }}</strong></div>
-                                                    <div class="pm-txn-det-cell"><span>Payment Amount</span><strong>PHP {{ number_format((float) $payment->amount, 2) }}</strong></div>
-                                                    <div class="pm-txn-det-cell"><span>Payment Date &amp; Time</span><strong>{{ $paidAt?->format('M d, Y h:i A') ?? 'Not provided' }}</strong></div>
+                                                    <div class="pm-txn-det-cell"><span>Previous Balance</span><strong>PHP {{ number_format($previousBalance, 2) }}</strong></div>
                                                     <div class="pm-txn-det-cell"><span>{{ $balanceLabel }}</span><strong>PHP {{ number_format((float) $balanceValue, 2) }}</strong></div>
-                                                    <div class="pm-txn-det-cell"><span>Encoded By</span><strong>{{ $encodedBy ?: 'Not provided' }}</strong></div>
-                                                    @if($isCashless)
-                                                        <div class="pm-txn-det-cell"><span>Cashless Type</span><strong>{{ $cashlessType ? \Illuminate\Support\Str::headline(str_replace('_', ' ', $cashlessType)) : 'Not provided' }}</strong></div>
-                                                        <div class="pm-txn-det-cell"><span>{{ $payment->approval_code ? 'Approval Code' : 'Reference No.' }}</span><strong>{{ $payment->approval_code ?: ($txnRef ?: 'Not provided') }}</strong></div>
+                                                    <div class="pm-txn-det-cell"><span>Date &amp; Time Received</span><strong>{{ $paidAt?->format('M d, Y h:i A') ?? 'Not provided' }}</strong></div>
+                                                    <div class="pm-txn-det-cell"><span>Recorded On</span><strong>{{ $payment->created_at?->format('M d, Y h:i A') ?? 'Not provided' }}</strong></div>
+                                                    <div class="pm-txn-det-cell"><span>Recorded By</span><strong>{{ $recordedBy ?: 'Not provided' }}</strong></div>
+                                                    <div class="pm-txn-det-cell"><span>Official Receipt Reference</span><strong>{{ $payment->receipt_or_no ?: 'Not recorded' }}</strong></div>
+                                                    @if($isCashless || $txnRef)
+                                                        <div class="pm-txn-det-cell"><span>{{ $payment->approval_code ? 'Approval Code' : 'Transaction Reference' }}</span><strong>{{ $payment->approval_code ?: ($txnRef ?: 'Not provided') }}</strong></div>
                                                     @endif
                                                     @if($senderName)
                                                         <div class="pm-txn-det-cell"><span>Sender / Account Name</span><strong>{{ $senderName }}</strong></div>
@@ -672,6 +707,10 @@
                                                     @if($remarks)
                                                         <div class="pm-txn-det-cell pm-txn-det-full"><span>Remarks</span><strong>{{ $remarks }}</strong></div>
                                                     @endif
+                                                </div>
+                                                <div class="pm-detail-actions">
+                                                    <a class="pm-btn ops-btn-outline" href="{{ route('payments.summary', $payment) }}" target="_blank" rel="noopener"><i class="bi bi-printer" aria-hidden="true"></i><span>Print Payment Summary</span></a>
+                                                    @include('staff.payments._correction_request', ['payment' => $payment])
                                                 </div>
                                             </div>
                                         </div>
@@ -681,9 +720,7 @@
                                 </div>
                             </div>
                             <div class="pm-modal-ft ops-modal__foot">
-                                @if($case)
-                                    <a class="pm-btn primary ops-btn-primary" href="{{ $caseRoute($case) }}"><i class="bi bi-eye" aria-hidden="true"></i><span>View Case</span></a>
-                                @endif
+                                <a class="pm-btn primary ops-btn-primary" href="{{ route('payments.history.print', $case) }}" target="_blank" rel="noopener"><i class="bi bi-printer" aria-hidden="true"></i><span>Print Payment History</span></a>
                                 <button type="button" class="pm-btn ops-btn-outline" data-pm-close-transactions-modal>Close</button>
                             </div>
                         </div>
@@ -755,7 +792,7 @@
                                         $txnRef = $payment->reference_number ?: $payment->transaction_reference_no ?: null;
                                         $refLabel = \App\Support\Payments\PaymentDetails::referenceLabel($payment);
                                         $remarks = $payment->remarks ?: null;
-                                        $encodedBy = $payment->encodedBy?->name ?? $payment->recordedBy?->name ?? null;
+                                        $recordedBy = $payment->recordedBy?->name ?? $payment->encodedBy?->name ?? null;
                                         $senderName = $payment->sender_name ?: null;
                                         $statusAfter = $payment->payment_status_after_payment ?? null;
                                         $recordNo = $payment->display_payment_record_no ?? null;
@@ -786,9 +823,9 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        @if($encodedBy)
+                                        @if($recordedBy)
                                             <div class="pm-txn-foot">
-                                                <span>Encoded by <strong>{{ $encodedBy }}</strong></span>
+                                                <span>Recorded by <strong>{{ $recordedBy }}</strong></span>
                                             </div>
                                         @endif
                                         <button type="button" class="pm-txn-tog ops-btn-outline" data-pm-txn-det="{{ $txnDetId }}" aria-expanded="false">
@@ -809,16 +846,20 @@
                                                     <strong>PHP {{ number_format((float) $payment->amount, 2) }}</strong>
                                                 </div>
                                                 <div class="pm-txn-det-cell">
-                                                    <span>Payment Date &amp; Time</span>
+                                                    <span>Date &amp; Time Received</span>
                                                     <strong>{{ $paidAt?->format('M d, Y h:i A') ?? 'Not provided' }}</strong>
+                                                </div>
+                                                <div class="pm-txn-det-cell">
+                                                    <span>Recorded On</span>
+                                                    <strong>{{ $payment->created_at?->format('M d, Y h:i A') ?? 'Not provided' }}</strong>
                                                 </div>
                                                 <div class="pm-txn-det-cell">
                                                     <span>{{ $balanceLabel }}</span>
                                                     <strong>PHP {{ number_format((float) $balanceValue, 2) }}</strong>
                                                 </div>
                                                 <div class="pm-txn-det-cell">
-                                                    <span>Encoded By</span>
-                                                    <strong>{{ $encodedBy ?: 'Not provided' }}</strong>
+                                                    <span>Recorded By</span>
+                                                    <strong>{{ $recordedBy ?: 'Not provided' }}</strong>
                                                 </div>
                                                 @if($isCashless)
                                                     <div class="pm-txn-det-cell">
@@ -842,6 +883,10 @@
                                                         <strong>{{ $remarks }}</strong>
                                                     </div>
                                                 @endif
+                                            </div>
+                                            <div class="pm-detail-actions">
+                                                @include('staff.payments._correction_request', ['payment' => $payment])
+                                                <a class="pm-btn ops-btn-outline" href="{{ route('payments.summary', $payment) }}" target="_blank" rel="noopener"><i class="bi bi-printer" aria-hidden="true"></i><span>Print Payment Summary</span></a>
                                             </div>
                                         </div>
                                     </div>

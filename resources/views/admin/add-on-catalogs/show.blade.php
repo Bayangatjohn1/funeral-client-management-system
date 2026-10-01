@@ -2,6 +2,7 @@
 
 @section('title', 'View Add-on')
 @section('page_title', 'View Add-on')
+@section('page_desc', 'Review add-on details, pricing, status, and usage notes.')
 
 @section('content')
 @php

@@ -269,7 +269,7 @@ class SystemRegressionGuardsTest extends TestCase
             ->assertOk()
             ->assertViewHas('cases', function ($cases) {
                 return method_exists($cases, 'perPage')
-                    && $cases->perPage() === 20
+                    && $cases->perPage() === 25
                     && $cases->total() === 25;
             });
     }
@@ -1046,6 +1046,62 @@ class SystemRegressionGuardsTest extends TestCase
         ]);
     }
 
+    public function test_receipt_number_can_be_added_later_and_cannot_duplicate_within_branch(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $staff = $this->createUser('staff', $mainBranch, true);
+        $package = $this->createPackage();
+        $client = $this->createClient($mainBranch, 'Receipt Client');
+        $deceased = $this->createDeceased($mainBranch, $client, 'Receipt Deceased');
+        $case = $this->createCase($mainBranch, $client, $deceased, $package, [
+            'case_code' => 'FC3107',
+            'total_amount' => 20000,
+            'total_paid' => 0,
+            'balance_amount' => 20000,
+            'payment_status' => 'UNPAID',
+            'case_status' => 'ACTIVE',
+        ]);
+
+        $basePayload = [
+            'funeral_case_id' => $case->id,
+            'paid_at' => now()->format('Y-m-d H:i:s'),
+            'amount_paid' => '1000.00',
+            'payment_method' => 'cash',
+        ];
+
+        $this->actingAs($staff)->post('/payments/pay', array_merge($basePayload, [
+            'receipt_or_no' => 'OR-2026-1001',
+        ]))->assertRedirect('/payments');
+
+        $this->actingAs($staff)->from('/payments/history')->post('/payments/pay', array_merge($basePayload, [
+            'receipt_or_no' => 'OR-2026-1001',
+        ]))->assertRedirect('/payments/history')
+            ->assertSessionHasErrors('receipt_or_no');
+
+        $this->actingAs($staff)->post('/payments/pay', $basePayload)->assertRedirect('/payments');
+        $paymentWithoutReceipt = Payment::query()->latest('id')->firstOrFail();
+
+        $this->actingAs($staff)
+            ->from('/payments/history')
+            ->patch(route('payments.receipt.update', $paymentWithoutReceipt, absolute: false), [
+                'receipt_or_no' => 'OR-2026-1001',
+            ])
+            ->assertRedirect('/payments/history')
+            ->assertSessionHasErrors('receipt_or_no');
+
+        $this->actingAs($staff)
+            ->patch(route('payments.receipt.update', $paymentWithoutReceipt, absolute: false), [
+                'receipt_or_no' => 'OR-2026-1002',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('payments', [
+            'id' => $paymentWithoutReceipt->id,
+            'receipt_or_no' => 'OR-2026-1002',
+            'accounting_reference_no' => 'OR-2026-1002',
+        ]);
+    }
+
     public function test_other_branch_case_details_do_not_offer_add_payment_action(): void
     {
         $mainBranch = $this->createBranch('BR001', 'Main Branch');
@@ -1228,8 +1284,14 @@ class SystemRegressionGuardsTest extends TestCase
             'died' => $deathDate,
             'civil_status' => 'WIDOWED',
             'wake_location' => 'Family Residence',
+            'wake_start_date' => now()->toDateString(),
+            'wake_start_time' => '08:00',
+            'wake_end_date' => $funeralDate,
+            'wake_end_time' => '07:00',
             'funeral_service_at' => $funeralDate,
+            'funeral_service_time' => '08:00',
             'interment_at' => $intermentAt,
+            'interment_time' => '09:00',
             'place_of_cemetery' => 'Public Cemetery',
             'case_status' => 'ACTIVE',
             'transport_option' => 'HEARSE',

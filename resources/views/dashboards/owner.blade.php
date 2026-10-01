@@ -48,10 +48,18 @@
     $topBranchBars    = $branchByRevenue->take(3)->values();
     $maxSales = max(1, (float) ($branchByRevenue->max('sales') ?? 1));
     $barColors = ['#3E4A3D', '#8B9A8B', '#6F8A6D', '#B87956', '#7A8076'];
+    $ownerFirstName = \Illuminate\Support\Str::of(auth()->user()?->name ?? 'Owner')->trim()->explode(' ')->first();
 @endphp
 
 <span class="sr-only">Owner Overview</span>
 <div class="eb-owner-toast-stack" data-owner-toast-stack aria-live="polite" aria-atomic="true"></div>
+
+<section class="eb-greeting eb-greeting--flat" aria-labelledby="owner-dashboard-greeting">
+    <div>
+        <h1 id="owner-dashboard-greeting">Good day, {{ $ownerFirstName }}</h1>
+        <p>Business overview across all branches</p>
+    </div>
+</section>
 
 {{--
     ═══════════════════════════════════════════════════════════════════════
@@ -565,6 +573,41 @@
         linear-gradient(180deg, rgba(73, 87, 69, 0.034) 0 1px, transparent 1px),
         repeating-linear-gradient(135deg, rgba(73, 87, 69, 0.02) 0 1px, transparent 1px 12px);
     background-size: 44px 44px, 44px 44px, 16px 16px;
+}
+
+.eb-greeting {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.15rem;
+    border: 1px solid var(--eb-border);
+    border-radius: 14px;
+    background: var(--eb-surface);
+}
+.eb-greeting.eb-greeting--flat {
+    padding: .25rem 0 .75rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+.eb-greeting h1 {
+    margin: 0;
+    color: var(--eb-text);
+    font-family: var(--font-heading);
+    font-size: clamp(1.35rem, 2vw, 1.8rem);
+    line-height: 1.15;
+}
+.eb-greeting p {
+    margin: .3rem 0 0;
+    color: var(--eb-text-muted);
+    font-size: .9rem;
+    font-weight: 600;
+}
+@media (max-width: 767px) {
+    .eb-greeting.eb-greeting--flat {
+        padding: .2rem 0 .65rem;
+    }
 }
 
 .eb-shell *,

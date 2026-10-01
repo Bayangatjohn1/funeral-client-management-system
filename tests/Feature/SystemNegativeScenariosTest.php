@@ -23,7 +23,8 @@ class SystemNegativeScenariosTest extends TestCase
 
         $this->actingAs($staff)->get('/clients')->assertOk();
         $this->actingAs($staff)->get('/deceased')->assertRedirect(route('clients.index', absolute: false));
-        $this->actingAs($staff)->get('/payments')->assertOk();
+        $this->actingAs($staff)->get('/payments')
+            ->assertRedirect(route('payments.history', ['record_payment' => 1], absolute: false));
         $this->actingAs($staff)->get('/intake/other')->assertForbidden();
         $this->actingAs($staff)->get('/other-branch-reports')->assertForbidden();
     }
@@ -111,7 +112,7 @@ class SystemNegativeScenariosTest extends TestCase
             'entry_source' => 'MAIN',
         ]);
 
-        $response = $this->actingAs($staff)->from('/payments')->post('/payments/pay', [
+        $response = $this->actingAs($staff)->from('/payments/history')->post('/payments/pay', [
             'funeral_case_id' => $case->id,
             'paid_at' => now()->format('Y-m-d H:i:s'),
             'amount_paid' => 7000,
@@ -120,7 +121,7 @@ class SystemNegativeScenariosTest extends TestCase
             'received_by' => 'Accounting Staff',
         ]);
 
-        $response->assertRedirect('/payments');
+        $response->assertRedirect('/payments/history');
         $response->assertSessionHasErrors('payment');
         $this->assertDatabaseCount('payments', 0);
 

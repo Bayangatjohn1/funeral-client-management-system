@@ -4,6 +4,13 @@
 @section('page_desc', 'Manage system users, roles, and account access.')
 @section('hide_layout_topbar', '1')
 
+@section('topbar_actions')
+    <a href="{{ route('admin.users.create', ['return_to' => request()->fullUrl()]) }}" class="btn btn-primary-custom btn-sm">
+        <i class="bi bi-plus-circle" aria-hidden="true"></i>
+        <span>Add User</span>
+    </a>
+@endsection
+
 @section('content')
 @php
     $isBranchAdminView = auth()->user()?->isBranchAdmin() ?? false;
@@ -544,10 +551,10 @@
                         @click="setView('card')"
                         :class="view === 'card' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'"
                         class="px-3 py-2 transition-colors flex items-center gap-1.5 font-medium"
-                        title="Card view"
+                        title="Grid view"
                     >
                         <i class="bi bi-grid-3x3-gap-fill text-xs"></i>
-                        <span class="hidden sm:inline text-xs">Cards</span>
+                        <span class="hidden sm:inline text-xs">Grid</span>
                     </button>
                     <button
                         type="button"
@@ -560,13 +567,6 @@
                         <span class="hidden sm:inline text-xs">Table</span>
                     </button>
                 </div>
-                <a
-                    href="{{ route('admin.users.create', ['return_to' => request()->fullUrl()]) }}"
-                    class="btn btn-primary-custom btn-sm"
-                >
-                    <i class="bi bi-plus-circle"></i>
-                    <span>Add User</span>
-                </a>
             </div>
         </div>
     </div>
@@ -575,12 +575,12 @@
         <form
             method="GET"
             action="{{ route('admin.users.index') }}"
-            class="table-toolbar"
+            class="table-toolbar uniform-record-filters"
             data-table-toolbar
             data-live-search-suggestions
             data-live-search-commit-only
             data-search-debounce="400"
-            style="grid-template-columns: minmax(260px, 2.2fr) repeat(4, minmax(150px, 1fr)) auto;"
+            style="grid-template-columns: minmax(260px, 2.2fr) repeat({{ $isBranchAdminView ? 2 : 4 }}, minmax(150px, 1fr));"
         >
             <div class="table-toolbar-field">
                 <label class="table-toolbar-label">Search</label>
@@ -602,11 +602,11 @@
                     <div class="live-search-results" data-live-search-results hidden></div>
                 </div>
             </div>
-            <div class="table-toolbar-field">
-                <label class="table-toolbar-label">Branch</label>
-                <div class="table-toolbar-select-wrap">
-                    <i class="bi bi-building table-toolbar-leading-icon" aria-hidden="true"></i>
-                    @if(($branches ?? collect())->isNotEmpty())
+            @unless($isBranchAdminView)
+                <div class="table-toolbar-field">
+                    <label class="table-toolbar-label">Branch</label>
+                    <div class="table-toolbar-select-wrap">
+                        <i class="bi bi-building table-toolbar-leading-icon" aria-hidden="true"></i>
                         <select name="branch_id" class="form-select table-toolbar-select" data-table-auto-submit>
                             <option value="">All Branches</option>
                             @foreach($branches as $branch)
@@ -615,34 +615,22 @@
                                 </option>
                             @endforeach
                         </select>
-                    @else
-                        <select class="form-select table-toolbar-select" disabled>
-                            <option>
-                                {{ trim(($assignedBranch?->branch_code ?? 'Assigned') . ' - ' . ($assignedBranch?->branch_name ?? 'Branch')) }}
-                            </option>
-                        </select>
-                    @endif
-                    <i class="bi bi-chevron-down table-toolbar-select-icon" aria-hidden="true"></i>
+                        <i class="bi bi-chevron-down table-toolbar-select-icon" aria-hidden="true"></i>
+                    </div>
                 </div>
-            </div>
-            <div class="table-toolbar-field">
-                <label class="table-toolbar-label">Role</label>
-                <div class="table-toolbar-select-wrap">
-                    <i class="bi bi-person-badge table-toolbar-leading-icon" aria-hidden="true"></i>
-                    @if($isBranchAdminView)
-                        <select class="form-select table-toolbar-select" disabled aria-label="Role filter locked to staff">
-                            <option>Staff Only</option>
-                        </select>
-                    @else
+                <div class="table-toolbar-field">
+                    <label class="table-toolbar-label">Role</label>
+                    <div class="table-toolbar-select-wrap">
+                        <i class="bi bi-person-badge table-toolbar-leading-icon" aria-hidden="true"></i>
                         <select name="role" class="form-select table-toolbar-select" data-table-auto-submit>
                             <option value="">All Roles</option>
                             <option value="admin" {{ request('role') === 'admin' ? 'selected' : '' }}>Admin</option>
                             <option value="staff" {{ request('role') === 'staff' ? 'selected' : '' }}>Staff</option>
                         </select>
-                    @endif
-                    <i class="bi bi-chevron-down table-toolbar-select-icon" aria-hidden="true"></i>
+                        <i class="bi bi-chevron-down table-toolbar-select-icon" aria-hidden="true"></i>
+                    </div>
                 </div>
-            </div>
+            @endunless
             <div class="table-toolbar-field">
                 <label class="table-toolbar-label">Status</label>
                 <div class="table-toolbar-select-wrap">
@@ -668,7 +656,13 @@
                     <i class="bi bi-chevron-down table-toolbar-select-icon" aria-hidden="true"></i>
                 </div>
             </div>
-            <div class="table-toolbar-reset-wrap">
+            <div class="table-toolbar-field user-page-size">
+                <label class="table-toolbar-label" for="users-per-page">Rows per page</label>
+                <select id="users-per-page" name="per_page" class="form-select table-toolbar-select" data-table-auto-submit>
+                    @foreach([10, 25, 50, 100] as $size)
+                        <option value="{{ $size }}" @selected($users->perPage() === $size)>{{ $size }}</option>
+                    @endforeach
+                </select>
             </div>
         </form>
     </div>
@@ -706,7 +700,7 @@
                         data-live-search-row
                         data-live-search-title="{{ $user->name }}"
                         data-live-search-meta="{{ $user->roleLabel() }} / {{ $user->branch->branch_name ?? 'No branch assigned' }}"
-                        data-live-search-text="{{ $user->name }} {{ $user->email }} {{ $user->roleLabel() }} {{ $user->branch->branch_name ?? '' }} {{ $user->position }} {{ $user->contact_number }} {{ $user->is_active ? 'Active' : 'Inactive' }}"
+                        data-live-search-text="{{ $user->name }} {{ $user->email }} {{ $user->roleLabel() }} {{ $user->branch->branch_name ?? '' }} {{ $user->contact_number }} {{ $user->is_active ? 'Active' : 'Inactive' }}"
                     >
                         <div class="directory-user-card-head flex items-start justify-between gap-3">
                             <div class="flex-1 min-w-0">
@@ -714,9 +708,9 @@
                                     <span class="inline-flex items-center rounded-lg bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5">
                                         {{ $user->roleLabel() }}
                                     </span>
-                                    @if($user->admin_scope === 'main')
+                                    @if($user->isSystemAdmin())
                                         <span class="inline-flex items-center rounded-lg bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5">
-                                            <i class="bi bi-star-fill text-[8px] mr-1"></i>Main
+                                            <i class="bi bi-shield-lock-fill text-[8px] mr-1"></i>All Branches
                                         </span>
                                     @endif
                                 </div>
@@ -729,10 +723,6 @@
                             <div class="flex items-start gap-2">
                                 <i class="bi bi-building text-[11px] mt-0.5 text-slate-400"></i>
                                 <span class="truncate">{{ $user->branch->branch_name ?? 'No branch assigned' }}</span>
-                            </div>
-                            <div class="flex items-start gap-2">
-                                <i class="bi bi-person-badge text-[11px] mt-0.5 text-slate-400"></i>
-                                <span class="truncate">{{ $user->position ?? 'No position set' }}</span>
                             </div>
                             <div class="flex items-start gap-2">
                                 <i class="bi bi-telephone text-[11px] mt-0.5 text-slate-400"></i>
@@ -796,7 +786,6 @@
                             <th class="text-left">Email</th>
                             <th class="text-left">Role</th>
                             <th class="text-left">Branch</th>
-                            <th class="text-left">Position</th>
                             <th class="text-left">Contact</th>
                             <th class="text-left">Status</th>
                             <th class="table-col-actions">Actions</th>
@@ -808,13 +797,12 @@
                                 data-live-search-row
                                 data-live-search-title="{{ $user->name }}"
                                 data-live-search-meta="{{ $user->roleLabel() }} / {{ $user->branch->branch_name ?? 'No branch assigned' }}"
-                                data-live-search-text="{{ $user->name }} {{ $user->email }} {{ $user->roleLabel() }} {{ $user->branch->branch_name ?? '' }} {{ $user->position }} {{ $user->contact_number }} {{ $user->is_active ? 'Active' : 'Inactive' }}"
+                                data-live-search-text="{{ $user->name }} {{ $user->email }} {{ $user->roleLabel() }} {{ $user->branch->branch_name ?? '' }} {{ $user->contact_number }} {{ $user->is_active ? 'Active' : 'Inactive' }}"
                             >
                                 <td class="table-primary">{{ $user->name }}</td>
                                 <td class="table-secondary">{{ $user->email }}</td>
                                 <td>{{ $user->roleLabel() }}</td>
                                 <td>{{ $user->branch->branch_name ?? '-' }}</td>
-                                <td class="table-secondary">{{ $user->position ?? '-' }}</td>
                                 <td>{{ $user->contact_number ?? '-' }}</td>
                                 <td>
                                     @if($user->is_active)
@@ -858,7 +846,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="table-system-empty">No users found.</td>
+                                <td colspan="7" class="table-system-empty">No users found.</td>
                             </tr>
                         @endforelse
                     </tbody>

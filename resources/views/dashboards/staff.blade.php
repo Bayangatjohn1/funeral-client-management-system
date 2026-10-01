@@ -8,6 +8,7 @@
 @php
     $branchLabel = trim(($dashboardBranch->branch_code ?? 'BR001') . ' - ' . ($dashboardBranch->branch_name ?? 'Main Branch'));
     $todayLabel = now()->format('l, F j, Y');
+    $staffFirstName = \Illuminate\Support\Str::of(auth()->user()?->name ?? 'Staff')->trim()->explode(' ')->first();
 
     $attentionItems = collect($attentionReminders ?? [])->take(3)->values();
     $todayItems = collect($todaySchedule ?? [])->take(3)->values();
@@ -18,7 +19,6 @@
         ->take(3)
         ->values();
 
-    $monthLabel = now()->format('M Y');
 @endphp
 
 <style>
@@ -270,6 +270,7 @@
         padding: 1rem 1.1rem;
         border-bottom: 1px solid #C9C5BB;
         display: flex;
+        position: relative;
         align-items: flex-start;
         justify-content: space-between;
         gap: .75rem;
@@ -289,6 +290,82 @@
     .staff-card-head--fixed-actions .staff-head-actions {
         margin-left: auto;
         flex: 0 0 auto;
+    }
+
+    .staff-card-head-main {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: .75rem 1rem;
+        min-width: 0;
+        flex: 1 1 auto;
+        flex-wrap: wrap;
+    }
+
+    .staff-card-head-main > div:first-child {
+        min-width: 0;
+        flex: 1 1 12rem;
+    }
+
+    .staff-card-head-controls {
+        display: flex;
+        flex: 0 0 auto;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: .35rem;
+        margin-left: auto;
+    }
+
+    .staff-card--hover-action .staff-head-actions {
+        min-height: 1.05rem;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity .16s ease, visibility .16s ease;
+    }
+
+    .staff-card--hover-action .staff-head-actions .staff-link {
+        font-size: .76rem;
+        line-height: 1.2;
+        font-weight: 600;
+    }
+
+    .staff-card--hover-action .staff-head-actions .staff-link i {
+        font-size: .7rem;
+        margin-left: .12rem;
+    }
+
+    .staff-card--hover-action:hover .staff-head-actions,
+    .staff-card--hover-action:focus-within .staff-head-actions {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    [data-schedules-card] .staff-card-head-main {
+        flex-wrap: nowrap;
+        gap: .5rem;
+    }
+
+    [data-schedules-card] .staff-card-head-main > div:first-child {
+        flex: 1 1 auto;
+    }
+
+    [data-schedules-card] .staff-card-head-controls {
+        flex-shrink: 0;
+    }
+
+    [data-schedules-card] .staff-tabs {
+        gap: .18rem;
+        padding: .18rem;
+    }
+
+    [data-schedules-card] .staff-tab-btn {
+        padding: .28rem .42rem;
+        font-size: .73rem;
+    }
+
+    .staff-card-head-controls--summary .staff-head-actions {
+        justify-content: flex-end;
     }
 
     .staff-card-head h3 {
@@ -533,6 +610,18 @@
         border-color: #C9C5BB;
     }
 
+    .staff-attention-date {
+        display: block;
+        margin-top: .2rem;
+        color: var(--color-text-secondary);
+        font-size: .79rem;
+        font-weight: 600;
+    }
+
+    .staff-payment-state {
+        margin-top: .38rem;
+    }
+
     .staff-empty {
         text-align: center;
         color: #5F685F;
@@ -636,6 +725,10 @@
     }
 
     @media (min-width: 1180px) {
+        .staff-action-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
         .staff-grid {
             grid-template-columns: minmax(0, 2.2fr) minmax(340px, 0.95fr);
             align-items: start;
@@ -648,12 +741,6 @@
 
         .staff-subgrid-two {
             grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-    }
-
-    @media (min-width: 1360px) {
-        .staff-action-grid {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
         }
     }
 
@@ -680,11 +767,31 @@
 
         .staff-card-head--fixed-actions .staff-head-actions {
             margin-left: 0;
+            align-self: flex-start;
+            margin-top: 0;
+        }
+
+        .staff-card-head-controls {
+            width: 100%;
+            align-items: flex-start;
+            margin-left: 0;
+        }
+
+        [data-schedules-card] .staff-card-head-main {
+            flex-wrap: wrap;
         }
 
         .staff-balance-cta {
             width: 100%;
             margin-top: .35rem;
+        }
+    }
+
+    @media (hover: none) {
+        .staff-card--hover-action .staff-head-actions {
+            opacity: 1;
+            visibility: visible;
+            transform: none;
         }
     }
 
@@ -1494,6 +1601,47 @@
     .staff-dashboard-v2 .topbar-notification-menu {
         z-index: 5000 !important;
     }
+
+    /* Clean dashboard heading: no surrounding card container. */
+    .staff-header-card {
+        padding: .25rem 0 .75rem;
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+    }
+    .staff-title {
+        color: var(--color-text-primary);
+        font-size: clamp(1.55rem, 2.3vw, 2rem);
+        line-height: 1.12;
+        letter-spacing: -.02em;
+    }
+    .staff-subtitle {
+        display: flex;
+        align-items: center;
+        gap: .55rem;
+        flex-wrap: wrap;
+        margin-top: .4rem;
+    }
+    .staff-workspace-label {
+        color: var(--color-text-secondary);
+        font-size: .9rem;
+        font-weight: 700;
+        letter-spacing: .015em;
+    }
+    .staff-branch-chip {
+        padding: .2rem .6rem;
+        font-size: .76rem;
+    }
+    html[data-theme='dark'] .staff-header-card {
+        background: transparent;
+        border: 0;
+    }
+    html[data-theme='dark'] .staff-workspace-label { color: #b8c5d3; }
+
+    @media (max-width: 699px) {
+        .staff-header-card { padding: .2rem 0 .65rem; }
+        .staff-header-main { align-items: center; }
+    }
 </style>
 
 <div class="staff-dashboard-v2">
@@ -1511,8 +1659,11 @@
                     <i class="bi bi-list"></i>
                 </button>
                 <div>
-                    <h1 class="staff-title">Your daily workspace</h1>
-                    <p class="staff-subtitle"><span class="staff-branch-chip">{{ $branchLabel }}</span></p>
+                    <h1 class="staff-title">Good day, {{ $staffFirstName }}</h1>
+                    <p class="staff-subtitle">
+                        <span class="staff-workspace-label">Your Daily Workspace</span>
+                        <span class="staff-branch-chip">{{ $branchLabel }}</span>
+                    </p>
                 </div>
             </div>
             <div class="staff-tools">
@@ -1527,14 +1678,6 @@
                 <div>
                     <p class="title">Record New Case</p>
                     <p class="desc">Create a funeral record</p>
-                </div>
-            </a>
-
-            <a href="{{ route('payments.index') }}" class="staff-action-card is-green">
-                <div class="icon"><i class="bi bi-credit-card-2-front"></i></div>
-                <div>
-                    <p class="title">Record Payment</p>
-                    <p class="desc">Post payment to a case</p>
                 </div>
             </a>
 
@@ -1558,22 +1701,23 @@
 
     <section class="staff-grid">
         <div class="staff-col staff-col-wide">
-            <article class="staff-card staff-card--equal" data-activity-card>
+            <article class="staff-card staff-card--equal staff-card--hover-action" data-activity-card>
                 <div class="staff-card-head staff-card-head--fixed-actions">
-                    <div>
-                        <h3>Recent Activity</h3>
-                        <p data-activity-copy>Latest cases in your branch</p>
-                    </div>
-                    <div class="staff-head-actions flex items-center gap-2">
-                        <a href="{{ route('funeral-cases.index') }}" class="staff-link" data-activity-link="cases">View all <i class="bi bi-arrow-right"></i></a>
-                        <a href="{{ route('payments.history') }}" class="staff-link hidden" data-activity-link="payments">View all <i class="bi bi-arrow-right"></i></a>
-                    </div>
-                </div>
-
-                <div class="staff-card-tabs-bar">
-                    <div class="staff-tabs" data-activity-tabs>
-                        <button type="button" class="staff-tab-btn is-active" data-activity-tab="cases" aria-pressed="true">Recent Cases</button>
-                        <button type="button" class="staff-tab-btn" data-activity-tab="payments" aria-pressed="false">Recent Payments</button>
+                    <div class="staff-card-head-main">
+                        <div>
+                            <h3>Recent Activity</h3>
+                            <p data-activity-copy>New cases recorded today in your branch</p>
+                        </div>
+                        <div class="staff-card-head-controls">
+                            <div class="staff-tabs" data-activity-tabs>
+                                <button type="button" class="staff-tab-btn is-active" data-activity-tab="cases" aria-pressed="true">Cases Today</button>
+                                <button type="button" class="staff-tab-btn" data-activity-tab="payments" aria-pressed="false">Payments Today</button>
+                            </div>
+                            <div class="staff-head-actions flex items-center gap-2">
+                                <a href="{{ route('funeral-cases.index') }}" class="staff-link" data-activity-link="cases">Go to Case Records <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                                <a href="{{ route('payments.history') }}" class="staff-link hidden" data-activity-link="payments">Go to Payment Monitoring <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -1582,10 +1726,10 @@
                         <table class="staff-table">
                             <thead>
                                 <tr>
-                                    <th>Ref</th>
+                                    <th>Case</th>
                                     <th>Deceased - Client</th>
                                     <th>Status</th>
-                                    <th class="text-right">Amount</th>
+                                    <th>Package Selected</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1598,7 +1742,11 @@
                                         };
                                     @endphp
                                     <tr>
-                                        <td><span class="staff-table-code">{{ $case->case_code }}</span></td>
+                                        <td>
+                                            <span class="staff-table-code">{{ $case->case_code }}</span>
+                                            <div class="staff-muted">Created by {{ $case->encodedBy?->name ?? 'Unknown user' }}</div>
+                                            <div class="staff-muted">{{ $case->created_at?->format('M d, Y · h:i A') }}</div>
+                                        </td>
                                         <td>
                                             <strong>{{ $case->deceased->full_name ?? 'Unknown' }}</strong>
                                             <div class="staff-muted">{{ $case->client->full_name ?? 'No client record' }}</div>
@@ -1606,13 +1754,15 @@
                                         <td>
                                             <span class="status-pill {{ $statusClass }}">{{ \Illuminate\Support\Str::title(strtolower($case->case_status)) }}</span>
                                         </td>
-                                        <td class="text-right staff-money">&#8369; {{ number_format((float) $case->total_amount, 2) }}</td>
+                                        <td>
+                                            <strong>{{ $case->package_name_snapshot ?: $case->custom_package_name ?: $case->package?->name ?: $case->service_package ?: 'No package selected' }}</strong>
+                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
                                         <td colspan="4" class="staff-empty">
                                             <i class="bi bi-inbox"></i>
-                                            No recent case records.
+                                            No new cases created today.
                                         </td>
                                     </tr>
                                 @endforelse
@@ -1633,10 +1783,8 @@
                             <thead>
                                 <tr>
                                     <th class="text-center">Deceased - Client</th>
-                                    <th class="text-center">Method - Date</th>
+                                    <th class="text-center">Payment - Date &amp; Time</th>
                                     <th class="text-center">Payment Status</th>
-                                    <th class="text-center">Amount</th>
-                                    <th class="text-center">Balance</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1658,7 +1806,6 @@
                                             'PARTIAL' => 'draft',
                                             default => 'unpaid',
                                         };
-                                        $balanceValue = (float) ($payment->balance_after_payment ?? $payment->funeralCase?->balance_amount ?? 0);
                                     @endphp
                                     <tr>
                                         <td class="text-center">
@@ -1667,21 +1814,17 @@
                                         </td>
                                         <td class="text-center">
                                             <span class="status-pill completed">{{ $method }}</span>
-                                            <div class="staff-muted">{{ optional($paidAt)->format('M d, Y') }}</div>
+                                            <div class="staff-muted">{{ optional($paidAt)->format('M d, Y · h:i A') }}</div>
                                         </td>
                                         <td class="text-center">
                                             <span class="status-pill {{ $statusClass }}">{{ $statusLabel }}</span>
                                         </td>
-                                        <td class="text-center staff-money">&#8369; {{ number_format((float) $payment->amount, 2) }}</td>
-                                        <td class="text-center {{ $balanceValue > 0 ? 'text-red-600' : 'staff-money' }}">
-                                            &#8369; {{ number_format($balanceValue, 2) }}
-                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="5" class="staff-empty">
+                                        <td colspan="3" class="staff-empty">
                                             <i class="bi bi-receipt"></i>
-                                            No payment records yet.
+                                            No payments recorded today.
                                         </td>
                                     </tr>
                                 @endforelse
@@ -1692,13 +1835,19 @@
             </article>
 
             <div class="staff-subgrid-two">
-                <article class="staff-card" data-attention-card>
+                <article class="staff-card staff-card--hover-action" data-attention-card>
                     <div class="staff-card-head">
-                        <div>
-                            <h3>Needs Attention</h3>
-                            <p>Cases requiring follow-up</p>
+                        <div class="staff-card-head-main">
+                            <div>
+                                <h3>Needs Attention</h3>
+                                <p>Cases requiring follow-up</p>
+                            </div>
+                            <div class="staff-card-head-controls staff-card-head-controls--summary">
+                                <div class="staff-head-actions">
+                                    <a href="{{ route('staff.reminders.index') }}" class="staff-link">Go to Reminders <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                                </div>
+                            </div>
                         </div>
-                        <a href="{{ route('staff.reminders.index') }}" class="staff-pill staff-pill--compact">{{ $attentionItems->count() }} Alert{{ $attentionItems->count() === 1 ? '' : 's' }}</a>
                     </div>
 
                     <div class="staff-list">
@@ -1709,57 +1858,69 @@
                                     'warning' => 'warning',
                                     default => 'info',
                                 };
+                                $scheduleLabel = match($item['type'] ?? '') {
+                                    'interment_completed', 'interment_approaching' => 'Interment',
+                                    'same_day_schedule' => ($item['conflict']['type'] ?? null) === 'interment' ? 'Interment' : 'Service',
+                                    default => 'Schedule',
+                                };
                             @endphp
                             <a href="{{ route('funeral-cases.show', ['funeral_case' => $item['case_id'], 'return_to' => request()->fullUrl()]) }}" class="staff-list-row">
                                 <div>
                                     <strong>{{ $item['deceased_name'] }} - {{ $item['case_code'] }}</strong>
                                     <small>
-                                        {{ $item['label'] }}
-                                        @if(!empty($item['date']))
-                                            - {{ $item['date']->format('M d, Y') }}
-                                        @endif
+                                        {{ $item['message'] ?? $item['label'] }}
                                     </small>
+                                    @if(!empty($item['date']))
+                                        <span class="staff-attention-date">
+                                            {{ $scheduleLabel }}: {{ $item['date']->format('M d, Y · h:i A') }}
+                                        </span>
+                                    @endif
                                 </div>
                                 <span class="staff-attention-pill {{ $pillClass }}">{{ $item['label'] }}</span>
                             </a>
                         @empty
                             <div class="staff-empty">
                                 <i class="bi bi-check2-circle"></i>
-                                No urgent follow-up.
+                                No case updates requiring follow-up.
                             </div>
                         @endforelse
                     </div>
                 </article>
 
-                <article class="staff-card" data-outstanding-card>
+                <article class="staff-card staff-card--hover-action" data-outstanding-card>
                     <div class="staff-card-head">
-                        <div>
-                            <h3>Outstanding Balances</h3>
-                            <p>Unpaid or partial cases</p>
+                        <div class="staff-card-head-main">
+                            <div>
+                                <h3>Outstanding Balances</h3>
+                                <p>Cases with remaining balances</p>
+                            </div>
+                            <div class="staff-card-head-controls staff-card-head-controls--summary">
+                                <div class="staff-head-actions">
+                                    <a href="{{ route('payments.history') }}" class="staff-link">Go to Payment Monitoring <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                                </div>
+                            </div>
                         </div>
-                        @if($outstandingCases->isEmpty())
-                            <span class="staff-pill staff-pill--compact staff-pill--settled">
-                                <i class="bi bi-check2"></i> All settled
-                            </span>
-                        @endif
                     </div>
 
                     <div class="staff-list">
                         @forelse($outstandingCases as $case)
-                            <div class="staff-list-row">
+                            <a href="{{ route('funeral-cases.show', ['funeral_case' => $case->id, 'return_to' => request()->fullUrl()]) }}" class="staff-list-row">
                                 <div>
                                     <strong>{{ $case->deceased->full_name ?? 'Unknown' }} - {{ $case->case_code }}</strong>
                                     <small>{{ $case->client->full_name ?? 'No client record' }}</small>
+                                    <span class="status-pill staff-payment-state {{ $case->payment_status === 'PARTIAL' ? 'draft' : 'unpaid' }}">
+                                        {{ $case->payment_status === 'PARTIAL' ? 'Partially Paid' : 'No Payment Yet' }}
+                                    </span>
                                 </div>
                                 <div class="text-right">
+                                    <small class="staff-muted">Remaining balance</small>
                                     <div class="staff-money staff-money--danger">&#8369; {{ number_format((float) $case->balance_amount, 2) }}</div>
-                                    <a href="{{ route('payments.index') }}" class="staff-balance-cta">Record Payment</a>
                                 </div>
-                            </div>
+                            </a>
                         @empty
                             <div class="staff-empty">
                                 <i class="bi bi-patch-check"></i>
-                                No outstanding balances. All cases are fully paid.
+                                No cases with remaining balances.
                             </div>
                         @endforelse
                     </div>
@@ -1768,22 +1929,23 @@
         </div>
 
         <div class="staff-col">
-            <article class="staff-card" data-schedules-card>
+            <article class="staff-card staff-card--hover-action" data-schedules-card>
                 <div class="staff-card-head staff-card-head--fixed-actions">
-                    <div>
-                        <h3>Schedules</h3>
-                        <p data-schedule-copy>Today's services and events</p>
-                    </div>
-                    <div class="staff-head-actions flex items-center gap-2">
-                        <a href="{{ route('staff.reminders.index', ['alert_type' => 'service_today']) }}" class="staff-link" data-schedule-link="today">View all <i class="bi bi-arrow-right"></i></a>
-                        <a href="{{ route('staff.reminders.index', ['tab' => 'upcoming']) }}" class="staff-link hidden" data-schedule-link="upcoming">View all <i class="bi bi-arrow-right"></i></a>
-                    </div>
-                </div>
-
-                <div class="staff-card-tabs-bar">
-                    <div class="staff-tabs" data-schedule-tabs>
-                        <button type="button" class="staff-tab-btn is-active" data-schedule-tab="today" aria-pressed="true">Today</button>
-                        <button type="button" class="staff-tab-btn" data-schedule-tab="upcoming" aria-pressed="false">Upcoming</button>
+                    <div class="staff-card-head-main">
+                        <div>
+                            <h3>Schedules</h3>
+                            <p data-schedule-copy>Today's Services and Interments</p>
+                        </div>
+                        <div class="staff-card-head-controls">
+                            <div class="staff-tabs" data-schedule-tabs>
+                                <button type="button" class="staff-tab-btn is-active" data-schedule-tab="today" aria-pressed="true">Today</button>
+                                <button type="button" class="staff-tab-btn" data-schedule-tab="upcoming" aria-pressed="false">Upcoming Interments</button>
+                            </div>
+                            <div class="staff-head-actions flex items-center gap-2">
+                                <a href="{{ route('staff.reminders.index', ['tab' => 'today']) }}" class="staff-link" data-schedule-link="today">View all <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                                <a href="{{ route('staff.reminders.index', ['tab' => 'upcoming']) }}" class="staff-link hidden" data-schedule-link="upcoming">View all <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -1828,33 +1990,13 @@
                         @empty
                             <div class="staff-empty">
                                 <i class="bi bi-calendar2-check"></i>
-                                No upcoming services queued.
+                                No upcoming interments scheduled.
                             </div>
                         @endforelse
                     </div>
                 </div>
             </article>
 
-            <article class="staff-card staff-card--month" data-month-card>
-                <div class="staff-card-head staff-card-head--compact">
-                    <h3 class="staff-reset-margin">This Month</h3>
-                    <p class="staff-reset-margin">{{ $monthLabel }}</p>
-                </div>
-                <ul class="staff-monthly-list">
-                    <li>
-                        <span>Cases Encoded</span>
-                        <strong>{{ number_format((int) $monthCasesEncoded) }}</strong>
-                    </li>
-                    <li>
-                        <span>Collected Payments</span>
-                        <strong class="good">&#8369; {{ number_format((float) $monthPaymentsCollected, 2) }}</strong>
-                    </li>
-                    <li>
-                        <span>Outstanding</span>
-                        <strong class="{{ (float) $outstandingBalanceTotal > 0 ? 'warn' : 'good' }}">&#8369; {{ number_format((float) $outstandingBalanceTotal, 2) }}</strong>
-                    </li>
-                </ul>
-            </article>
         </div>
     </section>
 </div>
@@ -1866,14 +2008,12 @@
         const schedulesCard = document.querySelector('[data-schedules-card]');
         const attentionCard = document.querySelector('[data-attention-card]');
         const outstandingCard = document.querySelector('[data-outstanding-card]');
-        const monthCard = document.querySelector('[data-month-card]');
 
         const syncHeights = () => {
             if (activityCard) activityCard.style.minHeight = '';
             if (schedulesCard) schedulesCard.style.minHeight = '';
             if (attentionCard) attentionCard.style.minHeight = '';
             if (outstandingCard) outstandingCard.style.minHeight = '';
-            if (monthCard) monthCard.style.minHeight = '';
 
             if (!desktopQuery.matches) return;
 
@@ -1883,7 +2023,7 @@
                 schedulesCard.style.minHeight = topRowHeight + 'px';
             }
 
-            const lowerCards = [attentionCard, outstandingCard, monthCard].filter(Boolean);
+            const lowerCards = [attentionCard, outstandingCard].filter(Boolean);
             if (lowerCards.length > 1) {
                 const lowerRowHeight = Math.max(...lowerCards.map((card) => card.offsetHeight));
                 lowerCards.forEach((card) => {
@@ -1935,8 +2075,8 @@
 
             if (copy) {
                 copy.textContent = key === 'cases'
-                    ? 'Latest cases in your branch'
-                    : 'Latest payments recorded';
+                    ? 'New cases recorded today in your branch'
+                    : 'Payments recorded today in your branch';
             }
 
             window.dispatchEvent(new Event('staff-dashboard-reflow'));
@@ -1983,8 +2123,8 @@
 
             if (copy) {
                 copy.textContent = key === 'today'
-                    ? "Today's services and events"
-                    : 'Next schedules in queue';
+                    ? "Today's Services and Interments"
+                    : 'Upcoming Interments';
             }
 
             window.dispatchEvent(new Event('staff-dashboard-reflow'));

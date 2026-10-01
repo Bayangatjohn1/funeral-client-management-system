@@ -53,6 +53,7 @@
     }
 
     $caseRecordsTabParams = [
+        'per_page' => request('per_page'),
         'record_scope' => $recordScope,
         'q' => request('q'),
         'case_status' => request('case_status'),
@@ -1306,6 +1307,9 @@
             <div class="case-records-top-wrapper">
             <div class="table-system-toolbar case-records-controls">
                 @include('partials.case_filter_toolbar', [
+                    'showPerPage' => true,
+                    'showCaseStatus' => false,
+                    'showServiceType' => false,
                     'action' => route('funeral-cases.index'),
                     'resetUrl' => $resetUrl,
                     'branchMode' => 'locked',
@@ -1326,7 +1330,7 @@
                     'showBranchChip' => false,
                     'showBranchField' => false,
                     'showInlineChips' => false,
-                    'showMoreFilters' => false,
+                    'showMoreFilters' => true,
                     'showSort' => true,
                     'sortOptions' => $sortOptions ?? [],
                     'sort' => $sort,
@@ -1592,7 +1596,7 @@
                                 <th class="text-left">Family / Client</th>
                                 <th class="text-left">Service</th>
                                 <th class="text-left">Schedule</th>
-                                <th class="table-col-number">Financials</th>
+                                <th class="table-col-number">Package Availed</th>
                                 <th class="table-status-col">Case Status</th>
                                 <th class="table-status-col table-payment-status-col">Payment Status</th>
                             </tr>
@@ -1637,7 +1641,7 @@
                                         <div class="table-primary whitespace-nowrap">{{ $intermentAt ? $intermentAt->format('M d, Y') : '-' }}</div>
                                         <div class="table-secondary">{{ $intermentAt ? $intermentAt->format('h:i A') : 'Interment time' }}</div>
                                     </td>
-                                    <td class="table-col-number" data-label="Financials">
+                                    <td class="table-col-number" data-label="Package Availed">
                                         <div class="table-primary table-financial-total whitespace-nowrap">{{ number_format((float) $case->total_amount, 2) }}</div>
                                         <div class="table-secondary table-financial-breakdown whitespace-nowrap">Paid {{ number_format((float) $case->total_paid, 2) }} &middot; Bal {{ number_format((float) $case->balance_amount, 2) }}</div>
                                     </td>
@@ -1662,7 +1666,7 @@
             </div>
 
             <div class="table-system-pagination">
-                @if($cases->hasPages()){{ $cases->links('components.pagination.table', ['showSummary' => false]) }}@endif
+                @include('partials.case_records_pagination', ['cases' => $cases])
             </div>
         @endif
 
@@ -1860,11 +1864,13 @@
         const recordsSelector = '.records-page';
         const replaceSelectors = [
             '.case-records-top-wrapper',
+            '.case-records-tabs-row',
             '.table-system-list',
             '.table-system-pagination',
         ];
 
         const getRecordsPage = () => document.querySelector(recordsSelector);
+        let recordsRequest = null;
 
         const setUpdating = (isUpdating) => {
             const page = getRecordsPage();
@@ -1901,10 +1907,14 @@
                 return;
             }
 
+            recordsRequest?.abort();
+            const request = new AbortController();
+            recordsRequest = request;
             setUpdating(true);
 
             try {
                 const response = await fetch(url.toString(), {
+                    signal: request.signal,
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest',
                         'Accept': 'text/html',
@@ -1918,7 +1928,7 @@
                 const nextDocument = new DOMParser().parseFromString(html, 'text/html');
                 if (!nextDocument.querySelector(recordsSelector)) throw new Error('Case records page not found.');
 
-                await new Promise((resolve) => window.setTimeout(resolve, 120));
+                if (request.signal.aborted) return;
                 replaceFromDocument(nextDocument);
 
                 if (pushState) {
@@ -1927,9 +1937,10 @@
 
                 document.dispatchEvent(new CustomEvent('panel-ui:reset'));
             } catch (error) {
+                if (error.name === 'AbortError' || request.signal.aborted) return;
                 window.location.href = url.toString();
             } finally {
-                requestAnimationFrame(() => setUpdating(false));
+                if (recordsRequest === request) setUpdating(false);
             }
         };
 
@@ -2032,7 +2043,7 @@
         }, true);
 
         document.addEventListener('change', (event) => {
-            const select = event.target instanceof Element ? event.target.closest(`${recordsSelector} [data-case-sort-select]`) : null;
+            const select = event.target instanceof Element ? event.target.closest(`${recordsSelector} [data-case-auto-submit]`) : null;
             if (!select) return;
 
             const form = select.closest('[data-case-filter]');

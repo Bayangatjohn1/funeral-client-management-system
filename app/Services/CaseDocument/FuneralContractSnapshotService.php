@@ -187,7 +187,7 @@ class FuneralContractSnapshotService
     private function firstPayment(FuneralCase $case): ?array
     {
         $payment = $case->payments
-            ->filter(fn ($row) => ($row->status ?? 'VALID') !== 'VOID')
+            ->filter(fn ($row) => !in_array(($row->status ?? 'POSTED'), ['VOID', 'VOIDED'], true))
             ->sortBy(fn ($row) => sprintf(
                 '%012d-%012d',
                 optional($row->paid_at ?: $row->paid_date ?: $row->created_at)->timestamp ?? 0,

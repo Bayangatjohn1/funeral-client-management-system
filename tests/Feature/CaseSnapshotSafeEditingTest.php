@@ -25,8 +25,9 @@ class CaseSnapshotSafeEditingTest extends TestCase
         $this->travelTo('2026-07-23 09:00:00');
         [$case, $package, $casket, $addOn, $staff] = $this->snapshotCase();
 
-        $package->update(['price' => 999999, 'promo_is_active' => true, 'promo_value_type' => 'PERCENT', 'promo_value' => 80]);
-        $casket->update(['standard_price' => 999999]);
+        $package->update(['price' => 999999, 'promo_is_active' => true, 'promo_value_type' => 'PERCENT', 'promo_value' => 80, 'is_active' => false]);
+        $casket->update(['standard_price' => 999999, 'is_active' => false]);
+        $addOn->update(['is_active' => false]);
         $addOn->update(['price' => 999999]);
 
         $this->actingAs($staff)
@@ -91,6 +92,10 @@ class CaseSnapshotSafeEditingTest extends TestCase
 
         $this->actingAs($staff)
             ->put(route('funeral-cases.update', $case, absolute: false), $this->staffPayload($case, [
+                'wake_end_date' => '2026-07-24',
+                'wake_end_time' => '07:00',
+                'funeral_service_at' => '2026-07-24',
+                'funeral_service_time' => '09:00',
                 'interment_at' => '2026-07-24',
                 'interment_time' => '10:00',
             ]))
@@ -109,7 +114,7 @@ class CaseSnapshotSafeEditingTest extends TestCase
         $this->assertSame(20000.0, (float) $case->total_paid);
         $this->assertSame(98600.0, (float) $case->balance_amount);
         $this->assertSame('PARTIAL', $case->payment_status);
-        $this->assertSame('5D/4N', $case->pricing_snapshot['wake_duration']);
+        $this->assertSame('5 Wake Days', $case->pricing_snapshot['wake_duration']);
     }
 
     public function test_finalized_case_cannot_change_pricing_related_fields_or_schedule(): void
@@ -357,7 +362,9 @@ class CaseSnapshotSafeEditingTest extends TestCase
             'wake_location' => 'Family Residence',
             'wake_start_date' => '2026-07-20',
             'wake_start_time' => '08:00:00',
-            'funeral_service_at' => '2026-07-21',
+            'wake_end_date' => '2026-07-23',
+            'wake_end_time' => '07:00:00',
+            'funeral_service_at' => '2026-07-23',
             'funeral_service_time' => '09:00:00',
             'interment_at' => '2026-07-23 10:00:00',
             'interment_time' => '10:00:00',
@@ -421,7 +428,9 @@ class CaseSnapshotSafeEditingTest extends TestCase
             'date_of_death' => '2026-07-19',
             'wake_start_date' => '2026-07-20',
             'wake_start_time' => '08:00',
-            'funeral_service_at' => '2026-07-21',
+            'wake_end_date' => '2026-07-23',
+            'wake_end_time' => '07:00',
+            'funeral_service_at' => '2026-07-23',
             'funeral_service_time' => '09:00',
             'interment_at' => '2026-07-23',
             'interment_time' => '10:00',
@@ -446,7 +455,9 @@ class CaseSnapshotSafeEditingTest extends TestCase
             'wake_location' => 'Family Residence',
             'wake_start_date' => '2026-07-20',
             'wake_start_time' => '08:00',
-            'funeral_service_at' => '2026-07-21',
+            'wake_end_date' => '2026-07-23',
+            'wake_end_time' => '07:00',
+            'funeral_service_at' => '2026-07-23',
             'funeral_service_time' => '09:00',
             'interment_at' => '2026-07-23',
             'interment_time' => '10:00',

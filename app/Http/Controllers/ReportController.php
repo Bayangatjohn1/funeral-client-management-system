@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\Branch;
 use App\Models\FuneralCase;
 use App\Models\Package;
+use App\Models\Payment;
 use App\Models\User;
 use App\Services\BranchAnalyticsService;
 use Illuminate\Database\Eloquent\Builder;
@@ -200,7 +201,7 @@ class ReportController extends Controller
 
     private function validateReportRequest(Request $request): array
     {
-        $reportTypes = array_keys($this->availableReportTypes());
+        $reportTypes = array_keys($this->supportedReportTypes());
 
         $validated = $request->validate([
             'report_type' => ['required', 'string', Rule::in($reportTypes)],
@@ -208,6 +209,7 @@ class ReportController extends Controller
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
             'payment_status' => ['nullable', Rule::in(['PAID', 'PARTIAL', 'UNPAID'])],
+            'payment_method' => ['nullable', Rule::in(['cash', 'cashless', 'bank_transfer'])],
             'case_status' => ['nullable', Rule::in(['DRAFT', 'ACTIVE', 'COMPLETED'])],
             'verification_status' => ['nullable', Rule::in(['PENDING', 'VERIFIED', 'DISPUTED'])],
             'package_id' => ['nullable', 'integer', 'exists:packages,id'],
@@ -217,7 +219,9 @@ class ReportController extends Controller
             'interment_to' => ['nullable', 'date', 'after_or_equal:interment_from'],
             'user_id' => ['nullable', 'integer', 'exists:users,id'],
             'action' => ['nullable', 'string', 'max:120'],
+            'action_type' => ['nullable', 'string', 'max:30'],
             'module' => ['nullable', 'string', 'max:120'],
+            'entity_type' => ['nullable', 'string', 'max:120'],
         ]);
 
         return array_filter($validated, fn ($value) => $value !== null && $value !== '');
@@ -235,27 +239,51 @@ class ReportController extends Controller
 
     private function getSalesReportData(Request $request, array $branchScope): array
     {
-        $query = FuneralCase::with(['branch', 'client', 'deceased', 'package'])
-            ->latest('created_at');
+        $query = Payment::with([
+                'funeralCase.branch:id,branch_code,branch_name',
+                'funeralCase.client',
+                'funeralCase.deceased',
+                'recordedBy:id,name',
+                'encodedBy:id,name',
+            ])
+            ->where(fn ($status) => $status->whereNull('status')->orWhereNotIn('status', ['VOID', 'VOIDED']))
+            ->whereHas('funeralCase')
+            ->orderByRaw('COALESCE(paid_at, paid_date, created_at) DESC');
 
-        $this->applyCommonCaseFilters($query, $request, $branchScope);
+        $this->applyReportBranchScope($query, $request, $branchScope);
+        [$startAt, $endAt] = $this->parseDateBounds($request->input('date_from'), $request->input('date_to'));
+        $query->when($startAt, fn ($q) => $q->whereRaw('COALESCE(paid_at, paid_date, created_at) >= ?', [$startAt]))
+            ->when($endAt, fn ($q) => $q->whereRaw('COALESCE(paid_at, paid_date, created_at) <= ?', [$endAt]));
+        if ($request->filled('payment_method')) {
+            $method = $request->string('payment_method')->toString();
+            $query->where(function ($paymentQuery) use ($method) {
+                if ($method === 'cashless') {
+                    $paymentQuery->where('payment_method', 'cashless')
+                        ->orWhere('payment_method', 'bank_transfer')
+                        ->orWhere(function ($legacy) {
+                            $legacy->whereNull('payment_method')->where('payment_mode', 'bank_transfer');
+                        });
+                } else {
+                    $paymentQuery->where('payment_method', $method)
+                        ->orWhere(function ($legacy) use ($method) {
+                            $legacy->whereNull('payment_method')->where('payment_mode', $method);
+                        });
+                }
+            });
+        }
 
-        $rows = $query->get()->map(fn (FuneralCase $case) => [
-            'case_no' => $case->case_number ?: $case->case_code,
-            'case_code' => $case->case_code ?: '-',
-            'client' => $this->personName($case->client),
-            'deceased' => $this->personName($case->deceased),
-            'branch' => $this->branchName($case->branch),
-            'package' => $this->packageName($case),
-            'service_type' => $case->service_type ?: '-',
-            'total_amount' => (float) $case->total_amount,
-            'total_paid' => (float) $case->total_paid,
-            'balance' => (float) $case->balance_amount,
-            'payment_status' => $case->payment_status ?: '-',
-            'case_status' => $case->case_status ?: '-',
-            'date' => $this->formatDate($case->paid_at ?: $case->created_at),
-            '_sort_date' => optional($case->paid_at ?: $case->created_at)->toDateTimeString(),
-        ])->values();
+        $rows = $query->get()->map(function (Payment $payment) {
+            $case = $payment->funeralCase;
+            return [
+                'payment_date' => $this->formatDateTime($payment->paid_at ?? $payment->paid_date),
+                'case_code' => $case?->case_code ?: '-',
+                'name' => implode(' / ', array_filter([$this->personName($case?->client), $this->personName($case?->deceased)], fn ($name) => $name !== '-')) ?: '-',
+                'branch' => $this->branchName($case?->branch),
+                'payment_method' => \App\Support\Payments\PaymentDetails::label($payment),
+                'amount_collected' => (float) $payment->amount,
+                'recorded_by' => $this->personName($payment->encodedBy ?: $payment->recordedBy),
+            ];
+        })->values();
 
         return ['rows' => $rows];
     }
@@ -290,6 +318,7 @@ class ReportController extends Controller
             'case_code' => $case->case_code ?: '-',
             'client' => $this->personName($case->client),
             'deceased' => $this->personName($case->deceased),
+            'name' => implode(' / ', array_filter([$this->personName($case->client), $this->personName($case->deceased)], fn ($name) => $name !== '-')) ?: '-',
             'branch' => $this->branchName($case->branch),
             'service_type' => $case->service_type ?: '-',
             'package' => $this->packageName($case),
@@ -313,7 +342,21 @@ class ReportController extends Controller
             ->latest('created_at');
 
         if (Schema::hasColumn('audit_logs', 'branch_id')) {
-            $this->applyReportBranchScope($query, $request, $branchScope, 'branch_id');
+            $branchId = $branchScope['forced_branch_id'] ?? null;
+            if (! $branchId && ($branchScope['can_select_all'] ?? false) && $request->filled('branch_id')) {
+                $branchId = (int) $request->input('branch_id');
+            }
+
+            if ($branchId) {
+                $hasTargetBranch = Schema::hasColumn('audit_logs', 'target_branch_id');
+                $query->where(function (Builder $scope) use ($branchId, $hasTargetBranch) {
+                    $scope->where('branch_id', (int) $branchId);
+
+                    if ($hasTargetBranch) {
+                        $scope->orWhere('target_branch_id', (int) $branchId);
+                    }
+                });
+            }
         }
 
         if ($request->filled('user_id') && Schema::hasColumn('audit_logs', 'actor_id')) {
@@ -322,8 +365,14 @@ class ReportController extends Controller
         if ($request->filled('action') && Schema::hasColumn('audit_logs', 'action')) {
             $query->where('action', 'like', '%' . $request->input('action') . '%');
         }
+        if ($request->filled('action_type') && Schema::hasColumn('audit_logs', 'action_type')) {
+            $query->where('action_type', $request->input('action_type'));
+        }
         if ($request->filled('module') && Schema::hasColumn('audit_logs', 'entity_type')) {
             $query->where('entity_type', 'like', '%' . $request->input('module') . '%');
+        }
+        if ($request->filled('entity_type') && Schema::hasColumn('audit_logs', 'entity_type')) {
+            $query->where('entity_type', 'like', '%' . $request->input('entity_type') . '%');
         }
 
         [$startAt, $endAt] = $this->parseDateBounds(
@@ -338,6 +387,7 @@ class ReportController extends Controller
         }
 
         $rows = $query->get()->map(fn (AuditLog $log) => [
+            'log_id' => $log->id,
             'date' => $this->formatDateTime($log->created_at),
             'user' => $this->personName($log->actor),
             'role' => $log->actor_role ?: ($log->actor?->role ?? '-'),
@@ -430,7 +480,7 @@ class ReportController extends Controller
                 'funeralCase.client',
                 'funeralCase.deceased',
             ])
-            ->where(fn ($q) => $q->where('status', 'VALID')->orWhereNull('status'))
+            ->where(fn ($q) => $q->whereIn('status', ['VALID', 'POSTED'])->orWhereNull('status'))
             ->latest('paid_at');
 
         // Apply branch scope on the payments table
@@ -470,13 +520,20 @@ class ReportController extends Controller
                 'payment_method'    => $pay->payment_method ?: ($pay->payment_mode ?: ($pay->method ?? '-')),
                 'amount_paid'       => (float) $pay->amount,
                 'payment_date'      => $this->formatDate($pay->paid_at ?? $pay->paid_date),
-                'status'            => $pay->status ?? 'VALID',
+                'status'            => $pay->status ?? 'POSTED',
             ];
         })->values();
     }
 
     private function ownerDrilldownCaseColumns(): array
     {
+        if ($reportType === self::REPORT_SALES) {
+            return [
+                'total_records' => $rows->count(),
+                'amount_collected' => (float) $rows->sum('amount_collected'),
+            ];
+        }
+
         return [
             'case_code'         => 'Case Code',
             'branch'            => 'Branch',
@@ -558,6 +615,13 @@ class ReportController extends Controller
             ];
         }
 
+        if ($reportType === self::REPORT_SALES) {
+            return [
+                'total_records' => $rows->count(),
+                'amount_collected' => (float) $rows->sum('amount_collected'),
+            ];
+        }
+
         return [
             'total_records' => $rows->count(),
             'gross_amount' => (float) $rows->sum('total_amount'),
@@ -587,19 +651,15 @@ class ReportController extends Controller
             $request->filled('date_from') ? $request->input('date_from') : null,
             $request->filled('date_to') ? $request->input('date_to') : null,
         );
-        if ($startAt) {
-            $query->where('created_at', '>=', $startAt);
-        }
-        if ($endAt) {
-            $query->where('created_at', '<=', $endAt);
-        }
+        $query->when($startAt, fn ($q) => $q->whereRaw('COALESCE(service_requested_at, created_at) >= ?', [$startAt]))
+            ->when($endAt, fn ($q) => $q->whereRaw('COALESCE(service_requested_at, created_at) <= ?', [$endAt]));
     }
 
     private function normalizeReportType(?string $reportType): string
     {
         $reportType = $reportType ?: self::REPORT_SALES;
 
-        if (! array_key_exists($reportType, $this->availableReportTypes())) {
+        if (! array_key_exists($reportType, $this->supportedReportTypes())) {
             abort(404);
         }
 
@@ -629,10 +689,14 @@ class ReportController extends Controller
 
         return [
             self::REPORT_OWNER_BRANCH_ANALYTICS => 'Branch Performance Report',
-            self::REPORT_SALES => 'Sales Report',
-            self::REPORT_MASTER_CASES => 'Master Case Monitoring',
-            self::REPORT_AUDIT_LOGS => 'Audit Logs',
+            self::REPORT_SALES => 'Collection Report',
+            self::REPORT_MASTER_CASES => 'Case Monitoring Report',
         ];
+    }
+
+    private function supportedReportTypes(): array
+    {
+        return $this->availableReportTypes() + [self::REPORT_AUDIT_LOGS => 'Audit Logs'];
     }
 
     private function auditFilterOptions(): array
@@ -746,7 +810,7 @@ class ReportController extends Controller
 
     private function reportTitle(string $reportType): string
     {
-        return $this->availableReportTypes()[$reportType] ?? str($reportType)->headline()->toString();
+        return $this->supportedReportTypes()[$reportType] ?? str($reportType)->headline()->toString();
     }
 
     private function reportColumns(string $reportType): array
@@ -754,13 +818,13 @@ class ReportController extends Controller
         return match ($reportType) {
             self::REPORT_OWNER_BRANCH_ANALYTICS => [
                 'branch' => 'Branch',
-                'total_cases' => 'Total Cases',
+                'total_cases' => 'Cases in Period',
+                'gross_amount' => 'Total Amount Availed',
+                'collected_amount' => 'All Payments',
+                'remaining_balance' => 'Current Collectibles',
                 'paid_cases' => 'Paid Cases',
-                'partial_cases' => 'Partial Cases',
+                'partial_cases' => 'Partially Paid Cases',
                 'unpaid_cases' => 'Unpaid Cases',
-                'gross_amount' => 'Gross Amount',
-                'collected_amount' => 'Collected Amount',
-                'remaining_balance' => 'Remaining Balance',
             ],
             self::REPORT_AUDIT_LOGS => [
                 'date' => 'Date',
@@ -775,31 +839,23 @@ class ReportController extends Controller
                 'remarks' => 'Remarks',
             ],
             self::REPORT_MASTER_CASES => [
-                'case_code' => 'Case Code',
-                'client' => 'Client',
-                'deceased' => 'Deceased',
+                'case_code' => 'Case No.',
+                'name' => 'Client / Deceased',
                 'branch' => 'Branch',
-                'service_type' => 'Service Type',
-                'package' => 'Package',
-                'interment_date' => 'Interment Date',
-                'payment_status' => 'Payment Status',
+                'total_amount' => 'Total Amount Availed',
+                'total_paid' => 'All Payments',
+                'balance' => 'Current Balance',
                 'case_status' => 'Case Status',
-                'encoded_by' => 'Encoded By',
-                'date_created' => 'Date Created',
+                'payment_status' => 'Payment Status',
             ],
             default => [
-                'case_code' => 'Case Code',
-                'client' => 'Client',
-                'deceased' => 'Deceased',
+                'payment_date' => 'Payment Date',
+                'case_code' => 'Case No.',
+                'name' => 'Client / Deceased',
                 'branch' => 'Branch',
-                'package' => 'Package',
-                'service_type' => 'Service Type',
-                'total_amount' => 'Total Amount',
-                'total_paid' => 'Total Paid',
-                'balance' => 'Balance',
-                'payment_status' => 'Payment Status',
-                'case_status' => 'Case Status',
-                'date' => 'Date Created or Paid Date',
+                'payment_method' => 'Payment Method',
+                'amount_collected' => 'Payment Amount',
+                'recorded_by' => 'Recorded By',
             ],
         };
     }
@@ -810,15 +866,15 @@ class ReportController extends Controller
             return '-';
         }
 
+        $fullName = trim((string) ($model->full_name ?? ''));
         $firstLast = trim(implode(' ', array_filter([
             $model->first_name ?? null,
             $model->last_name ?? null,
         ])));
 
-        return $model->full_name
-            ?? ($firstLast ?: null)
-            ?? $model->name
-            ?? '-';
+        return $fullName
+            ?: $firstLast
+            ?: (trim((string) ($model->name ?? '')) ?: '-');
     }
 
     private function branchName($branch): string

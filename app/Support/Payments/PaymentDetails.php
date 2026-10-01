@@ -33,7 +33,7 @@ class PaymentDetails
             'wallet_provider' => ['nullable', 'string', 'max:50'],
             'account_name' => ['nullable', 'string', 'min:2', 'max:100', 'regex:/^(?=.*[\\pL])[\\pL\\pM .\'\\-]+$/u'],
             'mobile_number' => ['nullable', 'string', 'regex:/^(09\\d{9}|\\+?639\\d{9})$/'],
-            'reference_number' => ['nullable', 'string', 'min:3', 'max:60', 'regex:/^[A-Za-z0-9 _\\/\\-]+$/'],
+            'reference_number' => ['nullable', 'string', 'min:4', 'max:60', 'regex:/^[A-Za-z0-9 _\\/\\-]+$/'],
             'approval_code' => ['nullable', 'string', 'min:4', 'max:40', 'regex:/^[A-Za-z0-9_\\/\\-]+$/'],
             'card_type' => ['nullable', Rule::in(self::CARD_TYPES)],
             'terminal_provider' => ['nullable', 'string', 'max:80', 'regex:/^[A-Za-z0-9 .()\\-]+$/'],
@@ -76,7 +76,7 @@ class PaymentDetails
             'other_bank_name.max' => 'Bank name must be between 2 and 80 characters.',
             'other_bank_name.regex' => 'Bank name must be between 2 and 80 characters.',
             'reference_number.required' => 'Reference number is required.',
-            'reference_number.min' => 'Receipt number must be 3 to 60 characters.',
+            'reference_number.min' => 'Reference number must be 4 to 60 characters.',
             'reference_number.max' => 'Reference number must be 4 to 60 characters.',
             'reference_number.regex' => 'Reference number contains invalid characters.',
             'approval_code.min' => 'Approval code contains invalid characters.',
@@ -95,6 +95,9 @@ class PaymentDetails
             'card_type.in' => 'Please select a valid card type.',
             'terminal_provider.max' => 'Terminal/provider must not exceed 80 characters.',
             'terminal_provider.regex' => 'Terminal/provider must not exceed 80 characters.',
+            'receipt_or_no.min' => 'Receipt / OR number must be 3 to 50 characters.',
+            'receipt_or_no.max' => 'Receipt / OR number must be 3 to 50 characters.',
+            'receipt_or_no.regex' => 'Receipt / OR number may contain letters, numbers, spaces, hyphens, and slashes only.',
         ];
     }
 

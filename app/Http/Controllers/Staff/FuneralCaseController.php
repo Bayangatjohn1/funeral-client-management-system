@@ -36,10 +36,11 @@ class FuneralCaseController extends Controller
             : null;
 
         $request->validate([
+            'per_page' => ['nullable', 'integer', 'in:10,25,50,100'],
             'q' => ['nullable', 'string', 'max:100', "regex:/^[A-Za-z0-9\\s.'-]+$/"],
             'tab' => ['nullable', 'in:all,active,draft,completed'],
             'case_status' => ['nullable', 'in:DRAFT,ACTIVE,COMPLETED'],
-            'payment_status' => ['nullable', 'in:PAID,PARTIAL,UNPAID'],
+            'payment_status' => ['nullable', 'in:PAID,PARTIAL,UNPAID,WITH_BALANCE'],
             'date_preset' => ['nullable', 'in:TODAY,THIS_MONTH,THIS_YEAR,CUSTOM'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
@@ -144,7 +145,11 @@ class FuneralCaseController extends Controller
             $query->where('case_status', $request->case_status);
         }
         if ($request->filled('payment_status')) {
-            $query->where('payment_status', $request->payment_status);
+            $request->payment_status === 'WITH_BALANCE'
+                ? $query->whereIn('case_status', ['ACTIVE', 'COMPLETED'])
+                    ->whereIn('payment_status', ['UNPAID', 'PARTIAL'])
+                    ->where('balance_amount', '>', 0)
+                : $query->where('payment_status', $request->payment_status);
         }
         if ($request->filled('service_type')) {
             $query->where('service_type', $request->string('service_type')->toString());
@@ -197,7 +202,7 @@ class FuneralCaseController extends Controller
         $this->applyCaseRecordQuickFilter($query, $currentTab, $quickFilter);
         $this->applyCaseRecordSort($query, $sort);
 
-        $cases = $query->paginate(20)->withQueryString();
+        $cases = $query->orderBy('id')->paginate((int) ($request->input('per_page') ?: 25))->withQueryString();
         $intakeDrafts = collect();
         if ($currentTab === 'draft') {
             $intakeDrafts = IntakeDraft::with(['branch:id,branch_code,branch_name'])
@@ -392,7 +397,7 @@ class FuneralCaseController extends Controller
         $canEncodeAnyBranch = $user->canEncodeAnyBranch();
 
         if (!$canEncodeAnyBranch) {
-            abort(403, 'Only Main Branch Admin can view other-branch reports.');
+            abort(403, 'Only a System Admin can view other-branch reports.');
         }
 
         $scopeBranches = Branch::whereIn('id', $user->branchScopeIds())
@@ -843,6 +848,8 @@ class FuneralCaseController extends Controller
             'service_requested_at' => 'required|date|before_or_equal:today',
             'wake_start_date' => 'nullable|date',
             'wake_start_time' => 'nullable|date_format:H:i',
+            'wake_end_date' => 'nullable|date',
+            'wake_end_time' => 'nullable|date_format:H:i',
             'funeral_service_at' => 'required|date',
             'funeral_service_time' => 'nullable|date_format:H:i',
             'interment_at' => 'required|date',
@@ -857,8 +864,10 @@ class FuneralCaseController extends Controller
             'service_requested_at.before_or_equal' => 'Request date cannot be in the future.',
             'wake_start_date.required' => 'Please select a wake start date and time.',
             'wake_start_time.required' => 'Please select a wake start date and time.',
-            'funeral_service_at.required' => 'Please select a funeral service date and time.',
-            'funeral_service_time.required' => 'Please select a funeral service date and time.',
+            'wake_end_date.required' => 'Please select a wake end date and time.',
+            'wake_end_time.required' => 'Please select a wake end date and time.',
+            'funeral_service_at.required' => 'Please select a funeral ceremony date and time.',
+            'funeral_service_time.required' => 'Please select a funeral ceremony date and time.',
             'interment_at.required' => 'Please select an interment date and time.',
             'interment_time.required' => 'Please select an interment date and time.',
             'backdated_entry_reason.required_if' => 'Please provide a reason for a backdated request entry.',
@@ -909,7 +918,9 @@ class FuneralCaseController extends Controller
             foreach ([
                 'wake_start_date' => 'Please select a wake start date and time.',
                 'wake_start_time' => 'Please select a wake start date and time.',
-                'funeral_service_time' => 'Please select a funeral service date and time.',
+                'wake_end_date' => 'Please select a wake end date and time.',
+                'wake_end_time' => 'Please select a wake end date and time.',
+                'funeral_service_time' => 'Please select a funeral ceremony date and time.',
                 'interment_time' => 'Please select an interment date and time.',
             ] as $field => $message) {
                 if (blank($validated[$field] ?? null)) {
@@ -939,7 +950,7 @@ class FuneralCaseController extends Controller
             }
         }
         $wakeDays = $scheduleWasEdited
-            ? $this->resolveWakeDays($validated['wake_start_date'] ?? null, $intermentAt?->toDateString())
+            ? $this->resolveWakeDays($validated['wake_start_date'] ?? null, $validated['wake_end_date'] ?? null)
             : $funeral_case->deceased?->wake_days;
         $serviceDetailWakeStart = $scheduleWasEdited
             ? Carbon::parse($validated['wake_start_date'])->toDateString()
@@ -947,7 +958,7 @@ class FuneralCaseController extends Controller
         $pricingAttributes = $snapshotPricing->pricingAttributesForSchedule(
             $funeral_case,
             $serviceDetailWakeStart,
-            $intermentAt?->toDateString(),
+            $scheduleWasEdited ? ($validated['wake_end_date'] ?? null) : $funeral_case->wake_end_date?->toDateString(),
             $isFinalized
         );
         $wakeDays = $pricingAttributes['wake_days'] ?? $wakeDays;
@@ -978,6 +989,8 @@ class FuneralCaseController extends Controller
             'service_requested_at',
             'wake_start_date',
             'wake_start_time',
+            'wake_end_date',
+            'wake_end_time',
             'funeral_service_at',
             'funeral_service_time',
             'interment_at',
@@ -996,6 +1009,8 @@ class FuneralCaseController extends Controller
             'wake_location' => $wakeLocation,
             'wake_start_date' => $scheduleWasEdited ? Carbon::parse($validated['wake_start_date'])->toDateString() : $funeral_case->wake_start_date,
             'wake_start_time' => $scheduleWasEdited ? $this->formatTimeForStorage($validated['wake_start_time'] ?? null) : $funeral_case->wake_start_time,
+            'wake_end_date' => $scheduleWasEdited ? Carbon::parse($validated['wake_end_date'])->toDateString() : $funeral_case->wake_end_date,
+            'wake_end_time' => $scheduleWasEdited ? $this->formatTimeForStorage($validated['wake_end_time'] ?? null) : $funeral_case->wake_end_time,
             'funeral_service_at' => $funeralServiceAt,
             'funeral_service_time' => $scheduleWasEdited ? $this->formatTimeForStorage($validated['funeral_service_time'] ?? null) : $funeral_case->funeral_service_time,
             'interment_at' => $intermentAt,
@@ -1229,6 +1244,8 @@ class FuneralCaseController extends Controller
         $current = [
             'wake_start_date' => $case->wake_start_date?->toDateString(),
             'wake_start_time' => $this->normalizeTimeForComparison($case->wake_start_time),
+            'wake_end_date' => $case->wake_end_date?->toDateString(),
+            'wake_end_time' => $this->normalizeTimeForComparison($case->wake_end_time),
             'funeral_service_at' => $case->funeral_service_at?->toDateString(),
             'funeral_service_time' => $this->normalizeTimeForComparison($case->funeral_service_time),
             'interment_at' => $case->interment_at?->toDateString(),
@@ -1252,6 +1269,7 @@ class FuneralCaseController extends Controller
     {
         $requestDate = Carbon::parse($validated['service_requested_at'])->startOfDay();
         $wakeStart = $this->combineScheduleDateTime($validated['wake_start_date'], $validated['wake_start_time']);
+        $wakeEnd = $this->combineScheduleDateTime($validated['wake_end_date'], $validated['wake_end_time']);
         $funeralService = $this->combineScheduleDateTime($validated['funeral_service_at'], $validated['funeral_service_time']);
         $interment = $this->combineScheduleDateTime($validated['interment_at'], $validated['interment_time']);
 
@@ -1259,20 +1277,24 @@ class FuneralCaseController extends Controller
             return ['wake_start_date' => 'Wake start date cannot be before the request/recorded date.'];
         }
 
-        if ($funeralService->lt($wakeStart)) {
-            return ['funeral_service_at' => 'Funeral service date/time cannot be before the wake start date/time.'];
+        if ($wakeEnd->lessThanOrEqualTo($wakeStart)) {
+            return ['wake_end_date' => 'Wake End Date/Time must be later than the Wake Start Date/Time.'];
         }
 
-        if ($interment->lt($funeralService)) {
-            return ['interment_at' => 'Interment date/time cannot be before the funeral service date/time.'];
+        if ($funeralService->lt($wakeEnd)) {
+            return ['funeral_service_at' => 'Funeral Ceremony Date/Time cannot be earlier than the Wake End Date/Time.'];
+        }
+
+        if ($interment->lessThanOrEqualTo($funeralService)) {
+            return ['interment_at' => 'Interment Date/Time must be later than the Funeral Ceremony Date/Time.'];
         }
 
         return null;
     }
 
-    private function resolveWakeDays(?string $wakeStartDate, ?string $intermentDate): ?int
+    private function resolveWakeDays(?string $wakeStartDate, ?string $wakeEndDate): ?int
     {
-        return WakeDuration::days($wakeStartDate, $intermentDate);
+        return WakeDuration::days($wakeStartDate, $wakeEndDate);
     }
 
     private function combineScheduleDateTime(?string $date, ?string $time): Carbon

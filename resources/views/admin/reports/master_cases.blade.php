@@ -966,6 +966,9 @@
     <section class="table-system-card admin-table-card">
         <div class="table-system-toolbar admin-table-toolbar">
             @include('partials.case_filter_toolbar', [
+                'showPerPage' => true,
+                    'showCaseStatus' => false,
+                    'showServiceType' => false,
                 'action' => route('admin.cases.index'),
                 'resetUrl' => route('admin.cases.index'),
                 'branchMode' => $isBranchAdmin ? 'locked' : 'all',
@@ -982,6 +985,7 @@
                 'showVerificationStatus' => false,
                 'showPackage' => true,
                 'showEncodedBy' => true,
+                'hiddenInputs' => ['case_status' => request('case_status')],
                 'showSort' => true,
                 'sortOptions' => [
                     'newest' => 'Newest',
@@ -1050,6 +1054,7 @@
                         <div class="table-toolbar-field">
                             <select name="payment_status" class="table-toolbar-select" data-table-auto-submit>
                                 <option value="">All Payment Status</option>
+                                <option value="WITH_BALANCE" {{ $paymentStatus === 'WITH_BALANCE' ? 'selected' : '' }}>With Balance</option>
                                 <option value="PAID" {{ $paymentStatus === 'PAID' ? 'selected' : '' }}>Paid</option>
                                 <option value="PARTIAL" {{ $paymentStatus === 'PARTIAL' ? 'selected' : '' }}>Partial</option>
                                 <option value="UNPAID" {{ $paymentStatus === 'UNPAID' ? 'selected' : '' }}>Unpaid</option>
@@ -1171,7 +1176,7 @@
                             <th class="text-left">Family / Client</th>
                             <th class="text-left">Service</th>
                             <th class="text-left">Interment</th>
-                            <th class="table-col-number">Financials</th>
+                            <th class="table-col-number">Package Availed</th>
                             <th class="table-status-col">Case Status</th>
                             <th class="table-status-col table-payment-status-col">Payment Status</th>
                         </tr>
@@ -1215,7 +1220,7 @@
                                 <div class="table-primary whitespace-nowrap">{{ $intermentDate ? $intermentDate->format('M d, Y') : '-' }}</div>
                                 <div class="table-secondary">{{ $intermentDate && $intermentDate->format('H:i') !== '00:00' ? $intermentDate->format('h:i A') : 'Scheduled date' }}</div>
                             </td>
-                            <td class="table-col-number" data-label="Financials">
+                            <td class="table-col-number" data-label="Package Availed">
                                 <div class="table-primary table-financial-total whitespace-nowrap">{{ number_format((float) $case->total_amount, 2) }}</div>
                                 <div class="table-secondary table-financial-breakdown whitespace-nowrap">Paid {{ number_format((float) $case->total_paid, 2) }} &middot; Bal {{ number_format((float) $case->balance_amount, 2) }}</div>
                             </td>
@@ -1236,7 +1241,7 @@
             </div>
 
             <div class="table-system-pagination">
-                @if($cases->hasPages()){{ $cases->links() }}@endif
+                @include('partials.case_records_pagination', ['cases' => $cases])
             </div>
         </div>
     </section>
@@ -1336,100 +1341,6 @@
         toggle.addEventListener('click', () => {
             setOpen(toggle.getAttribute('aria-expanded') !== 'true');
         });
-    })();
-
-    (() => {
-        const form = document.querySelector('form.admin-master-toolbar');
-        const preset = document.querySelector('select[name="date_preset"]');
-        const from = document.querySelector('input[name="interment_from"]');
-        const to = document.querySelector('input[name="interment_to"]');
-        const customInputs = document.querySelectorAll('[data-custom-date-input]');
-        const customFields = document.querySelectorAll('[data-custom-date-field]');
-        if (!form || !preset || !from || !to || !customFields.length) return;
-        const customDateDebounce = 800;
-        let customDateTimer = null;
-
-        const syncCustomDateVisibility = () => {
-            const isCustom = preset.value === 'CUSTOM';
-            customFields.forEach((field) => {
-                field.hidden = !isCustom;
-            });
-            from.disabled = !isCustom;
-            to.disabled = !isCustom;
-        };
-
-        const isCompleteDate = (value) => value === '' || /^\d{4}-\d{2}-\d{2}$/.test(value);
-
-        const canSubmitCustomRange = () => {
-            if (preset.value !== 'CUSTOM') {
-                return false;
-            }
-
-            const fromValue = (from.value || '').trim();
-            const toValue = (to.value || '').trim();
-
-            if (!isCompleteDate(fromValue) || !isCompleteDate(toValue)) {
-                return false;
-            }
-
-            if (fromValue === '' && toValue === '') {
-                return false;
-            }
-
-            return true;
-        };
-
-        const submitForm = () => {
-            if (typeof form.requestSubmit === 'function') {
-                form.requestSubmit();
-                return;
-            }
-            form.submit();
-        };
-
-        const forceCustom = (event) => {
-            if (event?.target && !isCompleteDate(event.target.value || '')) {
-                return;
-            }
-
-            if (from.value || to.value) {
-                preset.value = 'CUSTOM';
-                syncCustomDateVisibility();
-            }
-        };
-
-        const queueCustomDateSubmit = () => {
-            if (customDateTimer) {
-                clearTimeout(customDateTimer);
-            }
-
-            customDateTimer = setTimeout(() => {
-                if (canSubmitCustomRange()) {
-                    submitForm();
-                }
-            }, customDateDebounce);
-        };
-
-        preset.addEventListener('change', () => {
-            syncCustomDateVisibility();
-            if (preset.value !== 'CUSTOM') {
-                submitForm();
-            }
-        });
-
-        from.addEventListener('change', forceCustom);
-        to.addEventListener('change', forceCustom);
-        customInputs.forEach((input) => {
-            input.addEventListener('change', queueCustomDateSubmit);
-        });
-
-        form.addEventListener('submit', () => {
-            if (customDateTimer) {
-                clearTimeout(customDateTimer);
-            }
-        });
-
-        syncCustomDateVisibility();
     })();
 
     (() => {

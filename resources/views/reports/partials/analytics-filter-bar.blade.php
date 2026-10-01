@@ -1,4 +1,4 @@
-<div class="reports-analytics-filter" x-show="isOwnerAnalytics()" x-cloak>
+<div class="reports-analytics-filter uniform-record-filters" x-show="isOwnerAnalytics()" x-cloak>
     <div class="reports-analytics-bar" role="group" aria-label="Branch performance report filters">
         <span class="reports-scope-pill" x-show="isBranchAdmin" x-cloak>
             <i class="bi bi-lock-fill"></i>

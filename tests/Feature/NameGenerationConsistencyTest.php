@@ -75,6 +75,113 @@ class NameGenerationConsistencyTest extends TestCase
         $this->assertSame('Jose Rizal', $user->fresh()->name);
     }
 
+    public function test_user_lowercase_name_parts_are_title_cased(): void
+    {
+        $user = User::create([
+            'first_name' => '  josé ',
+            'last_name' => ' niño-reyes ',
+            'email' => 'lowercase.user@example.test',
+            'password' => 'password',
+            'role' => 'staff',
+            'is_active' => true,
+        ]);
+
+        $user->refresh();
+
+        $this->assertSame('José', $user->first_name);
+        $this->assertSame('Niño-Reyes', $user->last_name);
+        $this->assertSame('José Niño-Reyes', $user->name);
+    }
+
+    public function test_user_mixed_case_and_uppercase_names_are_preserved(): void
+    {
+        $user = User::create([
+            'first_name' => 'McDonald',
+            'last_name' => 'De la Cruz',
+            'email' => 'preserved.user@example.test',
+            'password' => 'password',
+            'role' => 'staff',
+            'is_active' => true,
+        ]);
+
+        $user->refresh();
+
+        $this->assertSame('McDonald', $user->first_name);
+        $this->assertSame('De la Cruz', $user->last_name);
+        $this->assertSame('McDonald De la Cruz', $user->name);
+
+        $uppercaseUser = User::create([
+            'first_name' => 'JUAN',
+            'last_name' => 'CRUZ',
+            'email' => 'uppercase.user@example.test',
+            'password' => 'password',
+            'role' => 'staff',
+            'is_active' => true,
+        ]);
+
+        $this->assertSame('JUAN CRUZ', $uppercaseUser->fresh()->name);
+    }
+
+    public function test_user_partially_capitalized_multiword_names_are_completed(): void
+    {
+        $user = User::create([
+            'first_name' => 'John kurt',
+            'last_name' => 'Sdfsdf sdfsdfs',
+            'email' => 'multiword.user@example.test',
+            'password' => 'password',
+            'role' => 'staff',
+            'is_active' => true,
+        ]);
+
+        $user->refresh();
+
+        $this->assertSame('John Kurt', $user->first_name);
+        $this->assertSame('Sdfsdf Sdfsdfs', $user->last_name);
+        $this->assertSame('John Kurt Sdfsdf Sdfsdfs', $user->name);
+    }
+
+    public function test_user_lowercase_surname_particles_are_preserved_after_the_first_word(): void
+    {
+        $user = User::create([
+            'first_name' => 'Juan',
+            'last_name' => 'De la cruz',
+            'email' => 'particle.user@example.test',
+            'password' => 'password',
+            'role' => 'staff',
+            'is_active' => true,
+        ]);
+
+        $this->assertSame('Juan De la Cruz', $user->fresh()->name);
+    }
+
+    public function test_user_apostrophe_name_is_title_cased(): void
+    {
+        $user = User::create([
+            'first_name' => 'shaun',
+            'last_name' => "o'connor",
+            'email' => 'apostrophe.user@example.test',
+            'password' => 'password',
+            'role' => 'staff',
+            'is_active' => true,
+        ]);
+
+        $this->assertSame("Shaun O'Connor", $user->fresh()->name);
+    }
+
+    public function test_user_lowercase_initials_are_title_cased(): void
+    {
+        $user = User::create([
+            'first_name' => 'j.p.',
+            'last_name' => 'rizal',
+            'email' => 'initials.user@example.test',
+            'password' => 'password',
+            'role' => 'staff',
+            'is_active' => true,
+        ]);
+
+        $this->assertSame('J.P. Rizal', $user->fresh()->name);
+    }
+
     public function test_user_manual_name_flow_is_preserved_when_only_name_is_submitted(): void
     {
         $user = User::factory()->create([

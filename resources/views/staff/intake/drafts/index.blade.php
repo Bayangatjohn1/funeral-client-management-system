@@ -1,5 +1,6 @@
 @extends('layouts.panel')
 
+@section('suppress_layout_page_header', '1')
 @section('page_title', 'Intake Drafts')
 @section('page_desc', 'Resume incomplete intake records before creating official case records.')
 

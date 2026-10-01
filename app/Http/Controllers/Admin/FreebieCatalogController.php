@@ -15,7 +15,7 @@ class FreebieCatalogController extends Controller
 
         $validated = $request->validate([
             'q' => ['nullable', 'string', 'max:100'],
-            'status' => ['nullable', 'in:active,inactive'],
+            'status' => ['nullable', 'in:active,inactive,archived,all'],
             'sort' => ['nullable', 'in:name_asc,latest,usage_desc'],
         ]);
 
@@ -29,9 +29,9 @@ class FreebieCatalogController extends Controller
             });
         }
 
-        if (($validated['status'] ?? null) === 'active') {
+        if (($validated['status'] ?? 'active') === 'active') {
             $query->where('is_active', true);
-        } elseif (($validated['status'] ?? null) === 'inactive') {
+        } elseif (in_array($validated['status'] ?? null, ['inactive', 'archived'], true)) {
             $query->where('is_active', false);
         }
 
@@ -98,10 +98,6 @@ class FreebieCatalogController extends Controller
     public function show(Request $request, FreebieCatalog $freebie_catalog)
     {
         $this->ensureCanView();
-
-        if ($request->user()->isBranchAdmin() && ! $freebie_catalog->is_active) {
-            abort(404);
-        }
 
         $freebie_catalog->loadCount('packageFreebies');
 

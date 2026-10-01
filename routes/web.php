@@ -9,8 +9,12 @@ use App\Http\Controllers\Admin\ReportController as AdminReportController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\ServiceManagementController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\BackupRecoveryController;
+use App\Http\Controllers\Admin\RetentionController;
+use App\Http\Controllers\Admin\SystemAdminDashboardController;
 use App\Http\Controllers\Owner\DashboardController as OwnerDashboardController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PaymentCorrectionController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Staff\CaseAttachmentController;
 use App\Http\Controllers\Staff\CaseDocumentController;
@@ -71,6 +75,17 @@ Route::middleware(['auth', 'no_cache', 'active', 'owner'])->group(function () {
     Route::get('/owner/cases/{funeral_case}', [OwnerDashboardController::class, 'show'])->name('owner.cases.show');
 });
 
+Route::middleware(['auth', 'no_cache', 'active', 'admin', 'main_admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/backup-recovery', [BackupRecoveryController::class, 'index'])->name('backups.index');
+    Route::post('/backup-recovery', [BackupRecoveryController::class, 'store'])->name('backups.store');
+    Route::post('/backup-recovery/{systemBackup}/verify', [BackupRecoveryController::class, 'verify'])->name('backups.verify');
+    Route::get('/backup-recovery/{systemBackup}/download', [BackupRecoveryController::class, 'download'])->name('backups.download');
+    Route::post('/backup-recovery/{systemBackup}/restore-request', [BackupRecoveryController::class, 'requestRestore'])->name('backups.restore-request');
+    Route::get('/record-retention', [RetentionController::class, 'index'])->name('retention.index');
+    Route::post('/record-retention/{funeralCase}/legal-hold', [RetentionController::class, 'placeHold'])->name('retention.place-hold');
+    Route::post('/record-retention/{funeralCase}/release-hold', [RetentionController::class, 'releaseHold'])->name('retention.release-hold');
+});
+
 Route::middleware(['auth', 'no_cache', 'active'])->group(function () {
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/analytics', [ReportController::class, 'analytics'])->name('reports.analytics');
@@ -86,14 +101,13 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->get(
     $branchScopeIds = $user->branchScopeIds();
     $isBranchAdmin = $user->isBranchAdmin();
     $isMainAdmin = $user->isMainBranchAdmin();
+    if ($isMainAdmin) {
+        return app(SystemAdminDashboardController::class)->index();
+    }
     $validated = $request->validate([
         'branch_id' => 'nullable|integer|exists:branches,id',
-        'date_filter' => 'nullable|in:all,today,this_week,this_month,this_year',
     ]);
     $branchId = isset($validated['branch_id']) ? (int) $validated['branch_id'] : null;
-    if ($isMainAdmin && !$request->has('branch_id')) {
-        $branchId = (int) ($user->operationalBranchId() ?? $user->branch_id ?? 0) ?: null;
-    }
     if ($isBranchAdmin && $request->filled('branch_id') && (int) $validated['branch_id'] !== (int) $user->branch_id) {
         abort(403, 'Branch is outside your admin scope.');
     }
@@ -103,41 +117,16 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->get(
     if ($branchId && $branchScopeIds !== null && !in_array($branchId, $branchScopeIds, true)) {
         abort(403, 'Branch is outside your admin scope.');
     }
-    $dateFilter = $validated['date_filter'] ?? 'this_month';
-
     $now = now();
-    $dateStart = null;
-    $dateEnd = null;
+    $monthStart = $now->copy()->startOfMonth();
+    $monthEnd = $now->copy()->endOfMonth();
 
-    switch ($dateFilter) {
-        case 'today':
-            $dateStart = $now->copy()->startOfDay();
-            $dateEnd = $now->copy()->endOfDay();
-            break;
-        case 'this_week':
-            $dateStart = $now->copy()->startOfWeek();
-            $dateEnd = $now->copy()->endOfWeek();
-            break;
-        case 'this_month':
-            $dateStart = $now->copy()->startOfMonth();
-            $dateEnd = $now->copy()->endOfMonth();
-            break;
-        case 'this_year':
-            $dateStart = $now->copy()->startOfYear();
-            $dateEnd = $now->copy()->endOfYear();
-            break;
-    }
-
-    $paymentDateScope = function ($query) use ($dateStart, $dateEnd) {
-        if (!$dateStart || !$dateEnd) {
-            return;
-        }
-
-        $query->where(function ($dateQuery) use ($dateStart, $dateEnd) {
-            $dateQuery->whereBetween('paid_at', [$dateStart, $dateEnd])
-                ->orWhere(function ($fallback) use ($dateStart, $dateEnd) {
+    $paymentDateScope = function ($query) use ($monthStart, $monthEnd) {
+        $query->where(function ($dateQuery) use ($monthStart, $monthEnd) {
+            $dateQuery->whereBetween('paid_at', [$monthStart, $monthEnd])
+                ->orWhere(function ($fallback) use ($monthStart, $monthEnd) {
                     $fallback->whereNull('paid_at')
-                        ->whereBetween('paid_date', [$dateStart->toDateString(), $dateEnd->toDateString()]);
+                        ->whereBetween('paid_date', [$monthStart->toDateString(), $monthEnd->toDateString()]);
                 });
         });
     };
@@ -145,20 +134,44 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->get(
     $casesQuery = FuneralCase::query()
         ->when($branchScopeIds !== null, fn ($q) => $q->whereIn('branch_id', $branchScopeIds))
         ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
-        ->when($dateStart && $dateEnd, fn ($q) => $q->whereBetween('created_at', [$dateStart, $dateEnd]));
+        ->whereIn('case_status', ['ACTIVE', 'COMPLETED'])
+        ->where(function ($scopeQuery) {
+            $scopeQuery->where('entry_source', 'MAIN')->orWhereNull('entry_source');
+        });
     $totalCases = (clone $casesQuery)->count();
     $totalSales = (clone $casesQuery)->where('payment_status', 'PAID')->sum('total_amount');
     $totalServiceValue = (clone $casesQuery)->sum('total_amount');
-    $paidCases = (clone $casesQuery)->where('payment_status', 'PAID')->count();
-    $partialCases = (clone $casesQuery)->where('payment_status', 'PARTIAL')->count();
-    $unpaidCases = (clone $casesQuery)->where('payment_status', 'UNPAID')->count();
+    $summaryCollectedTotal = (clone $casesQuery)->sum('total_paid');
+    // Current payment-status snapshot. This intentionally does not use the
+    // dashboard period because these cards link to the current case summary
+    // in Payment Monitoring, not to transaction activity for a date range.
+    $paymentStatusQuery = FuneralCase::query()
+        ->when($branchScopeIds !== null, fn ($q) => $q->whereIn('branch_id', $branchScopeIds))
+        ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+        ->whereIn('case_status', ['ACTIVE', 'COMPLETED'])
+        ->where(function ($scopeQuery) {
+            $scopeQuery->where('entry_source', 'MAIN')->orWhereNull('entry_source');
+        });
+    $paidCases = (clone $paymentStatusQuery)
+        ->where('payment_status', 'PAID')
+        ->where('balance_amount', '<=', 0)
+        ->count();
+    $partialCases = (clone $paymentStatusQuery)
+        ->where('payment_status', 'PARTIAL')
+        ->where('total_paid', '>', 0)
+        ->where('balance_amount', '>', 0)
+        ->count();
+    $unpaidCases = (clone $paymentStatusQuery)
+        ->where('payment_status', 'UNPAID')
+        ->where('balance_amount', '>', 0)
+        ->count();
     $totalCollected = Payment::query()
         ->when($branchScopeIds !== null, fn ($q) => $q->whereIn('branch_id', $branchScopeIds))
         ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
         ->where(function ($q) {
-            $q->whereNull('status')->orWhere('status', '!=', 'VOID');
+            $q->whereNull('status')->orWhereNotIn('status', ['VOID', 'VOIDED']);
         })
-        ->when($dateStart && $dateEnd, $paymentDateScope)
+        ->tap($paymentDateScope)
         ->sum('amount');
     $totalOutstanding = (clone $casesQuery)->sum('balance_amount');
     $ongoingCases = (clone $casesQuery)->whereIn('case_status', ['DRAFT', 'ACTIVE'])->count();
@@ -174,7 +187,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->get(
     $branchMetrics = FuneralCase::query()
         ->when($branchScopeIds !== null, fn ($q) => $q->whereIn('branch_id', $branchScopeIds))
         ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
-        ->when($dateStart && $dateEnd, fn ($q) => $q->whereBetween('created_at', [$dateStart, $dateEnd]))
+        ->whereBetween('created_at', [$monthStart, $monthEnd])
         ->selectRaw(
             "branch_id, COUNT(*) as case_count, COALESCE(SUM(total_amount), 0) as service_value, COALESCE(SUM(total_paid), 0) as collected_amount"
         )
@@ -182,26 +195,12 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->get(
         ->get()
         ->keyBy('branch_id');
 
-    $branchPaymentMetrics = Payment::query()
-        ->when($branchScopeIds !== null, fn ($q) => $q->whereIn('branch_id', $branchScopeIds))
-        ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
-        ->where(function ($q) {
-            $q->whereNull('status')->orWhere('status', '!=', 'VOID');
-        })
-        ->when($dateStart && $dateEnd, $paymentDateScope)
-        ->selectRaw('branch_id, COALESCE(SUM(amount), 0) as collected_amount')
-        ->groupBy('branch_id')
-        ->get()
-        ->keyBy('branch_id');
-
-    $branchRevenueCards = $selectedBranches->map(function ($branch) use ($branchMetrics, $branchPaymentMetrics) {
+    $branchRevenueCards = $selectedBranches->map(function ($branch) use ($branchMetrics) {
         $metric = $branchMetrics->get($branch->id);
-        $paymentMetric = $branchPaymentMetrics->get($branch->id);
-
         return [
             'branch' => $branch,
             'sales' => (float) ($metric->service_value ?? 0),
-            'collected' => (float) ($paymentMetric->collected_amount ?? 0),
+            'collected' => (float) ($metric->collected_amount ?? 0),
         ];
     });
 
@@ -209,6 +208,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->get(
         $metric = $branchMetrics->get($branch->id);
 
         return [
+            'branch_id' => $branch->id,
             'branch_code' => $branch->branch_code,
             'branch_name' => $branch->branch_name,
             'count' => (int) ($metric->case_count ?? 0),
@@ -220,7 +220,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->get(
         ->where('is_active', true)
         ->count();
     $activePackageCount = Package::where('is_active', true)->count();
-    $dashboardBranch = $branchId ? $branches->firstWhere('id', $branchId) : $user->branch;
+    $dashboardBranch = $branchId ? $branches->firstWhere('id', $branchId) : null;
     $auditLogs = AuditLog::with(['actor:id,name,role', 'branch:id,branch_code,branch_name'])
         ->when($isBranchAdmin, function ($query) use ($user) {
             $assignedBranchId = (int) $user->branch_id;
@@ -241,12 +241,48 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->get(
         ->get();
 
     $todaySchedule = collect();
+    $currentlyInWake = collect();
     $attentionReminders = collect();
-    if ($isBranchAdmin && $branchId) {
-        $dashboardReminders = app(\App\Services\ReminderService::class)->buildDashboard($branchId, now()->startOfDay());
-        $todaySchedule = $dashboardReminders['today'] ?? collect();
-        $attentionReminders = $dashboardReminders['attention'] ?? collect();
+    $upcomingSchedule = collect();
+    $balanceReminders = collect();
+    $reminderService = app(\App\Services\ReminderService::class);
+    $reminderBranches = $branchId ? $selectedBranches->where('id', $branchId) : $selectedBranches;
+    foreach ($reminderBranches as $reminderBranch) {
+        $fullReminders = $reminderService
+            ->buildFullList((int) $reminderBranch->id, ['alert_type' => 'all'], now())
+            ->map(fn ($item) => array_merge($item, [
+                'branch_id' => (int) $reminderBranch->id,
+                'branch_label' => $reminderBranch->branch_code.' - '.$reminderBranch->branch_name,
+            ]));
+        $currentlyInWake = $currentlyInWake->merge(
+            $reminderService->currentlyInWake((int) $reminderBranch->id, now())
+                ->map(fn ($item) => array_merge($item, [
+                    'branch_id' => (int) $reminderBranch->id,
+                    'branch_label' => $reminderBranch->branch_code.' - '.$reminderBranch->branch_name,
+                ]))
+        );
+        $upcomingEnd = now()->startOfDay()->addDays(7)->endOfDay();
+        $todaySchedule = $todaySchedule->merge($fullReminders
+            ->whereIn('type', ['wake_start_today', 'wake_end_today', 'service_today', 'interment_today'])
+            ->sortBy('sort_date'));
+        $attentionReminders = $attentionReminders->merge($fullReminders
+            ->where('severity', 'danger'));
+        $upcomingSchedule = $upcomingSchedule->merge($fullReminders
+            ->whereIn('type', ['upcoming_wake_start', 'upcoming_wake_end', 'upcoming_service', 'upcoming_interment'])
+            ->filter(fn ($item) => $item['date'] && $item['date']->lessThanOrEqualTo($upcomingEnd))
+            ->sortBy('sort_date'));
+        $balanceReminders = $balanceReminders->merge($fullReminders->where('type', 'balance'));
     }
+    $todaySchedule = $todaySchedule->sortBy('sort_date')->values();
+    $currentlyInWake = $currentlyInWake->unique(fn ($item) => $item['branch_id'].'-'.$item['case_id'])->values();
+    $attentionReminders = $attentionReminders->unique(fn ($item) => $item['branch_id'].'-'.$item['case_id'])->values();
+    $upcomingSchedule = $upcomingSchedule->sortBy('sort_date')->unique(fn ($item) => implode('|', [
+        $item['branch_id'],
+        $item['case_id'],
+        $item['type'],
+        $item['date']?->format('Y-m-d H:i:s') ?? '',
+    ]))->values();
+    $balanceReminders = $balanceReminders->unique(fn ($item) => $item['branch_id'].'-'.$item['case_id'])->values();
 
     return view('dashboards.admin', [
         'branchCount' => $branches->count(),
@@ -254,10 +290,10 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->get(
         'packageCount' => Package::count(),
         'branches' => $branches,
         'selectedBranchId' => $branchId,
-        'selectedDateFilter' => $dateFilter,
         'totalCases' => $totalCases,
         'totalSales' => $totalSales,
         'totalServiceValue' => $totalServiceValue,
+        'summaryCollectedTotal' => $summaryCollectedTotal,
         'paidCases' => $paidCases,
         'partialCases' => $partialCases,
         'unpaidCases' => $unpaidCases,
@@ -271,11 +307,14 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->get(
         'isMainAdmin' => $isMainAdmin,
         'isBranchAdmin' => $isBranchAdmin,
         'dashboardBranch' => $dashboardBranch,
-        'dashboardDateStart' => $dateStart,
-        'dashboardDateEnd' => $dateEnd,
+        'dashboardMonthStart' => $monthStart,
+        'dashboardMonthEnd' => $monthEnd,
         'auditLogs' => $auditLogs,
         'todaySchedule' => $todaySchedule,
+        'currentlyInWake' => $currentlyInWake,
         'attentionReminders' => $attentionReminders,
+        'upcomingSchedule' => $upcomingSchedule,
+        'balanceReminders' => $balanceReminders,
     ]);
 });
 
@@ -317,25 +356,6 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->get(
         })
         ->sum('amount');
 
-    $currentMonthStart = now()->startOfMonth();
-    $currentMonthEnd = now()->endOfMonth();
-    $monthCasesEncoded = (clone $mainCasesBase)
-        ->whereBetween('created_at', [$currentMonthStart, $currentMonthEnd])
-        ->count();
-    $monthPaymentsCollected = Payment::where('branch_id', $dashboardBranchId)
-        ->whereBetween('paid_at', [$currentMonthStart, $currentMonthEnd])
-        ->whereHas('funeralCase', function ($query) use ($dashboardBranchId) {
-            $query->where('branch_id', $dashboardBranchId)
-                ->where(function ($scopeQuery) {
-                    $scopeQuery->where('entry_source', 'MAIN')
-                        ->orWhereNull('entry_source');
-                });
-        })
-        ->sum('amount');
-    $outstandingBalanceTotal = (clone $mainCasesBase)
-        ->whereIn('payment_status', ['UNPAID', 'PARTIAL'])
-        ->sum('balance_amount');
-
     $unpaidCases = FuneralCase::with(['client', 'deceased'])
         ->where('branch_id', $dashboardBranchId)
         ->where(function ($query) {
@@ -352,13 +372,14 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->get(
     $attentionReminders = $dashboardReminders['attention'];
     $todaySchedule = $dashboardReminders['today'];
 
-    $recentCases = FuneralCase::with(['client', 'deceased'])
+    $recentCases = FuneralCase::with(['client', 'deceased', 'encodedBy:id,name', 'package:id,name'])
         ->where('branch_id', $dashboardBranchId)
         ->where(function ($query) {
             $query->where('entry_source', 'MAIN')
                 ->orWhereNull('entry_source');
         })
-        ->latest()
+        ->whereBetween('created_at', [$today->copy()->startOfDay(), $today->copy()->endOfDay()])
+        ->latest('created_at')
         ->paginate(5, ['*'], 'recent_cases_page')
         ->withQueryString();
 
@@ -375,6 +396,16 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->get(
                         ->orWhereNull('entry_source');
                 });
         })
+        ->where(function ($query) {
+            $query->whereNull('status')->orWhereNotIn('status', ['VOID', 'VOIDED']);
+        })
+        ->where(function ($query) use ($today) {
+            $query->whereDate('paid_at', $today->toDateString())
+                ->orWhere(function ($fallback) use ($today) {
+                    $fallback->whereNull('paid_at')
+                        ->whereDate('created_at', $today->toDateString());
+                });
+        })
         ->orderByDesc('paid_at')
         ->orderByDesc('id')
         ->take(5)
@@ -382,7 +413,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->get(
 
     $upcomingSchedule = $reminderService
         ->buildFullList($dashboardBranchId, [], $today)
-        ->whereIn('type', ['upcoming_service', 'upcoming_interment'])
+        ->where('type', 'upcoming_interment')
         ->sortBy('sort_date')
         ->unique('case_id')
         ->take(6)
@@ -398,9 +429,6 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->get(
         'partialCount',
         'paidCount',
         'todayPaidTotal',
-        'monthCasesEncoded',
-        'monthPaymentsCollected',
-        'outstandingBalanceTotal',
         'unpaidCases',
         'todaySchedule',
         'upcomingSchedule',
@@ -411,7 +439,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->get(
     ));
 });
 
-Route::middleware(['auth', 'no_cache', 'active'])->get(
+Route::middleware(['auth', 'no_cache', 'active', 'branch.scope'])->get(
     'funeral-cases/{funeral_case}',
     [FuneralCaseController::class, 'show']
 )->whereNumber('funeral_case')->name('funeral-cases.show');
@@ -463,11 +491,21 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff_or_admin', 'branch.scope
 });
 
 Route::middleware(['auth', 'no_cache', 'active'])->get('payments/history', [PaymentController::class, 'history'])->name('payments.history');
+Route::middleware(['auth', 'no_cache', 'active'])->get('payments/history/print', [PaymentController::class, 'history'])->name('payments.monitoring.print');
+Route::middleware(['auth', 'no_cache', 'active'])->get('payments/cases/{funeral_case}/history/print', [PaymentController::class, 'printHistory'])->name('payments.history.print');
+Route::middleware(['auth', 'no_cache', 'active'])->get('payments/{payment}/summary', [PaymentController::class, 'summary'])->name('payments.summary');
 
 Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->group(function () {
     Route::get('payments', [PaymentController::class, 'index'])->name('payments.index');
     Route::post('payments/pay', [PaymentController::class, 'store'])->name('payments.store');
-    Route::post('payments/{payment}/void', [PaymentController::class, 'void'])->name('payments.void');
+    Route::patch('payments/{payment}/receipt', [PaymentController::class, 'updateReceipt'])->name('payments.receipt.update');
+    Route::post('payments/{payment}/correction-request', [PaymentCorrectionController::class, 'store'])->name('payments.corrections.store');
+});
+
+Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/payment-corrections', [PaymentCorrectionController::class, 'index'])->name('payment-corrections.index');
+    Route::post('/payment-corrections/{correction}/approve', [PaymentCorrectionController::class, 'approve'])->name('payment-corrections.approve');
+    Route::post('/payment-corrections/{correction}/reject', [PaymentCorrectionController::class, 'reject'])->name('payment-corrections.reject');
 });
 
 Route::middleware(['auth', 'no_cache', 'active', 'admin'])->prefix('admin')->group(function () {
@@ -498,6 +536,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'main_admin'])->prefix('admin')
 
 Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->prefix('admin')->group(function () {
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('admin.audit-logs.index');
+    Route::get('/audit-logs/export-pdf', [AuditLogController::class, 'exportPdf'])->name('admin.audit-logs.exportPdf');
     Route::get('/audit-logs/{audit_log}', [AuditLogController::class, 'show'])->name('admin.audit-logs.show');
 });
 
@@ -532,6 +571,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->pref
     Route::get('/casket-catalogs/{casket_catalog}/edit', [CasketCatalogController::class, 'edit'])->name('admin.casket-catalogs.edit');
     Route::put('/casket-catalogs/{casket_catalog}', [CasketCatalogController::class, 'update'])->name('admin.casket-catalogs.update');
     Route::patch('/casket-catalogs/{casket_catalog}/toggle-active', [CasketCatalogController::class, 'toggleActive'])->name('admin.casket-catalogs.toggleActive');
+    Route::patch('/casket-catalogs/{casket_catalog}/toggle-availability', [CasketCatalogController::class, 'toggleAvailability'])->name('admin.casket-catalogs.toggleAvailability');
 
     // Monitoring
     Route::get('/cases', [AdminReportController::class, 'masterCases'])->name('admin.cases.index');

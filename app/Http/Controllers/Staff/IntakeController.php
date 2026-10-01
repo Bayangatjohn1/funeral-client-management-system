@@ -61,7 +61,7 @@ class IntakeController extends Controller
         }
 
         if (!$user?->isMainBranchAdmin()) {
-            abort(403, 'Only Main Branch Admin can record other-branch reports.');
+            abort(403, 'Only a System Admin can record other-branch reports.');
         }
 
         return $this->renderForm('other');
@@ -85,7 +85,7 @@ class IntakeController extends Controller
         }
 
         if (!$user?->isMainBranchAdmin()) {
-            abort(403, 'Only Main Branch Admin can record other-branch reports.');
+            abort(403, 'Only a System Admin can record other-branch reports.');
         }
 
         return $this->storeByMode($request, 'other');
@@ -102,8 +102,21 @@ class IntakeController extends Controller
         $operationalBranchId = (int) ($user->operationalBranchId() ?? $user->branch_id ?? 0);
         $canEncodeAnyBranch = $user->canEncodeAnyBranch();
 
-        $packages = Package::with(['packageInclusions.casketCatalog', 'packageFreebies'])
+        $packages = Package::with([
+                'packageInclusions.casketCatalog',
+                'packageFreebies' => fn ($query) => $query->where(function ($freebieQuery) {
+                    $freebieQuery->whereNull('freebie_catalog_id')
+                        ->orWhereHas('catalog', fn ($catalogQuery) => $catalogQuery->where('is_active', true));
+                }),
+            ])
             ->where('is_active', true)
+            ->whereDoesntHave('packageInclusions', function ($query) {
+                $query->whereNotNull('casket_catalog_id')
+                    ->whereHas('casketCatalog', fn ($catalogQuery) => $catalogQuery
+                        ->where(function ($statusQuery) {
+                            $statusQuery->where('is_active', false)->orWhere('is_available', false);
+                        }));
+            })
             ->orderBy('name')
             ->get();
         $activeAddOns = AddOnCatalog::where('is_active', true)
@@ -233,6 +246,8 @@ class IntakeController extends Controller
             'wake_location' => 'required|string|max:255',
             'wake_start_date' => $wakeDateRules,
             'wake_start_time' => $scheduleTimeRules,
+            'wake_end_date' => $wakeDateRules,
+            'wake_end_time' => $scheduleTimeRules,
             'funeral_service_at' => $wakeDateRules,
             'funeral_service_time' => $scheduleTimeRules,
             'interment_at' => ['required', 'date'],
@@ -324,9 +339,12 @@ class IntakeController extends Controller
             'wake_start_date.required' => 'Please select a wake start date and time.',
             'wake_start_time.required' => 'Please select a wake start date and time.',
             'wake_start_time.date_format' => 'Please select a wake start date and time.',
-            'funeral_service_at.required' => 'Please select a funeral service date and time.',
-            'funeral_service_time.required' => 'Please select a funeral service date and time.',
-            'funeral_service_time.date_format' => 'Please select a funeral service date and time.',
+            'wake_end_date.required' => 'Please select a wake end date and time.',
+            'wake_end_time.required' => 'Please select a wake end date and time.',
+            'wake_end_time.date_format' => 'Please select a wake end date and time.',
+            'funeral_service_at.required' => 'Please select a funeral ceremony date and time.',
+            'funeral_service_time.required' => 'Please select a funeral ceremony date and time.',
+            'funeral_service_time.date_format' => 'Please select a funeral ceremony date and time.',
             'interment_at.required' => 'Please select an interment date and time.',
             'interment_time.required' => 'Please select an interment date and time.',
             'interment_time.date_format' => 'Please select an interment date and time.',
@@ -409,28 +427,40 @@ class IntakeController extends Controller
 
         if ($schedule['funeral_service']->copy()->startOfDay()->lt(Carbon::parse($validated['died'])->startOfDay())) {
             return back()->withErrors([
-                'funeral_service_at' => 'Funeral service date must be on or after the date of death.',
+                'funeral_service_at' => 'Funeral Ceremony date must be on or after the date of death.',
             ])->withInput();
         }
 
         if ($schedule['funeral_service']->lt($schedule['wake_start'])) {
             return back()->withErrors([
-                'funeral_service_at' => 'Funeral service date/time cannot be before the wake start date/time.',
+                'funeral_service_at' => 'Funeral Ceremony date/time cannot be before the Wake End date/time.',
+            ])->withInput();
+        }
+
+        if ($schedule['wake_end']->lessThanOrEqualTo($schedule['wake_start'])) {
+            return back()->withErrors([
+                'wake_end_date' => 'Wake End Date/Time must be later than the Wake Start Date/Time.',
+            ])->withInput();
+        }
+
+        if ($schedule['funeral_service']->lt($schedule['wake_end'])) {
+            return back()->withErrors([
+                'funeral_service_at' => 'Funeral Ceremony Date/Time cannot be earlier than the Wake End Date/Time.',
             ])->withInput();
         }
 
         if ($schedule['interment']->copy()->startOfDay()->lt($schedule['funeral_service']->copy()->startOfDay())) {
             return back()->withErrors([
-                'interment_at' => 'Interment date cannot be before the funeral service date.',
+                'interment_at' => 'Interment date/time must be after the Funeral Ceremony date/time.',
             ])->withInput();
         }
 
         if (
             $schedule['interment']->isSameDay($schedule['funeral_service'])
-            && $schedule['interment']->lt($schedule['funeral_service'])
+            && $schedule['interment']->lessThanOrEqualTo($schedule['funeral_service'])
         ) {
             return back()->withErrors([
-                'interment_at' => 'Interment time cannot be before the funeral service time.',
+                'interment_at' => 'Interment time must be later than the Funeral Ceremony time when both occur on the same date.',
             ])->withInput();
         }
 
@@ -443,11 +473,11 @@ class IntakeController extends Controller
         $computedWakeDays = $this->resolveWakeDays(
             null,
             $validated['wake_start_date'] ?? null,
-            $validated['interment_at'] ?? null
+            $validated['wake_end_date'] ?? null
         );
         if ($computedWakeDays === null) {
             return back()->withErrors([
-                'wake_days' => 'Wake days could not be calculated. Please check wake start and interment dates.',
+                'wake_days' => 'Wake Days could not be calculated. Please check the Wake Start and Wake End dates.',
             ])->withInput();
         }
         $validated['wake_days'] = $computedWakeDays;
@@ -506,9 +536,22 @@ class IntakeController extends Controller
 
         $package = null;
         if (!$isCustomPackage) {
-            $package = Package::with(['packageInclusions.casketCatalog', 'packageFreebies'])
+            $package = Package::with([
+                    'packageInclusions.casketCatalog',
+                    'packageFreebies' => fn ($query) => $query->where(function ($freebieQuery) {
+                        $freebieQuery->whereNull('freebie_catalog_id')
+                            ->orWhereHas('catalog', fn ($catalogQuery) => $catalogQuery->where('is_active', true));
+                    }),
+                ])
                 ->where('id', $selectedPackageId)
                 ->where('is_active', true)
+                ->whereDoesntHave('packageInclusions', function ($query) {
+                    $query->whereNotNull('casket_catalog_id')
+                        ->whereHas('casketCatalog', fn ($catalogQuery) => $catalogQuery
+                            ->where(function ($statusQuery) {
+                                $statusQuery->where('is_active', false)->orWhere('is_available', false);
+                            }));
+                })
                 ->first();
 
             if (!$package) {
@@ -915,6 +958,8 @@ class IntakeController extends Controller
                     'wake_location' => $validated['wake_location'],
                     'wake_start_date' => $schedule['wake_start']->toDateString(),
                     'wake_start_time' => $this->formatTimeForStorage($validated['wake_start_time'] ?? null),
+                    'wake_end_date' => $schedule['wake_end']->toDateString(),
+                    'wake_end_time' => $this->formatTimeForStorage($validated['wake_end_time'] ?? null),
                     'funeral_service_at' => Carbon::parse($validated['funeral_service_at'])->toDateString(),
                     'funeral_service_time' => $this->formatTimeForStorage($validated['funeral_service_time'] ?? null),
                     'interment_at' => $intermentAt,
@@ -1183,9 +1228,9 @@ class IntakeController extends Controller
         }
     }
 
-    private function resolveWakeDays(?int $wakeDays, ?string $wakeStartDate, ?string $intermentDate): ?int
+    private function resolveWakeDays(?int $wakeDays, ?string $wakeStartDate, ?string $wakeEndDate): ?int
     {
-        return WakeDuration::days($wakeStartDate, $intermentDate);
+        return WakeDuration::days($wakeStartDate, $wakeEndDate);
     }
 
     private function resolveScheduleDatetimes(array $validated): array
@@ -1195,6 +1240,10 @@ class IntakeController extends Controller
             'wake_start' => $this->combineScheduleDateTime(
                 $validated['wake_start_date'] ?? null,
                 $validated['wake_start_time'] ?? null
+            ),
+            'wake_end' => $this->combineScheduleDateTime(
+                $validated['wake_end_date'] ?? null,
+                $validated['wake_end_time'] ?? null
             ),
             'funeral_service' => $this->combineScheduleDateTime(
                 $validated['funeral_service_at'] ?? null,

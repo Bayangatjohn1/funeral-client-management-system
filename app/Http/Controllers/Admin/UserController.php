@@ -29,9 +29,12 @@ class UserController extends Controller
     }
 
     $validated = $request->validate([
+        'per_page' => ['nullable', 'integer', 'in:10,25,50,100'],
         'q' => ['nullable', 'string', 'max:100'],
         'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
         'role' => ['nullable', Rule::in(['admin', 'staff'])],
+        'admin_scope' => ['nullable', Rule::in(['system', 'branch'])],
+        'assignment' => ['nullable', Rule::in(['unassigned'])],
         'status' => ['nullable', Rule::in(['active', 'inactive'])],
         'sort' => ['nullable', Rule::in(['latest', 'name_asc', 'role_asc', 'branch_asc'])],
     ]);
@@ -43,22 +46,13 @@ class UserController extends Controller
     $query = User::where('role', '!=', 'owner')
         ->with('branch');
 
-    if ($actor->isMainBranchAdmin()) {
+    if ($actor->isSystemAdmin()) {
         $branches = Branch::query()
             ->where('is_active', true)
             ->orderBy('branch_code')
             ->get(['id', 'branch_code', 'branch_name']);
 
-        $query->where(function ($q) use ($actor) {
-            $q->where(function ($adminQuery) use ($actor) {
-                $adminQuery->where('role', 'admin')
-                    ->where('admin_scope', 'branch')
-                    ->where('branch_id', '!=', $actor->branch_id);
-            })->orWhere(function ($staffQuery) use ($actor) {
-                $staffQuery->where('role', 'staff')
-                    ->where('branch_id', $actor->branch_id);
-            });
-        });
+        $query->whereKeyNot($actor->id);
     } elseif ($actor->role === 'admin') {
         $assignedBranch = Branch::query()
             ->whereKey($actor->branch_id)
@@ -76,13 +70,14 @@ class UserController extends Controller
                 $searchQuery
                     ->where('name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%")
-                    ->orWhere('position', 'like', "%{$search}%")
                     ->orWhere('contact_number', 'like', "%{$search}%")
                     ->orWhereHas('branch', fn ($branchQuery) => $branchQuery->where('branch_name', 'like', "%{$search}%"));
             });
         })
-        ->when($selectedBranchId, fn ($q, int $branchId) => $q->where('branch_id', $branchId))
-        ->when($validated['role'] ?? null, fn ($q, string $role) => $q->where('role', $role))
+        ->when($actor->isSystemAdmin() ? $selectedBranchId : null, fn ($q, int $branchId) => $q->where('branch_id', $branchId))
+        ->when($actor->isSystemAdmin() ? ($validated['role'] ?? null) : null, fn ($q, string $role) => $q->where('role', $role))
+        ->when($actor->isSystemAdmin() ? ($validated['admin_scope'] ?? null) : null, fn ($q, string $scope) => $q->where('admin_scope', $scope))
+        ->when($actor->isSystemAdmin() && ($validated['assignment'] ?? null) === 'unassigned', fn ($q) => $q->whereNull('branch_id'))
         ->when($validated['status'] ?? null, fn ($q, string $status) => $q->where('is_active', $status === 'active'));
 
     match ($validated['sort'] ?? 'latest') {
@@ -97,7 +92,7 @@ class UserController extends Controller
     };
 
     $users = $query
-        ->paginate(20)
+        ->paginate((int) ($validated['per_page'] ?? 25))
         ->withQueryString();
 
     return view('admin.users.index', compact(
@@ -115,30 +110,25 @@ class UserController extends Controller
         abort(403, 'Unauthorized');
     }
 
-    $branchesWithActiveBranchAdmin = User::where('role', 'admin')
-        ->where('admin_scope', 'branch')
-        ->where('is_active', true)
-        ->whereNotNull('branch_id')
-        ->pluck('branch_id')
-        ->map(fn ($id) => (int) $id)
-        ->all();
-
-    if ($actor->isMainBranchAdmin()) {
-        $branches = Branch::where('id', '!=', $actor->branch_id)
-            ->orderBy('branch_name')
-            ->get();
+    if ($actor->isSystemAdmin()) {
+        $branches = Branch::where('is_active', true)->orderBy('branch_name')->get();
     } elseif ($actor->role === 'admin') {
         $branches = Branch::where('id', $actor->branch_id)->get();
     } else {
         abort(403, 'Unauthorized');
     }
 
-    return view('admin.users.create', compact('branches', 'branchesWithActiveBranchAdmin'));
+    $currentBranch = $actor->isSystemAdmin()
+        ? Branch::find($this->resolveMainBranchId($actor))
+        : $actor->branch;
+
+    return view('admin.users.create', compact('branches', 'currentBranch'));
 }
     public function store(Request $request)
     {
         $this->trimUserInput($request);
         $this->hydrateSplitNameFromLegacyName($request);
+        $this->normalizeRequestedRole($request);
         $this->ensureRoleAssignmentAllowed($request);
         $this->applyUserCreationScope($request);
         
@@ -150,9 +140,8 @@ class UserController extends Controller
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
             'role' => $validated['role'],
-            'branch_id' => $validated['branch_id'],
+            'branch_id' => $validated['branch_id'] ?? null,
             'contact_number' => $validated['contact_number'] ?? null,
-            'position' => $validated['position'] ?? null,
             'address' => $validated['address'] ?? null,
             'is_active' => true,
         ];
@@ -164,7 +153,9 @@ class UserController extends Controller
         }
 
         if (Schema::hasColumn('users', 'admin_scope')) {
-            $userAttributes['admin_scope'] = $validated['role'] === 'admin' ? 'branch' : null;
+            $userAttributes['admin_scope'] = $validated['role'] === 'admin'
+                ? (string) $request->input('admin_scope', 'branch')
+                : null;
         }
         if (Schema::hasColumn('users', 'created_by')) {
             $userAttributes['created_by'] = $request->user()->id;
@@ -208,29 +199,23 @@ class UserController extends Controller
             'branch',
         ]);
 
-        $branchesWithActiveBranchAdmin = User::where('role', 'admin')
-            ->where('admin_scope', 'branch')
-            ->where('is_active', true)
-            ->whereNotNull('branch_id')
-            ->where('id', '!=', $user->id)
-            ->pluck('branch_id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
-
-        if ($actor->isMainBranchAdmin()) {
-            $branches = Branch::orderBy('branch_name')->get();
+        if ($actor->isSystemAdmin()) {
+            $branches = Branch::query()
+                ->where('is_active', true)
+                ->orWhereKey($user->branch_id)
+                ->orderBy('branch_name')
+                ->get();
         } elseif ($actor->role === 'admin') {
             $branches = Branch::where('id', $actor->branch_id)->get();
         } else {
             abort(403, 'Unauthorized');
         }
 
-        $mainBranchId = (int) $actor->branch_id;
+        $mainBranchId = (int) $this->resolveMainBranchId($actor);
 
         return view('admin.users.edit', compact(
             'user',
             'branches',
-            'branchesWithActiveBranchAdmin',
             'mainBranchId'
         ));
     }
@@ -240,6 +225,7 @@ class UserController extends Controller
         $this->ensureManageableUser($user);
         $this->trimUserInput($request);
         $this->hydrateSplitNameFromLegacyName($request);
+        $this->normalizeRequestedRole($request);
         $this->ensureRoleAssignmentAllowed($request, $user);
         /**
          * The user update scope must be applied before validation to ensure that the correct validation rules are applied based on the target user's current role and the authenticated user's role.
@@ -257,15 +243,14 @@ class UserController extends Controller
             'branch_id' => $user->branch_id,
         ];
 
-        $isManagedMainAdmin = $user->isMainBranchAdmin();
+        $isManagedSystemAdmin = $user->isSystemAdmin();
 
         $updateAttributes = [
             'name' => $validated['name'],
             'email' => $validated['email'],
-            'role' => $isManagedMainAdmin ? 'admin' : $validated['role'],
-            'branch_id' => $isManagedMainAdmin ? $user->branch_id : $validated['branch_id'],
+            'role' => $isManagedSystemAdmin ? 'admin' : $validated['role'],
+            'branch_id' => $isManagedSystemAdmin ? null : ($validated['branch_id'] ?? null),
             'contact_number' => $validated['contact_number'] ?? null,
-            'position' => $validated['position'] ?? null,
             'address' => $validated['address'] ?? null,
         ];
 
@@ -276,7 +261,9 @@ class UserController extends Controller
         }
 
         if (Schema::hasColumn('users', 'admin_scope')) {
-            $updateAttributes['admin_scope'] = $isManagedMainAdmin ? 'main' : ($validated['role'] === 'admin' ? 'branch' : null);
+            $updateAttributes['admin_scope'] = $isManagedSystemAdmin
+                ? 'system'
+                : ($validated['role'] === 'admin' ? (string) $request->input('admin_scope', 'branch') : null);
         }
 
         $user->update($updateAttributes);
@@ -313,6 +300,14 @@ class UserController extends Controller
 
         if (auth()->id() === $user->id) {
             return back()->with('error', "You can't deactivate your own account.");
+        }
+
+        if ($user->isSystemAdmin() && $user->is_active && User::query()
+            ->where('role', 'admin')
+            ->whereIn('admin_scope', ['system', 'main', 'all_branches'])
+            ->where('is_active', true)
+            ->count() <= 1) {
+            return back()->with('error', 'The last active System Admin cannot be deactivated.');
         }
 
         $previousStatus = $user->is_active;
@@ -379,9 +374,8 @@ class UserController extends Controller
             ],
             'password' => [$user ? 'nullable' : 'required', 'string', 'min:6'],
             'role' => ['required', Rule::in(['admin', 'staff'])],
-            'branch_id' => ['required', 'exists:branches,id'],
+            'branch_id' => [(string) $request->input('admin_scope') === 'system' ? 'nullable' : 'required', 'exists:branches,id'],
             'contact_number' => ['nullable', 'string', 'max:50', $this->validPhilippineMobileRule()],
-            'position' => ['nullable', 'string', 'max:100', Rule::in($this->positionOptionsForRole($role))],
             'address' => ['nullable', 'string', 'max:255', $this->notBlankRule('Address must not be blank.')],
         ];
 
@@ -420,7 +414,6 @@ class UserController extends Controller
             'role.in' => 'Select a valid role.',
             'branch_id.required' => 'Branch is required for staff and branch admin accounts.',
             'branch_id.exists' => 'Select a valid branch.',
-            'position.in' => 'Select a valid position for this role.',
             'suffix.in' => 'Select a valid suffix.',
         ];
     }
@@ -449,7 +442,7 @@ class UserController extends Controller
     {
         $trimmed = [];
 
-        foreach (['name', 'first_name', 'middle_name', 'last_name', 'suffix', 'email', 'contact_number', 'position', 'address'] as $field) {
+        foreach (['name', 'first_name', 'middle_name', 'last_name', 'suffix', 'email', 'contact_number', 'address'] as $field) {
             if ($request->has($field)) {
                 $value = $request->input($field);
                 $trimmed[$field] = is_string($value) ? trim(preg_replace('/\s+/', ' ', $value)) : $value;
@@ -569,18 +562,27 @@ class UserController extends Controller
         };
     }
 
-    private function positionOptionsForRole(string $role): array
-    {
-        return match ($role) {
-            'admin' => ['Branch Admin', 'Branch Manager', 'Office Admin'],
-            'staff' => ['Staff', 'Encoder', 'Cashier', 'Branch Staff', 'Funeral Assistant'],
-            default => ['Staff', 'Encoder', 'Cashier', 'Branch Staff', 'Funeral Assistant', 'Branch Admin', 'Branch Manager', 'Office Admin'],
-        };
-    }
-
     private function validSuffixes(): array
     {
         return ['Jr.', 'Sr.', 'II', 'III', 'IV', 'V'];
+    }
+
+    private function resolveMainBranchId(User $actor): ?int
+    {
+        if ($actor->branch_id !== null) {
+            return (int) $actor->branch_id;
+        }
+
+        if (Schema::hasColumn('branches', 'branch_type')) {
+            $typedMainBranchId = Branch::where('branch_type', 'main')->value('id');
+            if ($typedMainBranchId !== null) {
+                return (int) $typedMainBranchId;
+            }
+        }
+
+        $legacyMainBranchId = Branch::where('branch_code', 'BR001')->value('id');
+
+        return $legacyMainBranchId === null ? null : (int) $legacyMainBranchId;
     }
     private function ensureRoleAssignmentAllowed(Request $request, ?User $targetUser = null): void
     {
@@ -590,24 +592,64 @@ class UserController extends Controller
             ]);
         }
 
-        if ((string) $request->input('admin_scope') === 'main') {
+        if (in_array((string) $request->input('admin_scope'), ['main', 'all_branches'], true)) {
             throw ValidationException::withMessages([
-                'admin_scope' => 'Unauthorized to assign main branch administrator access.',
+                'admin_scope' => 'Legacy global administrator scopes cannot be assigned.',
             ]);
         }
 
-        if ($targetUser?->isMainBranchAdmin()) {
+        if ((string) $request->input('admin_scope') === 'system'
+            && (! $request->attributes->get('requested_system_admin') || ! $request->user()?->isSystemAdmin())) {
+            throw ValidationException::withMessages([
+                'role' => 'Only a System Admin can assign System Admin access.',
+            ]);
+        }
+
+        if ($targetUser?->isSystemAdmin()) {
             if ((string) $request->input('role', 'admin') !== 'admin') {
                 throw ValidationException::withMessages([
-                    'role' => 'Unauthorized to modify main branch administrator access.',
+                    'role' => 'System Admin access cannot be downgraded here.',
                 ]);
             }
 
-            if ($request->filled('admin_scope') && (string) $request->input('admin_scope') !== 'main') {
+            if ($request->filled('admin_scope') && (string) $request->input('admin_scope') !== 'system') {
                 throw ValidationException::withMessages([
-                    'admin_scope' => 'Unauthorized to modify main branch administrator access.',
+                    'role' => 'System Admin access cannot be reassigned here.',
                 ]);
             }
+        }
+    }
+
+    private function normalizeRequestedRole(Request $request): void
+    {
+        $requestedRole = (string) $request->input('role');
+
+        if ($requestedRole === 'system_admin') {
+            $request->attributes->set('requested_system_admin', true);
+            $request->merge([
+                'role' => 'admin',
+                'admin_scope' => 'system',
+                'branch_id' => null,
+            ]);
+
+            return;
+        }
+
+        if ($requestedRole === 'branch_admin') {
+            $request->merge([
+                'role' => 'admin',
+                'admin_scope' => 'branch',
+            ]);
+
+            return;
+        }
+
+        if ($requestedRole === 'admin' && ! $request->filled('admin_scope')) {
+            $request->merge(['admin_scope' => 'branch']);
+        }
+
+        if ($requestedRole === 'staff') {
+            $request->merge(['admin_scope' => null]);
         }
     }
     /**
@@ -624,7 +666,13 @@ class UserController extends Controller
 
     $targetRole = (string) $request->input('role');
 
-    if ($actor->isMainBranchAdmin()) {
+    if ($actor->isSystemAdmin()) {
+        if ($targetRole === 'admin' && (string) $request->input('admin_scope') === 'system') {
+            $request->merge(['branch_id' => null]);
+
+            return;
+        }
+
         if ($targetRole === 'admin') {
             if (! $request->filled('branch_id')) {
                 throw ValidationException::withMessages([
@@ -643,6 +691,8 @@ class UserController extends Controller
                     'branch_id' => 'Branch is required for staff accounts.',
                 ]);
             }
+
+            $this->ensureAssignableBranchIsActive((int) $request->input('branch_id'));
 
             return;
         }
@@ -682,13 +732,19 @@ private function applyUserUpdateScope(Request $request, User $targetUser): void
 
     $targetRole = (string) $request->input('role');
 
-    if ($actor->isMainBranchAdmin()) {
-        if ($targetUser->isMainBranchAdmin()) {
+    if ($actor->isSystemAdmin()) {
+        if ($targetUser->isSystemAdmin()) {
             $request->merge([
                 'role' => 'admin',
-                'branch_id' => $targetUser->branch_id,
-                'admin_scope' => 'main',
+                'branch_id' => null,
+                'admin_scope' => 'system',
             ]);
+
+            return;
+        }
+
+        if ($targetRole === 'admin' && (string) $request->input('admin_scope') === 'system') {
+            $request->merge(['branch_id' => null]);
 
             return;
         }
@@ -718,6 +774,8 @@ private function applyUserUpdateScope(Request $request, User $targetUser): void
                     'branch_id' => 'Branch is required for staff accounts.',
                 ]);
             }
+
+            $this->ensureAssignableBranchIsActive((int) $request->input('branch_id'), $targetUser);
 
             return;
         }
@@ -760,30 +818,21 @@ private function ensureBranchAdminCanUseBranch(Request $request, ?User $targetUs
     /** @var \App\Models\User|null $actor */
     $actor = $request->user();
 
-    if (! $actor || ! $actor->isMainBranchAdmin()) {
+    if (! $actor || ! $actor->isSystemAdmin()) {
         abort(403, 'Unauthorized');
     }
 
     $branchId = (int) $request->input('branch_id');
+    $this->ensureAssignableBranchIsActive($branchId, $targetUser);
+}
 
-    if ($branchId === (int) $actor->branch_id) {
+private function ensureAssignableBranchIsActive(int $branchId, ?User $targetUser = null): void
+{
+    $isCurrentAssignment = $targetUser && (int) $targetUser->branch_id === $branchId;
+
+    if (! $isCurrentAssignment && ! Branch::whereKey($branchId)->where('is_active', true)->exists()) {
         throw ValidationException::withMessages([
-            'branch_id' => 'Branch Admin cannot be assigned to the Main Branch.',
-        ]);
-    }
-
-    $branchAlreadyHasAdmin = User::where('role', 'admin')
-        ->where('admin_scope', 'branch')
-        ->where('branch_id', $branchId)
-        ->where('is_active', true)
-        ->when($targetUser, function ($query) use ($targetUser) {
-            $query->where('id', '!=', $targetUser->id);
-        })
-        ->exists();
-
-    if ($branchAlreadyHasAdmin) {
-        throw ValidationException::withMessages([
-            'branch_id' => 'This branch already has an active Branch Admin.',
+            'branch_id' => 'Select an active branch.',
         ]);
     }
 }
@@ -799,20 +848,8 @@ private function ensureBranchAdminCanUseBranch(Request $request, ?User $targetUs
         abort(403, 'Unauthorized');
     }
 
-    if ($actor->isMainBranchAdmin()) {
-        if ($user->isMainBranchAdmin()) {
-            return;
-        }
-
-        if ($user->role === 'admin' && $user->admin_scope === 'branch') {
-            return;
-        }
-
-        if ($user->role === 'staff' && (int) $user->branch_id === (int) $actor->branch_id) {
-            return;
-        }
-
-        abort(403, 'Unauthorized');
+    if ($actor->isSystemAdmin()) {
+        return;
     }
 
     if ($actor->role === 'admin') {

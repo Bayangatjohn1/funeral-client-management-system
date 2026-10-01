@@ -127,6 +127,10 @@
   /* tarpaulin photo */
   .cv-service-grid > .cv-field-tarpaulin { grid-column:2; grid-row:1 / span 3; align-self:stretch; }
   .cv-field-tarpaulin { padding:0; overflow:hidden; display:flex; flex-direction:column; min-height:14.75rem; }
+  .cv-schedule-fields { grid-column:1 / -1; border:1px solid var(--border); border-radius:.7rem; background:rgba(220,230,214,.45); overflow:hidden; }
+  .cv-schedule-fields__head { padding:.72rem .85rem; border-bottom:1px solid var(--border); background:rgba(199,213,190,.55); }
+  .cv-schedule-fields__grid { display:grid; grid-template-columns:1fr 1fr; gap:.7rem; padding:.8rem; }
+  .cv-schedule-fields__grid > .cv-field-full { grid-column:1 / -1; }
   .cv-subsection-head { display:flex; align-items:center; gap:.5rem; padding:.8rem .9rem; border-bottom:1px solid var(--border); background:#C7D5BE; }
   .cv-tarp-grid    { display:grid; grid-template-columns:1fr; gap:.9rem; padding:1rem; align-items:stretch; flex:1; }
   @media(min-width:640px) { .cv-tarp-grid { grid-template-columns:minmax(12rem,14.5rem) minmax(0,1fr); } }
@@ -146,7 +150,7 @@
   .cv-tarp-form    { display:none; border:1px solid var(--border); border-radius:.75rem; padding:.85rem; background:#DCE6D6; }
   .cv-tarp-form.open { display:block; }
   .cv-tarp-file    { width:100%; border:1px solid var(--border); border-radius:.65rem; background:#E1E7D9; color:var(--ink); padding:.65rem; font-size:.82rem; cursor:pointer; }
-  @media(max-width:700px) { .cv-service-grid > .cv-field-tarpaulin, .cv-service-grid > .cv-field-package { grid-column:auto; grid-row:auto; } .cv-field-tarpaulin { min-height:0; } .cv-field-tarpaulin .cv-tarp-grid { grid-template-columns:1fr; } }
+  @media(max-width:700px) { .cv-service-grid > .cv-field-tarpaulin, .cv-service-grid > .cv-field-package { grid-column:auto; grid-row:auto; } .cv-field-tarpaulin { min-height:0; } .cv-field-tarpaulin .cv-tarp-grid { grid-template-columns:1fr; } .cv-schedule-fields__grid { grid-template-columns:1fr; } .cv-schedule-fields__grid > .cv-field-full { grid-column:auto; } }
   .cv-tarp-modal   { position:fixed; inset:0; z-index:70; display:none; align-items:center; justify-content:center; padding:18px; background:rgba(15,23,42,.72); }
   .cv-tarp-modal.open { display:flex; }
   .cv-tarp-dialog  { width:min(100%,920px); max-height:92vh; background:#D3DEC9; border:1px solid var(--border); border-radius:.75rem; overflow:hidden; box-shadow:none; }
@@ -503,30 +507,42 @@
         </div>
       </div>
       @endif
+      <section class="cv-schedule-fields" id="wake-schedule" aria-labelledby="wake-schedule-title">
+      <div class="cv-subsection-head cv-schedule-fields__head">
+        <div class="cv-card-icon"><i class="bi bi-calendar2-week"></i></div>
+        <span class="cv-card-title" id="wake-schedule-title">Wake &amp; Service Schedule</span>
+      </div>
+      <div class="cv-schedule-fields__grid">
       @if($funeral_case->wake_location)
       <div class="cv-field cv-field-package">
         <div class="cv-field-label">Wake Location</div>
         <div class="cv-field-value">{{ $funeral_case->wake_location }}</div>
       </div>
       @endif
-      <div class="cv-field cv-field-package">
+      <div class="cv-field cv-field-package" id="schedule-event-wake-start">
         <div class="cv-field-label">Wake Start Date &amp; Time</div>
         <div class="cv-field-value">{{ $fmtSchedule($funeral_case->wake_start_date, $funeral_case->wake_start_time) }}</div>
       </div>
+      <div class="cv-field cv-field-package" id="schedule-event-wake-end">
+        <div class="cv-field-label">Wake End Date &amp; Time</div>
+        <div class="cv-field-value">{{ $fmtSchedule($funeral_case->wake_end_date, $funeral_case->wake_end_time) }}</div>
+      </div>
       @if($funeral_case->funeral_service_at)
-      <div class="cv-field cv-field-package">
-        <div class="cv-field-label">Funeral Service Date &amp; Time</div>
+      <div class="cv-field cv-field-package" id="schedule-event-funeral-ceremony">
+        <div class="cv-field-label">Funeral Ceremony Date &amp; Time</div>
         <div class="cv-field-value">{{ $fmtSchedule($funeral_case->funeral_service_at, $funeral_case->funeral_service_time) }}</div>
       </div>
       @endif
-      <div class="cv-field cv-field-package">
+      <div class="cv-field cv-field-package" id="schedule-event-interment">
         <div class="cv-field-label">Interment Date &amp; Time</div>
         <div class="cv-field-value">{{ $fmtSchedule($displayIntermentAt, $funeral_case->interment_time ?? $displayIntermentAt?->format('H:i:s')) }}</div>
       </div>
-      <div class="cv-field cv-field-full">
+      <div class="cv-field cv-field-full" id="schedule-event-wake-duration">
         <div class="cv-field-label">Wake Duration</div>
         <div class="cv-field-value">{{ $displayWakeDays !== null ? $displayWakeDuration : $fmtDate(null) }}</div>
       </div>
+      </div>
+      </section>
     </div>
 
     @if($pkgInclusionItems || $pkgFreebieItems)

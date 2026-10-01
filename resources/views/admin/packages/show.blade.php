@@ -2,6 +2,7 @@
 
 @section('title', 'View Package')
 @section('page_title', 'View Package')
+@section('page_desc', 'Review package pricing, inclusions, freebies, add-ons, and availability.')
 
 @section('content')
 @php

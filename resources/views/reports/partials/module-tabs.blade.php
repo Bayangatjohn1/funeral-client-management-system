@@ -474,7 +474,11 @@
                 >
                     <option value="">All Dates</option>
                     <option value="TODAY">Today</option>
+                    <option value="THIS_WEEK">This Week</option>
                     <option value="THIS_MONTH">This Month</option>
+                    <option value="THIS_QUARTER">This Quarter</option>
+                    <option value="FIRST_HALF">Semi-Annual — First Half</option>
+                    <option value="SECOND_HALF">Semi-Annual — Second Half</option>
                     <option value="THIS_YEAR">This Year</option>
                     <option value="CUSTOM">Custom Range</option>
                 </select>
@@ -515,6 +519,16 @@
                 </select>
             </label>
 
+            <label class="reports-module-control-wrap" for="reportsHeaderPaymentMethod" x-show="shows('payment_method')" x-cloak>
+                <i class="bi bi-credit-card" aria-hidden="true"></i>
+                <select id="reportsHeaderPaymentMethod" class="reports-module-control is-compact" aria-label="Payment method" x-model="filters.payment_method" @change="loadPreview()">
+                    <option value="">All Payment Methods</option>
+                    <option value="cash">Cash</option>
+                    <option value="cashless">Cashless</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                </select>
+            </label>
+
             <label class="reports-module-control-wrap" for="reportsHeaderAuditUser" x-show="shows('audit_user') && auditOptions.supports_user" x-cloak>
                 <i class="bi bi-person" aria-hidden="true"></i>
                 <select
@@ -544,8 +558,8 @@
                 </summary>
                 <div class="reports-export-options">
                     <button type="button" @click="openPrint">
-                        <i class="bi bi-filetype-pdf" aria-hidden="true"></i>
-                        <span>Print / Save as PDF</span>
+                        <i class="bi bi-printer" aria-hidden="true"></i>
+                        <span>Print Preview</span>
                     </button>
                     <button type="button" @click="openCsv">
                         <i class="bi bi-filetype-csv" aria-hidden="true"></i>

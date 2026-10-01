@@ -21,16 +21,7 @@ class AuditLogController extends Controller
         $authUser = $request->user();
         $isBranchAdmin = $authUser->isBranchAdmin();
 
-        $validated = $request->validate([
-            'user_id' => ['nullable', 'integer', 'exists:users,id'],
-            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
-            'action' => ['nullable', 'string', 'max:120'],
-            'action_type' => ['nullable', 'string', 'max:30'],
-            'entity_type' => ['nullable', 'string', 'max:120'],
-            'date_from' => ['nullable', 'date'],
-            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:200'],
-        ]);
+        $validated = $this->validateFilters($request);
 
         $perPage = (int) ($validated['per_page'] ?? self::PER_PAGE_OPTIONS[0]);
         if (!in_array($perPage, self::PER_PAGE_OPTIONS, true)) {
@@ -115,6 +106,24 @@ class AuditLogController extends Controller
         ]);
     }
 
+    public function exportPdf(Request $request)
+    {
+        $this->authorize('viewAny', AuditLog::class);
+
+        $filters = $this->validateFilters($request);
+        unset($filters['per_page']);
+
+        if (isset($filters['entity_type'])) {
+            $filters['module'] = $filters['entity_type'];
+            unset($filters['entity_type']);
+        }
+
+        return redirect()->route('reports.exportPdf', array_filter(array_merge(
+            ['report_type' => 'audit_logs'],
+            $filters,
+        ), fn ($value) => $value !== null && $value !== ''));
+    }
+
     public function show(AuditLog $audit_log)
     {
         $this->authorize('view', $audit_log);
@@ -128,6 +137,20 @@ class AuditLogController extends Controller
             'transaction_id' => $audit_log->transaction_id,
             'created_at' => $audit_log->created_at,
             'action_label' => $audit_log->action_label,
+        ]);
+    }
+
+    private function validateFilters(Request $request): array
+    {
+        return $request->validate([
+            'user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
+            'action' => ['nullable', 'string', 'max:120'],
+            'action_type' => ['nullable', 'string', 'max:30'],
+            'entity_type' => ['nullable', 'string', 'max:120'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:200'],
         ]);
     }
 }

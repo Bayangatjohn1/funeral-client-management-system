@@ -24,9 +24,9 @@ class AddOnCatalogController extends Controller
             });
         }
 
-        if ($request->query('status') === 'active') {
+        if ($request->query('status', 'active') === 'active') {
             $query->where('is_active', true);
-        } elseif ($request->query('status') === 'inactive') {
+        } elseif (in_array($request->query('status'), ['inactive', 'archived'], true)) {
             $query->where('is_active', false);
         }
 
@@ -111,10 +111,6 @@ class AddOnCatalogController extends Controller
     public function show(Request $request, AddOnCatalog $add_on_catalog)
     {
         $this->ensureCanView();
-
-        if ($request->user()->isBranchAdmin() && ! $add_on_catalog->is_active) {
-            abort(404);
-        }
 
         $add_on_catalog->loadCount('legacyPackageAddOns');
 

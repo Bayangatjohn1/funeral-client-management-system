@@ -59,6 +59,13 @@
             const desktopMedia = window.matchMedia('(min-width: 1024px)');
             if (!desktopMedia.matches) return;
 
+            const lockState = localStorage.getItem('sidebar-lock-open');
+            if (lockState === 'true') {
+                document.body.setAttribute('data-sidebar-locked', 'true');
+                document.body.removeAttribute('data-sidebar-collapsed');
+                return;
+            }
+
             document.body.setAttribute('data-sidebar-collapsed', 'true');
         })();
     </script>
@@ -88,6 +95,16 @@
                     <div class="sidebar-brand-name">Sabangan Caguioa</div>
                     <div class="sidebar-brand-sub">Funeral Home System</div>
                 </div>
+                <button
+                    type="button"
+                    class="sidebar-lock-btn"
+                    data-sidebar-lock-toggle
+                    aria-label="Lock sidebar open"
+                    aria-pressed="false"
+                    title="Lock sidebar open"
+                >
+                    <i class="bi bi-pin-angle" aria-hidden="true"></i>
+                </button>
             </div>
 
             <div class="sidebar-scroll">
@@ -162,12 +179,18 @@
                 $topbarActions = trim($__env->yieldContent('topbar_actions'));
                 $legacyHeaderActions = trim($__env->yieldContent('header_actions'));
                 $filterBar = trim($__env->yieldContent('filter_bar'));
+                $suppressLayoutPageHeader = trim($__env->yieldContent('suppress_layout_page_header')) === '1';
                 $authUser = auth()->user();
                 $authRole = $authUser->role ?? null;
                 $isStaffAdminChrome = $authUser && ($authUser?->isAdmin() || $authRole === 'staff');
                 $isStaffAdminDashboard = request()->is('staff') || request()->is('admin');
                 $hideLayoutTopbar = $explicitHideLayoutTopbar || $isStaffAdminChrome;
-                $showInlinePageHeader = $isStaffAdminChrome && ! $isStaffAdminDashboard && ! $explicitHideLayoutTopbar;
+                $showInlinePageHeader = ! $suppressLayoutPageHeader
+                    && ! $isStaffAdminDashboard
+                    && (
+                        $isStaffAdminChrome
+                        || ($hideLayoutTopbar && trim($__env->yieldContent('page_title')) !== '')
+                    );
                 $showTopbarNotifications = ! $authUser?->isOwner();
                 $notificationRouteName = match (true) {
                     $authUser?->isAdmin() => 'admin.reminders.index',
@@ -241,29 +264,6 @@
                                 @if($notificationHref)
                                     <a href="{{ $notificationHref }}">View all <i class="bi bi-arrow-up-right"></i></a>
                                 @endif
-                            </div>
-
-                            <div class="topbar-notification-menu__chips">
-                                <button type="button" class="topbar-notification-chip is-active" data-notification-filter="all">
-                                    <span class="topbar-notification-chip__dot"></span>
-                                    <span>All</span>
-                                    <strong data-notification-count="all">{{ $notificationCounts['all'] }}</strong>
-                                </button>
-                                <button type="button" class="topbar-notification-chip" data-notification-filter="due">
-                                    <span class="topbar-notification-chip__dot"></span>
-                                    <span>Due</span>
-                                    <strong data-notification-count="due">{{ $notificationCounts['due'] }}</strong>
-                                </button>
-                                <button type="button" class="topbar-notification-chip" data-notification-filter="today">
-                                    <span class="topbar-notification-chip__dot"></span>
-                                    <span>Today</span>
-                                    <strong data-notification-count="today">{{ $notificationCounts['today'] }}</strong>
-                                </button>
-                                <button type="button" class="topbar-notification-chip" data-notification-filter="upcoming">
-                                    <span class="topbar-notification-chip__dot"></span>
-                                    <span>Upcoming</span>
-                                    <strong data-notification-count="upcoming">{{ $notificationCounts['upcoming'] }}</strong>
-                                </button>
                             </div>
 
                             <div class="topbar-notification-menu__list" data-notification-list>
@@ -396,6 +396,9 @@
                             >
                                 <i class="bi bi-list"></i>
                             </button>
+                            @hasSection('page_back')
+                                @yield('page_back')
+                            @endif
                             <div class="panel-page-header__copy">
                                 <h1>@yield('page_title', 'Dashboard')</h1>
                                 @if($pageDesc !== '')
@@ -416,6 +419,7 @@
                     </div>
                 @endif
                 @yield('content')
+                @include('partials.uniform_filter_styles')
             </main>
         </div>
     </div>
@@ -489,8 +493,10 @@
             const toggle = document.getElementById('mobileSidebarToggle');
             const backdrop = document.getElementById('sidebarBackdrop');
             const sidebar = document.getElementById('appSidebar');
+            const lockToggle = sidebar?.querySelector('[data-sidebar-lock-toggle]');
             const desktopMedia = window.matchMedia('(min-width: 1024px)');
             if (!backdrop || !sidebar) return;
+            const lockStorageKey = 'sidebar-lock-open';
 
             const navLinks = sidebar.querySelectorAll('.nav-link');
             navLinks.forEach((link) => {
@@ -522,13 +528,58 @@
                 }
             };
 
-            const syncDesktopCollapsed = () => {
+            const isLockedOpen = () => localStorage.getItem(lockStorageKey) === 'true';
+
+            const syncLockButton = () => {
+                if (!lockToggle) return;
+
+                const locked = document.body.hasAttribute('data-sidebar-locked');
+                lockToggle.setAttribute('aria-pressed', locked ? 'true' : 'false');
+                lockToggle.setAttribute('aria-label', locked ? 'Unlock sidebar' : 'Lock sidebar open');
+                lockToggle.setAttribute('title', locked ? 'Unlock sidebar' : 'Lock sidebar open');
+
+                const icon = lockToggle.querySelector('i');
+                if (icon) {
+                    icon.className = locked ? 'bi bi-pin-angle-fill' : 'bi bi-pin-angle';
+                }
+            };
+
+            const setSidebarLocked = (locked, persist = true) => {
                 if (!desktopMedia.matches) {
-                    document.body.removeAttribute('data-sidebar-collapsed');
+                    document.body.removeAttribute('data-sidebar-locked');
+                    syncLockButton();
                     return;
                 }
 
-                document.body.setAttribute('data-sidebar-collapsed', 'true');
+                if (locked) {
+                    document.body.setAttribute('data-sidebar-locked', 'true');
+                } else {
+                    document.body.removeAttribute('data-sidebar-locked');
+                }
+                document.body.removeAttribute('data-sidebar-hovered');
+
+                if (locked) {
+                    document.body.removeAttribute('data-sidebar-collapsed');
+                } else {
+                    document.body.setAttribute('data-sidebar-collapsed', 'true');
+                }
+
+                if (persist) {
+                    localStorage.setItem(lockStorageKey, locked ? 'true' : 'false');
+                }
+
+                syncLockButton();
+            };
+
+            const syncDesktopCollapsed = () => {
+                if (!desktopMedia.matches) {
+                    document.body.removeAttribute('data-sidebar-collapsed');
+                    document.body.removeAttribute('data-sidebar-locked');
+                    syncLockButton();
+                    return;
+                }
+
+                setSidebarLocked(isLockedOpen(), false);
             };
 
             if (toggle) {
@@ -543,7 +594,12 @@
                 });
             }
 
+            lockToggle?.addEventListener('click', () => {
+                setSidebarLocked(!document.body.hasAttribute('data-sidebar-locked'));
+            });
+
             syncDesktopCollapsed();
+            syncLockButton();
 
             backdrop.addEventListener('click', closeSidebar);
 
@@ -930,8 +986,8 @@
 
             const updateVisibleState = (bucket = 'all') => {
                 cards.forEach((card) => {
-                    const cardBucket = card.getAttribute('data-bucket');
-                    const show = bucket === 'all' || bucket === cardBucket;
+                    const cardBuckets = (card.getAttribute('data-buckets') || card.getAttribute('data-bucket') || '').split(/\s+/);
+                    const show = bucket === 'all' || cardBuckets.includes(bucket);
                     card.hidden = !show;
                 });
 

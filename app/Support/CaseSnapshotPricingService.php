@@ -49,14 +49,14 @@ class CaseSnapshotPricingService
         ), 2);
     }
 
-    public function pricingAttributesForSchedule(FuneralCase $case, ?string $wakeStartDate, ?string $intermentDate, bool $finalized = false): array
+    public function pricingAttributesForSchedule(FuneralCase $case, ?string $wakeStartDate, ?string $wakeEndDate, bool $finalized = false): array
     {
         if ($finalized || ! $this->hasStructuredSnapshot($case)) {
             return $this->preservedFinancialAttributes($case);
         }
 
         $snapshot = $this->snapshot($case);
-        $wakeDuration = WakeDuration::calculate($wakeStartDate, $intermentDate);
+        $wakeDuration = WakeDuration::calculate($wakeStartDate, $wakeEndDate);
         $wakeDays = (int) ($wakeDuration['days'] ?? 0);
         $wakeNights = (int) ($wakeDuration['nights'] ?? 0);
         $wakeLabel = $wakeDuration['label'] ?? WakeDuration::labelFromDays($wakeDays);

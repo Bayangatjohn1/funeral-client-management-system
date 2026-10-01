@@ -2,6 +2,7 @@
 
 @section('title', 'View Freebie')
 @section('page_title', 'View Freebie')
+@section('page_desc', 'Review freebie details, status, and package usage notes.')
 
 @section('content')
 @php

@@ -22,9 +22,11 @@ class CasketCatalogController extends Controller
             });
         }
 
-        if ($request->query('status') === 'active') {
-            $query->where('is_active', true);
-        } elseif ($request->query('status') === 'inactive') {
+        if ($request->query('status', 'available') === 'available') {
+            $query->where('is_active', true)->where('is_available', true);
+        } elseif (in_array($request->query('status'), ['unavailable', 'out_of_stock'], true)) {
+            $query->where('is_active', true)->where('is_available', false);
+        } elseif ($request->query('status') === 'archived') {
             $query->where('is_active', false);
         }
 
@@ -39,7 +41,7 @@ class CasketCatalogController extends Controller
         $this->ensureCanManage();
 
         return view('admin.casket-catalogs.create', [
-            'catalog' => new CasketCatalog(['is_active' => true]),
+            'catalog' => new CasketCatalog(['is_active' => true, 'is_available' => true]),
         ]);
     }
 
@@ -50,6 +52,7 @@ class CasketCatalogController extends Controller
         $validated = $request->validate($this->rules(), $this->messages());
         $validated = $this->normalize($validated);
         $validated['is_active'] = true;
+        $validated['is_available'] = $request->has('is_available') ? $request->boolean('is_available') : true;
 
         $duplicate = $this->duplicateExists($validated['name'], $validated['type_or_material']);
         if ($duplicate) {
@@ -97,10 +100,6 @@ class CasketCatalogController extends Controller
     {
         $this->ensureCanView();
 
-        if ($request->user()->isBranchAdmin() && ! $casket_catalog->is_active) {
-            abort(404);
-        }
-
         $casket_catalog->loadCount('packageInclusions');
 
         return view('admin.casket-catalogs.show', [
@@ -122,6 +121,9 @@ class CasketCatalogController extends Controller
 
         $validated = $request->validate($this->rules($casket_catalog), $this->messages());
         $validated = $this->normalize($validated);
+        if (! $request->has('is_available')) {
+            $validated['is_available'] = $casket_catalog->is_available;
+        }
 
         $duplicate = $this->duplicateExists($validated['name'], $validated['type_or_material'], $casket_catalog->id);
         if ($duplicate) {
@@ -174,6 +176,32 @@ class CasketCatalogController extends Controller
         return back()->with('success', $casket_catalog->is_active ? 'Casket restored.' : 'Casket archived.');
     }
 
+    public function toggleAvailability(CasketCatalog $casket_catalog)
+    {
+        $this->ensureCanManage();
+
+        if (! $casket_catalog->is_active) {
+            return back()->withErrors(['casket' => 'Restore the archived casket before changing its availability.']);
+        }
+
+        $casket_catalog->update(['is_available' => ! $casket_catalog->is_available]);
+
+        AuditLogger::log(
+            $casket_catalog->is_available ? 'casket_catalog.available' : 'casket_catalog.unavailable',
+            'status_change',
+            'casket_catalog',
+            $casket_catalog->id,
+            ['name' => $casket_catalog->name, 'is_available' => $casket_catalog->is_available],
+            null,
+            null,
+            'success',
+            null,
+            $casket_catalog->is_available ? 'Casket marked available' : 'Casket marked unavailable'
+        );
+
+        return back()->with('success', $casket_catalog->is_available ? 'Casket marked available.' : 'Casket marked unavailable.');
+    }
+
     private function rules(?CasketCatalog $catalog = null): array
     {
         return [
@@ -181,6 +209,7 @@ class CasketCatalogController extends Controller
             'type_or_material' => ['nullable', 'string', 'max:100', $this->mustContainLetterRule('Material must include letters.'), $this->allowedNameTextRule('Material has unnecessary special characters.')],
             'standard_price' => ['required', 'numeric', 'min:0.01'],
             'description' => ['nullable', 'string', 'max:500'],
+            'is_available' => ['nullable', 'boolean'],
             'return_to' => ['nullable', 'string', 'max:1000'],
         ];
     }
@@ -206,6 +235,7 @@ class CasketCatalogController extends Controller
         $validated['type_or_material'] = $validated['type_or_material'] ?: null;
         $validated['description'] = $validated['description'] ?: null;
         $validated['standard_price'] = round((float) $validated['standard_price'], 2);
+        $validated['is_available'] = (bool) ($validated['is_available'] ?? false);
 
         unset($validated['return_to']);
 
@@ -238,6 +268,7 @@ class CasketCatalogController extends Controller
             'description' => $catalog->description,
             'display' => $catalog->display_name,
             'is_active' => (bool) $catalog->is_active,
+            'is_available' => (bool) $catalog->is_available,
             'update_url' => route('admin.casket-catalogs.update', $catalog, absolute: false),
         ];
     }

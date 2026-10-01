@@ -15,18 +15,14 @@
     $fallbackFirstName = $fallbackNameParts[0] ?? '';
     $fallbackLastName = count($fallbackNameParts) > 1 ? end($fallbackNameParts) : '';
 
-    $branchesWithActiveBranchAdmin = collect($branchesWithActiveBranchAdmin ?? [])
-        ->map(fn ($id) => (int) $id)
-        ->all();
-
     $mainBranchId = (int) ($mainBranchId ?? auth()->user()?->branch_id);
-    $isMainBranchAdmin = auth()->user()?->isMainBranchAdmin();
-    $isBranchAdmin = auth()->user()?->role === 'admin' && ! auth()->user()?->isMainBranchAdmin();
+    $isSystemAdmin = auth()->user()?->isSystemAdmin();
+    $isBranchAdmin = auth()->user()?->isBranchAdmin();
     $isEditingStaff = $user->role === 'staff';
     $isEditingBranchAdmin = $user->role === 'admin' && $user->admin_scope === 'branch';
-    $isEditingMainAdmin = $user->isMainBranchAdmin();
+    $isEditingSystemAdmin = $user->isSystemAdmin();
     $selectedBranchId = (int) old('branch_id', $user->branch_id);
-    $shouldLockBranch = $isEditingMainAdmin || $isEditingStaff || $isBranchAdmin;
+    $shouldLockBranch = $isEditingSystemAdmin || $isBranchAdmin;
 @endphp
 <style>
 .user-edit-page {
@@ -206,7 +202,7 @@
                             @if($hasSplitUserNames)
                                 <div>
                                     <label class="label-section">First Name <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="first_name" value="{{ old('first_name', $user->first_name ?: $fallbackFirstName) }}" class="form-input" placeholder="Juan" required>
+                                    <input type="text" name="first_name" value="{{ old('first_name', $user->first_name ?: $fallbackFirstName) }}" class="form-input" placeholder="Juan" autocapitalize="words" data-name-case required>
                                     @error('first_name') <div class="form-error">{{ $message }}</div> @enderror
                                     <div class="form-error hidden" data-field-error="first_name"></div>
                                 </div>
@@ -214,7 +210,7 @@
                                 @if($hasMiddleName)
                                     <div>
                                         <label class="label-section">Middle Name</label>
-                                        <input type="text" name="middle_name" value="{{ old('middle_name', $user->middle_name) }}" class="form-input" placeholder="Santos">
+                                        <input type="text" name="middle_name" value="{{ old('middle_name', $user->middle_name) }}" class="form-input" placeholder="Santos" autocapitalize="words" data-name-case>
                                         @error('middle_name') <div class="form-error">{{ $message }}</div> @enderror
                                         <div class="form-error hidden" data-field-error="middle_name"></div>
                                     </div>
@@ -222,7 +218,7 @@
 
                                 <div>
                                     <label class="label-section">Last Name <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="last_name" value="{{ old('last_name', $user->last_name ?: $fallbackLastName) }}" class="form-input" placeholder="Dela Cruz" required>
+                                    <input type="text" name="last_name" value="{{ old('last_name', $user->last_name ?: $fallbackLastName) }}" class="form-input" placeholder="Dela Cruz" autocapitalize="words" data-name-case required>
                                     @error('last_name') <div class="form-error">{{ $message }}</div> @enderror
                                     <div class="form-error hidden" data-field-error="last_name"></div>
                                 </div>
@@ -242,7 +238,7 @@
                             @else
                                 <div>
                                     <label class="label-section">Name <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="name" value="{{ old('name', $user->name) }}" class="form-input" placeholder="Juan Dela Cruz" required>
+                                    <input type="text" name="name" value="{{ old('name', $user->name) }}" class="form-input" placeholder="Juan Dela Cruz" autocapitalize="words" data-name-case required>
                                     @error('name') <div class="form-error">{{ $message }}</div> @enderror
                                     <div class="form-error hidden" data-field-error="name"></div>
                                 </div>
@@ -266,24 +262,25 @@
                         <div class="grid gap-5 md:grid-cols-2">
                             <div>
                                 <label class="label-section">Role <span class="text-rose-500">*</span></label>
-                                <select name="role" id="role" class="form-select" required {{ $isEditingMainAdmin ? 'disabled' : '' }}>
-                                    @if($isMainBranchAdmin)
+                                <select name="role" id="role" class="form-select" required {{ $isEditingSystemAdmin ? 'disabled' : '' }}>
+                                    @if($isSystemAdmin)
                                         <option value="staff" {{ old('role', $user->role) == 'staff' ? 'selected' : '' }}>Staff</option>
-                                        <option value="admin" {{ old('role', $user->role) == 'admin' ? 'selected' : '' }}>Branch Admin</option>
+                                        <option value="branch_admin" {{ old('role') == 'branch_admin' || (old('role') == 'admin' && old('admin_scope') !== 'system') || (!old('role') && $isEditingBranchAdmin) ? 'selected' : '' }}>Branch Admin</option>
+                                        <option value="system_admin" {{ old('role') == 'system_admin' || (old('role') == 'admin' && old('admin_scope') === 'system') || (!old('role') && $isEditingSystemAdmin) ? 'selected' : '' }}>System Admin</option>
                                     @elseif($isBranchAdmin)
                                         <option value="staff" selected>Staff</option>
                                     @endif
                                 </select>
 
-                                @if($isEditingMainAdmin)
-                                    <input type="hidden" name="role" value="admin">
+                                @if($isEditingSystemAdmin)
+                                    <input type="hidden" name="role" value="system_admin">
                                 @endif
 
                                 @error('role') <div class="form-error">{{ $message }}</div> @enderror
                                 <div class="form-error hidden" data-field-error="role"></div>
                                 <div class="form-hint mt-1">
-                                    @if($isEditingMainAdmin)
-                                        Main Branch Administrator access is preserved and cannot be reassigned here.
+                                    @if($isEditingSystemAdmin)
+                                        System Admin access is preserved and cannot be downgraded here.
                                     @elseif($isEditingBranchAdmin)
                                         Branch Admin role changes to Staff will be rejected by the system.
                                     @elseif($isBranchAdmin)
@@ -301,17 +298,11 @@
                                     @foreach($branches as $branch)
                                         @php
                                             $branchId = (int) $branch->id;
-                                            $isMainBranch = $branchId === $mainBranchId;
-                                            $hasOtherActiveBranchAdmin = in_array($branchId, $branchesWithActiveBranchAdmin, true);
                                             $isCurrentSelectedBranch = $selectedBranchId === $branchId;
                                         @endphp
-                                        <option value="{{ $branch->id }}" {{ $isCurrentSelectedBranch ? 'selected' : '' }}>
-                                            {{ $branch->branch_name }}
-                                            @if($isMainBranch && $isEditingBranchAdmin)
-                                                - Main Branch not allowed for Branch Admin
-                                            @elseif($hasOtherActiveBranchAdmin && ! $isCurrentSelectedBranch && $isEditingBranchAdmin)
-                                                - already has Branch Admin
-                                            @endif
+                                        <option value="{{ $branch->id }}"
+                                            {{ $isCurrentSelectedBranch ? 'selected' : '' }}>
+                                            {{ $branch->branch_code }} - {{ $branch->branch_name }}
                                         </option>
                                     @endforeach
                                 </select>
@@ -326,9 +317,9 @@
                                     @if($isEditingStaff)
                                         Staff remain auto-assigned to the current branch and cannot be reassigned here.
                                     @elseif($isEditingBranchAdmin)
-                                        Branch Admin can only be assigned to a non-main branch without an active Branch Admin.
-                                    @elseif($isEditingMainAdmin)
-                                        Main Branch Admin branch assignment cannot be changed here.
+                                        Branch Admin can use any active branch, including Main Branch. A branch may have multiple Branch Admins.
+                                    @elseif($isEditingSystemAdmin)
+                                        System Admin has access to all branches and has no branch assignment.
                                     @else
                                         Branch is required for user accounts.
                                     @endif
@@ -351,15 +342,7 @@
                                 <div class="form-error hidden" data-field-error="contact_number"></div>
                             </div>
 
-                            <div id="position_wrap">
-                                <label class="label-section">Position</label>
-                                <select name="position" id="position" class="form-select" data-selected="{{ old('position', $user->position) }}">
-                                    <option value="">Select position</option>
-                                </select>
-                                @error('position') <div class="form-error">{{ $message }}</div> @enderror
-                            </div>
-
-                            <div id="address_wrap" class="md:col-span-2">
+                            <div id="address_wrap">
                                 <label class="label-section">Address</label>
                                 <input type="text" name="address" value="{{ old('address', $user->address) }}" class="form-input" placeholder="House No., Street, Barangay, City">
                                 @error('address') <div class="form-error">{{ $message }}</div> @enderror
@@ -423,14 +406,30 @@
         const roleSelect = document.getElementById('role');
         const branchSelect = document.getElementById('branch_id');
         const form = document.getElementById('userEditForm');
-        const positionSelect = document.getElementById('position');
         const branchHint = document.getElementById('branch_hint');
         const invalidClass = ['border-rose-300', 'bg-rose-50', 'focus:border-rose-500', 'focus:ring-rose-500'];
-        const positions = {
-            staff: ['Staff', 'Encoder', 'Cashier', 'Branch Staff', 'Funeral Assistant'],
-            admin: ['Branch Admin', 'Branch Manager', 'Office Admin'],
-        };
         const normalizeText = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+        const normalizeLowercaseName = (value) => {
+            const normalized = normalizeText(value);
+            const particles = new Set(['da', 'das', 'de', 'del', 'do', 'dos', 'la', 'las', 'los', 'van', 'von']);
+            let wordIndex = 0;
+
+            return normalized.replace(/\p{L}[\p{L}\p{M}]*/gu, (word) => {
+                const lowercaseWord = word.toLocaleLowerCase();
+
+                if (word !== lowercaseWord) {
+                    wordIndex += 1;
+                    return word;
+                }
+
+                const normalizedWord = wordIndex > 0 && particles.has(lowercaseWord)
+                    ? lowercaseWord
+                    : `${word.charAt(0).toLocaleUpperCase()}${word.slice(1)}`;
+                wordIndex += 1;
+
+                return normalizedWord;
+            });
+        };
         const hasLetter = (value) => /[\p{L}\p{M}]/u.test(value);
         const isValidName = (value) => /^[\p{L}\p{M}\s.'-]+$/u.test(value) && !/\d/.test(value);
         const isValidPhilippineMobile = (value) => {
@@ -456,49 +455,37 @@
             }
         };
 
-        function syncPositions() {
-            if (!positionSelect || !roleSelect) return;
-            const selected = positionSelect.dataset.selected || positionSelect.value;
-            const options = positions[roleSelect.value] || [];
-            positionSelect.innerHTML = '<option value="">Select position</option>';
-            options.forEach((label) => {
-                const option = document.createElement('option');
-                option.value = label;
-                option.textContent = label;
-                option.selected = label === selected;
-                positionSelect.appendChild(option);
-            });
-            positionSelect.dataset.selected = '';
-        }
-
         function syncRoleState() {
-            if (!roleSelect || !branchSelect) {
-                syncPositions();
-                return;
-            }
+            if (!roleSelect || !branchSelect) return;
 
-            const isStaff = roleSelect.value === 'staff';
-            const isAdmin = roleSelect.value === 'admin';
+            const isSystemAdmin = roleSelect.value === 'system_admin';
+            const isBranchAdmin = ['branch_admin', 'admin'].includes(roleSelect.value);
             const branchWasLockedByServer = branchSelect.hasAttribute('disabled');
 
-            if (isStaff) {
+            if (isSystemAdmin) {
+                branchSelect.value = '';
+                branchSelect.disabled = true;
                 branchSelect.required = false;
                 if (branchHint) {
-                    branchHint.textContent = 'Staff branch assignment is locked and automatically assigned by the system.';
+                    branchHint.textContent = 'System Admin has access to all branches and has no branch assignment.';
                 }
-            } else if (isAdmin) {
+            } else {
+                branchSelect.disabled = branchWasLockedByServer;
                 branchSelect.required = !branchWasLockedByServer;
                 if (branchHint) {
-                    branchHint.textContent = 'Branch Admin can only be assigned to a non-main branch without an active Branch Admin.';
+                    branchHint.textContent = isBranchAdmin
+                        ? 'Select any active branch, including Main Branch. A branch may have multiple Branch Admins.'
+                        : 'Select the branch where this Staff account will work.';
                 }
             }
-
-            syncPositions();
         }
 
         function validateForm(event) {
             let valid = true;
             ['first_name', 'middle_name', 'last_name', 'name', 'email', 'branch_id', 'contact_number', 'address'].forEach(clearFieldError);
+            form?.querySelectorAll('[data-name-case]').forEach((input) => {
+                input.value = normalizeLowercaseName(input.value);
+            });
             form?.querySelectorAll('input[type="text"], input[type="email"]').forEach((input) => {
                 input.value = normalizeText(input.value);
             });
@@ -530,9 +517,9 @@
                 showFieldError('email', 'Enter a valid email address.');
             }
 
-            if (branchSelect && roleSelect?.value === 'admin' && !branchSelect.disabled && !branchSelect.value) {
+            if (branchSelect && roleSelect?.value !== 'system_admin' && !branchSelect.disabled && !branchSelect.value) {
                 valid = false;
-                showFieldError('branch_id', 'Branch is required for branch admin accounts.');
+                showFieldError('branch_id', 'Branch is required for this account.');
             }
 
             const contact = form?.querySelector('[name="contact_number"]');
@@ -549,6 +536,11 @@
         }
 
         if (form) {
+            form.querySelectorAll('[data-name-case]').forEach((input) => {
+                input.addEventListener('blur', () => {
+                    input.value = normalizeLowercaseName(input.value);
+                });
+            });
             form.addEventListener('submit', validateForm);
             form.addEventListener('input', (event) => {
                 if (event.target?.name) clearFieldError(event.target.name);

@@ -6,16 +6,16 @@ use Carbon\Carbon;
 
 class WakeDuration
 {
-    public static function calculate(?string $wakeStartDate, ?string $intermentDate): ?array
+    public static function calculate(?string $wakeStartDate, ?string $wakeEndDate): ?array
     {
-        if (! $wakeStartDate || ! $intermentDate) {
+        if (! $wakeStartDate || ! $wakeEndDate) {
             return null;
         }
 
         try {
             $timezone = config('app.timezone', 'Asia/Manila');
             $start = Carbon::parse($wakeStartDate, $timezone)->timezone($timezone)->startOfDay();
-            $end = Carbon::parse($intermentDate, $timezone)->timezone($timezone)->startOfDay();
+            $end = Carbon::parse($wakeEndDate, $timezone)->timezone($timezone)->startOfDay();
 
             if ($end->lt($start)) {
                 return null;
@@ -34,9 +34,9 @@ class WakeDuration
         }
     }
 
-    public static function days(?string $wakeStartDate, ?string $intermentDate): ?int
+    public static function days(?string $wakeStartDate, ?string $wakeEndDate): ?int
     {
-        return self::calculate($wakeStartDate, $intermentDate)['days'] ?? null;
+        return self::calculate($wakeStartDate, $wakeEndDate)['days'] ?? null;
     }
 
     public static function nightsFromDays(?int $days): int
@@ -52,6 +52,6 @@ class WakeDuration
 
         $days = max((int) $days, 0);
 
-        return $days . 'D/' . self::nightsFromDays($days) . 'N';
+        return $days . ' ' . ($days === 1 ? 'Wake Day' : 'Wake Days');
     }
 }

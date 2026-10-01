@@ -105,6 +105,14 @@
                 <textarea name="description" rows="3" class="form-input" maxlength="500" placeholder="Optional details for staff.">{{ old('description', $catalog->description) }}</textarea>
                 @error('description') <div class="form-error">{{ $message }}</div> @enderror
             </div>
+            <div>
+                <input type="hidden" name="is_available" value="0">
+                <label class="inline-flex items-center gap-3 font-semibold">
+                    <input type="checkbox" name="is_available" value="1" @checked(old('is_available', $catalog->exists ? $catalog->is_available : true))>
+                    Available for new intake cases
+                </label>
+                <p class="cc-help">Turn this off when the casket is temporarily unavailable for new intake cases. This does not archive it.</p>
+            </div>
         </div>
         <div class="cc-actions">
             <a href="{{ $returnTo }}" class="cc-secondary"><i class="bi bi-x-circle"></i> Cancel</a>

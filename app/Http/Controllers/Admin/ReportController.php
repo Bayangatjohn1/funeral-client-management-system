@@ -21,9 +21,10 @@ class ReportController extends Controller
     public function masterCases(Request $request)
     {
         $validated = $request->validate([
+            'per_page' => ['nullable', 'integer', 'in:10,25,50,100'],
             'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
             'q' => ['nullable', 'string', 'max:100', "regex:/^[A-Za-z0-9\\s.'-]+$/"],
-            'payment_status' => ['nullable', 'in:PAID,PARTIAL,UNPAID'],
+            'payment_status' => ['nullable', 'in:PAID,PARTIAL,UNPAID,WITH_BALANCE'],
             'case_status' => ['nullable', 'in:DRAFT,ACTIVE,COMPLETED'],
             'verification_status' => ['nullable', 'in:PENDING,VERIFIED,DISPUTED'],
             'service_type' => ['nullable', 'string', 'max:100'],
@@ -83,7 +84,11 @@ class ReportController extends Controller
             ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
             ->when($startAt, fn ($query) => $query->where('created_at', '>=', $startAt))
             ->when($endAt, fn ($query) => $query->where('created_at', '<=', $endAt))
-            ->when($paymentStatus, fn ($query) => $query->where('payment_status', $paymentStatus))
+            ->when($paymentStatus === 'WITH_BALANCE', fn ($query) => $query
+                ->whereIn('case_status', ['ACTIVE', 'COMPLETED'])
+                ->whereIn('payment_status', ['UNPAID', 'PARTIAL'])
+                ->where('balance_amount', '>', 0))
+            ->when($paymentStatus && $paymentStatus !== 'WITH_BALANCE', fn ($query) => $query->where('payment_status', $paymentStatus))
             ->when($caseStatus, fn ($query) => $query->where('case_status', $caseStatus))
             ->when($verificationStatus, fn ($query) => $query->where('verification_status', $verificationStatus))
             ->when($serviceType, fn ($query) => $query->where('service_type', $serviceType))
@@ -117,7 +122,8 @@ class ReportController extends Controller
             })
             ->when($sort === 'oldest', fn ($query) => $query->oldest())
             ->when($sort !== 'oldest', fn ($query) => $query->latest())
-            ->paginate(20)
+            ->orderBy('id')
+            ->paginate((int) ($validated['per_page'] ?? 25))
             ->withQueryString();
 
         $branches = Branch::query()
@@ -233,6 +239,8 @@ class ReportController extends Controller
             'wake_location'        => ['nullable', 'string', 'max:255'],
             'wake_start_date'      => ['nullable', 'date'],
             'wake_start_time'      => ['nullable', 'date_format:H:i'],
+            'wake_end_date'        => ['nullable', 'date'],
+            'wake_end_time'        => ['nullable', 'date_format:H:i'],
             'funeral_service_at'   => ['nullable', 'date'],
             'funeral_service_time' => ['nullable', 'date_format:H:i'],
             'interment_at'         => ['nullable', 'date'],
@@ -287,11 +295,52 @@ class ReportController extends Controller
             ? Carbon::parse($validated['wake_start_date'])->toDateString()
             : $funeral_case->wake_start_date?->toDateString());
 
-        $wakeDays = WakeDuration::days($wakeStartDate, $intermentAt?->toDateString());
+        $wakeEndDate = $isFinalized
+            ? $funeral_case->wake_end_date?->toDateString()
+            : (isset($validated['wake_end_date']) && $validated['wake_end_date']
+            ? Carbon::parse($validated['wake_end_date'])->toDateString()
+            : $funeral_case->wake_end_date?->toDateString());
+
+        if (! $isFinalized && $wakeStartDate && $wakeEndDate && Carbon::parse($wakeEndDate)->lt(Carbon::parse($wakeStartDate))) {
+            return back()->withErrors(['wake_end_date' => 'Wake End Date cannot be earlier than the Wake Start Date.'])->withInput();
+        }
+        if (! $isFinalized && $wakeEndDate && $funeralServiceAt && Carbon::parse($funeralServiceAt)->lt(Carbon::parse($wakeEndDate))) {
+            return back()->withErrors(['funeral_service_at' => 'Funeral Ceremony Date cannot be earlier than the Wake End Date.'])->withInput();
+        }
+        if (! $isFinalized && $funeralServiceAt && $intermentAt && $intermentAt->copy()->startOfDay()->lt(Carbon::parse($funeralServiceAt)->startOfDay())) {
+            return back()->withErrors(['interment_at' => 'Interment Date cannot be earlier than the Funeral Ceremony Date.'])->withInput();
+        }
+        if (! $isFinalized) {
+            $wakeStartTime = $validated['wake_start_time'] ?? $funeral_case->wake_start_time;
+            $wakeEndTime = $validated['wake_end_time'] ?? $funeral_case->wake_end_time;
+            $ceremonyTime = $validated['funeral_service_time'] ?? $funeral_case->funeral_service_time;
+            $intermentTime = $validated['interment_time'] ?? $funeral_case->interment_time;
+            $combine = fn (?string $date, mixed $time) => $date && $time
+                ? Carbon::createFromFormat('Y-m-d H:i', $date.' '.substr((string) $time, 0, 5))
+                : null;
+            $wakeStartAt = $combine($wakeStartDate, $wakeStartTime);
+            $wakeEndAt = $combine($wakeEndDate, $wakeEndTime);
+            $ceremonyAt = $combine($funeralServiceAt, $ceremonyTime);
+
+            if ($wakeStartAt && $wakeEndAt && $wakeEndAt->lessThanOrEqualTo($wakeStartAt)) {
+                return back()->withErrors(['wake_end_date' => 'Wake End Date/Time must be later than the Wake Start Date/Time.'])->withInput();
+            }
+            if ($wakeEndAt && $ceremonyAt && $ceremonyAt->lt($wakeEndAt)) {
+                return back()->withErrors(['funeral_service_at' => 'Funeral Ceremony Date/Time cannot be earlier than the Wake End Date/Time.'])->withInput();
+            }
+            if ($ceremonyAt && $intermentAt && $intermentTime) {
+                $intermentAt->setTimeFromTimeString((string) $intermentTime);
+                if ($intermentAt->lessThanOrEqualTo($ceremonyAt)) {
+                    return back()->withErrors(['interment_at' => 'Interment Date/Time must be later than the Funeral Ceremony Date/Time.'])->withInput();
+                }
+            }
+        }
+
+        $wakeDays = WakeDuration::days($wakeStartDate, $wakeEndDate);
         $pricingAttributes = $snapshotPricing->pricingAttributesForSchedule(
             $funeral_case,
             $wakeStartDate,
-            $intermentAt?->toDateString(),
+            $wakeEndDate,
             $isFinalized
         );
         $wakeDays = $pricingAttributes['wake_days'] ?? $wakeDays;
@@ -346,6 +395,8 @@ class ReportController extends Controller
             'wake_location'        => $wakeLocation,
             'wake_start_date'      => $wakeStartDate,
             'wake_start_time'      => ! $isFinalized && isset($validated['wake_start_time']) ? $validated['wake_start_time'] : $funeral_case->wake_start_time,
+            'wake_end_date'        => $wakeEndDate,
+            'wake_end_time'        => ! $isFinalized && isset($validated['wake_end_time']) ? $validated['wake_end_time'] : $funeral_case->wake_end_time,
             'funeral_service_at'   => $funeralServiceAt,
             'funeral_service_time' => ! $isFinalized && isset($validated['funeral_service_time']) ? $validated['funeral_service_time'] : $funeral_case->funeral_service_time,
             'interment_at'         => $intermentAt,
@@ -629,6 +680,3 @@ class ReportController extends Controller
         return filled($requestedBranchId) ? (int) $requestedBranchId : null;
     }
 }
-
-
-

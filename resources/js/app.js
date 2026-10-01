@@ -1,3 +1,4 @@
+import './case-record-filters';
 import './bootstrap';
 
 import Alpine from 'alpinejs';

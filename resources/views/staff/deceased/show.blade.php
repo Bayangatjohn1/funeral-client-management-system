@@ -88,7 +88,7 @@
                     <span class="text-sm font-bold">{{ $wakeStartDate }} at {{ $wakeStartTime }}</span>
                 </div>
                 <div class="py-1 flex justify-between">
-                    <span class="text-sm text-gray-600">Funeral Service Date &amp; Time:</span>
+                    <span class="text-sm text-gray-600">Funeral Ceremony Date &amp; Time:</span>
                     <span class="text-sm font-bold">{{ $serviceDate }} at {{ $serviceTime }}</span>
                 </div>
                 <div class="py-1 flex justify-between">

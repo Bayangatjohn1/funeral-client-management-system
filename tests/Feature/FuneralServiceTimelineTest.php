@@ -29,6 +29,7 @@ class FuneralServiceTimelineTest extends TestCase
             'deceased_address' => 'Sample Address',
             'died' => $today,
             'service_requested_at' => now()->toDateString(),
+            'wake_end_date' => $today,
             'funeral_service_at' => $today,
             'interment_at' => now()->setTime(10, 0)->addDay()->format('Y-m-d H:i:s'),
         ]));
@@ -55,6 +56,7 @@ class FuneralServiceTimelineTest extends TestCase
             'deceased_address' => 'Sample Address',
             'died' => $deathDate,
             'service_requested_at' => now()->toDateString(),
+            'wake_end_date' => $before,
             'funeral_service_at' => $before,
             'interment_at' => now()->setTime(10, 0)->addDay()->format('Y-m-d H:i:s'),
         ]));
@@ -62,6 +64,55 @@ class FuneralServiceTimelineTest extends TestCase
         $response->assertRedirect('/intake/main');
         $response->assertSessionHasErrors('funeral_service_at');
         $this->assertDatabaseCount('funeral_cases', 0);
+    }
+
+    public function test_wake_end_must_be_later_than_wake_start(): void
+    {
+        $branch = $this->createBranch('BR001', 'Main Branch');
+        $staff = $this->createUser('staff', $branch, true);
+        $package = $this->createPackage();
+        $date = now()->addDay()->toDateString();
+
+        $this->actingAs($staff)->from('/intake/main')->post('/intake/main', $this->baseIntakePayload($branch, $package, [
+            'wake_start_date' => $date,
+            'wake_start_time' => '08:00',
+            'wake_end_date' => $date,
+            'wake_end_time' => '08:00',
+            'funeral_service_at' => $date,
+            'funeral_service_time' => '09:00',
+        ]))->assertSessionHasErrors('wake_end_date');
+    }
+
+    public function test_wake_end_may_equal_funeral_ceremony_but_interment_must_be_later(): void
+    {
+        $branch = $this->createBranch('BR001', 'Main Branch');
+        $staff = $this->createUser('staff', $branch, true);
+        $package = $this->createPackage();
+        $date = now()->addDay()->toDateString();
+
+        $valid = $this->baseIntakePayload($branch, $package, [
+            'client_contact_number' => '09170003333',
+            'wake_start_date' => $date,
+            'wake_start_time' => '07:00',
+            'wake_end_date' => $date,
+            'wake_end_time' => '08:00',
+            'funeral_service_at' => $date,
+            'funeral_service_time' => '08:00',
+            'interment_at' => $date,
+            'interment_time' => '10:00',
+        ]);
+
+        $this->actingAs($staff)->post('/intake/main', $valid)->assertSessionMissing('errors');
+
+        $invalid = array_merge($valid, [
+            'client_name' => 'Second Client',
+            'client_contact_number' => '09170004444',
+            'deceased_name' => 'Second Deceased',
+            'interment_time' => '08:00',
+        ]);
+
+        $this->actingAs($staff)->from('/intake/main')->post('/intake/main', $invalid)
+            ->assertSessionHasErrors('interment_at');
     }
 
     private function createBranch(string $code, string $name): Branch
@@ -119,8 +170,14 @@ class FuneralServiceTimelineTest extends TestCase
             'civil_status' => 'MARRIED',
             'pwd_status' => 0,
             'wake_location' => 'Family Residence',
+            'wake_start_date' => now()->toDateString(),
+            'wake_start_time' => '07:00',
+            'wake_end_date' => $funeralDate,
+            'wake_end_time' => '08:00',
             'funeral_service_at' => $funeralDate,
+            'funeral_service_time' => '09:00',
             'interment_at' => $intermentAt,
+            'interment_time' => '09:00',
             'place_of_cemetery' => 'Public Cemetery',
             'case_status' => 'ACTIVE',
             'transport_option' => 'HEARSE',

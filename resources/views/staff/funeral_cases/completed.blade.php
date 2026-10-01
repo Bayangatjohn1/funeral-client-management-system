@@ -1,6 +1,7 @@
 @extends('layouts.panel')
 
 @section('page_title', ($recordScope ?? 'main') === 'other' ? 'Branch Report' : 'Completed Cases')
+@section('page_desc', ($recordScope ?? 'main') === 'other' ? 'Review reports encoded for other branches.' : 'Review completed case records and final payment status.')
 
 @section('content')
 <div class="records-page">

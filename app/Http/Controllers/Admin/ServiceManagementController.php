@@ -19,20 +19,97 @@ class ServiceManagementController extends Controller
             abort(403, 'Unauthorized');
         }
 
+        $validated = $request->validate([
+            'tab' => 'nullable|in:packages,caskets,addons,freebies',
+            'q' => 'nullable|string|max:100',
+            'status' => 'nullable|in:active,archived,all,available,unavailable,out_of_stock',
+        ]);
+
         $canManage = $user->isMainAdmin();
+        $activeTab = $validated['tab'] ?? 'packages';
+        $search = trim((string) ($validated['q'] ?? ''));
+        $status = $validated['status'] ?? ($activeTab === 'caskets' ? 'available' : 'active');
 
         $packagesQuery = Package::query()
             ->with(['packageInclusions.casketCatalog', 'packageFreebies'])
             ->orderBy('name');
 
-        if ($user->isBranchAdmin()) {
-            $packagesQuery->where('is_active', true);
+        $packageStatsQuery = clone $packagesQuery;
+        $casketsQuery = CasketCatalog::query()->orderBy('name');
+        $addOnsQuery = AddOnCatalog::query()->withCount('legacyPackageAddOns')->orderBy('category')->orderBy('name');
+        $freebiesQuery = FreebieCatalog::query()->withCount('packageFreebies')->orderBy('name');
+
+        if ($activeTab === 'packages') {
+            $packagesQuery
+                ->when($search !== '', function ($query) use ($search) {
+                    $query->where(function ($searchQuery) use ($search) {
+                        $searchQuery->where('name', 'like', "%{$search}%")
+                            ->orWhere('short_description', 'like', "%{$search}%")
+                            ->orWhere('coffin_type', 'like', "%{$search}%")
+                            ->orWhereHas('packageInclusions', fn ($inclusionQuery) => $inclusionQuery->where('inclusion_name', 'like', "%{$search}%"))
+                            ->orWhereHas('packageFreebies', fn ($freebieQuery) => $freebieQuery->where('freebie_name', 'like', "%{$search}%"));
+                    });
+                })
+                ->when($status !== 'all', fn ($query) => $query->where('is_active', $status === 'active'));
+        } elseif ($activeTab === 'caskets') {
+            $casketsQuery
+                ->when($search !== '', function ($query) use ($search) {
+                    $query->where(function ($searchQuery) use ($search) {
+                        $searchQuery->where('name', 'like', "%{$search}%")
+                            ->orWhere('type_or_material', 'like', "%{$search}%")
+                            ->orWhere('description', 'like', "%{$search}%");
+                    });
+                })
+                ->when($status === 'available', fn ($query) => $query->where('is_active', true)->where('is_available', true))
+                ->when(in_array($status, ['unavailable', 'out_of_stock'], true), fn ($query) => $query->where('is_active', true)->where('is_available', false))
+                ->when($status === 'archived', fn ($query) => $query->where('is_active', false));
+        } elseif ($activeTab === 'addons') {
+            $addOnsQuery
+                ->when($search !== '', function ($query) use ($search) {
+                    $query->where(function ($searchQuery) use ($search) {
+                        $searchQuery->where('name', 'like', "%{$search}%")
+                            ->orWhere('category', 'like', "%{$search}%")
+                            ->orWhere('unit', 'like', "%{$search}%")
+                            ->orWhere('description', 'like', "%{$search}%");
+                    });
+                })
+                ->when($status !== 'all', fn ($query) => $query->where('is_active', $status === 'active'));
+        } else {
+            $freebiesQuery
+                ->when($search !== '', function ($query) use ($search) {
+                    $query->where(function ($searchQuery) use ($search) {
+                        $searchQuery->where('name', 'like', "%{$search}%")
+                            ->orWhere('default_unit', 'like', "%{$search}%");
+                    });
+                })
+                ->when($status !== 'all', fn ($query) => $query->where('is_active', $status === 'active'));
         }
 
-        $packages = $packagesQuery->get();
-        $caskets = CasketCatalog::query()->orderBy('name')->get();
-        $addOns = AddOnCatalog::query()->withCount('legacyPackageAddOns')->orderBy('category')->orderBy('name')->get();
-        $freebies = FreebieCatalog::query()->withCount('packageFreebies')->orderBy('name')->get();
+        $packages = $packagesQuery->paginate(20, ['*'], 'packages_page')->withQueryString();
+        $caskets = $casketsQuery->paginate(20, ['*'], 'caskets_page')->withQueryString();
+        $addOns = $addOnsQuery->paginate(20, ['*'], 'addons_page')->withQueryString();
+        $freebies = $freebiesQuery->paginate(20, ['*'], 'freebies_page')->withQueryString();
+
+        $packageStats = (clone $packageStatsQuery)
+            ->reorder()
+            ->selectRaw('COUNT(*) as total')
+            ->selectRaw('SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active')
+            ->selectRaw('SUM(CASE WHEN promo_is_active = 1 THEN 1 ELSE 0 END) as promo')
+            ->first();
+        $casketStats = CasketCatalog::query()
+            ->selectRaw('COUNT(*) as total')
+            ->selectRaw('SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active')
+            ->selectRaw('SUM(CASE WHEN standard_price <= 0 THEN 1 ELSE 0 END) as needs_price')
+            ->first();
+        $addOnStats = AddOnCatalog::query()
+            ->selectRaw('COUNT(*) as total')
+            ->selectRaw('SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active')
+            ->selectRaw('COUNT(DISTINCT category) as types')
+            ->first();
+        $freebieStats = FreebieCatalog::query()
+            ->selectRaw('COUNT(*) as total')
+            ->selectRaw('SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active')
+            ->first();
 
         return view('admin.service-management.index', [
             'packages' => $packages,
@@ -40,27 +117,29 @@ class ServiceManagementController extends Controller
             'addOns' => $addOns,
             'freebies' => $freebies,
             'canManage' => $canManage,
-            'activeTab' => $request->query('tab', 'packages'),
+            'activeTab' => $activeTab,
+            'search' => $search,
+            'status' => $status,
             'stats' => [
                 'packages' => [
-                    'total' => $packages->count(),
-                    'active' => $packages->where('is_active', true)->count(),
-                    'promo' => $packages->where('promo_is_active', true)->count(),
+                    'total' => (int) ($packageStats->total ?? 0),
+                    'active' => (int) ($packageStats->active ?? 0),
+                    'promo' => (int) ($packageStats->promo ?? 0),
                 ],
                 'caskets' => [
-                    'total' => $caskets->count(),
-                    'active' => $caskets->where('is_active', true)->count(),
-                    'needs_price' => $caskets->filter(fn ($casket) => (float) $casket->standard_price <= 0)->count(),
+                    'total' => (int) ($casketStats->total ?? 0),
+                    'active' => (int) ($casketStats->active ?? 0),
+                    'needs_price' => (int) ($casketStats->needs_price ?? 0),
                 ],
                 'add_ons' => [
-                    'total' => $addOns->count(),
-                    'active' => $addOns->where('is_active', true)->count(),
-                    'types' => $addOns->pluck('category')->filter()->unique()->count(),
+                    'total' => (int) ($addOnStats->total ?? 0),
+                    'active' => (int) ($addOnStats->active ?? 0),
+                    'types' => (int) ($addOnStats->types ?? 0),
                 ],
                 'freebies' => [
-                    'total' => $freebies->count(),
-                    'active' => $freebies->where('is_active', true)->count(),
-                    'used' => $freebies->filter(fn ($freebie) => (int) ($freebie->package_freebies_count ?? 0) > 0)->count(),
+                    'total' => (int) ($freebieStats->total ?? 0),
+                    'active' => (int) ($freebieStats->active ?? 0),
+                    'used' => FreebieCatalog::query()->whereHas('packageFreebies')->count(),
                 ],
             ],
         ]);

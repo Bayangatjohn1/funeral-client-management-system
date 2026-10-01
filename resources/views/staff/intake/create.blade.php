@@ -1,7 +1,9 @@
 @extends('layouts.panel')
 
 @section('page_title', ($entryMode ?? null) === 'other' ? 'Case Intake - Other Branch' : 'Case Intake - Main Branch')
+@section('page_desc', ($entryMode ?? null) === 'other' ? 'Record a completed case reported by another branch.' : 'Record client, deceased, service, and payment details for a new case.')
 @section('hide_layout_topbar', '1')
+@section('suppress_layout_page_header', '1')
 
 @push('styles')
 <style>
@@ -33,9 +35,7 @@
         background: transparent !important;
         min-height: calc(100vh - var(--topbar-h));
     }
-    /* Keep the intake workspace clean by removing the layout page heading. */
-    .topbar-heading,
-    .panel-page-header { display: none !important; }
+    .topbar-heading { display: none !important; }
 </style>
 @endpush
 
@@ -82,7 +82,7 @@
         'custom_package_freebies', 'selected_add_ons', 'replacement_casket_catalog_id',
         'apply_retrieval_excess', 'retrieval_excess_kilometers', 'apply_hearse_excess',
         'hearse_excess_kilometers', 'actual_retrieval_kilometers', 'actual_hearse_kilometers',
-        'service_requested_at', 'wake_location', 'wake_start_date', 'wake_start_time', 'funeral_service_at',
+        'service_requested_at', 'wake_location', 'wake_start_date', 'wake_start_time', 'wake_end_date', 'wake_end_time', 'funeral_service_at',
         'funeral_service_time', 'interment_at', 'interment_time', 'wake_days', 'place_of_cemetery', 'case_status',
         'transport_option', 'transport_notes', 'coffin_length_cm', 'coffin_size',
         'embalming_required', 'embalming_status', 'embalming_at', 'embalming_notes' => 3,
@@ -100,5 +100,5 @@
     : route('funeral-cases.index', ['record_scope' => 'main']))
 @php($cancelUrl = $returnTo ?? $backUrl)
 @php($initialStep = $intakeErrorStep ?? 1)
-@include('staff.intake._form')
+@include('staff.intake._form', ['showIntakePageHeading' => true])
 @endsection

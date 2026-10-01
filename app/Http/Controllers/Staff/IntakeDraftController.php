@@ -142,7 +142,7 @@ class IntakeDraftController extends Controller
 
         if ($entryMode === 'other') {
             if (! $user->isMainBranchAdmin()) {
-                abort(403, 'Only Main Branch Admin can save other-branch drafts.');
+                abort(403, 'Only a System Admin can save other-branch drafts.');
             }
 
             $branchId = (int) $request->input('branch_id');

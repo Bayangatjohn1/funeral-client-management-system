@@ -97,7 +97,7 @@
 
     .audit-toolbar {
         display:grid;
-        grid-template-columns:minmax(12rem,1.05fr) minmax(12rem,1fr) minmax(11rem,.85fr) minmax(10rem,.75fr) minmax(10rem,.75fr) minmax(9rem,.65fr) auto auto;
+        grid-template-columns:minmax(12rem,1.05fr) minmax(12rem,1fr) minmax(11rem,.85fr) minmax(10rem,.75fr) minmax(10rem,.75fr) minmax(9rem,.65fr) auto auto auto;
         gap:.65rem;
         align-items:center;
         width:100%;
@@ -378,7 +378,7 @@
 
     <section class="table-system-card admin-table-card">
         <div class="table-system-toolbar admin-table-toolbar">
-            <form method="GET" action="{{ route('admin.audit-logs.index') }}" class="audit-toolbar">
+            <form method="GET" action="{{ route('admin.audit-logs.index') }}" class="audit-toolbar uniform-record-filters">
                 <span class="audit-filter-control is-select">
                     <i class="bi bi-person"></i>
                     <select name="user_id" class="audit-select">
@@ -447,6 +447,10 @@
                 <a href="{{ route('admin.audit-logs.index') }}" class="audit-action">
                     <i class="bi bi-arrow-counterclockwise"></i>
                     <span>Clear</span>
+                </a>
+                <a href="{{ route('admin.audit-logs.exportPdf', request()->query()) }}" target="_blank" rel="noopener" class="audit-action">
+                    <i class="bi bi-filetype-pdf"></i>
+                    <span>PDF</span>
                 </a>
                 <button type="submit" class="audit-action audit-action-primary">
                     <i class="bi bi-funnel"></i>

@@ -39,6 +39,8 @@ class FuneralCase extends Model
         'wake_location',
         'wake_start_date',
         'wake_start_time',
+        'wake_end_date',
+        'wake_end_time',
         'funeral_service_at',
         'funeral_service_time',
         'interment_at',
@@ -69,6 +71,14 @@ class FuneralCase extends Model
         'initial_payment_type',
         'paid_at',
         'case_status',
+        'completed_at',
+        'retention_end_date',
+        'retention_status',
+        'legal_hold_at',
+        'legal_hold_by',
+        'legal_hold_reason',
+        'legal_hold_released_at',
+        'legal_hold_released_by',
         'reported_branch_id',
         'reporter_name',
         'reporter_contact',
@@ -84,6 +94,7 @@ class FuneralCase extends Model
     protected $casts = [
         'service_requested_at' => 'date',
         'wake_start_date' => 'date',
+        'wake_end_date' => 'date',
         'funeral_service_at' => 'date',
         'interment_at' => 'datetime',
         'coffin_length_cm' => 'decimal:2',
@@ -107,6 +118,10 @@ class FuneralCase extends Model
         'paid_at' => 'datetime',
         'reported_at' => 'datetime',
         'verified_at' => 'datetime',
+        'completed_at' => 'datetime',
+        'retention_end_date' => 'date',
+        'legal_hold_at' => 'datetime',
+        'legal_hold_released_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -131,6 +146,15 @@ class FuneralCase extends Model
                         ? $case->interment_at->toDateString()
                         : null,
                 ]);
+            }
+
+            if ($case->wasChanged('case_status') && $case->case_status === 'COMPLETED' && !$case->completed_at) {
+                $completedAt = now();
+                $case->forceFill([
+                    'completed_at' => $completedAt,
+                    'retention_end_date' => $completedAt->copy()->addYears(5)->toDateString(),
+                    'retention_status' => 'retained',
+                ])->saveQuietly();
             }
         });
     }
@@ -200,6 +224,16 @@ class FuneralCase extends Model
     public function verifiedBy()
     {
         return $this->belongsTo(\App\Models\User::class, 'verified_by');
+    }
+
+    public function legalHoldPlacedBy()
+    {
+        return $this->belongsTo(User::class, 'legal_hold_by');
+    }
+
+    public function legalHoldReleasedBy()
+    {
+        return $this->belongsTo(User::class, 'legal_hold_released_by');
     }
 
     public function caseNotes()
@@ -273,7 +307,7 @@ class FuneralCase extends Model
         $totalPaid = round(
             (float) $this->payments()
                 ->where(function ($q) {
-                    $q->whereNull('status')->orWhere('status', '!=', 'VOID');
+                    $q->whereNull('status')->orWhereNotIn('status', ['VOID', 'VOIDED']);
                 })
                 ->sum('amount'),
             2

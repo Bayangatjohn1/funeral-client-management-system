@@ -1,6 +1,7 @@
 ﻿@php
     $intakeDraft = $intakeDraft ?? null;
     $intakeDraftPayload = $intakeDraftPayload ?? null;
+    $showIntakePageHeading = $showIntakePageHeading ?? false;
     $isOtherEntryMode = !empty($entryMode) && $entryMode === 'other';
     $otherBranchCutoffHour = max(min((int) config('funeral.other_branch_report_cutoff_hour', 18), 23), 0);
     $todayStart = now()->copy()->startOfDay();
@@ -88,6 +89,22 @@
         font-weight: 700;
         color: #0d1f38;
         letter-spacing: -0.25px;
+    }
+    .intake-page-heading-copy {
+        min-width: 0;
+    }
+    .intake-page-heading-copy h1 {
+        margin: 0;
+        color: #0d1f38;
+        font-size: 1.05rem;
+        font-weight: 700;
+        line-height: 1.25;
+    }
+    .intake-page-heading-copy p {
+        margin: 4px 0 0;
+        color: #64748b;
+        font-size: 0.78rem;
+        line-height: 1.45;
     }
     .intake-mode-badge {
         display: inline-flex; align-items: center;
@@ -1263,6 +1280,15 @@
         font-weight: 650 !important;
     }
 
+    .intake-page-heading-copy h1 {
+        color: var(--intake-text) !important;
+        font-family: var(--font-heading), "Syne", var(--font-body), sans-serif !important;
+    }
+
+    .intake-page-heading-copy p {
+        color: var(--intake-muted) !important;
+    }
+
     .intake-mode-badge,
     .intake-meta-value,
     .branch-toggle {
@@ -2279,6 +2305,8 @@
     html[data-theme='dark'] .intake-root,
     html[data-theme='dark'] .intake-form-wrapper { background: #0f1a2e !important; color: #e0eaf8; }
     html[data-theme='dark'] .intake-top-shell { background: #111e33 !important; border-color: #203050 !important; }
+    html[data-theme='dark'] .intake-page-heading-copy h1 { color: #e8f2ff !important; }
+    html[data-theme='dark'] .intake-page-heading-copy p { color: #9fb0c6 !important; }
     html[data-theme='dark'] .wizard-steps-shell { background: #111e33 !important; border-color: #203050 !important; }
     html[data-theme='dark'] .wizard-panel { background: #152035 !important; border-color: #203050 !important; }
     html[data-theme='dark'] .footer-action-bar { background: #111e33 !important; border-color: #203050 !important; }
@@ -2431,6 +2459,20 @@
         <i class="bi bi-check2-circle text-lg"></i>
         <span class="package-toast-text">You selected a package.</span>
     </div>
+
+@if($showIntakePageHeading)
+    <header class="intake-top-shell" aria-labelledby="intake-page-title">
+        <div class="intake-brand">
+            <div class="intake-brand-logo" aria-hidden="true">
+                <i class="bi bi-file-earmark-plus"></i>
+            </div>
+            <div class="intake-page-heading-copy">
+                <h1 id="intake-page-title">{{ $isOtherEntryMode ? 'Case Intake - Other Branch' : 'Case Intake - Main Branch' }}</h1>
+                <p>{{ $isOtherEntryMode ? 'Record a completed case reported by another branch.' : 'Record client, deceased, service, and payment details for a new case.' }}</p>
+            </div>
+        </div>
+    </header>
+@endif
 
 {{-- Progress rail (updated by JS) --}}
 <div class="intake-progress-rail"><div class="intake-progress-fill" id="intakeProgressFill"></div></div>
@@ -3123,9 +3165,10 @@
                                                         data-name="{{ $casket->name }}"
                                                         data-material="{{ $casket->type_or_material }}"
                                                         data-price="{{ $casket->standard_price }}"
+                                                        @disabled(! $casket->is_available)
                                                         {{ (string) old('replacement_casket_catalog_id') === (string) $casket->id ? 'selected' : '' }}
                                                     >
-                                                        {{ $casket->name }}{{ $casket->type_or_material ? ' - '.$casket->type_or_material : '' }} (&#8369;{{ number_format((float) $casket->standard_price, 2) }})
+                                                        {{ $casket->name }}{{ $casket->type_or_material ? ' - '.$casket->type_or_material : '' }} (&#8369;{{ number_format((float) $casket->standard_price, 2) }}){{ $casket->is_available ? '' : ' — Unavailable' }}
                                                     </option>
                                                 @endforeach
                                             </select>
@@ -3161,7 +3204,7 @@
                                             </div>
                                             <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
                                                 <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Actual Wake Days</span>
-                                                <span class="mt-1 block text-sm font-black text-slate-800"><span id="embalming_actual_days">0D/0N</span></span>
+                                                <span class="mt-1 block text-sm font-black text-slate-800"><span id="embalming_actual_days">0 Wake Days</span></span>
                                             </div>
                                             <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
                                                 <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Extended</span>
@@ -3206,7 +3249,7 @@
                                             </div>
                                             <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
                                                 <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Actual Wake Days</span>
-                                                <span class="mt-1 block text-sm font-black text-slate-800"><span id="viewing_actual_days">0D/0N</span></span>
+                                                <span class="mt-1 block text-sm font-black text-slate-800"><span id="viewing_actual_days">0 Wake Days</span></span>
                                             </div>
                                             <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
                                                 <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Extended</span>
@@ -3285,7 +3328,7 @@
                                         <div class="flex flex-wrap items-start justify-between gap-3">
                                             <div>
                                                 <h6 class="text-sm font-black text-slate-900">Hearse Service Distance</h6>
-                                                <p class="mt-1 text-xs font-medium text-slate-500">Distance from the wake or funeral service location to the cemetery/interment location.</p>
+                                                <p class="mt-1 text-xs font-medium text-slate-500">Distance from the wake or Funeral Ceremony location to the cemetery/interment location.</p>
                                             </div>
                                             <div class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-800">
                                                 Charge: &#8369; <span id="hearse_charge_amount">0.00</span>
@@ -3357,7 +3400,7 @@
                                 <i class="bi bi-calendar2-week"></i>
                                 <div>
                                     <h4>Schedule</h4>
-                                    <p>Arrange the wake, funeral service, and interment timeline.</p>
+                                    <p>Arrange the wake, Funeral Ceremony, and interment timeline.</p>
                                 </div>
                             </div>
 
@@ -3421,24 +3464,54 @@
 
                         <div class="schedule-field-row">
                             <div class="schedule-field-label">
-                                <label class="field-label">Funeral Service <span class="text-rose-500">*</span></label>
-                                <p>Date and time of the final service or ceremony.</p>
+                                <label class="field-label">Wake End <span class="text-rose-500">*</span></label>
+                                <p>The date and time the wake or viewing period concludes.</p>
                             </div>
                             <div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div class="relative">
-                                    <input type="text" name="funeral_service_at" id="funeral_service_at" value="{{ old('funeral_service_at') }}" data-label="funeral service date" class="form-input pr-10 cursor-pointer" placeholder="Service date" autocomplete="off" required>
+                                    <input type="text" name="wake_end_date" id="wake_end_date" value="{{ old('wake_end_date') }}" data-label="wake end date" class="form-input pr-10 cursor-pointer" placeholder="Wake end date" autocomplete="off" required>
+                                    <span id="wake_end_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
+                                        <i class="bi bi-calendar-event text-lg"></i>
+                                    </span>
+                                </div>
+                                <div class="time-input-wrap" data-time-picker="wake_end_time">
+                                    <input type="hidden" name="wake_end_time" id="wake_end_time" value="{{ old('wake_end_time') ? substr(old('wake_end_time'), 0, 5) : '' }}" data-label="wake end time" class="schedule-time-value" required>
+                                    <input type="text" class="schedule-time-display" data-time-display-for="wake_end_time" data-skip-autocap aria-label="Wake end time" placeholder="e.g. 7:00 AM" inputmode="text" autocomplete="off" aria-expanded="false">
+                                    <button type="button" class="schedule-time-toggle" data-time-toggle-for="wake_end_time" aria-label="Open wake end time picker"><i class="bi bi-chevron-down"></i></button>
+                                    <div class="schedule-time-popover" data-time-popover role="dialog" aria-label="Wake end time picker">
+                                        <div class="time-column"><span class="time-column-label">Hour</span><div class="time-column-options">@for ($hour = 1; $hour <= 12; $hour++)<button type="button" class="time-option" data-time-part="hour" data-time-value="{{ str_pad((string) $hour, 2, '0', STR_PAD_LEFT) }}">{{ str_pad((string) $hour, 2, '0', STR_PAD_LEFT) }}</button>@endfor</div></div>
+                                        <div class="time-column"><span class="time-column-label">Minute</span><div class="time-column-options">@for ($minute = 0; $minute < 60; $minute++)<button type="button" class="time-option" data-time-part="minute" data-time-value="{{ str_pad((string) $minute, 2, '0', STR_PAD_LEFT) }}">{{ str_pad((string) $minute, 2, '0', STR_PAD_LEFT) }}</button>@endfor</div></div>
+                                        <div class="time-column"><span class="time-column-label">AM/PM</span><div class="time-column-options"><button type="button" class="time-option" data-time-part="period" data-time-value="AM">AM</button><button type="button" class="time-option" data-time-part="period" data-time-value="PM">PM</button></div></div>
+                                    </div>
+                                </div>
+                            </div>
+                            @error('wake_end_date')<p class="intake-field-error">{{ $message }}</p>@enderror
+                            @error('wake_end_time')<p class="intake-field-error">{{ $message }}</p>@enderror
+                            <p id="wake_end_error" class="intake-field-error hidden"></p>
+                            </div>
+                        </div>
+
+                        <div class="schedule-field-row">
+                            <div class="schedule-field-label">
+                                <label class="field-label">Funeral Ceremony <span class="text-rose-500">*</span></label>
+                                <p>Date and time of the formal funeral, memorial, or religious ceremony.</p>
+                            </div>
+                            <div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <div class="relative">
+                                    <input type="text" name="funeral_service_at" id="funeral_service_at" value="{{ old('funeral_service_at') }}" data-label="funeral ceremony date" class="form-input pr-10 cursor-pointer" placeholder="Ceremony date" autocomplete="off" required>
                                     <span id="wake_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
                                         <i class="bi bi-calendar-event text-lg"></i>
                                     </span>
                                 </div>
                                 <div class="time-input-wrap" data-time-picker="funeral_service_time">
-                                    <input type="hidden" name="funeral_service_time" id="funeral_service_time" value="{{ old('funeral_service_time') ? substr(old('funeral_service_time'), 0, 5) : '' }}" data-label="funeral service time" class="schedule-time-value" required>
-                                    <input type="text" class="schedule-time-display" data-time-display-for="funeral_service_time" data-skip-autocap aria-label="Funeral service time" placeholder="e.g. 9:00 AM" inputmode="text" autocomplete="off" aria-expanded="false">
-                                    <button type="button" class="schedule-time-toggle" data-time-toggle-for="funeral_service_time" aria-label="Open funeral service time picker">
+                                    <input type="hidden" name="funeral_service_time" id="funeral_service_time" value="{{ old('funeral_service_time') ? substr(old('funeral_service_time'), 0, 5) : '' }}" data-label="funeral ceremony time" class="schedule-time-value" required>
+                                    <input type="text" class="schedule-time-display" data-time-display-for="funeral_service_time" data-skip-autocap aria-label="Funeral ceremony time" placeholder="e.g. 9:00 AM" inputmode="text" autocomplete="off" aria-expanded="false">
+                                    <button type="button" class="schedule-time-toggle" data-time-toggle-for="funeral_service_time" aria-label="Open funeral ceremony time picker">
                                         <i class="bi bi-chevron-down"></i>
                                     </button>
-                                    <div class="schedule-time-popover" data-time-popover role="dialog" aria-label="Funeral service time picker">
+                                    <div class="schedule-time-popover" data-time-popover role="dialog" aria-label="Funeral ceremony time picker">
                                         <div class="time-column">
                                             <span class="time-column-label">Hour</span>
                                             <div class="time-column-options">
@@ -3527,15 +3600,15 @@
                             @error('interment_time')
                                 <p class="intake-field-error">{{ $message }}</p>
                             @enderror
-                            <div id="interment_at_error" class="intake-field-error hidden">Interment date cannot be before the funeral service date.</div>
-                            <p id="interment_schedule_warning" class="hidden text-xs font-bold text-amber-600 mt-1">Funeral service and interment are usually on the same day. Please confirm if interment is scheduled on a different date.</p>
+                            <div id="interment_at_error" class="intake-field-error hidden">Interment Date cannot be earlier than the Funeral Ceremony Date.</div>
+                            <p id="interment_schedule_warning" class="hidden text-xs font-bold text-amber-600 mt-1">Funeral Ceremony and interment are usually on the same day. Please confirm if interment is scheduled on a different date.</p>
                             </div>
                         </div>
 
                         <div class="schedule-field-row">
                             <div class="schedule-field-label">
                                 <label class="field-label">Wake Duration</label>
-                                <p>Auto-computed from wake start through interment.</p>
+                                <p>System-calculated from Wake Start through Wake End.</p>
                             </div>
                             <div>
                             <input type="hidden" name="wake_days" id="wake_days" value="{{ old('wake_days') }}" data-label="wake days">
@@ -3543,7 +3616,7 @@
                                 <i class="bi bi-moon-stars text-slate-500"></i>
                                 <span id="wake_duration_display">Auto-calculated</span>
                             </div>
-                            <p id="wake_days_helper" class="text-xs text-slate-500 mt-1">Calculated from Wake Start Date through Interment Date, inclusive.</p>
+                            <p id="wake_days_helper" class="text-xs text-slate-500 mt-1">Calculated automatically from Wake Start Date through Wake End Date, inclusive.</p>
                             </div>
                         </div>
 
@@ -4108,6 +4181,8 @@
     const wakeDurationDisplay = document.getElementById('wake_duration_display');
     const wakeStart = document.getElementById('wake_start_date');
     const wakeStartTime = document.getElementById('wake_start_time');
+    const wakeEnd = document.getElementById('wake_end_date');
+    const wakeEndTime = document.getElementById('wake_end_time');
     const funeral = document.getElementById('funeral_service_at');
     const funeralTime = document.getElementById('funeral_service_time');
     const interment = document.getElementById('interment_at');
@@ -4117,9 +4192,11 @@
     const bornErr = document.getElementById('born_error');
     const diedErr = document.getElementById('died_error');
     const wakeStartErr = document.getElementById('wake_start_error');
+    const wakeEndErr = document.getElementById('wake_end_error');
     const wakeErr = document.getElementById('funeral_service_at_error');
     let wakePicker = null;
     let wakeStartPicker = null;
+    let wakeEndPicker = null;
     let interPicker = null;
     let isAutoSyncingIntermentDate = false;
     if (interment) interment.dataset.autoFilled = interment.value ? '0' : '';
@@ -4318,7 +4395,7 @@
     const fmt = (value) => num(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const wakeDurationLabel = (value) => {
         const days = Math.max(Math.round(num(value)), 0);
-        return days > 0 ? `${days}D/${Math.max(days - 1, 0)}N` : '-';
+        return days > 0 ? `${days} ${days === 1 ? 'Wake Day' : 'Wake Days'}` : '-';
     };
 
     const escapeHtml = (value) => String(value ?? '')
@@ -5418,7 +5495,8 @@
         if (reviewService) {
             reviewService.innerHTML = [
                 detailRow('Wake Start Date & Time', formatScheduleDateTime(f.elements.wake_start_date?.value, f.elements.wake_start_time?.value)),
-                detailRow('Funeral Service Date & Time', formatScheduleDateTime(f.elements.funeral_service_at?.value, f.elements.funeral_service_time?.value)),
+                detailRow('Wake End Date & Time', formatScheduleDateTime(f.elements.wake_end_date?.value, f.elements.wake_end_time?.value)),
+                detailRow('Funeral Ceremony Date & Time', formatScheduleDateTime(f.elements.funeral_service_at?.value, f.elements.funeral_service_time?.value)),
                 detailRow('Interment Date & Time', formatScheduleDateTime(f.elements.interment_at?.value, f.elements.interment_time?.value)),
                 detailRow('Wake Duration', wakeDurationLabel(f.elements.wake_days?.value)),
                 detailRow('Retrieval Excess KM', applyRetrievalExcess?.checked ? textOrDash(retrievalExcessInput?.value) : 'Within coverage'),
@@ -5474,13 +5552,13 @@
         if (!wakeDays) return;
 
         const wakeDate = getDateValue(wakeStart, wakeStartPicker);
-        const serviceDate = getDateValue(interment, interPicker);
+        const serviceDate = getDateValue(wakeEnd, wakeEndPicker);
 
         if (!wakeDate || !serviceDate || serviceDate < wakeDate) {
             wakeDays.value = '';
             if (wakeDurationDisplay) wakeDurationDisplay.textContent = 'Auto-calculated';
             const helper = document.getElementById('wake_days_helper');
-            if (helper) helper.textContent = 'Calculated from Wake Start Date through Interment Date, inclusive.';
+            if (helper) helper.textContent = 'Calculated automatically from Wake Start Date through Wake End Date, inclusive.';
             return;
         }
 
@@ -5701,7 +5779,7 @@
         });
     };
 
-    [wakeStartTime, funeralTime, intermentTime].forEach(initScheduleTimePicker);
+    [wakeStartTime, wakeEndTime, funeralTime, intermentTime].forEach(initScheduleTimePicker);
 
     document.addEventListener('click', (event) => {
         document.querySelectorAll('.time-input-wrap.is-open').forEach((picker) => {
@@ -5790,15 +5868,19 @@
         const wakeRaw = getRawDateString(funeral, wakePicker);
         const interRaw = getRawDateString(interment, interPicker);
         const wakeStartDate = getDateValue(wakeStart, wakeStartPicker);
+        const wakeEndDate = getDateValue(wakeEnd, wakeEndPicker);
         const wakeDate = getDateValue(funeral, wakePicker);
         const interDate = getDateValue(interment, interPicker);
         const requestDateValue = getDateValue(requestDate);
         const wakeStartDateTime = combineDateAndTime(wakeStartDate, wakeStartTime?.value);
+        const wakeEndDateTime = combineDateAndTime(wakeEndDate, wakeEndTime?.value);
         const funeralDateTime = combineDateAndTime(wakeDate, funeralTime?.value);
         const intermentDateTime = combineDateAndTime(interDate, intermentTime?.value);
 
         wakeStart?.setCustomValidity('');
         wakeStartTime?.setCustomValidity('');
+        wakeEnd?.setCustomValidity('');
+        wakeEndTime?.setCustomValidity('');
         funeral?.setCustomValidity('');
         funeralTime?.setCustomValidity('');
         interment?.setCustomValidity('');
@@ -5807,6 +5889,7 @@
 
         if (mode === 'full') {
             setFieldError(wakeStart, wakeStartErr, '', wakeStartPicker?.altInput);
+            setFieldError(wakeEnd, wakeEndErr, '', wakeEndPicker?.altInput);
             setFieldError(funeral, wakeErr, '', wakePicker?.altInput);
             setFieldError(interment, intermentErr, '', interPicker?.altInput);
         }
@@ -5825,11 +5908,22 @@
         if (funeral) {
             if (!wakeRaw || !funeralTime?.value) {
                 if (mode === 'full') {
-                    funeral.setCustomValidity('Please select a funeral service date and time.');
-                    funeralTime?.setCustomValidity('Please select a funeral service date and time.');
+                    funeral.setCustomValidity('Please select a Funeral Ceremony date and time.');
+                    funeralTime?.setCustomValidity('Please select a Funeral Ceremony date and time.');
                 }
             } else if (!wakeDate) {
-                funeral.setCustomValidity('Please select a funeral service date and time.');
+                funeral.setCustomValidity('Please select a Funeral Ceremony date and time.');
+            }
+        }
+
+        if (wakeEnd) {
+            if (!getRawDateString(wakeEnd, wakeEndPicker) || !wakeEndTime?.value) {
+                if (mode === 'full') {
+                    wakeEnd.setCustomValidity('Please select a wake end date and time.');
+                    wakeEndTime?.setCustomValidity('Please select a wake end date and time.');
+                }
+            } else if (!wakeEndDate) {
+                wakeEnd.setCustomValidity('Please select a wake end date and time.');
             }
         }
 
@@ -5853,7 +5947,15 @@
         }
 
         if (wakeStartDateTime && funeralDateTime && funeralDateTime < wakeStartDateTime) {
-            funeral.setCustomValidity('Funeral service date/time cannot be before the wake start date/time.');
+            funeral.setCustomValidity('Funeral Ceremony date/time cannot be before the Wake End date/time.');
+        }
+
+        if (wakeStartDateTime && wakeEndDateTime && wakeEndDateTime <= wakeStartDateTime) {
+            wakeEnd.setCustomValidity('Wake End Date/Time must be later than the Wake Start Date/Time.');
+        }
+
+        if (wakeEndDateTime && funeralDateTime && funeralDateTime < wakeEndDateTime) {
+            funeral.setCustomValidity('Funeral Ceremony Date/Time cannot be earlier than the Wake End Date/Time.');
         }
 
         if (wakeDate && interDate) {
@@ -5861,12 +5963,12 @@
             const interOnly = dateOnly(interDate);
 
             if (interOnly < serviceOnly) {
-                interment.setCustomValidity('Interment date cannot be before the funeral service date.');
+                interment.setCustomValidity('Interment date/time must be after the Funeral Ceremony date/time.');
             } else if (interOnly > serviceOnly) {
                 intermentWarning?.classList.remove('hidden');
-            } else if (funeralTime?.value && intermentTime?.value && intermentDateTime && funeralDateTime && intermentDateTime < funeralDateTime) {
-                interment.setCustomValidity('Interment time cannot be before the funeral service time.');
-                intermentTime?.setCustomValidity('Interment time cannot be before the funeral service time.');
+            } else if (funeralTime?.value && intermentTime?.value && intermentDateTime && funeralDateTime && intermentDateTime <= funeralDateTime) {
+                interment.setCustomValidity('Interment time must be later than the Funeral Ceremony time.');
+                intermentTime?.setCustomValidity('Interment time must be later than the Funeral Ceremony time.');
             }
         }
 
@@ -5876,6 +5978,9 @@
 
         if (wakeRaw || mode === 'full') {
             setFieldError(funeral, wakeErr, funeral?.validationMessage || funeralTime?.validationMessage || '', wakePicker?.altInput);
+        }
+        if (getRawDateString(wakeEnd, wakeEndPicker) || mode === 'full') {
+            setFieldError(wakeEnd, wakeEndErr, wakeEnd?.validationMessage || wakeEndTime?.validationMessage || '', wakeEndPicker?.altInput);
         }
         if (interRaw || mode === 'full') {
             setFieldError(interment, intermentErr, interment?.validationMessage || intermentTime?.validationMessage || '', interPicker?.altInput);
@@ -6207,21 +6312,27 @@
 
         if (targetStep === 3) {
             const wakeStartRaw = getRawDateString(wakeStart, wakeStartPicker);
+            const wakeEndRaw = getRawDateString(wakeEnd, wakeEndPicker);
             const wakeRaw = getRawDateString(funeral, wakePicker);
             const interRaw = getRawDateString(interment, interPicker);
             const wakeStartDate = getDateValue(wakeStart, wakeStartPicker);
+            const wakeEndDate = getDateValue(wakeEnd, wakeEndPicker);
             const wakeDate = getDateValue(funeral, wakePicker);
             const interDate = getDateValue(interment, interPicker);
             const requestDateValue = getDateValue(requestDate);
             const wakeStartDateTime = combineDateAndTime(wakeStartDate, wakeStartTime?.value);
+            const wakeEndDateTime = combineDateAndTime(wakeEndDate, wakeEndTime?.value);
             const funeralDateTime = combineDateAndTime(wakeDate, funeralTime?.value);
             const intermentDateTime = combineDateAndTime(interDate, intermentTime?.value);
 
             setFieldError(wakeStart, wakeStartErr, '', wakeStartPicker?.altInput);
+            setFieldError(wakeEnd, wakeEndErr, '', wakeEndPicker?.altInput);
             setFieldError(funeral, wakeErr, '', wakePicker?.altInput);
             setFieldError(interment, intermentErr, '', interPicker?.altInput);
             wakeStart?.setCustomValidity('');
             wakeStartTime?.setCustomValidity('');
+            wakeEnd?.setCustomValidity('');
+            wakeEndTime?.setCustomValidity('');
             funeral?.setCustomValidity('');
             funeralTime?.setCustomValidity('');
             interment?.setCustomValidity('');
@@ -6236,10 +6347,18 @@
             }
 
             if (!wakeRaw || !funeralTime?.value) {
-                funeral.setCustomValidity('Please select a funeral service date and time.');
-                funeralTime?.setCustomValidity('Please select a funeral service date and time.');
-                setFieldError(funeral, wakeErr, 'Please select a funeral service date and time.', wakePicker?.altInput);
+                funeral.setCustomValidity('Please select a funeral ceremony date and time.');
+                funeralTime?.setCustomValidity('Please select a funeral ceremony date and time.');
+                setFieldError(funeral, wakeErr, 'Please select a funeral ceremony date and time.', wakePicker?.altInput);
                 wakePicker?.altInput?.focus();
+                return false;
+            }
+
+            if (!wakeEndRaw || !wakeEndTime?.value) {
+                wakeEnd.setCustomValidity('Please select a wake end date and time.');
+                wakeEndTime?.setCustomValidity('Please select a wake end date and time.');
+                setFieldError(wakeEnd, wakeEndErr, 'Please select a wake end date and time.', wakeEndPicker?.altInput);
+                wakeEndPicker?.altInput?.focus();
                 return false;
             }
 
@@ -6259,9 +6378,16 @@
             }
 
             if (!wakeDate) {
-                funeral.setCustomValidity('Please select a funeral service date and time.');
-                setFieldError(funeral, wakeErr, 'Please select a funeral service date and time.', wakePicker?.altInput);
+                funeral.setCustomValidity('Please select a funeral ceremony date and time.');
+                setFieldError(funeral, wakeErr, 'Please select a funeral ceremony date and time.', wakePicker?.altInput);
                 wakePicker?.altInput?.focus();
+                return false;
+            }
+
+            if (!wakeEndDate) {
+                wakeEnd.setCustomValidity('Please select a wake end date and time.');
+                setFieldError(wakeEnd, wakeEndErr, 'Please select a wake end date and time.', wakeEndPicker?.altInput);
+                wakeEndPicker?.altInput?.focus();
                 return false;
             }
 
@@ -6281,9 +6407,16 @@
                 return false;
             }
 
-            if (funeralDateTime < wakeStartDateTime) {
-                funeral.setCustomValidity('Funeral service date/time cannot be before the wake start date/time.');
-                setFieldError(funeral, wakeErr, 'Funeral service date/time cannot be before the wake start date/time.', wakePicker?.altInput);
+            if (wakeEndDateTime <= wakeStartDateTime) {
+                wakeEnd.setCustomValidity('Wake End Date/Time must be later than the Wake Start Date/Time.');
+                setFieldError(wakeEnd, wakeEndErr, 'Wake End Date/Time must be later than the Wake Start Date/Time.', wakeEndPicker?.altInput);
+                wakeEndPicker?.altInput?.focus();
+                return false;
+            }
+
+            if (funeralDateTime < wakeEndDateTime) {
+                funeral.setCustomValidity('Funeral Ceremony Date/Time cannot be earlier than the Wake End Date/Time.');
+                setFieldError(funeral, wakeErr, 'Funeral Ceremony Date/Time cannot be earlier than the Wake End Date/Time.', wakePicker?.altInput);
                 wakePicker?.altInput?.focus();
                 return false;
             }
@@ -6291,16 +6424,16 @@
             const serviceOnly = dateOnly(wakeDate);
             const interOnly = dateOnly(interDate);
             if (interOnly < serviceOnly) {
-                interment.setCustomValidity('Interment date cannot be before the funeral service date.');
-                setFieldError(interment, intermentErr, 'Interment date cannot be before the funeral service date.', interPicker?.altInput);
+                interment.setCustomValidity('Interment date/time must be after the Funeral Ceremony date/time.');
+                setFieldError(interment, intermentErr, 'Interment date/time must be after the Funeral Ceremony date/time.', interPicker?.altInput);
                 interPicker?.altInput?.focus();
                 return false;
             }
 
-            if (sameDate(wakeDate, interDate) && intermentDateTime < funeralDateTime) {
-                interment.setCustomValidity('Interment time cannot be before the funeral service time.');
-                intermentTime?.setCustomValidity('Interment time cannot be before the funeral service time.');
-                setFieldError(interment, intermentErr, 'Interment time cannot be before the funeral service time.', interPicker?.altInput);
+            if (sameDate(wakeDate, interDate) && intermentDateTime <= funeralDateTime) {
+                interment.setCustomValidity('Interment time must be later than the Funeral Ceremony time.');
+                intermentTime?.setCustomValidity('Interment time must be later than the Funeral Ceremony time.');
+                setFieldError(interment, intermentErr, 'Interment time must be later than the Funeral Ceremony time.', interPicker?.altInput);
                 interPicker?.altInput?.focus();
                 return false;
             }
@@ -6520,7 +6653,7 @@
         render();
     });
 
-    [wakeStart, wakeStartTime, funeral, funeralTime, interment, intermentTime, requestDate].forEach((element) => {
+    [wakeStart, wakeStartTime, wakeEnd, wakeEndTime, funeral, funeralTime, interment, intermentTime, requestDate].forEach((element) => {
         element?.addEventListener('change', () => {
             if (element === funeral) syncIntermentDateFromFuneral();
             if (element === interment) markIntermentDateManual();
@@ -6762,7 +6895,8 @@
             const invalidMessage = () => {
                 if (type === 'born') return 'Please enter a valid birthdate.';
                 if (type === 'died') return 'Please enter a valid date of death.';
-                if (type === 'wake') return 'Please enter a valid funeral service date.';
+                if (type === 'wake') return 'Please enter a valid funeral ceremony date.';
+                if (type === 'wake_end') return 'Please enter a valid wake end date.';
                 return 'Please enter a valid interment date and time.';
             };
 
@@ -6848,8 +6982,8 @@
                 wakeStart.setCustomValidity('');
                 setFieldError(wakeStart, wakeStartErr, '', wakeStartPicker?.altInput);
 
-                if (wakePicker && selectedDates[0]) {
-                    wakePicker.set('minDate', selectedDates[0]);
+                if (wakeEndPicker && selectedDates[0]) {
+                    wakeEndPicker.set('minDate', selectedDates[0]);
                 }
 
                 computeWakeDays();
@@ -6873,6 +7007,36 @@
                 computeWakeDays();
                 validateWakeInterment('light');
                 setFieldError(wakeStart, wakeStartErr, wakeStart.validationMessage, wakeStartPicker?.altInput);
+                render();
+            }
+        });
+
+        wakeEndPicker = flatpickr(wakeEnd, {
+            altInput: true,
+            altFormat: 'F j, Y',
+            dateFormat: 'Y-m-d',
+            allowInput: true,
+            clickOpens: false,
+            defaultDate: wakeEnd?.value || null,
+            minDate: wakeStart?.value || requestDate?.value || 'today',
+            ...pickerBaseOpts,
+            onChange: (selectedDates) => {
+                wakeEnd.dataset.userTyped = '0';
+                wakeEnd.dataset.lastTypedValue = '';
+                wakeEnd.setCustomValidity('');
+                setFieldError(wakeEnd, wakeEndErr, '', wakeEndPicker?.altInput);
+                if (wakePicker && selectedDates[0]) wakePicker.set('minDate', selectedDates[0]);
+                computeWakeDays();
+                validateWakeInterment('full');
+                render();
+            },
+            onClose: () => {
+                validateWakeInterment('full');
+                setFieldError(wakeEnd, wakeEndErr, wakeEnd.validationMessage || '', wakeEndPicker?.altInput);
+            },
+            onValueUpdate: () => {
+                computeWakeDays();
+                validateWakeInterment('light');
                 render();
             }
         });
@@ -6905,8 +7069,8 @@
                 const invalidTyped = (funeral.dataset.invalidTypedValue || '').trim();
 
                 if (invalidTyped || (raw && !selectedDates.length && Number.isNaN(Date.parse(raw)))) {
-                    funeral.setCustomValidity('Please enter a valid funeral service date.');
-                    setFieldError(funeral, wakeErr, 'Please enter a valid funeral service date.', instance.altInput);
+                    funeral.setCustomValidity('Please enter a valid Funeral Ceremony date.');
+                    setFieldError(funeral, wakeErr, 'Please enter a valid Funeral Ceremony date.', instance.altInput);
                     return;
                 }
 
@@ -6999,6 +7163,9 @@
 
         const wakeStartTrigger = document.getElementById('wake_start_picker_trigger');
         if (wakeStartTrigger) wakeStartTrigger.addEventListener('click', () => wakeStartPicker && wakeStartPicker.open());
+
+        const wakeEndTrigger = document.getElementById('wake_end_picker_trigger');
+        if (wakeEndTrigger) wakeEndTrigger.addEventListener('click', () => wakeEndPicker && wakeEndPicker.open());
 
         const interTrigger = document.getElementById('inter_picker_trigger');
         if (interTrigger) interTrigger.addEventListener('click', () => interPicker && interPicker.open());
@@ -7146,6 +7313,7 @@
         rememberTypedValue(bornPicker, born, bornErr, 'born');
         rememberTypedValue(diedPicker, died, diedErr, 'died');
         rememberTypedValue(wakeStartPicker, wakeStart, wakeStartErr, 'wake_start');
+        rememberTypedValue(wakeEndPicker, wakeEnd, wakeEndErr, 'wake_end');
         rememberTypedValue(wakePicker, funeral, wakeErr, 'wake');
         rememberTypedValue(interPicker, interment, intermentErr, 'interment');
         syncIntermentDateFromFuneral();

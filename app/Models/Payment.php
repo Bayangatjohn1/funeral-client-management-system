@@ -17,6 +17,7 @@ class Payment extends Model
         'accounting_reference_no',
         'receipt_or_no',
         'funeral_case_id',
+        'replaces_payment_id',
         'branch_id',
         'method',          // legacy ENUM('CASH'); kept for backward compat
         'payment_mode',    // legacy/canonical compat: cash | bank_transfer
@@ -47,7 +48,7 @@ class Payment extends Model
         'encoded_by',
         'recorded_by',
         'remarks',
-        'status',       // VALID | VOID
+        'status',       // POSTED | VOIDED (legacy VALID | VOID remain readable)
         'void_reason',
     ];
 
@@ -97,6 +98,16 @@ class Payment extends Model
     public function funeralCase()
     {
         return $this->belongsTo(\App\Models\FuneralCase::class);
+    }
+
+    public function replacedPayment()
+    {
+        return $this->belongsTo(self::class, 'replaces_payment_id');
+    }
+
+    public function correctionRequests()
+    {
+        return $this->hasMany(PaymentCorrectionRequest::class);
     }
 
     public function recordedBy()

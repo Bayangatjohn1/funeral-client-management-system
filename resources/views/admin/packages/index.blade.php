@@ -829,10 +829,10 @@ html[data-theme='dark'] .table-row-action-link:hover {
                         @click="setView('card')"
                         :class="view === 'card' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'"
                         class="px-3 py-2 transition-colors flex items-center gap-1.5 font-medium"
-                        title="Card view"
+                        title="Grid view"
                     >
                         <i class="bi bi-grid-3x3-gap-fill text-xs"></i>
-                        <span class="hidden sm:inline text-xs">Cards</span>
+                        <span class="hidden sm:inline text-xs">Grid</span>
                     </button>
                     <button
                         type="button"

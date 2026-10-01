@@ -357,7 +357,7 @@ html[data-theme='dark'] .ace-banner     { background: #2a0a0a; border-color: #7f
                     <input type="number" id="ace_wake_days" name="wake_days"
                         value="{{ old('wake_days', $funeral_case->deceased?->wake_days) }}"
                         class="form-input w-full" min="0" max="365" placeholder="Days" readonly>
-                    <span class="ace-hint"><i class="bi bi-info-circle"></i> <span id="ace_wake_duration_label">{{ ($isPricingFinalized ?? false) ? $savedWakeDurationLabel . ' saved on this case.' : 'Calculated from Wake Start Date through Interment Date.' }}</span></span>
+                    <span class="ace-hint"><i class="bi bi-info-circle"></i> <span id="ace_wake_duration_label">{{ ($isPricingFinalized ?? false) ? $savedWakeDurationLabel . ' saved on this case.' : 'Calculated automatically from Wake Start Date through Wake End Date.' }}</span></span>
                 </div>
 
                 <div class="ace-field">
@@ -432,7 +432,23 @@ html[data-theme='dark'] .ace-banner     { background: #2a0a0a; border-color: #7f
                 </div>
 
                 <div class="ace-field">
-                    <label class="ace-label" for="ace_svc_date">Funeral Service Date</label>
+                    <label class="ace-label" for="ace_wake_end_date">Wake End Date</label>
+                    <input type="date" id="ace_wake_end_date" name="wake_end_date"
+                        value="{{ old('wake_end_date', $funeral_case->wake_end_date?->format('Y-m-d')) }}"
+                        class="form-input w-full" @readonly($isPricingFinalized ?? false)>
+                    @error('wake_end_date')<div class="ace-err"><i class="bi bi-exclamation-circle"></i> {{ $message }}</div>@enderror
+                </div>
+
+                <div class="ace-field">
+                    <label class="ace-label" for="ace_wake_end_time">Wake End Time</label>
+                    <input type="time" id="ace_wake_end_time" name="wake_end_time"
+                        value="{{ old('wake_end_time', $funeral_case->wake_end_time ? substr($funeral_case->wake_end_time, 0, 5) : '') }}"
+                        class="form-input w-full" @readonly($isPricingFinalized ?? false)>
+                    @error('wake_end_time')<div class="ace-err"><i class="bi bi-exclamation-circle"></i> {{ $message }}</div>@enderror
+                </div>
+
+                <div class="ace-field">
+                    <label class="ace-label" for="ace_svc_date">Funeral Ceremony Date</label>
                     <input type="date" id="ace_svc_date" name="funeral_service_at"
                         value="{{ old('funeral_service_at', $funeral_case->funeral_service_at?->format('Y-m-d')) }}"
                         class="form-input w-full">
@@ -440,7 +456,7 @@ html[data-theme='dark'] .ace-banner     { background: #2a0a0a; border-color: #7f
                 </div>
 
                 <div class="ace-field">
-                    <label class="ace-label" for="ace_svc_time">Funeral Service Time</label>
+                    <label class="ace-label" for="ace_svc_time">Funeral Ceremony Time</label>
                     <input type="time" id="ace_svc_time" name="funeral_service_time"
                         value="{{ old('funeral_service_time', $funeral_case->funeral_service_time ? substr($funeral_case->funeral_service_time, 0, 5) : '') }}"
                         class="form-input w-full">
@@ -579,7 +595,7 @@ html[data-theme='dark'] .ace-banner     { background: #2a0a0a; border-color: #7f
     const dobInput         = document.getElementById('ace_dob');
     const dodInput         = document.getElementById('ace_dod');
     const wakeStartInput   = document.getElementById('ace_wake_start_date');
-    const intermentDateInput = document.getElementById('ace_interment_date');
+    const wakeEndInput     = document.getElementById('ace_wake_end_date');
     const wakeDaysInput    = document.getElementById('ace_wake_days');
     const wakeDurationLabel = document.getElementById('ace_wake_duration_label');
     const seniorPct        = {{ (float) config('funeral.senior_discount_percent', 20) }};
@@ -647,15 +663,15 @@ html[data-theme='dark'] .ace-banner     { background: #2a0a0a; border-color: #7f
 
     function calcWakeDays() {
         if (isPricingFinalized) return;
-        if (!wakeDaysInput || !wakeStartInput?.value || !intermentDateInput?.value) return;
+        if (!wakeDaysInput || !wakeStartInput?.value || !wakeEndInput?.value) return;
         const diff = Math.floor(
-            (new Date(`${intermentDateInput.value}T00:00:00`) - new Date(`${wakeStartInput.value}T00:00:00`)) / 86400000
+            (new Date(`${wakeEndInput.value}T00:00:00`) - new Date(`${wakeStartInput.value}T00:00:00`)) / 86400000
         ) + 1;
         wakeDaysInput.value = diff >= 0 ? diff : '';
         if (wakeDurationLabel) {
             wakeDurationLabel.textContent = diff >= 0
-                ? `${diff}D/${Math.max(diff - 1, 0)}N from Wake Start Date through Interment Date.`
-                : 'Calculated from Wake Start Date through Interment Date.';
+                ? `${diff} ${diff === 1 ? 'Wake Day' : 'Wake Days'}`
+                : 'Calculated automatically from Wake Start Date through Wake End Date.';
         }
     }
 
@@ -664,7 +680,7 @@ html[data-theme='dark'] .ace-banner     { background: #2a0a0a; border-color: #7f
     dobInput?.addEventListener('change',   () => { autoFillAge(); render(); });
     dodInput?.addEventListener('change',   () => { autoFillAge(); render(); });
     wakeStartInput?.addEventListener('change',   calcWakeDays);
-    intermentDateInput?.addEventListener('change', calcWakeDays);
+    wakeEndInput?.addEventListener('change', calcWakeDays);
 
     render();
     calcWakeDays();

@@ -7,14 +7,20 @@
         $authRole === 'staff' => 'staff.reminders.index',
         default => null,
     };
-    $notificationHref = $notificationHref ?? ($notificationRouteName ? route($notificationRouteName) : null);
+    $notificationBranchId = $notificationBranchId ?? (int) ($authUser?->operationalBranchId() ?? 0);
+    $notificationRouteParams = $notificationBranchId > 0 ? ['branch_id' => $notificationBranchId] : [];
+    $notificationHref = $notificationHref ?? ($notificationRouteName ? route($notificationRouteName, $notificationRouteParams) : null);
     $isReminderPage = $isReminderPage ?? (request()->routeIs('staff.reminders.index') || request()->routeIs('admin.reminders.index'));
-    $notificationCounts = $notificationCounts ?? ['all' => 0, 'due' => 0, 'today' => 0, 'upcoming' => 0];
+    $notificationCounts = $notificationCounts ?? ['all' => 0, 'needs_attention' => 0, 'today' => 0, 'upcoming' => 0, 'with_balance' => 0];
     $compactNotificationMenu = $compactNotificationMenu ?? false;
     $topbarNotifications = isset($topbarNotifications) ? collect($topbarNotifications) : collect();
 
     if ($showTopbarNotifications && $authUser && ! isset($payload)) {
-        $payload = app(\App\Support\TopbarNotificationBuilder::class)->forUser($authUser, $authRole);
+        $payload = app(\App\Support\TopbarNotificationBuilder::class)->forUser(
+            $authUser,
+            $authRole,
+            $notificationBranchId > 0 ? $notificationBranchId : null
+        );
         $topbarNotifications = collect($payload['items'] ?? []);
         $notificationCounts = array_merge($notificationCounts, $payload['counts'] ?? []);
     }
@@ -41,48 +47,27 @@
         @unless($compactNotificationMenu)
             <div class="topbar-notification-menu__head">
                 <div>
-                    <strong>Reminders & Alerts</strong>
-                    <small data-notification-summary>{{ $notificationTotal ?? 0 }} active alert{{ ($notificationTotal ?? 0) === 1 ? '' : 's' }} need your attention</small>
+                    <strong>Reminders &amp; Schedules</strong>
+                    <small data-notification-summary>{{ $notificationTotal ?? 0 }} case{{ ($notificationTotal ?? 0) === 1 ? '' : 's' }} with active reminders</small>
                 </div>
                 @if($notificationHref ?? null)
                     <a href="{{ $notificationHref }}">View all <i class="bi bi-arrow-up-right"></i></a>
                 @endif
             </div>
 
-            <div class="topbar-notification-menu__chips">
-                <button type="button" class="topbar-notification-chip is-active" data-notification-filter="all">
-                    <span class="topbar-notification-chip__dot"></span>
-                    <span>All</span>
-                    <strong data-notification-count="all">{{ $notificationCounts['all'] ?? 0 }}</strong>
-                </button>
-                <button type="button" class="topbar-notification-chip" data-notification-filter="due">
-                    <span class="topbar-notification-chip__dot"></span>
-                    <span>Due</span>
-                    <strong data-notification-count="due">{{ $notificationCounts['due'] ?? 0 }}</strong>
-                </button>
-                <button type="button" class="topbar-notification-chip" data-notification-filter="today">
-                    <span class="topbar-notification-chip__dot"></span>
-                    <span>Today</span>
-                    <strong data-notification-count="today">{{ $notificationCounts['today'] ?? 0 }}</strong>
-                </button>
-                <button type="button" class="topbar-notification-chip" data-notification-filter="upcoming">
-                    <span class="topbar-notification-chip__dot"></span>
-                    <span>Upcoming</span>
-                    <strong data-notification-count="upcoming">{{ $notificationCounts['upcoming'] ?? 0 }}</strong>
-                </button>
-            </div>
         @endunless
 
         <div class="topbar-notification-menu__list" data-notification-list>
             @forelse(($topbarNotifications ?? collect()) as $item)
                 @php
                     $itemClass = match ($item['bucket']) {
-                        'due' => 'is-due',
+                        'needs_attention' => 'is-due',
                         'today' => 'is-today',
                         default => 'is-upcoming',
                     };
                     $itemIcon = match ($item['bucket']) {
-                        'due' => 'bi-credit-card-2-front',
+                        'needs_attention' => 'bi-exclamation-triangle',
+                        'with_balance' => 'bi-wallet2',
                         'today' => 'bi-calendar-day',
                         default => 'bi-calendar-event',
                     };
@@ -91,27 +76,32 @@
                         ? now()->startOfDay()->diffInDays($item['date']->copy()->startOfDay(), false)
                         : null;
                     $rightTag = match ($item['bucket']) {
-                        'due' => 'Urgent',
+                        'needs_attention' => 'Review',
+                        'with_balance' => 'Balance',
                         'today' => 'Today',
                         default => ($daysAway === null ? 'Upcoming' : ($daysAway <= 0 ? 'Today' : $daysAway . ' day' . ($daysAway > 1 ? 's' : ''))),
                     };
-                    $pillLabel = $item['bucket'] === 'due' ? 'Payment' : 'Schedule';
+                    $pillLabel = match ($item['bucket']) {
+                        'needs_attention' => 'Needs Attention',
+                        'with_balance' => 'With Balance',
+                        default => 'Schedule',
+                    };
                     $detail = match ($item['bucket']) {
-                        'due' => ($item['deceased_name'] ?? 'Client') . ' - ' . ($item['client_name'] ?? 'N/A') . ' has unsettled balance. Immediate follow-up required.',
+                        'needs_attention' => $item['message'] ?: (($item['deceased_name'] ?? 'Client') . ' needs review or schedule coordination.'),
+                        'with_balance' => ($item['deceased_name'] ?? 'Client') . ' - ' . ($item['client_name'] ?? 'N/A') . ' has a recorded remaining balance.',
                         'today' => ($item['deceased_name'] ?? 'Client') . ' - ' . ($item['client_name'] ?? 'N/A') . ' schedule is set today.',
                         default => ($item['deceased_name'] ?? 'Client') . ' - ' . ($item['client_name'] ?? 'N/A') . ' has upcoming schedule.',
                     };
-                    $title = $item['bucket'] === 'due'
-                        ? 'Balance Pending - ' . ($item['case_code'] ?? 'N/A')
-                        : ($item['title'] . ' - ' . ($item['case_code'] ?? 'N/A'));
+                    $title = $item['title'] . ' - ' . ($item['case_code'] ?? 'N/A');
                 @endphp
 
                 @if($notificationHref ?? null)
                     <a
-                        href="{{ route($notificationRouteName, ['tab' => $item['tab'], 'alert_type' => $item['alert_type']]) }}"
+                        href="{{ route($notificationRouteName, ['branch_id' => $item['branch_id'], 'tab' => $item['tab'], 'focus_case' => $item['case_id']]) }}#case-reminder-{{ $item['case_id'] }}"
                         class="topbar-notification-card {{ $itemClass }}"
                         data-notification-item
                         data-bucket="{{ $item['bucket'] }}"
+                        data-buckets="{{ implode(' ', $item['buckets']) }}"
                     >
                         <div class="topbar-notification-card__icon"><i class="bi {{ $itemIcon }}"></i></div>
                         <div class="topbar-notification-card__content">
@@ -127,7 +117,7 @@
                         </div>
                     </a>
                 @else
-                    <div class="topbar-notification-card {{ $itemClass }}" data-notification-item data-bucket="{{ $item['bucket'] }}">
+                    <div class="topbar-notification-card {{ $itemClass }}" data-notification-item data-bucket="{{ $item['bucket'] }}" data-buckets="{{ implode(' ', $item['buckets']) }}">
                         <div class="topbar-notification-card__icon"><i class="bi {{ $itemIcon }}"></i></div>
                         <div class="topbar-notification-card__content">
                             <div class="topbar-notification-card__head">
@@ -155,9 +145,6 @@
         </div>
 
         <div class="topbar-notification-menu__footer">
-            @unless($compactNotificationMenu)
-                <button type="button" class="topbar-notification-footer-btn" data-notification-mark-read>Mark all as read</button>
-            @endunless
             @if($notificationHref ?? null)
                 <a href="{{ $notificationHref }}" class="topbar-notification-footer-btn is-primary">Open Reminders <i class="bi bi-arrow-up-right"></i></a>
             @else

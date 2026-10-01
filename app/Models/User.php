@@ -45,10 +45,14 @@ protected $fillable = [
 
     protected function normalizeUserNameFields(): void
     {
-        foreach (['first_name', 'middle_name', 'last_name', 'suffix', 'name'] as $col) {
+        foreach (['first_name', 'middle_name', 'last_name', 'name'] as $col) {
             if (array_key_exists($col, $this->attributes)) {
-                $this->attributes[$col] = static::cleanNamePart($this->attributes[$col]);
+                $this->attributes[$col] = static::normalizeUserNameCase($this->attributes[$col]);
             }
+        }
+
+        if (array_key_exists('suffix', $this->attributes)) {
+            $this->attributes['suffix'] = static::cleanNamePart($this->attributes['suffix']);
         }
 
         $first = $this->attributes['first_name'] ?? null;
@@ -60,6 +64,37 @@ protected $fillable = [
             $this->attributes['name'] = static::buildFullName($first, $middle, $last, $suffix);
         }
     }
+
+    private static function normalizeUserNameCase(?string $value): ?string
+    {
+        $value = static::cleanNamePart($value);
+
+        if ($value === null) {
+            return null;
+        }
+
+        $particles = ['da', 'das', 'de', 'del', 'do', 'dos', 'la', 'las', 'los', 'van', 'von'];
+        $wordIndex = 0;
+
+        return preg_replace_callback('/\p{L}[\p{L}\p{M}]*/u', function (array $match) use ($particles, &$wordIndex): string {
+            $word = $match[0];
+            $lowercaseWord = mb_strtolower($word, 'UTF-8');
+
+            if ($word !== $lowercaseWord) {
+                $wordIndex++;
+                return $word;
+            }
+
+            $normalizedWord = $wordIndex > 0 && in_array($lowercaseWord, $particles, true)
+                ? $lowercaseWord
+                : mb_convert_case($word, MB_CASE_TITLE, 'UTF-8');
+
+            $wordIndex++;
+
+            return $normalizedWord;
+        }, $value);
+    }
+
     public function branch()
     {
         // return $this->belongsTo(Branch::class);
@@ -118,22 +153,28 @@ protected $fillable = [
         return $this->role === 'admin';
     }
 
-    public function isMainAdmin(): bool
+    public function isSystemAdmin(): bool
     {
         if (!$this->isAdmin()) {
             return false;
         }
 
         if ($this->adminScopeColumnExists() && $this->admin_scope !== null) {
-            return in_array($this->admin_scope, ['main', 'all_branches'], true);
+            return in_array($this->admin_scope, ['system', 'main', 'all_branches'], true);
         }
 
+        // Legacy databases inferred the global administrator from BR001.
         return $this->isAssignedToMainBranch();
+    }
+
+    public function isMainAdmin(): bool
+    {
+        return $this->isSystemAdmin();
     }
 
     public function isMainBranchAdmin(): bool
     {
-        return $this->isMainAdmin();
+        return $this->isSystemAdmin();
     }
 
     public function isBranchAdmin(): bool
@@ -155,8 +196,8 @@ protected $fillable = [
             return 'Owner';
         }
 
-        if ($this->isMainBranchAdmin()) {
-            return 'Main Branch Admin';
+        if ($this->isSystemAdmin()) {
+            return 'System Admin';
         }
 
         if ($this->isBranchAdmin()) {

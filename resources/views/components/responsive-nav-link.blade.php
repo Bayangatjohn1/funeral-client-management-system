@@ -1,4 +1,4 @@
-@props(['active'])
+@props(['active' => false])
 
 @php
 $activeStyle = 'border-left-color: var(--color-primary); color: var(--color-primary); background: rgba(62, 74, 61, 0.10);';

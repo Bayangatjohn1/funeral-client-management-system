@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\FuneralCase;
+use App\Support\WakeDuration;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -13,11 +14,12 @@ class ReminderService
      */
     public function buildDashboard(int $branchId, ?Carbon $today = null): array
     {
-        $today = ($today ?? now())->copy()->startOfDay();
+        $referenceNow = ($today ?? now())->copy();
+        $today = $referenceNow->copy()->startOfDay();
         $cases = $this->fetchMainOperationalCases($branchId);
         $conflicts = $this->mapConflicts($cases);
 
-        $attention = $this->buildAttentionReminders($cases, $conflicts, $today)
+        $attention = $this->buildAttentionReminders($cases, $conflicts, $referenceNow)
             ->sortBy([
                 ['severity_rank', 'desc'],
                 ['sort_date', 'asc'],
@@ -25,7 +27,8 @@ class ReminderService
             ->take(8)
             ->values();
 
-        $todaySchedule = $this->buildTodaySchedule($cases, $today, $conflicts)
+        $todayScheduleCases = $this->fetchTodayScheduleCases($branchId, $today);
+        $todaySchedule = $this->buildTodaySchedule($todayScheduleCases, $today, $conflicts)
             ->sortBy('sort_date')
             ->take(5)
             ->values();
@@ -41,18 +44,21 @@ class ReminderService
      */
     public function buildFullList(int $branchId, array $filters = [], ?Carbon $today = null): Collection
     {
-        $today = ($today ?? now())->copy()->startOfDay();
-        $cases = $this->fetchMainOperationalCases(
+        $referenceNow = ($today ?? now())->copy();
+        $today = $referenceNow->copy()->startOfDay();
+        $operationalCases = $this->fetchMainOperationalCases(
             $branchId,
             $filters['case_status'] ?? null,
             $filters['payment_status'] ?? null
         );
-        $conflicts = $this->mapConflicts($cases);
+        $scheduleCases = $this->fetchScheduleCases($branchId);
+        $conflicts = $this->mapConflicts($scheduleCases);
 
         $allReminders = collect()
-            ->merge($this->buildAttentionReminders($cases, $conflicts, $today))
-            ->merge($this->buildTodaySchedule($cases, $today, $conflicts))
-            ->merge($this->buildUpcomingSchedules($cases, $today, $conflicts))
+            ->merge($this->buildAttentionReminders($operationalCases, $conflicts, $referenceNow))
+            ->merge($this->buildBalanceReminders($operationalCases))
+            ->merge($this->buildTodaySchedule($scheduleCases, $today, $conflicts))
+            ->merge($this->buildUpcomingSchedules($scheduleCases, $today, $conflicts))
             ->values();
 
         if (!empty($filters['alert_type']) && $filters['alert_type'] !== 'all') {
@@ -90,6 +96,41 @@ class ReminderService
                 ['severity_rank', 'desc'],
                 ['sort_date', 'asc'],
             ])
+            ->values();
+    }
+
+    /** Cases whose wake window is active at the supplied moment. */
+    public function currentlyInWake(int $branchId, ?Carbon $now = null): Collection
+    {
+        $now = ($now ?? now())->copy();
+
+        return $this->fetchScheduleCases($branchId)
+            ->filter(function (FuneralCase $case) use ($now) {
+                $start = $this->scheduleDateTime($case, 'wake_start', $case->wake_start_date);
+                $end = $this->scheduleDateTime($case, 'wake_end', $case->wake_end_date);
+
+                return $start && $end && $start->lessThanOrEqualTo($now) && $now->lessThan($end);
+            })
+            ->map(function (FuneralCase $case) use ($now) {
+                $totalDays = WakeDuration::days(
+                    $case->wake_start_date?->toDateString(),
+                    $case->wake_end_date?->toDateString()
+                ) ?? 0;
+                $currentDay = (int) min(max($case->wake_start_date?->diffInDays($now->copy()->startOfDay()) + 1, 1), max($totalDays, 1));
+
+                return [
+                    'case' => $case,
+                    'case_id' => $case->id,
+                    'case_code' => $case->case_code,
+                    'deceased_name' => $case->deceased?->full_name ?? 'N/A',
+                    'label' => 'Currently in Wake',
+                    'current_day' => $currentDay,
+                    'total_days' => $totalDays,
+                    'ends_at' => $this->scheduleDateTime($case, 'wake_end', $case->wake_end_date),
+                    'location' => $case->wake_location,
+                ];
+            })
+            ->sortBy('ends_at')
             ->values();
     }
 
@@ -156,6 +197,41 @@ class ReminderService
     }
 
     /**
+     * Fetch every case with a service or interment scheduled today. Completed
+     * cases remain visible so an interment does not disappear after its time passes.
+     */
+    private function fetchTodayScheduleCases(int $branchId, Carbon $today): Collection
+    {
+        return FuneralCase::with(['deceased', 'client'])
+            ->where('branch_id', $branchId)
+            ->where(function ($query) {
+                $query->where('entry_source', 'MAIN')->orWhereNull('entry_source');
+            })
+            ->where(function ($query) use ($today) {
+                $query->whereDate('funeral_service_at', $today->toDateString())
+                    ->orWhereDate('interment_at', $today->toDateString());
+            })
+            ->get();
+    }
+
+    /** Fetch schedules independently from case completion and payment state. */
+    private function fetchScheduleCases(int $branchId): Collection
+    {
+        return FuneralCase::with(['deceased', 'client'])
+            ->where('branch_id', $branchId)
+            ->where(function ($query) {
+                $query->where('entry_source', 'MAIN')->orWhereNull('entry_source');
+            })
+            ->where(function ($query) {
+                $query->whereNotNull('wake_start_date')
+                    ->orWhereNotNull('wake_end_date')
+                    ->orWhereNotNull('funeral_service_at')
+                    ->orWhereNotNull('interment_at');
+            })
+            ->get();
+    }
+
+    /**
      * Identify conflict days per schedule type and record which cases share each date.
      * Returns a map of date → [case summaries] for dates that have more than one case.
      */
@@ -196,65 +272,78 @@ class ReminderService
         ];
     }
 
-    /**
-     * Build reminders that need attention (balance, upcoming/today schedules, conflicts).
-     */
-    private function buildAttentionReminders(Collection $cases, array $conflicts, Carbon $today): Collection
+    /** Build staff-awareness reminders without treating the interment as a payment deadline. */
+    private function buildAttentionReminders(Collection $cases, array $conflicts, Carbon $now): Collection
     {
-        return $cases->flatMap(function (FuneralCase $case) use ($conflicts, $today) {
+        $today = $now->copy()->startOfDay();
+        $approachingUntil = $now->copy()->addHours(24);
+
+        return $cases->flatMap(function (FuneralCase $case) use ($conflicts, $now, $today, $approachingUntil) {
             $items = collect();
+            $hasBalance = (float) $case->balance_amount > 0
+                && in_array($case->payment_status, ['UNPAID', 'PARTIAL'], true);
+            $intermentAt = $this->scheduleDateTime($case, 'interment', $case->interment_at);
 
-            if ($case->balance_amount > 0 && in_array($case->payment_status, ['UNPAID', 'PARTIAL'], true)) {
-                $items->push($this->formatReminder($case, 'balance', 'Balance Pending', 'danger'));
+            if ($hasBalance && $intermentAt?->lessThan($now)) {
+                $completedMessage = $case->payment_status === 'UNPAID'
+                    ? 'Interment has been completed, but no payment has been recorded. Please review the case.'
+                    : 'Interment has been completed, and a remaining balance is still recorded. Please review the payment record.';
+
+                $items->push($this->formatReminder(
+                    $case,
+                    'interment_completed',
+                    'Balance After Interment',
+                    'danger',
+                    $intermentAt,
+                    false,
+                    null,
+                    $completedMessage
+                ));
+            } elseif ($hasBalance && $intermentAt?->betweenIncluded($now, $approachingUntil)) {
+                $scheduleDay = $intermentAt->isSameDay($today) ? 'today' : 'tomorrow';
+                $approachingMessage = $case->payment_status === 'UNPAID'
+                    ? "Interment is scheduled {$scheduleDay}, and no payment has been recorded. Please review the case."
+                    : "Interment is scheduled {$scheduleDay}, and a remaining balance is recorded. Please review the payment record.";
+
+                $items->push($this->formatReminder(
+                    $case,
+                    'interment_approaching',
+                    'Upcoming Interment With Balance',
+                    'warning',
+                    $intermentAt,
+                    false,
+                    null,
+                    $approachingMessage
+                ));
             }
 
-            $isActive = $case->case_status !== 'COMPLETED';
-
-            if ($isActive && $case->funeral_service_at) {
-                $funeralDate = $case->funeral_service_at->copy()->startOfDay();
-                if ($funeralDate->greaterThanOrEqualTo($today)) {
-                    $label = $funeralDate->isSameDay($today) ? 'Service Today' : 'Upcoming Service';
-                    $severity = $funeralDate->isSameDay($today) ? 'primary' : 'info';
-                    $items->push($this->formatReminder($case, $funeralDate->isSameDay($today) ? 'service_today' : 'upcoming_service', $label, $severity, $case->funeral_service_at));
-                }
-            }
-
-            if ($isActive && $case->interment_at) {
-                $intermentDate = $case->interment_at->copy()->startOfDay();
-                if ($intermentDate->greaterThanOrEqualTo($today)) {
-                    $label = $intermentDate->isSameDay($today) ? 'Interment Today' : 'Upcoming Interment';
-                    $severity = $intermentDate->isSameDay($today) ? 'primary' : 'info';
-                    $items->push($this->formatReminder($case, $intermentDate->isSameDay($today) ? 'interment_today' : 'upcoming_interment', $label, $severity, $case->interment_at));
-                }
-            }
-
-            if ($isActive) {
+            if ($case->case_status !== 'COMPLETED') {
                 $funeralDateStr   = $case->funeral_service_at?->toDateString();
                 $intermentDateStr = $case->interment_at?->toDateString();
 
-                if ($funeralDateStr && isset($conflicts['funeral'][$funeralDateStr])) {
-                    // Other cases on the same funeral service date (exclude self)
+                if ($funeralDateStr && $funeralDateStr >= $today->toDateString() && isset($conflicts['funeral'][$funeralDateStr])) {
                     $conflictingCases = array_values(array_filter(
                         $conflicts['funeral'][$funeralDateStr],
                         fn ($c) => $c['case_id'] !== $case->id
                     ));
                     $items->push($this->formatReminder(
-                        $case, 'schedule_warning', 'Similar Schedule Warning', 'warning',
+                        $case, 'same_day_schedule', 'Same-Day Service Schedule', 'info',
                         $case->funeral_service_at, false,
-                        ['type' => 'service', 'date' => $funeralDateStr, 'cases' => $conflictingCases]
+                        ['type' => 'service', 'date' => $funeralDateStr, 'cases' => $conflictingCases],
+                        'Another service is scheduled on the same day. Please review the schedules for coordination.'
                     ));
                 }
 
-                if ($intermentDateStr && isset($conflicts['interment'][$intermentDateStr])) {
-                    // Other cases on the same interment date (exclude self)
+                if ($intermentDateStr && $intermentDateStr >= $today->toDateString() && isset($conflicts['interment'][$intermentDateStr])) {
                     $conflictingCases = array_values(array_filter(
                         $conflicts['interment'][$intermentDateStr],
                         fn ($c) => $c['case_id'] !== $case->id
                     ));
                     $items->push($this->formatReminder(
-                        $case, 'schedule_warning', 'Similar Schedule Warning', 'warning',
+                        $case, 'same_day_schedule', 'Same-Day Interment Schedule', 'info',
                         $case->interment_at, false,
-                        ['type' => 'interment', 'date' => $intermentDateStr, 'cases' => $conflictingCases]
+                        ['type' => 'interment', 'date' => $intermentDateStr, 'cases' => $conflictingCases],
+                        'Another interment is scheduled on the same day. Please review the schedules for coordination.'
                     ));
                 }
             }
@@ -265,6 +354,26 @@ class ReminderService
         })->values();
     }
 
+    /** Keep the complete balance list available in the dedicated reminders page. */
+    private function buildBalanceReminders(Collection $cases): Collection
+    {
+        return $cases
+            ->filter(fn (FuneralCase $case) => (float) $case->balance_amount > 0
+                && in_array($case->case_status, ['ACTIVE', 'COMPLETED'], true)
+                && in_array($case->payment_status, ['UNPAID', 'PARTIAL'], true))
+            ->map(fn (FuneralCase $case) => $this->formatReminder(
+                $case,
+                'balance',
+                'Remaining Balance',
+                'info',
+                null,
+                false,
+                null,
+                'May natitirang balance sa record.'
+            ))
+            ->values();
+    }
+
     /**
      * Build reminders only for today (schedule view on dashboard).
      */
@@ -272,11 +381,14 @@ class ReminderService
     {
         return $cases->flatMap(function (FuneralCase $case) use ($today, $conflicts) {
             $items = collect();
-            if ($case->case_status === 'COMPLETED') {
-                return $items;
+            if ($case->wake_start_date && $case->wake_start_date->isSameDay($today)) {
+                $items->push($this->formatReminder($case, 'wake_start_today', 'Wake Begins', 'primary', $case->wake_start_date, true));
+            }
+            if ($case->wake_end_date && $case->wake_end_date->isSameDay($today)) {
+                $items->push($this->formatReminder($case, 'wake_end_today', 'Wake End', 'primary', $case->wake_end_date, true));
             }
             if ($case->funeral_service_at && $case->funeral_service_at->isSameDay($today)) {
-                $items->push($this->formatReminder($case, 'service_today', 'Funeral Service', 'primary', $case->funeral_service_at, true));
+                $items->push($this->formatReminder($case, 'service_today', 'Funeral Ceremony', 'primary', $case->funeral_service_at, true));
             }
             if ($case->interment_at && $case->interment_at->isSameDay($today)) {
                 $items->push($this->formatReminder($case, 'interment_today', 'Interment', 'primary', $case->interment_at, true));
@@ -292,14 +404,17 @@ class ReminderService
     {
         return $cases->flatMap(function (FuneralCase $case) use ($today, $conflicts) {
             $items = collect();
-            if ($case->case_status === 'COMPLETED') {
-                return $items;
+            if ($case->wake_start_date && $case->wake_start_date->copy()->startOfDay()->greaterThan($today)) {
+                $items->push($this->formatReminder($case, 'upcoming_wake_start', 'Wake Begins', 'info', $case->wake_start_date));
             }
-            if ($case->funeral_service_at && $case->funeral_service_at->greaterThan($today)) {
-                $items->push($this->formatReminder($case, 'upcoming_service', 'Upcoming Service', 'info', $case->funeral_service_at));
+            if ($case->wake_end_date && $case->wake_end_date->copy()->startOfDay()->greaterThan($today)) {
+                $items->push($this->formatReminder($case, 'upcoming_wake_end', 'Wake End', 'info', $case->wake_end_date));
             }
-            if ($case->interment_at && $case->interment_at->greaterThan($today)) {
-                $items->push($this->formatReminder($case, 'upcoming_interment', 'Upcoming Interment', 'info', $case->interment_at));
+            if ($case->funeral_service_at && $case->funeral_service_at->copy()->startOfDay()->greaterThan($today)) {
+                $items->push($this->formatReminder($case, 'upcoming_service', 'Funeral Ceremony', 'info', $case->funeral_service_at));
+            }
+            if ($case->interment_at && $case->interment_at->copy()->startOfDay()->greaterThan($today)) {
+                $items->push($this->formatReminder($case, 'upcoming_interment', 'Interment', 'info', $case->interment_at));
             }
             return $items;
         })->values();
@@ -312,8 +427,18 @@ class ReminderService
         string $severity,
         ?Carbon $date = null,
         bool $isScheduleCard = false,
-        ?array $conflict = null   // ['type' => 'service|interment', 'date' => 'Y-m-d', 'cases' => [...]]
+        ?array $conflict = null,   // ['type' => 'service|interment', 'date' => 'Y-m-d', 'cases' => [...]]
+        ?string $message = null
     ): array {
+        $scheduleType = str_contains($type, 'interment')
+            ? 'interment'
+            : (str_contains($type, 'wake_start')
+                ? 'wake_start'
+                : (str_contains($type, 'wake_end')
+                    ? 'wake_end'
+                    : (str_contains($type, 'service') ? 'service' : ($conflict['type'] ?? null))));
+        $date = $this->scheduleDateTime($case, $scheduleType, $date);
+
         $severityRank = match ($severity) {
             'danger' => 4,
             'warning' => 3,
@@ -334,6 +459,28 @@ class ReminderService
             'sort_date'        => $date?->copy() ?? now(),
             'is_schedule_card' => $isScheduleCard,
             'conflict'         => $conflict,  // null for non-warning types
+            'message'          => $message,
+            'location'         => $scheduleType === 'interment'
+                ? ($case->deceased?->place_of_cemetery ?? null)
+                : $case->wake_location,
         ];
+    }
+
+    private function scheduleDateTime(FuneralCase $case, ?string $scheduleType, ?Carbon $date): ?Carbon
+    {
+        if (! $date || ! $scheduleType) {
+            return $date?->copy();
+        }
+
+        $scheduleTime = match ($scheduleType) {
+            'interment' => $case->interment_time,
+            'wake_start' => $case->wake_start_time,
+            'wake_end' => $case->wake_end_time,
+            default => $case->funeral_service_time,
+        };
+
+        return $scheduleTime
+            ? $date->copy()->setTimeFromTimeString((string) $scheduleTime)
+            : $date->copy();
     }
 }

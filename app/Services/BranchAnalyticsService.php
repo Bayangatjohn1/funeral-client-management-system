@@ -148,7 +148,9 @@ class BranchAnalyticsService
 
         $this->applyAggregateSelects($query);
         $this->applyBranchScope($query, $filters, $branchScope);
-        $this->applyDateFilters($query, $filters['date_from'] ?? null, $filters['date_to'] ?? null, 'created_at');
+        [$startAt, $endAt] = $this->parseNullableDateBounds($filters['date_from'] ?? null, $filters['date_to'] ?? null);
+        $query->when($startAt, fn ($q) => $q->whereRaw('COALESCE(service_requested_at, created_at) >= ?', [$startAt]))
+            ->when($endAt, fn ($q) => $q->whereRaw('COALESCE(service_requested_at, created_at) <= ?', [$endAt]));
         $this->applyDateFilters($query, $filters['interment_from'] ?? null, $filters['interment_to'] ?? null, 'interment_at');
 
         return $query->get()->map(fn ($row) => [

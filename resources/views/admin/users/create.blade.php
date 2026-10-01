@@ -11,9 +11,15 @@
         && \Illuminate\Support\Facades\Schema::hasColumn('users', 'last_name');
     $hasMiddleName = \Illuminate\Support\Facades\Schema::hasColumn('users', 'middle_name');
     $hasSuffix = \Illuminate\Support\Facades\Schema::hasColumn('users', 'suffix');
-    $branchesWithActiveBranchAdmin = collect($branchesWithActiveBranchAdmin ?? [])->map(fn ($id) => (int) $id)->all();
-    $isMainBranchAdmin = auth()->user()?->isMainBranchAdmin();
-    $isBranchAdmin = auth()->user()?->role === 'admin' && ! auth()->user()?->isMainBranchAdmin();
+    $isSystemAdmin = auth()->user()?->isSystemAdmin();
+    $isBranchAdmin = auth()->user()?->isBranchAdmin();
+    $selectedRole = old('role', 'staff');
+    $selectedBranchId = $isBranchAdmin
+        ? (int) auth()->user()?->branch_id
+        : (int) old('branch_id');
+    $assignedBranch = $isBranchAdmin
+        ? $branches->firstWhere('id', $selectedBranchId)
+        : null;
 @endphp
 <style>
 .user-create-page {
@@ -116,6 +122,43 @@
     border-color:#8EA083;
     box-shadow:none !important;
 }
+.password-field-shell {
+    display:flex;
+    align-items:stretch;
+    gap:.5rem;
+}
+.password-field-shell .form-input {
+    min-width:0;
+    flex:1 1 auto;
+}
+.password-field-actions {
+    display:flex;
+    flex:0 0 auto;
+    gap:.35rem;
+}
+.password-field-action {
+    width:2.65rem;
+    min-height:2.65rem;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border:1px solid #B5C4AD;
+    border-radius:.75rem;
+    background:#F7FAF3;
+    color:#3E4A3D;
+    cursor:pointer;
+}
+.password-field-action:hover,
+.password-field-action:focus-visible {
+    border-color:#8EA083;
+    background:#fff;
+    color:var(--ink);
+    outline:none;
+}
+.password-field-action:disabled {
+    cursor:not-allowed;
+    opacity:.5;
+}
 .user-create-page .label-section {
     color:#566653;
     font-size:.76rem;
@@ -213,7 +256,7 @@
                 @if($hasSplitUserNames)
                 <div>
                     <label class="label-section">First Name <span class="text-rose-500">*</span></label>
-                    <input type="text" name="first_name" value="{{ old('first_name') }}" class="form-input" placeholder="Juan" autocomplete="off" required>
+                    <input type="text" name="first_name" value="{{ old('first_name') }}" class="form-input" placeholder="Juan" autocomplete="off" autocapitalize="words" data-name-case required>
                     @error('first_name') <div class="form-error">{{ $message }}</div> @enderror
                     <div class="form-error hidden" data-field-error="first_name"></div>
                 </div>
@@ -221,7 +264,7 @@
                 @if($hasMiddleName)
                 <div>
                     <label class="label-section">Middle Name</label>
-                    <input type="text" name="middle_name" value="{{ old('middle_name') }}" class="form-input" placeholder="Santos" autocomplete="off">
+                    <input type="text" name="middle_name" value="{{ old('middle_name') }}" class="form-input" placeholder="Santos" autocomplete="off" autocapitalize="words" data-name-case>
                     @error('middle_name') <div class="form-error">{{ $message }}</div> @enderror
                     <div class="form-error hidden" data-field-error="middle_name"></div>
                 </div>
@@ -229,7 +272,7 @@
 
                 <div>
                     <label class="label-section">Last Name <span class="text-rose-500">*</span></label>
-                    <input type="text" name="last_name" value="{{ old('last_name') }}" class="form-input" placeholder="Dela Cruz" autocomplete="off" required>
+                    <input type="text" name="last_name" value="{{ old('last_name') }}" class="form-input" placeholder="Dela Cruz" autocomplete="off" autocapitalize="words" data-name-case required>
                     @error('last_name') <div class="form-error">{{ $message }}</div> @enderror
                     <div class="form-error hidden" data-field-error="last_name"></div>
                 </div>
@@ -249,7 +292,7 @@
                 @else
                 <div>
                     <label class="label-section">Name <span class="text-rose-500">*</span></label>
-                    <input type="text" name="name" value="{{ old('name') }}" class="form-input" placeholder="Juan Dela Cruz" required>
+                    <input type="text" name="name" value="{{ old('name') }}" class="form-input" placeholder="Juan Dela Cruz" autocapitalize="words" data-name-case required>
                     @error('name') <div class="form-error">{{ $message }}</div> @enderror
                     <div class="form-error hidden" data-field-error="name"></div>
                 </div>
@@ -263,10 +306,37 @@
                 </div>
 
                 <div>
-                    <label class="label-section">Password <span class="text-rose-500">*</span></label>
-                    <input type="password" name="password" class="form-input" placeholder="Minimum 6 characters" required autocomplete="new-password">
+                    <label for="password" class="label-section">Password <span class="text-rose-500">*</span></label>
+                    <div class="password-field-shell">
+                        <input
+                            type="password"
+                            name="password"
+                            id="password"
+                            class="form-input"
+                            placeholder="Generated automatically"
+                            required
+                            minlength="6"
+                            autocomplete="new-password"
+                            autocapitalize="off"
+                            spellcheck="false"
+                        >
+                        <div class="password-field-actions">
+                            <button type="button" id="togglePassword" class="password-field-action" aria-label="Show password" aria-pressed="false" title="Show password">
+                                <i class="bi bi-eye" aria-hidden="true"></i>
+                            </button>
+                            <button type="button" id="copyPassword" class="password-field-action" aria-label="Copy password" title="Copy password">
+                                <i class="bi bi-copy" aria-hidden="true"></i>
+                            </button>
+                            <button type="button" id="generatePassword" class="password-field-action" aria-label="Generate new password" title="Generate new password">
+                                <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
                     @error('password') <div class="form-error">{{ $message }}</div> @enderror
                     <div class="form-error hidden" data-field-error="password"></div>
+                    <div id="passwordFeedback" class="form-hint mt-1" role="status" aria-live="polite">
+                        A secure password is generated automatically. Copy it before saving.
+                    </div>
                 </div>
 
             </div>
@@ -276,19 +346,40 @@
         <div class="user-create-section rounded-xl border p-5 space-y-5">
             <div>
                 <h3 class="text-xs uppercase">Role & Access</h3>
-                <p class="user-create-note text-sm mt-1">Choose the user role and the branch scope that applies.</p>
+                <p class="user-create-note text-sm mt-1">
+                    {{ $isBranchAdmin ? 'New users are automatically created as Staff for your branch.' : 'Choose the user role and the branch scope that applies.' }}
+                </p>
             </div>
 
+            @if($isBranchAdmin)
+                <div class="grid gap-4 sm:grid-cols-2" aria-label="Assigned account access">
+                    <div class="rounded-xl border border-[#B5C4AD] bg-[#F7FAF3] px-4 py-3">
+                        <div class="label-section">Assigned Role</div>
+                        <div class="mt-1 font-semibold text-[var(--ink)]">Staff</div>
+                    </div>
+                    <div class="rounded-xl border border-[#B5C4AD] bg-[#F7FAF3] px-4 py-3">
+                        <div class="label-section">Assigned Branch</div>
+                        <div class="mt-1 font-semibold text-[var(--ink)]">
+                            {{ $assignedBranch?->branch_code }} - {{ $assignedBranch?->branch_name ?? 'Current Branch' }}
+                        </div>
+                    </div>
+                </div>
+                <input type="hidden" name="role" value="staff">
+                <input type="hidden" name="branch_id" value="{{ $selectedBranchId }}">
+            @else
             <div class="grid gap-5 md:grid-cols-2">
 
                 <div>
                     <label class="label-section">Role <span class="text-rose-500">*</span></label>
-                    <select name="role" id="role" class="form-select" required>
+                    <select id="role" class="form-select" required>
                         <option value="staff" {{ old('role') == 'staff' ? 'selected' : '' }}>Staff</option>
-                        @if($isMainBranchAdmin)
-                            <option value="admin" {{ old('role') == 'admin' ? 'selected' : '' }}>Branch Admin</option>
+                        @if($isSystemAdmin)
+                            <option value="branch_admin" {{ old('role') == 'branch_admin' || (old('role') == 'admin' && old('admin_scope') !== 'system') ? 'selected' : '' }}>Branch Admin</option>
+                            <option value="system_admin" {{ old('role') == 'system_admin' || (old('role') == 'admin' && old('admin_scope') === 'system') ? 'selected' : '' }}>System Admin</option>
                         @endif
                     </select>
+
+                    <input type="hidden" name="role" id="roleValue" value="{{ $selectedRole }}">
 
                     @error('role') <div class="form-error">{{ $message }}</div> @enderror
 
@@ -299,36 +390,33 @@
 
                 <div>
                     <label class="label-section">Branch</label>
-                    <select name="branch_id" id="branch_id" class="form-select">
+                    <select id="branch_id" class="form-select">
                         <option value="">- Select Branch -</option>
 
                         @foreach($branches as $branch)
                             @php
                                 $branchId = (int) $branch->id;
-                                $hasActiveBranchAdmin = in_array($branchId, $branchesWithActiveBranchAdmin, true);
-                                $selected = old('branch_id') == $branch->id;
+                                $selected = $selectedBranchId === $branchId;
                             @endphp
 
                             <option
                                 value="{{ $branch->id }}"
-                                data-has-branch-admin="{{ $hasActiveBranchAdmin ? '1' : '0' }}"
                                 {{ $selected ? 'selected' : '' }}
                             >
-                                {{ $branch->branch_name }}
-                                {{ $hasActiveBranchAdmin ? ' - already has Branch Admin' : '' }}
+                                {{ $branch->branch_code }} - {{ $branch->branch_name }}
                             </option>
                         @endforeach
                     </select>
 
+                    <input type="hidden" name="branch_id" id="branchValue" value="{{ $selectedBranchId ?: '' }}">
+
                     @error('branch_id') <div class="form-error">{{ $message }}</div> @enderror
 
-                    <div class="form-hint" id="branchHint">
-                        * Staff will auto assigned on the current branch.<br>
-                        * You can't assign branch admin to a branch that has already a branch admin. <br>
-                    </div>
+                    <div class="form-hint" id="branchHint"></div>
                 </div>
 
             </div>
+            @endif
         </div>
 
         <!-- PERSONAL CARD -->
@@ -347,14 +435,6 @@
                 </div>
 
                 <div>
-                    <label class="label-section">Position</label>
-                    <select name="position" id="position" class="form-select" data-selected="{{ old('position') }}">
-                        <option value="">Select position</option>
-                    </select>
-                    @error('position') <div class="form-error">{{ $message }}</div> @enderror
-                </div>
-
-                <div class="md:col-span-2">
                     <label class="label-section">Address</label>
                     <input type="text" name="address" value="{{ old('address') }}" class="form-input" placeholder="House No., Street, Barangay, City">
                     @error('address') <div class="form-error">{{ $message }}</div> @enderror
@@ -382,21 +462,129 @@
     (function () {
         const form = document.getElementById('userCreateForm');
         const roleSelect = document.getElementById('role');
+        const roleValue = document.getElementById('roleValue');
         const branchSelect = document.getElementById('branch_id');
-        const positionSelect = document.getElementById('position');
+        const branchValue = document.getElementById('branchValue');
+        const branchHint = document.getElementById('branchHint');
+        const passwordInput = document.getElementById('password');
+        const togglePasswordButton = document.getElementById('togglePassword');
+        const copyPasswordButton = document.getElementById('copyPassword');
+        const generatePasswordButton = document.getElementById('generatePassword');
+        const passwordFeedback = document.getElementById('passwordFeedback');
+        const creatorIsBranchAdmin = @json($isBranchAdmin);
         const invalidClass = ['border-rose-300', 'bg-rose-50', 'focus:border-rose-500', 'focus:ring-rose-500'];
-        const positions = {
-            staff: ['Staff', 'Encoder', 'Cashier', 'Branch Staff', 'Funeral Assistant'],
-            admin: ['Branch Admin', 'Branch Manager', 'Office Admin'],
-            main_admin: ['Main Admin', 'System Admin', 'Administrator'],
-        };
 
         const normalizeText = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+        const normalizeLowercaseName = (value) => {
+            const normalized = normalizeText(value);
+            const particles = new Set(['da', 'das', 'de', 'del', 'do', 'dos', 'la', 'las', 'los', 'van', 'von']);
+            let wordIndex = 0;
+
+            return normalized.replace(/\p{L}[\p{L}\p{M}]*/gu, (word) => {
+                const lowercaseWord = word.toLocaleLowerCase();
+
+                if (word !== lowercaseWord) {
+                    wordIndex += 1;
+                    return word;
+                }
+
+                const normalizedWord = wordIndex > 0 && particles.has(lowercaseWord)
+                    ? lowercaseWord
+                    : `${word.charAt(0).toLocaleUpperCase()}${word.slice(1)}`;
+                wordIndex += 1;
+
+                return normalizedWord;
+            });
+        };
         const hasLetter = (value) => /[\p{L}\p{M}]/u.test(value);
         const isValidName = (value) => /^[\p{L}\p{M}\s.'-]+$/u.test(value) && !/\d/.test(value);
         const isValidPhilippineMobile = (value) => {
             const normalized = String(value || '').replace(/[\s()-]/g, '');
             return !normalized || /^(\+639|639|09)\d{9}$/.test(normalized);
+        };
+        const setPasswordFeedback = (message) => {
+            if (passwordFeedback) passwordFeedback.textContent = message;
+        };
+        const secureRandomIndex = (maxExclusive) => {
+            if (!window.crypto?.getRandomValues || maxExclusive < 1) return null;
+
+            const values = new Uint32Array(1);
+            const range = 0x100000000;
+            const limit = range - (range % maxExclusive);
+
+            do {
+                window.crypto.getRandomValues(values);
+            } while (values[0] >= limit);
+
+            return values[0] % maxExclusive;
+        };
+        const pickSecureCharacter = (characters) => {
+            const index = secureRandomIndex(characters.length);
+            return index === null ? null : characters[index];
+        };
+        const generateSecurePassword = (length = 14) => {
+            const groups = [
+                'ABCDEFGHJKLMNPQRSTUVWXYZ',
+                'abcdefghijkmnopqrstuvwxyz',
+                '23456789',
+                '!@#$%&*?',
+            ];
+            const allCharacters = groups.join('');
+            const generated = groups.map(pickSecureCharacter);
+
+            if (generated.some((character) => character === null)) return null;
+
+            while (generated.length < length) {
+                const character = pickSecureCharacter(allCharacters);
+                if (character === null) return null;
+                generated.push(character);
+            }
+
+            for (let index = generated.length - 1; index > 0; index -= 1) {
+                const swapIndex = secureRandomIndex(index + 1);
+                if (swapIndex === null) return null;
+                [generated[index], generated[swapIndex]] = [generated[swapIndex], generated[index]];
+            }
+
+            return generated.join('');
+        };
+        const fillGeneratedPassword = () => {
+            if (!passwordInput) return false;
+
+            const generatedPassword = generateSecurePassword();
+            if (!generatedPassword) {
+                if (generatePasswordButton) generatePasswordButton.disabled = true;
+                setPasswordFeedback('Secure password generation is unavailable. Enter a password manually.');
+                return false;
+            }
+
+            passwordInput.value = generatedPassword;
+            clearFieldError('password');
+            setPasswordFeedback('A new secure password was generated.');
+            return true;
+        };
+        const copyGeneratedPassword = async () => {
+            if (!passwordInput) return;
+            if (!passwordInput.value && !fillGeneratedPassword()) return;
+
+            try {
+                if (navigator.clipboard?.writeText && window.isSecureContext) {
+                    await navigator.clipboard.writeText(passwordInput.value);
+                } else {
+                    const originalType = passwordInput.type;
+                    passwordInput.type = 'text';
+                    passwordInput.select();
+                    const copied = document.execCommand('copy');
+                    passwordInput.setSelectionRange(0, 0);
+                    passwordInput.type = originalType;
+                    if (!copied) throw new Error('Copy command failed.');
+                }
+                setPasswordFeedback('Password copied to clipboard.');
+            } catch (error) {
+                setPasswordFeedback('Password could not be copied. Select and copy it manually.');
+                passwordInput.focus();
+                passwordInput.select();
+            }
         };
         const showFieldError = (field, message) => {
             const input = form?.querySelector(`[name="${field}"]`);
@@ -417,46 +605,53 @@
             }
         };
 
-        function syncPositions() {
-            if (!positionSelect || !roleSelect) return;
-            const selected = positionSelect.dataset.selected || positionSelect.value;
-            const options = positions[roleSelect.value] || [];
-            positionSelect.innerHTML = '<option value="">Select position</option>';
-            options.forEach((label) => {
-                const option = document.createElement('option');
-                option.value = label;
-                option.textContent = label;
-                option.selected = label === selected;
-                positionSelect.appendChild(option);
-            });
-            positionSelect.dataset.selected = '';
-        }
+        function sync() {
+            if (!roleSelect || !branchSelect) return;
 
-       function sync() {
-            if (!roleSelect || !branchSelect) {
-                syncPositions();
+            if (roleValue) roleValue.value = roleSelect.value;
+
+            if (creatorIsBranchAdmin) {
+                branchSelect.disabled = true;
+                branchSelect.required = false;
+                if (branchValue) branchValue.value = branchSelect.value;
+                if (branchHint) {
+                    branchHint.textContent = 'Staff is automatically assigned to your current branch.';
+                }
                 return;
             }
 
-            const isStaff = roleSelect.value === 'staff';
-            const isAdmin = roleSelect.value === 'admin';
+            const isSystemAdmin = roleSelect.value === 'system_admin';
+            const isBranchAdmin = ['branch_admin', 'admin'].includes(roleSelect.value);
 
-            if (isStaff) {
-                branchSelect.required = false;
+            if (isSystemAdmin) {
+                branchSelect.value = '';
+                if (branchValue) branchValue.value = '';
                 branchSelect.disabled = true;
-            } else if (isAdmin) {
-                branchSelect.required = true;
+                branchSelect.required = false;
+                if (branchHint) {
+                    branchHint.textContent = 'System Admin has access to all branches; no branch assignment is required.';
+                }
+            } else {
                 branchSelect.disabled = false;
+                branchSelect.required = true;
+                if (branchValue) branchValue.value = branchSelect.value;
+                if (branchHint) {
+                    branchHint.textContent = isBranchAdmin
+                        ? 'Select any active branch, including the Main Branch, without another active Branch Admin.'
+                        : 'Select the branch where this Staff account will work.';
+                }
             }
-
-            syncPositions();
         }
 
         function validateForm(event) {
             if (!form) return true;
             let valid = true;
-            const fields = ['first_name', 'middle_name', 'last_name', 'name', 'email', 'password', 'branch_id', 'contact_number', 'position', 'address'];
+            const fields = ['first_name', 'middle_name', 'last_name', 'name', 'email', 'password', 'branch_id', 'contact_number', 'address'];
             fields.forEach(clearFieldError);
+
+            form.querySelectorAll('[data-name-case]').forEach((input) => {
+                input.value = normalizeLowercaseName(input.value);
+            });
 
             form.querySelectorAll('input[type="text"], input[type="email"], input[type="password"]').forEach((input) => {
                 input.value = normalizeText(input.value);
@@ -495,9 +690,9 @@
                 showFieldError('password', 'Password must be at least 6 characters.');
             }
 
-            if (branchSelect && roleSelect?.value === 'admin' && !branchSelect.value) {
+            if (branchSelect && roleSelect?.value !== 'system_admin' && !branchSelect.value) {
                 valid = false;
-                showFieldError('branch_id', 'Branch is required for branch admin accounts.');
+                showFieldError('branch_id', 'Branch is required for this account.');
             }
 
             const contact = form.querySelector('[name="contact_number"]');
@@ -523,13 +718,42 @@
         if (roleSelect) {
             roleSelect.addEventListener('change', sync);
         }
+
+        if (branchSelect) {
+            branchSelect.addEventListener('change', () => {
+                if (branchValue) branchValue.value = branchSelect.value;
+            });
+        }
+        if (togglePasswordButton && passwordInput) {
+            togglePasswordButton.addEventListener('click', () => {
+                const shouldShow = passwordInput.type === 'password';
+                passwordInput.type = shouldShow ? 'text' : 'password';
+                togglePasswordButton.setAttribute('aria-label', shouldShow ? 'Hide password' : 'Show password');
+                togglePasswordButton.setAttribute('aria-pressed', shouldShow ? 'true' : 'false');
+                togglePasswordButton.title = shouldShow ? 'Hide password' : 'Show password';
+                const icon = togglePasswordButton.querySelector('i');
+                icon?.classList.toggle('bi-eye', !shouldShow);
+                icon?.classList.toggle('bi-eye-slash', shouldShow);
+            });
+        }
+        copyPasswordButton?.addEventListener('click', copyGeneratedPassword);
+        generatePasswordButton?.addEventListener('click', fillGeneratedPassword);
         if (form) {
+            form.querySelectorAll('[data-name-case]').forEach((input) => {
+                input.addEventListener('blur', () => {
+                    input.value = normalizeLowercaseName(input.value);
+                });
+            });
             form.addEventListener('submit', validateForm);
             form.addEventListener('input', (event) => {
                 if (event.target?.name) clearFieldError(event.target.name);
+                if (event.target === passwordInput) {
+                    setPasswordFeedback('Password updated. Copy it before saving.');
+                }
             });
         }
 
+        if (passwordInput && !passwordInput.value) fillGeneratedPassword();
         sync();
     })();
 </script>

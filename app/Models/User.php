@@ -114,6 +114,10 @@ protected $fillable = [
     protected $hidden = [
         'password',
         'remember_token',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
     /**
@@ -135,7 +139,24 @@ protected $fillable = [
             'password' => 'hashed',
             'is_active' => 'boolean',
             'can_encode_any_branch' => 'boolean',
+            'two_factor_secret' => 'encrypted',
+            'two_factor_recovery_codes' => 'encrypted:array',
+            'two_factor_confirmed_at' => 'datetime',
+            'two_factor_last_step' => 'integer',
+            'security_version' => 'integer',
+            'must_change_password' => 'boolean',
+            'two_factor_secret' => 'encrypted',
+            'two_factor_recovery_codes' => 'encrypted:array',
+            'two_factor_confirmed_at' => 'datetime',
+            'two_factor_last_step' => 'integer',
+            'security_version' => 'integer',
+            'must_change_password' => 'boolean',
         ];
+    }
+
+    public function requiresMfa(): bool
+    {
+        return $this->isSystemAdmin() || $this->isBranchAdmin() || $this->isStaff();
     }
 
     public function isOwner(): bool
@@ -304,9 +325,9 @@ protected $fillable = [
 
         if ($this->isOwner() || $this->isMainBranchAdmin()) {
             $this->cachedBranchScopeIds = \Illuminate\Support\Facades\Cache::remember(
-                'active_branch_scope_ids:v1',
+                'historical_branch_scope_ids:v1',
                 now()->addSeconds(30),
-                static fn () => \App\Models\Branch::where('is_active', true)->pluck('id')->all()
+                static fn () => \App\Models\Branch::pluck('id')->all()
             );
 
             return $this->cachedBranchScopeIds;

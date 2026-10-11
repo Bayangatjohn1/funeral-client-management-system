@@ -26,6 +26,9 @@ class ProfileController extends Controller
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
         $user = $request->user();
+        if ($user->isSystemAdmin() && $request->input('email') !== $user->email) {
+            $request->validate(['current_password' => ['required', 'current_password:web']]);
+        }
 
         $before = [
             'name' => $user->name,
@@ -69,6 +72,8 @@ class ProfileController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        abort_if($request->user()->isSystemAdmin(), 403, 'System Admin accounts must be managed through User Management.');
+        abort_if(\App\Models\User::where('privileged_for_user_id', $request->user()->id)->exists(), 403, 'This account owns a privileged account. Contact a System Admin.');
         $request->validateWithBag('userDeletion', [
             'password' => ['required', 'current_password'],
         ]);

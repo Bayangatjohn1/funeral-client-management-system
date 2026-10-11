@@ -435,8 +435,10 @@ class PaymentController extends Controller
             ]);
         }
 
+        $requestedPageSize = (int) $request->input('per_page', 20);
+        $pageSize = in_array($requestedPageSize, [10, 20, 50, 100], true) ? $requestedPageSize : 20;
         $paymentCases = $paymentCasesQuery
-            ->paginate(20)
+            ->paginate($pageSize)
             ->withQueryString();
 
         $filteredPayments = function ($query) use ($applyPaymentFilters) {
@@ -582,12 +584,6 @@ class PaymentController extends Controller
                 return back()->withErrors([
                     'amount_paid' => $message,
                     'payment' => $message,
-                ])->withInput();
-            }
-
-            if ($precheckCase->created_at && $paidAt->lt($precheckCase->created_at)) {
-                return back()->withErrors([
-                    'paid_at' => 'Date received cannot be before the case creation date.',
                 ])->withInput();
             }
 
@@ -943,7 +939,6 @@ class PaymentController extends Controller
 
         if (($user->role ?? null) === 'owner' || (method_exists($user, 'isMainAdmin') && $user->isMainAdmin())) {
             $ids = Branch::query()
-                ->where('is_active', true)
                 ->pluck('id')
                 ->all();
         } else {

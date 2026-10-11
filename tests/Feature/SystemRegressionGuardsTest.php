@@ -185,6 +185,67 @@ class SystemRegressionGuardsTest extends TestCase
         $this->assertTrue($mainBranch->is_active);
     }
 
+    public function test_branch_disable_explains_unfinished_and_unpaid_cases_and_blocks_both_paths(): void
+    {
+        $branch = $this->createBranch('BR002', 'Other Branch');
+        $admin = $this->createUser('admin');
+        $package = $this->createPackage();
+        $client = $this->createClient($branch, 'Branch Client');
+        $deceased = $this->createDeceased($branch, $client, 'Branch Deceased');
+        $this->createCase($branch, $client, $deceased, $package);
+
+        $this->actingAs($admin)
+            ->getJson("/admin/branches/{$branch->id}/disable-check")
+            ->assertOk()
+            ->assertJsonPath('can_disable', false)
+            ->assertJsonPath('unfinished_cases', 1)
+            ->assertJsonPath('completed_with_balance', 0);
+
+        $this->actingAs($admin)
+            ->patch("/admin/branches/{$branch->id}/toggle-status")
+            ->assertSessionHasErrors('is_active');
+
+        $this->actingAs($admin)
+            ->put("/admin/branches/{$branch->id}", [
+                'branch_name' => $branch->branch_name,
+                'address' => $branch->address,
+                'is_active' => 0,
+            ])
+            ->assertSessionHasErrors('is_active');
+
+        $this->assertTrue($branch->fresh()->is_active);
+    }
+
+    public function test_completed_case_with_balance_blocks_disable_but_settled_case_does_not(): void
+    {
+        $branch = $this->createBranch('BR002', 'Other Branch');
+        $admin = $this->createUser('admin');
+        $package = $this->createPackage();
+        $client = $this->createClient($branch, 'Branch Client');
+        $deceased = $this->createDeceased($branch, $client, 'Branch Deceased');
+        $case = $this->createCase($branch, $client, $deceased, $package, ['case_status' => 'COMPLETED']);
+        $staff = $this->createUser('staff', $branch);
+
+        $this->actingAs($admin)
+            ->getJson("/admin/branches/{$branch->id}/disable-check")
+            ->assertJsonPath('completed_with_balance', 1);
+
+        $case->update(['total_paid' => 20000, 'balance_amount' => 0, 'payment_status' => 'PAID']);
+
+        $this->actingAs($admin)
+            ->getJson("/admin/branches/{$branch->id}/disable-check")
+            ->assertJsonPath('can_disable', true);
+
+        $this->actingAs($admin)
+            ->patch("/admin/branches/{$branch->id}/toggle-status")
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success', 'BR002 · Other Branch is now inactive.');
+
+        $this->assertFalse($branch->fresh()->is_active);
+        $this->assertTrue($staff->fresh()->is_active);
+        $this->actingAs($staff)->get('/staff')->assertRedirect('/login');
+    }
+
     public function test_other_branch_intake_redirects_back_to_other_branch_reports(): void
     {
         $this->travelTo(now()->setTime(10, 0));
@@ -212,7 +273,7 @@ class SystemRegressionGuardsTest extends TestCase
             'amount_paid' => 20000,
         ]));
 
-        $response->assertRedirect(route('funeral-cases.other-reports', absolute: false));
+        $response->assertRedirect(route('intake.saved', absolute: false));
         $this->assertDatabaseHas('funeral_cases', [
             'branch_id' => $otherBranch->id,
             'entry_source' => 'OTHER_BRANCH',
@@ -592,7 +653,7 @@ class SystemRegressionGuardsTest extends TestCase
             'amount_paid' => 5000,
         ]));
 
-        $response->assertRedirect(route('funeral-cases.index', ['record_scope' => 'main'], absolute: false));
+        $response->assertRedirect(route('intake.saved', absolute: false));
 
         $case = FuneralCase::query()->latest('id')->first();
         $this->assertNotNull($case);
@@ -633,7 +694,7 @@ class SystemRegressionGuardsTest extends TestCase
             'amount_paid' => 19000,
         ]));
 
-        $response->assertRedirect(route('funeral-cases.index', ['record_scope' => 'main'], absolute: false));
+        $response->assertRedirect(route('intake.saved', absolute: false));
 
         $this->assertDatabaseHas('clients', [
             'full_name' => 'Spec Client',
@@ -700,7 +761,7 @@ class SystemRegressionGuardsTest extends TestCase
             'amount_paid' => 21000,
         ]));
 
-        $response->assertRedirect(route('funeral-cases.index', ['record_scope' => 'main'], absolute: false));
+        $response->assertRedirect(route('intake.saved', absolute: false));
 
         $this->assertDatabaseHas('funeral_cases', [
             'discount_type' => 'PWD',
@@ -1305,6 +1366,7 @@ class SystemRegressionGuardsTest extends TestCase
             'senior_citizen_id_number' => null,
             'pwd_status' => 0,
             'pwd_id_number' => null,
+            'payment_method' => !empty($overrides['mark_as_paid']) ? 'cash' : 'none',
         ], $overrides);
     }
 }

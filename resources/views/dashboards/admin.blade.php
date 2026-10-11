@@ -447,9 +447,9 @@
         background-size: 44px 44px, 44px 44px, 16px 16px;
     }
 
-    .admin-dashboard-shell *,
-    .admin-dashboard-shell *::before,
-    .admin-dashboard-shell *::after {
+    .admin-dashboard-shell:not(.branch-admin-view) *,
+    .admin-dashboard-shell:not(.branch-admin-view) *::before,
+    .admin-dashboard-shell:not(.branch-admin-view) *::after {
         box-shadow: none !important;
     }
 
@@ -468,7 +468,7 @@
         cursor: not-allowed;
     }
 
-    .admin-dashboard-shell > :not([hidden]) ~ :not([hidden]) {
+    .admin-dashboard-shell:not(.branch-admin-view) > :not([hidden]) ~ :not([hidden]) {
         margin-top: 1rem !important;
     }
 
@@ -643,13 +643,13 @@
         background-size: 44px 44px, 44px 44px, 16px 16px;
     }
 
-    .admin-dashboard-shell,
-    .admin-dashboard-shell *,
-    .admin-dashboard-shell *::before,
-    .admin-dashboard-shell *::after,
-    .admin-dashboard-shell [class*="shadow"],
-    .admin-dashboard-shell [class*="drop-shadow"],
-    .admin-dashboard-shell [class*="hover:shadow"] {
+    .admin-dashboard-shell:not(.branch-admin-view),
+    .admin-dashboard-shell:not(.branch-admin-view) *,
+    .admin-dashboard-shell:not(.branch-admin-view) *::before,
+    .admin-dashboard-shell:not(.branch-admin-view) *::after,
+    .admin-dashboard-shell:not(.branch-admin-view) [class*="shadow"],
+    .admin-dashboard-shell:not(.branch-admin-view) [class*="drop-shadow"],
+    .admin-dashboard-shell:not(.branch-admin-view) [class*="hover:shadow"] {
         box-shadow: none !important;
         filter: none !important;
     }
@@ -1433,7 +1433,6 @@
         border-color: #71816b !important;
     }
 
-    html[data-theme='dark'] .branch-admin-view .admin-kpi-card,
     html[data-theme='dark'] .branch-admin-view .branch-operations-card,
     html[data-theme='dark'] .branch-admin-view .branch-balance-card {
         background: var(--color-bg-surface) !important;
@@ -2725,14 +2724,21 @@
                 <i class="bi bi-list"></i>
             </button>
             <div>
-                <h1>Good day, {{ $adminFirstName }}</h1>
-                <p>{{ $adminSubtitle }}</p>
+                @if($isBranchAdmin)
+                    <div class="branch-dashboard-title-row"><h1><x-page-title-icon icon="grid" inline />Dashboard</h1><span class="branch-dashboard-context-badge">Daily Operations</span></div>
+                    <p>Overview of branch cases, schedules, and payments.</p>
+                    <span class="branch-dashboard-name">{{ $adminBranchLabel }}</span>
+                @else
+                    <h1><x-page-title-icon icon="grid" inline />Good day, {{ $adminFirstName }}</h1>
+                    <p>{{ $adminSubtitle }}</p>
+                @endif
             </div>
         </div>
-        <div class="admin-dashboard-greeting__tools">
-            <div class="admin-dashboard-date-pill"><i class="bi bi-calendar3"></i> {{ $adminTodayLabel }}</div>
-            @include('partials.topbar-notifications', ['notificationBranchId' => (int) ($selectedBranchId ?? $adminBranch?->id ?? 0)])
-        </div>
+        @include('partials.dashboard-header-controls', [
+            'dashboardDateLabel' => $adminTodayLabel,
+            'dashboardShowNotifications' => true,
+            'dashboardNotificationBranchId' => (int) ($selectedBranchId ?? $adminBranch?->id ?? 0),
+        ])
     </section>
 
     @if($errors->any())

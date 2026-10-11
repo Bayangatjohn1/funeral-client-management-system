@@ -5,6 +5,8 @@
 @section('hide_layout_topbar', '1')
 
 @section('content')
+@include('partials.audit_logs_visual_styles')
+@include('partials.case_records_layout_styles')
 @php
     use Illuminate\Support\Str;
 
@@ -378,10 +380,17 @@
 
     <section class="table-system-card admin-table-card">
         <div class="table-system-toolbar admin-table-toolbar">
+            @if($isBranchAdminView ?? false)
+                @include('partials.audit_log_filters')
+            @else
             <form method="GET" action="{{ route('admin.audit-logs.index') }}" class="audit-toolbar uniform-record-filters">
+                @if(!empty($filters['audit_log_id']))
+                    <input type="hidden" name="audit_log_id" value="{{ $filters['audit_log_id'] }}">
+                    <span class="audit-filter-control">Viewing audit event #{{ $filters['audit_log_id'] }}</span>
+                @endif
                 <span class="audit-filter-control is-select">
                     <i class="bi bi-person"></i>
-                    <select name="user_id" class="audit-select">
+                    <select name="user_id" class="audit-select" aria-label="Filter by user">
                         <option value="">All Users</option>
                         @foreach($users as $user)
                             <option value="{{ $user->id }}" {{ (string)($filters['user_id'] ?? '') === (string)$user->id ? 'selected' : '' }}>{{ $user->name }}</option>
@@ -415,7 +424,7 @@
 
                 <span class="audit-filter-control is-select">
                     <i class="bi bi-lightning-charge"></i>
-                    <select name="action_type" class="audit-select">
+                    <select name="action_type" class="audit-select" aria-label="Filter by action type">
                         <option value="">Any Action</option>
                         @foreach($actionTypes as $type)
                             <option value="{{ $type }}" {{ ($filters['action_type'] ?? '') === $type ? 'selected' : '' }}>{{ ucfirst($type) }}</option>
@@ -457,6 +466,7 @@
                     <span>Apply</span>
                 </button>
             </form>
+            @endif
         </div>
 
         <div class="table-system-list">
@@ -517,9 +527,13 @@
                                 </td>
                                 <td class="audit-col-data relative">
                                     <details>
-                                        <summary class="audit-details-button">
-                                            <span>Details</span>
-                                            <i class="bi bi-chevron-down"></i>
+                                        <summary class="audit-details-button" aria-label="View log details">
+                                            @if(($isBranchAdminView ?? false) || auth()->user()?->isSystemAdmin())
+                                            <i class="bi bi-eye" aria-hidden="true"></i>
+                                            <span class="audit-eye-tooltip" aria-hidden="true">View log details</span>
+                                            @else
+                                            <span>Details</span><i class="bi bi-chevron-down"></i>
+                                            @endif
                                         </summary>
                                         @php
                                             $metadataJson = json_encode($log->metadata ?? []);
@@ -619,16 +633,45 @@
             </div>
 
             <div class="table-system-pagination">
-                @if($logs->hasPages()){{ $logs->links() }}@endif
+                @include('partials.case_records_pagination', ['cases' => $logs])
             </div>
         </div>
     </section>
 </div>
-@endsection
-
-@push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.audit-details-button').forEach(trigger => {
+        let modal;
+        trigger.setAttribute('role', 'button');
+        trigger.setAttribute('aria-haspopup', 'dialog');
+        trigger.addEventListener('click', event => {
+            event.preventDefault();
+            if (!modal) {
+                modal = document.createElement('dialog');
+                modal.className = 'audit-log-dialog';
+                modal.setAttribute('aria-label', 'Audit log details');
+                const header = document.createElement('header');
+                const title = document.createElement('h2'); title.textContent = 'Audit Log Details';
+                const close = document.createElement('button'); close.type = 'button'; close.setAttribute('aria-label', 'Close audit log details'); close.innerHTML = '<i class="bi bi-x-lg" aria-hidden="true"></i>';
+                header.append(title, close);
+                const context = document.createElement('dl'); context.className = 'audit-log-context';
+                const labels = ['Event Date', 'User', 'Branch', 'Action', 'Target Entity'];
+                Array.from(trigger.closest('tr').cells).slice(0, 5).forEach((cell, index) => {
+                    const group = document.createElement('div');
+                    const label = document.createElement('dt'); label.textContent = labels[index];
+                    const value = document.createElement('dd'); value.textContent = cell.innerText.trim();
+                    group.append(label, value); context.append(group);
+                });
+                const panel = trigger.parentElement.querySelector('.audit-details-panel');
+                modal.append(header, context, panel); document.body.append(modal);
+                close.addEventListener('click', () => modal.close());
+                modal.addEventListener('close', () => { document.body.classList.remove('audit-log-modal-open'); trigger.focus({preventScroll:true}); });
+                modal.addEventListener('click', event => { if (event.target !== modal) return; const rect = modal.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) modal.close(); });
+            }
+            modal.showModal(); document.body.classList.add('audit-log-modal-open');
+        });
+        trigger.addEventListener('keydown', event => { if (event.key === ' ') { event.preventDefault(); trigger.click(); } });
+    });
     document.querySelectorAll('.load-audit-details').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             e.preventDefault();
@@ -654,4 +697,4 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 </script>
-@endpush
+@endsection

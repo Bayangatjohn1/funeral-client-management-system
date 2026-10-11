@@ -51,17 +51,6 @@
     </div>
 @endif
 
-@if(session('summary'))
-    <div class="mb-4 rounded border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-4 text-sm text-[var(--color-text-secondary)]">
-        <div class="font-semibold mb-2">Last Saved Summary</div>
-        <div>Package: {{ session('summary.package') }}</div>
-        <div>Subtotal: {{ number_format(session('summary.subtotal'), 2) }}</div>
-        <div>Discount: {{ number_format(session('summary.discount'), 2) }}</div>
-        <div>Discount Rule: {{ session('summary.discount_source', 'NONE') }}</div>
-        <div>Total: {{ number_format(session('summary.total'), 2) }}</div>
-        <div>Payment Status: {{ session('summary.payment_status') }}</div>
-    </div>
-@endif
 
 @if($errors->any())
     <div class="flash-error mb-4">

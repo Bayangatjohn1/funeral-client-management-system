@@ -906,6 +906,7 @@ html[data-theme='dark'] .ec-banner     { background: #2a0a0a; border-color: #7f1
     calcWakeDays();
 })();
 </script>
+@include('staff.partials.case-details-visual-system')
 @endsection
 
 

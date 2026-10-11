@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+        $middleware->web(append: [\App\Http\Middleware\EnsureIdleSession::class, \App\Http\Middleware\EnsureAccountSecurity::class]);
 
         $middleware->alias([
             'owner' => \App\Http\Middleware\OwnerMiddleware::class,
@@ -44,5 +45,5 @@ return Application::configure(basePath: dirname(__DIR__))
 
 
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->dontFlash(['token', 'code', 'current_password', 'password', 'password_confirmation']);
     })->create();

@@ -1,4 +1,15 @@
 <style>
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui):has(.svc-detail) { --font-body:'Plus Jakarta Sans','Segoe UI',sans-serif; --font-heading:var(--font-body); font-family:var(--font-body); }
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .svc-detail { color:var(--ink); font-family:var(--font-body); font-size:14px; line-height:1.5; }
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .svc-detail :is(h1,h2,h3,h4) { font-family:var(--font-heading); color:var(--ink) !important; }
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .svc-detail h1 { font-size:24px; line-height:1.25; font-weight:700; }
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .svc-detail :is(.svc-detail-stat-grid,.svc-detail-stat,.svc-detail-list-grid > *, .svc-detail-badge) { background:var(--surface-muted); border-color:var(--border); color:var(--ink); }
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui):has(.svc-detail) { --surface:#DCE8E0; --card:#F4F8F5; --surface-muted:#D0E2D6; --border:#AEC7B7; --ink:#081D13; --ink-muted:#1B3E2E; }
+    html[data-theme='dark'] body:is(.branch-admin-ui,.system-admin-ui):has(.svc-detail) { --surface:#07130E; --card:#112218; --surface-muted:#14261D; --border:#29523D; --ink:#F8FAFC; --ink-muted:#94A3B8; }
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .svc-detail-card { background:var(--card); border-color:var(--border); box-shadow:none; }
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.svc-detail-head,.svc-detail-section,.svc-detail-actions) { background:var(--card); border-color:var(--border); }
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .svc-detail :is(h1,h2,h3,strong) { color:var(--ink); }
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .svc-detail :is(p,small,.svc-detail-kicker) { color:var(--ink-muted); }
     .svc-detail {
         max-width: 980px;
         color: #1f2d20;

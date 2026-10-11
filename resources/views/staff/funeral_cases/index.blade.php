@@ -1266,7 +1266,7 @@
     }
 </style>
 
-<div class="records-page">
+<div class="records-page staff-case-records-page">
     @if(session('success'))
         <div class="flash-success">
             {{ session('success') }}
@@ -1589,16 +1589,18 @@
                             <col class="records-col-financials">
                             <col class="records-col-case-status">
                             <col class="records-col-payment-status">
+                            <col class="records-col-actions">
                         </colgroup>
                         <thead>
                             <tr>
                                 <th class="text-left">Case</th>
-                                <th class="text-left">Family / Client</th>
+                                <th class="text-left">Deceased / Client</th>
                                 <th class="text-left">Service</th>
                                 <th class="text-left">Schedule</th>
                                 <th class="table-col-number">Package Availed</th>
                                 <th class="table-status-col">Case Status</th>
                                 <th class="table-status-col table-payment-status-col">Payment Status</th>
+                                <th class="table-col-actions">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1614,24 +1616,15 @@
                                 @endphp
                                 <tr
                                     class="{{ $needsAttention ? 'row-needs-attention' : '' }}"
-                                    data-clickable-row
-                                    data-row-href="{{ route('funeral-cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}"
-                                    tabindex="0"
-                                    role="link"
-                                    aria-label="Open case details for {{ $case->case_code }}"
                                 >
                                     <td data-label="Case">
                                         <div class="table-primary whitespace-nowrap records-case-code">{{ $case->case_code }}</div>
-                                        <div class="table-secondary">{{ $case->branch?->branch_code ?? 'Assigned Branch' }} &middot; Encoded {{ $case->created_at?->format('M d, Y') }}</div>
+                                        <div class="table-secondary">Recorded by: {{ $case->encodedBy?->name ?: 'Not recorded' }}</div>
+                                        <div class="table-secondary">{{ $case->created_at?->format('M d, Y h:i A') ?? 'Not recorded' }}</div>
                                     </td>
-                                    <td data-label="Family / Client">
-                                        <div class="table-primary">{{ $case->deceased?->full_name ?? '-' }}</div>
-                                        <div class="table-secondary">
-                                            {{ $case->client?->full_name ?? '-' }}
-                                            @if($isActiveTab && $case->client?->contact_number)
-                                                &middot; {{ $case->client->contact_number }}
-                                            @endif
-                                        </div>
+                                    <td data-label="Deceased / Client">
+                                        <div class="table-primary records-person-names">Deceased: {{ $case->deceased?->full_name ?? '-' }}</div>
+                                        <div class="table-secondary records-person-names">Client: {{ $case->client?->full_name ?? '-' }}</div>
                                     </td>
                                     <td data-label="Service">
                                         <div class="table-primary">{{ $case->service_type ?? '-' }}</div>
@@ -1651,11 +1644,16 @@
                                     <td class="table-status-cell table-payment-status-cell" data-label="Payment Status">
                                         <x-status-badge :status="$case->payment_status" :label="\Illuminate\Support\Str::headline(strtolower((string) $case->payment_status))" class="table-payment-status-badge" />
                                     </td>
+                                    <td class="table-col-actions" data-label="Actions">
+                                        <a class="records-view-case" href="{{ route('funeral-cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}" aria-label="View Full Information for {{ $case->case_code }}" title="View Full Information">
+                                            <i class="bi bi-eye" aria-hidden="true"></i>
+                                        </a>
+                                    </td>
 
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="table-system-empty">
+                                    <td colspan="8" class="table-system-empty">
                                         {{ $isDraftTab ? 'No official draft case records found.' : 'No case records found.' }}
                                     </td>
                                 </tr>
@@ -1961,6 +1959,7 @@
         };
 
         const setCustomOpen = (form, open) => {
+            if (window.setCaseCustomDateOpen) return window.setCaseCustomDateOpen(form, open);
             const toggle = form.querySelector('[data-case-custom-toggle]');
             const select = form.querySelector('[data-case-date-preset-select]');
             const panel = form.querySelector('[data-case-custom-panel]');
@@ -2063,7 +2062,7 @@
         document.addEventListener('click', (event) => {
             const page = getRecordsPage();
             if (!page || !(event.target instanceof Element)) return;
-            if (event.target.closest('[data-case-filter]')) return;
+            if (event.target.closest('[data-case-filter], .case-date-dialog')) return;
             page.querySelectorAll('[data-case-filter]').forEach((filterForm) => setCustomOpen(filterForm, false));
         });
 
@@ -2072,4 +2071,6 @@
         });
     })();
 </script>
+@include('staff.partials.remaining-pages-visual-system')
+@include('partials.case_records_layout_styles')
 @endsection

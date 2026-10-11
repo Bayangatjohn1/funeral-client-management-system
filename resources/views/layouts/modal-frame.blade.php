@@ -12,12 +12,20 @@
             document.documentElement.setAttribute('data-theme', theme);
         })();
     </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
         body {
             margin:0;
             background:#DCE6D6;
             color:#1F2D20;
+        }
+        body:is(.branch-admin-ui,.system-admin-ui) {
+            background:var(--surface);
+            color:var(--ink);
+            font-family:var(--font-body);
         }
         .page-content {
             min-height:100vh;
@@ -28,6 +36,10 @@
         .page-content > * {
             margin-left:auto;
             margin-right:auto;
+        }
+        body:is(.branch-admin-ui,.system-admin-ui) .page-content {
+            background:var(--surface) !important;
+            color:var(--ink);
         }
         [data-page-context-toast],
         .management-toast {
@@ -52,11 +64,14 @@
         }
     </style>
 </head>
-<body>
+<body class="{{ auth()->user()?->isBranchAdmin() ? 'branch-admin-ui' : '' }}{{ auth()->user()?->isSystemAdmin() ? ' system-admin-ui' : '' }}">
     <main class="page-content">
         @yield('content')
     </main>
     <script>
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && window.parent !== window) window.parent.closeServiceCatalogModal?.();
+        });
         document.addEventListener('click', function (event) {
             const trigger = event.target.closest('[data-service-modal-url]');
 
@@ -74,5 +89,6 @@
             }
         });
     </script>
+@include('partials.idle_session')
 </body>
 </html>

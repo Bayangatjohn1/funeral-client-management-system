@@ -1,0 +1,11 @@
+# Shared filter presentation
+
+Case Records and Master Case Records wrapped date/sort selects set `--filter-control-border:0` and `--filter-control-background:transparent`. The generic control rule consumes these variables so its higher specificity cannot restore an inner box. Keep the outer wrapper border and its accessible focus treatment. Custom date panels start hidden even when a CUSTOM range is already applied; only an explicit Custom Range selection opens the modal.
+
+Shared custom select options include a trailing `bi-check2` icon visible only for `aria-selected=true`. Keep option text in a separate span so accessible labels stay intact. Master Case Records outside-click handling must exempt `.filter-select-menu`, otherwise choosing Custom Range opens then immediately dismisses the date panel. Clear remains the existing active-filter reset action.
+
+`layouts/panel.blade.php` includes `partials/shared_filter_ui.blade.php` after the legacy uniform layer. All panel roles reuse the approved Audit Logs sage visual tokens: light surface #D0E2D6/text #081D13/border #AEC7B7; dark #14261D/#F8FAFC/#29523D. Plus Jakarta Sans, 14px controls, 44px border-box, 8px control radius, 12px menu radius, selected/hover/focus states.
+
+Scope only existing GET filter forms and explicit record/report/analytics filter groups. POST create/edit forms, guest/auth and print views are excluded. Search/select wrappers own one border and inner controls fill the content height transparently. Preserve existing control padding/icons, options, values, hidden fields, events, auto/manual Apply behavior, custom-date workflow, permissions and pagination. Native select chevrons can follow :open; custom dropdowns retain their existing open-state handling. Do not simulate a native select open state using focus.
+
+Source consumers: Staff client/deceased/case/completed/payment/reminder filters; Branch Admin dashboard-independent case/payment/user/service/audit/report filters; System Admin user/branch/catalog/recovery/report filters; Owner history/sales/analytics/report filters. Role-specific controls remain intact. Recheck light/dark and responsive states per route before claiming visual completion; shared inclusion does not prove every role has been browser-tested.

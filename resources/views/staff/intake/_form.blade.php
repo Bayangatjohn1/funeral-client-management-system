@@ -1,21 +1,27 @@
-﻿@php
+@php
     $intakeDraft = $intakeDraft ?? null;
     $intakeDraftPayload = $intakeDraftPayload ?? null;
+    $draftFields = $intakeDraftPayload['fields'] ?? [];
+    $intakeValue = static fn ($key, $default = null) => old($key, data_get($draftFields, $key, $default));
+    if ($intakeDraft && !$errors->any()) {
+        $initialStep = max(1, min(5, (int) $intakeDraft->current_step));
+    }
+
     $showIntakePageHeading = $showIntakePageHeading ?? false;
     $isOtherEntryMode = !empty($entryMode) && $entryMode === 'other';
     $otherBranchCutoffHour = max(min((int) config('funeral.other_branch_report_cutoff_hour', 18), 23), 0);
     $todayStart = now()->copy()->startOfDay();
     $otherBranchCutoffAt = $todayStart->copy()->addHours($otherBranchCutoffHour);
     $otherBranchWindowClosed = $isOtherEntryMode && now()->gt($otherBranchCutoffAt);
-    $otherBranchReportedDefault = old('reported_at', $isOtherEntryMode
+    $otherBranchReportedDefault = $intakeValue('reported_at', $isOtherEntryMode
         ? now()->copy()->min($otherBranchCutoffAt)->format('Y-m-d\TH:i')
         : null);
 
-    $initialSelectedBranchId = old('branch_id', $defaultBranchId ?? auth()->user()->branch_id);
-    $oldSelectedAddOns = array_map('strval', (array) old('selected_add_ons', []));
+    $initialSelectedBranchId = $intakeValue('branch_id', $defaultBranchId ?? auth()->user()->branch_id);
+    $oldSelectedAddOns = array_map('strval', (array) $intakeValue('selected_add_ons', []));
 @endphp
 
-<div class="intake-root w-full p-0 m-0 text-slate-800 font-sans border-0 shadow-none rounded-none">
+<div class="intake-root {{ $showIntakePageHeading && !$isOtherEntryMode ? 'intake-reference' : '' }} w-full p-0 m-0 text-slate-800 font-sans border-0 shadow-none rounded-none">
     <style>
     /* ═══════════════════════════════════════════════════════════
        INTAKE FORM  —  Premium SaaS Design System
@@ -357,6 +363,58 @@
         color: #9f1239 !important;
         box-shadow: 0 0 0 4px rgba(225,29,72,.08) !important;
     }
+    html[data-theme] body.panel-shell-body #intakeWizardForm .wizard-panel [data-validation-summary] {
+        border: 1px solid #fda4af !important;
+        border-left: 4px solid #e11d48 !important;
+        background: #fff1f2 !important;
+        padding: 18px !important;
+        border-radius: 12px !important;
+        margin-bottom: 24px;
+    }
+    html[data-theme] body.panel-shell-body #intakeWizardForm [data-validation-summary] .validation-heading { display:flex; gap:12px; align-items:flex-start; margin-bottom:12px; }
+    html[data-theme] body.panel-shell-body #intakeWizardForm [data-validation-summary] .validation-icon { display:grid;place-items:center;flex:none;width:32px;height:32px;border-radius:50%;background:#ffe4e6;color:#be123c;font-weight:800; }
+    html[data-theme] body.panel-shell-body #intakeWizardForm [data-validation-summary] p { margin:0; color:#881337 !important; font-weight:700; font-size:14px; }
+    html[data-theme] body.panel-shell-body #intakeWizardForm [data-validation-summary] small { display:block; margin-top:3px; color:#9f1239 !important; font-size:12px; }
+    html[data-theme] body.panel-shell-body #intakeWizardForm [data-validation-summary] ul { display:grid;gap:6px;margin:0;padding:0;list-style:none; }
+    html[data-theme] body.panel-shell-body #intakeWizardForm [data-validation-summary] button { display:flex;gap:10px;align-items:center;width:100%;min-height:44px;padding:10px 12px;background:#fff !important;border:1px solid #fecdd3 !important;border-radius:8px;color:#881337 !important;text-align:left;font-size:13px;line-height:1.5;text-decoration:none; }
+    html[data-theme] body.panel-shell-body #intakeWizardForm [data-validation-summary] button:hover { background:#ffe4e6 !important; }
+    html[data-theme] body.panel-shell-body #intakeWizardForm [data-validation-summary] button:focus-visible { outline:2px solid #be123c;outline-offset:2px; }
+    #intakeWizardForm .validation-number { flex:none;font-size:11px;font-weight:700;opacity:.7; }
+    #intakeWizardForm .validation-arrow { margin-left:auto;flex:none; }
+    #intakeWizardForm .validation-highlight {
+        outline: 3px solid #f59e0b !important;
+        outline-offset: 4px !important;
+        box-shadow: 0 0 0 7px rgb(245 158 11 / .16) !important;
+        border-radius: 8px;
+    }
+    html[data-theme='dark'] body.panel-shell-body #intakeWizardForm .wizard-panel [data-validation-summary] { background:#29191f !important;border-color:#9f1239 !important; }
+    html[data-theme='dark'] body.panel-shell-body #intakeWizardForm [data-validation-summary] :is(p,small,button) { color:#fecdd3 !important; }
+    html[data-theme='dark'] body.panel-shell-body #intakeWizardForm [data-validation-summary] button { background:#351e27 !important;border-color:#7f1d3a !important; }
+    html[data-theme='dark'] body.panel-shell-body #intakeWizardForm [data-validation-summary] button:hover { background:#4c2434 !important; }
+    html[data-theme] body.panel-shell-body #intakeWizardForm #intake_autosave_recovery {
+        display:flex;align-items:flex-start;gap:14px;padding:20px;margin-bottom:24px;
+        border:1px solid #fcd34d !important;border-left:4px solid #d97706 !important;
+        border-radius:12px;background:#fffbeb !important;
+    }
+    #intake_autosave_recovery .recovery-icon { display:grid;place-items:center;flex:none;width:38px;height:38px;border-radius:10px;background:#fef3c7;color:#92400e;font-size:20px; }
+    #intake_autosave_recovery .recovery-content { flex:1;min-width:0; }
+    html[data-theme] body.panel-shell-body #intake_autosave_recovery h4 { margin:0;color:#78350f !important;font-size:16px;font-weight:750; }
+    html[data-theme] body.panel-shell-body #intake_autosave_recovery p { margin:5px 0 14px;color:#92400e !important;font-size:13px;line-height:1.6; }
+    #intake_autosave_recovery .recovery-actions { display:flex;flex-wrap:wrap;gap:10px; }
+    html[data-theme] body.panel-shell-body #intake_autosave_recovery button { min-height:44px;padding:10px 16px;border:1px solid #d97706 !important;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;color:#78350f !important;background:transparent !important; }
+    html[data-theme] body.panel-shell-body #intake_autosave_recovery #restore_intake_autosave { background:#92400e !important;color:#fff !important;border-color:#92400e !important; }
+    #intake_autosave_recovery button:hover { filter:brightness(.95); }
+    #intake_autosave_recovery button:focus-visible { outline:2px solid #d97706;outline-offset:3px; }
+    html[data-theme='dark'] body.panel-shell-body #intakeWizardForm #intake_autosave_recovery { background:#2a2113 !important;border-color:#a16207 !important; }
+    html[data-theme='dark'] body.panel-shell-body #intake_autosave_recovery :is(h4,p,button) { color:#fde68a !important; }
+    html[data-theme='dark'] body.panel-shell-body #intake_autosave_recovery #restore_intake_autosave { background:#fcd34d !important;color:#422006 !important;border-color:#fcd34d !important; }
+    @media(max-width:480px) { #intake_autosave_recovery .recovery-actions { flex-direction:column; } #intake_autosave_recovery button { width:100%; } }
+    html[data-theme] body.panel-shell-body #intakeWizardForm [data-schedule-advisory] { margin-bottom:24px;padding:18px;border:1px solid #fcd34d !important;border-left:4px solid #d97706 !important;border-radius:12px;background:#fffbeb !important;color:#78350f !important; }
+    html[data-theme] body.panel-shell-body #intakeWizardForm [data-schedule-advisory] h4 { margin:0 0 8px;font-size:15px;font-weight:750;color:#78350f !important; }
+    html[data-theme] body.panel-shell-body #intakeWizardForm [data-schedule-advisory] p { margin:0 0 12px;font-size:13px;line-height:1.6;color:#92400e !important; }
+    #intakeWizardForm [data-schedule-advisory] ul { margin:0;padding-left:20px;font-size:13px;line-height:1.8; }
+    html[data-theme='dark'] body.panel-shell-body #intakeWizardForm [data-schedule-advisory] { background:#2a2113 !important;border-color:#a16207 !important; }
+    html[data-theme='dark'] body.panel-shell-body #intakeWizardForm [data-schedule-advisory] :is(h4,p,li) { color:#fde68a !important; }
     .intake-field-error {
         display: flex;
         align-items: flex-start;
@@ -858,7 +916,7 @@
     #intakeCancelBtn:active { background: #E8E4DC !important; }
 
     /* ── Cancel confirmation modal ── */
-    #intakeCancelModal { background: rgba(0,0,0,.45); }
+    #intakeCancelModal { background: transparent; }
     #intakeCancelModal .cancel-modal-box {
         background: #FAFAF7; border: 1px solid #C9C5BB;
         border-radius: 18px; padding: 28px;
@@ -2190,7 +2248,7 @@
         position: fixed;
         inset: 0;
         z-index: 250;
-        background: rgba(35, 40, 33, .38);
+        background: var(--modal-scrim);
     }
 
     .intake-modal-backdrop.hidden {
@@ -2451,12 +2509,13 @@
     }
     </style>
 
-    <div id="branch_toast" class="hidden fixed left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl bg-slate-900 text-white text-sm font-semibold transition-all duration-300 opacity-0 translate-y-[-8px] toast-pop intake-toast-branch">
-        You're now recording for this branch.
+    <div id="branch_toast" role="status" aria-live="polite" class="hidden fixed left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl bg-slate-900 text-white text-sm font-semibold transition-all duration-300 opacity-0 translate-y-[-8px] toast-pop intake-toast-branch">
+        <i class="bi bi-building intake-notice-icon" aria-hidden="true"></i>
+        <span class="intake-notice-text">You're now recording for this branch.</span>
     </div>
 
-    <div id="package_toast" class="hidden fixed left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-emerald-600 text-white text-sm font-bold transition-all duration-200 opacity-0 translate-y-[-8px] flex items-center gap-2 toast-pop intake-toast-package">
-        <i class="bi bi-check2-circle text-lg"></i>
+    <div id="package_toast" role="status" aria-live="polite" class="hidden fixed left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-emerald-600 text-white text-sm font-bold transition-all duration-200 opacity-0 translate-y-[-8px] flex items-center gap-2 toast-pop intake-toast-package">
+        <i class="bi bi-check2-circle text-lg intake-notice-icon" aria-hidden="true"></i>
         <span class="package-toast-text">You selected a package.</span>
     </div>
 
@@ -2560,7 +2619,7 @@
             <input type="hidden" id="branch_code_main_default" value="{{ optional($branches->first())->branch_code ?? 'BR001' }}">
 
             @if($intakeDraft)
-                <div class="mx-4 mb-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-4 py-3 text-sm text-[var(--color-text-secondary)] flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div class="intake-draft-banner mx-4 mb-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-4 py-3 text-sm text-[var(--color-text-secondary)] flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div class="min-w-0">
                         <div class="font-semibold text-[var(--color-text-primary)]">Resuming {{ $intakeDraft->draft_number }}</div>
                         <div class="text-xs">Last saved {{ optional($intakeDraft->last_saved_at)->format('Y-m-d H:i') ?? 'recently' }}</div>
@@ -2590,12 +2649,12 @@
 
                             <div>
                                 <label class="field-label">Reporter Name</label>
-                                <input type="text" name="reporter_name" id="reporter_name" value="{{ old('reporter_name') }}" data-validate="letters-spaces" data-label="reporter name" class="form-input">
+                                <input type="text" name="reporter_name" id="reporter_name" value="{{ $intakeValue('reporter_name') }}" data-validate="letters-spaces" data-label="reporter name" class="form-input">
                             </div>
 
                             <div>
                                 <label class="field-label">Contact Number</label>
-                                <input type="text" name="reporter_contact" value="{{ old('reporter_contact') }}" data-validate="digits" data-label="reporter contact number" class="form-input">
+                                <input type="text" name="reporter_contact" value="{{ $intakeValue('reporter_contact') }}" data-validate="digits" data-label="reporter contact number" class="form-input">
                             </div>
 
                             <div>
@@ -2620,26 +2679,26 @@
                             <div class="intake-name-grid">
                                 <div>
                                     <label class="field-label">First Name <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="client_first_name" value="{{ old('client_first_name') }}" data-label="client first name" class="form-input" placeholder="First name" required>
+                                    <input type="text" name="client_first_name" value="{{ $intakeValue('client_first_name') }}" data-label="client first name" class="form-input" placeholder="First name" required>
                                     @error('client_first_name') <p class="intake-field-error">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
                                     <label class="field-label">Middle Name</label>
-                                    <input type="text" name="client_middle_name" value="{{ old('client_middle_name') }}" data-label="client middle name" class="form-input" placeholder="Middle name">
+                                    <input type="text" name="client_middle_name" value="{{ $intakeValue('client_middle_name') }}" data-label="client middle name" class="form-input" placeholder="Middle name">
                                     @error('client_middle_name') <p class="intake-field-error">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
                                     <label class="field-label">Last Name <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="client_last_name" value="{{ old('client_last_name') }}" data-label="client last name" class="form-input" placeholder="Last name" required>
+                                    <input type="text" name="client_last_name" value="{{ $intakeValue('client_last_name') }}" data-label="client last name" class="form-input" placeholder="Last name" required>
                                     @error('client_last_name') <p class="intake-field-error">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
                                     <label class="field-label">Suffix</label>
                                     <div class="form-select-wrap">
                                         <select name="client_suffix" data-label="client suffix" class="form-input">
-                                            <option value="" {{ old('client_suffix') === null || old('client_suffix') === '' ? 'selected' : '' }}>None</option>
+                                            <option value="" {{ $intakeValue('client_suffix') === null || $intakeValue('client_suffix') === '' ? 'selected' : '' }}>None</option>
                                             @foreach(['Jr.', 'Sr.', 'II', 'III', 'IV', 'V'] as $suffixOption)
-                                                <option value="{{ $suffixOption }}" {{ old('client_suffix') === $suffixOption ? 'selected' : '' }}>{{ $suffixOption }}</option>
+                                                <option value="{{ $suffixOption }}" {{ $intakeValue('client_suffix') === $suffixOption ? 'selected' : '' }}>{{ $suffixOption }}</option>
                                             @endforeach
                                         </select>
                                     </div>
@@ -2657,7 +2716,7 @@
                                         <select name="client_relationship" data-label="relationship to the deceased" class="form-input" required>
                                             <option value="">Select relationship</option>
                                             @foreach(['Father', 'Mother', 'Spouse', 'Child', 'Sibling', 'Relative', 'Guardian', 'Other'] as $relationship)
-                                                <option value="{{ $relationship }}" {{ old('client_relationship') === $relationship ? 'selected' : '' }}>
+                                                <option value="{{ $relationship }}" {{ $intakeValue('client_relationship') === $relationship ? 'selected' : '' }}>
                                                     {{ $relationship }}
                                                 </option>
                                             @endforeach
@@ -2670,7 +2729,7 @@
                                     <input
                                         type="text"
                                         name="client_contact_number"
-                                        value="{{ old('client_contact_number') }}"
+                                        value="{{ $intakeValue('client_contact_number') }}"
                                         data-validate="philippine-mobile"
                                         data-label="contact number"
                                         inputmode="tel"
@@ -2685,7 +2744,7 @@
 
                                 <div class="intake-full-field">
                                     <label class="field-label">Complete Address <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="client_address" id="client_address" value="{{ old('client_address') }}" data-label="client address" class="form-input" placeholder="House no., street, barangay, city/municipality, province" required>
+                                    <input type="text" name="client_address" id="client_address" value="{{ $intakeValue('client_address') }}" data-label="client address" class="form-input" placeholder="House no., street, barangay, city/municipality, province" required>
                                 </div>
                             </div>
                         </div>
@@ -2709,26 +2768,26 @@
                             <div class="intake-name-grid">
                                 <div>
                                     <label class="field-label">First Name <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="deceased_first_name" value="{{ old('deceased_first_name') }}" data-label="deceased first name" class="form-input" placeholder="First name" required>
+                                    <input type="text" name="deceased_first_name" value="{{ $intakeValue('deceased_first_name') }}" data-label="deceased first name" class="form-input" placeholder="First name" required>
                                     @error('deceased_first_name') <p class="intake-field-error">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
                                     <label class="field-label">Middle Name</label>
-                                    <input type="text" name="deceased_middle_name" value="{{ old('deceased_middle_name') }}" data-label="deceased middle name" class="form-input" placeholder="Middle name">
+                                    <input type="text" name="deceased_middle_name" value="{{ $intakeValue('deceased_middle_name') }}" data-label="deceased middle name" class="form-input" placeholder="Middle name">
                                     @error('deceased_middle_name') <p class="intake-field-error">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
                                     <label class="field-label">Last Name <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="deceased_last_name" value="{{ old('deceased_last_name') }}" data-label="deceased last name" class="form-input" placeholder="Last name" required>
+                                    <input type="text" name="deceased_last_name" value="{{ $intakeValue('deceased_last_name') }}" data-label="deceased last name" class="form-input" placeholder="Last name" required>
                                     @error('deceased_last_name') <p class="intake-field-error">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
                                     <label class="field-label">Suffix</label>
                                     <div class="form-select-wrap">
                                         <select name="deceased_suffix" data-label="deceased suffix" class="form-input">
-                                            <option value="" {{ old('deceased_suffix') === null || old('deceased_suffix') === '' ? 'selected' : '' }}>None</option>
+                                            <option value="" {{ $intakeValue('deceased_suffix') === null || $intakeValue('deceased_suffix') === '' ? 'selected' : '' }}>None</option>
                                             @foreach(['Jr.', 'Sr.', 'II', 'III', 'IV', 'V'] as $suffixOption)
-                                                <option value="{{ $suffixOption }}" {{ old('deceased_suffix') === $suffixOption ? 'selected' : '' }}>{{ $suffixOption }}</option>
+                                                <option value="{{ $suffixOption }}" {{ $intakeValue('deceased_suffix') === $suffixOption ? 'selected' : '' }}>{{ $suffixOption }}</option>
                                             @endforeach
                                         </select>
                                     </div>
@@ -2743,7 +2802,7 @@
                                 <div>
                                     <label class="field-label">Date of Birth <span class="text-rose-500">*</span></label>
                                     <div class="relative">
-                                        <input type="text" name="born" id="born" value="{{ old('born') }}" data-label="birthdate" class="form-input pr-10 cursor-pointer" placeholder="Select birth date" autocomplete="off" required>
+                                        <input type="text" name="born" id="born" value="{{ $intakeValue('born') }}" data-label="birthdate" class="form-input pr-10 cursor-pointer" placeholder="Select birth date" autocomplete="off" required>
                                         <span id="born_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
                                             <i class="bi bi-calendar-event text-lg"></i>
                                         </span>
@@ -2757,7 +2816,7 @@
                                 <div>
                                     <label class="field-label">Date of Death <span class="text-rose-500">*</span></label>
                                     <div class="relative">
-                                        <input type="text" name="died" id="died" value="{{ old('died') }}" data-label="date of death" class="form-input pr-10 cursor-pointer" placeholder="Select date of death" autocomplete="off" required>
+                                        <input type="text" name="died" id="died" value="{{ $intakeValue('died') }}" data-label="date of death" class="form-input pr-10 cursor-pointer" placeholder="Select date of death" autocomplete="off" required>
                                         <span id="died_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
                                             <i class="bi bi-calendar-event text-lg"></i>
                                         </span>
@@ -2770,13 +2829,13 @@
 
                                 <div>
                                     <label class="field-label">Age</label>
-                                    <input type="number" name="age" id="age" value="{{ old('age') }}" class="form-input bg-slate-50 text-slate-500 cursor-not-allowed" readonly>
+                                    <input type="number" name="age" id="age" value="{{ $intakeValue('age') }}" class="form-input bg-slate-50 text-slate-500 cursor-not-allowed" readonly>
                                     <p class="intake-field-help">Auto-computed.</p>
                                 </div>
 
                                 <div class="intake-full-field">
                                     <label class="field-label">Complete Address <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="deceased_address" id="deceased_address" value="{{ old('deceased_address', old('client_address')) }}" data-label="deceased address" class="form-input" placeholder="House no., street, barangay, city/municipality, province" required>
+                                    <input type="text" name="deceased_address" id="deceased_address" value="{{ $intakeValue('deceased_address', $intakeValue('client_address')) }}" data-label="deceased address" class="form-input" placeholder="House no., street, barangay, city/municipality, province" required>
                                 </div>
                             </div>
                         </div>
@@ -2788,8 +2847,8 @@
                                     <label class="field-label">Senior Citizen Status</label>
                                     <div class="form-select-wrap">
                                         <select name="senior_citizen_status" id="senior_citizen_status" data-label="senior citizen status" class="form-input w-full">
-                                            <option value="0" {{ old('senior_citizen_status', '0') === '0' ? 'selected' : '' }}>No / Standard</option>
-                                            <option value="1" {{ old('senior_citizen_status') === '1' ? 'selected' : '' }}>Yes / Eligible</option>
+                                            <option value="0" {{ $intakeValue('senior_citizen_status', '0') === '0' ? 'selected' : '' }}>No / Standard</option>
+                                            <option value="1" {{ $intakeValue('senior_citizen_status') === '1' ? 'selected' : '' }}>Yes / Eligible</option>
                                         </select>
                                     </div>
                                     <p class="intake-field-help">Discount applies automatically when eligible.</p>
@@ -2797,7 +2856,7 @@
 
                                 <div id="senior_id_wrap" class="hidden">
                                     <label class="field-label">Senior Citizen ID Number <span class="text-slate-400 normal-case tracking-normal font-normal">(Optional)</span></label>
-                                    <input type="text" name="senior_citizen_id_number" id="senior_citizen_id_number" value="{{ old('senior_citizen_id_number') }}" data-label="Senior Citizen ID number" class="form-input" placeholder="Enter Senior Citizen ID number">
+                                    <input type="text" name="senior_citizen_id_number" id="senior_citizen_id_number" value="{{ $intakeValue('senior_citizen_id_number') }}" data-label="Senior Citizen ID number" class="form-input" placeholder="Enter Senior Citizen ID number">
                                 </div>
 
                                 <div id="senior_proof_wrap" class="intake-full-field hidden">
@@ -2875,7 +2934,7 @@
                                         data-structured-inclusions="{{ $structuredInclusions->toJson() }}"
                                         data-structured-freebies="{{ $structuredFreebies->toJson() }}"
                                         data-included-casket="{{ json_encode($includedCasket['casket'] ?? ['name' => $includedCasket['casket_type'] ?? $pkg->coffin_type, 'reference_value' => 0]) }}"
-                                        {{ (string) old('package_id') === (string) $pkg->id ? 'checked' : '' }}
+                                        {{ (string) $intakeValue('package_id') === (string) $pkg->id ? 'checked' : '' }}
                                         required
                                     >
 
@@ -2967,22 +3026,22 @@
                         <div id="custom_package_fields" class="hidden mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 rounded-xl border border-amber-100 bg-amber-50/70 px-4 py-4">
                             <div class="md:col-span-2">
                                 <label class="field-label">Client Preference Package Name</label>
-                                <input type="text" name="custom_package_name" id="client_pref_package" value="{{ old('custom_package_name') }}" class="form-input" placeholder="Custom package name">
+                                <input type="text" name="custom_package_name" id="client_pref_package" value="{{ $intakeValue('custom_package_name') }}" class="form-input" placeholder="Custom package name">
                             </div>
 
                             <div>
                                 <label class="field-label">Inclusions (comma or line separated)</label>
-                                <textarea name="custom_package_inclusions" id="client_pref_inclusions" class="form-textarea" rows="3" placeholder="Hearse, viewing chapel, etc.">{{ old('custom_package_inclusions') }}</textarea>
+                                <textarea name="custom_package_inclusions" id="client_pref_inclusions" class="form-textarea" rows="3" placeholder="Hearse, viewing chapel, etc.">{{ $intakeValue('custom_package_inclusions') }}</textarea>
                             </div>
 
                             <div>
                                 <label class="field-label">Freebies / Notes</label>
-                                <textarea name="custom_package_freebies" id="client_pref_freebies" class="form-textarea" rows="3" placeholder="Flower standee, mass card, etc.">{{ old('custom_package_freebies') }}</textarea>
+                                <textarea name="custom_package_freebies" id="client_pref_freebies" class="form-textarea" rows="3" placeholder="Flower standee, mass card, etc.">{{ $intakeValue('custom_package_freebies') }}</textarea>
                             </div>
 
                             <div>
                                 <label class="field-label">Preferred Price</label>
-                                <input type="number" step="0.01" min="0" name="custom_package_price" id="client_pref_price" value="{{ old('custom_package_price') }}" class="form-input" placeholder="0.00">
+                                <input type="number" step="0.01" min="0" name="custom_package_price" id="client_pref_price" value="{{ $intakeValue('custom_package_price') }}" class="form-input" placeholder="0.00">
                             </div>
                         </div>
                     @endif
@@ -2991,7 +3050,7 @@
                     <ul id="selected_package_freebies" class="hidden"></ul>
 
                     <div id="package_details_modal" class="hidden fixed inset-0 z-[210] items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="package_details_title">
-                        <div class="absolute inset-0 bg-slate-950/50" data-package-details-close></div>
+                        <div class="absolute inset-0" style="background:var(--modal-scrim);" data-package-details-close></div>
                         <div class="relative max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200">
                             <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
                                 <div class="min-w-0">
@@ -3068,7 +3127,7 @@
                             <div id="selected_add_ons_lines" class="mt-3 hidden space-y-2"></div>
                         </div>
 
-                        <div id="optional_add_ons_panel" class="optional-add-ons-panel mt-4 hidden overflow-hidden rounded-xl border border-[#C9C5BB] bg-white" role="region" aria-label="Available optional add-ons">
+                        <div id="optional_add_ons_panel" class="optional-add-ons-panel mt-4 hidden overflow-hidden rounded-xl border border-[#C9C5BB] bg-white" role="dialog" aria-modal="true" aria-label="Available optional add-ons">
                             <div class="border-b border-[#E5E0D5] bg-[#FBFAF7] p-4">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
                                     <div>
@@ -3098,8 +3157,8 @@
                                     </button>
                                 </div>
                                 <div id="additional_service_items_list" class="mt-4 space-y-2"></div>
-                                <input type="hidden" name="additional_service_amount" id="additional_service_amount" value="{{ old('additional_service_amount') }}">
-                                <input type="hidden" name="additional_services" id="additional_services" value="{{ old('additional_services') }}">
+                                <input type="hidden" name="additional_service_amount" id="additional_service_amount" value="{{ $intakeValue('additional_service_amount') }}">
+                                <input type="hidden" name="additional_services" id="additional_services" value="{{ $intakeValue('additional_services') }}">
                             </div>
                             <div class="flex flex-wrap items-center justify-between gap-3 border-t border-[#E5E0D5] bg-[#FBFAF7] p-4">
                                 <div class="text-xs font-bold text-[#5F685F]">Draft total: &#8369; <span id="draft_add_ons_total">0.00</span></div>
@@ -3147,7 +3206,7 @@
                                         <div class="mt-4">
                                             <input type="hidden" name="casket_selection_mode" value="included">
                                             <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-3 hover:border-slate-300">
-                                                <input type="checkbox" name="casket_selection_mode" value="replacement" class="mt-1 h-4 w-4 text-slate-900 focus:ring-slate-900" {{ old('replacement_casket_catalog_id') ? 'checked' : '' }}>
+                                                <input type="checkbox" name="casket_selection_mode" value="replacement" class="mt-1 h-4 w-4 text-slate-900 focus:ring-slate-900" {{ $intakeValue('replacement_casket_catalog_id') ? 'checked' : '' }}>
                                                 <span>
                                                     <span class="block text-sm font-bold text-slate-800">Choose replacement/upgrade</span>
                                                     <span class="block text-xs text-slate-500">Off means the included casket is used with no additional charge.</span>
@@ -3166,7 +3225,7 @@
                                                         data-material="{{ $casket->type_or_material }}"
                                                         data-price="{{ $casket->standard_price }}"
                                                         @disabled(! $casket->is_available)
-                                                        {{ (string) old('replacement_casket_catalog_id') === (string) $casket->id ? 'selected' : '' }}
+                                                        {{ (string) $intakeValue('replacement_casket_catalog_id') === (string) $casket->id ? 'selected' : '' }}
                                                     >
                                                         {{ $casket->name }}{{ $casket->type_or_material ? ' - '.$casket->type_or_material : '' }} (&#8369;{{ number_format((float) $casket->standard_price, 2) }}){{ $casket->is_available ? '' : ' — Unavailable' }}
                                                     </option>
@@ -3302,7 +3361,7 @@
                                             </div>
                                             <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-white p-3 hover:border-slate-300">
                                                 <input type="hidden" name="apply_retrieval_excess" value="0">
-                                                <input type="checkbox" name="apply_retrieval_excess" id="apply_retrieval_excess" value="1" class="mt-1 h-4 w-4 text-slate-900 focus:ring-slate-900" {{ old('apply_retrieval_excess') ? 'checked' : '' }}>
+                                                <input type="checkbox" name="apply_retrieval_excess" id="apply_retrieval_excess" value="1" class="mt-1 h-4 w-4 text-slate-900 focus:ring-slate-900" {{ $intakeValue('apply_retrieval_excess') ? 'checked' : '' }}>
                                                 <span>
                                                     <span class="block text-sm font-bold text-slate-800">Add excess retrieval distance</span>
                                                     <span class="block text-xs text-slate-500">Leave off when within package coverage.</span>
@@ -3311,7 +3370,7 @@
                                         </div>
                                         <div id="retrieval_excess_wrap" class="mt-3 hidden">
                                             <label class="field-label">Excess KM</label>
-                                            <input type="number" step="0.01" min="0" name="retrieval_excess_kilometers" id="retrieval_excess_kilometers" value="{{ old('retrieval_excess_kilometers') }}" class="form-input" placeholder="0" data-label="retrieval excess kilometers">
+                                            <input type="number" step="0.01" min="0" name="retrieval_excess_kilometers" id="retrieval_excess_kilometers" value="{{ $intakeValue('retrieval_excess_kilometers') }}" class="form-input" placeholder="0" data-label="retrieval excess kilometers">
                                             @error('retrieval_excess_kilometers') <div class="intake-field-error">{{ $message }}</div> @enderror
                                         </div>
                                         <p id="retrieval_charge_preview" class="mt-2 text-xs text-slate-500">Within included coverage unless excess kilometers are added.</p>
@@ -3352,7 +3411,7 @@
                                             </div>
                                             <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-white p-3 hover:border-slate-300">
                                                 <input type="hidden" name="apply_hearse_excess" value="0">
-                                                <input type="checkbox" name="apply_hearse_excess" id="apply_hearse_excess" value="1" class="mt-1 h-4 w-4 text-slate-900 focus:ring-slate-900" {{ old('apply_hearse_excess') ? 'checked' : '' }}>
+                                                <input type="checkbox" name="apply_hearse_excess" id="apply_hearse_excess" value="1" class="mt-1 h-4 w-4 text-slate-900 focus:ring-slate-900" {{ $intakeValue('apply_hearse_excess') ? 'checked' : '' }}>
                                                 <span>
                                                     <span class="block text-sm font-bold text-slate-800">Add excess hearse distance</span>
                                                     <span class="block text-xs text-slate-500">Leave off when within package coverage.</span>
@@ -3361,7 +3420,7 @@
                                         </div>
                                         <div id="hearse_excess_wrap" class="mt-3 hidden">
                                             <label class="field-label">Excess KM</label>
-                                            <input type="number" step="0.01" min="0" name="hearse_excess_kilometers" id="hearse_excess_kilometers" value="{{ old('hearse_excess_kilometers') }}" class="form-input" placeholder="0" data-label="hearse excess kilometers">
+                                            <input type="number" step="0.01" min="0" name="hearse_excess_kilometers" id="hearse_excess_kilometers" value="{{ $intakeValue('hearse_excess_kilometers') }}" class="form-input" placeholder="0" data-label="hearse excess kilometers">
                                             @error('hearse_excess_kilometers') <div class="intake-field-error">{{ $message }}</div> @enderror
                                         </div>
                                         <p id="hearse_charge_preview" class="mt-2 text-xs text-slate-500">Within included coverage unless excess kilometers are added.</p>
@@ -3406,7 +3465,7 @@
 
                             <div class="schedule-stack">
 
-                        <div class="schedule-field-row">
+                        <section class="wake-period-group" aria-label="Wake period"><h5 class="wake-period-heading">Wake Period</h5><div class="schedule-field-row">
                             <div class="schedule-field-label">
                                 <label class="field-label">Wake Start <span class="text-rose-500">*</span></label>
                                 <p>First day and time of the wake or viewing period.</p>
@@ -3414,41 +3473,19 @@
                             <div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div class="relative">
-                                    <input type="text" name="wake_start_date" id="wake_start_date" value="{{ old('wake_start_date') }}" data-label="wake start date" class="form-input pr-10 cursor-pointer" placeholder="Wake date" autocomplete="off" required>
+                                    <input type="text" name="wake_start_date" id="wake_start_date" value="{{ $intakeValue('wake_start_date') }}" data-label="wake start date" class="form-input pr-10 cursor-pointer" placeholder="Wake date" autocomplete="off" required>
                                     <span id="wake_start_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
                                         <i class="bi bi-calendar-event text-lg"></i>
                                     </span>
                                 </div>
                                 <div class="time-input-wrap" data-time-picker="wake_start_time">
-                                    <input type="hidden" name="wake_start_time" id="wake_start_time" value="{{ old('wake_start_time') ? substr(old('wake_start_time'), 0, 5) : '' }}" data-label="wake start time" class="schedule-time-value" required>
+                                    <input type="hidden" name="wake_start_time" id="wake_start_time" value="{{ $intakeValue('wake_start_time') ? substr($intakeValue('wake_start_time'), 0, 5) : '' }}" data-label="wake start time" class="schedule-time-value" required>
                                     <input type="text" class="schedule-time-display" data-time-display-for="wake_start_time" data-skip-autocap aria-label="Wake start time" placeholder="e.g. 8:30 AM" inputmode="text" autocomplete="off" aria-expanded="false">
                                     <button type="button" class="schedule-time-toggle" data-time-toggle-for="wake_start_time" aria-label="Open wake start time picker">
                                         <i class="bi bi-chevron-down"></i>
                                     </button>
                                     <div class="schedule-time-popover" data-time-popover role="dialog" aria-label="Wake start time picker">
-                                        <div class="time-column">
-                                            <span class="time-column-label">Hour</span>
-                                            <div class="time-column-options">
-                                                @for ($hour = 1; $hour <= 12; $hour++)
-                                                    <button type="button" class="time-option" data-time-part="hour" data-time-value="{{ str_pad((string) $hour, 2, '0', STR_PAD_LEFT) }}">{{ str_pad((string) $hour, 2, '0', STR_PAD_LEFT) }}</button>
-                                                @endfor
-                                            </div>
-                                        </div>
-                                        <div class="time-column">
-                                            <span class="time-column-label">Minute</span>
-                                            <div class="time-column-options">
-                                                @for ($minute = 0; $minute < 60; $minute++)
-                                                    <button type="button" class="time-option" data-time-part="minute" data-time-value="{{ str_pad((string) $minute, 2, '0', STR_PAD_LEFT) }}">{{ str_pad((string) $minute, 2, '0', STR_PAD_LEFT) }}</button>
-                                                @endfor
-                                            </div>
-                                        </div>
-                                        <div class="time-column">
-                                            <span class="time-column-label">AM/PM</span>
-                                            <div class="time-column-options">
-                                                <button type="button" class="time-option" data-time-part="period" data-time-value="AM">AM</button>
-                                                <button type="button" class="time-option" data-time-part="period" data-time-value="PM">PM</button>
-                                            </div>
-                                        </div>
+                                        @include('staff.intake._time-controls')
                                     </div>
                                 </div>
                             </div>
@@ -3460,9 +3497,7 @@
                             @enderror
                             <p id="wake_start_error" class="intake-field-error hidden"></p>
                             </div>
-                        </div>
-
-                        <div class="schedule-field-row">
+                        </div><div class="schedule-field-row">
                             <div class="schedule-field-label">
                                 <label class="field-label">Wake End <span class="text-rose-500">*</span></label>
                                 <p>The date and time the wake or viewing period concludes.</p>
@@ -3470,19 +3505,17 @@
                             <div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div class="relative">
-                                    <input type="text" name="wake_end_date" id="wake_end_date" value="{{ old('wake_end_date') }}" data-label="wake end date" class="form-input pr-10 cursor-pointer" placeholder="Wake end date" autocomplete="off" required>
+                                    <input type="text" name="wake_end_date" id="wake_end_date" value="{{ $intakeValue('wake_end_date') }}" data-label="wake end date" class="form-input pr-10 cursor-pointer" placeholder="Wake end date" autocomplete="off" required>
                                     <span id="wake_end_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
                                         <i class="bi bi-calendar-event text-lg"></i>
                                     </span>
                                 </div>
                                 <div class="time-input-wrap" data-time-picker="wake_end_time">
-                                    <input type="hidden" name="wake_end_time" id="wake_end_time" value="{{ old('wake_end_time') ? substr(old('wake_end_time'), 0, 5) : '' }}" data-label="wake end time" class="schedule-time-value" required>
+                                    <input type="hidden" name="wake_end_time" id="wake_end_time" value="{{ $intakeValue('wake_end_time') ? substr($intakeValue('wake_end_time'), 0, 5) : '' }}" data-label="wake end time" class="schedule-time-value" required>
                                     <input type="text" class="schedule-time-display" data-time-display-for="wake_end_time" data-skip-autocap aria-label="Wake end time" placeholder="e.g. 7:00 AM" inputmode="text" autocomplete="off" aria-expanded="false">
                                     <button type="button" class="schedule-time-toggle" data-time-toggle-for="wake_end_time" aria-label="Open wake end time picker"><i class="bi bi-chevron-down"></i></button>
                                     <div class="schedule-time-popover" data-time-popover role="dialog" aria-label="Wake end time picker">
-                                        <div class="time-column"><span class="time-column-label">Hour</span><div class="time-column-options">@for ($hour = 1; $hour <= 12; $hour++)<button type="button" class="time-option" data-time-part="hour" data-time-value="{{ str_pad((string) $hour, 2, '0', STR_PAD_LEFT) }}">{{ str_pad((string) $hour, 2, '0', STR_PAD_LEFT) }}</button>@endfor</div></div>
-                                        <div class="time-column"><span class="time-column-label">Minute</span><div class="time-column-options">@for ($minute = 0; $minute < 60; $minute++)<button type="button" class="time-option" data-time-part="minute" data-time-value="{{ str_pad((string) $minute, 2, '0', STR_PAD_LEFT) }}">{{ str_pad((string) $minute, 2, '0', STR_PAD_LEFT) }}</button>@endfor</div></div>
-                                        <div class="time-column"><span class="time-column-label">AM/PM</span><div class="time-column-options"><button type="button" class="time-option" data-time-part="period" data-time-value="AM">AM</button><button type="button" class="time-option" data-time-part="period" data-time-value="PM">PM</button></div></div>
+                                        @include('staff.intake._time-controls')
                                     </div>
                                 </div>
                             </div>
@@ -3490,9 +3523,20 @@
                             @error('wake_end_time')<p class="intake-field-error">{{ $message }}</p>@enderror
                             <p id="wake_end_error" class="intake-field-error hidden"></p>
                             </div>
-                        </div>
-
-                        <div class="schedule-field-row">
+                        </div><div class="schedule-field-row wake-duration-summary">
+                            <div class="schedule-field-label">
+                                <label class="field-label">Wake Duration</label>
+                                <p>System-calculated from Wake Start through Wake End.</p>
+                            </div>
+                            <div>
+                            <input type="hidden" name="wake_days" id="wake_days" value="{{ $intakeValue('wake_days') }}" data-label="wake days">
+                            <div class="service-readout pointer-events-none">
+                                <i class="bi bi-moon-stars text-slate-500"></i>
+                                <span id="wake_duration_display">Auto-calculated</span>
+                            </div>
+                            <p id="wake_days_helper" class="text-xs text-slate-500 mt-1">Calculated automatically from Wake Start Date through Wake End Date, inclusive.</p>
+                            </div>
+                        </div></section><div class="schedule-field-row">
                             <div class="schedule-field-label">
                                 <label class="field-label">Funeral Ceremony <span class="text-rose-500">*</span></label>
                                 <p>Date and time of the formal funeral, memorial, or religious ceremony.</p>
@@ -3500,41 +3544,19 @@
                             <div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div class="relative">
-                                    <input type="text" name="funeral_service_at" id="funeral_service_at" value="{{ old('funeral_service_at') }}" data-label="funeral ceremony date" class="form-input pr-10 cursor-pointer" placeholder="Ceremony date" autocomplete="off" required>
+                                    <input type="text" name="funeral_service_at" id="funeral_service_at" value="{{ $intakeValue('funeral_service_at') }}" data-label="funeral ceremony date" class="form-input pr-10 cursor-pointer" placeholder="Ceremony date" autocomplete="off" required>
                                     <span id="wake_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
                                         <i class="bi bi-calendar-event text-lg"></i>
                                     </span>
                                 </div>
                                 <div class="time-input-wrap" data-time-picker="funeral_service_time">
-                                    <input type="hidden" name="funeral_service_time" id="funeral_service_time" value="{{ old('funeral_service_time') ? substr(old('funeral_service_time'), 0, 5) : '' }}" data-label="funeral ceremony time" class="schedule-time-value" required>
+                                    <input type="hidden" name="funeral_service_time" id="funeral_service_time" value="{{ $intakeValue('funeral_service_time') ? substr($intakeValue('funeral_service_time'), 0, 5) : '' }}" data-label="funeral ceremony time" class="schedule-time-value" required>
                                     <input type="text" class="schedule-time-display" data-time-display-for="funeral_service_time" data-skip-autocap aria-label="Funeral ceremony time" placeholder="e.g. 9:00 AM" inputmode="text" autocomplete="off" aria-expanded="false">
                                     <button type="button" class="schedule-time-toggle" data-time-toggle-for="funeral_service_time" aria-label="Open funeral ceremony time picker">
                                         <i class="bi bi-chevron-down"></i>
                                     </button>
                                     <div class="schedule-time-popover" data-time-popover role="dialog" aria-label="Funeral ceremony time picker">
-                                        <div class="time-column">
-                                            <span class="time-column-label">Hour</span>
-                                            <div class="time-column-options">
-                                                @for ($hour = 1; $hour <= 12; $hour++)
-                                                    <button type="button" class="time-option" data-time-part="hour" data-time-value="{{ str_pad((string) $hour, 2, '0', STR_PAD_LEFT) }}">{{ str_pad((string) $hour, 2, '0', STR_PAD_LEFT) }}</button>
-                                                @endfor
-                                            </div>
-                                        </div>
-                                        <div class="time-column">
-                                            <span class="time-column-label">Minute</span>
-                                            <div class="time-column-options">
-                                                @for ($minute = 0; $minute < 60; $minute++)
-                                                    <button type="button" class="time-option" data-time-part="minute" data-time-value="{{ str_pad((string) $minute, 2, '0', STR_PAD_LEFT) }}">{{ str_pad((string) $minute, 2, '0', STR_PAD_LEFT) }}</button>
-                                                @endfor
-                                            </div>
-                                        </div>
-                                        <div class="time-column">
-                                            <span class="time-column-label">AM/PM</span>
-                                            <div class="time-column-options">
-                                                <button type="button" class="time-option" data-time-part="period" data-time-value="AM">AM</button>
-                                                <button type="button" class="time-option" data-time-part="period" data-time-value="PM">PM</button>
-                                            </div>
-                                        </div>
+                                        @include('staff.intake._time-controls')
                                     </div>
                                 </div>
                             </div>
@@ -3546,9 +3568,7 @@
                             @enderror
                             <p id="funeral_service_at_error" class="intake-field-error hidden"></p>
                             </div>
-                        </div>
-
-                        <div class="schedule-field-row">
+                        </div><div class="schedule-field-row">
                             <div class="schedule-field-label">
                                 <label class="field-label">Interment <span class="text-rose-500">*</span></label>
                                 <p>Date and time of burial or interment.</p>
@@ -3556,41 +3576,19 @@
                             <div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div class="relative">
-                                    <input type="text" name="interment_at" id="interment_at" value="{{ old('interment_at') }}" data-label="interment date" class="form-input pr-10 cursor-pointer" placeholder="Interment date" autocomplete="off" required>
+                                    <input type="text" name="interment_at" id="interment_at" value="{{ $intakeValue('interment_at') }}" data-label="interment date" class="form-input pr-10 cursor-pointer" placeholder="Interment date" autocomplete="off" required>
                                     <span id="inter_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
                                         <i class="bi bi-calendar-event text-lg"></i>
                                     </span>
                                 </div>
                                 <div class="time-input-wrap" data-time-picker="interment_time">
-                                    <input type="hidden" name="interment_time" id="interment_time" value="{{ old('interment_time') ? substr(old('interment_time'), 0, 5) : '' }}" data-label="interment time" class="schedule-time-value" required>
+                                    <input type="hidden" name="interment_time" id="interment_time" value="{{ $intakeValue('interment_time') ? substr($intakeValue('interment_time'), 0, 5) : '' }}" data-label="interment time" class="schedule-time-value" required>
                                     <input type="text" class="schedule-time-display" data-time-display-for="interment_time" data-skip-autocap aria-label="Interment time" placeholder="e.g. 1:00 PM" inputmode="text" autocomplete="off" aria-expanded="false">
                                     <button type="button" class="schedule-time-toggle" data-time-toggle-for="interment_time" aria-label="Open interment time picker">
                                         <i class="bi bi-chevron-down"></i>
                                     </button>
                                     <div class="schedule-time-popover" data-time-popover role="dialog" aria-label="Interment time picker">
-                                        <div class="time-column">
-                                            <span class="time-column-label">Hour</span>
-                                            <div class="time-column-options">
-                                                @for ($hour = 1; $hour <= 12; $hour++)
-                                                    <button type="button" class="time-option" data-time-part="hour" data-time-value="{{ str_pad((string) $hour, 2, '0', STR_PAD_LEFT) }}">{{ str_pad((string) $hour, 2, '0', STR_PAD_LEFT) }}</button>
-                                                @endfor
-                                            </div>
-                                        </div>
-                                        <div class="time-column">
-                                            <span class="time-column-label">Minute</span>
-                                            <div class="time-column-options">
-                                                @for ($minute = 0; $minute < 60; $minute++)
-                                                    <button type="button" class="time-option" data-time-part="minute" data-time-value="{{ str_pad((string) $minute, 2, '0', STR_PAD_LEFT) }}">{{ str_pad((string) $minute, 2, '0', STR_PAD_LEFT) }}</button>
-                                                @endfor
-                                            </div>
-                                        </div>
-                                        <div class="time-column">
-                                            <span class="time-column-label">AM/PM</span>
-                                            <div class="time-column-options">
-                                                <button type="button" class="time-option" data-time-part="period" data-time-value="AM">AM</button>
-                                                <button type="button" class="time-option" data-time-part="period" data-time-value="PM">PM</button>
-                                            </div>
-                                        </div>
+                                        @include('staff.intake._time-controls')
                                     </div>
                                 </div>
                             </div>
@@ -3602,21 +3600,6 @@
                             @enderror
                             <div id="interment_at_error" class="intake-field-error hidden">Interment Date cannot be earlier than the Funeral Ceremony Date.</div>
                             <p id="interment_schedule_warning" class="hidden text-xs font-bold text-amber-600 mt-1">Funeral Ceremony and interment are usually on the same day. Please confirm if interment is scheduled on a different date.</p>
-                            </div>
-                        </div>
-
-                        <div class="schedule-field-row">
-                            <div class="schedule-field-label">
-                                <label class="field-label">Wake Duration</label>
-                                <p>System-calculated from Wake Start through Wake End.</p>
-                            </div>
-                            <div>
-                            <input type="hidden" name="wake_days" id="wake_days" value="{{ old('wake_days') }}" data-label="wake days">
-                            <div class="service-readout pointer-events-none">
-                                <i class="bi bi-moon-stars text-slate-500"></i>
-                                <span id="wake_duration_display">Auto-calculated</span>
-                            </div>
-                            <p id="wake_days_helper" class="text-xs text-slate-500 mt-1">Calculated automatically from Wake Start Date through Wake End Date, inclusive.</p>
                             </div>
                         </div>
 
@@ -3636,12 +3619,12 @@
 
                         <div class="md:col-span-1">
                             <label class="field-label">Wake Location <span class="text-rose-500">*</span></label>
-                            <input type="text" name="wake_location" id="wake_location" value="{{ old('wake_location') }}" data-label="wake location" class="form-input" placeholder="Chapel or House Address" required>
+                            <input type="text" name="wake_location" id="wake_location" value="{{ $intakeValue('wake_location') }}" data-label="wake location" class="form-input" placeholder="Chapel or House Address" required>
                         </div>
 
                         <div>
                             <label class="field-label">Place of Interment / Cemetery <span class="text-rose-500">*</span></label>
-                            <input type="text" name="place_of_cemetery" value="{{ old('place_of_cemetery') }}" data-label="place of interment or cemetery" class="form-input" placeholder="Cemetery Name" required>
+                            <input type="text" name="place_of_cemetery" value="{{ $intakeValue('place_of_cemetery') }}" data-label="place of interment or cemetery" class="form-input" placeholder="Cemetery Name" required>
                         </div>
 
                         <div>
@@ -3685,15 +3668,15 @@
                         {{-- LEFT: Record Payment card --}}
                         <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                             <div class="px-5 py-4 border-b border-slate-100 flex items-center gap-3 bg-slate-50">
-                                <div class="w-7 h-7 rounded-lg bg-slate-800 text-white flex items-center justify-center flex-shrink-0">
-                                    <i class="bi bi-credit-card-fill text-xs"></i>
+                                <div class="billing-heading-icon w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <i class="bi bi-credit-card text-xs" aria-hidden="true"></i>
                                 </div>
                                 <span class="font-bold text-slate-800 text-sm">Record Payment</span>
                             </div>
                             <div class="p-5 billing-payment-stack">
 
                                 {{-- Hidden billing inputs still used by JS --}}
-                                <input type="hidden" name="package_amount" id="package_amount" value="{{ old('package_amount') }}">
+                                <input type="hidden" name="package_amount" id="package_amount" value="{{ $intakeValue('package_amount') }}">
                                 <input type="hidden" name="tax_rate" id="tax_rate" value="0">
                                 <input type="hidden" id="auto_discount_type" value="None">
                                 <input type="hidden" id="auto_discount_amount" value="PHP 0.00">
@@ -3729,9 +3712,9 @@
                                 @endif
 
                                 @if(!$isOtherEntryMode)
-                                    <label id="mark_as_paid_label" class="hidden group flex items-center justify-between gap-4 p-4 rounded-xl border-2 {{ old('mark_as_paid') ? 'border-slate-800 bg-slate-50' : 'border-slate-200 bg-white' }} cursor-pointer transition-all duration-200 hover:border-slate-400">
+                                    <label id="mark_as_paid_label" class="hidden group flex items-center justify-between gap-4 p-4 rounded-xl border-2 {{ $intakeValue('mark_as_paid') ? 'border-slate-800 bg-slate-50' : 'border-slate-200 bg-white' }} cursor-pointer transition-all duration-200 hover:border-slate-400">
                                         <div class="flex items-center gap-3">
-                                            <div id="mark_as_paid_icon" class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-200 {{ old('mark_as_paid') ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500' }}">
+                                            <div id="mark_as_paid_icon" class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-200 {{ $intakeValue('mark_as_paid') ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500' }}">
                                                 <i class="bi bi-cash-stack text-base"></i>
                                             </div>
                                             <div>
@@ -3740,7 +3723,7 @@
                                             </div>
                                         </div>
                                         <div id="mark_as_paid_toggle" class="relative w-11 h-6 flex-shrink-0">
-                                            <input type="checkbox" name="mark_as_paid" id="mark_as_paid" value="1" {{ old('mark_as_paid') ? 'checked' : '' }} class="sr-only peer">
+                                            <input type="checkbox" name="mark_as_paid" id="mark_as_paid" value="1" {{ $intakeValue('mark_as_paid') ? 'checked' : '' }} class="sr-only peer">
                                             <div class="w-11 h-6 rounded-full border-2 transition-all duration-200 peer-checked:bg-slate-900 peer-checked:border-slate-900 border-slate-300 bg-slate-100"></div>
                                             <div class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-all duration-200 peer-checked:translate-x-5 peer-checked:shadow-md"></div>
                                         </div>
@@ -3751,83 +3734,94 @@
                                     {{-- Payment Method --}}
                                     <div>
                                         <label class="field-label text-xs">Payment Method</label>
-                                        <div class="billing-method-choice" id="payment_method_group">
+                                        <div class="billing-method-choice" id="payment_method_group" role="radiogroup" aria-label="Payment method" aria-describedby="payment_method_hint">
                                             <label class="payment-method-card cursor-pointer">
-                                                <input type="radio" name="payment_method" value="cash" class="payment-method-radio sr-only" {{ $isOtherEntryMode || old('payment_method') === 'cash' || old('payment_method') === 'CASH' ? 'checked' : '' }}>
+                                                <input type="radio" name="payment_method" value="cash" class="payment-method-radio sr-only" {{ in_array($intakeValue('payment_method'), ['cash', 'CASH'], true) ? 'checked' : '' }}>
                                                 <span class="flex flex-col gap-1 text-sm font-bold text-slate-700">
-                                                    <span class="flex items-center gap-2"><i class="bi bi-cash-coin"></i> Cash</span>
+                                                    <span class="payment-choice-title"><span class="payment-choice-icon"><i class="bi bi-cash-coin" aria-hidden="true"></i></span> Cash</span>
                                                     <span class="text-xs font-medium text-slate-500">Record an over-the-counter payment.</span>
                                                 </span>
                                             </label>
                                             <label class="payment-method-card cursor-pointer">
-                                                <input type="radio" name="payment_method" value="cashless" class="payment-method-radio sr-only" {{ in_array(old('payment_method'), ['cashless', 'bank_transfer', 'BANK_TRANSFER'], true) ? 'checked' : '' }}>
+                                                <input type="radio" name="payment_method" value="cashless" class="payment-method-radio sr-only" {{ in_array($intakeValue('payment_method'), ['cashless', 'bank_transfer', 'BANK_TRANSFER'], true) ? 'checked' : '' }}>
                                                 <span class="flex flex-col gap-1 text-sm font-bold text-slate-700">
-                                                    <span class="flex items-center gap-2"><i class="bi bi-wallet2"></i> Cashless</span>
+                                                    <span class="payment-choice-title"><span class="payment-choice-icon"><i class="bi bi-wallet2" aria-hidden="true"></i></span> Cashless</span>
                                                     <span class="text-xs font-medium text-slate-500">Bank, wallet, card, or other channel.</span>
                                                 </span>
                                             </label>
                                         </div>
-                                        <p id="payment_method_hint" class="mt-2 text-xs font-medium text-slate-500">Leave unselected if no payment is being recorded yet.</p>
+                                        @if(!$isOtherEntryMode)
+                                            <label class="payment-method-card cursor-pointer mt-2">
+                                                <input type="radio" name="payment_method" value="none" class="payment-method-radio sr-only" {{ $intakeValue('payment_method') === 'none' ? 'checked' : '' }}>
+                                                <span class="payment-choice-title">No payment received yet</span>
+                                            </label>
+                                        @endif
+                                        <p id="payment_method_hint" class="mt-2 text-xs font-medium text-slate-500">Select a payment method or confirm that no payment has been received.</p>
+                                        <p id="payment_method_error" class="intake-field-error hidden" role="alert">Select a payment method or No payment received yet before continuing.</p>
                                     </div>
 
                                     <div id="payment_details_section" class="payment-details-shell hidden space-y-5">
                                     <div id="cash_reference_wrap">
                                         <label class="field-label">Receipt / Reference No. <span class="text-slate-400 font-medium">(optional)</span></label>
-                                        <input type="text" name="reference_number" id="cash_reference_number" value="{{ old('reference_number') }}" data-label="receipt reference" class="form-input" placeholder="Optional receipt or reference number">
+                                        <input type="text" name="reference_number" id="cash_reference_number" value="{{ $intakeValue('reference_number') }}" data-label="receipt reference" class="form-input" placeholder="Optional receipt or reference number">
                                     </div>
 
                                     <div id="cashless_details_wrap" class="hidden space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
                                         <div>
                                             <label class="field-label">Cashless Type</label>
+                                            <div class="payment-select-wrap"><i class="bi bi-credit-card payment-select-icon" aria-hidden="true"></i>
                                             <select name="cashless_type" id="cashless_type" class="form-input">
                                                 <option value="">Select cashless type</option>
-                                                <option value="bank_transfer" {{ old('cashless_type', in_array(old('payment_method'), ['bank_transfer', 'BANK_TRANSFER'], true) ? 'bank_transfer' : null) === 'bank_transfer' ? 'selected' : '' }}>Bank Transfer</option>
-                                                <option value="gcash" {{ old('cashless_type') === 'gcash' ? 'selected' : '' }}>GCash</option>
-                                                <option value="maya" {{ old('cashless_type') === 'maya' ? 'selected' : '' }}>Maya</option>
-                                                <option value="card" {{ old('cashless_type') === 'card' ? 'selected' : '' }}>Card</option>
-                                                <option value="other" {{ old('cashless_type') === 'other' ? 'selected' : '' }}>Other</option>
+                                                <option value="bank_transfer" {{ $intakeValue('cashless_type', in_array($intakeValue('payment_method'), ['bank_transfer', 'BANK_TRANSFER'], true) ? 'bank_transfer' : null) === 'bank_transfer' ? 'selected' : '' }}>Bank Transfer</option>
+                                                <option value="gcash" {{ $intakeValue('cashless_type') === 'gcash' ? 'selected' : '' }}>GCash</option>
+                                                <option value="maya" {{ $intakeValue('cashless_type') === 'maya' ? 'selected' : '' }}>Maya</option>
+                                                <option value="card" {{ $intakeValue('cashless_type') === 'card' ? 'selected' : '' }}>Card</option>
+                                                <option value="other" {{ $intakeValue('cashless_type') === 'other' ? 'selected' : '' }}>Other</option>
                                             </select>
+                                            <i class="bi bi-chevron-down payment-select-chevron" aria-hidden="true"></i></div>
                                         </div>
 
                                         <div data-intake-cashless-panel="bank_transfer" class="intake-cashless-panel hidden grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
                                                 <label class="field-label">Bank Name</label>
+                                                <div class="payment-select-wrap"><i class="bi bi-bank payment-select-icon" aria-hidden="true"></i>
                                                 <select name="bank_name" id="bank_name" class="form-input">
                                                     <option value="">Select bank</option>
                                                     @foreach(['BDO', 'BPI', 'Metrobank', 'Landbank', 'Security Bank', 'UnionBank', 'RCBC', 'PNB', 'China Bank', 'Other Bank'] as $bank)
-                                                        <option value="{{ $bank }}" {{ old('bank_name') === $bank ? 'selected' : '' }}>{{ $bank }}</option>
+                                                        <option value="{{ $bank }}" {{ $intakeValue('bank_name') === $bank ? 'selected' : '' }}>{{ $bank }}</option>
                                                     @endforeach
                                                 </select>
+                                                <i class="bi bi-chevron-down payment-select-chevron" aria-hidden="true"></i></div>
                                             </div>
                                             <div>
                                                 <label class="field-label">Account Name</label>
-                                                <input type="text" name="account_name" id="account_name" value="{{ old('account_name') }}" class="form-input" maxlength="120" placeholder="Optional">
+                                                <input type="text" name="account_name" id="account_name" value="{{ $intakeValue('account_name') }}" class="form-input" maxlength="120" placeholder="Optional">
                                             </div>
                                             <div id="other_bank_name_wrap" class="hidden md:col-span-2">
                                                 <label class="field-label">Other Bank Name</label>
-                                                <input type="text" name="other_bank_name" id="other_bank_name" value="{{ old('other_bank_name') }}" class="form-input" maxlength="100">
+                                                <input type="text" name="other_bank_name" id="other_bank_name" value="{{ $intakeValue('other_bank_name') }}" class="form-input" maxlength="100">
                                             </div>
                                         </div>
 
                                         <div data-intake-cashless-panel="gcash" class="intake-cashless-panel hidden grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
                                                 <label class="field-label">GCash Account Name</label>
-                                                <input type="text" data-intake-account-name-field value="{{ old('account_name') }}" class="form-input" maxlength="120" placeholder="Optional">
+                                                <input type="text" data-intake-account-name-field value="{{ $intakeValue('account_name') }}" class="form-input" maxlength="120" placeholder="Optional">
                                             </div>
                                             <div>
                                                 <label class="field-label">GCash Mobile Number</label>
-                                                <input type="text" data-intake-mobile-number-field value="{{ old('mobile_number') }}" class="form-input" maxlength="30" placeholder="Optional">
+                                                <input type="text" data-intake-mobile-number-field value="{{ $intakeValue('mobile_number') }}" class="form-input" maxlength="30" placeholder="Optional">
                                             </div>
                                         </div>
 
                                         <div data-intake-cashless-panel="maya" class="intake-cashless-panel hidden grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
                                                 <label class="field-label">Maya Account Name</label>
-                                                <input type="text" data-intake-account-name-field value="{{ old('account_name') }}" class="form-input" maxlength="120" placeholder="Optional">
+                                                <input type="text" data-intake-account-name-field value="{{ $intakeValue('account_name') }}" class="form-input" maxlength="120" placeholder="Optional">
                                             </div>
                                             <div>
                                                 <label class="field-label">Maya Mobile Number</label>
-                                                <input type="text" data-intake-mobile-number-field value="{{ old('mobile_number') }}" class="form-input" maxlength="30" placeholder="Optional">
+                                                <input type="text" data-intake-mobile-number-field value="{{ $intakeValue('mobile_number') }}" class="form-input" maxlength="30" placeholder="Optional">
                                             </div>
                                         </div>
 
@@ -3836,58 +3830,61 @@
                                                 <label class="field-label">Card Type</label>
                                                 <select name="card_type" id="card_type" class="form-input">
                                                     <option value="">Select card type</option>
-                                                    <option value="debit" {{ old('card_type') === 'debit' ? 'selected' : '' }}>Debit</option>
-                                                    <option value="credit" {{ old('card_type') === 'credit' ? 'selected' : '' }}>Credit</option>
+                                                    <option value="debit" {{ $intakeValue('card_type') === 'debit' ? 'selected' : '' }}>Debit</option>
+                                                    <option value="credit" {{ $intakeValue('card_type') === 'credit' ? 'selected' : '' }}>Credit</option>
                                                 </select>
                                             </div>
                                             <div>
                                                 <label class="field-label">Terminal / Provider</label>
-                                                <input type="text" name="terminal_provider" id="terminal_provider" value="{{ old('terminal_provider') }}" class="form-input" maxlength="80" placeholder="Optional">
+                                                <input type="text" name="terminal_provider" id="terminal_provider" value="{{ $intakeValue('terminal_provider') }}" class="form-input" maxlength="80" placeholder="Optional">
                                             </div>
                                             <div>
                                                 <label class="field-label">Approval Code</label>
-                                                <input type="text" name="approval_code" id="approval_code" value="{{ old('approval_code') }}" class="form-input" maxlength="40">
+                                                <input type="text" name="approval_code" id="approval_code" value="{{ $intakeValue('approval_code') }}" class="form-input" maxlength="40">
                                             </div>
                                         </div>
 
                                         <div data-intake-cashless-panel="other" class="intake-cashless-panel hidden grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
                                                 <label class="field-label">Payment Channel</label>
-                                                <input type="text" data-intake-payment-channel-field value="{{ old('payment_channel') }}" class="form-input" maxlength="100" placeholder="e.g. PalawanPay">
+                                                <input type="text" data-intake-payment-channel-field value="{{ $intakeValue('payment_channel') }}" class="form-input" maxlength="100" placeholder="e.g. PalawanPay">
                                             </div>
                                             <div>
                                                 <label class="field-label">Notes</label>
-                                                <input type="text" name="payment_notes" value="{{ old('payment_notes') }}" class="form-input" maxlength="255" placeholder="Optional">
+                                                <input type="text" name="payment_notes" value="{{ $intakeValue('payment_notes') }}" class="form-input" maxlength="255" placeholder="Optional">
                                             </div>
                                         </div>
 
                                         <div>
                                             <label class="field-label">Reference No.</label>
-                                            <input type="text" id="reference_number" value="{{ old('reference_number', old('bank_reference')) }}" data-label="reference number" class="form-input" placeholder="e.g. TXN-20240101-001">
+                                            <input type="text" id="reference_number" value="{{ $intakeValue('reference_number', $intakeValue('bank_reference')) }}" data-label="reference number" class="form-input" placeholder="e.g. TXN-20240101-001">
                                         </div>
-                                        <input type="hidden" name="wallet_provider" id="wallet_provider" value="{{ old('wallet_provider') }}">
-                                        <input type="hidden" name="mobile_number" id="mobile_number" value="{{ old('mobile_number') }}">
-                                        <input type="hidden" name="payment_channel" id="payment_channel" value="{{ old('payment_channel') }}">
-                                        <input type="hidden" name="bank_reference" id="bank_reference" value="{{ old('bank_reference') }}">
+                                        <input type="hidden" name="wallet_provider" id="wallet_provider" value="{{ $intakeValue('wallet_provider') }}">
+                                        <input type="hidden" name="mobile_number" id="mobile_number" value="{{ $intakeValue('mobile_number') }}">
+                                        <input type="hidden" name="payment_channel" id="payment_channel" value="{{ $intakeValue('payment_channel') }}">
+                                        <input type="hidden" name="bank_reference" id="bank_reference" value="{{ $intakeValue('bank_reference') }}">
+                                    </div>
+
                                     </div>
 
                                     @if(!$isOtherEntryMode)
-                                        <div>
+                                        <div id="payment_type_section" class="hidden">
                                             <label class="field-label text-xs">Payment Type</label>
-                                            <div class="bpay-tab-group" id="payment_type_group">
+                                            <div class="bpay-tab-group" id="payment_type_group" role="radiogroup" aria-label="Payment type">
                                                 <label class="payment-type-card cursor-pointer transition-colors">
-                                                    <input type="radio" name="payment_type" value="FULL" class="payment-type-radio sr-only" {{ old('payment_type') === 'FULL' ? 'checked' : '' }}>
-                                                    <span class="text-sm font-bold text-slate-700">Full Payment</span>
+                                                    <input type="radio" name="payment_type" value="FULL" class="payment-type-radio sr-only" {{ $intakeValue('payment_type') === 'FULL' ? 'checked' : '' }}>
+                                                    <span class="payment-type-copy"><span class="payment-choice-title"><i class="bi bi-check-circle" aria-hidden="true"></i> Full Payment</span><span class="payment-choice-help">Settle the full balance.</span></span>
                                                 </label>
                                                 <label class="payment-type-card cursor-pointer transition-colors">
-                                                    <input type="radio" name="payment_type" value="PARTIAL" class="payment-type-radio sr-only" {{ old('payment_type') === 'PARTIAL' ? 'checked' : '' }}>
-                                                    <span class="text-sm font-bold text-slate-700">Partial Payment</span>
+                                                    <input type="radio" name="payment_type" value="PARTIAL" class="payment-type-radio sr-only" {{ $intakeValue('payment_type') === 'PARTIAL' ? 'checked' : '' }}>
+                                                    <span class="payment-type-copy"><span class="payment-choice-title"><i class="bi bi-pie-chart" aria-hidden="true"></i> Partial Payment</span><span class="payment-choice-help">Record a deposit or installment.</span></span>
                                                 </label>
                                             </div>
                                             <div id="payment_type_error" class="intake-field-error hidden">Please select a type.</div>
                                         </div>
                                     @endif
 
+                                    <div id="payment_amount_section" class="hidden space-y-5">
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                                         <div>
                                             <label class="field-label">Amount Received</label>
@@ -3899,7 +3896,7 @@
                                                     min="0.01"
                                                     name="amount_paid"
                                                     id="amount_paid"
-                                                    value="{{ old('amount_paid') }}"
+                                                    value="{{ $intakeValue('amount_paid') }}"
                                                     data-label="amount paid"
                                                     class="w-full border-0 focus:outline-none focus:ring-0 font-black p-3 text-lg"
                                                     placeholder="0.00"
@@ -3911,8 +3908,9 @@
                                             <p class="text-[11px] font-bold text-slate-600 mt-1" id="payment_amount_formatted">₱0.00</p>
                                         </div>
                                         <div>
-                                            <label class="field-label">Date Received</label>
-                                            <input type="datetime-local" name="paid_at" id="paid_at" value="{{ old('paid_at', now()->format('Y-m-d\\TH:i')) }}" data-label="payment date" class="form-input">
+                                            <label class="field-label" for="paid_at">Payment Received Date &amp; Time</label>
+                                            <input type="datetime-local" name="paid_at" id="paid_at" value="{{ $intakeValue('paid_at', '') }}" data-label="payment received date/time" class="form-input">
+                                            <p class="intake-field-help mt-2 text-xs">Select the actual date and time payment was received. Required when recording a payment. Review this saved time when resuming a draft; recording time is saved separately.</p>
                                         </div>
                                     </div>
 
@@ -3922,11 +3920,11 @@
                                             <div id="payment_status_preview" class="text-base font-black text-slate-800">UNPAID</div>
                                         </div>
                                         <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                                            <div class="text-[9px] font-black uppercase tracking-widest text-emerald-600 mb-1">Paid Amount</div>
+                                            <div class="payment-summary-label text-[9px] font-black uppercase tracking-widest text-emerald-600 mb-1">Paid Amount</div>
                                             <div class="text-base font-black text-emerald-800">&#8369; <span id="payment_paid_preview">0.00</span></div>
                                         </div>
                                         <div class="rounded-xl border border-slate-800 bg-slate-900 p-4 text-white">
-                                            <div class="text-[9px] font-black uppercase tracking-widest opacity-50 mb-1">Remaining Balance</div>
+                                            <div class="payment-summary-label text-[9px] font-black uppercase tracking-widest mb-1">Remaining Balance</div>
                                             <div class="text-base font-black">&#8369; <span id="payment_balance_preview">0.00</span></div>
                                         </div>
                                     </div>
@@ -3940,8 +3938,8 @@
                         <div class="self-start sticky top-6">
                             <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                                 <div class="px-5 py-4 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
-                                    <div class="w-7 h-7 rounded-lg bg-slate-800 text-white flex items-center justify-center flex-shrink-0">
-                                        <i class="bi bi-receipt text-xs"></i>
+                                    <div class="billing-heading-icon w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0">
+                                        <i class="bi bi-receipt text-xs" aria-hidden="true"></i>
                                     </div>
                                     <span class="font-bold text-slate-800 text-sm">Live Summary</span>
                                 </div>
@@ -4068,12 +4066,13 @@
                         @endforeach
                     </div>
 
-                    <div class="mt-8 rounded-xl border border-amber-300 bg-amber-100 p-5 text-slate-900 flex items-start sm:items-center gap-4 shadow-md ring-1 ring-amber-200/70">
-                        <input type="checkbox" name="confirm_review" id="confirm_review" value="1" class="w-5 h-5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300" required>
-                        <label for="confirm_review" class="text-base font-semibold leading-snug">
+                    <label for="confirm_review" class="review-confirmation mt-8 rounded-xl border p-5 flex items-start gap-4 cursor-pointer">
+                        <input type="checkbox" name="confirm_review" id="confirm_review" value="1" class="review-confirmation-input" required>
+                        <span class="review-confirmation-mark" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
+                        <span class="review-confirmation-copy text-base font-semibold leading-snug">
                             I verify that I have reviewed this data and it is accurate to the best of my knowledge.
-                        </label>
-                    </div>
+                        </span>
+                    </label>
                 </section>
             </div>
 
@@ -4117,10 +4116,10 @@
     </div>{{-- /intake-section-shell --}}
 
     {{-- Cancel Confirmation Modal --}}
-    <div id="intakeCancelModal" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4" style="backdrop-filter:blur(3px);">
-        <div class="absolute inset-0" id="intakeCancelModalBackdrop" style="background:rgba(0,0,0,.45);"></div>
+    <div id="intakeCancelModal" role="dialog" aria-modal="true" aria-labelledby="intakeCancelTitle" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4" style="backdrop-filter:blur(3px);">
+        <div class="absolute inset-0" id="intakeCancelModalBackdrop" style="background:var(--modal-scrim);"></div>
         <div class="cancel-modal-box">
-            <p class="cancel-modal-title">Save this intake before leaving?</p>
+            <p id="intakeCancelTitle" class="cancel-modal-title">Save this intake before leaving?</p>
             <p class="cancel-modal-msg">You have unsaved intake details. Save them as a draft so staff can continue later, or leave without saving.</p>
             <div class="cancel-modal-actions">
                 <button type="button" id="intakeCancelModalKeep">Keep Editing</button>
@@ -4378,11 +4377,12 @@
         @json(auth()->id()),
         @json($isOtherEntryMode ? 'other' : 'main'),
         @json((string) $initialSelectedBranchId),
+        @json($intakeDraft ? 'saved-' . $intakeDraft->id : 'new'),
     ].join(':');
     const totalSteps = panels.length;
     const initialStep = Math.max(1, Math.min(totalSteps, Number(@json($initialStep ?? 1))));
     const serverInitialBranchId = @json((string) $initialSelectedBranchId);
-    const serverOldBranchExists = @json(old('branch_id') !== null);
+    const serverOldBranchExists = @json($intakeValue('branch_id') !== null);
     const serverDraftPayload = @json($intakeDraftPayload);
 
     let step = 1;
@@ -4593,7 +4593,7 @@
         return appliedAddOns();
     };
     let additionalItemIndex = 0;
-    const oldAdditionalItems = @json(old('additional_service_items', []));
+    const oldAdditionalItems = @json($intakeValue('additional_service_items', []));
     let restoredAutosaveAdditionalRows = false;
     const additionalServiceRows = () => [...document.querySelectorAll('[data-additional-service-row]')]
         .map((row) => ({
@@ -4775,6 +4775,9 @@
         if (!fieldName) return null;
 
         const safeName = fieldName.replace(/[^A-Za-z0-9_-]/g, '_');
+        const dateErrorIds = { born: 'born_error', died: 'died_error', wake_start_date: 'wake_start_error', wake_end_date: 'wake_end_error', funeral_service_at: 'funeral_service_at_error', interment_at: 'interment_at_error' };
+        const existing = document.getElementById(dateErrorIds[field.id]);
+        if (existing) return existing;
         let errorEl = document.getElementById(`${safeName}_inline_error`);
         if (!errorEl && create) {
             errorEl = document.createElement('p');
@@ -4782,24 +4785,37 @@
             errorEl.className = 'intake-field-error hidden';
 
             const selectWrap = field.matches('select') ? field.closest('.form-select-wrap') : null;
-            (selectWrap || field).insertAdjacentElement('afterend', errorEl);
+            const amountWrap = field.id === 'amount_paid' ? field.parentElement : null;
+            (selectWrap || amountWrap || field).insertAdjacentElement('afterend', errorEl);
         }
 
         return errorEl;
     };
 
+    let collectingValidation = false;
+    let restoringPickerState = false;
     const showFieldError = (field, message) => {
         if (!field) return false;
         const errorEl = fieldErrorElement(field);
         field.setCustomValidity(message);
-        setFieldError(field, errorEl, message);
-        field.focus();
+        setFieldError(field, errorEl, message, field._flatpickr?.altInput);
+        if (!collectingValidation) field.focus();
         return false;
     };
 
     const normalizeText = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
     const normalizeComparable = (value) => normalizeText(value).toLocaleLowerCase();
     const hasLetter = (value) => /\p{L}/u.test(String(value ?? ''));
+    const validPlacePattern = /^[\p{L}\p{M}\p{N} .,\u2019'#()/&-]+$/u;
+    const placeMessage = (field, value) => {
+        const label = field.name === 'wake_location' ? 'Wake location'
+            : field.name === 'place_of_cemetery' ? 'Place of interment / cemetery' : 'Complete address';
+        if (!value) return `${label} is required.`;
+        if (value.length > 255) return `${label} must not exceed 255 characters.`;
+        if (!hasLetter(value)) return `${label} must include a place name.`;
+        if (!validPlacePattern.test(value)) return `${label} contains unsupported symbols. Use letters, numbers, spaces, and address punctuation (., apostrophe, #, (), /, &, -).`;
+        return '';
+    };
     const isValidName = (value) => /^[\p{L}\p{M}\s.'-]+$/u.test(normalizeText(value));
     const isValidSuffix = (value) => {
         const normalized = normalizeText(value);
@@ -4832,19 +4848,15 @@
         const value = normalizeText(field?.value);
         if (field) field.value = value;
 
-        if (!value) {
-            return showFieldError(field, 'Complete address is required.');
-        }
-
-        if (!hasLetter(value)) {
-            return showFieldError(field, 'Complete address must include a valid place name.');
-        }
+        const message = placeMessage(field, value);
+        if (message) return showFieldError(field, message);
 
         clearFieldMessage(field);
         return true;
     };
 
     const validateNameGroup = (prefix, labels) => {
+        let valid = true;
         const fields = {
             first: fieldByName(`${prefix}_first_name`),
             middle: fieldByName(`${prefix}_middle_name`),
@@ -4864,49 +4876,49 @@
         if (fields.last) fields.last.value = last;
         if (fields.suffix) fields.suffix.value = suffix;
 
-        if (!first) return showFieldError(fields.first, `${labels.first} is required.`);
-        if (!isValidName(first)) return showFieldError(fields.first, `${labels.first} must contain letters only.`);
-        if (middle && !isValidName(middle)) return showFieldError(fields.middle, `${labels.middle} must contain letters only.`);
-        if (!last) return showFieldError(fields.last, `${labels.last} is required.`);
-        if (!isValidName(last)) return showFieldError(fields.last, `${labels.last} must contain letters only.`);
-        if (!isValidSuffix(suffix)) return showFieldError(fields.suffix, 'Please select a valid suffix.');
+        if (!first) valid = showFieldError(fields.first, `${labels.first} is required.`) && valid;
+        if (first && !isValidName(first)) valid = showFieldError(fields.first, `${labels.first} must contain letters only.`) && valid;
+        if (middle && !isValidName(middle)) valid = showFieldError(fields.middle, `${labels.middle} must contain letters only.`) && valid;
+        if (!last) valid = showFieldError(fields.last, `${labels.last} is required.`) && valid;
+        if (last && !isValidName(last)) valid = showFieldError(fields.last, `${labels.last} must contain letters only.`) && valid;
+        if (!isValidSuffix(suffix)) valid = showFieldError(fields.suffix, 'Please select a valid suffix.') && valid;
 
         const duplicate = validateDuplicateNameParts(first, middle, last);
-        if (duplicate) return showFieldError(fields[duplicate.field], duplicate.message);
+        if (duplicate) valid = showFieldError(fields[duplicate.field], duplicate.message) && valid;
 
-        return true;
+        return valid;
     };
 
     const validateClientInformationStep = () => {
-        if (!validateNameGroup('client', { first: 'First name', middle: 'Middle name', last: 'Last name' })) return false;
+        let valid = validateNameGroup('client', { first: 'First name', middle: 'Middle name', last: 'Last name' });
 
         const relationship = fieldByName('client_relationship');
         if (!normalizeText(relationship?.value)) {
-            return showFieldError(relationship, 'Relationship is required.');
+            valid = showFieldError(relationship, 'Relationship is required.') && valid;
         }
-        clearFieldMessage(relationship);
+        if (normalizeText(relationship?.value)) clearFieldMessage(relationship);
 
         const contact = fieldByName('client_contact_number');
         if (!normalizeText(contact?.value)) {
-            return showFieldError(contact, 'Contact number is required.');
+            valid = showFieldError(contact, 'Contact number is required.') && valid;
         }
-        if (!isValidPhilippineMobile(contact.value)) {
-            return showFieldError(contact, 'Please enter a valid Philippine mobile number.');
+        if (normalizeText(contact?.value) && !isValidPhilippineMobile(contact.value)) {
+            valid = showFieldError(contact, 'Please enter a valid Philippine mobile number.') && valid;
         }
-        clearFieldMessage(contact);
+        if (isValidPhilippineMobile(contact?.value)) clearFieldMessage(contact);
 
-        return validateAddressField(fieldByName('client_address'));
+        return validateAddressField(fieldByName('client_address')) && valid;
     };
 
     const validateDeceasedInformationStep = () => {
-        if (!validateNameGroup('deceased', { first: 'First name', middle: 'Middle name', last: 'Last name' })) return false;
-        if (!validateAddressField(fieldByName('deceased_address'))) return false;
+        let valid = validateNameGroup('deceased', { first: 'First name', middle: 'Middle name', last: 'Last name' });
+        valid = validateAddressField(fieldByName('deceased_address')) && valid;
 
-        if (normalizeComparable(fullNameForPrefix('client')) === normalizeComparable(fullNameForPrefix('deceased'))) {
-            return showFieldError(fieldByName('deceased_first_name'), 'Client and deceased names cannot be exactly the same. Please verify the entered information.');
+        if (fullNameForPrefix('deceased') && normalizeComparable(fullNameForPrefix('client')) === normalizeComparable(fullNameForPrefix('deceased'))) {
+            valid = showFieldError(fieldByName('deceased_first_name'), 'Client and deceased names cannot be exactly the same. Please verify the entered information.') && valid;
         }
 
-        return true;
+        return valid;
     };
 
     const branchCode = () => {
@@ -4988,9 +5000,13 @@
         }
 
         if (message) {
-            const textNode = element.querySelector('.package-toast-text');
+            const textNode = element.querySelector('.package-toast-text, .intake-notice-text');
             if (textNode) textNode.textContent = message;
             else element.textContent = message;
+            if (type === 'branch') {
+                const icon = element.querySelector('.intake-notice-icon');
+                if (icon) icon.className = `bi ${/draft restored/i.test(message) ? 'bi-file-earmark-check' : 'bi-building'} intake-notice-icon`;
+            }
         }
 
         element.classList.remove('hidden', 'opacity-0');
@@ -5203,6 +5219,12 @@
         const raw = getRawDateString(input, picker);
         if (!raw) return null;
 
+        if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+            const [year, month, day] = raw.split('-').map(Number);
+            const date = new Date(year, month - 1, day);
+            return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null;
+        }
+
         const parsed = Date.parse(raw);
         return Number.isNaN(parsed) ? null : new Date(parsed);
     };
@@ -5251,6 +5273,7 @@
     };
 
     const syncAge = () => {
+        if (restoringPickerState) return;
         const birth = getDateValue(born, bornPicker);
         const death = getDateValue(died, diedPicker);
         const prevSeniorValue = senior?.value;
@@ -5298,6 +5321,7 @@
     };
 
     const syncDateConstraints = () => {
+        if (restoringPickerState) return;
         if (died) died.max = today;
 
         if (wakeStart) {
@@ -5314,7 +5338,7 @@
         }
 
         if (paidAt && died?.value) {
-            paidAt.min = `${died.value}T00:00`;
+            paidAt.removeAttribute('min');
         }
     };
 
@@ -5433,6 +5457,16 @@
     };
 
     const syncControls = () => {
+        if (restoringPickerState) return;
+        const typeSelected = !!document.querySelector('.payment-type-radio:checked') || !!document.getElementById('payment_type')?.value;
+        document.getElementById('payment_amount_section')?.classList.toggle('hidden', !payNow() || !typeSelected);
+        const hasPaymentMethod = !!document.querySelector('.payment-method-radio:checked:not([value="none"])');
+        payTypeRadios.forEach((radio) => { radio.disabled = !hasPaymentMethod; });
+        document.getElementById('payment_type_section')?.classList.toggle('hidden', !hasPaymentMethod);
+        payTypeCards.forEach((card) => {
+            card.classList.toggle('opacity-50', !hasPaymentMethod);
+            card.classList.toggle('pointer-events-none', !hasPaymentMethod);
+        });
         enforceSeniorEligibility(false);
 
         if (deceasedAddr && clientAddr && deceasedAddr.dataset.manual !== '1') deceasedAddr.value = clientAddr.value;
@@ -5450,6 +5484,12 @@
             amountPaid.readOnly = payType() === 'FULL';
         }
 
+        if (paidAt) {
+            paidAt.disabled = !payNow() || !typeSelected;
+            paidAt.required = payNow() && typeSelected;
+            if (!payNow() || !typeSelected) paidAt.setCustomValidity('');
+        }
+
         payTypeCards.forEach((card) => {
             const active = !!card.querySelector('.payment-type-radio')?.checked;
             card.classList.toggle('active-tab', active);
@@ -5462,7 +5502,53 @@
         syncBranchUiLock();
     };
 
+    let advisoryKey = '';
+    let advisoryRequest = 0;
+    const updateScheduleAdvisory = async (force = false) => {
+        const panel = panels.find(panel => Number(panel.dataset.step) === totalSteps);
+        if (!panel || step !== totalSteps) return;
+        let card = panel.querySelector('[data-schedule-advisory]');
+        if (!card) {
+            card = document.createElement('section');
+            card.dataset.scheduleAdvisory = 'true';
+            card.setAttribute('aria-live', 'polite');
+            panel.querySelector('.section-title-block')?.insertAdjacentElement('afterend', card);
+            if (!card.isConnected) panel.prepend(card);
+        }
+        const params = new URLSearchParams({ branch_id: branch.value, funeral_service_at: funeral.value, interment_at: interment.value });
+        const key = params.toString();
+        if (!force && key === advisoryKey) return;
+        advisoryKey = key;
+        const request = ++advisoryRequest;
+        card.hidden = false;
+        card.textContent = 'Checking other cases scheduled on these dates…';
+        try {
+            const response = await fetch(@json(route('intake.schedule-advisory')) + '?' + key, { headers: { Accept: 'application/json' }, cache: 'no-store' });
+            if (!response.ok) throw new Error('Schedule check failed');
+            const data = await response.json();
+            if (request !== advisoryRequest) return;
+            card.replaceChildren();
+            card.hidden = !data.events.length;
+            if (!data.events.length) return;
+            const title = document.createElement('h4');
+            title.textContent = 'Schedule advisory · Other cases are scheduled on the same date';
+            const copy = document.createElement('p');
+            copy.textContent = `${data.case_count} other case(s) in this branch. Review staff, venue, and vehicle availability. You may save this case if the schedules can be accommodated.`;
+            const list = document.createElement('ul');
+            data.events.forEach(event => {
+                const item = document.createElement('li');
+                item.textContent = `${event.case_code} · ${event.event} · ${event.date} ${event.time} · ${event.status === 'ACTIVE' ? 'Ongoing' : event.status === 'COMPLETED' ? 'Completed' : 'Draft'}`;
+                list.appendChild(item);
+            });
+            card.append(title, copy, list);
+        } catch (error) {
+            if (request !== advisoryRequest) return;
+            advisoryKey = '';
+            card.textContent = 'Schedule advisory is currently unavailable. Check branch schedules before saving. You may still proceed.';
+        }
+    };
     const renderReview = () => {
+        updateScheduleAdvisory();
         const selected = pkg();
         const t = totals();
 
@@ -5576,7 +5662,7 @@
     const combineDateAndTime = (date, timeValue) => {
         if (!date || !timeValue) return null;
         const [hours, minutes] = String(timeValue).split(':').map(Number);
-        if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+        if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(String(timeValue))) return null;
 
         const combined = new Date(date.getFullYear(), date.getMonth(), date.getDate(), hours, minutes, 0, 0);
         return Number.isNaN(combined.getTime()) ? null : combined;
@@ -5648,6 +5734,10 @@
             });
             picker.classList.add('is-open');
             displayInput.setAttribute('aria-expanded', 'true');
+            popover.querySelector('[data-time-editor="hour"]').value = state.hour;
+            popover.querySelector('[data-time-editor="minute"]').value = state.minute;
+            popover.querySelectorAll('[data-time-period]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.timePeriod === state.period)));
+            popover.querySelector('.time-editor-error').hidden = true;
             const selected = picker.querySelector('.time-option.is-selected');
             selected?.scrollIntoView({ block: 'nearest' });
         };
@@ -5757,6 +5847,24 @@
             }
         });
 
+        popover.querySelectorAll('[data-time-period]').forEach(button => button.addEventListener('click', () => {
+            popover.querySelectorAll('[data-time-period]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+        }));
+        popover.querySelectorAll('[data-time-minute]').forEach(button => button.addEventListener('click', () => {
+            popover.querySelector('[data-time-editor="minute"]').value = button.dataset.timeMinute;
+        }));
+        popover.querySelector('[data-time-apply]').addEventListener('click', () => {
+            const hourText = popover.querySelector('[data-time-editor="hour"]').value;
+            const minuteText = popover.querySelector('[data-time-editor="minute"]').value;
+            const hour = Number(hourText), minute = Number(minuteText);
+            const period = popover.querySelector('[data-time-period][aria-pressed="true"]')?.dataset.timePeriod;
+            if (!hourText || !minuteText || !Number.isInteger(hour) || hour < 1 || hour > 12 || !Number.isInteger(minute) || minute < 0 || minute > 59 || !period) {
+                popover.querySelector('.time-editor-error').hidden = false;
+                return;
+            }
+            state.hour = pad(hour); state.minute = pad(minute); state.period = period;
+            syncHiddenValue(); closePicker(); displayInput.focus();
+        });
         allOptions.forEach((option) => {
             option.addEventListener('click', () => {
                 state[option.dataset.timePart] = option.dataset.timeValue;
@@ -5988,6 +6096,7 @@
     };
 
     const render = () => {
+        if (restoringPickerState) return;
         computeWakeDays();
         validateDobDod('light');
         validateWakeInterment('light');
@@ -6153,6 +6262,7 @@
     };
 
     const validatePanelFields = (panel) => {
+        let valid = true;
         const flatpickrDateFields = ['born', 'died', 'wake_start_date', 'funeral_service_at', 'interment_at'];
 
         for (const field of [...panel.querySelectorAll('input, select, textarea')].filter((element) => element.type !== 'hidden' && !element.disabled)) {
@@ -6175,8 +6285,9 @@
                     : `Please enter ${labelFor(field).toLowerCase()}.`;
 
                 field.setCustomValidity(message);
-                field.reportValidity();
-                return false;
+                showFieldError(field, message);
+                valid = false;
+                continue;
             }
 
             if (isFlatpickrDate) {
@@ -6184,33 +6295,35 @@
             }
 
             if (!field.checkValidity()) {
-                field.reportValidity();
-                return false;
+                showFieldError(field, field.validationMessage);
+                valid = false;
             }
         }
 
-        return true;
+        return valid;
     };
 
-    const validate = (targetStep) => {
+    const validateStep = (targetStep) => {
         clearMessages();
+        let valid = true;
 
         if (shouldLockOtherBranchIntake()) {
             branchError?.classList.remove('hidden');
             if (branchError) branchError.textContent = 'Before you continue, please select a branch so we can record the case correctly.';
-            showBranchToast('Before you continue, please select a branch so we can record the case correctly.');
-            return false;
+            if (!collectingValidation) showBranchToast('Before you continue, please select a branch so we can record the case correctly.');
+            valid = false;
         }
 
         const panel = panels.find((element) => Number(element.dataset.step) === targetStep);
         if (!panel) return true;
 
-        if (targetStep === 1 && !validateClientInformationStep()) return false;
-        if (targetStep === 2 && !validateDeceasedInformationStep()) return false;
+        valid = validatePanelFields(panel) && valid;
+        if (targetStep === 1) valid = validateClientInformationStep() && valid;
+        if (targetStep === 2) valid = validateDeceasedInformationStep() && valid;
         if (targetStep === 2) validateDobDod('full');
         if (targetStep === 3) validateWakeInterment('full');
 
-        if (!validatePanelFields(panel)) return false;
+
 
         if (targetStep === 4) {
             for (const row of document.querySelectorAll('[data-additional-service-row]')) {
@@ -6220,11 +6333,11 @@
                 const hasAmount = num(amount?.value) > 0;
 
                 if (hasAmount && !hasDescription) {
-                    return showFieldError(description, 'Description is required for this additional charge.');
+                    valid = showFieldError(description, 'Description is required for this additional charge.') && valid;
                 }
 
                 if (hasDescription && !hasAmount) {
-                    return showFieldError(amount, 'Enter an amount greater than zero for this line.');
+                    valid = showFieldError(amount, 'Enter an amount greater than zero for this line.') && valid;
                 }
             }
         }
@@ -6232,7 +6345,7 @@
         if (targetStep === 1 && (!branch.value || (isOtherEntryMode && !isBranchSelectedForOtherMode()))) {
             branchError?.classList.remove('hidden');
             if (branchError) branchError.textContent = 'Before you continue, please select a branch so we can record the case correctly.';
-            return false;
+            valid = false;
         }
 
         if (targetStep === 2) {
@@ -6252,65 +6365,67 @@
             if (!birthRaw) {
                 born.setCustomValidity('Date of birth is required.');
                 setFieldError(born, bornErr, 'Date of birth is required.', bornPicker?.altInput);
-                bornPicker?.altInput?.focus();
-                return false;
+
+                valid = false;
             }
 
             if (!deathRaw) {
                 died.setCustomValidity('Date of death is required.');
                 setFieldError(died, diedErr, 'Date of death is required.', diedPicker?.altInput);
-                diedPicker?.altInput?.focus();
-                return false;
+
+                valid = false;
             }
 
-            if (!birthDate) {
+            if (birthRaw && !birthDate) {
                 born.setCustomValidity('Please enter a valid date of birth.');
                 setFieldError(born, bornErr, 'Please enter a valid date of birth.', bornPicker?.altInput);
-                bornPicker?.altInput?.focus();
-                return false;
+
+                valid = false;
             }
 
-            if (!deathDate) {
+            if (deathRaw && !deathDate) {
                 died.setCustomValidity('Please enter a valid date of death.');
                 setFieldError(died, diedErr, 'Please enter a valid date of death.', diedPicker?.altInput);
-                diedPicker?.altInput?.focus();
-                return false;
+
+                valid = false;
             }
 
             if (birthDate > todayEnd) {
                 born.setCustomValidity('Date of birth cannot be in the future.');
                 setFieldError(born, bornErr, 'Date of birth cannot be in the future.', bornPicker?.altInput);
-                bornPicker?.altInput?.focus();
-                return false;
+
+                valid = false;
             }
 
             if (deathDate > todayEnd) {
                 died.setCustomValidity('Date of death cannot be in the future.');
                 setFieldError(died, diedErr, 'Date of death cannot be in the future.', diedPicker?.altInput);
-                diedPicker?.altInput?.focus();
-                return false;
+
+                valid = false;
             }
 
-            if (deathDate < birthDate) {
+            if (birthDate && deathDate && deathDate < birthDate) {
                 died.setCustomValidity('Date of death cannot be earlier than date of birth.');
                 setFieldError(died, diedErr, 'Date of death cannot be earlier than date of birth.', diedPicker?.altInput);
-                diedPicker?.altInput?.focus();
-                return false;
+
+                valid = false;
             }
 
             const years = Number.parseInt(age?.value ?? '', 10);
             if (senior?.value === '1' && Number.isFinite(years) && years < 60) {
                 senior.setCustomValidity('Senior Citizen can only be set to Yes when computed age is at least 60.');
-                senior.reportValidity();
-                return false;
+                showFieldError(senior, senior.validationMessage);
+                valid = false;
             }
         }
         if (targetStep === 3 && !pkg()) {
             packageError?.classList.remove('hidden');
-            return false;
+            valid = false;
         }
 
         if (targetStep === 3) {
+            valid = validateAddressField(fieldByName('wake_location')) && valid;
+            valid = validateAddressField(fieldByName('place_of_cemetery')) && valid;
             const wakeStartRaw = getRawDateString(wakeStart, wakeStartPicker);
             const wakeEndRaw = getRawDateString(wakeEnd, wakeEndPicker);
             const wakeRaw = getRawDateString(funeral, wakePicker);
@@ -6338,105 +6453,137 @@
             interment?.setCustomValidity('');
             intermentTime?.setCustomValidity('');
 
+            [[wakeStart, wakeStartTime, wakeStartErr, wakeStartPicker, 'Wake start'],
+                [wakeEnd, wakeEndTime, wakeEndErr, wakeEndPicker, 'Wake end'],
+                [funeral, funeralTime, wakeErr, wakePicker, 'Funeral ceremony'],
+                [interment, intermentTime, intermentErr, interPicker, 'Interment']].forEach(([date, time, error, picker, label]) => {
+                if (time?.value && !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time.value)) {
+                    const message = `${label} time must be a valid time between 00:00 and 23:59.`;
+                    date.setCustomValidity(message);
+                    time.setCustomValidity(message);
+                    setFieldError(date, error, message, picker?.altInput);
+                    valid = false;
+                }
+            });
+
+            const deathOnly = dateOnly(getDateValue(died, diedPicker));
+            [[wakeStart, wakeStartDate, wakeStartErr, wakeStartPicker, 'Wake start'],
+                [funeral, wakeDate, wakeErr, wakePicker, 'Funeral ceremony'],
+                [interment, interDate, intermentErr, interPicker, 'Interment']].forEach(([field, date, error, picker, label]) => {
+                if (date && deathOnly && dateOnly(date) < deathOnly) {
+                    const message = `${label} date must be on or after the date of death.`;
+                    field.setCustomValidity(message);
+                    setFieldError(field, error, message, picker?.altInput);
+                    valid = false;
+                }
+            });
+
             if (!wakeStartRaw || !wakeStartTime?.value) {
                 wakeStart.setCustomValidity('Please select a wake start date and time.');
                 wakeStartTime?.setCustomValidity('Please select a wake start date and time.');
                 setFieldError(wakeStart, wakeStartErr, 'Please select a wake start date and time.', wakeStartPicker?.altInput);
-                wakeStartPicker?.altInput?.focus();
-                return false;
+
+                valid = false;
             }
 
             if (!wakeRaw || !funeralTime?.value) {
                 funeral.setCustomValidity('Please select a funeral ceremony date and time.');
                 funeralTime?.setCustomValidity('Please select a funeral ceremony date and time.');
                 setFieldError(funeral, wakeErr, 'Please select a funeral ceremony date and time.', wakePicker?.altInput);
-                wakePicker?.altInput?.focus();
-                return false;
+
+                valid = false;
             }
 
             if (!wakeEndRaw || !wakeEndTime?.value) {
                 wakeEnd.setCustomValidity('Please select a wake end date and time.');
                 wakeEndTime?.setCustomValidity('Please select a wake end date and time.');
                 setFieldError(wakeEnd, wakeEndErr, 'Please select a wake end date and time.', wakeEndPicker?.altInput);
-                wakeEndPicker?.altInput?.focus();
-                return false;
+
+                valid = false;
             }
 
             if (!interRaw || !intermentTime?.value) {
                 interment.setCustomValidity('Please select an interment date and time.');
                 intermentTime?.setCustomValidity('Please select an interment date and time.');
                 setFieldError(interment, intermentErr, 'Please select an interment date and time.', interPicker?.altInput);
-                interPicker?.altInput?.focus();
-                return false;
+
+                valid = false;
             }
 
-            if (!wakeStartDate) {
+            if (wakeStartRaw && !wakeStartDate) {
                 wakeStart.setCustomValidity('Please select a wake start date and time.');
                 setFieldError(wakeStart, wakeStartErr, 'Please select a wake start date and time.', wakeStartPicker?.altInput);
-                wakeStartPicker?.altInput?.focus();
-                return false;
+
+                valid = false;
             }
 
-            if (!wakeDate) {
+            if (wakeRaw && !wakeDate) {
                 funeral.setCustomValidity('Please select a funeral ceremony date and time.');
                 setFieldError(funeral, wakeErr, 'Please select a funeral ceremony date and time.', wakePicker?.altInput);
-                wakePicker?.altInput?.focus();
-                return false;
+
+                valid = false;
             }
 
-            if (!wakeEndDate) {
+            if (wakeEndRaw && !wakeEndDate) {
                 wakeEnd.setCustomValidity('Please select a wake end date and time.');
                 setFieldError(wakeEnd, wakeEndErr, 'Please select a wake end date and time.', wakeEndPicker?.altInput);
-                wakeEndPicker?.altInput?.focus();
-                return false;
+
+                valid = false;
             }
 
-            if (!interDate) {
+            if (interRaw && !interDate) {
                 interment.setCustomValidity('Please select an interment date and time.');
                 setFieldError(interment, intermentErr, 'Please select an interment date and time.', interPicker?.altInput);
-                interPicker?.altInput?.focus();
-                return false;
+
+                valid = false;
             }
 
             const requestOnly = requestDateValue ? new Date(requestDateValue.getFullYear(), requestDateValue.getMonth(), requestDateValue.getDate()) : null;
-            const wakeOnly = new Date(wakeStartDate.getFullYear(), wakeStartDate.getMonth(), wakeStartDate.getDate());
-            if (requestOnly && wakeOnly < requestOnly) {
+            const wakeOnly = wakeStartDate ? dateOnly(wakeStartDate) : null;
+            if (requestOnly && wakeOnly && wakeOnly < requestOnly) {
                 wakeStart.setCustomValidity('Wake start date cannot be before the request/recorded date.');
                 setFieldError(wakeStart, wakeStartErr, 'Wake start date cannot be before the request/recorded date.', wakeStartPicker?.altInput);
-                wakeStartPicker?.altInput?.focus();
-                return false;
+
+                valid = false;
             }
 
-            if (wakeEndDateTime <= wakeStartDateTime) {
+            if (wakeEndDateTime && wakeStartDateTime && wakeEndDateTime <= wakeStartDateTime) {
                 wakeEnd.setCustomValidity('Wake End Date/Time must be later than the Wake Start Date/Time.');
                 setFieldError(wakeEnd, wakeEndErr, 'Wake End Date/Time must be later than the Wake Start Date/Time.', wakeEndPicker?.altInput);
-                wakeEndPicker?.altInput?.focus();
-                return false;
+
+                valid = false;
             }
 
-            if (funeralDateTime < wakeEndDateTime) {
+            if (funeralDateTime && wakeEndDateTime && funeralDateTime < wakeEndDateTime) {
                 funeral.setCustomValidity('Funeral Ceremony Date/Time cannot be earlier than the Wake End Date/Time.');
                 setFieldError(funeral, wakeErr, 'Funeral Ceremony Date/Time cannot be earlier than the Wake End Date/Time.', wakePicker?.altInput);
-                wakePicker?.altInput?.focus();
-                return false;
+
+                valid = false;
             }
 
-            const serviceOnly = dateOnly(wakeDate);
-            const interOnly = dateOnly(interDate);
-            if (interOnly < serviceOnly) {
+            const serviceOnly = wakeDate ? dateOnly(wakeDate) : null;
+            const interOnly = interDate ? dateOnly(interDate) : null;
+            if (interOnly && serviceOnly && interOnly < serviceOnly) {
                 interment.setCustomValidity('Interment date/time must be after the Funeral Ceremony date/time.');
                 setFieldError(interment, intermentErr, 'Interment date/time must be after the Funeral Ceremony date/time.', interPicker?.altInput);
-                interPicker?.altInput?.focus();
-                return false;
+
+                valid = false;
             }
 
-            if (sameDate(wakeDate, interDate) && intermentDateTime <= funeralDateTime) {
+            if (wakeDate && interDate && sameDate(wakeDate, interDate) && intermentDateTime <= funeralDateTime) {
                 interment.setCustomValidity('Interment time must be later than the Funeral Ceremony time.');
                 intermentTime?.setCustomValidity('Interment time must be later than the Funeral Ceremony time.');
                 setFieldError(interment, intermentErr, 'Interment time must be later than the Funeral Ceremony time.', interPicker?.altInput);
-                interPicker?.altInput?.focus();
-                return false;
+
+                valid = false;
             }
+        }
+
+        if (targetStep === 4 && !payMethodRadios.some((radio) => radio.checked)) {
+            document.getElementById('payment_method_error')?.classList.remove('hidden');
+
+
+            valid = false;
         }
 
         if (targetStep === 4 && payNow()) {
@@ -6444,35 +6591,42 @@
 
             if (!payType()) {
                 paymentTypeError?.classList.remove('hidden');
-                return false;
+                valid = false;
             }
 
             if (!amountPaid?.value) {
                 amountPaid.setCustomValidity('Please enter amount paid.');
-                amountPaid.reportValidity();
-                return false;
+                showFieldError(amountPaid, amountPaid.validationMessage);
+                valid = false;
             }
 
             if (!paidAt?.value) {
-                paidAt.setCustomValidity('Please select payment date.');
-                paidAt.reportValidity();
-                return false;
+                paidAt.setCustomValidity('Please select the actual payment received date and time.');
+                showFieldError(paidAt, paidAt.validationMessage);
+                valid = false;
+            }
+
+            if (paidAt?.value) {
+                const currentTime = new Date();
+                paidAt.max = new Date(currentTime.getTime() - currentTime.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                paidAt.setCustomValidity(new Date(paidAt.value) > currentTime ? 'Payment received date/time cannot be in the future.' : '');
+                if (!paidAt.checkValidity()) { showFieldError(paidAt, paidAt.validationMessage); valid = false; }
             }
 
             if (!validatePaymentMethodDetails()) {
-                return false;
+                valid = false;
             }
 
-            if (payType() === 'FULL' && t.paid < t.total) {
+            if (amountPaid?.value && t.paid > 0 && payType() === 'FULL' && t.paid < t.total) {
                 amountPaid.setCustomValidity('Full payment must match the total amount due.');
-                amountPaid.reportValidity();
-                return false;
+                showFieldError(amountPaid, amountPaid.validationMessage);
+                valid = false;
             }
 
-            if (payType() === 'PARTIAL' && t.paid >= t.total) {
+            if (amountPaid?.value && t.paid > 0 && payType() === 'PARTIAL' && t.paid >= t.total) {
                 amountPaid.setCustomValidity('Partial payment must be less than the total amount due.');
-                amountPaid.reportValidity();
-                return false;
+                showFieldError(amountPaid, amountPaid.validationMessage);
+                valid = false;
             }
         }
 
@@ -6480,13 +6634,150 @@
             const confirmBox = document.getElementById('confirm_review');
             if (confirmBox && !confirmBox.checked) {
                 confirmBox.setCustomValidity('Please confirm that the information is correct.');
-                confirmBox.reportValidity();
-                return false;
+                showFieldError(confirmBox, confirmBox.validationMessage);
+                valid = false;
             }
         }
 
-        return true;
+        return valid;
     };
+
+    const attemptedSteps = new Set();
+    const validationTarget = field => {
+        if (!field) return null;
+        const input = field._flatpickr?.altInput || field;
+        if (getComputedStyle(input).display !== 'none' && !['hidden', 'radio', 'checkbox'].includes(input.type)) return input;
+        const label = field.closest('label') || (field.id && f.querySelector(`label[for="${field.id}"]`));
+        const target = label || (field === branch ? branchBtns[0] : input);
+        if (target) target.tabIndex = -1;
+        return target;
+    };
+    const renderValidationSummary = (panel) => {
+        let summary = panel.querySelector('[data-validation-summary]');
+        if (!summary) {
+            summary = document.createElement('div');
+            summary.dataset.validationSummary = 'true';
+            summary.className = 'intake-validation-summary';
+            summary.setAttribute('role', 'region');
+            summary.setAttribute('aria-label', 'Fields to check');
+            panel.querySelector('.section-title-block')?.insertAdjacentElement('afterend', summary);
+        }
+        const errors = [];
+        panel.querySelectorAll('input,select,textarea').forEach(field => {
+            if (field.disabled || (field.type === 'hidden' && !field._flatpickr)) return;
+            const inlineError = fieldErrorElement(field, false);
+            const message = field.validationMessage || (inlineError && !inlineError.classList.contains('hidden') ? inlineError.textContent.trim() : '');
+            if (!message) return;
+            if (field.type === 'radio' && errors.some(error => error.name === field.name)) return;
+            if (field.name === 'package_id' && !packageError?.classList.contains('hidden')) return;
+            const target = validationTarget(field);
+            if (errors.some(error => error.message === message && error.target === target)) return;
+            showFieldError(field, message);
+            errors.push({ target, message, name: field.name });
+        });
+        ['payment_method_error', 'payment_type_error', 'package_error', 'branch_error'].forEach(id => {
+            const error = panel.querySelector('#' + id);
+            if (!error || error.classList.contains('hidden')) return;
+            const target = id === 'payment_method_error' ? payMethodRadios[0]
+                : id === 'payment_type_error' ? payTypeRadios[0]
+                : id === 'package_error' ? pkgRadios[0] : branch;
+            if (target) errors.push({ target: validationTarget(target), message: error.textContent.trim() });
+        });
+        summary.replaceChildren();
+        summary.hidden = errors.length === 0;
+        if (errors.length) {
+            const title = document.createElement('p');
+            title.textContent = errors.length === 1 ? 'Please check this field.' : `Please check these ${errors.length} fields.`;
+            const heading = document.createElement('div');
+            heading.className = 'validation-heading';
+            const icon = document.createElement('span');
+            icon.className = 'validation-icon';
+            icon.setAttribute('aria-hidden', 'true');
+            icon.textContent = '!';
+            const copy = document.createElement('div');
+            const help = document.createElement('small');
+            help.textContent = 'Select an item to go to the field and correct it.';
+            copy.append(title, help);
+            heading.append(icon, copy);
+            summary.appendChild(heading);
+            const list = document.createElement('ul');
+            errors.forEach(({ target, message }, index) => {
+                const item = document.createElement('li');
+                const link = document.createElement('button');
+                link.type = 'button';
+                const number = document.createElement('span');
+                number.className = 'validation-number';
+                number.setAttribute('aria-hidden', 'true');
+                number.textContent = String(index + 1).padStart(2, '0');
+                const text = document.createElement('span');
+                text.textContent = message;
+                const arrow = document.createElement('span');
+                arrow.className = 'validation-arrow';
+                arrow.setAttribute('aria-hidden', 'true');
+                arrow.textContent = '→';
+                link.append(number, text, arrow);
+                link.addEventListener('click', () => {
+                    target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                    target.focus({ preventScroll: true });
+                    f.querySelectorAll('.validation-highlight').forEach(field => field.classList.remove('validation-highlight'));
+                    target.classList.add('validation-highlight');
+                    clearTimeout(target._validationHighlightTimer);
+                    target._validationHighlightTimer = setTimeout(() => target.classList.remove('validation-highlight'), 2200);
+                });
+                item.appendChild(link);
+                list.appendChild(item);
+            });
+            summary.appendChild(list);
+        }
+        return errors;
+    };
+    const validate = (targetStep, focus = true) => {
+        attemptedSteps.add(targetStep);
+        collectingValidation = true;
+        let valid;
+        let errors;
+        try {
+            valid = validateStep(targetStep);
+            const panel = panels.find(element => Number(element.dataset.step) === targetStep);
+            errors = panel ? renderValidationSummary(panel) : [];
+        } finally {
+            collectingValidation = false;
+        }
+        if (!valid && focus && errors.length) {
+            errors[0].target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            errors[0].target.focus({ preventScroll: true });
+        }
+        return valid && errors.length === 0;
+    };
+    f.addEventListener('focusout', event => {
+        if (event.relatedTarget?.closest('button,a,[data-validation-summary]')) return;
+        const field = event.target;
+        const panel = field.closest('.wizard-panel');
+        if (!panel || !field.matches('input,select,textarea') || field.disabled) return;
+        const stepNumber = Number(panel.dataset.step);
+        if (attemptedSteps.has(stepNumber)) { validate(stepNumber, false); return; }
+        if (!String(field.value || '').trim()) return;
+        clearFieldMessage(field);
+        let message = '';
+        if (field.name?.match(/_(first|middle|last)_name$/) && !isValidName(field.value)) message = 'Name must contain letters only.';
+        else if (field.name === 'client_contact_number' && !isValidPhilippineMobile(field.value)) message = 'Please enter a valid Philippine mobile number.';
+        else if (field.name?.endsWith('_address') || ['wake_location', 'place_of_cemetery'].includes(field.name)) message = placeMessage(field, normalizeText(field.value));
+        else if (!field.checkValidity()) message = field.validationMessage;
+        if (message) {
+            collectingValidation = true;
+            showFieldError(field, message);
+            collectingValidation = false;
+        }
+    });
+    let validationRefresh;
+    const refreshAttemptedValidation = event => {
+        const panel = event.target.closest('.wizard-panel');
+        if (!panel || !attemptedSteps.has(Number(panel.dataset.step))) return;
+        clearTimeout(validationRefresh);
+        validationRefresh = setTimeout(() => validate(Number(panel.dataset.step), false), 250);
+    };
+    f.addEventListener('input', refreshAttemptedValidation);
+    f.addEventListener('change', refreshAttemptedValidation);
 
     const scrollToStepTop = (smooth = false) => {
         const anchor = wizardSteps || formContent;
@@ -6555,7 +6846,7 @@
                 : 'Continue <i class="bi bi-chevron-right text-[10px] ml-1"></i>';
         }
 
-        if (step === totalSteps) renderReview();
+        if (step === totalSteps) { advisoryKey = ''; renderReview(); }
         if (scroll && step !== previousStep) scrollToStepTop(smooth);
 
         // Update progress rail
@@ -7284,7 +7575,7 @@
                 setFieldError(died, diedErr, '', diedPicker?.altInput);
 
                 if (paidAt && died?.value) {
-                    paidAt.min = `${died.value}T00:00`;
+                    paidAt.removeAttribute('min');
                 }
 
                 syncAge();
@@ -7411,7 +7702,9 @@
 
     function syncPayMethod() {
         const selected = payMethodRadios.find(r => r.checked)?.value;
-        const hasMethod = !!selected;
+        const hasMethod = selected === 'cash' || selected === 'cashless';
+        document.getElementById('payment_type_section')?.classList.toggle('hidden', !hasMethod);
+        if (selected) document.getElementById('payment_method_error')?.classList.add('hidden');
         if (mark?.type === 'checkbox') {
             mark.checked = hasMethod;
             syncMarkLabel();
@@ -7422,10 +7715,12 @@
         const isCashless = selected === 'cashless';
         const type = cashlessType?.value || '';
         if (paymentDetailsSection) paymentDetailsSection.classList.toggle('hidden', !hasMethod);
+        const typeSelected = !!document.querySelector('.payment-type-radio:checked') || !!document.getElementById('payment_type')?.value;
+        document.getElementById('payment_amount_section')?.classList.toggle('hidden', !hasMethod || !typeSelected);
         if (paymentMethodHint) {
             paymentMethodHint.textContent = hasMethod
                 ? 'Payment details are now available below.'
-                : 'Leave unselected if no payment is being recorded yet.';
+                : selected === 'none' ? 'This case will be saved without a payment.' : 'Select a payment method or confirm that no payment has been received.';
         }
         if (cashReferenceWrap) cashReferenceWrap.classList.toggle('hidden', !hasMethod || isCashless);
         if (cashlessWrap) cashlessWrap.classList.toggle('hidden', !hasMethod || !isCashless);
@@ -7435,6 +7730,7 @@
         }
         if (!hasMethod) {
             payTypeRadios.forEach((radio) => { radio.checked = false; });
+            if (paidAt) { paidAt.value = ''; paidAt.setCustomValidity(''); }
         }
         if (!isCashless) {
             if (cashlessType) cashlessType.value = '';
@@ -7465,6 +7761,7 @@
         if (mobileNumber) mobileNumber.value = activeMobile ? activeMobile.value : '';
         if (paymentChannel) paymentChannel.value = activeChannel ? activeChannel.value : '';
         if (walletProvider) walletProvider.value = type === 'gcash' ? 'GCash' : (type === 'maya' ? 'Maya' : '');
+        syncControls();
     }
 
     const clearPaymentMethodValidity = () => {
@@ -7499,10 +7796,15 @@
     };
 
     const validatePaymentMethodDetails = () => {
+        let valid = true;
         syncPayMethod();
         clearPaymentMethodValidity();
 
-        const selected = payMethodRadios.find(r => r.checked)?.value || 'cash';
+        const selected = payMethodRadios.find(r => r.checked)?.value;
+        if (!selected) {
+            document.getElementById('payment_method_error')?.classList.remove('hidden');
+            return false;
+        }
         if (selected !== 'cashless') return true;
 
         const type = cashlessType?.value || '';
@@ -7511,32 +7813,32 @@
         const activeChannel = document.querySelector(`[data-intake-cashless-panel="${type}"] [data-intake-payment-channel-field]`);
         const activeAccount = document.querySelector(`[data-intake-cashless-panel="${type}"] [data-intake-account-name-field]`);
 
-        if (!type) return showFieldError(cashlessType, 'Please select a cashless type.');
+        if (!type) valid = showFieldError(cashlessType, 'Please select a cashless type.') && valid;
         if (type === 'bank_transfer') {
-            if (!(bankName?.value || '').trim()) return showFieldError(bankName, 'Please select the bank name.');
+            if (!(bankName?.value || '').trim()) valid = showFieldError(bankName, 'Please select the bank name.') && valid;
             if (bankName.value === 'Other Bank' && !(otherBankName?.value || '').trim()) {
-                return showFieldError(otherBankName, 'Please enter the other bank name.');
+                valid = showFieldError(otherBankName, 'Please enter the other bank name.') && valid;
             }
-            if (!validateAccountNameValue(accountName)) return false;
-            if (!validateReferenceValue(referenceNumber, true)) return false;
+            if (!validateAccountNameValue(accountName)) valid = false;
+            if (!validateReferenceValue(referenceNumber, true)) valid = false;
         }
         if ((type === 'gcash' || type === 'maya') && !ref) {
-            return showFieldError(referenceNumber, 'Please enter the wallet reference number.');
+            valid = showFieldError(referenceNumber, 'Please enter the wallet reference number.') && valid;
         }
         if ((type === 'gcash' || type === 'maya')) {
-            if (!validateAccountNameValue(activeAccount)) return false;
-            if (!validateReferenceValue(referenceNumber, true)) return false;
+            if (!validateAccountNameValue(activeAccount)) valid = false;
+            if (!validateReferenceValue(referenceNumber, true)) valid = false;
         }
         if (type === 'card' && !approval && !ref) {
-            return showFieldError(document.getElementById('approval_code'), 'Please enter the approval code or reference number.');
+            valid = showFieldError(document.getElementById('approval_code'), 'Please enter the approval code or reference number.') && valid;
         }
-        if (type === 'card' && ref && !validateReferenceValue(referenceNumber, false)) return false;
+        if (type === 'card' && ref && !validateReferenceValue(referenceNumber, false)) valid = false;
         if (type === 'other') {
-            if (!(activeChannel?.value || '').trim()) return showFieldError(activeChannel, 'Please enter the payment channel.');
-            if (!validateReferenceValue(referenceNumber, true)) return false;
+            if (!(activeChannel?.value || '').trim()) valid = showFieldError(activeChannel, 'Please enter the payment channel.') && valid;
+            if (!validateReferenceValue(referenceNumber, true)) valid = false;
         }
 
-        return true;
+        return valid;
     };
 
     const syncPaymentAndRender = () => {
@@ -7579,8 +7881,8 @@
     syncPayMethod();
 
     pkgRadios.forEach((radio) => {
-        radio.addEventListener('change', () => {
-            renderPkg(true);
+        radio.addEventListener('change', (event) => {
+            renderPkg(event.isTrusted);
             syncControls();
             render();
         });
@@ -7878,12 +8180,13 @@
             const fields = {};
             getAutosaveFields().forEach((field) => {
                 if (field.type === 'radio') {
+                    if (!(field.name in fields)) fields[field.name] = '';
                     if (field.checked) fields[field.name] = field.value;
                     return;
                 }
 
                 if (field.type === 'checkbox') {
-                    if (!fields[field.name]) fields[field.name] = [];
+                    if (!Array.isArray(fields[field.name])) fields[field.name] = [];
                     if (field.checked) fields[field.name].push(field.value);
                     return;
                 }
@@ -7912,6 +8215,7 @@
             grouped.get(field.name).push(field);
         });
 
+        const restoredChanges = [];
         Object.entries(draft.fields).forEach(([name, value]) => {
             const fields = grouped.get(name) || [];
             const restoredElements = [];
@@ -7932,8 +8236,42 @@
                 field.value = value ?? '';
                 restoredElements.push(field);
             });
-            restoredElements.forEach((field) => field.dispatchEvent(new Event('change', { bubbles: true })));
+            restoredChanges.push(...restoredElements);
         });
+
+        // Preserve user-entered overrides before rendering dependent controls.
+        if (deceasedAddr) deceasedAddr.dataset.manual = draft.fields.deceased_address && draft.fields.deceased_address !== draft.fields.client_address ? '1' : '';
+        if (interment && draft.fields.interment_at) interment.dataset.autoFilled = '0';
+        // Date pickers own a separate selected-date/display state. Restore all of it
+        // before any handler recalculates ages or applies date constraints.
+        restoringPickerState = true;
+        try { restoredChanges.forEach(field => {
+            if (!field._flatpickr) return;
+            field.dataset.userTyped = '0';
+            field.dataset.lastTypedValue = '';
+            field.dataset.invalidTypedValue = '';
+            field._flatpickr.setDate(field.value || null, false, 'Y-m-d');
+        }); } finally { restoringPickerState = false; }
+
+        // Cashless editors mirror named hidden fields; restore both before change handlers run.
+        if (referenceNumber) referenceNumber.value = draft.fields.reference_number || draft.fields.bank_reference || '';
+        const restoredCashlessType = draft.fields.cashless_type || '';
+        document.querySelectorAll('[data-intake-cashless-panel]').forEach((panel) => {
+            if (panel.dataset.intakeCashlessPanel !== restoredCashlessType) return;
+            const mirrors = {
+                '[data-intake-account-name-field]': 'account_name',
+                '[data-intake-mobile-number-field]': 'mobile_number',
+                '[data-intake-payment-channel-field]': 'payment_channel',
+            };
+            Object.entries(mirrors).forEach(([selector, name]) => {
+                const editor = panel.querySelector(selector);
+                if (editor) editor.value = draft.fields[name] || '';
+            });
+        });
+
+        // Restore every value before handlers read dependent fields.
+        restoredChanges.filter((field) => !['radio', 'checkbox'].includes(field.type) || field.checked)
+            .forEach((field) => field.dispatchEvent(new Event('change', { bubbles: true })));
 
         if (Array.isArray(draft.selectedAddOns)) {
             oldSelectedAddOns.clear();
@@ -7965,18 +8303,6 @@
         return true;
     };
 
-    const restoreLocalDraft = () => {
-        let draft = null;
-
-        try {
-            draft = JSON.parse(localStorage.getItem(intakeAutosaveKey) || 'null');
-        } catch (error) {
-            draft = null;
-        }
-
-        return restoreDraftPayload(draft);
-    };
-
     const initializeBranchState = () => {
         if (isOtherEntryMode) {
             if (serverOldBranchExists) {
@@ -7990,8 +8316,10 @@
     };
 
     initializeBranchState();
-    const restoredServerDraft = restoreDraftPayload(serverDraftPayload);
-    const restoredLocalDraft = restoredServerDraft ? false : restoreLocalDraft();
+    const restoredServerDraft = !@json(session()->hasOldInput()) && restoreDraftPayload(serverDraftPayload);
+    // Opening New Case starts clean. Recovery always requires an explicit action.
+    const restoredLocalDraft = false;
+    syncPayMethod();
     syncBranch(false);
     syncRequestDate();
     syncControls();
@@ -8009,10 +8337,61 @@
     syncPreferredPackage();
     renderPkg(false);
     render();
-    go(initialStep, { scroll: false, smooth: false });
-    showBranchToast(restoredServerDraft
-        ? 'Server draft restored. Continue editing or save the official record.'
-        : (restoredLocalDraft ? 'Unsaved local draft restored. Submit to save it officially.' : branchPromptMessage()));
+    go(initialStep >= 5 ? 4 : initialStep, { scroll: false, smooth: false });
+    try {
+        const recovery = JSON.parse(localStorage.getItem(intakeAutosaveKey) || 'null');
+        if (recovery?.fields && !@json(session()->hasOldInput())) {
+            const notice = document.createElement('div');
+            notice.id = 'intake_autosave_recovery';
+            notice.setAttribute('role', 'region');
+            notice.setAttribute('aria-labelledby', 'intake_recovery_title');
+            const icon = document.createElement('span');
+            icon.className = 'recovery-icon';
+            icon.setAttribute('aria-hidden', 'true');
+            icon.innerHTML = '<i class="bi bi-clock-history"></i>';
+            const content = document.createElement('div');
+            content.className = 'recovery-content';
+            const title = document.createElement('h4');
+            title.id = 'intake_recovery_title';
+            title.textContent = 'Continue your unsaved progress?';
+            const copy = document.createElement('p');
+            copy.textContent = 'An autosaved copy is available on this browser. Restore your entries, or dismiss it to keep the current form.';
+            const actions = document.createElement('div');
+            actions.className = 'recovery-actions';
+            const restore = document.createElement('button');
+            restore.type = 'button';
+            restore.id = 'restore_intake_autosave';
+            restore.textContent = 'Restore autosave';
+            restore.addEventListener('click', () => {
+                restoreDraftPayload(recovery);
+                syncPayMethod();
+                render();
+                go(Math.max(1, Math.min(4, Number(recovery.step) || 1)), { scroll: false, smooth: false });
+                notice.remove();
+            });
+            const dismiss = document.createElement('button');
+            dismiss.type = 'button';
+            dismiss.id = 'dismiss_intake_autosave';
+            dismiss.textContent = 'Dismiss autosave';
+            dismiss.addEventListener('click', () => {
+                localStorage.removeItem(intakeAutosaveKey);
+                notice.remove();
+            });
+            actions.append(restore, dismiss);
+            content.append(title, copy, actions);
+            notice.append(icon, content);
+            document.getElementById('intakeFormContent')?.prepend(notice);
+        }
+    } catch (error) {
+        // Recovery is optional when storage is unavailable.
+    }
+    if (restoredServerDraft || restoredLocalDraft) {
+        showBranchToast(restoredServerDraft
+            ? 'Server draft restored. Continue editing or save the official record.'
+            : 'Unsaved local draft restored. Submit to save it officially.');
+    } else if (isOtherEntryMode) {
+        showBranchToast(branchPromptMessage());
+    }
 
     // ── Cancel button & dirty-state tracking ─────────────────────────────
     const cancelBtn      = document.getElementById('intakeCancelBtn');
@@ -8065,6 +8444,27 @@
     cancelBackdrop?.addEventListener('click', closeCancelModal);
     cancelDiscard?.addEventListener('click',  doCancel);
     cancelSaveDraft?.addEventListener('click', saveDraftFromCancel);
+
+    const serverErrors = @json($errors->messages());
+    if (Object.keys(serverErrors).length) {
+        collectingValidation = true;
+        Object.entries(serverErrors).forEach(([name, messages]) => {
+            const field = fieldByName(name);
+            if (field) showFieldError(field, messages.join(' '));
+        });
+        panels.forEach(panel => {
+            if (panel.querySelector('[aria-invalid="true"]')) {
+                attemptedSteps.add(Number(panel.dataset.step));
+                renderValidationSummary(panel);
+            }
+        });
+        collectingValidation = false;
+        const firstPanel = panels.find(panel => panel.querySelector('[aria-invalid="true"]'));
+        if (firstPanel) {
+            maxUnlockedStep = Math.max(maxUnlockedStep, Number(firstPanel.dataset.step));
+            go(Number(firstPanel.dataset.step));
+        }
+    }
 
     // Close on Escape key
     document.addEventListener('keydown', (e) => {

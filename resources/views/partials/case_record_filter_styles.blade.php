@@ -1,4 +1,20 @@
 <style>
+    @media(min-width:1201px) {
+        html[data-theme] body.panel-shell-body .records-page .table-system-toolbar .case-record-filters { display:grid !important; grid-template-columns:minmax(0,1.1fr) minmax(180px,1fr) minmax(160px,1fr) auto auto !important; }
+        html[data-theme] body.panel-shell-body .records-page .table-system-toolbar .case-record-filters:has(.case-compact-actions) { grid-template-columns:minmax(0,1.1fr) minmax(180px,1fr) minmax(160px,1fr) auto auto auto !important; }
+        html[data-theme] body.panel-shell-body .records-page .table-system-toolbar .case-record-filters :is(.case-compact-search-row,.case-compact-filter-bar) { display:contents !important; }
+        html[data-theme] body.panel-shell-body .records-page .table-system-toolbar .case-compact-search-field { grid-area:1 / 1 !important; min-width:0 !important; width:100% !important; }
+        html[data-theme] body.panel-shell-body .records-page .table-system-toolbar .case-compact-date-filter { grid-area:1 / 2 !important; width:100% !important; }
+        html[data-theme] body.panel-shell-body .records-page .table-system-toolbar .case-compact-sort-filter { grid-area:1 / 3 !important; width:100% !important; }
+        html[data-theme] body.panel-shell-body .records-page .table-system-toolbar .case-compact-more { grid-area:1 / 4 !important; }
+        html[data-theme] body.panel-shell-body .records-page .table-system-toolbar .case-rows-per-page { grid-area:1 / 5 !important; }
+        html[data-theme] body.panel-shell-body .records-page .table-system-toolbar .case-compact-actions { grid-area:1 / 6 !important; }
+    }
+    .case-record-filters .case-compact-filter-bar > .case-compact-actions { flex:0 0 auto; margin:0; }
+    @media(min-width:1201px) {
+        html[data-theme] body.panel-shell-body.branch-admin-ui .master-records-page .admin-table-toolbar .case-compact-filter:has(.case-compact-actions) { grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,1fr) auto auto auto !important; }
+    }
+    @media(max-width:767px) { .case-record-filters .case-compact-filter-bar > .case-compact-actions { order:11; justify-content:flex-end; } }
     /* Keep the table's scroll wrapper, without nested card surfaces around it. */
     html body :is(.records-page, .master-records-page) :is(.table-system-card, .table-system-list) {
         background:transparent !important;
@@ -114,6 +130,10 @@
     .case-record-filters .case-rows-per-page { display:flex; align-items:center; gap:10px; flex:0 0 auto; }
     .case-record-filters .case-rows-per-page label { white-space:nowrap; font-size:12px; font-weight:600; }
     .case-record-filters .case-rows-per-page select { width:76px; min-height:44px; }
+    .case-page-size-control { position:relative; display:inline-flex; flex-shrink:0; }
+    .case-record-filters .case-page-size-control select { appearance:none; padding-right:30px !important; }
+    .case-page-size-chevron { position:absolute; right:12px; top:50%; transform:translateY(-50%); pointer-events:none; font-size:12px; color:var(--filter-ui-muted); transition:transform .18s ease; }
+    .case-page-size-control:has(select:open) .case-page-size-chevron { transform:translateY(-50%) rotate(180deg); }
     .case-record-filters .case-applied-filters { display:flex; flex-wrap:wrap; gap:8px; grid-column:1/-1; width:100%; margin-top:10px; }
     :is(.records-page, .master-records-page) .table-system-toolbar .case-record-filters .case-compact-drawer {
         position:absolute; top:var(--filter-top, 100px); left:var(--filter-left, 16px);
@@ -207,5 +227,75 @@
         .case-record-filters .case-compact-advanced-actions > * { flex:1; justify-content:center; }
         :is(.records-page, .master-records-page) .case-records-tabs { display:flex !important; flex-wrap:nowrap !important; overflow-x:auto; width:100%; }
         :is(.records-page, .master-records-page) .case-records-tabs a { flex:1 0 auto !important; white-space:nowrap !important; padding:10px !important; word-break:normal !important; }
+    }
+    /* Only the Branch select paints a box; the wrapper positions its icons/menu. */
+    html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-compact-branch,
+    html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-compact-branch:is(:hover,:focus-within) {
+        position:relative !important; padding:0 !important;
+        background:transparent !important; background-color:transparent !important;
+        border:0 !important; box-shadow:none !important;
+    }
+    html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-compact-branch > select.case-compact-select,
+    html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-compact-branch > select.case-compact-select:is(:hover,:focus) {
+        position:absolute !important; inset:0 !important;
+        width:100% !important; min-width:0 !important; height:100% !important;
+        padding:0 2.25rem 0 2.5rem !important;
+        background:var(--record-control-bg) !important;
+        background-color:var(--record-control-bg) !important;
+        border:1px solid var(--records-border,var(--border)) !important;
+        border-radius:8px !important; box-shadow:none !important;
+    }
+    html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-compact-branch > .bi-building {
+        position:absolute !important; left:14px !important; top:50% !important;
+        transform:translateY(-50%) !important; z-index:1 !important; pointer-events:none !important;
+    }
+    html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-compact-branch > .case-compact-select-chev {
+        position:absolute !important; right:12px !important; top:50% !important;
+        transform:translateY(-50%) !important; z-index:1 !important; pointer-events:none !important;
+    }
+    /* System Admin has six primary controls. Keep their order explicit. */
+    @media(min-width:1201px) {
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar form.case-record-filters {
+            display:grid !important;
+            grid-template-columns:minmax(0,2fr) minmax(0,1.6fr) minmax(0,1.2fr) minmax(0,1.2fr) auto auto !important;
+            grid-template-areas:none !important;
+            align-items:center !important;
+            width:100% !important;
+        }
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar form.case-record-filters:has(.case-compact-actions) {
+            grid-template-columns:minmax(0,2fr) minmax(0,1.6fr) minmax(0,1.2fr) minmax(0,1.2fr) auto auto auto !important;
+        }
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-record-filters :is(.case-compact-search-row,.case-compact-filter-bar) { display:contents !important; }
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-compact-search-field { grid-area:1 / 1 !important; }
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-compact-branch { grid-area:1 / 2 !important; width:100% !important; min-width:0 !important; max-width:none !important; }
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-compact-date-filter { grid-area:1 / 3 !important; width:100% !important; min-width:0 !important; max-width:none !important; }
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-compact-sort-filter { grid-area:1 / 4 !important; width:100% !important; min-width:0 !important; max-width:none !important; }
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-compact-more { grid-area:1 / 5 !important; width:auto !important; }
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-rows-per-page { grid-area:1 / 6 !important; width:auto !important; }
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-applied-filters { grid-area:2 / 1 / 3 / -1 !important; }
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-compact-actions { grid-area:1 / 7 !important; margin-left:0 !important; }
+    }
+    @media(min-width:768px) and (max-width:1200px) {
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar form.case-record-filters {
+            display:grid !important; grid-template-columns:repeat(3,minmax(0,1fr)) !important; grid-template-areas:none !important;
+        }
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-record-filters :is(.case-compact-search-row,.case-compact-filter-bar) { display:contents !important; }
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-compact-search-field { grid-area:1 / 1 / 2 / 3 !important; }
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-compact-branch { grid-area:1 / 3 !important; width:100% !important; min-width:0 !important; max-width:none !important; }
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-compact-date-filter { grid-area:2 / 1 !important; width:100% !important; min-width:0 !important; max-width:none !important; }
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-compact-sort-filter { grid-area:2 / 2 !important; width:100% !important; min-width:0 !important; max-width:none !important; }
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-compact-more { grid-area:2 / 3 !important; width:100% !important; }
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-rows-per-page { grid-area:3 / 1 / 4 / 3 !important; }
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-applied-filters { grid-area:4 / 1 / 5 / -1 !important; }
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-compact-actions { grid-area:3 / 3 !important; margin-left:0 !important; }
+    }
+    @media(max-width:767px) {
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar form.case-record-filters,
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-record-filters :is(.case-compact-search-row,.case-compact-filter-bar) {
+            display:flex !important; flex-direction:column !important; align-items:stretch !important; width:100% !important;
+        }
+        html[data-theme] body.panel-shell-body.system-admin-ui .master-records-page .admin-table-toolbar .case-record-filters :is(.case-compact-search-field,.case-compact-branch,.case-compact-date-filter,.case-compact-sort-filter,.case-compact-more,.case-rows-per-page,.case-applied-filters,.case-compact-actions) {
+            grid-area:auto !important; width:100% !important; min-width:0 !important; max-width:none !important;
+        }
     }
 </style>

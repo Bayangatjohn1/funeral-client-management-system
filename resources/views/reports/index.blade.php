@@ -3,6 +3,7 @@
 @section('page_title', 'Reports & Analytics')
 @section('page_desc', 'Analytics charts, branch performance, and operational reports.')
 @section('hide_layout_topbar', '1')
+@section('suppress_layout_page_header', '1')
 
 @section('content')
 <div
@@ -48,6 +49,7 @@
     </div>
 
     @include('reports.partials.module-tabs', [
+        'deferSubtabs' => true,
         'activeModule' => 'reports',
         'reportTypes' => $reportTypes,
         'currentReportType' => $defaultReportType,
@@ -1753,6 +1755,8 @@
         }
     </style>
 
+    @include('reports.partials.visual-reference')
+    @include('reports.partials.report-reference-components')
     <div class="reports-toast no-print" role="status" aria-live="polite" data-page-context-toast>
         <i class="bi bi-clipboard-data"></i>
         <span>You are viewing the reports page.</span>
@@ -1772,49 +1776,16 @@
 
         <div class="reports-module-main">
     <section class="reports-card reports-filter-card" aria-label="Report filters">
+        <p class="reports-card-copy">Select a report type, choose the date range and filters, then click Preview Report.</p>
+        @include('reports.partials.workspace-subtabs', ['activeModule' => 'reports'])
+
         <form id="reportsConfigForm" class="reports-config-form" @submit.prevent="loadPreview">
             <h2 class="reports-sr-only">Report Configuration</h2>
             <div class="reports-config-toolbar" :class="{ 'is-owner-analytics': isOwnerAnalytics() }">
                 @include('reports.partials.analytics-filter-bar')
 
-                <div class="reports-filter-grid" x-show="!isOwnerAnalytics()" x-cloak>
-                <div class="reports-toolbar-trailing">
-                    <div class="reports-action-chips" x-show="activeToolbarChips().length" x-cloak>
-                        <template x-for="chip in activeToolbarChips()" :key="chip.label">
-                            <span class="reports-chip">
-                                <i :class="`bi ${chip.icon}`"></i>
-                                <span x-text="chip.label"></span>
-                            </span>
-                        </template>
-                    </div>
-
-                    <button type="button" class="reports-btn reports-btn-neutral reports-filter-reset" @click="resetFilters(); loadPreview()">
-                        <i class="bi bi-arrow-counterclockwise"></i>
-                        <span>Reset Filters</span>
-                    </button>
-                </div>
-                </div>
             </div>
                 <div class="reports-advanced-filter-row" x-show="advancedFiltersOpen && hasAdvancedFilters()" x-cloak>
-                    <template x-if="shows('date_range') && datePreset === 'CUSTOM'">
-                        <div class="reports-field">
-                            <label class="reports-label" for="date_from">Date From</label>
-                            <span class="reports-field-control">
-                                <i class="bi bi-calendar-event" aria-hidden="true"></i>
-                                <input id="date_from" type="date" x-model="filters.date_from" class="reports-input">
-                            </span>
-                        </div>
-                    </template>
-
-                    <template x-if="shows('date_range') && datePreset === 'CUSTOM'">
-                        <div class="reports-field">
-                            <label class="reports-label" for="date_to">Date To</label>
-                            <span class="reports-field-control">
-                                <i class="bi bi-calendar-event" aria-hidden="true"></i>
-                                <input id="date_to" type="date" x-model="filters.date_to" class="reports-input">
-                            </span>
-                        </div>
-                    </template>
 
                     <template x-if="shows('case_status')">
                         <div class="reports-field">
@@ -1938,8 +1909,48 @@
                 </div>
 
         </form>
+        <div class="reports-reference-config-actions">
+            @include('reports.partials.report-scope-controls')
+<button type="submit" form="reportsConfigForm" class="reports-btn reports-btn-primary" :disabled="loading">
+                    <span class="reports-spin" x-show="loading" aria-hidden="true"></span>
+                    <i class="bi bi-eye" x-show="!loading"></i>
+                    <span x-text="loading ? 'Generating...' : 'Preview Report'"></span>
+                </button>
+<details
+                x-ref="headerExportMenu"
+                class="reports-export-menu reports-module-export"
+                :aria-disabled="loading || rows.length === 0 ? 'true' : 'false'"
+                @toggle="if (exportDisabled()) closeExportMenu()"
+            >
+                <summary class="reports-btn reports-btn-secondary" @click="if (exportDisabled()) { $event.preventDefault(); closeExportMenu(); }">
+                    <i class="bi bi-download" aria-hidden="true"></i>
+                    <span>Export</span>
+                    <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                </summary>
+                <div class="reports-export-options">
+                    <button type="button" @click="openPrint">
+                        <i class="bi bi-printer" aria-hidden="true"></i>
+                        <span>Print Preview</span>
+                    </button>
+                    <button type="button" @click="openCsv">
+                        <i class="bi bi-filetype-csv" aria-hidden="true"></i>
+                        <span>Export CSV</span>
+                    </button>
+                </div>
+            </details>
+        </div>
     </section>
 
+    <dialog x-ref="reportCustomDateDialog" class="reports-date-dialog" aria-labelledby="reportCustomDateTitle" @click="if ($event.target === $refs.reportCustomDateDialog) { const r = $refs.reportCustomDateDialog.getBoundingClientRect(); if ($event.clientX < r.left || $event.clientX > r.right || $event.clientY < r.top || $event.clientY > r.bottom) $refs.reportCustomDateDialog.close(); }">
+        <form @submit.prevent="applyReportCustomDates()">
+            <header><h2 id="reportCustomDateTitle">Custom Date Range</h2><button type="button" aria-label="Close custom date range" @click="$refs.reportCustomDateDialog.close()"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+            <div class="reports-date-dialog-fields">
+                <label for="reportCustomDateFrom">Date From<input id="reportCustomDateFrom" type="date" x-model="reportDateDraftFrom" :max="reportDateDraftTo || null" required autofocus></label>
+                <label for="reportCustomDateTo">Date To<input id="reportCustomDateTo" type="date" x-model="reportDateDraftTo" :min="reportDateDraftFrom || null" required></label>
+            </div>
+            <footer><button type="button" @click="$refs.reportCustomDateDialog.close()">Cancel</button><button type="submit">Apply Range</button></footer>
+        </form>
+    </dialog>
     <section class="reports-card">
         <div class="reports-card-head">
             <div>
@@ -1947,11 +1958,7 @@
                 <div class="reports-card-copy" x-text="summaryScopeDescription()"></div>
             </div>
             <div class="reports-card-head-actions">
-                <button type="submit" form="reportsConfigForm" class="reports-btn reports-btn-primary" :disabled="loading">
-                    <span class="reports-spin" x-show="loading" aria-hidden="true"></span>
-                    <i class="bi bi-eye" x-show="!loading"></i>
-                    <span x-text="loading ? 'Generating...' : 'Preview Report'"></span>
-                </button>
+                
             </div>
         </div>
         <div class="reports-summary-grid">
@@ -1963,22 +1970,18 @@
                     <div>
                         <div class="reports-metric-label" x-text="card.label"></div>
                         <div class="reports-metric-value" x-text="card.value"></div>
+                        <p class="reports-metric-help" x-text="summaryCardDescription(card)"></p>
                     </div>
                 </article>
             </template>
         </div>
     </section>
 
-    <section class="reports-card">
+    <section class="reports-card reports-preview-card">
         <div class="reports-preview-head">
             <div>
                 <h2 class="reports-card-title" x-text="selectedMetric ? metricDrillLabel() + ' Preview' : 'Report Preview'"></h2>
                 <div class="reports-card-copy" x-text="selectedMetric ? metricDrillHint() : (reportTypes[reportType] || 'Select a report type')"></div>
-                <div class="reports-preview-meta" x-show="hasPreview && filterChips().length" x-cloak>
-                    <template x-for="chip in filterChips()" :key="chip">
-                        <span class="reports-chip" x-text="chip"></span>
-                    </template>
-                </div>
             </div>
             <div
                 class="reports-chip"
@@ -2214,6 +2217,9 @@ window.reportsModule = function reportsModule(config) {
         drilldownLoading: false,
         drilldownMode: 'cases',
         datePreset: '',
+        reportAppliedDatePreset: '',
+        reportDateDraftFrom: '',
+        reportDateDraftTo: '',
         customRangeOpen: false,
         advancedFiltersOpen: false,
         previewTimer: null,
@@ -2441,6 +2447,27 @@ window.reportsModule = function reportsModule(config) {
             this.hasPreview = false;
             this.previewLoaded = Boolean(options.preservePreviewLoaded);
         },
+        changeReportDatePreset(preset) {
+            if (preset === 'CUSTOM') {
+                if (this.isOwnerAnalytics()) this.syncAnalyticsPresetFromDates();
+                else this.syncReportPresetFromDates();
+                this.reportDateDraftFrom = this.filters.date_from || '';
+                this.reportDateDraftTo = this.filters.date_to || '';
+                this.$refs.reportCustomDateDialog.showModal();
+                return;
+            }
+            this.selectReportDatePreset(preset);
+            this.reportAppliedDatePreset = preset;
+            this.loadPreview();
+        },
+        applyReportCustomDates() {
+            this.filters.date_from = this.reportDateDraftFrom;
+            this.filters.date_to = this.reportDateDraftTo;
+            this.datePreset = 'CUSTOM';
+            this.reportAppliedDatePreset = 'CUSTOM';
+            this.$refs.reportCustomDateDialog.close();
+            this.loadPreview();
+        },
         selectReportDatePreset(preset) {
             if (this.isOwnerAnalytics()) {
                 this.selectDatePreset(preset || 'TODAY');
@@ -2620,7 +2647,7 @@ window.reportsModule = function reportsModule(config) {
                 ],
                 master_cases: [
                     ['case_code', 'Case No.'], ['name', 'Client / Deceased'], ['branch', 'Branch'],
-                    ['total_amount', 'Total Amount Availed'], ['total_paid', 'All Payments'], ['balance', 'Current Balance'],
+                    ['total_amount', 'Total Amount Availed'], ['total_paid', 'Total Paid'], ['balance', 'Remaining Balance'],
                     ['case_status', 'Case Status'], ['payment_status', 'Payment Status'],
                 ],
                 audit_logs: [
@@ -2639,7 +2666,7 @@ window.reportsModule = function reportsModule(config) {
             const money = (value) => this.money(value || 0);
             if (this.reportType === 'sales') {
                 return [
-                    { label: 'Transactions Shown', value: this.number(this.summary.total_records || 0), icon: 'bi-receipt', key: 'total_records' },
+                    { label: 'Payment Transactions', value: this.number(this.summary.total_records || 0), icon: 'bi-receipt', key: 'total_records' },
                     { label: 'Payments Received in Period', value: money(this.summary.amount_collected), icon: 'bi-wallet2', key: 'amount_collected' },
                 ];
             }
@@ -2660,6 +2687,22 @@ window.reportsModule = function reportsModule(config) {
                 { label: 'All Payments for These Cases', value: money(this.summary.collected_amount),         icon: 'bi-wallet2',     key: 'collected_amount' },
                 { label: 'Current Balance',    value: money(this.summary.remaining_balance),        icon: 'bi-receipt',     key: 'remaining_balance' },
             ];
+        },
+        summaryCardDescription(card) {
+            if (this.reportType === 'sales') {
+                return {
+                    total_records: 'Payment entries within the selected period.',
+                    amount_collected: 'Total received from valid payments shown.',
+                }[card.key] || '';
+            }
+            if (this.reportType === 'audit_logs') return 'Activity records matching the selected filters.';
+            return {
+                total_cases: 'Cases requested within the selected period.',
+                total_records: 'Cases requested within the selected period.',
+                gross_amount: 'Full service amount of the cases shown.',
+                collected_amount: 'All payments for these cases, across all dates.',
+                remaining_balance: 'Unpaid amount remaining for these cases.',
+            }[card.key] || '';
         },
         summaryScopeDescription() {
             if (this.reportType === 'sales') {

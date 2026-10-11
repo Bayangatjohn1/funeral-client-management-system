@@ -14,7 +14,8 @@ class FuneralContractPdfService
 {
     public function __construct(
         private readonly FuneralContractSnapshotService $snapshotService,
-        private readonly FuneralContractMapper $mapper
+        private readonly FuneralContractMapper $mapper,
+        private readonly FuneralContractLayout $layout
     )
     {
     }
@@ -54,7 +55,11 @@ class FuneralContractPdfService
             ]);
         }
 
-        $pdfBinary = Pdf::loadView('pdf.funeral_contract_physical', [
+        $contractSnapshot['document_layout'] = $existingDocument?->contract_snapshot
+            ? $this->layout->forIssuedContract($existingDocument->contract_snapshot)
+            : $this->layout->forNewContract($contractView, $contractSnapshot);
+
+        $pdfBinary = Pdf::loadView($this->layout->viewName($contractSnapshot['document_layout']), [
             'funeral_case' => $case,
             'generatedAt' => $generatedAt,
             'contractNumber' => $contractNumber,

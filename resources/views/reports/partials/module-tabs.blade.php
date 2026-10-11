@@ -13,10 +13,10 @@
     $range = $range ?? request('range', 'TODAY');
     $analyticsTab = request('analytics_tab', 'ba-panel-performance');
     $analyticsViews = $analyticsViews ?? [
-        ['label' => 'Overview', 'icon' => 'bi-bar-chart-line', 'target' => 'ba-panel-performance'],
-        ['label' => 'Payments', 'icon' => 'bi-wallet2', 'target' => 'ba-panel-payment'],
-        ['label' => 'Collections', 'icon' => 'bi-cash-stack', 'target' => 'ba-panel-collection'],
-        ['label' => 'Revenue Trend', 'icon' => 'bi-graph-up-arrow', 'target' => 'ba-panel-trend'],
+        ['label' => '1. Overview (Performance & Branch Bar Chart)', 'icon' => 'bi-bar-chart-line', 'target' => 'ba-panel-performance'],
+        ['label' => '2. Payments (Payment Doughnut Chart)', 'icon' => 'bi-pie-chart', 'target' => 'ba-panel-payment'],
+        ['label' => '3. Collections (Snapshot & Period Bar Chart)', 'icon' => 'bi-cash-stack', 'target' => 'ba-panel-collection'],
+        ['label' => '4. Revenue Trend (Line Chart & Pacing)', 'icon' => 'bi-graph-up-arrow', 'target' => 'ba-panel-trend'],
     ];
     $reportsUrl = route('reports.index', array_filter([
         'report_type' => $currentReportType ?: 'owner_branch_analytics',
@@ -343,9 +343,23 @@
         }
     </style>
 
-    <div class="reports-module-title-block reports-module-title-block--hidden" aria-hidden="true">
-        <h1 class="reports-module-title">Reports &amp; Analytics</h1>
-        <p class="reports-module-subtitle">Branch management intelligence dashboard</p>
+    <div class="reports-reference-heading">
+    <div class="reports-module-title-block">
+        <button type="button" id="mobileSidebarToggle" class="mobile-menu-btn" aria-label="Open navigation" aria-expanded="false" aria-controls="appSidebar"><i class="bi bi-list" aria-hidden="true"></i></button>
+        <div class="reports-reference-scope">
+            <span class="reports-reference-branch"><i class="bi bi-building" aria-hidden="true"></i>
+                @if($activeModule === 'analytics')
+                    {{ $selectedBranch ? $selectedBranch->branch_code . ' - ' . $selectedBranch->branch_name : 'All Branches' }}
+                @else
+                    <span x-text="analyticsBranchLabel()"></span>
+                @endif
+            </span>
+            @if(auth()->user()?->isBranchAdmin())
+                <span class="reports-reference-lock"><i class="bi bi-lock" aria-hidden="true"></i> Assigned Branch Scope Enforced</span>
+            @endif
+        </div>
+        <h1 class="reports-module-title"><x-page-title-icon icon="bar-chart" inline />Reports &amp; Analytics</h1>
+        <p class="reports-module-subtitle">Analytics charts, branch performance, and operational reports.</p>
     </div>
 
     <nav class="reports-module-tabs reports-module-primary-tabs" aria-label="Reports and analytics module">
@@ -375,51 +389,16 @@
             <span>Reports</span>
         </button>
     </nav>
+    </div>
 
-    <nav
-        class="reports-module-tabs reports-module-subtabs"
-        aria-label="{{ $activeModule === 'analytics' ? 'Analytics views' : 'Report types' }}"
-        @if($activeModule === 'analytics') role="tablist" @endif
-    >
-        @if($activeModule === 'analytics')
-            @foreach($analyticsViews as $view)
-                @php($isActiveAnalyticsView = $analyticsTab === $view['target'])
-                <button
-                    type="button"
-                    class="reports-module-tab ba-tab-btn {{ $isActiveAnalyticsView ? 'active is-active' : '' }}"
-                    data-target="{{ $view['target'] }}"
-                    role="tab"
-                    aria-selected="{{ $isActiveAnalyticsView ? 'true' : 'false' }}"
-                >
-                    <i class="bi {{ $view['icon'] }}" aria-hidden="true"></i>
-                    <span>{{ $view['label'] }}</span>
-                </button>
-            @endforeach
-        @else
-            @foreach($reportTypes as $type => $label)
-                <button
-                    type="button"
-                    class="reports-module-tab"
-                    :class="{ 'is-active': filters.report_type === @js($type) }"
-                    @click.prevent="selectReportType(@js($type))"
-                >
-                    <i class="bi {{ match ($type) {
-                        'owner_branch_analytics' => 'bi-building',
-                        'sales' => 'bi-briefcase-fill',
-                        'master_cases' => 'bi-clipboard-data',
-                        'audit_logs' => 'bi-shield-check',
-                        default => 'bi-file-earmark-text',
-                    } }}" aria-hidden="true"></i>
-                    <span>{{ $label }}</span>
-                </button>
-            @endforeach
-        @endif
-    </nav>
+    @if(!($deferSubtabs ?? false))
+        @include('reports.partials.workspace-subtabs')
+    @endif
 
     @if($activeModule === 'analytics')
         <div class="reports-module-controls" aria-label="Analytics scope controls">
-            <form method="GET" action="{{ route($analyticsRouteName) }}" class="reports-module-control-wrap">
-                <i class="bi bi-calendar3" aria-hidden="true"></i>
+            <form method="GET" action="{{ route($analyticsRouteName) }}" class="reports-reference-period">
+                <span class="reports-reference-date-label"><i class="bi bi-calendar3" aria-hidden="true"></i> Date Range:</span>
                 @if($branchId)
                     <input type="hidden" name="branch_id" value="{{ $branchId }}">
                 @endif
@@ -427,8 +406,10 @@
                 <select
                     id="analyticsHeaderRange"
                     name="range"
-                    class="reports-module-control"
+                    class="reports-module-control reports-reference-native-period"
                     aria-label="Date range"
+                    tabindex="-1"
+                    aria-hidden="true"
                     onchange="this.form.submit()"
                 >
                     @foreach (['TODAY', 'THIS_MONTH', 'THIS_YEAR'] as $rangeKey)
@@ -436,12 +417,30 @@
                             {{ ucwords(strtolower(str_replace('_', ' ', $rangeKey))) }}
                         </option>
                     @endforeach
+                    <option value="CUSTOM" @selected($range === 'CUSTOM')>Custom Range</option>
                 </select>
+                <div id="analyticsDatePresets" class="reports-reference-date-pills" role="group" aria-label="Date range presets">
+                    @foreach (['TODAY' => 'Today', 'THIS_MONTH' => 'This Month', 'THIS_YEAR' => 'This Year'] as $preset => $label)
+                        <button type="button" class="{{ $range === $preset ? 'is-active' : '' }}" aria-pressed="{{ $range === $preset ? 'true' : 'false' }}" onclick="this.form.querySelector('#analyticsHeaderRange').value='{{ $preset }}'; this.form.requestSubmit()">@if($range === $preset)<i class="bi bi-check2" aria-hidden="true"></i> @endif{{ $label }}</button>
+                    @endforeach
+                    <button type="button" class="{{ $range === 'CUSTOM' ? 'is-active' : '' }}" aria-pressed="{{ $range === 'CUSTOM' ? 'true' : 'false' }}" onclick="document.getElementById('analyticsCustomDateDialog').showModal()">
+                        @if($range === 'CUSTOM')
+                            <i class="bi bi-check2" aria-hidden="true"></i>
+                        @endif
+                        Custom Range
+                    </button>
+                </div>
             </form>
 
+            @if(!$canSelectAllBranches)
+            @else
             <form method="GET" action="{{ route($analyticsRouteName) }}" class="reports-module-control-wrap">
                 <i class="bi bi-building" aria-hidden="true"></i>
-                <input type="hidden" name="range" value="{{ in_array($range, ['TODAY', 'THIS_MONTH', 'THIS_YEAR'], true) ? $range : 'THIS_YEAR' }}">
+                <input type="hidden" name="range" value="{{ $range }}">
+                @if($range === 'CUSTOM')
+                    <input type="hidden" name="date_from" value="{{ $dateFrom }}">
+                    <input type="hidden" name="date_to" value="{{ $dateTo }}">
+                @endif
                 <input type="hidden" name="analytics_tab" value="{{ $analyticsTab }}">
                 <select
                     id="analyticsHeaderBranch"
@@ -460,114 +459,22 @@
                     @endforeach
                 </select>
             </form>
+            @endif
+            <span class="reports-reference-applied-dates">{{ \Carbon\Carbon::parse($dateFrom)->format('M d, Y') }} – {{ \Carbon\Carbon::parse($dateTo)->format('M d, Y') }}</span>
         </div>
-    @elseif($activeModule === 'reports')
-        <div class="reports-module-controls" aria-label="Report scope controls">
-            <label class="reports-module-control-wrap" for="reportsHeaderDatePreset">
-                <i class="bi bi-calendar3" aria-hidden="true"></i>
-                <select
-                    id="reportsHeaderDatePreset"
-                    class="reports-module-control"
-                    aria-label="Date range"
-                    x-model="datePreset"
-                    @change="selectReportDatePreset(datePreset); loadPreview();"
-                >
-                    <option value="">All Dates</option>
-                    <option value="TODAY">Today</option>
-                    <option value="THIS_WEEK">This Week</option>
-                    <option value="THIS_MONTH">This Month</option>
-                    <option value="THIS_QUARTER">This Quarter</option>
-                    <option value="FIRST_HALF">Semi-Annual — First Half</option>
-                    <option value="SECOND_HALF">Semi-Annual — Second Half</option>
-                    <option value="THIS_YEAR">This Year</option>
-                    <option value="CUSTOM">Custom Range</option>
-                </select>
-            </label>
-
-            <label class="reports-module-control-wrap" for="reportsHeaderBranch">
-                <i class="bi bi-building" aria-hidden="true"></i>
-                <select
-                    id="reportsHeaderBranch"
-                    class="reports-module-control is-branch"
-                    aria-label="Branch"
-                    x-model="filters.branch_id"
-                    :disabled="isBranchAdmin"
-                    @change="loadPreview()"
-                >
-                    <template x-if="!isBranchAdmin">
-                        <option value="">All Branches</option>
-                    </template>
-                    <template x-for="branch in branches" :key="branch.id">
-                        <option :value="branch.id" x-text="`${branch.branch_code} - ${branch.branch_name}`"></option>
-                    </template>
-                </select>
-            </label>
-
-            <label class="reports-module-control-wrap" for="reportsHeaderPaymentStatus" x-show="shows('payment_status')" x-cloak>
-                <i class="bi bi-wallet2" aria-hidden="true"></i>
-                <select
-                    id="reportsHeaderPaymentStatus"
-                    class="reports-module-control is-compact"
-                    aria-label="Payment status"
-                    x-model="filters.payment_status"
-                    @change="loadPreview()"
-                >
-                    <option value="">All Payment Statuses</option>
-                    <option value="PAID">Paid</option>
-                    <option value="PARTIAL">Partial</option>
-                    <option value="UNPAID">Unpaid</option>
-                </select>
-            </label>
-
-            <label class="reports-module-control-wrap" for="reportsHeaderPaymentMethod" x-show="shows('payment_method')" x-cloak>
-                <i class="bi bi-credit-card" aria-hidden="true"></i>
-                <select id="reportsHeaderPaymentMethod" class="reports-module-control is-compact" aria-label="Payment method" x-model="filters.payment_method" @change="loadPreview()">
-                    <option value="">All Payment Methods</option>
-                    <option value="cash">Cash</option>
-                    <option value="cashless">Cashless</option>
-                    <option value="bank_transfer">Bank Transfer</option>
-                </select>
-            </label>
-
-            <label class="reports-module-control-wrap" for="reportsHeaderAuditUser" x-show="shows('audit_user') && auditOptions.supports_user" x-cloak>
-                <i class="bi bi-person" aria-hidden="true"></i>
-                <select
-                    id="reportsHeaderAuditUser"
-                    class="reports-module-control is-compact"
-                    aria-label="Audit user"
-                    x-model="filters.user_id"
-                    @change="loadPreview()"
-                >
-                    <option value="">All Users</option>
-                    <template x-for="user in users" :key="user.id">
-                        <option :value="user.id" x-text="user.name"></option>
-                    </template>
-                </select>
-            </label>
-
-            <details
-                x-ref="headerExportMenu"
-                class="reports-export-menu reports-module-export"
-                :aria-disabled="loading || rows.length === 0 ? 'true' : 'false'"
-                @toggle="if (exportDisabled()) closeExportMenu()"
-            >
-                <summary class="reports-btn reports-btn-secondary" @click="if (exportDisabled()) { $event.preventDefault(); closeExportMenu(); }">
-                    <i class="bi bi-download" aria-hidden="true"></i>
-                    <span>Export</span>
-                    <i class="bi bi-chevron-down" aria-hidden="true"></i>
-                </summary>
-                <div class="reports-export-options">
-                    <button type="button" @click="openPrint">
-                        <i class="bi bi-printer" aria-hidden="true"></i>
-                        <span>Print Preview</span>
-                    </button>
-                    <button type="button" @click="openCsv">
-                        <i class="bi bi-filetype-csv" aria-hidden="true"></i>
-                        <span>Export CSV</span>
-                    </button>
+        <dialog id="analyticsCustomDateDialog" class="reports-custom-date-dialog" aria-labelledby="analyticsCustomDateTitle" onclick="if(event.target===this){const r=this.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)this.close()}">
+            <form method="GET" action="{{ route($analyticsRouteName) }}" onsubmit="if(!this.checkValidity()) return false; this.closest('dialog').close()">
+                <header><h2 id="analyticsCustomDateTitle">Custom Date Range</h2><button type="button" aria-label="Close custom date range" onclick="this.closest('dialog').close()"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+                <input type="hidden" name="range" value="CUSTOM">
+                <input type="hidden" name="analytics_tab" value="{{ $analyticsTab }}">
+                @if($branchId)<input type="hidden" name="branch_id" value="{{ $branchId }}">@endif
+                <div class="reports-custom-date-fields">
+                    <label>Date From<input autofocus type="date" name="date_from" required value="{{ $dateFrom }}" onchange="this.form.elements.date_to.min=this.value"></label>
+                    <label>Date To<input type="date" name="date_to" required min="{{ $dateFrom }}" value="{{ $dateTo }}"></label>
                 </div>
-            </details>
-        </div>
+                <footer><button type="button" onclick="this.closest('dialog').close()">Cancel</button><button type="submit">Apply Range</button></footer>
+            </form>
+        </dialog>
     @endif
 </section>
 

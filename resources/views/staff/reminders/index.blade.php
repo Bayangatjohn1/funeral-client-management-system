@@ -1,7 +1,7 @@
 @extends('layouts.panel')
 
 @section('page_title', 'Reminders & Schedules')
-@section('page_desc', 'Review case follow-ups, service and interment schedules, and remaining balances.')
+@section('page_desc', 'Track wake periods, funeral ceremonies, interments, and payment follow-ups.')
 
 @section('page_back')
     <a
@@ -29,41 +29,17 @@
 @endphp
 
 @section('header_actions')
+    @if($hasBranchSwitcher)
     <form method="GET" action="{{ route($remindersRoute) }}" class="rp-header-filters" id="rpFilterForm">
         <input type="hidden" name="tab" value="{{ $activeTab ?? 'all' }}">
 
-        <div class="rp-field rp-field--date">
-            <label for="rp_due_window"><i class="bi bi-calendar3"></i> Schedule Date</label>
-            <div class="rp-select-control">
-                <select id="rp_due_window" name="due_window" class="form-select" onchange="window.handleReminderDueWindowChange(this)">
-                    <option value="any" {{ $dueWindow === 'any' ? 'selected' : '' }}>All Dates</option>
-                    <option value="today" {{ $dueWindow === 'today' ? 'selected' : '' }}>Today</option>
-                    <option value="tomorrow" {{ $dueWindow === 'tomorrow' ? 'selected' : '' }}>Tomorrow</option>
-                    <option value="this_week" {{ $dueWindow === 'this_week' ? 'selected' : '' }}>This Week</option>
-                    <option value="next_7" {{ $dueWindow === 'next_7' ? 'selected' : '' }}>Next 7 Days</option>
-                    <option value="this_month" {{ $dueWindow === 'this_month' ? 'selected' : '' }}>This Month</option>
-                    <option value="custom" {{ $dueWindow === 'custom' ? 'selected' : '' }}>Custom Date</option>
-                </select>
-                <i class="bi bi-chevron-down rp-filter-chevron" data-filter-select-icon aria-hidden="true"></i>
-            </div>
-        </div>
-
-        <div class="rp-field rp-field--custom-date {{ $hasCustomDate ? '' : 'is-hidden' }}" id="rpCustomDateField">
-            <label for="rp_date"><i class="bi bi-calendar-check"></i> Custom Date</label>
-            <input id="rp_date" type="date" name="date" value="{{ $filters['date'] ?? '' }}" class="form-input" onchange="this.form.submit()">
-        </div>
-
-        <div class="rp-field rp-field--status">
-            <label for="rp_status"><i class="bi bi-tag"></i> Case Status</label>
-            <div class="rp-select-control">
-                <select id="rp_status" name="case_status" class="form-select" onchange="this.form.submit()">
-                    <option value="">All Statuses</option>
-                    <option value="ACTIVE" {{ ($filters['case_status'] ?? '') === 'ACTIVE' ? 'selected' : '' }}>Active</option>
-                    <option value="COMPLETED" {{ ($filters['case_status'] ?? '') === 'COMPLETED' ? 'selected' : '' }}>Completed</option>
-                </select>
-                <i class="bi bi-chevron-down rp-filter-chevron" data-filter-select-icon aria-hidden="true"></i>
-            </div>
-        </div>
+        @if($activeTab === 'schedules')
+            <input type="hidden" name="calendar_date" value="{{ $calendarDate->toDateString() }}">
+            <input type="hidden" name="calendar_view" value="{{ $calendarView }}">
+            <input type="hidden" name="schedule_section" value="{{ $scheduleSection }}">
+            <input type="hidden" name="schedule_q" value="{{ $scheduleSearch }}">
+            <input type="hidden" name="upcoming_view" value="{{ $upcomingView }}">
+        @endif
 
         @if($hasBranchSwitcher)
             <div class="rp-field rp-field--branch">
@@ -92,6 +68,7 @@
             </a>
         @endif
     </form>
+    @endif
 @endsection
 
 @section('content')
@@ -841,42 +818,14 @@
             'current_wake' => collect($currentWakeItems ?? []),
             'today'    => $reminders->whereIn('type', ['wake_start_today', 'wake_end_today', 'service_today', 'interment_today']),
             'upcoming' => $reminders->whereIn('type', ['upcoming_wake_start', 'upcoming_wake_end', 'upcoming_service', 'upcoming_interment']),
-            'warnings' => $reminders->whereIn('type', ['interment_approaching', 'interment_completed', 'same_day_schedule']),
+            'warnings' => $reminders->whereIn('type', ['interment_approaching', 'interment_completed']),
             'unpaid'   => $reminders->where('type', 'balance'),
         ];
 
         // Tab definitions — new order & labels
         $tabDefs = [
-            'all'      => [
-                'label'   => 'All',
-                'icon'    => 'bi-clipboard-data',
-                'tooltip' => 'All case reminders and schedules in one view.',
-            ],
-            'current_wake' => [
-                'label'   => 'Currently in Wake',
-                'icon'    => 'bi-moon-stars',
-                'tooltip' => 'Cases whose wake period is active right now.',
-            ],
-            'warnings' => [
-                'label'   => 'Needs Attention',
-                'icon'    => 'bi-bell',
-                'tooltip' => 'Cases staff should be aware of or follow up.',
-            ],
-            'today'    => [
-                'label'   => "Today's Schedule",
-                'icon'    => 'bi-calendar-day',
-                'tooltip' => 'Wake and ceremony events scheduled today.',
-            ],
-            'upcoming' => [
-                'label'   => 'Upcoming Events',
-                'icon'    => 'bi-hourglass-split',
-                'tooltip' => 'Wake, ceremony, and interment events scheduled after today.',
-            ],
-            'unpaid'   => [
-                'label'   => 'Remaining Balances',
-                'icon'    => 'bi-wallet2',
-                'tooltip' => 'Cases that still have an amount to be paid.',
-            ],
+            'schedules' => ['label' => 'Schedules', 'icon' => 'bi-calendar-week', 'tooltip' => 'Wake periods, ceremonies, and interments in one calendar.'],
+            'warnings' => ['label' => 'Needs Attention', 'icon' => 'bi-bell', 'tooltip' => 'Cases requiring payment follow-up.'],
         ];
 
         // Type → chip style map
@@ -916,12 +865,11 @@
                 <a
                     href="{{ route($remindersRoute, $tabQuery) }}"
                     class="rp-tab {{ $activeTab === $key ? 'is-active' : 'is-idle' }}"
-                    data-tip="{{ $def['tooltip'] }}"
                     @if($activeTab === $key) aria-current="page" @endif
                 >
                     <i class="bi {{ $def['icon'] }}"></i>
                     {{ $def['label'] }}
-                    @if(isset($counts[$key]))
+                    @if($key !== 'schedules' && isset($counts[$key]))
                         <span class="rp-tab__count">{{ $counts[$key] ?? 0 }}</span>
                     @endif
                 </a>
@@ -960,7 +908,12 @@
                 ->values();
         @endphp
 
-        @if($displayCards->isEmpty())
+        @if($activeTab === 'warnings')
+            <div class="reminder-attention-heading"><h2>Needs Attention</h2><p>Review payment follow-ups for approaching or past interment schedules.</p></div>
+        @endif
+        @if($activeTab === 'schedules')
+            @include('staff.partials.schedule-calendar')
+        @elseif($displayCards->isEmpty())
             <div class="rp-empty">
                 <i class="bi bi-calendar-check text-slate-300 text-3xl mb-3 block"></i>
                 <p class="text-sm font-semibold text-slate-500 mb-1">
@@ -1058,8 +1011,8 @@
 
                         if ($dominantType === 'interment_completed') {
                             $reason = $paymentStatus === 'UNPAID'
-                                ? 'Interment has been completed, but no payment has been recorded. Please review the case.'
-                                : 'Interment has been completed, and a remaining balance is still recorded. Please review the payment record.';
+                                ? 'Scheduled interment time has passed, but no payment has been recorded. Please review the case.'
+                                : 'Scheduled interment time has passed, and a remaining balance is still recorded. Please review the payment record.';
                         } elseif ($dominantType === 'interment_approaching') {
                             $scheduleDay = $case?->interment_at?->isToday() ? 'today' : 'tomorrow';
                             $reason = $paymentStatus === 'UNPAID'
@@ -1075,7 +1028,7 @@
 
                         $moveCompletedDescription = $activeTab === 'warnings' && $dominantType === 'interment_completed';
 
-                        $isPaymentAction = $activeTab === 'unpaid';
+                        $isPaymentAction = $activeTab === 'warnings';
                         $actionUrl = $isPaymentAction
                             ? (request()->routeIs('admin.*')
                                 ? route('admin.payment-monitoring', [
@@ -1126,6 +1079,7 @@
                                             <div class="rp-schedule-entry">
                                                 <strong>Day {{ $wakeItem['current_day'] ?? 1 }} of {{ $wakeItem['total_days'] ?? 1 }}</strong>
                                                 <span>Wake Progress</span>
+                                                <progress class="schedule-wake-progress" value="{{ $wakeItem['current_day'] ?? 1 }}" max="{{ max(1, $wakeItem['total_days'] ?? 1) }}" aria-label="Wake day progress">Day {{ $wakeItem['current_day'] ?? 1 }}</progress>
                                             </div>
                                             <div class="rp-schedule-entry">
                                                 <strong>{{ $wakeStartSchedule ?? 'Not set' }}</strong>
@@ -1176,36 +1130,7 @@
                                     @endif
                                 </div>
                                 @endunless
-                                @if(in_array('same_day_schedule', $types))
-                                    {{-- Conflicting cases panel --}}
-                                    @if(!empty($card['conflicts']))
-                                        @foreach($card['conflicts'] as $conflict)
-                                            @if(!empty($conflict['cases']))
-                                                <div class="rp-conflict-panel">
-                                                    <div class="rp-conflict-panel__title">
-                                                        <i class="bi bi-calendar2-check"></i>
-                                                        {{ $conflict['type'] === 'interment' ? 'Interment' : 'Service' }} schedule on
-                                                        {{ \Carbon\Carbon::parse($conflict['date'])->format('M d, Y') }}
-                                                        — also scheduled with:
-                                                    </div>
-                                                    @foreach($conflict['cases'] as $cc)
-                                                        <div class="rp-conflict-row">
-                                                            <span class="rp-conflict-badge">{{ $cc['case_code'] }}</span>
-                                                            <span class="rp-conflict-name-time">
-                                                                <span class="rp-conflict-name">{{ $cc['client_name'] }}</span>
-                                                                @if(!empty($cc['time']))
-                                                                    <span class="rp-conflict-time">
-                                                                        <i class="bi bi-clock"></i> {{ $cc['time'] }}
-                                                                    </span>
-                                                                @endif
-                                                            </span>
-                                                        </div>
-                                                    @endforeach
-                                                </div>
-                                            @endif
-                                        @endforeach
-                                    @endif
-                                @endif
+
 
                             </div>
 
@@ -1227,7 +1152,7 @@
                                         class="rp-view-btn"
                                     >
                                         <i class="bi {{ $isPaymentAction ? 'bi-wallet2' : 'bi-arrow-up-right-circle' }}" aria-hidden="true"></i>
-                                        {{ $isPaymentAction ? 'Review Payment' : 'View Case' }}
+                                        {{ $isPaymentAction ? 'View in Payment Monitoring' : 'View Case' }}
                                     </a>
                                 @endif
                             </div>
@@ -1240,6 +1165,8 @@
 
     </div>
 </div>
+@include('staff.partials.schedule-styles')
+
 <script>
     window.handleReminderDueWindowChange = function (select) {
         const form = select.form;
@@ -1259,4 +1186,7 @@
         form?.submit();
     };
 </script>
+@include('staff.partials.reminder-navigation')
 @endsection
+
+@include('staff.partials.schedule-visual-styles')

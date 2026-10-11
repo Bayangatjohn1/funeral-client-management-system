@@ -20,6 +20,7 @@ class ReminderService
         $conflicts = $this->mapConflicts($cases);
 
         $attention = $this->buildAttentionReminders($cases, $conflicts, $referenceNow)
+            ->reject(fn ($item) => $item['type'] === 'same_day_schedule')
             ->sortBy([
                 ['severity_rank', 'desc'],
                 ['sort_date', 'asc'],
@@ -30,7 +31,6 @@ class ReminderService
         $todayScheduleCases = $this->fetchTodayScheduleCases($branchId, $today);
         $todaySchedule = $this->buildTodaySchedule($todayScheduleCases, $today, $conflicts)
             ->sortBy('sort_date')
-            ->take(5)
             ->values();
 
         return [
@@ -134,6 +134,75 @@ class ReminderService
             ->values();
     }
 
+    /** Confirmed operational events grouped by branch and date. */
+    public function scheduleGroups(int $branchId, array $filters = []): Collection
+    {
+        return $this->buildFullList($branchId, array_merge($filters, ['alert_type' => 'all']))
+            ->filter(fn ($item) => in_array($item['type'], [
+                'wake_start_today', 'wake_end_today', 'service_today', 'interment_today',
+                'upcoming_wake_start', 'upcoming_wake_end', 'upcoming_service', 'upcoming_interment',
+            ], true))
+            ->sortBy('sort_date')->groupBy(fn ($item) => $item['date']->toDateString())
+            ->map(fn ($events, $date) => [
+                'key' => $branchId.'-'.$date, 'branch_id' => $branchId, 'date' => $date,
+                'events' => $events->values(), 'case_count' => $events->pluck('case_id')->unique()->count(),
+            ])->values();
+    }
+
+    /** Calendar events and overlapping wake periods, including past weeks. */
+    public function calendarData(int $branchId, Carbon $from, Carbon $to, array $filters = []): array
+    {
+        $cases = $this->fetchScheduleCases($branchId)
+            ->filter(fn ($case) => empty($filters['case_status']) || $case->case_status === $filters['case_status']);
+        $events = collect();
+        $wakes = collect();
+        foreach ($cases as $case) {
+            foreach ([
+                ['wake_start', 'wake_start_date', 'wake_start_today', 'Wake Begins'],
+                ['wake_end', 'wake_end_date', 'wake_end_today', 'Wake Ends'],
+                ['service', 'funeral_service_at', 'service_today', 'Funeral Ceremony'],
+                ['interment', 'interment_at', 'interment_today', 'Interment'],
+            ] as [$kind, $column, $type, $label]) {
+                $at = $this->scheduleDateTime($case, $kind, $case->$column);
+                if ($at && $at->betweenIncluded($from, $to)) {
+                    $events->push($this->formatReminder($case, $type, $label, 'info', $at, true));
+                }
+            }
+            $start = $this->scheduleDateTime($case, 'wake_start', $case->wake_start_date);
+            $end = $this->scheduleDateTime($case, 'wake_end', $case->wake_end_date);
+            if ($start && $end && $end->greaterThan($start) && $start->lessThanOrEqualTo($to) && $end->greaterThanOrEqualTo($from)) {
+                $wakes->push(['case' => $case, 'case_id' => $case->id, 'case_code' => $case->case_code,
+                    'deceased_name' => $case->deceased?->full_name ?? 'Not recorded',
+                    'start' => $start, 'end' => $end, 'active' => $start->lessThanOrEqualTo(now()) && $end->greaterThan(now())]);
+            }
+        }
+        return ['events' => $events->sortBy('sort_date')->values(), 'wakes' => $wakes->sortBy('start')->values()];
+    }
+
+    /** Full schedule for one already scoped case, including earlier and later dates. */
+    public function caseSchedule(FuneralCase $case): Collection
+    {
+        return collect([
+            ['wake_start', 'wake_start_date', 'wake_start_today', 'Wake Begins'],
+            ['wake_end', 'wake_end_date', 'wake_end_today', 'Wake Ends'],
+            ['service', 'funeral_service_at', 'service_today', 'Funeral Ceremony'],
+            ['interment', 'interment_at', 'interment_today', 'Interment'],
+        ])->map(fn ($fields) => $this->formatReminder($case, $fields[2], $fields[3], 'info',
+            $this->scheduleDateTime($case, $fields[0], $case->{$fields[1]}), true));
+    }
+
+    public function upcomingCases(int $branchId, array $filters = [], string $search = ''): Collection
+    {
+        return $this->fetchScheduleCases($branchId)
+            ->filter(fn ($case) => empty($filters['case_status']) || $case->case_status === $filters['case_status'])
+            ->filter(fn ($case) => $search === '' || mb_stripos($case->case_code.' '.$case->deceased?->full_name, $search) !== false)
+            ->map(function ($case) {
+                $events = $this->caseSchedule($case);
+                $next = $events->filter(fn ($event) => $event['date'] && $event['date']->toDateString() > now()->toDateString())->sortBy('sort_date')->first();
+                return ['case' => $case, 'events' => $events, 'next_at' => $next['date'] ?? null];
+            })->filter(fn ($item) => $item['next_at'] !== null)->sortBy('next_at')->values();
+    }
+
     private function resolveDueWindow(array $filters, Carbon $today): array
     {
         $window = $filters['due_window'] ?? 'any';
@@ -162,6 +231,7 @@ class ReminderService
     {
         $query = FuneralCase::with(['deceased', 'client'])
             ->where('branch_id', $branchId)
+            ->whereIn('case_status', ['ACTIVE', 'COMPLETED'])
             ->where(function ($q) {
                 $q->where('entry_source', 'MAIN')->orWhereNull('entry_source');
             })
@@ -204,6 +274,7 @@ class ReminderService
     {
         return FuneralCase::with(['deceased', 'client'])
             ->where('branch_id', $branchId)
+            ->whereIn('case_status', ['ACTIVE', 'COMPLETED'])
             ->where(function ($query) {
                 $query->where('entry_source', 'MAIN')->orWhereNull('entry_source');
             })
@@ -219,6 +290,7 @@ class ReminderService
     {
         return FuneralCase::with(['deceased', 'client'])
             ->where('branch_id', $branchId)
+            ->whereIn('case_status', ['ACTIVE', 'COMPLETED'])
             ->where(function ($query) {
                 $query->where('entry_source', 'MAIN')->orWhereNull('entry_source');
             })
@@ -249,7 +321,7 @@ class ReminderService
                     'case_id'     => $case->id,
                     'case_code'   => $case->case_code,
                     'client_name' => $case->client?->full_name ?? 'N/A',
-                    'time'        => $case->funeral_service_at?->format('h:i A'),
+                    'time'        => $case->funeral_service_time ? $this->scheduleDateTime($case, 'service', $case->funeral_service_at)?->format('h:i A') : null,
                 ];
             }
             if ($intermentDate) {
@@ -257,7 +329,7 @@ class ReminderService
                     'case_id'     => $case->id,
                     'case_code'   => $case->case_code,
                     'client_name' => $case->client?->full_name ?? 'N/A',
-                    'time'        => $case->interment_at?->format('h:i A'),
+                    'time'        => $case->interment_time ? $this->scheduleDateTime($case, 'interment', $case->interment_at)?->format('h:i A') : null,
                 ];
             }
         }
@@ -286,8 +358,8 @@ class ReminderService
 
             if ($hasBalance && $intermentAt?->lessThan($now)) {
                 $completedMessage = $case->payment_status === 'UNPAID'
-                    ? 'Interment has been completed, but no payment has been recorded. Please review the case.'
-                    : 'Interment has been completed, and a remaining balance is still recorded. Please review the payment record.';
+                    ? 'Scheduled interment time has passed, but no payment has been recorded. Please review the case.'
+                    : 'Scheduled interment time has passed, and a remaining balance is still recorded. Please review the payment record.';
 
                 $items->push($this->formatReminder(
                     $case,
@@ -455,6 +527,13 @@ class ReminderService
             'label'            => $label,
             'severity'         => $severity,
             'severity_rank'    => $severityRank,
+            'has_time'         => (bool) match ($scheduleType) {
+                'interment' => $case->interment_time,
+                'wake_start' => $case->wake_start_time,
+                'wake_end' => $case->wake_end_time,
+                'service' => $case->funeral_service_time,
+                default => null,
+            },
             'date'             => $date,
             'sort_date'        => $date?->copy() ?? now(),
             'is_schedule_card' => $isScheduleCard,

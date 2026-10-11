@@ -49,8 +49,10 @@ class FuneralContractMapper
 
         $includedCasket = Arr::get($snapshot, 'included_casket') ?: [];
         $selectedCasket = Arr::get($snapshot, 'selected_casket') ?: [];
-        $discount = Arr::get($snapshot, 'discount', []);
-        $promo = Arr::get($snapshot, 'promo', []);
+        $discount = Arr::get($snapshot, 'discount');
+        $discount = is_array($discount) ? $discount : [];
+        $promo = Arr::get($snapshot, 'promo');
+        $promo = is_array($promo) ? $promo : [];
         $discountAmount = (float) Arr::get($snapshot, 'totals.discount', Arr::get($discount, 'discount_amount', 0));
         $discountLabel = $this->discountLabel($discount, $promo, (string) Arr::get($snapshot, 'remarks', ''), $discountAmount);
         $automaticTotal = round(collect($automaticRows)->sum(fn ($row) => (float) ($row['amount'] ?? 0)), 2);

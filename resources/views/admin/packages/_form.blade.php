@@ -119,7 +119,7 @@
     .pkg-casket-summary-top { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
     .pkg-casket-edit { border:0; background:transparent; padding:0; display:inline-flex; align-items:center; gap:5px; color:#6F4D18; font-size:.78rem; font-weight:950; text-decoration:none; white-space:nowrap; cursor:pointer; }
     .pkg-casket-price-missing { color:#9A5A00 !important; }
-    .pkg-modal-backdrop { position:fixed; inset:0; z-index:70; display:none; align-items:center; justify-content:center; background:rgba(18,24,20,.48); padding:18px; }
+    .pkg-modal-backdrop { position:fixed; inset:0; z-index:70; display:none; align-items:center; justify-content:center; background:var(--modal-scrim); padding:18px; }
     .pkg-modal-backdrop.is-open { display:flex; }
     .pkg-modal { width:min(560px,100%); border:1px solid #C9C5BB; border-radius:8px; background:#FAFAF7; box-shadow:0 24px 70px rgba(18,24,20,.28); overflow:hidden; color:#2F302C; }
     .pkg-modal-head { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:18px 20px; border-bottom:1px solid #E1DDD5; }

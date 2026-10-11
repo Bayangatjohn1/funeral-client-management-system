@@ -28,7 +28,7 @@ class TopbarNotificationBuilder
 
         sort($scopeBranchIds);
         $scopeKey = sha1(implode(',', $scopeBranchIds));
-        $cacheKey = 'topbar:notifications:v4:user:'.$user->id.':role:'.($role ?? 'guest').':scope:'.$scopeKey;
+        $cacheKey = 'topbar:notifications:v5:user:'.$user->id.':role:'.($role ?? 'guest').':scope:'.$scopeKey;
 
         return Cache::remember($cacheKey, now()->addSeconds(120), function () use ($scopeBranchIds) {
             $today = now()->startOfDay();
@@ -40,7 +40,7 @@ class TopbarNotificationBuilder
             $caseGroups = $reminders->groupBy('case_id')->map(function (Collection $items) use ($today, $upcomingEnd) {
                 $buckets = collect();
                 $types = $items->pluck('type');
-                if ($types->intersect(['interment_approaching', 'interment_completed', 'same_day_schedule'])->isNotEmpty()) $buckets->push('needs_attention');
+                if ($types->intersect(['interment_approaching', 'interment_completed'])->isNotEmpty()) $buckets->push('needs_attention');
                 if ($types->intersect(['service_today', 'interment_today'])->isNotEmpty()) $buckets->push('today');
                 if ($items->contains(fn (array $item) => in_array($item['type'], ['upcoming_service', 'upcoming_interment'], true)
                     && $item['date']?->betweenIncluded($today, $upcomingEnd))) $buckets->push('upcoming');
@@ -55,7 +55,7 @@ class TopbarNotificationBuilder
             }
 
             $bucketPriority = ['needs_attention', 'today', 'upcoming', 'with_balance'];
-            $typePriority = ['interment_completed', 'interment_approaching', 'same_day_schedule', 'service_today', 'interment_today', 'upcoming_interment', 'upcoming_service', 'balance'];
+            $typePriority = ['interment_completed', 'interment_approaching', 'service_today', 'interment_today', 'upcoming_interment', 'upcoming_service', 'balance'];
             $items = $caseGroups->map(function (array $group) use ($bucketPriority, $typePriority) {
                 $bucket = collect($bucketPriority)->first(fn (string $name) => $group['buckets']->contains($name));
                 $item = collect($typePriority)->map(fn (string $type) => $group['items']->firstWhere('type', $type))

@@ -19,6 +19,72 @@ class ReportsModuleTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_branch_admin_payment_monitoring_ignores_attempts_to_change_assigned_branch(): void
+    {
+        $assigned = $this->branch('BR-SCOPE', 'Assigned scope');
+        $other = $this->branch('BR-OUTSIDE', 'Outside scope');
+        $admin = $this->branchAdmin($assigned);
+        $this->case($assigned, ['case_code' => 'SCOPE-ASSIGNED']);
+        $this->case($other, ['case_code' => 'SCOPE-OUTSIDE']);
+        foreach (['', '?branch_id=all', '?branch_id=' . $other->id] as $query) {
+            $this->actingAs($admin)->get('/admin/payments' . $query)
+                ->assertOk()
+                ->assertSee('SCOPE-ASSIGNED')
+                ->assertDontSee('SCOPE-OUTSIDE')
+                ->assertDontSee('Assigned Branch:')
+                ->assertViewHas('totalCasesWithPayments', 1);
+        }
+    }
+
+    public function test_payment_monitoring_page_size_preserves_filters_scope_and_totals(): void
+    {
+        $branch = $this->branch('BR-PM-PAGE', 'Payment pagination');
+        $other = $this->branch('BR-PM-OTHER', 'Other branch');
+        $admin = $this->branchAdmin($branch);
+        for ($index = 1; $index <= 12; $index++) {
+            $this->case($branch, ['case_code' => sprintf('PM-PAGING-%02d', $index)]);
+        }
+        $this->case($other, ['case_code' => 'PM-PAGING-OTHER']);
+        $query = ['q' => 'PM-PAGING', 'per_page' => 10];
+        $first = $this->actingAs($admin)->get(route('admin.payment-monitoring', $query))->assertOk();
+        $cases = $first->viewData('paymentCases');
+        $this->assertSame(12, $cases->total());
+        $this->assertCount(10, $cases->items());
+        parse_str(parse_url($cases->nextPageUrl(), PHP_URL_QUERY), $nextQuery);
+        $this->assertEquals($query + ['page' => 2], $nextQuery);
+        $second = $this->get($cases->nextPageUrl())->assertOk()->assertDontSee('PM-PAGING-OTHER');
+        $this->assertCount(2, $second->viewData('paymentCases')->items());
+        $this->assertEmpty(array_intersect($cases->pluck('id')->all(), $second->viewData('paymentCases')->pluck('id')->all()));
+        $this->assertEquals($first->viewData('totalCasesWithPayments'), $second->viewData('totalCasesWithPayments'));
+        $this->get(route('admin.payment-monitoring', ['per_page' => 999999]))->assertOk()
+            ->assertViewHas('paymentCases', fn ($page) => $page->perPage() === 20);
+    }
+
+    public function test_branch_master_case_pagination_preserves_filters_and_branch_scope(): void
+    {
+        $branch = $this->branch('BR-PAGE', 'Pagination branch');
+        $other = $this->branch('BR-OTHER', 'Other branch');
+        $admin = $this->branchAdmin($branch);
+        for ($index = 1; $index <= 12; $index++) {
+            $this->case($branch, ['case_code' => sprintf('PAGING-%02d', $index)]);
+        }
+        $this->case($other, ['case_code' => 'PAGING-OTHER']);
+        $query = ['q' => 'PAGING', 'case_status' => 'ACTIVE', 'sort' => 'oldest', 'per_page' => 10];
+        $first = $this->actingAs($admin)->get(route('admin.cases.index', $query))->assertOk();
+        $cases = $first->viewData('cases');
+        $this->assertSame(12, $cases->total());
+        $this->assertCount(10, $cases->items());
+        parse_str(parse_url($cases->nextPageUrl(), PHP_URL_QUERY), $nextQuery);
+        $this->assertEquals($query + ['page' => 2], $nextQuery);
+        $second = $this->get($cases->nextPageUrl())->assertOk();
+        $secondCases = $second->viewData('cases');
+        $this->assertSame(2, $secondCases->currentPage());
+        $this->assertCount(2, $secondCases->items());
+        $this->assertEmpty(array_intersect($cases->pluck('id')->all(), $secondCases->pluck('id')->all()));
+        $second->assertDontSee('PAGING-OTHER');
+        $this->get($secondCases->previousPageUrl())->assertOk()->assertViewHas('cases', fn ($page) => $page->currentPage() === 1);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -487,6 +553,7 @@ class ReportsModuleTest extends TestCase
             ->getJson('/reports/preview?report_type=sales&date_from=2026-09-01&date_to=2026-09-30')
             ->assertOk()
             ->assertJsonCount(2, 'rows')
+            ->assertJsonPath('summary.total_records', 2)
             ->assertJsonPath('summary.amount_collected', 30000);
     }
 

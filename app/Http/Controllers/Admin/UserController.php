@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use App\Support\AuditLogger;
+use App\Support\AccountSecurity;
+use Illuminate\Support\Facades\DB;
 
 class UserController extends Controller
 {
@@ -36,7 +38,7 @@ class UserController extends Controller
         'admin_scope' => ['nullable', Rule::in(['system', 'branch'])],
         'assignment' => ['nullable', Rule::in(['unassigned'])],
         'status' => ['nullable', Rule::in(['active', 'inactive'])],
-        'sort' => ['nullable', Rule::in(['latest', 'name_asc', 'role_asc', 'branch_asc'])],
+        'sort' => ['nullable', Rule::in($actor->isBranchAdmin() ? ['latest', 'oldest', 'name_asc'] : ['latest', 'name_asc', 'role_asc', 'branch_asc'])],
     ]);
 
     $branches = collect();
@@ -64,14 +66,25 @@ class UserController extends Controller
         abort(403, 'Unauthorized');
     }
 
+    // Directory totals follow the actor's account scope, not the selected filters or page.
+    $directoryStats = [
+        'total' => (clone $query)->count(),
+        'active' => (clone $query)->where('is_active', true)->count(),
+        'inactive' => (clone $query)->where('is_active', false)->count(),
+        'admins' => $actor->isSystemAdmin() ? (clone $query)->where('role', 'admin')->count() : 0,
+        'staff' => $actor->isSystemAdmin() ? (clone $query)->where('role', 'staff')->count() : 0,
+    ];
+
     $query
-        ->when($validated['q'] ?? null, function ($q, string $search) {
-            $q->where(function ($searchQuery) use ($search) {
+        ->when($validated['q'] ?? null, function ($q, string $search) use ($actor) {
+            $q->where(function ($searchQuery) use ($search, $actor) {
                 $searchQuery
                     ->where('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%")
-                    ->orWhere('contact_number', 'like', "%{$search}%")
-                    ->orWhereHas('branch', fn ($branchQuery) => $branchQuery->where('branch_name', 'like', "%{$search}%"));
+                    ->orWhere('email', 'like', "%{$search}%");
+                if (! $actor->isBranchAdmin()) {
+                    $searchQuery->orWhere('contact_number', 'like', "%{$search}%")
+                        ->orWhereHas('branch', fn ($branchQuery) => $branchQuery->where('branch_name', 'like', "%{$search}%"));
+                }
             });
         })
         ->when($actor->isSystemAdmin() ? $selectedBranchId : null, fn ($q, int $branchId) => $q->where('branch_id', $branchId))
@@ -81,6 +94,7 @@ class UserController extends Controller
         ->when($validated['status'] ?? null, fn ($q, string $status) => $q->where('is_active', $status === 'active'));
 
     match ($validated['sort'] ?? 'latest') {
+        'oldest' => $query->oldest()->orderBy('users.id'),
         'name_asc' => $query->orderBy('name'),
         'role_asc' => $query->orderBy('role')->orderBy('name'),
         'branch_asc' => $query
@@ -99,16 +113,21 @@ class UserController extends Controller
         'users',
         'branches',
         'selectedBranchId',
-        'assignedBranch'
+        'assignedBranch',
+        'directoryStats'
     ));
 }
-    public function create()
+    public function create(Request $request)
 {
     $actor = auth()->user();
 
     if (! $actor) {
         abort(403, 'Unauthorized');
     }
+
+    $accountRole = (string) $request->query('role', 'staff');
+    abort_unless(in_array($accountRole, ['staff', 'branch_admin'], true), 404);
+    abort_if(! $actor->isSystemAdmin() && $accountRole !== 'staff', 403);
 
     if ($actor->isSystemAdmin()) {
         $branches = Branch::where('is_active', true)->orderBy('branch_name')->get();
@@ -122,10 +141,26 @@ class UserController extends Controller
         ? Branch::find($this->resolveMainBranchId($actor))
         : $actor->branch;
 
-    return view('admin.users.create', compact('branches', 'currentBranch'));
+    return view('admin.users.create', compact('branches', 'currentBranch', 'accountRole'));
 }
     public function store(Request $request)
     {
+        $privileged = $request->routeIs('admin.system-admins.store');
+        if ($privileged) {
+            abort_unless($request->user()->isSystemAdmin(), 403);
+            $request->validate([
+                'current_password' => ['required', 'current_password:web'],
+                'privileged_for_user_id' => ['nullable', 'integer', Rule::exists('users', 'id')->where(fn ($q) => $q->where('is_active', true)->whereIn('role', ['staff', 'admin'])->where(fn ($q) => $q->whereNull('admin_scope')->orWhere('admin_scope', 'branch'))), Rule::unique('users', 'privileged_for_user_id')],
+                'reason' => ['required', 'string', 'min:10', 'max:500'],
+                'confirmed' => ['accepted'],
+                'password' => ['required', 'string', 'min:12'],
+            ]);
+            $request->merge(['role' => 'system_admin', 'branch_id' => null]);
+        } elseif (in_array($request->input('admin_scope'), ['main', 'all_branches'], true)) {
+            throw ValidationException::withMessages(['admin_scope' => 'Legacy global administrator scopes cannot be assigned.']);
+        } elseif ($request->input('role') === 'system_admin' || $request->input('admin_scope') === 'system') {
+            throw ValidationException::withMessages(['role' => 'Create a separate personal System Admin account using the dedicated action.']);
+        }
         $this->trimUserInput($request);
         $this->hydrateSplitNameFromLegacyName($request);
         $this->normalizeRequestedRole($request);
@@ -160,7 +195,20 @@ class UserController extends Controller
         if (Schema::hasColumn('users', 'created_by')) {
             $userAttributes['created_by'] = $request->user()->id;
         }
-        $user = User::create($userAttributes);
+        $user = DB::transaction(function () use ($userAttributes, $privileged, $request) {
+            if ($privileged && $request->filled('privileged_for_user_id')) {
+                $regular = User::whereKey($request->integer('privileged_for_user_id'))->lockForUpdate()->firstOrFail();
+                abort_unless($regular->is_active && ($regular->isStaff() || $regular->isBranchAdmin()), 403);
+            }
+            $user = User::create($userAttributes);
+            if ($privileged) {
+                $user->privileged_for_user_id = $request->filled('privileged_for_user_id') ? $request->integer('privileged_for_user_id') : null;
+                $user->must_change_password = true;
+                $user->save();
+                AccountSecurity::audit('user.system_admin_created', $user, ['regular_account_id' => $user->privileged_for_user_id, 'reason' => $request->input('reason')]);
+            }
+            return $user;
+        });
 
         AuditLogger::log(
             action: 'user.created',
@@ -179,10 +227,60 @@ class UserController extends Controller
 
         $returnTo = $request->input('return_to');
         if ($returnTo) {
-            return redirect()->to($returnTo)->with('success', 'User created successfully.');
+            return redirect()->to($this->safeReturnTo($returnTo))->with('success', 'User created successfully.');
         }
 
         return redirect()->route('admin.users.index')->with('success', 'User created successfully.');
+    }
+
+    public function createSystemAdmin()
+    {
+        abort_unless(auth()->user()?->isSystemAdmin(), 403);
+        $branches = collect();
+        $currentBranch = null;
+        $privilegedAccount = true;
+        $regularAccounts = User::where('is_active', true)->whereIn('role', ['staff', 'admin'])
+            ->where(fn ($q) => $q->whereNull('admin_scope')->orWhere('admin_scope', 'branch'))
+            ->whereNotIn('id', User::whereNotNull('privileged_for_user_id')->select('privileged_for_user_id'))
+            ->orderBy('name')->get();
+        return view('admin.users.create', compact('branches', 'currentBranch', 'privilegedAccount', 'regularAccounts'));
+    }
+
+    public function editRole(User $user)
+    {
+        abort_unless(auth()->user()?->isSystemAdmin() && auth()->id() !== $user->id && ($user->isStaff() || $user->isBranchAdmin()), 403);
+        $branches = Branch::where('is_active', true)->orderBy('branch_name')->get();
+        return view('admin.users.change-role', compact('user', 'branches'));
+    }
+
+    public function changeRole(Request $request, User $user)
+    {
+        abort_unless($request->user()->isSystemAdmin() && $request->user()->id !== $user->id, 403);
+        $validated = $request->validate([
+            'role' => ['required', Rule::in(['staff', 'branch_admin'])],
+            'branch_id' => ['required', 'integer', Rule::exists('branches', 'id')->where('is_active', true)],
+            'current_password' => ['required', 'current_password:web'],
+            'reason' => ['required', 'string', 'min:10', 'max:500'],
+            'confirmed' => ['accepted'],
+            'expected_role' => ['required', Rule::in(['staff', 'branch_admin'])],
+        ]);
+        DB::transaction(function () use ($user, $validated) {
+            $target = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+            abort_unless($target->isStaff() || $target->isBranchAdmin(), 403);
+            if (! Branch::whereKey($validated['branch_id'])->lockForUpdate()->first()?->is_active) {
+                throw ValidationException::withMessages(['branch_id' => 'Select an active branch.']);
+            }
+            $oldRole = $target->isStaff() ? 'staff' : 'branch_admin';
+            if ($oldRole !== $validated['expected_role']) throw ValidationException::withMessages(['role' => 'This account changed. Reload before continuing.']);
+            if ($oldRole === $validated['role']) throw ValidationException::withMessages(['role' => 'Choose a different role. Use Edit User for branch assignment changes.']);
+            $before = ['role' => $target->role, 'admin_scope' => $target->admin_scope, 'branch_id' => $target->branch_id];
+            $target->role = $validated['role'] === 'staff' ? 'staff' : 'admin';
+            $target->admin_scope = $validated['role'] === 'staff' ? null : 'branch';
+            $target->branch_id = $validated['branch_id'];
+            AccountSecurity::revoke($target);
+            AccountSecurity::audit('user.role_changed', $target, ['before' => $before, 'after' => ['role' => $target->role, 'admin_scope' => $target->admin_scope, 'branch_id' => $target->branch_id], 'reason' => $validated['reason']]);
+        });
+        return redirect()->route('admin.users.edit', $user)->with('success', 'Role changed. The user must sign in again.');
     }
 
     public function edit(User $user)
@@ -202,7 +300,7 @@ class UserController extends Controller
         if ($actor->isSystemAdmin()) {
             $branches = Branch::query()
                 ->where('is_active', true)
-                ->orWhereKey($user->branch_id)
+                ->orWhere('id', $user->branch_id)
                 ->orderBy('branch_name')
                 ->get();
         } elseif ($actor->role === 'admin') {
@@ -222,10 +320,22 @@ class UserController extends Controller
 
     public function update(Request $request, User $user)
     {
+        return DB::transaction(fn () => $this->updateLocked($request, User::whereKey($user->id)->lockForUpdate()->firstOrFail()));
+    }
+
+    private function updateLocked(Request $request, User $user)
+    {
         $this->ensureManageableUser($user);
+        abort_if($request->filled('password'), 422, 'Use the separate password reset action.');
         $this->trimUserInput($request);
         $this->hydrateSplitNameFromLegacyName($request);
         $this->normalizeRequestedRole($request);
+        if ($request->input('role') !== $user->role || ($user->role === 'admin' && $request->input('admin_scope') !== $user->admin_scope && ! ($user->isSystemAdmin() && $request->input('admin_scope') === 'system'))) {
+            throw ValidationException::withMessages(['role' => 'Use Change Role to change account privileges. System Admin requires a separate account.']);
+        }
+        if ($user->isSystemAdmin() && $request->input('email') !== $user->email) {
+            $request->validate(['current_password' => ['required', 'current_password:web']]);
+        }
         $this->ensureRoleAssignmentAllowed($request, $user);
         /**
          * The user update scope must be applied before validation to ensure that the correct validation rules are applied based on the target user's current role and the authenticated user's role.
@@ -266,7 +376,12 @@ class UserController extends Controller
                 : ($validated['role'] === 'admin' ? (string) $request->input('admin_scope', 'branch') : null);
         }
 
-        $user->update($updateAttributes);
+        DB::transaction(function () use ($user, $updateAttributes) {
+            $beforeFingerprint = AccountSecurity::fingerprint($user);
+            if ($user->email !== $updateAttributes['email']) $user->email_verified_at = null;
+            $user->update($updateAttributes);
+            if ($beforeFingerprint !== AccountSecurity::fingerprint($user)) AccountSecurity::revoke($user);
+        });
 
         AuditLogger::log(
             action: 'user.updated',
@@ -288,7 +403,7 @@ class UserController extends Controller
 
         $returnTo = $request->input('return_to');
         if ($returnTo) {
-            return redirect()->to($returnTo)->with('success', 'User updated successfully.');
+            return redirect()->to($this->safeReturnTo($returnTo))->with('success', 'User updated successfully.');
         }
 
         return redirect()->route('admin.users.index')->with('success', 'User updated successfully.');
@@ -297,65 +412,68 @@ class UserController extends Controller
     public function toggleActive(User $user)
     {
         $this->ensureManageableUser($user);
+        if (auth()->id() === $user->id) return back()->with('error', "You can't deactivate your own account.");
 
-        if (auth()->id() === $user->id) {
-            return back()->with('error', "You can't deactivate your own account.");
-        }
-
-        if ($user->isSystemAdmin() && $user->is_active && User::query()
-            ->where('role', 'admin')
-            ->whereIn('admin_scope', ['system', 'main', 'all_branches'])
-            ->where('is_active', true)
-            ->count() <= 1) {
-            return back()->with('error', 'The last active System Admin cannot be deactivated.');
-        }
-
-        $previousStatus = $user->is_active;
-        $user->is_active = !$user->is_active;
-        $user->save();
-
-        AuditLogger::log(
-            action: $user->is_active ? 'user.activated' : 'user.deactivated',
-            actionType: 'status_change',
-            entityType: 'user',
-            entityId: $user->id,
-            metadata: [
-                'target_user' => $user->name,
-                'target_email' => $user->email,
-                'from' => $previousStatus ? 'active' : 'inactive',
-                'to' => $user->is_active ? 'active' : 'inactive',
-            ],
-            branchId: $user->branch_id
-        );
-
-        return back()->with('success', 'User status updated.');
+        DB::transaction(function () use ($user) {
+            User::where('role', 'admin')->orderBy('id')->lockForUpdate()->get();
+            $target = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $this->ensureManageableUser($target);
+            if ($target->isSystemAdmin() && $target->is_active && User::where('is_active', true)->where('role', 'admin')->get()->filter(fn ($admin) => $admin->isSystemAdmin())->count() <= 1) {
+                throw ValidationException::withMessages(['status' => 'The last active System Admin cannot be deactivated.']);
+            }
+            $before = $target->is_active;
+            $target->is_active = ! $before;
+            AccountSecurity::revoke($target);
+            AccountSecurity::audit($target->is_active ? 'user.activated' : 'user.deactivated', $target, ['from' => $before ? 'active' : 'inactive', 'to' => $target->is_active ? 'active' : 'inactive']);
+        });
+        $user->refresh();
+        return back()->with('success', sprintf('%s is now %s.', $user->name, $user->is_active ? 'active' : 'inactive'));
     }
-
     public function resetPassword(Request $request, User $user)
     {
         $this->ensureManageableUser($user);
+        abort_unless($user->isStaff() || $user->isBranchAdmin(), 403, 'Use the designated System Admin recovery process.');
 
         $validated = $request->validate([
-            'password' => 'required|min:6|confirmed',
+            'current_password' => ['required', 'current_password:web'],
+            'reason' => ['required', 'string', 'min:10', 'max:1000'],
+            'password' => ['required', 'string', 'max:128', 'confirmed', \Illuminate\Validation\Rules\Password::min(12)->letters()->numbers()],
         ]);
 
-        $user->password = Hash::make($validated['password']);
-        $user->save();
+        try {
+        DB::transaction(function () use ($user, $validated) {
+            $user = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $this->ensureManageableUser($user);
+            abort_unless($user->isStaff() || $user->isBranchAdmin(), 403);
+            if (Hash::check($validated['password'], $user->password)) throw ValidationException::withMessages(['password' => 'Choose a different temporary password.']);
+            $user->password = Hash::make($validated['password']);
+            $user->must_change_password = true;
+            AccountSecurity::revoke($user);
+            \Illuminate\Support\Facades\Password::deleteToken($user);
+            AccountSecurity::audit('user.password_reset', $user, ['reason' => trim($validated['reason'])]);
+        });
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $exception) {
+            throw $exception;
+        } catch (\Illuminate\Database\QueryException|\RuntimeException $exception) {
+            if ($request->expectsJson()) return response()->json(['message' => 'Password reset unsuccessful. No changes were saved. Please try again or contact your System Admin.'], 500);
+            return back()->withInput($request->only('reason', 'password_reset_action'))
+                ->withErrors(['password_reset' => 'Password reset unsuccessful. No changes were saved. Please try again or contact your System Admin.']);
+        }
 
-        AuditLogger::log(
-            action: 'user.password_reset',
-            actionType: 'security',
-            entityType: 'user',
-            entityId: $user->id,
-            metadata: [
-                'target_user' => $user->name,
-                'target_email' => $user->email,
-                'reset_by' => auth()->id(),
-            ],
-            branchId: $user->branch_id
-        );
+        $message = 'Password reset successful. Share the temporary password privately. The user must change it after sign-in and MFA.';
+        if ($request->expectsJson()) {
+            $request->session()->flash('success', $message);
+            return response()->json(['message' => $message]);
+        }
+        return back()->with('success', $message);
+    }
 
-        return back()->with('success', 'Password reset successfully.');
+    private function safeReturnTo(mixed $value): string
+    {
+        if (! is_string($value)) return route('admin.users.index');
+        $base = rtrim(url('/'), '/');
+        return str_starts_with($value, $base.'/admin/users') && ! str_contains($value, "\r") && ! str_contains($value, "\n")
+            ? $value : route('admin.users.index');
     }
 
     private function userValidationRules(Request $request, ?User $user = null): array

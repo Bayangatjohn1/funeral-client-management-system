@@ -1,0 +1,77 @@
+.account-security-page .guest-card { max-width: 820px; padding: clamp(20px, 4vw, 36px); border-radius: 16px; background: var(--color-bg-surface); }
+.account-security-page .guest-card::before, .account-security-page .guest-card::after { display: none; }
+.account-security-logo { border-radius: 12px; background: #fff; padding: 5px; object-fit: contain; }
+.account-security-header { margin-bottom: 28px; }
+.account-security-kicker { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: var(--color-text-secondary); }
+.account-security-header h1 { font-size: clamp(24px, 4vw, 30px); line-height: 1.25; margin: 10px 0; font-weight: 700; }
+.account-security-header > p, .account-security-help, .account-security-scan > p, .account-security-manual p { color: var(--color-text-secondary); font-size: 14px; line-height: 1.6; }
+.account-security-account { display: flex; align-items: center; gap: 8px; margin-top: 16px; font-size: 14px; overflow-wrap: anywhere; }
+.account-security-content--setup { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; }
+.account-security-content h2 { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+.account-security-step { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1px solid var(--color-border); border-radius: 50%; font-size: 13px; }
+.account-security-qr { width: fit-content; max-width: 100%; padding: 8px; margin: 18px auto; background: #fff; border: 1px solid var(--color-border); border-radius: 12px; }
+.account-security-qr img { display: block; max-width: 100%; height: auto; }
+.account-security-manual { border: 1px solid var(--color-border); border-radius: 8px; padding: 12px; font-size: 13px; }
+.account-security-manual summary { cursor: pointer; line-height: 1.6; font-weight: 600; }
+.account-security-manual p { margin-top: 12px; }
+.account-security-manual code { display: block; overflow-wrap: anywhere; margin-top: 10px; font-size: 13px; user-select: all; }
+.account-security-form { display: grid; gap: 18px; margin-top: 18px; }
+.account-security-form label { margin-bottom: 6px; }
+.account-security-form input { min-height: 48px; }
+.account-security-form .account-security-code { font-family: ui-monospace, monospace; font-size: 18px; }
+.account-security-form .account-security-help { margin-top: 6px; font-size: 12px; }
+.account-security-submit { width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 10px; text-decoration: none; }
+.account-security-notice { border: 1px solid var(--color-border); padding: 14px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; line-height: 1.6; }
+.account-security-recovery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 24px; list-style: none; padding: 0; }
+.account-security-recovery li { border: 1px solid var(--color-border); border-radius: 6px; padding: 12px; text-align: center; font-family: ui-monospace, monospace; overflow-wrap: anywhere; }
+.account-security-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--color-border); margin-top: 28px; padding-top: 18px; font-size: 12px; color: var(--color-text-secondary); }
+.account-security-footer span { display: flex; align-items: center; gap: 6px; }
+.account-security-footer button { min-height: 44px; text-decoration: underline; white-space: nowrap; }
+.account-security-page summary:focus-visible, .account-security-page button:focus-visible, .account-security-page a:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 4px; }
+@media (max-width: 640px) {
+    .account-security-content--setup { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+    .account-security-verification { border-top: 1px solid var(--color-border); padding-top: 24px; }
+    .account-security-footer { align-items: flex-start; }
+    .account-security-recovery { grid-template-columns: minmax(0, 1fr); }
+}
+.account-recovery-page .guest-card { max-width: 520px; }
+.account-recovery-page .account-security-submit:disabled { opacity: .55; cursor: not-allowed; }
+.security-password-field { position: relative; }
+.security-password-field input { padding-right: 52px; }
+.security-password-field input::-ms-reveal,
+.security-password-field input::-ms-clear { display: none; }
+.security-password-field button { position: absolute; right: 4px; top: 2px; width: 44px; height: 44px; color: var(--color-text-secondary); }
+.password-reset-dialog { width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; padding: 20px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-bg-surface); color: var(--color-text-primary); }
+.password-reset-dialog::backdrop { background: rgb(0 0 0 / .45); }
+.password-reset-dialog header, .password-reset-dialog footer, .reset-password-tools { display: flex; align-items: center; gap: 8px; }
+.password-reset-dialog header { justify-content: space-between; font-size: 20px; font-weight: 700; }
+.password-reset-dialog header button { min-height: 44px; min-width: 44px; }
+.password-reset-dialog form { display: grid; gap: 14px; margin-top: 8px; }
+.password-reset-dialog header h2 { margin: 0; font-size: 20px; }
+.password-reset-dialog .reset-target { margin: 0; font-size: 13px; color: var(--color-text-secondary); }
+.password-reset-dialog .reset-notice { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--color-bg-muted); font-size: 13px; line-height: 1.5; font-weight: 400; }
+.password-reset-dialog .reset-field-group { display: grid; gap: 6px; }
+.password-reset-dialog .reset-helper { margin: 0; font-size: 12px; line-height: 1.5; color: var(--color-text-secondary); font-weight: 400; }
+.password-reset-dialog .reset-password-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.password-reset-dialog .reset-password-row > input { min-width: 0; flex: 1; width: 0; }
+.password-reset-dialog .form-input { margin: 0; min-height: 44px; }
+.password-reset-dialog textarea.form-input { min-height: 64px; resize: vertical; }
+.password-reset-dialog .reset-password-tools { flex-wrap: nowrap; flex-shrink: 0; }
+.password-reset-dialog .reset-password-tools button { width: 44px; height: 44px; min-height: 44px; padding: 0; }
+#password-reset-dialog [hidden] { display: none; }
+.password-reset-dialog label { font-size: 14px; font-weight: 600; }
+.password-reset-dialog footer { justify-content: flex-end; margin-top: 0; padding-top: 14px; border-top: 1px solid var(--color-border); flex-wrap: wrap; }
+.reset-password-tools { flex-wrap: wrap; }
+.password-reset-dialog button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+.password-reset-dialog .reset-result-error { padding: 10px 12px; border: 1px solid var(--color-danger); border-radius: 8px; color: var(--color-danger); font-size: 13px; line-height: 1.5; }
+.password-welcome-dialog { width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; padding: clamp(20px, 4vw, 28px); border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-bg-surface); color: var(--color-text-primary); }
+.password-welcome-dialog::backdrop { background: rgb(0 0 0 / .45); }
+.password-welcome-icon { font-size: 36px; color: var(--color-success-text); margin-bottom: 14px; }
+.password-welcome-dialog h2 { margin: 0 0 10px; font-size: 24px; line-height: 1.25; font-weight: 700; }
+.password-welcome-dialog > p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--color-text-secondary); }
+.password-welcome-tips { margin: 20px 0; padding: 16px; border: 1px solid var(--color-border); border-radius: 10px; }
+.password-welcome-tips h3 { margin: 0 0 12px; font-size: 14px; font-weight: 600; }
+.password-welcome-tips ul { display: grid; gap: 12px; padding: 0; margin: 0; list-style: none; }
+.password-welcome-tips li { display: flex; gap: 10px; font-size: 13px; line-height: 1.5; color: var(--color-text-secondary); }
+.password-welcome-tips li i { flex-shrink: 0; color: var(--color-text-primary); }
+.password-welcome-dialog button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }

@@ -56,9 +56,10 @@
 
 <section class="eb-greeting eb-greeting--flat" aria-labelledby="owner-dashboard-greeting">
     <div>
-        <h1 id="owner-dashboard-greeting">Good day, {{ $ownerFirstName }}</h1>
+        <h1 id="owner-dashboard-greeting"><x-page-title-icon icon="grid" inline />Good day, {{ $ownerFirstName }}</h1>
         <p>Business overview across all branches</p>
     </div>
+    @include('partials.dashboard-header-controls')
 </section>
 
 {{--
@@ -585,6 +586,8 @@
     background: var(--eb-surface);
 }
 .eb-greeting.eb-greeting--flat {
+    flex-wrap: wrap;
+    gap: .75rem;
     padding: .25rem 0 .75rem;
     border: 0;
     border-radius: 0;

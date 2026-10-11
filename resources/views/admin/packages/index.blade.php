@@ -443,7 +443,7 @@
     outline: none;
 }
 #packageModalOverlay {
-    background: rgba(35, 43, 34, .46) !important;
+    background: var(--modal-scrim) !important;
     backdrop-filter: none !important;
 }
 #packageModalSheet {

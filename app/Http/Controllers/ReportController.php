@@ -222,6 +222,7 @@ class ReportController extends Controller
             'action_type' => ['nullable', 'string', 'max:30'],
             'module' => ['nullable', 'string', 'max:120'],
             'entity_type' => ['nullable', 'string', 'max:120'],
+            'audit_log_id' => ['nullable', 'integer', 'min:1'],
         ]);
 
         return array_filter($validated, fn ($value) => $value !== null && $value !== '');
@@ -338,8 +339,12 @@ class ReportController extends Controller
 
     private function getAuditLogsReportData(Request $request, array $branchScope): array
     {
+        $request->validate(['audit_log_id' => ['nullable', 'integer', 'min:1']]);
         $query = AuditLog::with(['actor:id,name,first_name,last_name,role', 'branch:id,branch_code,branch_name'])
             ->latest('created_at');
+        if ($request->filled('audit_log_id')) {
+            $query->whereKey((int) $request->input('audit_log_id'));
+        }
 
         if (Schema::hasColumn('audit_logs', 'branch_id')) {
             $branchId = $branchScope['forced_branch_id'] ?? null;
@@ -843,8 +848,8 @@ class ReportController extends Controller
                 'name' => 'Client / Deceased',
                 'branch' => 'Branch',
                 'total_amount' => 'Total Amount Availed',
-                'total_paid' => 'All Payments',
-                'balance' => 'Current Balance',
+                'total_paid' => 'Total Paid',
+                'balance' => 'Remaining Balance',
                 'case_status' => 'Case Status',
                 'payment_status' => 'Payment Status',
             ],

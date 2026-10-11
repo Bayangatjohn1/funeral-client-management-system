@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AddOnCatalog;
 use App\Models\Branch;
 use App\Models\CaseDocument;
+use App\Models\CaseDocumentRevision;
 use App\Models\CasketCatalog;
 use App\Models\Client;
 use App\Models\Deceased;
@@ -14,6 +15,7 @@ use App\Models\PackageInclusion;
 use App\Models\Payment;
 use App\Models\User;
 use App\Services\CaseDocument\FuneralContractMapper;
+use App\Services\CaseDocument\FuneralContractLayout;
 use App\Services\CaseDocument\FuneralContractSnapshotService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -22,6 +24,99 @@ use Tests\TestCase;
 class FuneralContractSnapshotTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_contract_preview_back_navigation_returns_to_case_records_not_contract_preview(): void
+    {
+        [$case, , , , $admin] = $this->contractCase();
+        $recordsUrl = route('funeral-cases.index', ['tab' => 'active'], absolute: false);
+        $previewUrl = route('funeral-cases.documents.contract.preview', $case, absolute: false);
+
+        $this->actingAs($admin)->get(route('funeral-cases.show', [
+            'funeral_case' => $case,
+            'return_to' => $recordsUrl,
+        ], absolute: false))->assertOk()
+            ->assertSee('class="case-back-icon"', false)
+            ->assertSee(route('funeral-cases.documents.contract.preview', [
+                'funeral_case' => $case,
+                'return_to' => $recordsUrl,
+            ], absolute: false));
+
+        $this->actingAs($admin)->get(route('funeral-cases.documents.contract.preview', [
+            'funeral_case' => $case,
+            'return_to' => $recordsUrl,
+        ], absolute: false))->assertOk()
+            ->assertSee(route('funeral-cases.show', [
+                'funeral_case' => $case,
+                'return_to' => $recordsUrl,
+            ], absolute: false));
+
+        $this->actingAs($admin)->withHeader('Referer', $previewUrl)
+            ->get(route('funeral-cases.show', $case, absolute: false))
+            ->assertOk()
+            ->assertSee('href="' . route('funeral-cases.index', ['tab' => 'active']) . '" class="case-back-icon"', false)
+            ->assertDontSee('href="' . $previewUrl . '" class="case-back-icon"', false);
+    }
+
+    public function test_branch_admin_can_reissue_missing_birth_date_without_losing_original_contract(): void
+    {
+        Storage::fake('local');
+        [$case, , , , $admin] = $this->contractCase();
+        $admin->update(['admin_scope' => 'branch']);
+
+        $this->actingAs($admin)->post(route('funeral-cases.documents.contract.store', $case, absolute: false), [])->assertRedirect();
+        $document = CaseDocument::where('case_id', $case->id)->firstOrFail();
+        $originalSnapshot = $document->contract_snapshot;
+        unset($originalSnapshot['deceased']['date_of_birth']);
+        $document->update(['contract_snapshot' => $originalSnapshot]);
+        $originalPath = $document->file_path;
+        $originalPdf = Storage::disk('local')->get($originalPath);
+
+        $this->actingAs($admin)->get(route('funeral-cases.documents.contract.preview', $case, absolute: false))
+            ->assertOk()->assertSee('Issue Corrected Contract')->assertSee('Jul 19, 1954');
+
+        $this->actingAs($admin)->post(route('funeral-cases.documents.contract.correct-birth-date', $case, absolute: false), [
+            'reason' => 'Birth date omitted from the issued snapshot.',
+        ])->assertRedirect();
+
+        $document->refresh();
+        $this->assertSame('1954-07-19', data_get($document->contract_snapshot, 'deceased.date_of_birth'));
+        $this->assertSame($originalSnapshot['contract_number'], $document->contract_number);
+        $this->assertSame(data_get($originalSnapshot, 'totals'), data_get($document->contract_snapshot, 'totals'));
+        $this->assertNotSame($originalPath, $document->file_path);
+        Storage::disk('local')->assertExists($originalPath);
+        Storage::disk('local')->assertExists($document->file_path);
+        $revision = CaseDocumentRevision::where('case_document_id', $document->id)->firstOrFail();
+        $this->assertSame($originalSnapshot, $revision->contract_snapshot);
+        $this->assertSame($originalPath, $revision->file_path);
+        $this->actingAs($admin)->get(route('funeral-cases.documents.revisions.preview', [$case, $document, $revision], absolute: false))
+            ->assertOk()->assertSee($originalPdf, false);
+
+        $this->actingAs($admin)->post(route('funeral-cases.documents.contract.correct-birth-date', $case, absolute: false), [
+            'reason' => 'Attempt to correct a second time.',
+        ])->assertSessionHasErrors('contract');
+        $this->assertSame(1, CaseDocumentRevision::where('case_document_id', $document->id)->count());
+    }
+
+    public function test_branch_admin_can_prepare_contract_when_optional_promo_and_discount_are_null(): void
+    {
+        Storage::fake('local');
+        [$case, , , , $admin] = $this->contractCase();
+        $admin->update(['admin_scope' => 'branch']);
+        $pricing = $case->pricing_snapshot;
+        $pricing['promo'] = null;
+        $pricing['discount'] = null;
+        $case->update(['pricing_snapshot' => $pricing]);
+
+        $this->actingAs($admin)
+            ->get(route('funeral-cases.documents.contract.preview', $case, absolute: false))
+            ->assertOk()
+            ->assertSee('Review Funeral Contract');
+
+        $this->actingAs($admin)
+            ->get(route('funeral-cases.documents.contract.preview-pdf', $case, absolute: false))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf');
+    }
 
     public function test_contract_preview_loads_saved_case_mapping(): void
     {
@@ -71,8 +166,10 @@ class FuneralContractSnapshotTest extends TestCase
         $document = CaseDocument::query()->where('case_id', $case->id)->firstOrFail();
 
         $this->assertSame(CaseDocument::TYPE_FUNERAL_CONTRACT, $document->document_type);
+        $this->assertSame(FuneralContractLayout::DETAILED, data_get($document->contract_snapshot, 'document_layout'));
         $this->assertNotEmpty($document->contract_snapshot);
         $this->assertSame('First Class', data_get($document->contract_snapshot, 'package.name'));
+        $this->assertSame('1954-07-19', data_get($document->contract_snapshot, 'deceased.date_of_birth'));
         $this->assertSame('2026-07-20', data_get($document->contract_snapshot, 'contract_date'));
         $this->assertSame(10, data_get($document->contract_snapshot, 'structured_inclusions.1.included_kilometers'));
         $this->assertSame(100.0, (float) data_get($document->contract_snapshot, 'structured_inclusions.1.price_per_excess_kilometer'));
@@ -86,6 +183,44 @@ class FuneralContractSnapshotTest extends TestCase
         $this->assertSame('14:30', data_get($document->contract_snapshot, 'schedule.interment_time'));
         $this->assertSame('Family requested afternoon interment.', data_get($document->contract_snapshot, 'remarks'));
         Storage::disk('local')->assertExists($document->file_path);
+    }
+
+    public function test_standard_case_generates_one_condensed_contract_from_saved_case_data(): void
+    {
+        Storage::fake('local');
+        [$case, , , , $admin] = $this->contractCase();
+        $pricing = $case->pricing_snapshot;
+        $pricing['service_charges'] = [];
+        $pricing['add_ons'] = [];
+        $pricing['additional_items'] = [];
+        $pricing['selected_casket'] = $pricing['included_casket'];
+        $pricing['discount'] = [];
+        $pricing['totals'] = ['subtotal' => 95000, 'discount' => 0, 'tax' => 0, 'total' => 95000];
+        $case->update([
+            'pricing_snapshot' => $pricing,
+            'subtotal_amount' => 95000,
+            'discount_amount' => 0,
+            'total_amount' => 95000,
+            'balance_amount' => 80000,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('funeral-cases.documents.contract.preview', $case, absolute: false))
+            ->assertOk()
+            ->assertSee('Condensed Contract');
+
+        $this->actingAs($admin)
+            ->post(route('funeral-cases.documents.contract.store', $case, absolute: false), [])
+            ->assertRedirect(route('funeral-cases.show', $case, absolute: false));
+
+        $this->assertSame(1, CaseDocument::query()->where('case_id', $case->id)->count());
+        $document = CaseDocument::query()->where('case_id', $case->id)->firstOrFail();
+        $this->assertSame(FuneralContractLayout::CONDENSED, data_get($document->contract_snapshot, 'document_layout'));
+        Storage::disk('local')->assertExists($document->file_path);
+        $this->actingAs($admin)
+            ->get(route('funeral-cases.documents.preview', [$case, $document], absolute: false))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf');
     }
 
     public function test_issued_contract_snapshot_is_not_changed_by_live_catalog_updates(): void
@@ -238,12 +373,10 @@ class FuneralContractSnapshotTest extends TestCase
             ->assertSee('Preparing Funeral Contract for printing')
             ->assertSee(route('funeral-cases.documents.preview', [$case, $document], absolute: false));
 
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('funeral-cases.documents.download'));
         $this->actingAs($admin)
-            ->get(route('funeral-cases.documents.download', [$case, $document], absolute: false))
-            ->assertOk()
-            ->assertHeader('Content-Type', 'application/pdf')
-            ->assertHeader('Content-Disposition', 'attachment; filename="' . $document->file_name . '"')
-            ->assertDontSee('OLD STORED PDF CONTENT', false);
+            ->get("/funeral-cases/{$case->id}/documents/{$document->id}/download")
+            ->assertNotFound();
 
         $this->assertSame('OLD STORED PDF CONTENT', Storage::disk('local')->get($document->file_path));
     }
@@ -513,6 +646,7 @@ class FuneralContractSnapshotTest extends TestCase
             'full_name' => 'Contract Deceased',
             'address' => 'Client Address',
             'date_of_death' => '2026-07-19',
+            'date_of_birth' => '1954-07-19',
             'age' => 72,
             'interment' => '2026-07-23',
             'interment_at' => '2026-07-23 10:00:00',

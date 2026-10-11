@@ -57,6 +57,9 @@ class AuditLogController extends Controller
         if ($request->filled('action')) {
             $query->where('action', 'like', '%' . $validated['action'] . '%');
         }
+        if ($request->filled('audit_log_id')) {
+            $query->whereKey((int) $validated['audit_log_id']);
+        }
         if ($request->filled('action_type')) {
             $query->where('action_type', $validated['action_type']);
         }
@@ -143,6 +146,7 @@ class AuditLogController extends Controller
     private function validateFilters(Request $request): array
     {
         return $request->validate([
+            'audit_log_id' => ['nullable', 'integer', 'min:1'],
             'user_id' => ['nullable', 'integer', 'exists:users,id'],
             'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
             'action' => ['nullable', 'string', 'max:120'],

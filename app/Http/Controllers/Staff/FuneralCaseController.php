@@ -95,6 +95,7 @@ class FuneralCaseController extends Controller
                 'deceased_id',
                 'package_id',
                 'case_code',
+                'encoded_by',
                 'service_requested_at',
                 'created_at',
                 'updated_at',
@@ -110,6 +111,7 @@ class FuneralCaseController extends Controller
             ])
             ->with([
                 'client:id,full_name,contact_number',
+                'encodedBy:id,name',
                 'deceased:id,full_name',
                 'serviceDetail:id,funeral_case_id,internment_date',
                 'branch:id,branch_code,branch_name',

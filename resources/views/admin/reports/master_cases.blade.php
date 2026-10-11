@@ -323,7 +323,6 @@
         }
 
         .master-records-page .case-compact-input,
-        .master-records-page .case-compact-select,
         .master-records-page .case-compact-date-select,
         .master-records-page .case-compact-sort-select,
         .master-records-page .case-compact-branch,
@@ -437,7 +436,6 @@
         }
 
         .master-records-page .case-compact-input:hover,
-        .master-records-page .case-compact-select:hover,
         .master-records-page .case-compact-date-select:hover,
         .master-records-page .case-compact-sort-select:hover,
         .master-records-page .case-compact-seg:hover,
@@ -595,14 +593,14 @@
             table-layout:fixed;
         }
 
-        .master-records-page .records-worklist-table .records-col-case { width:12%; }
-        .master-records-page .records-worklist-table .records-col-branch { width:11%; }
-        .master-records-page .records-worklist-table .records-col-family { width:20%; }
-        .master-records-page .records-worklist-table .records-col-service { width:14%; }
+        .master-records-page .records-worklist-table .records-col-case { width:14%; }
+        .master-records-page .records-worklist-table .records-col-family { width:21%; }
+        .master-records-page .records-worklist-table .records-col-service { width:13%; }
         .master-records-page .records-worklist-table .records-col-schedule { width:12%; }
-        .master-records-page .records-worklist-table .records-col-financials { width:16%; }
+        .master-records-page .records-worklist-table .records-col-financials { width:17%; }
         .master-records-page .records-worklist-table .records-col-case-status { width:8%; }
-        .master-records-page .records-worklist-table .records-col-payment-status { width:9%; }
+        .master-records-page .records-worklist-table .records-col-payment-status { width:10%; }
+        .master-records-page .records-worklist-table .records-col-actions { width:5%; }
 
         .master-records-page .table-system-table .table-primary,
         .master-records-page .table-system-table .table-secondary {
@@ -663,7 +661,7 @@
         }
 
         .master-records-page #adminCaseViewOverlay {
-            background:rgba(35,40,33,.48) !important;
+            background:var(--modal-scrim) !important;
             backdrop-filter:none !important;
             -webkit-backdrop-filter:none !important;
         }
@@ -993,6 +991,8 @@
                 ],
                 'sort' => $sort,
                 'showInlineChips' => false,
+                'showBranchField' => !$isBranchAdmin,
+                'dateInMoreFilters' => false,
                 'datePreset' => $resolvedDatePreset === 'ANY' ? '' : $resolvedDatePreset,
             ])
 
@@ -1157,28 +1157,28 @@
         </div>
 
         <div class="table-system-list">
-            <div class="table-wrapper table-system-wrap">
+            <div class="table-wrapper table-system-wrap" @if($isBranchAdmin) tabindex="0" role="region" aria-label="Case records table, scroll horizontally to view all columns" @endif>
                 <table class="table-base table-system-table admin-master-table records-worklist-table">
                     <colgroup>
                         <col class="records-col-case">
-                        <col class="records-col-branch">
                         <col class="records-col-family">
                         <col class="records-col-service">
                         <col class="records-col-schedule">
                         <col class="records-col-financials">
                         <col class="records-col-case-status">
                         <col class="records-col-payment-status">
+                        <col class="records-col-actions">
                     </colgroup>
                     <thead>
                         <tr>
                             <th class="text-left">Case</th>
-                            <th class="text-left">Branch</th>
-                            <th class="text-left">Family / Client</th>
+                            <th class="text-left">Deceased / Client</th>
                             <th class="text-left">Service</th>
-                            <th class="text-left">Interment</th>
+                            <th class="text-left">Schedule</th>
                             <th class="table-col-number">Package Availed</th>
                             <th class="table-status-col">Case Status</th>
                             <th class="table-status-col table-payment-status-col">Payment Status</th>
+                            <th class="table-col-actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1192,33 +1192,23 @@
                                 ?? $case->deceased?->interment;
                         @endphp
 
-                        <tr
-                            class="{{ $needsAttention ? 'row-needs-attention' : '' }}"
-                            data-clickable-row
-                            data-row-href="{{ route('funeral-cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}"
-                            tabindex="0"
-                            role="link"
-                            aria-label="Open full case details for {{ $case->case_code }}"
-                        >
+                        <tr class="{{ $needsAttention ? 'row-needs-attention' : '' }}">
                             <td data-label="Case">
                                 <div class="table-primary whitespace-nowrap records-case-code">{{ $case->case_code }}</div>
-                                <div class="table-secondary">Encoded {{ $case->created_at?->format('M d, Y') }}</div>
+                                <div class="table-secondary">Recorded by: {{ $case->encodedBy?->name ?: 'Not recorded' }}</div>
+                                <div class="table-secondary">{{ $case->created_at?->format('M d, Y h:i A') ?? 'Not recorded' }}</div>
                             </td>
-                            <td data-label="Branch">
-                                <div class="table-primary whitespace-nowrap">{{ $case->branch?->branch_code ?? '-' }}</div>
-                                <div class="table-secondary">{{ $case->branch?->branch_name ?? '-' }}</div>
-                            </td>
-                            <td data-label="Family / Client">
-                                <div class="table-primary">{{ $case->deceased?->full_name ?? '-' }}</div>
-                                <div class="table-secondary">{{ $case->client?->full_name ?? '-' }}</div>
+                            <td data-label="Deceased / Client">
+                                <div class="table-primary records-person-names">Deceased: {{ $case->deceased?->full_name ?? '-' }}</div>
+                                <div class="table-secondary records-person-names">Client: {{ $case->client?->full_name ?? '-' }}</div>
                             </td>
                             <td data-label="Service">
                                 <div class="table-primary">{{ $case->service_type ?? '-' }}</div>
                                 <div class="table-secondary">{{ $case->package?->name ?? $case->service_package ?? '-' }}</div>
                             </td>
-                            <td data-label="Interment">
+                            <td data-label="Schedule">
                                 <div class="table-primary whitespace-nowrap">{{ $intermentDate ? $intermentDate->format('M d, Y') : '-' }}</div>
-                                <div class="table-secondary">{{ $intermentDate && $intermentDate->format('H:i') !== '00:00' ? $intermentDate->format('h:i A') : 'Scheduled date' }}</div>
+                                <div class="table-secondary">{{ $intermentDate ? $intermentDate->format('h:i A') : 'Interment time' }}</div>
                             </td>
                             <td class="table-col-number" data-label="Package Availed">
                                 <div class="table-primary table-financial-total whitespace-nowrap">{{ number_format((float) $case->total_amount, 2) }}</div>
@@ -1230,6 +1220,12 @@
                             <td class="table-status-cell table-payment-status-cell" data-label="Payment Status">
                                 <x-status-badge :status="$case->payment_status" :label="\Illuminate\Support\Str::headline(strtolower((string) $case->payment_status))" class="table-payment-status-badge" />
                             </td>
+                            <td class="table-col-actions" data-label="Actions">
+                                <a class="records-view-case" href="{{ route('funeral-cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}" aria-label="View Full Information for {{ $case->case_code }}" @unless($isBranchAdmin) title="View Full Information" @endunless>
+                                    <i class="bi bi-eye" aria-hidden="true"></i>
+                                    @if($isBranchAdmin)<span class="records-action-tooltip" aria-hidden="true">View Full Information</span>@endif
+                                </a>
+                            </td>
                         </tr>
                     @empty
                         <tr>
@@ -1240,18 +1236,19 @@
                 </table>
             </div>
 
-            <div class="table-system-pagination">
-                @include('partials.case_records_pagination', ['cases' => $cases])
-            </div>
+        </div>
+        <div class="table-system-pagination">
+            @include('partials.case_records_pagination', ['cases' => $cases, 'showSinglePageControls' => $isBranchAdmin])
         </div>
     </section>
 </div>
 
 {{-- Case view modal --}}
+@include('partials.case_records_layout_styles')
 <div id="adminCaseViewOverlay" class="case-view-overlay">
     <div id="adminCaseViewSheet" class="case-view-sheet relative w-[92vw] max-w-4xl max-h-[92vh] overflow-hidden transform transition-all duration-200 scale-95 opacity-0">
         <div class="case-view-head">
-            <span class="case-view-title">Case Details</span>
+            <span class="case-view-title">Case Full Information</span>
             <button id="adminCaseViewClose" type="button" class="case-view-close" aria-label="Close">
                 <i class="bi bi-x-lg" aria-hidden="true"></i>
             </button>
@@ -1267,6 +1264,78 @@
 
 <script>
     (() => {
+        const pageSelector = '.master-records-page';
+        let pendingRequest = null;
+
+        const loadTab = async (url, selectedLink = null, pushState = true) => {
+            const page = document.querySelector(pageSelector);
+            const currentCard = page?.querySelector('.table-system-card');
+            if (!page || !currentCard) {
+                window.location.assign(url.href);
+                return;
+            }
+
+            pendingRequest?.abort();
+            const request = new AbortController();
+            pendingRequest = request;
+            page.classList.add('is-updating');
+            currentCard.setAttribute('aria-busy', 'true');
+
+            if (selectedLink) {
+                currentCard.querySelectorAll('.case-records-tabs a').forEach((tab) => {
+                    const selected = tab === selectedLink;
+                    tab.classList.toggle('table-quick-tab-active', selected);
+                    tab.setAttribute('aria-selected', String(selected));
+                });
+            }
+
+            try {
+                const response = await fetch(url.href, {
+                    signal: request.signal,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' },
+                    credentials: 'same-origin',
+                });
+                if (!response.ok) throw new Error(`Case records request failed: ${response.status}`);
+
+                const documentFromResponse = new DOMParser().parseFromString(await response.text(), 'text/html');
+                const nextCard = documentFromResponse.querySelector(`${pageSelector} .table-system-card`);
+                if (!nextCard) throw new Error('Master Case Records was not found in the response.');
+                if (request.signal.aborted) return;
+
+                currentCard.replaceWith(nextCard);
+                if (pushState) window.history.pushState({}, '', url.href);
+                document.dispatchEvent(new CustomEvent('panel-ui:reset'));
+                document.dispatchEvent(new CustomEvent('master-case-records:updated'));
+            } catch (error) {
+                if (error.name !== 'AbortError' && !request.signal.aborted) window.location.assign(url.href);
+            } finally {
+                if (pendingRequest === request) {
+                    pendingRequest = null;
+                    page.classList.remove('is-updating');
+                    page.querySelector('.table-system-card')?.removeAttribute('aria-busy');
+                }
+            }
+        };
+
+        document.addEventListener('click', (event) => {
+            const link = event.target instanceof Element
+                ? event.target.closest(`${pageSelector} .case-records-tabs a[href]`)
+                : null;
+            if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+            const url = new URL(link.href, window.location.href);
+            if (url.origin !== window.location.origin) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (url.href !== window.location.href) loadTab(url, link);
+        }, true);
+
+        window.addEventListener('popstate', () => {
+            loadTab(new URL(window.location.href), null, false);
+        });
+    })();
+
+    (() => {
         const page = document.querySelector('.master-records-page');
         if (!page) return;
 
@@ -1280,6 +1349,7 @@
         };
 
         const setCompactCustomOpen = (form, open) => {
+            if (window.setCaseCustomDateOpen) return window.setCaseCustomDateOpen(form, open);
             const select = form?.querySelector('[data-case-date-preset-select]');
             const panel = form?.querySelector('[data-case-custom-panel]');
             if (!select || !panel) return;
@@ -1308,7 +1378,7 @@
 
         page.addEventListener('click', (event) => {
             if (!(event.target instanceof Element)) return;
-            if (event.target.closest('[data-case-custom-panel]') || event.target.closest('[data-case-date-preset-select]')) {
+            if (event.target.closest('[data-case-custom-panel], [data-case-date-preset-select], .filter-select-menu')) {
                 return;
             }
 

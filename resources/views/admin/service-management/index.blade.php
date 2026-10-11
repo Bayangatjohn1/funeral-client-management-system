@@ -29,6 +29,8 @@
 @endsection
 
 @section('content')
+@include('partials.services_visual_styles')
+@include('partials.case_records_layout_styles')
 @php
     $activeTab = in_array($activeTab ?? 'packages', ['packages', 'caskets', 'addons', 'freebies'], true) ? $activeTab : 'packages';
     $money = fn ($value) => '&#8369;' . number_format((float) $value, 2);
@@ -55,7 +57,7 @@
     ];
 @endphp
 
-<div class="admin-table-page admin-catalog-page service-management-hub px-4 sm:px-6 lg:px-8 py-6" data-service-hub data-active-tab="{{ $activeTab }}">
+<div class="admin-table-page admin-catalog-page service-management-hub px-4 sm:px-6 lg:px-8 py-6" data-service-hub data-service-server-navigation data-active-tab="{{ $activeTab }}">
     <div class="mx-auto max-w-[1440px] space-y-5">
         @if(session('success'))
             <div class="flash-success">{{ session('success') }}</div>
@@ -110,6 +112,17 @@
                                 <i class="bi bi-chevron-down table-toolbar-select-icon" aria-hidden="true"></i>
                             </div>
                         </div>
+                        <div class="table-toolbar-field">
+                            <div class="table-toolbar-select-wrap">
+                                <i class="bi bi-sort-alpha-down table-toolbar-leading-icon" aria-hidden="true"></i>
+                                <select name="sort" class="table-toolbar-select" data-service-sort aria-label="Sort services">
+                                    @foreach(['name_asc' => 'Name A–Z', 'name_desc' => 'Name Z–A', 'latest' => 'Newest', 'oldest' => 'Oldest'] as $value => $label)
+                                    <option value="{{ $value }}" @selected(request('sort', 'name_asc') === $value)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                                <i class="bi bi-chevron-down table-toolbar-select-icon" aria-hidden="true"></i>
+                            </div>
+                        </div>
                         <div class="table-toolbar-reset-wrap">
                             <span class="table-toolbar-label opacity-0 select-none" aria-hidden="true">Actions</span>
                             <button type="button" class="btn btn-secondary btn-sm" data-service-reset>
@@ -140,8 +153,8 @@
                         @forelse($packages as $package)
                             @php
                                 $display = $packageDisplay($package);
-                                $visibleInclusions = array_slice($display['inclusions'], 0, 3);
-                                $visibleFreebies = array_slice($display['freebies'], 0, 3);
+                                $visibleInclusions = $display['inclusions'];
+                                $visibleFreebies = $display['freebies'];
                             @endphp
                             <article class="service-package-card" data-service-row data-status="{{ $package->is_active ? 'active' : 'archived' }}" data-search="{{ strtolower($package->name . ' ' . $display['casket'] . ' ' . implode(' ', $display['inclusions']) . ' ' . implode(' ', $display['freebies']) . ' ' . ($package->short_description ?? '')) }}">
                                 <div class="service-package-card__head">
@@ -171,9 +184,6 @@
                                                     <li>{{ $item }}</li>
                                                 @endforeach
                                             </ul>
-                                            @if($display['inclusions_count'] > 3)
-                                                <b>+{{ $display['inclusions_count'] - 3 }} more</b>
-                                            @endif
                                         @else
                                             <em>None listed</em>
                                         @endif
@@ -186,9 +196,6 @@
                                                     <li>{{ $item }}</li>
                                                 @endforeach
                                             </ul>
-                                            @if($display['freebies_count'] > 3)
-                                                <b>+{{ $display['freebies_count'] - 3 }} more</b>
-                                            @endif
                                         @else
                                             <em>None listed</em>
                                         @endif
@@ -196,11 +203,10 @@
                                 </div>
 
                                 <div class="service-package-card__foot">
-                                    <span><i class="bi bi-clock" aria-hidden="true"></i>{{ $package->updated_at?->diffForHumans() ?? '-' }}</span>
-                                    <a href="{{ route('admin.packages.show', ['package' => $package, 'modal' => 1, 'return_to' => request()->fullUrl()]) }}" data-service-modal-url="{{ route('admin.packages.show', ['package' => $package, 'modal' => 1, 'return_to' => request()->fullUrl()]) }}" data-service-modal-title="View Package" onclick="window.openServiceCatalogModal?.(this, event)">
-                                        <i class="bi bi-eye" aria-hidden="true"></i>
+                                    @if($canManage)<span><i class="bi bi-clock" aria-hidden="true"></i>{{ $package->updated_at?->diffForHumans() ?? '-' }}</span>@endif
+                                    <button type="button" data-service-modal-url="{{ route('admin.packages.show', ['package' => $package, 'modal' => 1, 'return_to' => request()->fullUrl()]) }}" data-service-modal-title="View Package" aria-label="View Package"><i class="bi bi-eye" aria-hidden="true"></i>
                                         <span>View Package</span>
-                                    </a>
+                                    </button>
                                 </div>
                             </article>
                         @empty
@@ -240,9 +246,8 @@
                                         <td><span class="service-status {{ $package->is_active ? 'is-active' : 'is-archived' }}">{{ $package->is_active ? 'Active' : 'Archived' }}</span></td>
                                         <td class="table-col-actions">
                                                 <div class="row-hover-actions">
-                                                    <a class="row-hover-action" href="{{ route('admin.packages.show', ['package' => $package, 'modal' => 1, 'return_to' => route('admin.service-management.index', ['tab' => 'packages'])]) }}" data-service-modal-url="{{ route('admin.packages.show', ['package' => $package, 'modal' => 1, 'return_to' => route('admin.service-management.index', ['tab' => 'packages'])]) }}" data-service-modal-title="View Package" onclick="window.openServiceCatalogModal?.(this, event)">
-                                                        <i class="bi bi-eye"></i><span>View</span>
-                                                    </a>
+                                                    <button type="button" class="row-hover-action" data-service-modal-url="{{ route('admin.packages.show', ['package' => $package, 'modal' => 1, 'return_to' => route('admin.service-management.index', ['tab' => 'packages'])]) }}" data-service-modal-title="View Package" aria-label="View Package"><i class="bi bi-eye"></i><span>View</span>
+                                                    </button>
                                                     @if($canManage)<form method="POST" action="{{ route('admin.packages.toggleActive', $package) }}">
                                                         @csrf
                                                         @method('PATCH')
@@ -296,11 +301,10 @@
                                     </div>
                                 </div>
                                 <div class="service-package-card__foot">
-                                    <span><i class="bi bi-clock" aria-hidden="true"></i>{{ $catalog->updated_at?->diffForHumans() ?? '-' }}</span>
-                                    <a href="{{ route('admin.casket-catalogs.show', ['casket_catalog' => $catalog, 'modal' => 1, 'return_to' => request()->fullUrl()]) }}" data-service-modal-url="{{ route('admin.casket-catalogs.show', ['casket_catalog' => $catalog, 'modal' => 1, 'return_to' => request()->fullUrl()]) }}" data-service-modal-title="View Casket" onclick="window.openServiceCatalogModal?.(this, event)">
-                                        <i class="bi bi-eye" aria-hidden="true"></i>
+                                    @if($canManage)<span><i class="bi bi-clock" aria-hidden="true"></i>{{ $catalog->updated_at?->diffForHumans() ?? '-' }}</span>@endif
+                                    <button type="button" data-service-modal-url="{{ route('admin.casket-catalogs.show', ['casket_catalog' => $catalog, 'modal' => 1, 'return_to' => request()->fullUrl()]) }}" data-service-modal-title="View Casket" aria-label="View Casket"><i class="bi bi-eye" aria-hidden="true"></i>
                                         <span>View Casket</span>
-                                    </a>
+                                    </button>
                                 </div>
                             </article>
                         @empty
@@ -338,9 +342,8 @@
                                         <td><span class="service-status {{ ! $catalog->is_active ? 'is-archived' : ($catalog->is_available ? 'is-active' : 'is-warning') }}">{{ ! $catalog->is_active ? 'Archived' : ($catalog->is_available ? 'Available' : 'Unavailable') }}</span></td>
                                         <td class="table-col-actions">
                                                 <div class="row-hover-actions">
-                                                    <a class="row-hover-action" href="{{ route('admin.casket-catalogs.show', ['casket_catalog' => $catalog, 'modal' => 1, 'return_to' => route('admin.service-management.index', ['tab' => 'caskets'])]) }}" data-service-modal-url="{{ route('admin.casket-catalogs.show', ['casket_catalog' => $catalog, 'modal' => 1, 'return_to' => route('admin.service-management.index', ['tab' => 'caskets'])]) }}" data-service-modal-title="View Casket" onclick="window.openServiceCatalogModal?.(this, event)">
-                                                        <i class="bi bi-eye"></i><span>View</span>
-                                                    </a>
+                                                    <button type="button" class="row-hover-action" data-service-modal-url="{{ route('admin.casket-catalogs.show', ['casket_catalog' => $catalog, 'modal' => 1, 'return_to' => route('admin.service-management.index', ['tab' => 'caskets'])]) }}" data-service-modal-title="View Casket" aria-label="View Casket"><i class="bi bi-eye"></i><span>View</span>
+                                                    </button>
                                                     @if($canManage && $catalog->is_active)
                                                         <form method="POST" action="{{ route('admin.casket-catalogs.toggleAvailability', $catalog) }}">
                                                             @csrf
@@ -399,11 +402,10 @@
                                     </div>
                                 </div>
                                 <div class="service-package-card__foot">
-                                    <span><i class="bi bi-clock" aria-hidden="true"></i>{{ $catalog->updated_at?->diffForHumans() ?? '-' }}</span>
-                                    <a href="{{ route('admin.add-on-catalogs.show', ['add_on_catalog' => $catalog, 'modal' => 1, 'return_to' => request()->fullUrl()]) }}" data-service-modal-url="{{ route('admin.add-on-catalogs.show', ['add_on_catalog' => $catalog, 'modal' => 1, 'return_to' => request()->fullUrl()]) }}" data-service-modal-title="View Add-on" onclick="window.openServiceCatalogModal?.(this, event)">
-                                        <i class="bi bi-eye" aria-hidden="true"></i>
+                                    @if($canManage)<span><i class="bi bi-clock" aria-hidden="true"></i>{{ $catalog->updated_at?->diffForHumans() ?? '-' }}</span>@endif
+                                    <button type="button" data-service-modal-url="{{ route('admin.add-on-catalogs.show', ['add_on_catalog' => $catalog, 'modal' => 1, 'return_to' => request()->fullUrl()]) }}" data-service-modal-title="View Add-on" aria-label="View Add-on"><i class="bi bi-eye" aria-hidden="true"></i>
                                         <span>View Add-on</span>
-                                    </a>
+                                    </button>
                                 </div>
                             </article>
                         @empty
@@ -440,9 +442,8 @@
                                         <td><span class="service-status {{ $catalog->is_active ? 'is-active' : 'is-archived' }}">{{ $catalog->is_active ? 'Active' : 'Archived' }}</span></td>
                                         <td class="table-col-actions">
                                                 <div class="row-hover-actions">
-                                                    <a class="row-hover-action" href="{{ route('admin.add-on-catalogs.show', ['add_on_catalog' => $catalog, 'modal' => 1, 'return_to' => route('admin.service-management.index', ['tab' => 'addons'])]) }}" data-service-modal-url="{{ route('admin.add-on-catalogs.show', ['add_on_catalog' => $catalog, 'modal' => 1, 'return_to' => route('admin.service-management.index', ['tab' => 'addons'])]) }}" data-service-modal-title="View Add-on" onclick="window.openServiceCatalogModal?.(this, event)">
-                                                        <i class="bi bi-eye"></i><span>View</span>
-                                                    </a>
+                                                    <button type="button" class="row-hover-action" data-service-modal-url="{{ route('admin.add-on-catalogs.show', ['add_on_catalog' => $catalog, 'modal' => 1, 'return_to' => route('admin.service-management.index', ['tab' => 'addons'])]) }}" data-service-modal-title="View Add-on" aria-label="View Add-on"><i class="bi bi-eye"></i><span>View</span>
+                                                    </button>
                                                     @if($canManage)<form method="POST" action="{{ route('admin.add-on-catalogs.toggleActive', $catalog) }}">
                                                         @csrf
                                                         @method('PATCH')
@@ -487,11 +488,10 @@
                                     </div>
                                 </div>
                                 <div class="service-package-card__foot">
-                                    <span><i class="bi bi-clock" aria-hidden="true"></i>{{ $catalog->updated_at?->diffForHumans() ?? '-' }}</span>
-                                    <a href="{{ route('admin.freebie-catalogs.show', ['freebie_catalog' => $catalog, 'modal' => 1, 'return_to' => request()->fullUrl()]) }}" data-service-modal-url="{{ route('admin.freebie-catalogs.show', ['freebie_catalog' => $catalog, 'modal' => 1, 'return_to' => request()->fullUrl()]) }}" data-service-modal-title="View Freebie" onclick="window.openServiceCatalogModal?.(this, event)">
-                                        <i class="bi bi-eye" aria-hidden="true"></i>
+                                    @if($canManage)<span><i class="bi bi-clock" aria-hidden="true"></i>{{ $catalog->updated_at?->diffForHumans() ?? '-' }}</span>@endif
+                                    <button type="button" data-service-modal-url="{{ route('admin.freebie-catalogs.show', ['freebie_catalog' => $catalog, 'modal' => 1, 'return_to' => request()->fullUrl()]) }}" data-service-modal-title="View Freebie" aria-label="View Freebie"><i class="bi bi-eye" aria-hidden="true"></i>
                                         <span>View Freebie</span>
-                                    </a>
+                                    </button>
                                 </div>
                             </article>
                         @empty
@@ -523,9 +523,8 @@
                                         <td><span class="service-status {{ $catalog->is_active ? 'is-active' : 'is-archived' }}">{{ $catalog->is_active ? 'Active' : 'Archived' }}</span></td>
                                         <td class="table-col-actions">
                                                 <div class="row-hover-actions">
-                                                    <a class="row-hover-action" href="{{ route('admin.freebie-catalogs.show', ['freebie_catalog' => $catalog, 'modal' => 1, 'return_to' => route('admin.service-management.index', ['tab' => 'freebies'])]) }}" data-service-modal-url="{{ route('admin.freebie-catalogs.show', ['freebie_catalog' => $catalog, 'modal' => 1, 'return_to' => route('admin.service-management.index', ['tab' => 'freebies'])]) }}" data-service-modal-title="View Freebie" onclick="window.openServiceCatalogModal?.(this, event)">
-                                                        <i class="bi bi-eye"></i><span>View</span>
-                                                    </a>
+                                                    <button type="button" class="row-hover-action" data-service-modal-url="{{ route('admin.freebie-catalogs.show', ['freebie_catalog' => $catalog, 'modal' => 1, 'return_to' => route('admin.service-management.index', ['tab' => 'freebies'])]) }}" data-service-modal-title="View Freebie" aria-label="View Freebie"><i class="bi bi-eye"></i><span>View</span>
+                                                    </button>
                                                     @if($canManage)<form method="POST" action="{{ route('admin.freebie-catalogs.toggleActive', $catalog) }}">
                                                         @csrf
                                                         @method('PATCH')
@@ -557,8 +556,7 @@
     </div>
 </div>
 
-<div class="service-modal" data-service-modal hidden>
-    <div class="service-modal__backdrop" data-service-modal-close></div>
+<dialog class="service-modal" data-service-modal hidden aria-labelledby="service-modal-title">
     <section class="service-modal__panel" role="dialog" aria-modal="true" aria-labelledby="service-modal-title">
         <header class="service-modal__head">
             <div>
@@ -571,7 +569,7 @@
         </button>
         <iframe class="service-modal__frame" data-service-modal-frame title="Service catalog form"></iframe>
     </section>
-</div>
+</dialog>
 
 <style>
 .service-management-hub .service-hub-tabs {
@@ -1064,7 +1062,7 @@ body.service-modal-open .page-content {
 .service-modal__backdrop {
     position:absolute;
     inset:0;
-    background:rgba(31,45,32,.48);
+    background:var(--modal-scrim);
     backdrop-filter:blur(3px);
 }
 .service-modal__panel {
@@ -1229,13 +1227,14 @@ body.service-modal-open .page-content {
 </style>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+window.initServicesHub = () => {
     const hub = document.querySelector('[data-service-hub]');
     if (!hub) return;
 
     const filterForm = hub.querySelector('[data-service-filter-form]');
     const search = hub.querySelector('[data-service-search]');
     const status = hub.querySelector('[data-service-status]');
+    const sort = hub.querySelector('[data-service-sort]');
     const clearSearch = hub.querySelector('[data-service-clear-search]');
     const reset = hub.querySelector('[data-service-reset]');
     const empty = hub.querySelector('[data-service-filter-empty]');
@@ -1249,7 +1248,50 @@ document.addEventListener('DOMContentLoaded', () => {
     let catalogView = localStorage.getItem('service-catalog-view') || 'cards';
     let filterSubmitTimer = null;
     let modalScrollY = 0;
+    let modalTrigger;
     if (modal && modal.parentElement !== document.body) document.body.appendChild(modal);
+    let requestController;
+    const loadSection = async url => {
+        window.clearTimeout(filterSubmitTimer);
+        requestController?.abort();
+        requestController = new AbortController();
+        hub.setAttribute('aria-busy', 'true');
+        try {
+            const response = await fetch(url, { signal:requestController.signal, headers:{'X-Requested-With':'XMLHttpRequest'}, credentials:'same-origin' });
+            if (!response.ok) throw new Error('Unable to load services.');
+            const nextDocument = new DOMParser().parseFromString(await response.text(), 'text/html');
+            const nextHub = nextDocument.querySelector('[data-service-hub]');
+            if (!nextHub) throw new Error('Services content is missing.');
+            const headerAction = document.querySelector('[data-service-modal-url]');
+            const nextHeaderAction = nextDocument.querySelector('[data-service-modal-url]');
+            if (headerAction && !hub.contains(headerAction) && nextHeaderAction) headerAction.replaceWith(nextHeaderAction);
+            hub.replaceWith(nextHub);
+            window.history.replaceState({}, '', url);
+            window.initServicesHub();
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                let message = hub.querySelector('[data-service-load-error]');
+                if (!message) { message = document.createElement('p'); message.dataset.serviceLoadError = ''; message.setAttribute('role','alert'); hub.prepend(message); }
+                message.textContent = 'Unable to load services. Please try again.';
+            }
+        } finally { hub.removeAttribute('aria-busy'); }
+    };
+    hub.querySelectorAll('[data-service-tab]').forEach(tab => tab.addEventListener('click', event => {
+        if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        const url = new URL(tab.href);
+        if (sort?.value) url.searchParams.set('sort', sort.value);
+        loadSection(url.toString());
+    }));
+    hub.addEventListener('click', event => {
+        const link = event.target.closest('.service-pagination a[href]');
+        if (!link) return;
+        event.preventDefault(); loadSection(link.href);
+    });
+    filterForm?.addEventListener('submit', event => {
+        event.preventDefault();
+        const url = new URL(filterForm.action); url.search = new URLSearchParams(new FormData(filterForm)).toString(); loadSection(url.toString());
+    });
     const setCatalogView = (view) => {
         catalogView = view === 'table' ? 'table' : 'cards';
         localStorage.setItem('service-catalog-view', catalogView);
@@ -1302,6 +1344,7 @@ document.addEventListener('DOMContentLoaded', () => {
         filterForm?.requestSubmit();
     });
     status?.addEventListener('change', () => filterForm?.requestSubmit());
+    sort?.addEventListener('change', () => filterForm?.requestSubmit());
     clearSearch?.addEventListener('click', () => {
         window.clearTimeout(filterSubmitTimer);
         search.value = '';
@@ -1310,16 +1353,18 @@ document.addEventListener('DOMContentLoaded', () => {
         filterForm?.requestSubmit();
     });
     reset?.addEventListener('click', () => {
-        window.location.assign(@js(route('admin.service-management.index', ['tab' => $activeTab])));
+        const url = new URL(filterForm.action); url.searchParams.set('tab', hub.dataset.activeTab); loadSection(url.toString());
     });
 
     const closeModal = () => {
         if (!modal) return;
         modal.hidden = true;
+        modal.close();
         document.documentElement.classList.remove('service-modal-open');
         document.body.classList.remove('service-modal-open');
         if (pageContent) pageContent.scrollTop = modalScrollY;
         if (modalFrame) modalFrame.src = 'about:blank';
+        modalTrigger?.focus();
     };
 
     const openModal = (action, event) => {
@@ -1330,27 +1375,32 @@ document.addEventListener('DOMContentLoaded', () => {
         if (modalCopy) {
             modalCopy.textContent = title.toLowerCase().startsWith('add')
                 ? 'Create a new catalog item without leaving Service Management.'
-                : 'Review and update this catalog item without leaving Service Management.';
+                : 'Review this catalog item without leaving Service Management.';
         }
         const modalUrl = new URL(action.dataset.serviceModalUrl || action.href, window.location.origin);
         modalUrl.searchParams.set('modal', '1');
         modalFrame.src = modalUrl.toString();
         modalScrollY = pageContent?.scrollTop || window.scrollY || document.documentElement.scrollTop || 0;
         modal.hidden = false;
+        modalTrigger = action;
+        if (!modal.open) modal.showModal();
         document.documentElement.classList.add('service-modal-open');
         document.body.classList.add('service-modal-open');
     };
 
     window.openServiceCatalogModal = openModal;
     window.closeServiceCatalogModal = closeModal;
+    if (modal) modal.oncancel = event => { event.preventDefault(); closeModal(); };
+    if (modal) modal.onclick = event => { if (event.target === modal) closeModal(); };
 
-    document.addEventListener('click', (event) => {
+    if (!window.servicesModalDelegated) document.addEventListener('click', (event) => {
         const trigger = event.target.closest?.('[data-service-modal-url]');
         if (!trigger) return;
-        openModal(trigger, event);
+        window.openServiceCatalogModal(trigger, event);
     });
+    window.servicesModalDelegated = true;
 
-    modalFrame?.addEventListener('load', () => {
+    if (modalFrame) modalFrame.onload = () => {
         try {
             const frameUrl = new URL(modalFrame.contentWindow.location.href);
             if (frameUrl.pathname === window.location.pathname && frameUrl.searchParams.has('tab')) {
@@ -1359,10 +1409,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (_) {
             // Ignore inaccessible or initial iframe states.
         }
-    });
+    };
 
     modal?.querySelectorAll('[data-service-modal-close]').forEach((button) => {
-        button.addEventListener('click', closeModal);
+        button.onclick = closeModal;
     });
     modal?.addEventListener('wheel', (event) => {
         if (event.target === modal || event.target?.dataset?.serviceModalClose !== undefined) {
@@ -1374,11 +1424,9 @@ document.addEventListener('DOMContentLoaded', () => {
             event.preventDefault();
         }
     }, { passive:false });
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && modal && !modal.hidden) closeModal();
-    });
 
     setCatalogView(catalogView);
-});
+};
+window.initServicesHub();
 </script>
 @endsection

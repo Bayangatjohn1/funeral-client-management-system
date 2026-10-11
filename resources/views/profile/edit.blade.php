@@ -200,6 +200,11 @@
                         <input type="email" name="email" value="{{ old('email', $user->email) }}"
                             class="form-input" required autocomplete="email">
                         @error('email') <p class="form-error">{{ $message }}</p> @enderror
+                        @if($user->isSystemAdmin())
+                        <label for="profile_email_password" class="prof-label" style="display:block;margin-top:12px;">Your current password (required to change your email)</label>
+                        <input id="profile_email_password" type="password" name="current_password" class="form-input" autocomplete="current-password">
+                        @error('current_password')<p class="form-error">{{ $message }}</p>@enderror
+                        @endif
                     </div>
 
                     <div>
@@ -571,7 +576,7 @@ html[data-theme='dark'] .prof-banner {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(62, 74, 61, .42);
+    background: var(--modal-scrim);
     backdrop-filter: blur(3px);
     -webkit-backdrop-filter: blur(3px);
     z-index: 1300;
@@ -782,6 +787,10 @@ html[data-theme='dark'] .prof-banner {
         const sheet   = document.getElementById(sheetId);
         if (!overlay || !sheet) return;
         let hideTimer = null;
+        const systemModal = document.body.classList.contains('system-admin-ui');
+        const shell = document.querySelector('.app-shell');
+        let returnFocus, previousInert;
+        if (systemModal) document.body.append(overlay);
 
         const lock   = () => { document.documentElement.classList.add('overflow-hidden'); document.body.classList.add('overflow-hidden'); };
         const unlock = () => { document.documentElement.classList.remove('overflow-hidden'); document.body.classList.remove('overflow-hidden'); };
@@ -789,6 +798,11 @@ html[data-theme='dark'] .prof-banner {
 
         const show = () => {
             window.clearTimeout(hideTimer);
+            if (systemModal) {
+                returnFocus = document.activeElement;
+                previousInert = shell?.inert;
+                if (shell) shell.inert = true;
+            }
             resetUi();
             overlay.style.display = 'flex';
             lock();
@@ -796,6 +810,7 @@ html[data-theme='dark'] .prof-banner {
                 overlay.classList.add('is-open');
                 sheet.classList.remove('scale-95', 'opacity-0');
                 sheet.classList.add('scale-100', 'opacity-100');
+                if (systemModal) overlay.querySelector('button,input')?.focus();
             });
         };
 
@@ -805,6 +820,10 @@ html[data-theme='dark'] .prof-banner {
             overlay.classList.remove('is-open');
             unlock();
             resetUi();
+            if (systemModal) {
+                if (shell) shell.inert = previousInert ?? false;
+                returnFocus?.focus();
+            }
             hideTimer = window.setTimeout(() => { overlay.style.display = 'none'; }, 180);
         };
 

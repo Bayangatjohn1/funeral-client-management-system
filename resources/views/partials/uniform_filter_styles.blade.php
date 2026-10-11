@@ -29,16 +29,16 @@
     }
     /* Match the Case Records More Filters surface across management toolbars. */
     html body .uniform-record-filters {
-        --uniform-filter-bg:#DCE6D6;
-        --uniform-filter-border:#AEBFA6;
-        --uniform-filter-text:#263528;
+        --uniform-filter-bg:var(--filter-ui-surface, #D0E2D6);
+        --uniform-filter-border:var(--filter-ui-border, #AEC7B7);
+        --uniform-filter-text:var(--filter-ui-text, #081D13);
         align-items:end !important;
         gap:10px !important;
     }
     html[data-theme='dark'] body .uniform-record-filters {
-        --uniform-filter-bg:var(--surface-muted, #243229);
-        --uniform-filter-border:var(--border, #465447);
-        --uniform-filter-text:var(--ink, #e7eee4);
+        --uniform-filter-bg:var(--filter-ui-surface, #14261D);
+        --uniform-filter-border:var(--filter-ui-border, #29523D);
+        --uniform-filter-text:var(--filter-ui-text, #F8FAFC);
     }
     html body .uniform-record-filters :is(input:not([type='hidden']):not([type='checkbox']), select, .pm-readonly-control) {
         box-sizing:border-box !important;

@@ -58,10 +58,10 @@
                     Edit Casket
                 </a>
             @endif
-            <a class="svc-detail-secondary" href="{{ $returnTo }}" data-parent-modal-close>
+            @unless(request()->boolean('modal'))<a class="svc-detail-secondary" href="{{ $returnTo }}" data-parent-modal-close>
                 <i class="bi bi-arrow-left" aria-hidden="true"></i>
                 Back to Service Management
-            </a>
+            </a>@endunless
         </footer>
     </article>
 </section>

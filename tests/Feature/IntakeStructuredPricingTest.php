@@ -605,6 +605,7 @@ class IntakeStructuredPricingTest extends TestCase
             'pwd_status' => 0,
             'tax_rate' => 0,
             'confirm_review' => 1,
+            'payment_method' => 'none',
         ], $overrides);
     }
 

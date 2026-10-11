@@ -695,7 +695,7 @@
                                     id="email"
                                     type="email"
                                     name="email"
-                                    value="{{ old('email') }}"
+                                    value="{{ old('email', $throttleEmail ?? '') }}"
                                     required
                                     autofocus
                                     autocomplete="username"
@@ -704,7 +704,7 @@
                                 >
                             </div>
                             @error('email')
-                                <p class="login-error">
+                                <p class="login-error" @if(($throttleSeconds ?? 0) > 0) data-login-throttle-error @endif>
                                     <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
                                     <span>{{ $message }}</span>
                                 </p>
@@ -751,21 +751,21 @@
                         </div>
 
                         <div class="login-options">
-                            <label for="remember" class="login-remember">
+                            <label for="remember_email" class="login-remember">
                                 <input
-                                    id="remember"
+                                    id="remember_email"
                                     type="checkbox"
-                                    name="remember"
-                                    {{ old('remember') ? 'checked' : '' }}
+                                    name="remember_email"
                                 >
-                                <span>Keep me signed in</span>
+                                <span>Remember my email on this device</span>
                             </label>
                         </div>
 
-                        <button type="submit" class="login-submit">
-                            <span>Sign in</span>
+                        <button type="submit" class="login-submit" data-login-submit data-throttle-email="{{ $throttleEmail ?? '' }}" data-throttle-seconds="{{ $throttleSeconds ?? 0 }}" @disabled(($throttleSeconds ?? 0) > 0) aria-describedby="login-throttle-status">
+                            <span data-login-submit-label>{{ ($throttleSeconds ?? 0) > 0 ? 'Try again in '.$throttleSeconds.'s' : 'Sign in' }}</span>
                             <i class="bi bi-arrow-right" aria-hidden="true"></i>
                         </button>
+                        <p id="login-throttle-status" class="login-error" role="status" @if(($throttleSeconds ?? 0) <= 0) hidden @endif>Sign in is temporarily unavailable for this email. Please wait for the countdown.</p>
                     </form>
 
                     <p class="login-support">
@@ -796,5 +796,9 @@
             });
         })();
     </script>
+    <style>
+        .login-page .login-submit:disabled { opacity: .6; cursor: not-allowed; box-shadow: none; transform: none; }
+        #login-throttle-status[hidden], [data-login-throttle-error][hidden] { display: none; }
+    </style>
 </body>
 </html>

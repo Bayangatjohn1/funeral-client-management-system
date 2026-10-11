@@ -1,0 +1,723 @@
+/* Branch-admin presentation layer. Data, permissions, and page interactions stay in their existing views. */
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) {
+    --font-body: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+    --font-heading: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+    --brand: #1B4332;
+    --brand-hover: #123525;
+    --brand-soft: #EBF3ED;
+    --brand-mid: #1B4332;
+    --accent: #1B4332;
+    --ink: #0F241C;
+    --ink-muted: #334E42;
+    --ink-faint: #526B5E;
+    --border: #D4DDD7;
+    --border-strong: #B7CDBE;
+    --surface: #FBFBF9;
+    --surface-muted: #F1F6F2;
+    --surface-panel: #FFFFFF;
+    --card: #FFFFFF;
+    --white: #FFFFFF;
+    --records-card: #FFFFFF;
+    --records-card-alt: #F5F8F5;
+    --records-card-strong: #EBF3ED;
+    --records-hover: #F1F6F2;
+    --records-active: #E1EFE5;
+    --records-border: #D4DDD7;
+    --records-text: #0F241C;
+    --records-muted: #334E42;
+    --color-bg-page: var(--surface);
+    --color-bg-surface: var(--card);
+    --color-bg-muted: var(--surface-muted);
+    --color-primary: var(--brand);
+    --color-primary-hover: var(--brand-hover);
+    --color-accent: var(--brand-mid);
+    --color-border: var(--border);
+    --color-border-strong: var(--border-strong);
+    --color-text-primary: var(--ink);
+    --color-text-secondary: var(--ink-muted);
+    --color-text-muted: var(--ink-faint);
+    --branch-admin-focus: #1B4332;
+    color-scheme: light;
+}
+html[data-theme='dark'] body:is(.branch-admin-ui,.system-admin-ui) {
+    --brand: #10B981;
+    --brand-hover: #34D399;
+    --brand-soft: #163022;
+    --brand-mid: #10B981;
+    --accent: #10B981;
+    --ink: #F0FDF4;
+    --ink-muted: #B2CCBD;
+    --ink-faint: #94B8A7;
+    --border: #29523D;
+    --border-strong: #36684B;
+    --surface: #07130E;
+    --surface-muted: #10251A;
+    --surface-panel: #112218;
+    --card: #112218;
+    --white: #112218;
+    --records-card: #112218;
+    --records-card-alt: #14291D;
+    --records-card-strong: #183323;
+    --records-hover: #183323;
+    --records-active: #1B4332;
+    --records-border: #29523D;
+    --records-text: #F0FDF4;
+    --records-muted: #B2CCBD;
+    --branch-admin-focus: #34D399;
+    color-scheme: dark;
+}
+
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.page-content, .admin-dashboard-shell, .admin-table-page, .reports-page, .payments-page, .pm-page, .reminders-page) {
+    font-family: var(--font-body) !important;
+    color: var(--ink) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .panel-page-header {
+    background: var(--ops-panel) !important;
+    border: 1px solid var(--ops-border) !important;
+    color: var(--ops-text) !important;
+    box-shadow: var(--ops-shadow) !important;
+    padding: 18px var(--panel-content-inline) 12px !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.table-system-card, .admin-table-card, .filter-panel, .reports-module-hero, .sales-page-head, .detail-hero)::after {
+    display: none !important;
+    content: none !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .panel-page-header__copy h1 {
+    font: 700 clamp(1.5rem, 2vw, 2rem)/1.2 var(--font-heading) !important;
+    letter-spacing: -.025em;
+    color: var(--ink) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .panel-page-header__copy p {
+    color: var(--ink-muted) !important;
+    font-family: var(--font-body);
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.admin-dashboard-shell, .admin-table-page, .reports-page, .payments-page, .pm-page) :is(button, input, select, textarea) {
+    font-family: var(--font-body);
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.admin-dashboard-shell, .admin-table-page, .reports-page, .payments-page, .pm-page) :is(h1, h2, h3, h4, .page-title, .table-system-title) {
+    font-family: var(--font-heading) !important;
+    letter-spacing: -.025em;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.page-desc, .admin-table-head-copy, .table-system-desc) {
+    color: var(--ink-muted) !important;
+}
+
+/* The staff dashboard heading hierarchy is shared with the branch dashboard. */
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .branch-dashboard-title-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .65rem;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .branch-dashboard-context-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: .25rem .65rem;
+    border: 1px solid var(--border);
+    border-radius: .4rem;
+    background: var(--brand-soft);
+    color: var(--ink-muted);
+    font-size: .75rem;
+    font-weight: 600;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .branch-dashboard-name {
+    display: inline-block;
+    margin-top: .4rem;
+    color: var(--brand);
+    font-size: .875rem;
+    font-weight: 700;
+}
+html[data-theme='dark'] body:is(.branch-admin-ui,.system-admin-ui) .branch-dashboard-name { color: #6EE7B7; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .branch-admin-view .admin-dashboard-greeting {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+/* Dashboard component surfaces are owned by branch-admin-dashboard.css. */
+html[data-theme='dark'] body:is(.branch-admin-ui,.system-admin-ui) .branch-admin-view :is(.bg-white, .bg-slate-50, .bg-slate-100, .bg-gray-50) {
+    background: var(--card) !important;
+}
+html[data-theme='dark'] body:is(.branch-admin-ui,.system-admin-ui) .branch-admin-view :is(.text-slate-900, .text-slate-800, .text-gray-900) {
+    color: var(--ink) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .branch-admin-view :is(.text-slate-500, .text-slate-400, .text-gray-500) {
+    color: var(--ink-muted) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page :is(.pm-kpi, .pm-toolbar-shell, .pm-panel, .pm-modal, .pm-summary-card, .pm-case-row, .pm-trans-row) {
+    background: var(--card) !important;
+    border-color: var(--border) !important;
+    color: var(--ink) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page :is(.pm-kpi-icon, .pm-panel-head, .pm-modal-hd, .pm-modal-ft) {
+    background: var(--surface-muted) !important;
+    border-color: var(--border) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page :is(.pm-kpi-label, .pm-kpi-desc, .pm-summary-label, .pm-case-meta, .pm-trans-meta) {
+    color: var(--ink-muted) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page :is(.pm-kpi-value, .pm-panel-title, .pm-modal-title) {
+    color: var(--ink) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page :is(.pm-case-row.is-toggle:hover, .pm-trans-row:hover) {
+    background: var(--records-hover) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-modal {
+    background: var(--card) !important;
+    border-color: var(--border) !important;
+    color: var(--ink) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .rp-wrap {
+    background: var(--surface) !important;
+    color: var(--ink) !important;
+    font-family: var(--font-body) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .rp-wrap :is(.rp-tabs-card, .rp-filter-card, .rp-list-card, .rp-calendar-card, .rp-item) {
+    background: var(--card) !important;
+    border-color: var(--border) !important;
+    color: var(--ink) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .rp-wrap :is(.rp-tabs-row, .rp-filter-card__head, .rp-list-head) {
+    background: var(--surface-muted) !important;
+    border-color: var(--border) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .rp-wrap :is(.rp-tab.is-idle, .rp-filter-note, .rp-item-meta) { color: var(--ink-muted) !important; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .rp-wrap .rp-tab.is-active {
+    background: #1B4332 !important;
+    border-color: #1B4332 !important;
+    color: #FFFFFF !important;
+}
+html[data-theme='dark'] body:is(.branch-admin-ui,.system-admin-ui) .rp-wrap .rp-tab.is-active { background: #10B981 !important; color: #052E16 !important; }
+
+/* Match the staff Case Records visual hierarchy without changing master-record columns. */
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page {
+    padding: 1rem var(--panel-content-inline) 1.5rem !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page :is(.table-system-card, .admin-table-card) {
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-system-toolbar {
+    background: var(--card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: .75rem !important;
+    padding: .85rem !important;
+    margin-bottom: 1rem !important;
+    overflow: visible !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page :is(.case-compact-input, .case-compact-date-select, .case-compact-sort-select, .case-compact-branch, .case-compact-more, .case-compact-reset, .case-compact-chip, .case-compact-pop-input) {
+    min-height: 44px;
+    background: var(--surface-muted) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: .5rem !important;
+    color: var(--ink) !important;
+    box-shadow: none !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page :is(.case-compact-input, .case-compact-date-select, .case-compact-sort-select, .case-compact-branch, .case-compact-more, .case-compact-reset, .case-compact-chip):hover {
+    background: var(--records-hover) !important;
+    border-color: var(--border-strong) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .case-records-tabs {
+    display: flex;
+    gap: .25rem;
+    padding: .25rem !important;
+    background: var(--surface-muted) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 10px !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-quick-tab {
+    min-height: 40px;
+    border: 1px solid transparent !important;
+    border-radius: 7px !important;
+    background: transparent !important;
+    color: var(--ink-muted) !important;
+    font-weight: 600;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-quick-tab:hover {
+    background: var(--surface-muted) !important;
+    color: var(--ink) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-quick-tab-active {
+    color: var(--ink) !important;
+    background: var(--card) !important;
+    border-color: var(--border) !important;
+    font-weight: 700;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page :is(.table-system-list, .table-system-wrap, .table-wrapper) {
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    background: var(--card) !important;
+    border-color: var(--border) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-system-list {
+    overflow: hidden !important;
+    border: 1px solid var(--border) !important;
+    border-radius: .75rem !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page :is(.table-system-wrap, .table-wrapper) {
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-system-table {
+    background: var(--card) !important;
+    color: var(--ink) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-system-table thead th {
+    padding: .8rem 1rem !important;
+    background: var(--surface-muted) !important;
+    border-color: var(--border) !important;
+    color: var(--ink-muted) !important;
+    font-size: .72rem;
+    letter-spacing: .035em;
+    font-weight: 700;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-system-table tbody tr,
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-system-table tbody td {
+    background: var(--card) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-system-table tbody tr:hover td,
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-system-table tbody tr:focus-visible td {
+    background: var(--records-hover) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-system-table td {
+    padding: .9rem 1rem !important;
+    border-color: var(--border) !important;
+    color: var(--ink) !important;
+    vertical-align: top;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-primary { color: var(--ink) !important; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-secondary { color: var(--ink-muted) !important; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-system-table :is(.table-primary, .table-secondary) {
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    line-height: 1.4;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .records-case-code,
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-financial-total {
+    font-family: 'JetBrains Mono', Consolas, monospace !important;
+    font-variant-numeric: tabular-nums;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page :is(.records-case-code, .table-financial-total) { white-space: nowrap !important; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-system-pagination {
+    background: var(--card) !important;
+    border-color: var(--border) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .status-badge {
+    min-width: 0;
+    padding: .3rem .6rem;
+    border-radius: .4rem !important;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+html[data-theme='dark'] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .status-badge-info {
+    background: #053B2A !important;
+    border-color: #10B981 !important;
+    color: #6EE7B7 !important;
+}
+html[data-theme='dark'] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .status-badge-warning {
+    background: #451A03 !important;
+    border-color: #B45309 !important;
+    color: #FBBF24 !important;
+}
+html[data-theme='dark'] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .status-badge-danger {
+    background: #450A0A !important;
+    border-color: #B91C1C !important;
+    color: #F87171 !important;
+}
+html[data-theme='dark'] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .status-badge-success {
+    background: #052E16 !important;
+    border-color: #166534 !important;
+    color: #4ADE80 !important;
+}
+@media (max-width: 767px) {
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-system-list { overflow: visible !important; }
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-master-table tbody tr {
+        background: var(--card) !important;
+        border-color: var(--border) !important;
+    }
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-master-table tbody td {
+        background: transparent !important;
+    }
+}
+
+/* Payment Monitoring uses the same worklist rhythm as staff, with branch-admin scope intact. */
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page { padding: 1rem var(--panel-content-inline) 1.5rem !important; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page .pm-kpis { gap: .85rem; margin-bottom: 1rem; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page .pm-kpi {
+    background: var(--card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: .75rem !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page .pm-kpi-inner { padding: 1rem; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page .pm-kpi-icon {
+    width: 2.25rem;
+    height: 2.25rem;
+    background: var(--brand-soft) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: .5rem;
+    color: var(--brand) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page .pm-kpi-label { color: var(--ink-muted) !important; font-size: .72rem; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page .pm-kpi-value {
+    color: var(--ink) !important;
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page .pm-kpi-value.good { color: #166534 !important; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page .pm-kpi-value.warn { color: #92400E !important; }
+html[data-theme='dark'] body:is(.branch-admin-ui,.system-admin-ui) .pm-page .pm-kpi-value.good { color: #4ADE80 !important; }
+html[data-theme='dark'] body:is(.branch-admin-ui,.system-admin-ui) .pm-page .pm-kpi-value.warn { color: #FBBF24 !important; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page .pm-toolbar-shell {
+    background: var(--card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: .75rem !important;
+    padding: .85rem !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page .pm-control,
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page .pm-readonly-control {
+    min-height: 44px;
+    background: var(--surface-muted) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: .5rem !important;
+    color: var(--ink) !important;
+    box-shadow: none !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page .pm-control:hover { background: var(--records-hover) !important; border-color: var(--border-strong) !important; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page .pm-control:focus-visible { outline: 2px solid var(--branch-admin-focus) !important; outline-offset: 2px; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page :is(.pm-btn, .pm-light-link, .pm-icon-toggle) {
+    min-height: 44px;
+    background: var(--surface-muted) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: .5rem !important;
+    color: var(--ink) !important;
+    font-weight: 600;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page :is(.pm-btn, .pm-light-link, .pm-icon-toggle):hover {
+    background: var(--records-hover) !important;
+    border-color: var(--border-strong) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page .pm-panel {
+    background: var(--card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: .75rem !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page :is(.pm-row-list, .pm-case-item, .pm-trans-row, .pm-foot) {
+    background: var(--card) !important;
+    border-color: var(--border) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page .pm-case-row { padding: .9rem 1rem; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page :is(.pm-case-row:hover, .pm-case-row[aria-expanded='true'], .pm-trans-row:hover) {
+    background: var(--records-hover) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page :is(.pm-case, .pm-money, .pm-summary-stat strong) {
+    font-family: 'JetBrains Mono', Consolas, monospace !important;
+    font-variant-numeric: tabular-nums;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page :is(.pm-row-title, .pm-name, .pm-case) { color: var(--ink) !important; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page :is(.pm-row-meta, .pm-row-date, .pm-sub, .pm-case-recorder) { color: var(--ink-muted) !important; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page .pm-summary-detail {
+    background: var(--surface-muted) !important;
+    border-color: var(--border) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page .pm-summary-stat {
+    background: var(--card) !important;
+    border-color: var(--border) !important;
+    border-radius: .5rem !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page .pm-modal {
+    background: var(--card) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--ink) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page :is(.pm-modal-hd, .pm-modal-ft) {
+    background: var(--surface-muted) !important;
+    border-color: var(--border) !important;
+}
+@media (max-width: 699px) {
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-page { padding-inline: .75rem !important; }
+}
+
+/* Shared cards, filters and tables used by the branch worklists. */
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .admin-table-page {
+    --records-card: var(--card);
+    --records-card-alt: var(--surface-muted);
+    --records-card-strong: var(--brand-soft);
+    --records-hover: var(--surface-muted);
+    --records-border: var(--border);
+    --records-text: var(--ink);
+    --records-muted: var(--ink-muted);
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.admin-table-page, .reports-page, .payments-page, .pm-page) :is(.table-system-card, .admin-table-card, .card-custom, .report-card, .pm-card, .payment-card) {
+    background: var(--card) !important;
+    border-color: var(--border) !important;
+    color: var(--ink) !important;
+    box-shadow: none !important;
+    border-radius: .75rem !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.audit-ref-page, .sales-ref-page, .directory-page, .service-management-hub) :is(.table-system-list, .table-system-wrap, .table-system-pagination, .reports-card, .reports-filter-card) {
+    background: var(--card) !important;
+    border-color: var(--border) !important;
+    color: var(--ink) !important;
+    box-shadow: none !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .reports-page :is(.reports-card, .reports-filter-card, .reports-card-head, .reports-table th) {
+    border-color: var(--border) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .reports-page :is(.reports-card, .reports-filter-card) { background: var(--card) !important; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .reports-page :is(.reports-card-head, .reports-table th) { background: var(--surface-muted) !important; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .reports-page :is(.reports-card-title, .reports-table td) { color: var(--ink) !important; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .reports-page :is(.reports-card-copy, .reports-label) { color: var(--ink-muted) !important; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub :is(.service-hub-card, .service-hub-nav, .service-hub-toolbar, .service-hub-tabs) {
+    background: var(--card) !important;
+    border-color: var(--border) !important;
+    color: var(--ink) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-hub-tab {
+    background: transparent !important;
+    color: var(--ink-muted) !important;
+    border-color: transparent !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-hub-tab:hover { background: var(--records-hover) !important; color: var(--ink) !important; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-hub-tab.is-active {
+    background: var(--brand-soft) !important;
+    border-color: var(--border) !important;
+    color: var(--ink) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .directory-page :is(.directory-card-view, .directory-item-card, .directory-user-card-dropdown, .table-system-list) {
+    background: var(--card) !important;
+    border-color: var(--border) !important;
+    color: var(--ink) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .directory-page :is(.directory-user-card-head, .directory-user-role-strip) {
+    background: var(--surface-muted) !important;
+    border-color: var(--border) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .directory-page :is(.directory-item-card h3, .table-primary) { color: var(--ink) !important; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .directory-page :is(.directory-item-card p, .table-secondary) { color: var(--ink-muted) !important; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.admin-table-page, .reports-page, .payments-page, .pm-page) :is(.table-system-head, .table-system-toolbar, .admin-table-toolbar, .table-system-table thead, .table-system-table th, .service-hub-nav) {
+    background: var(--surface-muted) !important;
+    border-color: var(--border) !important;
+    color: var(--ink-muted) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.admin-table-page, .reports-page, .payments-page, .pm-page) :is(.table-system-table, .records-worklist-table, .branch-table) :is(th, td) {
+    border-color: var(--border) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.admin-table-page, .reports-page, .payments-page, .pm-page) :is(.table-system-table, .records-worklist-table) tbody tr:hover {
+    background: var(--records-hover) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.admin-table-page, .reports-page, .payments-page, .pm-page) :is(input:not([type='checkbox']):not([type='radio']), select, textarea, .table-toolbar-search, .case-compact-search-field) {
+    background: var(--card) !important;
+    border-color: var(--border) !important;
+    color: var(--ink) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.admin-table-page, .reports-page, .payments-page, .pm-page) :is(input, select, textarea)::placeholder {
+    color: var(--ink-faint) !important;
+    opacity: 1;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.admin-table-page, .reports-page, .payments-page, .pm-page) :is(input, select, textarea):focus-visible {
+    outline: 2px solid var(--branch-admin-focus) !important;
+    outline-offset: 2px;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.admin-table-page, .reports-page, .payments-page, .pm-page) :is(.btn-primary-custom, .ops-btn-primary) {
+    background: #1B4332 !important;
+    border-color: #1B4332 !important;
+    color: #FFFFFF !important;
+}
+html[data-theme='dark'] body:is(.branch-admin-ui,.system-admin-ui) :is(.admin-table-page, .reports-page, .payments-page, .pm-page) :is(.btn-primary-custom, .ops-btn-primary) {
+    background: #10B981 !important;
+    border-color: #10B981 !important;
+    color: #052E16 !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.admin-table-page, .reports-page, .payments-page, .pm-page) :is(.btn-secondary, .btn-secondary-custom) {
+    background: var(--surface-muted) !important;
+    border-color: var(--border) !important;
+    color: var(--ink) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.admin-table-page, .reports-page, .payments-page, .pm-page) :is(.table-system-title, .page-title, .admin-table-head-row h2) {
+    color: var(--ink) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.admin-table-page, .reports-page, .payments-page, .pm-page) :is(.text-gray-500, .text-slate-500, .text-slate-400) {
+    color: var(--ink-muted) !important;
+}
+html[data-theme='dark'] body:is(.branch-admin-ui,.system-admin-ui) :is(.admin-table-page, .reports-page, .payments-page, .pm-page) :is(.bg-white, .bg-gray-50, .bg-slate-50, .bg-slate-100) {
+    background: var(--card) !important;
+}
+html[data-theme='dark'] body:is(.branch-admin-ui,.system-admin-ui) :is(.admin-table-page, .reports-page, .payments-page, .pm-page) :is(.text-gray-900, .text-slate-900, .text-slate-800, .text-gray-800) {
+    color: var(--ink) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.admin-table-page, .reports-page, .payments-page, .pm-page) :is(button, a, summary):focus-visible {
+    outline: 2px solid var(--branch-admin-focus) !important;
+    outline-offset: 2px;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .payment-corrections-page {
+    padding: 1.5rem;
+    min-height: 100%;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .payment-corrections-head { margin-bottom: 1.25rem; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .payment-corrections-head h1 {
+    margin: 0 0 .35rem;
+    color: var(--ink);
+    font: 700 clamp(1.5rem, 2vw, 2rem)/1.2 var(--font-heading);
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .payment-corrections-head p { margin: 0; color: var(--ink-muted); font-size: .9rem; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .payment-corrections-page > .bg-white {
+    background: var(--card) !important;
+    border: 1px solid var(--border);
+    border-radius: .75rem !important;
+    box-shadow: none !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .payment-corrections-page table { color: var(--ink); }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .payment-corrections-page table :is(th, td) { border-color: var(--border) !important; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .payment-corrections-page table thead { background: var(--surface-muted) !important; color: var(--ink-muted); }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .payment-corrections-page table tbody tr:hover { background: var(--records-hover); }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .payment-corrections-page :is(.bg-emerald-50, .bg-gray-50) { background: var(--surface-muted) !important; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .payment-corrections-page :is(.text-emerald-800, .text-blue-700, .text-amber-700) { color: var(--ink) !important; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .payment-corrections-page .bg-emerald-700 { background: #1B4332 !important; color: #FFFFFF !important; }
+html[data-theme='dark'] body:is(.branch-admin-ui,.system-admin-ui) .payment-corrections-page .bg-emerald-700 { background: #10B981 !important; color: #052E16 !important; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .payment-corrections-page input {
+    background: var(--card) !important;
+    border-color: var(--border) !important;
+    color: var(--ink) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .payment-corrections-page button { min-height: 44px; font-weight: 600; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .payment-corrections-page button:focus-visible { outline: 2px solid var(--branch-admin-focus); outline-offset: 2px; }
+/* Admin edit/create flows and service-catalog iframe forms share the same surfaces. */
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.user-create-page, .user-edit-page, .ace-wrap, .service-management-page, .admin-catalog-page, .cc-form) {
+    font-family: var(--font-body) !important;
+    color: var(--ink) !important;
+    background: var(--surface) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.user-create-page, .user-edit-page, .ace-wrap, .service-management-page, .admin-catalog-page, .cc-form) :is(.modal-shell-card, .ace-card, .cc-card, .package-form-card, .form-card) {
+    background: var(--card) !important;
+    border-color: var(--border) !important;
+    color: var(--ink) !important;
+    box-shadow: none !important;
+    border-radius: .75rem !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.user-create-page, .user-edit-page, .ace-wrap, .service-management-page, .admin-catalog-page, .cc-form) :is(.ace-card__head, .modal-shell-head, .form-card-header) {
+    background: var(--surface-muted) !important;
+    border-color: var(--border) !important;
+    color: var(--ink) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.user-create-page, .user-edit-page, .ace-wrap, .service-management-page, .admin-catalog-page, .cc-form) :is(input:not([type='checkbox']):not([type='radio']), select, textarea) {
+    background: var(--card) !important;
+    border-color: var(--border) !important;
+    color: var(--ink) !important;
+    font-family: var(--font-body) !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.user-create-page, .user-edit-page, .ace-wrap, .service-management-page, .admin-catalog-page, .cc-form) :is(input, select, textarea):focus-visible {
+    outline: 2px solid var(--branch-admin-focus) !important;
+    outline-offset: 2px;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.user-create-page, .user-edit-page, .ace-wrap, .service-management-page, .admin-catalog-page, .cc-form) :is(h1, h2, h3, h4) {
+    font-family: var(--font-heading) !important;
+    color: var(--ink) !important;
+}
+@media (max-width: 699px) {
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .payment-corrections-page { padding: .75rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.admin-dashboard-shell, .admin-table-page, .reports-page, .payments-page, .pm-page) *,
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.admin-dashboard-shell, .admin-table-page, .reports-page, .payments-page, .pm-page) *::before,
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.admin-dashboard-shell, .admin-table-page, .reports-page, .payments-page, .pm-page) *::after {
+        animation-duration: .01ms !important;
+        transition-duration: .01ms !important;
+    }
+}
+
+/* Keep branch case-record controls and scrolling aligned with the staff worklist. */
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-filter {
+    display: grid !important;
+    grid-template-columns: minmax(17rem, 1fr) auto;
+    grid-template-areas: 'search filters' 'applied applied';
+    align-items: center !important;
+    gap: .65rem !important;
+    width: 100%;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-search-row {
+    display: contents !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-search-field {
+    grid-area: search;
+    min-width: 0 !important;
+    width: 100% !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-filter-bar {
+    grid-area: filters;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    width: auto !important;
+    min-width: 0 !important;
+    gap: .5rem;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-actions {
+    margin: 0 !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-applied-filters {
+    grid-area: applied;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-date-filter {
+    min-width: 9.5rem !important;
+    max-width: 12rem !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-sort-filter {
+    min-width: 9rem !important;
+    max-width: 11rem !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-system-list,
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-system-wrap,
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-wrapper {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-system-list {
+    overflow: visible !important;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-system-wrap,
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-wrapper {
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+}
+@media (max-width: 1450px) {
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-filter {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: 'search' 'filters' 'applied';
+    }
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-filter-bar {
+        justify-content: flex-start;
+        flex-wrap: wrap !important;
+        width: 100% !important;
+    }
+}
+@media (max-width: 700px) {
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-filter {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: 'search' 'filters' 'applied';
+    }
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-actions {
+        justify-content: flex-start;
+    }
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .case-records-tabs {
+        display: grid !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        width: 100% !important;
+    }
+    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .case-records-tabs .table-quick-tab {
+        width: auto !important;
+        min-width: 0 !important;
+        padding-inline: .2rem !important;
+        text-align: center;
+        white-space: normal;
+    }
+}
+

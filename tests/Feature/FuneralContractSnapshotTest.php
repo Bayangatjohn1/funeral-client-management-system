@@ -25,6 +25,54 @@ class FuneralContractSnapshotTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_contract_generation_and_printing_follow_role_and_branch_permissions(): void
+    {
+        Storage::fake('local');
+        [$case, , , , $admin] = $this->contractCase();
+        $this->actingAs($admin)->post(route('funeral-cases.documents.contract.store', $case, absolute: false), [])->assertRedirect();
+        $document = CaseDocument::where('case_id', $case->id)->firstOrFail();
+        $otherBranch = Branch::create([
+            'branch_code' => 'CT-OTHER',
+            'branch_name' => 'Other Contract Branch',
+            'branch_type' => 'branch',
+            'is_active' => true,
+        ]);
+        foreach ([
+            ['role' => 'owner', 'branch_id' => null],
+            ['role' => 'admin', 'admin_scope' => 'system', 'branch_id' => null],
+            ['role' => 'staff', 'branch_id' => $case->branch_id],
+            ['role' => 'admin', 'admin_scope' => 'branch', 'branch_id' => $otherBranch->id],
+        ] as $attributes) {
+            $actor = User::factory()->create(array_merge(['is_active' => true], $attributes));
+            $preview = $this->actingAs($actor)->get(route('funeral-cases.documents.contract.preview', $case, absolute: false));
+            $generation = $this->actingAs($actor)->post(route('funeral-cases.documents.contract.store', $case, absolute: false), []);
+            if ($actor->isSystemAdmin()) {
+                $preview->assertOk();
+                $generation->assertRedirect();
+            } else {
+                $preview->assertForbidden();
+                $generation->assertForbidden();
+            }
+            $response = $this->actingAs($actor)->get(route('funeral-cases.documents.print', [$case, $document], absolute: false));
+            if ($actor->isBranchAdmin() || $actor->isOwner()) {
+                $response->assertForbidden();
+            } else {
+                $response->assertOk();
+            }
+        }
+    }
+
+    public function test_owner_case_details_show_a_draft_without_issuing_or_changing_case_values(): void
+    {
+        [$case, , , , $owner] = $this->contractCase();
+        $owner->forceFill(['role'=>'owner'])->save();
+        $before = $case->only(['total_amount','total_paid','balance_amount','subtotal_amount']);
+        $this->actingAs($owner)->get(route('owner.cases.show',$case,absolute:false))
+            ->assertOk()->assertSee('Draft preview')->assertSee('srcdoc=',false);
+        $this->assertDatabaseCount('case_documents',0);
+        $this->assertSame($before,$case->fresh()->only(['total_amount','total_paid','balance_amount','subtotal_amount']));
+    }
+
     public function test_contract_preview_back_navigation_returns_to_case_records_not_contract_preview(): void
     {
         [$case, , , , $admin] = $this->contractCase();
@@ -626,7 +674,7 @@ class FuneralContractSnapshotTest extends TestCase
 
         $admin = User::factory()->create([
             'role' => 'admin',
-            'admin_scope' => 'main',
+            'admin_scope' => 'branch',
             'branch_id' => $branch->id,
             'is_active' => true,
         ]);

@@ -3,10 +3,6 @@
 @section('page_title','Edit User')
 @section('page_desc', 'Update this user account.')
 @section('hide_layout_topbar', '1')
-@section('page_back')
-    <span class="user-page-title-icon" aria-hidden="true"><i class="bi bi-pencil-square"></i></span>
-@endsection
-
 @section('content')
 @include('partials.user_management_visual_styles')
 @if(session('success'))<div class="flash-success" role="status">{{ session('success') }}</div>@endif

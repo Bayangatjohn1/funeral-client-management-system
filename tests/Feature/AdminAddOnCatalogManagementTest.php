@@ -169,7 +169,7 @@ class AdminAddOnCatalogManagementTest extends TestCase
             'total_paid' => 0,
             'balance_amount' => 23000,
             'payment_status' => 'UNPAID',
-            'case_status' => 'Pending',
+            'case_status' => 'DRAFT',
             'entry_source' => 'walk_in',
         ]);
         CaseAddOn::create([

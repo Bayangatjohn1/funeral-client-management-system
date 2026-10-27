@@ -28,9 +28,10 @@ class TopbarNotificationBuilder
 
         sort($scopeBranchIds);
         $scopeKey = sha1(implode(',', $scopeBranchIds));
-        $cacheKey = 'topbar:notifications:v5:user:'.$user->id.':role:'.($role ?? 'guest').':scope:'.$scopeKey;
+        $scopeVersion = TopbarNotificationCache::scopeVersion($scopeBranchIds);
+        $cacheKey = 'topbar:notifications:v6:user:'.$user->id.':role:'.($role ?? 'guest').':scope:'.$scopeKey.':v:'.$scopeVersion;
 
-        return Cache::remember($cacheKey, now()->addSeconds(120), function () use ($scopeBranchIds) {
+        return Cache::remember($cacheKey, $this->reminderService->nextNotificationTransitionAt($scopeBranchIds, now()), function () use ($scopeBranchIds) {
             $today = now()->startOfDay();
             $upcomingEnd = $today->copy()->addDays(7)->endOfDay();
             $reminders = collect($scopeBranchIds)->flatMap(fn (int $branchId) => $this->reminderService
@@ -40,9 +41,9 @@ class TopbarNotificationBuilder
             $caseGroups = $reminders->groupBy('case_id')->map(function (Collection $items) use ($today, $upcomingEnd) {
                 $buckets = collect();
                 $types = $items->pluck('type');
-                if ($types->intersect(['interment_approaching', 'interment_completed'])->isNotEmpty()) $buckets->push('needs_attention');
-                if ($types->intersect(['service_today', 'interment_today'])->isNotEmpty()) $buckets->push('today');
-                if ($items->contains(fn (array $item) => in_array($item['type'], ['upcoming_service', 'upcoming_interment'], true)
+                if ($types->intersect(['interment_approaching', 'interment_completed', 'interment_date_completed', 'interment_date_today_balance'])->isNotEmpty()) $buckets->push('needs_attention');
+                if ($types->intersect(['wake_start_today', 'wake_end_today', 'service_today', 'interment_today'])->isNotEmpty()) $buckets->push('today');
+                if ($items->contains(fn (array $item) => in_array($item['type'], ['upcoming_wake_start', 'upcoming_wake_end', 'upcoming_service', 'upcoming_interment'], true)
                     && $item['date']?->betweenIncluded($today, $upcomingEnd))) $buckets->push('upcoming');
                 if ($types->contains('balance')) $buckets->push('with_balance');
 
@@ -55,10 +56,21 @@ class TopbarNotificationBuilder
             }
 
             $bucketPriority = ['needs_attention', 'today', 'upcoming', 'with_balance'];
-            $typePriority = ['interment_completed', 'interment_approaching', 'service_today', 'interment_today', 'upcoming_interment', 'upcoming_service', 'balance'];
+            $typePriority = [
+                'interment_completed', 'interment_date_completed', 'interment_approaching', 'interment_date_today_balance',
+                'wake_start_today', 'wake_end_today', 'service_today', 'interment_today',
+                'upcoming_wake_start', 'upcoming_wake_end', 'upcoming_service', 'upcoming_interment', 'balance',
+            ];
             $items = $caseGroups->map(function (array $group) use ($bucketPriority, $typePriority) {
                 $bucket = collect($bucketPriority)->first(fn (string $name) => $group['buckets']->contains($name));
-                $item = collect($typePriority)->map(fn (string $type) => $group['items']->firstWhere('type', $type))
+                $eligibleTypes = match ($bucket) {
+                    'needs_attention' => ['interment_completed', 'interment_date_completed', 'interment_approaching', 'interment_date_today_balance'],
+                    'today' => ['wake_start_today', 'wake_end_today', 'service_today', 'interment_today'],
+                    'upcoming' => ['upcoming_wake_start', 'upcoming_wake_end', 'upcoming_service', 'upcoming_interment'],
+                    default => ['balance'],
+                };
+                $item = collect($typePriority)->filter(fn (string $type) => in_array($type, $eligibleTypes, true))
+                    ->map(fn (string $type) => $group['items']->firstWhere('type', $type))
                     ->first(fn ($candidate) => $candidate !== null) ?? $group['items']->first();
 
                 return [
@@ -75,6 +87,7 @@ class TopbarNotificationBuilder
                     'deceased_name' => $item['deceased_name'],
                     'client_name' => $item['case']->client?->full_name ?? 'N/A',
                     'message' => $item['message'],
+                    'has_time' => $item['has_time'],
                     'sort_rank' => array_search($bucket, $bucketPriority, true),
                     'sort_at' => $item['sort_date']?->timestamp ?? PHP_INT_MAX,
                 ];

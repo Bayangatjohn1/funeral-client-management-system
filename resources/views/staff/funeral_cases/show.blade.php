@@ -39,7 +39,10 @@
     $printSnapshot = app(\App\Support\CaseSnapshotDisplayService::class)->data($funeral_case);
     $printPackageName = $printSnapshot['package_name'] ?? $funeral_case->service_package ?? 'Saved Package';
     $printPackagePrice = (float) ($printSnapshot['package_price'] ?? $funeral_case->subtotal_amount ?? 0);
-    $printCasket = ($printSnapshot['included_casket']['name'] ?? null) ?: $funeral_case->coffin_type;
+    $printIsCustomPackage = (bool) ($funeral_case->pricing_snapshot['custom_package'] ?? false)
+        || (bool) $funeral_case->custom_package_name;
+    $printCasket = ($printSnapshot['included_casket']['name'] ?? null)
+        ?: ($printIsCustomPackage ? null : $funeral_case->coffin_type);
     $printIntermentAt = $funeral_case->interment_at
         ?? $funeral_case->deceased?->interment_at
         ?? $funeral_case->serviceDetail?->internment_date
@@ -80,7 +83,7 @@
 @endif
 @section('page_back')
     @if(!$isOverlay)
-        <a href="{{ $returnUrl }}" class="case-back-icon" aria-label="Back to Case Records"><i class="bi bi-chevron-left" aria-hidden="true"></i><span>Back to Case Records</span></a>
+        <a href="{{ $returnUrl }}" class="case-back-icon" aria-label="Back to Case Records" aria-describedby="caseBackTooltip"><i class="bi bi-chevron-left" aria-hidden="true"></i><span id="caseBackTooltip" role="tooltip">Back to Case Records</span></a>
     @endif
 @endsection
 @section('header_actions')
@@ -212,20 +215,76 @@
         const nav = document.querySelector('.case-section-nav');
         const scroller = document.querySelector('.page-content');
         if (!nav || !scroller) return;
+        const links = [...nav.querySelectorAll('a[href^="#"]')];
+        const sections = links
+            .map(link => ({ link, target: document.getElementById(link.hash.slice(1)) }))
+            .filter(item => item.target);
         let animation;
-        const cancel = () => cancelAnimationFrame(animation);
+        let scrollFrame;
+        let lockedLink = null;
+        const cancel = () => {
+            cancelAnimationFrame(animation);
+            lockedLink = null;
+        };
+        const setActive = activeLink => {
+            links.forEach(link => {
+                const active = link === activeLink;
+                link.classList.toggle('is-active', active);
+                if (active) link.setAttribute('aria-current', 'location');
+                else link.removeAttribute('aria-current');
+            });
+        };
+        const syncActiveSection = () => {
+            scrollFrame = null;
+            if (lockedLink) {
+                setActive(lockedLink);
+                return;
+            }
+            const threshold = scroller.getBoundingClientRect().top + nav.offsetHeight + 24;
+            let current = null;
+            let closestDistance = Number.POSITIVE_INFINITY;
+            sections.forEach(item => {
+                const distance = Math.abs(item.target.getBoundingClientRect().top - threshold);
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    current = item;
+                }
+            });
+            if (current) setActive(current.link);
+        };
+        const queueActiveSync = () => {
+            if (!scrollFrame) scrollFrame = requestAnimationFrame(syncActiveSection);
+        };
         scroller.addEventListener('wheel', cancel, { passive: true });
         scroller.addEventListener('touchstart', cancel, { passive: true });
-        const animateTo = end => {
+        scroller.addEventListener('pointerdown', event => {
+            if (!event.target.closest('.case-section-nav')) cancel();
+        }, { passive: true });
+        document.addEventListener('keydown', event => {
+            if (!['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) return;
+            if (event.target.matches('input, textarea, select, [contenteditable="true"]')) return;
+            if (event.target.closest('.case-section-nav')) return;
             cancel();
+        });
+        scroller.addEventListener('scroll', queueActiveSync, { passive: true });
+        const animateTo = (end, activeLink) => {
+            cancel();
+            lockedLink = activeLink;
             const start = scroller.scrollTop;
-            if (matchMedia('(prefers-reduced-motion: reduce)').matches) { scroller.scrollTop = end; return; }
+            if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                scroller.scrollTop = end;
+                queueActiveSync();
+                return;
+            }
             const started = performance.now();
             const step = now => {
                 const progress = Math.min(1, (now - started) / 1000);
                 const eased = progress < .5 ? 4 * progress ** 3 : 1 - (-2 * progress + 2) ** 3 / 2;
                 scroller.scrollTop = start + (end - start) * eased;
                 if (progress < 1) animation = requestAnimationFrame(step);
+                else {
+                    queueActiveSync();
+                }
             };
             animation = requestAnimationFrame(step);
         };
@@ -235,12 +294,17 @@
             if (!target) return;
             event.preventDefault();
             cancel();
+            setActive(link);
             const start = scroller.scrollTop;
+            const stickyOffset = nav.offsetHeight + 16;
             const end = Math.max(0, Math.min(scroller.scrollHeight - scroller.clientHeight,
-                start + target.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 24));
+                start + target.getBoundingClientRect().top - scroller.getBoundingClientRect().top - stickyOffset));
             history.replaceState(null, '', link.hash);
-            animateTo(end);
+            animateTo(end, link);
         });
+        const initialLink = links.find(link => link.hash === window.location.hash) || links[0];
+        if (initialLink) setActive(initialLink);
+        queueActiveSync();
     })();
 </script>
 
@@ -415,10 +479,22 @@
                     <span>Package Price</span>
                     <strong>PHP {{ number_format($printPackagePrice, 2) }}</strong>
                 </div>
-                <div class="print-field">
-                    <span>Included Casket / Coffin</span>
-                    <strong>{{ $printCasket ?: 'N/A' }}</strong>
-                </div>
+                @if($printCasket)
+                    <div class="print-field">
+                        <span>Included Casket / Coffin</span>
+                        <strong>{{ $printCasket }}</strong>
+                    </div>
+                @endif
+                @if($printIsCustomPackage)
+                    <div class="print-field">
+                        <span>Inclusions</span>
+                        <strong>{{ implode(' · ', $printSnapshot['inclusions']) ?: 'None listed' }}</strong>
+                    </div>
+                    <div class="print-field">
+                        <span>Freebies</span>
+                        <strong>{{ implode(' · ', $printSnapshot['freebies']) ?: 'None listed' }}</strong>
+                    </div>
+                @endif
                 <div class="print-field">
                     <span>Service Type</span>
                     <strong>{{ $funeral_case->service_type ?: 'N/A' }}</strong>

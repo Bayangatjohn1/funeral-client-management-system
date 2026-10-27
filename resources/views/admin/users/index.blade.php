@@ -2,12 +2,7 @@
 
 @section('page_title','User Management')
 @section('page_desc', auth()->user()?->isBranchAdmin() ? 'Manage staff accounts in your branch.' : 'Manage user accounts and access.')
-@section('page_title_badge', auth()->user()?->isBranchAdmin() ? 'Branch Staff' : 'System Directory')
 @section('hide_layout_topbar', '1')
-@section('page_back')
-    <span class="user-page-title-icon" aria-hidden="true"><i class="bi bi-people"></i></span>
-@endsection
-
 @section('topbar_actions')
     <a href="{{ route('admin.users.create', ['return_to' => request()->fullUrl()]) }}" @if(auth()->user()?->isSystemAdmin()) data-create-role-trigger aria-haspopup="dialog" aria-controls="create-role-dialog" @endif class="btn btn-primary-custom btn-sm">
         <i class="bi bi-plus-circle" aria-hidden="true"></i>
@@ -20,7 +15,7 @@
 @include('partials.case_records_layout_styles')
 @php
     $isBranchAdminView = auth()->user()?->isBranchAdmin() ?? false;
-    $hasUserFilters = filled(request('q')) || filled(request('branch_id')) || filled(request('role')) || filled(request('status')) || (filled(request('sort')) && request('sort') !== 'latest') || (filled(request('per_page')) && (int) request('per_page') !== 25);
+    $hasUserFilters = filled(request('q')) || filled(request('branch_id')) || filled(request('role')) || filled(request('status'));
     $userFilterResetUrl = route('admin.users.index', request('return_to') === url('/admin') ? ['return_to' => url('/admin')] : []);
 @endphp
 <style>
@@ -669,13 +664,13 @@
             </details>
             @endunless
             @if($hasUserFilters)
-            <a class="user-filter-clear" href="{{ $userFilterResetUrl }}"><i class="bi bi-x-circle" aria-hidden="true"></i>Clear</a>
+            <a class="user-filter-clear filter-clear-action" href="{{ $userFilterResetUrl }}"><i class="bi bi-x-circle" aria-hidden="true"></i>Clear</a>
             @endif
+            <div class="user-directory-view-toggle" role="group" aria-label="Directory view">
+                <button type="button" @click="setView('card')" :aria-pressed="view === 'card'" :class="view === 'card' ? 'is-active' : ''" aria-label="Grid view"><i class="bi bi-grid-3x3-gap-fill" aria-hidden="true"></i></button>
+                <button type="button" @click="setView('table')" :aria-pressed="view === 'table'" :class="view === 'table' ? 'is-active' : ''" aria-label="Table view"><i class="bi bi-table" aria-hidden="true"></i></button>
+            </div>
         </form>
-        <div class="user-directory-view-toggle" role="group" aria-label="Directory view">
-            <button type="button" @click="setView('card')" :aria-pressed="view === 'card'" :class="view === 'card' ? 'is-active' : ''" aria-label="Grid view"><i class="bi bi-grid-3x3-gap-fill" aria-hidden="true"></i></button>
-            <button type="button" @click="setView('table')" :aria-pressed="view === 'table'" :class="view === 'table' ? 'is-active' : ''" aria-label="Table view"><i class="bi bi-table" aria-hidden="true"></i></button>
-        </div>
     </div>
 
     <div

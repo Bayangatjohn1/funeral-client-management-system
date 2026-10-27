@@ -1,5 +1,15 @@
 const dashboard = document.querySelector('.sa');
 if (dashboard) {
+    const attentionToggle = dashboard.querySelector('[data-sa-attention-toggle]');
+    attentionToggle?.addEventListener('click', () => {
+        const list = dashboard.querySelector('#sa-attention-list');
+        const expanded = attentionToggle.getAttribute('aria-expanded') !== 'true';
+        list.hidden = !expanded;
+        attentionToggle.setAttribute('aria-expanded', String(expanded));
+        attentionToggle.innerHTML = expanded
+            ? 'Hide issues <i class="bi bi-chevron-up" aria-hidden="true"></i>'
+            : `Review ${list.querySelectorAll('.sa-alert').length} ${list.querySelectorAll('.sa-alert').length === 1 ? 'issue' : 'issues'} <i class="bi bi-chevron-down" aria-hidden="true"></i>`;
+    });
     const tooltip = document.createElement('div');
     tooltip.id = 'sa-overview-tooltip';
     tooltip.className = 'sa-tooltip';
@@ -73,6 +83,14 @@ if (dashboard) {
     });
 
     const branchFilter = dashboard.querySelector('#sa-branch-filter');
+    const activityFilter = dashboard.querySelector('#sa-activity-filter');
+    activityFilter?.addEventListener('change', () => {
+        const rows = [...dashboard.querySelectorAll('[data-sa-activity-group]')];
+        rows.forEach(row => { row.hidden = activityFilter.value !== 'all' && row.dataset.saActivityGroup !== activityFilter.value; });
+        const count = rows.filter(row => !row.hidden).length;
+        dashboard.querySelector('[data-sa-activity-status]').textContent = `${count} ${count === 1 ? 'event' : 'events'} from the latest five`;
+        dashboard.querySelector('[data-sa-activity-empty]').hidden = rows.some(row => !row.hidden);
+    });
     const branchRows = [...dashboard.querySelectorAll('[data-sa-branch-state]')];
     const updateBranches = () => {
         const matches = branchRows.filter(row => branchFilter.value === 'all' || row.dataset.saBranchState === branchFilter.value);
@@ -83,10 +101,8 @@ if (dashboard) {
     };
     branchFilter.addEventListener('change', updateBranches);
     updateBranches();
-    dashboard.querySelector('[data-sa-refresh]').addEventListener('click', event => {
-        event.currentTarget.disabled = true;
-        event.currentTarget.setAttribute('aria-busy', 'true');
-        dashboard.querySelector('[data-sa-refresh-status]').textContent = 'Refreshing dashboard…';
-        window.location.reload();
+    dashboard.querySelector('a[href="#sa-coverage-title"]')?.addEventListener('click', () => {
+        branchFilter.value = 'needs-admin';
+        updateBranches();
     });
 }

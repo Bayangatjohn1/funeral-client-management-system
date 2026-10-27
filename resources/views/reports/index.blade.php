@@ -879,8 +879,7 @@
         .reports-analytics-more:hover,
         .reports-more-filters:hover,
         .reports-btn-secondary:hover:not(:disabled),
-        .reports-btn-neutral:hover:not(:disabled),
-        .reports-metric:hover:not(.is-selected) {
+        .reports-btn-neutral:hover:not(:disabled) {
             background-color:#DDE8D6 !important;
             border-color:#8EA083 !important;
             transform:none !important;
@@ -1223,7 +1222,7 @@
             width:10.25rem;
             min-width:10.25rem;
             white-space:nowrap;
-            color:#4E5D4D !important;
+            color:var(--ra-secondary) !important;
             font-variant-numeric:tabular-nums;
         }
 
@@ -1439,8 +1438,8 @@
             width: 2.2rem !important;
             height: 2.2rem !important;
             border-radius: 8px !important;
-            background: rgba(250, 251, 247, 0.58) !important;
-            color: var(--module-muted) !important;
+            background: var(--ra-surface) !important;
+            color: var(--ra-secondary) !important;
             font-size: 0.98rem !important;
         }
 
@@ -1955,6 +1954,7 @@
         <div class="reports-card-head">
             <div>
                 <h2 class="reports-card-title">Report Summary</h2>
+                    <p class="reports-card-copy" x-show="reportType === 'master_cases' && filters.date_basis === 'recording'" x-text="(filters.collection_state === 'AFTER_INTERMENT' ? 'Verified cases with balance past interment' : (filters.collection_state === 'WITH_BALANCE' ? 'Verified cases with balance' : (filters.collection_state === 'WITH_PAYMENTS' ? 'Verified cases with recorded payments' : 'Verified cases · Recording date')))"></p>
                 <div class="reports-card-copy" x-text="summaryScopeDescription()"></div>
             </div>
             <div class="reports-card-head-actions">
@@ -2190,6 +2190,8 @@ window.reportsModule = function reportsModule(config) {
             branch_id: '',
             date_from: '',
             date_to: '',
+            collection_state: '',
+            date_basis: '',
             payment_status: '',
             payment_method: '',
             case_status: '',
@@ -2223,7 +2225,10 @@ window.reportsModule = function reportsModule(config) {
         customRangeOpen: false,
         advancedFiltersOpen: false,
         previewTimer: null,
+        initialized: false,
         init() {
+            if (this.initialized) return;
+            this.initialized = true;
             const params = new URLSearchParams(window.location.search);
             Object.keys(this.filters).forEach((key) => {
                 if (params.has(key)) {
@@ -2255,7 +2260,17 @@ window.reportsModule = function reportsModule(config) {
                 this.syncReportPresetFromDates();
                 this.$nextTick(() => this.loadPreview());
             });
-            this.$nextTick(() => this.loadPreview());
+            // Dashboard collection links open the existing payment table directly.
+            const entryMetric = params.get('metric');
+            this.$nextTick(async () => {
+                await this.loadPreview();
+                if (entryMetric === 'collected_amount' && this.reportType === 'owner_branch_analytics' && !this.error) {
+                    await this.selectMetric(entryMetric);
+                    const entryUrl = new URL(window.location.href);
+                    entryUrl.searchParams.set('metric', entryMetric);
+                    window.history.replaceState({ reportsModule: true }, '', entryUrl.toString());
+                }
+            });
         },
         enforceAssignedBranch() {
             if (this.isBranchAdmin && this.assignedBranchId) {
@@ -2647,7 +2662,7 @@ window.reportsModule = function reportsModule(config) {
                 ],
                 master_cases: [
                     ['case_code', 'Case No.'], ['name', 'Client / Deceased'], ['branch', 'Branch'],
-                    ['total_amount', 'Total Amount Availed'], ['total_paid', 'Total Paid'], ['balance', 'Remaining Balance'],
+                    ['total_amount', 'Total Service Value'], ['total_paid', 'Collected'], ['balance', 'Remaining Balance'],
                     ['case_status', 'Case Status'], ['payment_status', 'Payment Status'],
                 ],
                 audit_logs: [
@@ -2655,8 +2670,8 @@ window.reportsModule = function reportsModule(config) {
                     ['module', 'Module'], ['record_id', 'Record ID'], ['branch', 'Branch'], ['status', 'Status'], ['remarks', 'Remarks'],
                 ],
                 owner_branch_analytics: [
-                    ['branch', 'Branch'], ['total_cases', 'Cases in Period'], ['gross_amount', 'Total Amount Availed'],
-                    ['collected_amount', 'All Payments'], ['remaining_balance', 'Current Collectibles'],
+                    ['branch', 'Branch'], ['total_cases', 'Cases in Period'], ['gross_amount', 'Total Service Value'],
+                    ['collected_amount', 'Collected'], ['remaining_balance', 'Remaining Balance'],
                     ['paid_cases', 'Paid Cases'], ['partial_cases', 'Partially Paid Cases'], ['unpaid_cases', 'Unpaid Cases'],
                 ],
             };
@@ -2676,16 +2691,16 @@ window.reportsModule = function reportsModule(config) {
             if (this.reportType === 'owner_branch_analytics') {
                 return [
                     { label: 'Cases in Period',      value: this.number(this.summary.total_cases || 0),       icon: 'bi-folder2-open',      key: 'total_cases' },
-                    { label: 'Total Amount Availed', value: money(this.summary.gross_amount),                 icon: 'bi-cash-stack',         key: 'gross_amount' },
-                    { label: 'All Payments for These Cases', value: money(this.summary.collected_amount),     icon: 'bi-wallet2',            key: 'collected_amount' },
-                    { label: 'Current Collectibles', value: money(this.summary.remaining_balance),            icon: 'bi-receipt',            key: 'remaining_balance' },
+                    { label: 'Total Service Value', value: money(this.summary.gross_amount),                 icon: 'bi-cash-stack',         key: 'gross_amount' },
+                    { label: 'Collected', value: money(this.summary.collected_amount),     icon: 'bi-wallet2',            key: 'collected_amount' },
+                    { label: 'Remaining Balance', value: money(this.summary.remaining_balance),            icon: 'bi-receipt',            key: 'remaining_balance' },
                 ];
             }
             return [
                 { label: 'Cases in Period',              value: this.number(this.summary.total_records || 0), icon: 'bi-list-check',  key: 'total_records' },
-                { label: 'Total Amount Availed',         value: money(this.summary.gross_amount),             icon: 'bi-cash-stack',  key: 'gross_amount' },
-                { label: 'All Payments for These Cases', value: money(this.summary.collected_amount),         icon: 'bi-wallet2',     key: 'collected_amount' },
-                { label: 'Current Balance',    value: money(this.summary.remaining_balance),        icon: 'bi-receipt',     key: 'remaining_balance' },
+                { label: 'Total Service Value',         value: money(this.summary.gross_amount),             icon: 'bi-cash-stack',  key: 'gross_amount' },
+                { label: 'Collected', value: money(this.summary.collected_amount),         icon: 'bi-wallet2',     key: 'collected_amount' },
+                { label: 'Remaining Balance',    value: money(this.summary.remaining_balance),        icon: 'bi-receipt',     key: 'remaining_balance' },
             ];
         },
         summaryCardDescription(card) {
@@ -2696,10 +2711,11 @@ window.reportsModule = function reportsModule(config) {
                 }[card.key] || '';
             }
             if (this.reportType === 'audit_logs') return 'Activity records matching the selected filters.';
+            if (this.reportType === 'master_cases' && this.filters.date_basis === 'recording' && ['total_cases', 'total_records'].includes(card.key)) return 'Verified cases matching the selected scope.';
             return {
                 total_cases: 'Cases requested within the selected period.',
                 total_records: 'Cases requested within the selected period.',
-                gross_amount: 'Full service amount of the cases shown.',
+                gross_amount: 'Final case amount after discounts.',
                 collected_amount: 'All payments for these cases, across all dates.',
                 remaining_balance: 'Unpaid amount remaining for these cases.',
             }[card.key] || '';
@@ -2709,10 +2725,10 @@ window.reportsModule = function reportsModule(config) {
                 return 'Valid payments received within the selected payment period.';
             }
             if (this.reportType === 'owner_branch_analytics') {
-                return 'Cases are included by service request date. All Payments includes every valid payment recorded for these cases, including payments outside the selected period.';
+                return 'Cases are included by service request date. Collected includes every valid payment recorded for these cases, including payments outside the selected period.';
             }
             if (this.reportType === 'master_cases') {
-                return 'Cases are included by service request date. All Payments includes every valid payment recorded for the cases shown.';
+                return (this.filters.date_basis === 'recording' ? 'Cases are included by recording date.' : 'Cases are included by service request date.') + ' Collected includes every valid payment recorded for the cases shown.';
             }
             return 'Summary of the generated report preview.';
         },
@@ -2861,7 +2877,7 @@ window.reportsModule = function reportsModule(config) {
                 { key: 'client',            label: 'Client' },
                 { key: 'deceased',          label: 'Deceased' },
                 { key: 'payment_status',    label: 'Payment Status' },
-                { key: 'gross_amount',      label: 'Gross Amount' },
+                { key: 'gross_amount',      label: 'Total Service Value' },
                 { key: 'collected_amount',  label: 'Collected Amount' },
                 { key: 'remaining_balance', label: 'Remaining Balance' },
                 { key: 'last_payment_date', label: 'Last Payment Date' },
@@ -2874,7 +2890,7 @@ window.reportsModule = function reportsModule(config) {
                 paid_cases:        'Paid Cases',
                 partial_cases:     'Partial Cases',
                 unpaid_cases:      'Unpaid Cases',
-                gross_amount:      'Gross Amount',
+                gross_amount:      'Total Service Value',
                 collected_amount:  'Collected Amount',
                 remaining_balance: 'Remaining Balance',
             };

@@ -40,7 +40,7 @@ html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .dashboard-a
 
 
 <div class="staff-dashboard-v2">
-    <section class="staff-header-card">
+    <section class="staff-header-card panel-title-surface">
         <div class="staff-header-main">
             <div class="staff-header-title-group">
                 <button
@@ -203,8 +203,9 @@ html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .dashboard-a
                                     default => 'info',
                                 };
                                 $scheduleLabel = match($item['type'] ?? '') {
-                                    'interment_completed', 'interment_approaching' => 'Interment',
-                                    'same_day_schedule' => ($item['conflict']['type'] ?? null) === 'interment' ? 'Interment' : 'Service',
+                                    'interment_completed', 'interment_date_completed', 'interment_approaching', 'interment_date_today_balance' => 'Interment',
+                                    'same_day_interment_schedule' => 'Interment',
+                                    'same_day_service_schedule' => 'Service',
                                     default => 'Schedule',
                                 };
                             @endphp
@@ -216,7 +217,7 @@ html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .dashboard-a
                                     </span></small>
                                     @if(!empty($item['date']))
                                         <span class="staff-attention-date">
-                                            {{ $scheduleLabel }}: {{ $item['date']->format('M d, Y · h:i A') }}
+                                            {{ $scheduleLabel }}: {{ $item['date']->format('M d, Y') }}{{ !empty($item['has_time']) ? ' · '.$item['date']->format('h:i A') : ' · Time not recorded' }}
                                         </span>
                                     @endif
                                 </div>

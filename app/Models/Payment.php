@@ -12,6 +12,8 @@ class Payment extends Model
     use BranchScoped, SoftDeletes;
 
     protected $fillable = [
+        'submission_id',
+        'submission_hash',
         'receipt_number',
         'payment_record_no',
         'accounting_reference_no',
@@ -63,28 +65,37 @@ class Payment extends Model
 
     public static function buildReceiptNumber(int $paymentId, CarbonInterface $paidAt): string
     {
+        if (config('branch_sync.mode') === 'branch') {
+            return sprintf('RCPT-%s-%s-%06d', config('branch_sync.branch_code'), $paidAt->format('Y'), $paymentId);
+        }
         return \sprintf('RCPT-%s-%06d', $paidAt->format('Y'), $paymentId);
     }
 
     public static function buildPaymentRecordNumber(int $sequence, CarbonInterface $paidAt): string
     {
+        if (config('branch_sync.mode') === 'branch') {
+            return sprintf('PAY-%s-%s-%06d', config('branch_sync.branch_code'), $paidAt->format('Y'), $sequence);
+        }
         return \sprintf('PAY-%s-%06d', $paidAt->format('Y'), $sequence);
     }
 
     public static function nextPaymentRecordNumber(CarbonInterface $paidAt): string
     {
         $year = $paidAt->format('Y');
+        $prefix = config('branch_sync.mode') === 'branch'
+            ? 'PAY-'.config('branch_sync.branch_code').'-'.$year.'-'
+            : 'PAY-'.$year.'-';
 
         $latest = static::withoutGlobalScope('branch_scope')
             ->withTrashed()
-            ->where('payment_record_no', 'like', "PAY-{$year}-%")
+            ->where('payment_record_no', 'like', $prefix.'%')
             ->lockForUpdate()
             ->orderByDesc('payment_record_no')
             ->value('payment_record_no');
 
         $next = 1;
-        if (is_string($latest) && preg_match('/^PAY-\d{4}-(\d{6})$/', $latest, $matches)) {
-            $next = ((int) $matches[1]) + 1;
+        if (is_string($latest) && ctype_digit(substr($latest, strlen($prefix)))) {
+            $next = ((int) substr($latest, strlen($prefix))) + 1;
         }
 
         return static::buildPaymentRecordNumber($next, $paidAt);
@@ -98,6 +109,11 @@ class Payment extends Model
     public function funeralCase()
     {
         return $this->belongsTo(\App\Models\FuneralCase::class);
+    }
+
+    public function branch()
+    {
+        return $this->belongsTo(\App\Models\Branch::class);
     }
 
     public function replacedPayment()

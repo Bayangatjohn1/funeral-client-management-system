@@ -12,7 +12,7 @@ html[data-theme] body.panel-shell-body.branch-admin-ui:has(:is(.branch-admin-vie
     --brand: #1B4332;
     --accent: var(--brand);
     --records-hover: #C2DAC9;
-    --dashboard-gap: 1.5rem;
+    --dashboard-gap: 1rem;
     --dashboard-warning: #6B4D08;
     --dashboard-warning-surface: #F5ECD5;
     --dashboard-warning-border: #DEC998;
@@ -55,7 +55,7 @@ html[data-theme] body.panel-shell-body.branch-admin-ui:has(:is(.branch-admin-vie
 }
 html[data-theme] body.panel-shell-body.branch-admin-ui .admin-dashboard-shell.branch-admin-view {
     gap: var(--dashboard-gap);
-    padding-bottom: 1.5rem;
+    padding-bottom: 0;
     color: var(--ink);
     background: transparent;
 }
@@ -118,7 +118,7 @@ html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(.a
     color: var(--brand);
 }
 html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-panel__head {
-    padding: 1rem 1.25rem;
+    padding: 1rem 1.25rem .5rem;
     background: var(--card);
 }
 html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-panel__title h3 {
@@ -127,7 +127,7 @@ html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branc
     color: var(--ink);
 }
 html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(.branch-record-list, .branch-balance-list) {
-    padding: 1.25rem;
+    padding: .5rem 1.25rem 1.25rem;
     gap: .75rem;
 }
 html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(.branch-record-card, .branch-balance-item) {
@@ -215,6 +215,32 @@ html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(a,
     outline: 2px solid var(--branch-admin-focus) !important;
     outline-offset: 3px !important;
 }
+
+/* Keep the dashboard theme control on the same semantic surface as the date and
+   notification controls. This also wins over the legacy dashboard-wide focus
+   rule that otherwise paints the button with a light-only background. */
+html[data-theme] body.panel-shell-body.branch-admin-ui .admin-dashboard-shell.branch-admin-view .dashboard-header-theme {
+    background: var(--surface-muted) !important;
+    border-color: var(--border) !important;
+    color: var(--brand) !important;
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .admin-dashboard-shell.branch-admin-view .dashboard-header-theme:hover {
+    background: var(--records-hover) !important;
+    border-color: var(--brand) !important;
+    color: var(--brand) !important;
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .admin-dashboard-shell.branch-admin-view .dashboard-header-theme:focus-visible {
+    background: var(--surface-muted) !important;
+    border-color: var(--brand) !important;
+    color: var(--brand) !important;
+}
+html[data-theme='dark'] body.panel-shell-body.branch-admin-ui .admin-dashboard-shell.branch-admin-view .dashboard-header-theme {
+    color: #FBBF24 !important;
+}
+html[data-theme='dark'] body.panel-shell-body.branch-admin-ui .admin-dashboard-shell.branch-admin-view .dashboard-header-theme:hover {
+    background: var(--records-hover) !important;
+    color: #FDE68A !important;
+}
 @media (max-width: 767px) {
     html[data-theme] body.panel-shell-body.branch-admin-ui:has(:is(.branch-admin-view, .master-records-page, .case-detail-shell, .payment-monitoring-page, .directory-page, .user-create-page, .user-edit-page, .service-management-hub, .audit-ref-page)) { --dashboard-gap: 1rem; }
     html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(.branch-record-list, .branch-balance-list, .branch-panel__head, .branch-payment-summary) { padding: 1rem; }
@@ -224,4 +250,55 @@ html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(a,
 }
 @media (min-width: 700px) and (max-width: 1179px) {
     html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* The branch dashboard follows its content instead of stretching to viewport height. */
+html[data-theme] body.panel-shell-body.branch-admin-ui .dashboard-fit-page:has(.branch-admin-view),
+html[data-theme] body.panel-shell-body.branch-admin-ui .admin-dashboard-shell.branch-admin-view {
+    min-height:0;
+    height:auto;
+    flex:0 0 auto;
+}
+/* Compact the two highlighted gaps without stretching empty operational cards. */
+html[data-theme] body.panel-shell-body.branch-admin-ui .admin-dashboard-shell.branch-admin-view { gap:12px; }
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-balance-item { padding:10px 14px; }
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-payment-summary { padding:12px 20px; }
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-payment-ring { width:96px; height:96px; flex:0 0 96px; }
+html[data-theme] body.panel-shell-body.branch-admin-ui .page-content:has(.branch-admin-view) > .panel-page-footer { padding:6px 0 8px; }
+html[data-theme] body.panel-shell-body.branch-admin-ui .page-content:has(.branch-admin-view) > .panel-page-footer .panel-scroll-top { width:36px; height:36px; }
+
+/* Keep the financial panels aligned with their corresponding operations rows. */
+@media (min-width: 1024px) {
+    html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-board {
+        align-items: stretch;
+        grid-template-rows: repeat(3, minmax(0, auto));
+    }
+
+    html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-board__column {
+        grid-row: 1 / span 3;
+        grid-template-rows: subgrid;
+        align-items: stretch;
+    }
+
+    html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-board__column > .branch-panel {
+        min-height: 0;
+        height: 100%;
+    }
+
+    html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-board__column[aria-label='Branch financial overview'] > .branch-panel:first-child {
+        grid-row: 1 / span 2;
+    }
+
+    html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-board__column[aria-label='Branch financial overview'] > .branch-panel:last-child {
+        grid-row: 3;
+    }
+}
+
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-dashboard-name {
+    display:block;
+    margin:4px 0 0;
+    font-size:14px;
+    font-weight:400;
+    line-height:1.5;
+    color:var(--ink-muted);
 }

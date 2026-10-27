@@ -184,7 +184,7 @@
     .pkg-freebie-choice input:focus-visible + .pkg-freebie-mark { outline:2px solid #344333; outline-offset:2px; }
     .pkg-freebie-mark i { display:block; font-size:1rem; line-height:1; transform:translateY(.5px); }
     .pkg-freebie-choice strong { display:block; color:#2F302C; font-size:.93rem; line-height:1.35; font-weight:850; }
-    .pkg-freebie-choice span { display:block; margin-top:3px; color:#687466; font-size:.76rem; line-height:1.35; font-weight:700; }
+    .pkg-freebie-choice > span:last-child > span { display:block; margin-top:3px; color:#687466; font-size:.76rem; line-height:1.35; font-weight:700; }
     .pkg-freebie-config-grid { display:grid; grid-template-columns:96px minmax(120px,1fr); gap:12px; padding-left:33px; }
     .pkg-freebie-card:not(.is-selected) .pkg-freebie-config { opacity:.52; }
     .pkg-freebie-legacy { margin-top:14px; display:grid; gap:10px; }
@@ -459,7 +459,7 @@
     }
 </style>
 
-<form id="packageForm" method="POST" action="{{ $action }}" class="pkg-workspace {{ $isEdit ? 'is-edit-mode' : '' }} w-full mx-auto px-4 sm:px-6 lg:px-8 grid gap-5">
+<form id="packageForm" method="POST" action="{{ $action }}" data-package-wizard class="pkg-workspace {{ $isEdit ? 'is-edit-mode' : '' }} w-full mx-auto px-4 sm:px-6 lg:px-8 grid gap-5">
     @csrf
     @if($isEdit)
         @method('PUT')
@@ -481,6 +481,9 @@
         </div>
     </header>
 
+    <nav class="package-wizard-nav" aria-label="Package setup steps" hidden>
+        @foreach(['Details', 'Services', 'Inclusions', 'Freebies', 'Promo', 'Review'] as $stepLabel)<button type="button" data-wizard-go="{{ $loop->iteration }}"><span>{{ $loop->iteration }}</span>{{ $stepLabel }}</button>@endforeach
+    </nav>
     <div class="pkg-layout">
         <div class="pkg-main">
             <section class="pkg-panel {{ $isEdit ? 'is-collapsible is-collapsed' : '' }}" data-package-panel>
@@ -493,21 +496,21 @@
                 <div class="pkg-panel-body">
                     <div class="pkg-grid pkg-grid-2">
                         <div>
-                            <label class="pkg-label">Package Name <span class="pkg-required">*</span></label>
-                            <input type="text" name="name" value="{{ old('name', $package->name ?? '') }}" class="form-input" placeholder="e.g. First Class Package" required>
+                            <label class="pkg-label" for="package-name">Package Name <span class="pkg-required">*</span></label>
+                            <input id="package-name" type="text" name="name" value="{{ old('name', $package->name ?? '') }}" class="form-input" placeholder="e.g. First Class Package" required>
                             @error('name') <div class="form-error">{{ $message }}</div> @enderror
                         </div>
                         <div>
-                            <label class="pkg-label">Base Price <span class="pkg-required">*</span></label>
+                            <label class="pkg-label" for="package-price">Base Price <span class="pkg-required">*</span></label>
                             <div class="pkg-money">
                                 <span>&#8369;</span>
-                                <input type="number" step="0.01" min="0" name="price" value="{{ old('price', $package->price ?? '') }}" class="form-input" placeholder="0.00" required>
+                                <input id="package-price" type="number" step="0.01" min="0" name="price" value="{{ old('price', $package->price ?? '') }}" class="form-input" placeholder="0.00" required>
                             </div>
                             @error('price') <div class="form-error">{{ $message }}</div> @enderror
                         </div>
                         <div class="md:col-span-2">
-                            <label class="pkg-label">Short Description <span class="normal-case tracking-normal font-bold">(optional)</span></label>
-                            <textarea name="short_description" rows="2" class="form-input" maxlength="500" placeholder="Short internal note shown to admins.">{{ old('short_description', $package->short_description ?? '') }}</textarea>
+                            <label class="pkg-label" for="package-description">Short Description <span class="normal-case tracking-normal font-bold">(optional)</span></label>
+                            <textarea id="package-description" name="short_description" rows="2" class="form-input" maxlength="500" placeholder="Short internal note shown to admins.">{{ old('short_description', $package->short_description ?? '') }}</textarea>
                             @error('short_description') <div class="form-error">{{ $message }}</div> @enderror
                         </div>
                     </div>
@@ -542,9 +545,9 @@
                             @endphp
                             <div class="pkg-service-card {{ !empty($row['enabled']) ? 'is-enabled' : '' }} {{ $hasExtraConfig ? 'is-extra-open' : '' }}" data-service-row role="button" tabindex="0">
                                 <div class="pkg-service-top">
-                                    <div class="pkg-service-name">
+                                    <label class="pkg-service-name" for="package-service-{{ $type }}">
                                         <span class="pkg-service-icon"><i class="bi {{ $serviceIcons[$type] ?? 'bi-check2' }}"></i></span>
-                                        <div>
+                                        <span class="pkg-service-copy">
                                             <span class="pkg-service-label">{{ $serviceLabels[$type] }}</span>
                                             <span class="pkg-service-note">
                                                 @if($isKmService)
@@ -555,11 +558,11 @@
                                                     Included base casket for this package.
                                                 @endif
                                             </span>
-                                        </div>
-                                    </div>
+                                        </span>
+                                    </label>
                                     <label class="pkg-switch" title="Enable {{ $serviceLabels[$type] }}">
                                         <input type="hidden" name="included_services[{{ $type }}][enabled]" value="0">
-                                        <input type="checkbox" name="included_services[{{ $type }}][enabled]" value="1" data-service-toggle {{ !empty($row['enabled']) ? 'checked' : '' }}>
+                                        <input id="package-service-{{ $type }}" type="checkbox" name="included_services[{{ $type }}][enabled]" value="1" data-service-toggle aria-label="Include {{ $serviceLabels[$type] }}" {{ !empty($row['enabled']) ? 'checked' : '' }}>
                                         <span class="pkg-slider"></span>
                                     </label>
                                 </div>
@@ -610,6 +613,7 @@
                                                             data-material="{{ $catalog->type_or_material }}"
                                                             data-price="{{ (float) $catalog->standard_price }}"
                                                             data-description="{{ $catalog->description }}"
+                                                            data-available="{{ $catalog->is_active && $catalog->is_available ? '1' : '0' }}"
                                                             data-update-url="{{ route('admin.casket-catalogs.update', $catalog, absolute: false) }}"
                                                             @selected((int)($row['casket_catalog_id'] ?? 0) === $catalog->id)
                                                         >
@@ -691,7 +695,7 @@
                                     $isSelectedFreebie = (bool) $selectedFreebie;
                                     $freebieUnit = $selectedFreebie['unit'] ?? $catalog->default_unit ?? 'item';
                                 @endphp
-                                <div class="pkg-freebie-card {{ $isSelectedFreebie ? 'is-selected' : '' }}" data-freebie-card role="button" tabindex="0">
+                                <div class="pkg-freebie-card {{ $isSelectedFreebie ? 'is-selected' : '' }}" data-freebie-card data-catalog-active="{{ $catalog->is_active ? '1' : '0' }}" role="button" tabindex="0">
                                     <label class="pkg-freebie-choice">
                                         <input type="checkbox" data-freebie-check {{ $isSelectedFreebie ? 'checked' : '' }}>
                                         <span class="pkg-freebie-mark" aria-hidden="true"><i class="bi bi-check2"></i></span>
@@ -747,6 +751,9 @@
                     @endif
                     <div class="mt-3"><span class="pkg-badge pkg-badge-free">Free</span></div>
                     @error('freebies') <div class="form-error">{{ $message }}</div> @enderror
+                    @foreach($errors->get('freebies.*.freebie_catalog_id') as $message)
+                        <div class="form-error">{{ $message }}</div>
+                    @endforeach
                 </div>
             </section>
 
@@ -817,10 +824,11 @@
             <div class="pkg-review-list" data-review-list></div>
             <div class="pkg-review-actions">
                 <button class="btn pkg-primary" type="submit" data-package-submit><i class="bi bi-check2-circle"></i> <span data-package-submit-label>{{ $buttonText }}</span></button>
-                <a href="{{ $returnTo }}" class="pkg-link-btn"><i class="bi bi-x-circle"></i> Cancel</a>
+                <a href="{{ $returnTo }}" class="pkg-link-btn" data-service-form-cancel><i class="bi bi-x-circle"></i> Cancel</a>
             </div>
         </aside>
     </div>
+    <footer class="package-wizard-footer" hidden><span data-wizard-progress role="status">Step 1 of 6</span><div><button type="button" class="btn btn-outline" data-wizard-back>Back</button><a href="{{ $returnTo }}" class="btn btn-outline" data-service-form-cancel>Cancel</a><button type="button" class="btn btn-primary-custom" data-wizard-next>Next <i class="bi bi-arrow-right" aria-hidden="true"></i></button></div></footer>
 </form>
 
 <script>
@@ -867,7 +875,7 @@
     function syncServices() {
         form.querySelectorAll('[data-service-row]').forEach(row => {
             const enabled = !!row.querySelector('[data-service-toggle]')?.checked;
-            const extraOpen = row.classList.contains('is-extra-open');
+            const extraOpen = row.classList.contains('is-extra-open') || document.body.classList.contains('service-catalog-form-frame');
             row.classList.toggle('is-enabled', enabled);
             row.querySelectorAll('[data-service-extra-field]').forEach(field => {
                 field.disabled = !enabled || !extraOpen;
@@ -1082,7 +1090,17 @@
             : 'Inactive';
         const includedItems = [...services, ...custom];
 
+        const casketToggle = form.querySelector('input[name="included_services[casket][enabled]"]');
+        const selectedCasket = form.querySelector('[data-casket-select]')?.selectedOptions[0];
+        const unavailableCasket = casketToggle?.checked && selectedCasket?.value && selectedCasket.dataset.available === '0';
+        const archivedFreebies = Array.from(form.querySelectorAll('[data-freebie-card].is-selected[data-catalog-active="0"]'));
+        const blockers = [
+            ...(unavailableCasket ? ['Choose an available casket.'] : []),
+            ...archivedFreebies.map(row => 'Remove or replace archived freebie: ' + (row.querySelector('.pkg-freebie-choice strong')?.textContent.trim() || 'Unknown freebie') + '.')
+        ];
+
         list.innerHTML = [
+            '<div class="pkg-review-item" role="status"><span class="pkg-review-kicker">New intake</span><span class="pkg-review-value">' + (blockers.length ? 'Needs attention: ' + blockers.map(escapeHtml).join(' ') : 'Ready for new intake when saved.') + '</span></div>',
             '<div class="pkg-review-item"><span class="pkg-review-kicker">Package</span><span class="pkg-review-value">' + escapeHtml(name) + '<br>&#8369;' + money(price) + '</span></div>',
             '<div class="pkg-review-item"><span class="pkg-review-kicker">Included</span>' + reviewLines(includedItems, 'bi-check2-circle', 'No services selected yet') + '</div>',
             '<div class="pkg-review-item"><span class="pkg-review-kicker">Freebies</span>' + reviewLines(freebies, 'bi-gift', 'No freebies') + '</div>',
@@ -1109,6 +1127,9 @@
         review();
     });
     form.addEventListener('submit', event => {
+        if (form.classList.contains('package-wizard') && form.querySelector('[data-wizard-go][aria-current="step"]')?.dataset.wizardGo !== '6') {
+            return;
+        }
         if (!validateRequiredCasket()) {
             event.preventDefault();
             return;

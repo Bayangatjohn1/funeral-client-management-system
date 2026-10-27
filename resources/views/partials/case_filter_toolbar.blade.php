@@ -158,7 +158,7 @@
 
         @if($activeFilters > 0 && !($showPerPage ?? false))
             <div class="case-compact-actions">
-                <a href="{{ $resetUrl }}" class="case-compact-reset" data-case-clear-filters>
+                <a href="{{ $resetUrl }}" class="case-compact-reset filter-clear-action" data-case-clear-filters>
                     <i class="bi bi-x-circle"></i>
                     <span>Clear</span>
                 </a>
@@ -229,7 +229,7 @@
 
         @if(($showPerPage ?? false) && $activeFilters > 0)
             <div class="case-compact-actions">
-                <a href="{{ $resetUrl }}" class="case-compact-reset" data-case-clear-filters>
+                <a href="{{ $resetUrl }}" class="case-compact-reset filter-clear-action" data-case-clear-filters>
                     <i class="bi bi-x-circle" aria-hidden="true"></i><span>Clear</span>
                 </a>
             </div>
@@ -375,9 +375,9 @@
 
                 <div class="case-compact-advanced-actions">
                     @if($showPerPage ?? false)
-                        <button type="button" class="case-compact-advanced-clear" data-case-more-reset>Reset</button>
+                        <button type="button" class="case-compact-advanced-clear filter-clear-action" data-case-more-reset><i class="bi bi-x-circle" aria-hidden="true"></i>Clear</button>
                     @else
-                        <a href="{{ $resetUrl }}" class="case-compact-advanced-clear">Clear</a>
+                        <a href="{{ $resetUrl }}" class="case-compact-advanced-clear filter-clear-action"><i class="bi bi-x-circle" aria-hidden="true"></i>Clear</a>
                     @endif
                     <button type="submit" class="case-compact-pop-apply">
                         <i class="bi bi-funnel"></i>

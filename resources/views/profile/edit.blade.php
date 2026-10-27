@@ -5,6 +5,7 @@
 @section('hide_layout_topbar', '1')
 
 @section('content')
+@include('profile.partials.visual-reference')
 @if (session('success'))
     <div class="flash-success">{{ session('success') }}</div>
 @endif
@@ -13,157 +14,43 @@
 @endif
 
 <div class="prof-shell font-ui-body">
-
-    {{-- ── 1. Profile Hero ──────────────────────────────────────── --}}
-    <div class="card prof-hero-card">
-        <div class="prof-banner"></div>
+    <section class="card prof-hero-card" aria-label="Profile summary">
         <div class="prof-hero-body">
-
-            {{-- Avatar row --}}
-            <div class="prof-avatar-row">
-                <div class="prof-avatar" aria-hidden="true">
-                    {{ strtoupper(substr($user->name ?? 'U', 0, 1)) }}
-                </div>
-            </div>
-
-            {{-- Identity --}}
-            <div class="prof-identity">
-                <h1 class="prof-name">{{ $user->name }}</h1>
-                <p class="prof-email">{{ $user->email }}</p>
-                <div class="prof-badges">
-                    <span class="badge badge-brand">{{ $user->roleLabel() }}</span>
-                    @if ($user->branch)
-                        <span class="badge badge-neutral">
-                            <i class="bi bi-geo-alt" style="font-size:9px;"></i>
-                            {{ $user->branch->branch_name }}
-                        </span>
-                    @endif
-                    @if ($user->is_active)
-                        <span class="badge badge-success">
-                            <span class="prof-dot"></span>Active
-                        </span>
-                    @else
-                        <span class="badge badge-neutral">Inactive</span>
-                    @endif
-                </div>
-            </div>
-
-            {{-- Actions --}}
-            <div class="prof-hero-actions">
-                <button type="button" class="btn btn-outline btn-sm" id="openEditModal">
-                    <i class="bi bi-pencil" style="font-size:11px;"></i>
-                    Edit Profile
-                </button>
-                <button type="button" class="btn btn-sm prof-pw-btn" id="openPwModal">
-                    <i class="bi bi-key" style="font-size:11px;"></i>
-                    Change Password
-                </button>
-            </div>
-
+            <div class="prof-avatar" aria-hidden="true">{{ strtoupper(substr($user->name ?? 'U', 0, 1)) }}</div>
+            <div class="prof-identity"><h2 class="prof-name">{{ $user->name }}</h2><span class="badge badge-brand">{{ $user->roleLabel() }}</span></div>
         </div>
-    </div>
-
-    {{-- ── 2. Personal Information (read-only) ─────────────────── --}}
+    </section>
     <div class="prof-detail-grid">
-    <div class="card prof-section-card prof-personal-card">
-        <div class="prof-section-head">
-            <div class="prof-section-icon"><i class="bi bi-person-lines-fill"></i></div>
-            <h2 class="prof-section-title">Personal Information</h2>
-            <button type="button" class="btn btn-outline btn-sm prof-head-action" id="openEditModal2">
-                <i class="bi bi-pencil" style="font-size:11px;"></i>
-                Edit
-            </button>
-        </div>
-
-        <div class="prof-fields">
-            <div class="prof-field">
-                <p class="prof-label">Full Name</p>
-                <p class="prof-value">{{ $user->name ?: '—' }}</p>
-            </div>
-            <div class="prof-field">
-                <p class="prof-label">Email Address</p>
-                <p class="prof-value" style="word-break:break-all;">{{ $user->email ?: '—' }}</p>
-            </div>
-            <div class="prof-field">
-                <p class="prof-label">Contact Number</p>
-                <p class="prof-value">{{ $user->contact_number ?: '—' }}</p>
-            </div>
-            <div class="prof-field">
-                <p class="prof-label">Position</p>
-                <p class="prof-value">{{ $user->position ?: '—' }}</p>
-            </div>
-            <div class="prof-field prof-field-span">
-                <p class="prof-label">Address</p>
-                <p class="prof-value">{{ $user->address ?: '—' }}</p>
-            </div>
+        <section class="card prof-section-card prof-personal-card" aria-labelledby="profilePersonalTitle">
+            <div class="prof-section-head"><div class="prof-section-icon"><i class="bi bi-person-lines-fill" aria-hidden="true"></i></div><h2 class="prof-section-title" id="profilePersonalTitle">Personal Information</h2><button type="button" class="btn btn-outline btn-sm prof-head-action" id="openEditModal2"><i class="bi bi-pencil" aria-hidden="true"></i> Edit Profile</button></div>
+            <dl class="prof-fields">
+                @foreach(['Full Name' => $user->name, 'Email Address' => $user->email, 'Contact Number' => $user->contact_number, 'Position' => $user->position, 'Address' => $user->address] as $label => $value)
+                    <div class="prof-field {{ $label === 'Address' ? 'prof-field-span' : '' }}"><dt class="prof-label">{{ $label }}</dt><dd class="prof-value">{{ $value ?: 'Not provided' }}</dd></div>
+                @endforeach
+            </dl>
+        </section>
+        <div class="prof-side-stack">
+        <section class="card prof-section-card" aria-labelledby="profileAccountTitle">
+            <div class="prof-section-head"><div class="prof-section-icon"><i class="bi bi-shield-check" aria-hidden="true"></i></div><h2 class="prof-section-title" id="profileAccountTitle">Account Details</h2><span class="prof-readonly"><i class="bi bi-lock" aria-hidden="true"></i> Read-only</span></div>
+            <dl class="prof-fields prof-fields-single">
+                @if($user->branch)
+                    <div class="prof-field"><dt class="prof-label">Assigned Branch</dt><dd class="prof-value">{{ $user->branch->branch_name }}</dd></div>
+                @endif
+                <div class="prof-field"><dt class="prof-label">Account Status</dt><dd class="prof-value"><span class="badge {{ $user->is_active ? 'badge-success' : 'badge-neutral' }}">{{ $user->is_active ? 'Active' : 'Inactive' }}</span></dd></div>
+            </dl>
+            <p class="prof-lock-note"><i class="bi bi-lock" aria-hidden="true"></i> Account settings are managed by the system administrator.</p>
+        </section>
+    <section class="card prof-section-card prof-security-card" aria-labelledby="profileSecurityTitle">
+        <div class="prof-section-head"><div class="prof-section-icon"><i class="bi bi-key" aria-hidden="true"></i></div><div><h2 class="prof-section-title" id="profileSecurityTitle">Security</h2><p class="prof-security-copy">Manage your account password.</p></div><button type="button" class="btn btn-outline btn-sm prof-head-action" id="openPwModal2"><i class="bi bi-key" aria-hidden="true"></i> Change Password</button></div>
+    </section>
         </div>
     </div>
-
-    {{-- ── 3. Account Details (read-only) ──────────────────────── --}}
-    <div class="prof-side-stack">
-    <div class="card prof-section-card">
-        <div class="prof-section-head">
-            <div class="prof-section-icon"><i class="bi bi-shield-check"></i></div>
-            <h2 class="prof-section-title">Account Details</h2>
-        </div>
-
-        <div class="prof-fields prof-fields-single">
-            <div class="prof-field">
-                <p class="prof-label">Role</p>
-                <p class="prof-value">{{ $user->roleLabel() }}</p>
-            </div>
-            <div class="prof-field">
-                <p class="prof-label">Branch</p>
-                <p class="prof-value">{{ $user->branch?->branch_name ?: '—' }}</p>
-            </div>
-            <div class="prof-field" style="border-bottom:none;">
-                <p class="prof-label">Account Status</p>
-                <div style="margin-top:8px;">
-                    @if ($user->is_active)
-                        <span class="badge badge-success">
-                            <span class="prof-dot"></span>Active
-                        </span>
-                    @else
-                        <span class="badge badge-neutral">Inactive</span>
-                    @endif
-                </div>
-            </div>
-        </div>
-
-        <div class="prof-lock-note">
-            <i class="bi bi-lock-fill" style="font-size:10px;flex-shrink:0;"></i>
-            These fields are system-controlled and can only be changed by an administrator.
-        </div>
-    </div>
-
-    {{-- ── 4. Security (password row) ──────────────────────────── --}}
-    <div class="card prof-section-card">
-        <div class="prof-section-head">
-            <div class="prof-section-icon"><i class="bi bi-key-fill"></i></div>
-            <h2 class="prof-section-title">Security</h2>
-        </div>
-
-        <div class="prof-security-row">
-            <div>
-                <p class="prof-label">Password</p>
-                <p class="prof-pw-dots" aria-label="Password hidden">••••••••••••</p>
-            </div>
-            <button type="button" class="btn btn-outline btn-sm" id="openPwModal2">
-                <i class="bi bi-key" style="font-size:11px;"></i>
-                Change Password
-            </button>
-        </div>
-    </div>
-    </div>
-    </div>
-
-</div>{{-- /.prof-shell --}}
-
+</div>
 
 {{-- ══════════════════════════════════════════════════════════
      MODAL A — Edit Profile
      ══════════════════════════════════════════════════════════ --}}
-<div id="editProfileOverlay" class="prof-overlay" style="display:none;" aria-modal="true" role="dialog">
+<div id="editProfileOverlay" aria-labelledby="editProfileTitle" class="prof-overlay" style="display:none;" aria-modal="true" role="dialog">
     <div id="editProfileSheet" class="prof-sheet scale-95 opacity-0">
 
         <button type="button" class="prof-modal-close" id="closeEditModal" aria-label="Close">
@@ -174,7 +61,7 @@
             <div class="prof-modal-head">
                 <div class="prof-section-icon"><i class="bi bi-person-lines-fill"></i></div>
                 <div>
-                    <h2 class="prof-modal-title">Edit Profile</h2>
+                    <h2 class="prof-modal-title" id="editProfileTitle">Edit Profile</h2>
                     <p class="prof-modal-desc">Update your personal information.</p>
                 </div>
             </div>
@@ -247,7 +134,7 @@
 {{-- ══════════════════════════════════════════════════════════
      MODAL B — Change Password
      ══════════════════════════════════════════════════════════ --}}
-<div id="changePwOverlay" class="prof-overlay" style="display:none;" aria-modal="true" role="dialog">
+<div id="changePwOverlay" aria-labelledby="changePwTitle" class="prof-overlay" style="display:none;" aria-modal="true" role="dialog">
     <div id="changePwSheet" class="prof-sheet scale-95 opacity-0">
 
         <button type="button" class="prof-modal-close" id="closePwModal" aria-label="Close">
@@ -258,7 +145,7 @@
             <div class="prof-modal-head">
                 <div class="prof-section-icon"><i class="bi bi-key-fill"></i></div>
                 <div>
-                    <h2 class="prof-modal-title">Change Password</h2>
+                    <h2 class="prof-modal-title" id="changePwTitle">Change Password</h2>
                     <p class="prof-modal-desc">Use a strong password of at least 8 characters.</p>
                 </div>
             </div>
@@ -351,7 +238,7 @@ html[data-theme='dark'] .prof-banner {
 
 .prof-hero-body {
     padding: 0 28px 20px;
-    margin-top: -34px;
+    margin-top: 0;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     column-gap: 20px;
@@ -755,7 +642,7 @@ html[data-theme='dark'] .prof-banner {
     .prof-hero-body {
         padding: 0 18px 18px;
         grid-template-columns: 1fr;
-        margin-top: -34px;
+        margin-top: 0;
     }
     .prof-identity { padding-top: 0; }
     .prof-avatar { width: 68px; height: 68px; font-size: 24px; }
@@ -787,7 +674,7 @@ html[data-theme='dark'] .prof-banner {
         const sheet   = document.getElementById(sheetId);
         if (!overlay || !sheet) return;
         let hideTimer = null;
-        const systemModal = document.body.classList.contains('system-admin-ui');
+        const systemModal = true;
         const shell = document.querySelector('.app-shell');
         let returnFocus, previousInert;
         if (systemModal) document.body.append(overlay);
@@ -838,6 +725,13 @@ html[data-theme='dark'] .prof-banner {
         });
 
         overlay.addEventListener('click', e => { if (e.target === overlay) hide(); });
+        overlay.addEventListener('keydown', e => {
+            if (e.key !== 'Tab') return;
+            const controls = [...overlay.querySelectorAll('button,input,textarea,select,a[href]')].filter(el => !el.disabled && el.getClientRects().length);
+            const first = controls[0], last = controls[controls.length - 1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+        });
 
         return { show, hide, overlay };
     }

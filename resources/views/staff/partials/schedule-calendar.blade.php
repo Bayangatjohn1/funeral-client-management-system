@@ -78,7 +78,7 @@
         @if($scheduleSection === 'upcoming')<h3>{{ $calendarDate->format('l, M d, Y') }}</h3>@endif
         @forelse($selectedEvents->groupBy(fn ($event) => $event['has_time'] ? $event['date']->format('H:i') : 'unknown') as $slot => $events)
             <div class="calendar-agenda-slot"><div class="calendar-agenda-time"><strong>{{ $slot === 'unknown' ? 'Time not recorded' : $events->first()['date']->format('g:i A') }}</strong>@if($slot !== 'unknown' && $events->count() > 1)<span class="calendar-shared">Same time · {{ $events->count() }} events</span>@endif</div><div class="calendar-agenda-events">@foreach($events as $event)@include('staff.partials.schedule-calendar-event')@endforeach</div></div>
-        @empty<div class="calendar-empty"><strong>No scheduled events on this date</strong><p>Choose another day to review schedules.</p></div>@endforelse
+        @empty<div class="calendar-empty"><i class="bi bi-calendar-check" aria-hidden="true"></i><strong>No scheduled events on this date</strong><p>Choose another day to review schedules.</p></div>@endforelse
     </div>
     </div>
     @endif

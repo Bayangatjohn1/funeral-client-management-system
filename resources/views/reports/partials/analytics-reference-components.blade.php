@@ -1,6 +1,6 @@
 <style>
 .ba-shell .ba-panel { scroll-margin-top:20px; }
-.ba-shell .ra-period-breakdown { margin-top:24px; }
+.ba-shell .ra-period-breakdown { margin-top:16px; }
 .ba-shell .ra-period-breakdown > summary { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:4px 0; cursor:pointer; list-style:none; color:var(--ra-text); }
 .ba-shell .ra-period-breakdown > summary::-webkit-details-marker { display:none; }
 .ba-shell .ra-period-breakdown > summary > span { display:grid; grid-template-columns:18px minmax(0,1fr); align-items:center; gap:4px 10px; }
@@ -8,8 +8,16 @@
 .ba-shell .ra-period-breakdown > summary small { grid-column:2; font-size:12px; color:var(--ra-secondary); }
 .ba-shell .ra-period-chevron { transition:transform .2s ease; }
 .ba-shell .ra-period-breakdown[open] .ra-period-chevron { transform:rotate(180deg); }
-.ba-shell .ra-period-breakdown[open] > summary { margin-bottom:16px; }
+.ba-shell .ra-period-breakdown[open] > summary { margin-bottom:12px; }
+.ba-shell .ra-period-breakdown > .ba-compare-table-wrap { margin-top:0; }
+.ba-shell .ra-period-breakdown > .ba-breakdown-note { margin:0 0 12px; padding:0; line-height:1.5; }
+.ba-shell .ra-period-breakdown[open] > summary:has(+ .ba-breakdown-note) { margin-bottom:8px; }
 .ba-shell .ra-period-breakdown > summary:focus-visible { outline:2px solid var(--ra-secondary); outline-offset:4px; border-radius:4px; }
+/* Empty chart content is an overlay, not a second light-colored graph surface. */
+html[data-theme] body .ba-shell .ba-chart-empty { background:transparent !important; background-image:none !important; border:0 !important; box-shadow:none !important; color:var(--ra-secondary) !important; }
+html[data-theme] body .ba-shell .ba-chart-empty strong { color:var(--ra-text) !important; }
+html[data-theme] body .ba-shell .ba-chart-empty :is(i,span) { color:var(--ra-secondary) !important; }
+html[data-theme='dark'] body .ba-shell .ba-chart-frame { background:var(--ra-muted) !important; background-image:none !important; border-color:var(--ra-border) !important; box-shadow:none !important; }
 html[data-theme] body .ba-shell .ra-period-table :is(th,td):not(:first-child) { text-align:right !important; font-variant-numeric:tabular-nums; }
 html[data-theme] body .ba-shell .ra-period-table td:nth-child(n+3) { font-family:ui-monospace,SFMono-Regular,Consolas,monospace !important; }
 html[data-theme] body .ba-shell .ra-period-table .has-activity td { font-weight:700 !important; }
@@ -48,7 +56,7 @@ html body .ba-shell .ba-workspace > .ra-analytics-tabs > .ba-tab-btn.active { bo
 html body .ba-shell .ba-workspace > .ra-analytics-tabs > .ba-tab-btn > i { font-size:14px !important; }
 html[data-theme='dark'] body .ba-shell .ba-workspace > .ra-analytics-tabs > .ba-tab-btn.active { border-bottom-color:#6EE7B7 !important; }
 /* Reference tables: 10px uppercase header, 12px rows, 10px/14px padding. */
-html[data-theme] body .ba-shell .ba-compare-table-wrap { max-height:none !important; overflow-x:auto !important; border:1px solid var(--ra-border) !important; border-radius:14px !important; }
+html[data-theme] body .ba-shell .ba-compare-table-wrap { max-height:none !important; overflow-x:auto !important; overflow-y:hidden !important; scrollbar-gutter:auto !important; border:1px solid var(--ra-border) !important; border-radius:14px !important; }
 html[data-theme] body .ba-shell .ba-compare-table { width:100% !important; border-collapse:collapse !important; border-spacing:0 !important; font-family:inherit !important; }
 html[data-theme] body .ba-shell .ba-compare-table thead th { position:static !important; padding:10px 14px !important; background:var(--ra-muted) !important; color:var(--ra-secondary) !important; font-size:10px !important; font-weight:700 !important; line-height:1.5 !important; letter-spacing:.05em !important; text-transform:uppercase !important; border:0 !important; border-bottom:1px solid var(--ra-border) !important; }
 html[data-theme] body .ba-shell .ba-compare-table tbody td { padding:10px 14px !important; font-size:12px !important; line-height:1.5 !important; font-weight:400 !important; background:var(--ra-surface) !important; color:var(--ra-text) !important; border:0 !important; border-bottom:1px solid var(--ra-border) !important; }

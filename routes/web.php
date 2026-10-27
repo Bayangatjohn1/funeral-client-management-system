@@ -61,6 +61,8 @@ Route::middleware(['auth', 'no_cache', 'active'])->get('/dashboard', function ()
 
 Route::middleware(['auth', 'no_cache', 'active', 'owner'])->group(function () {
     Route::get('/owner', [OwnerDashboardController::class, 'dashboard'])->name('owner.dashboard');
+    Route::get('/owner/dashboard/details', [OwnerDashboardController::class, 'dashboardDetails'])->name('owner.dashboard.details');
+    Route::get('/owner/collections', [OwnerDashboardController::class, 'collections'])->name('owner.collections');
     Route::get('/owner/branch-analytics', [OwnerDashboardController::class, 'analytics'])->name('owner.analytics');
     Route::get('/owner/case-history', [OwnerDashboardController::class, 'history'])->name('owner.history');
     Route::get('/owner/sales-per-branch', function () {
@@ -266,17 +268,18 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->get(
             ->whereIn('type', ['wake_start_today', 'wake_end_today', 'service_today', 'interment_today'])
             ->sortBy('sort_date'));
         $attentionReminders = $attentionReminders->merge($fullReminders
-            ->where('severity', 'danger'));
+            ->whereIn('type', ['interment_completed', 'interment_date_completed', 'interment_approaching', 'interment_date_today_balance']));
         $upcomingSchedule = $upcomingSchedule->merge($fullReminders
             ->whereIn('type', ['upcoming_wake_start', 'upcoming_wake_end', 'upcoming_service', 'upcoming_interment'])
             ->filter(fn ($item) => $item['date'] && $item['date']->lessThanOrEqualTo($upcomingEnd))
             ->sortBy('sort_date'));
         $balanceReminders = $balanceReminders->merge($fullReminders->where('type', 'balance'));
     }
-    $todaySchedule = $todaySchedule->sortBy('sort_date')->values();
+    $todaySchedule = $reminderService->sortReminders($todaySchedule)->values();
     $currentlyInWake = $currentlyInWake->unique(fn ($item) => $item['branch_id'].'-'.$item['case_id'])->values();
-    $attentionReminders = $attentionReminders->unique(fn ($item) => $item['branch_id'].'-'.$item['case_id'])->values();
-    $upcomingSchedule = $upcomingSchedule->sortBy('sort_date')->unique(fn ($item) => implode('|', [
+    $attentionReminders = $reminderService->sortReminders($attentionReminders, true)
+        ->unique(fn ($item) => $item['branch_id'].'-'.$item['case_id'])->values();
+    $upcomingSchedule = $reminderService->sortReminders($upcomingSchedule)->unique(fn ($item) => implode('|', [
         $item['branch_id'],
         $item['case_id'],
         $item['type'],
@@ -368,7 +371,9 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->get(
         ->get();
 
     $reminderService = app(\App\Services\ReminderService::class);
-    $dashboardReminders = $reminderService->buildDashboard($dashboardBranchId, $today);
+    // Use the actual current time for approaching/after-interment classification;
+    // $today remains the date boundary for dashboard totals and date queries.
+    $dashboardReminders = $reminderService->buildDashboard($dashboardBranchId, now());
     $scheduleGroups = $reminderService->scheduleGroups($dashboardBranchId);
     $attentionReminders = $dashboardReminders['attention'];
     $todaySchedule = $dashboardReminders['today'];
@@ -601,3 +606,9 @@ Route::middleware(['auth', 'no_cache', 'active'])->group(function () {
 
 
 require __DIR__.'/auth.php';
+
+Route::middleware(['auth', 'no_cache', 'active'])->get('/sync/status', function () {
+    abort_unless(config('branch_sync.mode') === 'branch', 404);
+    return response()->json(app(\App\Services\BranchSync\BranchSyncService::class)->status())
+        ->header('Cache-Control', 'no-store, private');
+})->name('sync.status');

@@ -10,10 +10,10 @@
         <div class="flash-success mb-3">{{ session('success') }}</div>
     @endif
 
-    <div class="ops-page-header mx-[var(--panel-content-inline,20px)] mt-3">
+    <div class="panel-title-surface centered-page-header ops-page-header mx-[var(--panel-content-inline,20px)] mt-3">
         <div>
             <div class="ops-page-kicker">Case Intake</div>
-            <h1 class="ops-page-title"><x-page-title-icon icon="file-earmark" inline />Saved Intake Drafts</h1>
+            <h1 class="ops-page-title">Saved Intake Drafts</h1>
             <p class="ops-page-desc">Drafts stay separate from clients, deceased records, cases, reports, and payments until final submission.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">

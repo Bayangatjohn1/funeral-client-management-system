@@ -26,8 +26,15 @@ class IntakePricingService
         $additionalTotal = round(collect($additionalItems)->sum('amount'), 2);
 
         if ($isCustomPackage) {
+            [$selectedAddOns, $addOnsTotal] = $this->selectedAddOns($validated['selected_add_ons'] ?? []);
             $discount = $this->automaticDiscount($validated, $basePrice, null, $referenceAt);
-            return $this->buildResult(null, $basePrice, [], collect(), 0.00, $additionalItems, $additionalTotal, round($basePrice + $additionalTotal, 2), $discount, (float) ($validated['tax_rate'] ?? 0), $wakeDays, $wakeNights, true, null);
+            $result = $this->buildResult(null, $basePrice, [], $selectedAddOns, $addOnsTotal, $additionalItems, $additionalTotal, round($basePrice + $addOnsTotal + $additionalTotal, 2), $discount, (float) ($validated['tax_rate'] ?? 0), $wakeDays, $wakeNights, true, null);
+            $configuration = $validated['custom_package_configuration'] ?? null;
+            $result['snapshot']['inclusions'] = $configuration['inclusions'] ?? $this->customItems($validated['custom_package_inclusions'] ?? null, true);
+            $result['snapshot']['freebies'] = $configuration['freebies'] ?? $this->customItems($validated['custom_package_freebies'] ?? null, false);
+            $result['included_casket'] = $configuration['included_casket'] ?? null;
+            $result['snapshot']['included_casket'] = $configuration['included_casket'] ?? null;
+            return $result;
         }
 
         $package?->loadMissing(['packageInclusions.casketCatalog', 'packageFreebies']);
@@ -47,10 +54,6 @@ class IntakePricingService
 
     public function validateSelections(?Package $package, array $validated, bool $isCustomPackage): array
     {
-        if ($isCustomPackage) {
-            return [];
-        }
-
         $ids = collect($validated['selected_add_ons'] ?? [])->filter()->map(fn ($id) => (int) $id)->values();
         if ($ids->duplicates()->isNotEmpty()) {
             return ['selected_add_ons' => 'Duplicate add-ons are not allowed.'];
@@ -60,7 +63,7 @@ class IntakePricingService
             return ['selected_add_ons' => 'Selected add-on is no longer available.'];
         }
 
-        if (! empty($validated['replacement_casket_catalog_id'])) {
+        if (! $isCustomPackage && ! empty($validated['replacement_casket_catalog_id'])) {
             $included = $this->includedCasket($package);
             $replacement = CasketCatalog::whereKey((int) $validated['replacement_casket_catalog_id'])
                 ->where('is_active', true)
@@ -221,6 +224,10 @@ class IntakePricingService
             'selected_casket' => $selectedCasket,
             'snapshot' => [
                 'version' => 1,
+                'catalog_sync' => config('branch_sync.mode') === 'branch' ? [
+                    'version' => \App\Services\BranchSync\SyncState::get('reference_hash'),
+                    'last_synced_at' => \App\Services\BranchSync\SyncState::get('references_at'),
+                ] : null,
                 'custom_package' => $isCustomPackage,
                 'package' => $package ? ['id' => $package->id, 'name' => $package->name, 'base_price' => $basePrice, 'description' => $package->short_description] : null,
                 'inclusions' => $package ? $package->packageInclusions->map(fn ($row) => ['service_type' => Package::normalizeServiceType($row->service_type), 'name' => $row->inclusion_name, 'included_kilometers' => $row->included_kilometers, 'price_per_excess_kilometer' => (float) $row->price_per_excess_kilometer, 'included_days' => $row->included_days, 'price_per_extended_day' => (float) $row->price_per_extended_day, 'casket_type' => $row->casket_type, 'casket_catalog_id' => $row->casket_catalog_id])->values()->all() : [],
@@ -314,5 +321,19 @@ class IntakePricingService
     private function rowsByServiceType(Package $package): Collection
     {
         return $package->packageInclusions->keyBy(fn ($row) => Package::normalizeServiceType($row->service_type));
+    }
+
+    private function customItems(?string $raw, bool $inclusions): array
+    {
+        $items = preg_split('/[,;\r\n]+/u', (string) $raw) ?: [];
+
+        return collect($items)
+            ->map(fn ($item) => trim($item))
+            ->filter()
+            ->map(fn ($item) => $inclusions
+                ? ['service_type' => Package::SERVICE_CUSTOM, 'name' => $item]
+                : ['name' => $item, 'quantity' => null, 'unit' => ''])
+            ->values()
+            ->all();
     }
 }

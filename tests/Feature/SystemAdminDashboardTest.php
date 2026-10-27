@@ -49,8 +49,22 @@ class SystemAdminDashboardTest extends TestCase
         SystemBackup::create(['status' => 'verified', 'verified_at' => now()]);
 
         $this->actingAs($admin)->get('/admin')->assertOk()->assertViewHas('backupOverdue', false)
+            ->assertDontSee('id="needs-attention"', false)
             ->assertViewHas('attention', fn ($alerts) => $alerts->isEmpty())
             ->assertViewHas('branches', fn ($branches) => $branches->first()->coverage_status === 'Covered');
+    }
+
+    public function test_branch_warnings_are_grouped_with_a_destination_to_detailed_coverage(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'admin_scope' => 'system', 'is_active' => true, 'branch_id' => null]);
+        foreach (['BR002', 'BR003'] as $code) {
+            Branch::create(['branch_code' => $code, 'branch_name' => $code, 'address' => 'Test', 'is_active' => true]);
+        }
+        $this->actingAs($admin)->get('/admin')->assertOk()
+            ->assertSee('2 branches need an active Branch Admin.')
+            ->assertSee('href="#sa-coverage-title"', false)
+            ->assertDontSee('BR002 has no active Branch Admin account.')
+            ->assertViewHas('attention', fn ($alerts) => $alerts->count() === 3);
     }
 
     public function test_activity_overview_exposes_only_allowlisted_change_details(): void

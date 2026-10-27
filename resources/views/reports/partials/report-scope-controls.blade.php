@@ -30,12 +30,12 @@
                     :disabled="isBranchAdmin"
                     @change="loadPreview()"
                 >
-                    <template x-if="!isBranchAdmin">
-                        <option value="">All Branches</option>
-                    </template>
-                    <template x-for="branch in branches" :key="branch.id">
-                        <option :value="branch.id" x-text="`${branch.branch_code} - ${branch.branch_name}`"></option>
-                    </template>
+                    @unless($isBranchAdmin)
+                        <option value="" @selected(!request()->filled('branch_id'))>All Branches</option>
+                    @endunless
+                    @foreach($branches as $reportBranch)
+                        <option value="{{ $reportBranch->id }}" @selected((string) request('branch_id', $assignedBranchId ?? '') === (string) $reportBranch->id)>{{ $reportBranch->branch_code }} - {{ $reportBranch->branch_name }}</option>
+                    @endforeach
                 </select>
             </label>
 

@@ -11,6 +11,13 @@ class IdleSessionTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Session deadlines are exact-second assertions; database/request latency must not move the clock.
+        $this->freezeTime();
+    }
+
     private function signedIn(string $role): User
     {
         $user = User::factory()->create(['role' => $role === 'system' || $role === 'branch' ? 'admin' : $role,

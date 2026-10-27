@@ -60,7 +60,8 @@
 
 @php
     $intakeErrorField = $errors->any() ? array_key_first($errors->toArray()) : null;
-    $intakeErrorStep = match ($intakeErrorField) {
+    $intakeErrorFieldRoot = $intakeErrorField ? explode('.', $intakeErrorField, 2)[0] : null;
+    $intakeErrorStep = match ($intakeErrorFieldRoot) {
         'branch_id', 'client_first_name', 'client_last_name', 'client_middle_name', 'client_suffix',
         'client_relationship', 'client_contact_number', 'client_email',
         'client_valid_id_type', 'client_valid_id_number', 'client_address', 'reporter_name', 'reporter_contact', 'reported_at' => 1,
@@ -68,7 +69,9 @@
         'deceased_address', 'born', 'died', 'gender', 'civil_status', 'senior_citizen_status',
         'senior_citizen_id_number', 'pwd_status', 'pwd_id_number', 'deceased_photo' => 2,
         'package_id', 'custom_package_name', 'custom_package_price', 'custom_package_inclusions',
-        'custom_package_freebies', 'selected_add_ons', 'replacement_casket_catalog_id',
+        'custom_package_freebies', 'custom_service_types', 'custom_service_coverage',
+        'custom_casket_catalog_id', 'custom_freebie_catalog_ids', 'custom_other_inclusions',
+        'selected_add_ons', 'replacement_casket_catalog_id',
         'apply_retrieval_excess', 'retrieval_excess_kilometers', 'apply_hearse_excess',
         'hearse_excess_kilometers', 'actual_retrieval_kilometers', 'actual_hearse_kilometers',
         'service_requested_at', 'wake_location', 'wake_start_date', 'wake_start_time', 'wake_end_date', 'wake_end_time', 'funeral_service_at',

@@ -4,7 +4,9 @@
 @section('page_title', 'Payment Monitoring')
 @section('page_desc', 'Review payment progress, transaction history, branch scope, and outstanding balances.')
 @section('header_actions')
+    @unless(auth()->user()?->isBranchAdmin() && request('tab') === 'corrections')
     <a class="ops-btn-outline" data-pm-print-preview href="{{ route('payments.monitoring.print', request()->except(['page', 'transactions_page', 'tab'])) }}" target="_blank" rel="noopener"><i class="bi bi-printer" aria-hidden="true"></i><span>Print Preview</span></a>
+    @endunless
 @endsection
 
 @if(auth()->user()?->isStaff())
@@ -27,6 +29,7 @@
     $isStaff = $user?->isStaff();
     $isMainAdmin = $user?->isMainBranchAdmin();
     $isOwner = $user?->isOwner();
+    $showCorrections = $isBranchAdmin && request('tab') === 'corrections';
     $activeTab = request('tab') === 'transactions' ? 'transactions' : 'summary';
     $defaultPaymentBranchId = $defaultPaymentBranchId ?? null;
     $monitoringRoute = request()->routeIs('admin.payments.index') || request()->routeIs('admin.payment-monitoring')
@@ -422,6 +425,98 @@
         .pm-records-body { max-height:none !important; overflow:visible !important; }
         .pm-summary-detail { display:grid !important; }
     }
+
+    /* Module navigation has its own surface, separate from filter chips. */
+    .payment-monitoring-page .pm-section-tabs {
+        display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+        margin:0 0 20px; padding:0 0 12px; border:0;
+        border-bottom:1px solid var(--border); background:transparent;
+    }
+    .payment-monitoring-page .pm-section-tabs > a {
+        display:inline-flex; align-items:center; justify-content:center; gap:8px;
+        min-height:44px; padding:10px 14px; border:1px solid transparent;
+        border-radius:8px; background:transparent; color:var(--ink-muted);
+        font:500 14px/1.4 var(--font-body); text-decoration:none;
+        transition:background-color .15s,color .15s;
+    }
+    .payment-monitoring-page .pm-section-tabs > a:hover { background:var(--surface-muted); color:var(--ink); }
+    .payment-monitoring-page .pm-section-tabs > a[aria-current="page"] {
+        background:#374151; border-color:#374151; color:#fff;
+    }
+    .payment-monitoring-page .pm-section-tabs > a:focus-visible { outline:2px solid #64748b; outline-offset:3px; }
+    .payment-monitoring-page .pm-section-tabs__count {
+        display:inline-flex; align-items:center; justify-content:center;
+        min-width:24px; height:24px; padding:0 6px; border-radius:6px;
+        background:var(--surface-muted); color:var(--ink); font-size:12px;
+        font-variant-numeric:tabular-nums;
+    }
+    .payment-monitoring-page .pm-section-tabs > a[aria-current="page"] .pm-section-tabs__count { background:#fff; color:#374151; }
+    html[data-theme='dark'] .payment-monitoring-page .pm-section-tabs > a[aria-current="page"] { background:#d1d5db; border-color:#d1d5db; color:#111827; }
+    html[data-theme='dark'] .payment-monitoring-page .pm-section-tabs > a[aria-current="page"] .pm-section-tabs__count { background:#374151; color:#fff; }
+    @media (max-width:480px) {
+        .payment-monitoring-page .pm-section-tabs { gap:4px; }
+        .payment-monitoring-page .pm-section-tabs > a { padding:9px 10px; font-size:13px; }
+    }
+
+    .payment-monitoring-page .pc-requests { background:var(--card,var(--surface)); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+    .payment-monitoring-page .pc-requests__header { padding:20px 24px; border-bottom:1px solid var(--border); }
+    .payment-monitoring-page .pc-requests__header h2 { margin:0 0 6px; font:600 18px/1.4 var(--font-body); color:var(--ink); }
+    .payment-monitoring-page .pc-requests__header p,.payment-monitoring-page .pc-empty p { margin:0; font-size:14px; color:var(--ink-muted); }
+    .payment-monitoring-page .pc-empty { padding:48px 24px; text-align:center; }
+    .payment-monitoring-page .pc-empty__icon { display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; background:var(--surface-muted); border-radius:12px; font-size:22px; color:var(--ink-muted); }
+    .payment-monitoring-page .pc-empty h3 { margin:16px 0 8px; font:500 16px/1.4 var(--font-body); color:var(--ink); }
+    .payment-monitoring-page .pc-list { padding:16px; display:grid; gap:12px; }
+    .payment-monitoring-page .pc-request { border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+    .payment-monitoring-page .pc-request__summary { display:grid; grid-template-columns:1fr 1.5fr auto; align-items:center; gap:16px; padding:18px; }
+    .payment-monitoring-page .pc-request__summary strong { font-weight:500; }
+    .payment-monitoring-page .pc-muted { display:block; color:var(--ink-muted); font-size:13px; margin-top:5px; }
+    .payment-monitoring-page .pc-status { padding:5px 10px; border-radius:6px; background:var(--surface-muted); font-size:12px; }
+    .payment-monitoring-page .pc-status[data-status='PENDING'] { color:#92400e; background:#fef3c7; }
+    .payment-monitoring-page .pc-review > summary { display:flex; gap:8px; align-items:center; padding:12px 18px; cursor:pointer; border-top:1px solid var(--border); font-size:14px; }
+    .payment-monitoring-page .pc-review > summary .bi-chevron-down { margin-left:auto; transition:transform .15s; }
+    .payment-monitoring-page .pc-review[open] > summary .bi-chevron-down { transform:rotate(180deg); }
+    .payment-monitoring-page .pc-review__body { padding:20px; border-top:1px solid var(--border); }
+    .payment-monitoring-page .pc-review__body h3 { font-size:14px; font-weight:500; margin:0 0 8px; }
+    .payment-monitoring-page .pc-reason { white-space:pre-wrap; overflow-wrap:anywhere; margin:0 0 20px; }
+    .payment-monitoring-page .pc-meta-label { display:block; font-size:12px; color:var(--ink-muted); margin-bottom:6px; }
+    .payment-monitoring-page .pc-comparison { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin:12px 0 20px; }
+    .payment-monitoring-page .pc-compare-row { display:grid; grid-template-columns:1fr 1.3fr 1.3fr; background:var(--card); }
+    .payment-monitoring-page .pc-compare-row + .pc-compare-row { border-top:1px solid var(--border); }
+    .payment-monitoring-page .pc-compare-row > span { padding:14px 16px; font-size:14px; color:var(--ink); overflow-wrap:anywhere; }
+    .payment-monitoring-page .pc-compare-head { background:var(--surface-muted); }
+    .payment-monitoring-page .pc-compare-head > span { font-size:12px; font-weight:500; color:var(--ink-muted); }
+    .payment-monitoring-page .pc-compare-row .pc-changed { border-left:3px solid #64748b; font-weight:500; }
+    .payment-monitoring-page .pc-compare-row small { display:block; font-size:12px; color:var(--ink-muted); margin-top:4px; font-weight:400; }
+    @media(max-width:600px) {
+        .payment-monitoring-page .pc-compare-head { display:none; }
+        .payment-monitoring-page .pc-compare-row { grid-template-columns:1fr 1fr; }
+        .payment-monitoring-page .pc-compare-row > [role='rowheader'] { grid-column:1/-1; padding-bottom:4px; font-weight:500; }
+        .payment-monitoring-page .pc-compare-row > [role='cell']::before { content:attr(data-label); display:block; color:var(--ink-muted); font-size:12px; margin-bottom:6px; }
+    }
+    .payment-monitoring-page .pc-decisions { display:flex; flex-wrap:wrap; align-items:flex-start; gap:12px; margin-top:20px; padding-top:18px; border-top:1px solid var(--border); }
+    .payment-monitoring-page .pc-reject > summary { cursor:pointer; padding:11px 16px; font-size:14px; border:1px solid var(--border); border-radius:8px; min-height:44px; list-style:none; color:var(--ink); }
+    .payment-monitoring-page .pc-reject form { display:grid; gap:10px; padding:12px 0; }
+    .payment-monitoring-page .pc-reject textarea { width:100%; background:var(--surface); color:var(--ink); border:1px solid var(--border); border-radius:8px; }
+    .payment-monitoring-page .pc-pagination { padding:16px; border-top:1px solid var(--border); }
+    @media(max-width:600px) { .payment-monitoring-page .pc-request__summary { grid-template-columns:1fr auto; } .payment-monitoring-page .pc-request__summary > div:nth-child(2) { grid-row:2; grid-column:1/-1; } .payment-monitoring-page .pc-requests__header { padding:18px; } }
+
+    .pc-approval-dialog { width:min(480px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); padding:0; margin:auto; border:1px solid var(--border); border-radius:14px; background:var(--card,var(--surface)); color:var(--ink); font:400 14px/1.6 var(--font-body); box-shadow:0 24px 64px rgba(0,0,0,.2); }
+    .pc-approval-dialog::backdrop { background:var(--modal-scrim,rgba(15,23,42,.72)); }
+    .pc-approval-dialog header { display:flex; align-items:center; justify-content:space-between; padding:18px 20px; border-bottom:1px solid var(--border); gap:16px; }
+    .pc-approval-dialog h2 { margin:0; font:600 18px/1.4 var(--font-body); color:var(--ink); }
+    .pc-approval-dialog .pc-modal-close { display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; border:0; border-radius:6px; background:transparent; color:var(--ink); cursor:pointer; }
+    .pc-approval-dialog .pc-modal-close:hover { background:var(--surface-muted); }
+    .pc-approval-dialog .pc-modal-body { padding:20px; }
+    .pc-approval-dialog p { margin:0 0 14px; }
+    .pc-approval-dialog p:last-child { margin-bottom:0; color:var(--ink-muted); font-size:13px; }
+    .pc-approval-dialog .pc-modal-record { padding:12px; border:1px solid var(--border); border-radius:8px; }
+    .pc-approval-dialog .pc-modal-record strong { display:block; font-weight:500; }
+    .pc-approval-dialog footer { display:flex; justify-content:flex-end; gap:10px; padding:16px 20px; border-top:1px solid var(--border); background:transparent; }
+    .pc-approval-dialog footer button { min-height:44px; padding:10px 16px; border:1px solid var(--border); border-radius:8px; font:500 14px var(--font-body); cursor:pointer; }
+    .pc-approval-dialog .pc-modal-cancel { background:transparent; color:var(--ink); }
+    .pc-approval-dialog .pc-modal-confirm { background:#374151; color:#fff; border-color:#374151; }
+    .pc-approval-dialog button:focus-visible { outline:2px solid #64748b; outline-offset:3px; }
+    .pc-approval-dialog button:disabled { opacity:.6; cursor:wait; }
 </style>
 
 <div class="pm-page ops-page payment-monitoring-page">
@@ -443,6 +538,15 @@
         <div class="flash-error">{{ $errors->first() }}</div>
     @endif
 
+    @if($isBranchAdmin)
+        <nav class="pm-section-tabs" aria-label="Payment monitoring sections">
+            <a href="{{ route($monitoringRoute) }}" @if(!$showCorrections) aria-current="page" @endif><i class="bi bi-receipt" aria-hidden="true"></i><span>Payment Records</span></a>
+            <a href="{{ route($monitoringRoute, ['tab' => 'corrections']) }}" @if($showCorrections) aria-current="page" @endif><i class="bi bi-arrow-repeat" aria-hidden="true"></i><span>Correction Requests</span><span class="pm-section-tabs__count" aria-label="{{ $pendingCorrectionCount }} pending requests">{{ $pendingCorrectionCount }}</span></a>
+        </nav>
+    @endif
+    @if($showCorrections)
+        @include('staff.payments._correction_requests', ['requests' => $correctionRequests])
+    @else
     @if(!$isStaff)
     <div class="pm-kpis ops-stat-grid">
         {{-- Cases included by the active payment filter --}}
@@ -591,7 +695,7 @@
                 </span>
             </label>
             <div class="pm-actions">
-                <a href="{{ route($monitoringRoute) }}" class="pm-btn ops-btn-outline" data-pm-clear-filters @if(!$hasPaymentFilters) hidden @endif><i class="bi bi-x-circle" aria-hidden="true"></i><span>Clear</span></a>
+                <a href="{{ route($monitoringRoute) }}" class="pm-btn ops-btn-outline filter-clear-action" data-pm-clear-filters @if(!$hasPaymentFilters) hidden @endif><i class="bi bi-x-circle" aria-hidden="true"></i><span>Clear</span></a>
             </div>
         </form>
     </div>
@@ -935,6 +1039,7 @@
             @endif
         </div>
     @endif
+    @endif
 </div>
 
 <div id="pmDateModal" class="pm-modal-backdrop ops-modal-backdrop" aria-hidden="true">
@@ -962,6 +1067,49 @@
 
 <script>
 window.initPaymentMonitoring = () => {
+    const approvalDialog = document.getElementById('pcApprovalDialog');
+    if (approvalDialog && !approvalDialog.dataset.initialized) {
+        approvalDialog.dataset.initialized = 'true';
+        let approvalForm = null;
+        let approvalTrigger = null;
+        let scrollContainer = null;
+        let previousOverflow = '';
+        document.querySelectorAll('[data-pc-approve-form]').forEach(form => {
+            form.addEventListener('submit', event => {
+                event.preventDefault();
+                approvalForm = form;
+                approvalTrigger = event.submitter;
+                const voidOnly = form.dataset.correctionType === 'VOID_ONLY';
+                approvalDialog.querySelector('#pcApprovalTitle').textContent = voidOnly ? 'Approve payment void?' : 'Approve correction?';
+                approvalDialog.querySelector('[data-pc-record]').textContent = form.dataset.paymentRecord || 'Payment';
+                approvalDialog.querySelector('#pcApprovalDescription').textContent = voidOnly
+                    ? 'The original payment will be voided without a replacement. The case paid amount and remaining balance will be recalculated.'
+                    : 'The original payment will be voided and a corrected replacement will be created. The case paid amount and remaining balance will be recalculated.';
+                approvalDialog.querySelector('[data-pc-confirm]').textContent = voidOnly ? 'Approve Void' : 'Approve Correction';
+                scrollContainer = document.querySelector('.page-content');
+                if (scrollContainer) { previousOverflow = scrollContainer.style.overflow; scrollContainer.style.overflow = 'hidden'; }
+                approvalDialog.showModal();
+            });
+        });
+        approvalDialog.querySelectorAll('[data-pc-cancel]').forEach(button => button.addEventListener('click', () => approvalDialog.close()));
+        approvalDialog.addEventListener('click', event => {
+            const rect = approvalDialog.getBoundingClientRect();
+            if (event.target === approvalDialog && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom)) approvalDialog.close();
+        });
+        approvalDialog.addEventListener('close', () => {
+            if (scrollContainer) scrollContainer.style.overflow = previousOverflow;
+            approvalTrigger?.focus();
+            approvalForm = null;
+        });
+        approvalDialog.querySelector('[data-pc-confirm]').addEventListener('click', event => {
+            if (!approvalForm) return;
+            event.currentTarget.disabled = true;
+            event.currentTarget.textContent = 'Approving?';
+            approvalDialog.querySelectorAll('[data-pc-cancel]').forEach(button => button.disabled = true);
+            HTMLFormElement.prototype.submit.call(approvalForm);
+        });
+    }
+
     window.pmMonitoringAbort?.abort();
     window.pmMonitoringAbort = new AbortController();
     const listenerSignal = window.pmMonitoringAbort.signal;
@@ -985,7 +1133,7 @@ window.initPaymentMonitoring = () => {
     const hasActiveFilters = () => {
         if (!form) return false;
         return Array.from(new FormData(form).entries()).some(([key, value]) => {
-            if (key === 'tab') return false;
+            if (key === 'tab' || key === 'case_scope' || key === 'per_page') return false;
             if (key === 'date_preset') return value && value !== 'all' && value !== 'any';
             if (key === 'branch_id') {
                 const defaultBranch = form.dataset.pmDefaultBranch || '';

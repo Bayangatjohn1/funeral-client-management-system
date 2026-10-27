@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Schema;
 use App\Support\BranchScoped;
+use App\Support\TopbarNotificationCache;
 
 class FuneralCase extends Model
 {
@@ -156,6 +157,17 @@ class FuneralCase extends Model
                     'retention_status' => 'retained',
                 ])->saveQuietly();
             }
+
+            if ($case->wasRecentlyCreated || $case->wasChanged([
+                'branch_id', 'case_status', 'payment_status', 'balance_amount',
+                'wake_start_date', 'wake_start_time', 'wake_end_date', 'wake_end_time',
+                'funeral_service_at', 'funeral_service_time', 'interment_at', 'interment_time',
+            ])) {
+                TopbarNotificationCache::invalidateAfterCommit(array_filter([
+                    (int) $case->branch_id,
+                    (int) $case->getOriginal('branch_id'),
+                ]));
+            }
         });
     }
 
@@ -274,6 +286,7 @@ class FuneralCase extends Model
         $completed = 0;
 
         static::query()
+            ->locallyOwned()
             ->where('case_status', 'ACTIVE')
             ->whereNotNull('interment_at')
             ->where('interment_at', '<=', $now)
@@ -294,6 +307,18 @@ class FuneralCase extends Model
         return $completed;
     }
 
+    public function scopeLocallyOwned($query)
+    {
+        if (config('branch_sync.mode') === 'central') {
+            $query->whereNotIn('branch_id', \Illuminate\Support\Facades\DB::table('branches')
+                ->whereIn('branch_code', \Illuminate\Support\Facades\DB::table('branch_sync_peers')->whereIn('activation_state', ['frozen', 'active'])->select('branch_code'))->select('id'));
+        } elseif (config('branch_sync.mode') === 'branch') {
+            $query->whereIn('branch_id', \Illuminate\Support\Facades\DB::table('branches')
+                ->where('branch_code', config('branch_sync.branch_code'))->select('id'));
+        }
+        return $query;
+    }
+
     /**
      * Re-derives total_paid / balance_amount / payment_status by summing all
      * non-voided payment rows for this case.
@@ -312,14 +337,21 @@ class FuneralCase extends Model
                 ->sum('amount'),
             2
         );
+        $this->update($this->paymentTotalsFor($totalPaid));
+    }
+
+    /** Shared total/status derivation for recording, correction and void workflows. */
+    public function paymentTotalsFor(float $totalPaid): array
+    {
+        $totalPaid = round($totalPaid, 2);
         $totalAmount = round((float) $this->total_amount, 2);
         $balance     = round(max($totalAmount - $totalPaid, 0), 2);
         $status      = $totalPaid <= 0 ? 'UNPAID' : ($balance > 0 ? 'PARTIAL' : 'PAID');
 
-        $this->update([
+        return [
             'total_paid'     => $totalPaid,
             'balance_amount' => $balance,
             'payment_status' => $status,
-        ]);
+        ];
     }
 }

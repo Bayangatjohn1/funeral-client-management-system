@@ -51,7 +51,7 @@ class DashboardController extends Controller
                 ->where('verification_status', 'VERIFIED')
                 ->whereBetween('created_at', [$startAt, $endAt])
         );
-        $branchCards = $branches->map(function ($branch) use ($branchStats) {
+        $branchCards = $branches->when($branchId, fn ($items) => $items->where('id', (int) $branchId))->map(function ($branch) use ($branchStats) {
             $stats = $branchStats->get($branch->id);
             return [
                 'branch' => $branch,
@@ -70,13 +70,7 @@ class DashboardController extends Controller
         });
 
         $selectedBranch = $branchId ? $branches->firstWhere('id', (int) $branchId) : null;
-        $topPackages = collect();
-        if ($branchId) {
-            $topPackages = FuneralCase::query()
-                ->where('verification_status', 'VERIFIED')
-                ->where('branch_id', $branchId)
-                ->whereBetween('created_at', [$startAt, $endAt])
-                ->where('payment_status', 'PAID')
+        $topPackages = (clone $base)
                 ->whereNotNull('service_package')
                 ->selectRaw('service_package, COUNT(*) as total_cases, COALESCE(SUM(total_amount), 0) as total_sales')
                 ->groupBy('service_package')
@@ -84,8 +78,20 @@ class DashboardController extends Controller
                 ->orderByDesc('total_sales')
                 ->limit(5)
                 ->get();
-        }
+        $trendByDate = (clone $base)
+            ->selectRaw('DATE(created_at) as recorded_date, COALESCE(SUM(total_amount), 0) as value')
+            ->groupByRaw('DATE(created_at)')->orderBy('recorded_date')->get();
+        $trendMonthly = $startAt->diffInDays($endAt) > 62;
+        $revenueTrend = $trendByDate
+            ->groupBy(fn ($row) => Carbon::parse($row->recorded_date)->format($trendMonthly ? 'Y-m-01' : 'Y-m-d'))
+            ->map(fn ($rows, $date) => ['label' => Carbon::parse($date)->format($trendMonthly ? 'M Y' : 'M d'), 'value' => (float) $rows->sum('value')])
+            ->values();
+        $attentionCases = (clone $base)->where('balance_amount', '>', 0)
+            ->whereDate('interment_at', '<', now()->toDateString());
+        $attentionCount = (clone $attentionCases)->count();
+        $attentionBalance = (float) (clone $attentionCases)->sum('balance_amount');
 
+        $overview = app(\App\Support\OwnerDashboardOverview::class)->data($filters);
         return view('dashboards.owner', compact(
             'totalCases',
             'paidCases',
@@ -103,8 +109,84 @@ class DashboardController extends Controller
             'dateTo',
             'range',
             'selectedBranch',
-            'topPackages'
+            'topPackages', 'revenueTrend', 'attentionCount', 'attentionBalance', 'overview'
         ));
+    }
+
+    public function dashboardDetails(Request $request)
+    {
+        $input = $request->validate([
+            'summary' => 'nullable|boolean', 'kind' => 'required|in:cases,service,collections,outstanding,risks', 'q' => 'nullable|string|max:100',
+            'dashboard_range' => 'nullable|in:TODAY,THIS_WEEK,LAST_30_DAYS,THIS_MONTH,LAST_MONTH,THIS_QUARTER,THIS_YEAR,ALL_TIME,CUSTOM',
+            'dashboard_branch' => 'nullable|integer|exists:branches,id', 'dashboard_from' => 'nullable|date', 'dashboard_to' => 'nullable|date|after_or_equal:dashboard_from',
+        ]);
+        $filters = $this->validatedDashboardFilters($request);
+        $data = app(\App\Support\OwnerDashboardOverview::class);
+        $branchId = $filters['branch_id'] ? (int) $filters['branch_id'] : null;
+        $kind = $input['kind'];
+        $isPayments = $kind === 'collections';
+        $query = match ($kind) {
+            'collections' => $data->receivedBetween($data->payments($branchId), Carbon::parse($filters['date_from'])->startOfDay(), Carbon::parse($filters['date_to'])->endOfDay())->with(['funeralCase.client', 'branch']),
+            'outstanding' => $data->cases($branchId)->where('balance_amount', '>', 0)->with(['client', 'branch']),
+            'risks' => $data->risks($branchId)->with(['client', 'branch']),
+            default => $data->cases($branchId)->whereBetween('created_at', [Carbon::parse($filters['date_from'])->startOfDay(), Carbon::parse($filters['date_to'])->endOfDay()])->with(['client', 'branch']),
+        };
+        $amountColumn = $isPayments ? 'amount' : (in_array($kind, ['outstanding','risks']) ? 'balance_amount' : 'total_amount');
+        $scopeAmount = (float) (clone $query)->sum($amountColumn);
+        if ($search = trim($input['q'] ?? '')) {
+            $query->where(function ($q) use ($search, $isPayments) {
+                if ($isPayments) {
+                    $q->where('payment_record_no', 'like', '%'.$search.'%')->orWhere('receipt_number', 'like', '%'.$search.'%')
+                        ->orWhereHas('funeralCase', fn ($c) => $c->where('case_code', 'like', '%'.$search.'%')->orWhereHas('client', fn ($f) => $f->where('full_name', 'like', '%'.$search.'%')));
+                } else {
+                    $q->where('case_code', 'like', '%'.$search.'%')->orWhereHas('client', fn ($f) => $f->where('full_name', 'like', '%'.$search.'%'));
+                }
+            });
+        }
+        $matchingAmount = (float) (clone $query)->sum($amountColumn);
+        $dashboardUrl = route('owner.dashboard', [
+            'branch_id' => $branchId, 'range' => $input['dashboard_range'] ?? $filters['range'],
+            'date_from' => $input['dashboard_from'] ?? $filters['date_from'], 'date_to' => $input['dashboard_to'] ?? $filters['date_to'],
+        ]);
+        if ($request->boolean('summary')) {
+            $recordCount = (clone $query)->count();
+            $context = ['dashboard_branch'=>$branchId, 'dashboard_range'=>$input['dashboard_range'] ?? $filters['range'], 'dashboard_from'=>$input['dashboard_from'] ?? $filters['date_from'], 'dashboard_to'=>$input['dashboard_to'] ?? $filters['date_to']];
+            $destination = ['branch_id'=>$branchId] + $context;
+            if ($isPayments) {
+                $destination += ['range'=>'CUSTOM','date_from'=>$filters['date_from'],'date_to'=>$filters['date_to']];
+                $recordsUrl = route('reports.index', $destination + ['report_type'=>'sales']);
+            } else {
+                $destination += ['report_type'=>'master_cases', 'verification_status'=>'VERIFIED', 'date_basis'=>'recording'];
+                if (in_array($kind,['outstanding','risks'])) $destination['collection_state'] = $kind==='risks' ? 'AFTER_INTERMENT' : 'WITH_BALANCE';
+                else $destination += ['date_from'=>$filters['date_from'],'date_to'=>$filters['date_to']];
+                $recordsUrl = route('reports.index', $destination);
+            }
+            return response()->json(['html'=>view('owner.partials.executive-summary',compact('kind','recordCount','scopeAmount','recordsUrl','isPayments'))->render()]);
+        }
+        if ($isPayments) $query->orderByRaw('COALESCE(paid_at, paid_date, created_at) DESC');
+        $records = $query->orderByDesc('id')->paginate(20)->withQueryString();
+        return response()->json([
+            'html' => view('owner.partials.executive-details', compact('records', 'isPayments', 'kind', 'scopeAmount', 'matchingAmount', 'search', 'dashboardUrl'))->render(),
+            'pagination' => view('owner.partials.executive-pagination', compact('records'))->render(), 'count' => $records->total(),
+        ]);
+    }
+
+    public function collections(Request $request)
+    {
+        $input = $request->validate(['q'=>'nullable|string|max:100','dashboard_branch'=>'nullable|integer|exists:branches,id','dashboard_range'=>'nullable|in:TODAY,THIS_WEEK,LAST_30_DAYS,THIS_MONTH,LAST_MONTH,THIS_QUARTER,THIS_YEAR,ALL_TIME,CUSTOM','dashboard_from'=>'nullable|date','dashboard_to'=>'nullable|date|after_or_equal:dashboard_from']);
+        $filters = $this->validatedDashboardFilters($request);
+        $branchId = $filters['branch_id'] ? (int)$filters['branch_id'] : null;
+        $dateFrom = $filters['date_from']; $dateTo = $filters['date_to'];
+        $data = app(\App\Support\OwnerDashboardOverview::class);
+        $query = $data->receivedBetween($data->payments($branchId),Carbon::parse($dateFrom)->startOfDay(),Carbon::parse($dateTo)->endOfDay())->with(['funeralCase.client','branch']);
+        $scopeAmount = (float)(clone $query)->sum('amount'); $search = trim($input['q'] ?? '');
+        if($search) $query->where(fn($q)=>$q->where('payment_record_no','like','%'.$search.'%')->orWhere('receipt_number','like','%'.$search.'%')->orWhereHas('funeralCase',fn($c)=>$c->where('case_code','like','%'.$search.'%')->orWhereHas('client',fn($f)=>$f->where('full_name','like','%'.$search.'%'))));
+        $matchingAmount = (float)(clone $query)->sum('amount');
+        $records = $query->orderByRaw('COALESCE(paid_at, paid_date, created_at) DESC')->orderByDesc('id')->paginate(20)->withQueryString();
+        $branches = Branch::orderBy('branch_code')->get();
+        $dashboardUrl = route('owner.dashboard',['branch_id'=>$input['dashboard_branch'] ?? null,'range'=>$input['dashboard_range'] ?? 'THIS_MONTH','date_from'=>$input['dashboard_from'] ?? null,'date_to'=>$input['dashboard_to'] ?? null]);
+        $caseReturnUrl = $request->fullUrl(); $isPayments=true; $kind='collections';
+        return view('owner.collections',compact('records','branches','branchId','dateFrom','dateTo','scopeAmount','matchingAmount','search','dashboardUrl','caseReturnUrl','isPayments','kind'));
     }
 
     public function salesPerBranch(Request $request)
@@ -250,6 +332,7 @@ class DashboardController extends Controller
     public function analytics(Request $request)
     {
         $validated = $request->validate([
+            'dashboard_branch'=>'nullable|integer|exists:branches,id', 'dashboard_range'=>'nullable|in:TODAY,THIS_WEEK,LAST_30_DAYS,THIS_MONTH,LAST_MONTH,THIS_QUARTER,THIS_YEAR,ALL_TIME,CUSTOM', 'dashboard_from'=>'nullable|date', 'dashboard_to'=>'nullable|date|after_or_equal:dashboard_from',
             'branch_id' => 'nullable|integer|exists:branches,id',
             'range' => 'nullable|in:TODAY,THIS_MONTH,THIS_YEAR,CUSTOM',
             'date_from' => 'nullable|date',
@@ -257,6 +340,12 @@ class DashboardController extends Controller
         ]);
 
         $data = app(BranchAnalyticsService::class)->ownerPageData($validated);
+        $data['packageBreakdown'] = app(\App\Support\OwnerDashboardOverview::class)
+            ->cases(isset($validated['branch_id']) ? (int) $validated['branch_id'] : null)
+            ->whereBetween('created_at', [Carbon::parse($data['dateFrom'])->startOfDay(), Carbon::parse($data['dateTo'])->endOfDay()])
+            ->whereNotNull('service_package')
+            ->selectRaw('service_package, COUNT(*) as total_cases, SUM(total_amount) as service_value')
+            ->groupBy('service_package')->orderByDesc('total_cases')->limit(10)->get();
 
         return view('owner.analytics', array_merge($data, [
             'analyticsRouteName' => 'owner.analytics',
@@ -275,8 +364,13 @@ class DashboardController extends Controller
             'date_preset' => 'nullable|in:TODAY,THIS_MONTH,THIS_YEAR,CUSTOM',
             'date_from' => 'nullable|date',
             'date_to' => 'nullable|date|after_or_equal:date_from',
+            'sort' => 'nullable|in:newest,oldest',
+            'per_page' => 'nullable|integer|in:10,25,50,100',
             'case_status' => 'nullable|in:DRAFT,ACTIVE,COMPLETED',
-            'payment_status' => 'nullable|in:PAID,PARTIAL,UNPAID',
+            'payment_status' => 'nullable|in:PAID,PARTIAL,UNPAID,WITH_BALANCE',
+            'collection_state' => 'nullable|in:WITH_PAYMENTS,WITH_BALANCE,AFTER_INTERMENT',
+            'dashboard_range' => 'nullable|in:TODAY,THIS_WEEK,LAST_30_DAYS,THIS_MONTH,LAST_MONTH,THIS_QUARTER,THIS_YEAR,ALL_TIME,CUSTOM',
+            'dashboard_branch' => 'nullable|integer|exists:branches,id', 'dashboard_from' => 'nullable|date', 'dashboard_to' => 'nullable|date|after_or_equal:dashboard_from',
             'service_type' => 'nullable|string|max:100',
             'package_id' => 'nullable|integer|exists:packages,id',
             'interment_from' => 'nullable|date',
@@ -301,14 +395,17 @@ class DashboardController extends Controller
         $intermentTo = $validated['interment_to'] ?? null;
         [$startAt, $endAt] = $this->parseDateBounds($dateFrom, $dateTo);
 
-        $cases = FuneralCase::with(['branch', 'client', 'deceased'])
+        $historyBase = ($validated['collection_state'] ?? null) === 'AFTER_INTERMENT' ? app(\App\Support\OwnerDashboardOverview::class)->risks(null) : FuneralCase::query();
+        $cases = $historyBase->with(['branch', 'client', 'deceased', 'package', 'encodedBy'])
             ->where('verification_status', 'VERIFIED')
             ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
             ->when($startAt && $endAt, fn ($query) => $query->whereBetween('created_at', [$startAt, $endAt]))
             ->when($startAt && !$endAt, fn ($query) => $query->where('created_at', '>=', $startAt))
             ->when(!$startAt && $endAt, fn ($query) => $query->where('created_at', '<=', $endAt))
             ->when($caseStatus, fn ($query) => $query->where('case_status', $caseStatus))
-            ->when($paymentStatus, fn ($query) => $query->where('payment_status', $paymentStatus))
+            ->when($paymentStatus, fn ($query) => $paymentStatus === 'WITH_BALANCE' ? $query->where('balance_amount', '>', 0) : $query->where('payment_status', $paymentStatus))
+            ->when(($validated['collection_state'] ?? null) === 'WITH_PAYMENTS', fn ($query) => $query->where('total_paid', '>', 0))
+            ->when(in_array($validated['collection_state'] ?? null, ['WITH_BALANCE', 'AFTER_INTERMENT'], true), fn ($query) => $query->where('balance_amount', '>', 0))
             ->when($serviceType, fn ($query) => $query->where('service_type', $serviceType))
             ->when($packageId, fn ($query) => $query->where('package_id', $packageId))
             ->when($intermentFrom || $intermentTo, function ($query) use ($intermentFrom, $intermentTo) {
@@ -337,8 +434,9 @@ class DashboardController extends Controller
                         ->orWhereHas('deceased', fn ($q3) => $q3->where('full_name', 'like', "%{$q}%"));
                 });
             })
-            ->latest()
-            ->paginate(20)
+            ->orderBy('created_at', ($validated['sort'] ?? 'newest') === 'oldest' ? 'asc' : 'desc')
+            ->orderBy('id', ($validated['sort'] ?? 'newest') === 'oldest' ? 'asc' : 'desc')
+            ->paginate((int) ($validated['per_page'] ?? 25))
             ->withQueryString();
 
         $branches = Branch::orderBy('branch_code')->get();
@@ -419,7 +517,7 @@ class DashboardController extends Controller
     {
         $validated = $request->validate([
             'branch_id' => 'nullable|integer|exists:branches,id',
-            'range' => 'nullable|in:TODAY,LAST_30_DAYS,THIS_MONTH,THIS_YEAR,CUSTOM',
+            'range' => 'nullable|in:TODAY,THIS_WEEK,LAST_30_DAYS,THIS_MONTH,LAST_MONTH,THIS_QUARTER,THIS_YEAR,ALL_TIME,CUSTOM',
             'date_from' => 'nullable|date',
             'date_to' => 'nullable|date|after_or_equal:date_from',
         ]);
@@ -430,6 +528,21 @@ class DashboardController extends Controller
 
         if ($range === 'TODAY') {
             $dateFrom = now()->toDateString();
+            $dateTo = now()->toDateString();
+        } elseif ($range === 'THIS_WEEK') {
+            $dateFrom = now()->startOfWeek()->toDateString();
+            $dateTo = now()->toDateString();
+        } elseif ($range === 'LAST_MONTH') {
+            $dateFrom = now()->subMonthNoOverflow()->startOfMonth()->toDateString();
+            $dateTo = now()->subMonthNoOverflow()->endOfMonth()->toDateString();
+        } elseif ($range === 'THIS_QUARTER') {
+            $dateFrom = now()->firstOfQuarter()->toDateString();
+            $dateTo = now()->toDateString();
+        } elseif ($range === 'ALL_TIME') {
+            $firstCase = FuneralCase::min('created_at');
+            $firstPayment = \App\Models\Payment::selectRaw('MIN(COALESCE(paid_at, paid_date, created_at)) as first_date')->value('first_date');
+            $first = collect([$firstCase, $firstPayment])->filter()->sort()->first();
+            $dateFrom = $first ? Carbon::parse($first)->toDateString() : now()->toDateString();
             $dateTo = now()->toDateString();
         } elseif ($range === 'LAST_30_DAYS') {
             $dateFrom = now()->subDays(29)->toDateString();

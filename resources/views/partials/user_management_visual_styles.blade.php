@@ -9,6 +9,29 @@ html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .di
     display:grid !important;
     gap:10px !important; align-items:center !important;
 }
+@media(min-width:1151px) {
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar {
+        display:flex !important;
+        width:100%;
+    }
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar > .table-toolbar-field:first-of-type {
+        flex:1 1 22rem !important;
+        width:auto !important;
+        max-width:34rem;
+        margin-right:auto;
+    }
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar > .table-toolbar-field:not(:first-of-type) {
+        flex:0 1 13rem !important;
+        width:auto !important;
+    }
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar > :is(.user-more-filters,.user-filter-clear) {
+        flex:0 0 auto;
+    }
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar > .user-directory-view-toggle {
+        flex:0 0 auto;
+        margin-left:0;
+    }
+}
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-filters-system {
     grid-template-columns:minmax(280px,2.2fr) minmax(190px,1.2fr) minmax(145px,.9fr) auto !important;
 }
@@ -51,8 +74,18 @@ html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .di
 @media(max-width:1000px) { html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar { grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important; } }
 @media(max-width:600px) { html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar { grid-template-columns:minmax(0,1fr) !important; } }
 @media(max-width:600px) { html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-more-filters-panel { right:auto; left:0; } }
+@media(max-width:1150px) {
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar > .user-directory-view-toggle {
+        justify-self:end;
+    }
+}
+@media(max-width:600px) {
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar > .user-directory-view-toggle {
+        justify-self:start;
+    }
+}
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) :is(.directory-page, .user-create-page, .user-edit-page) { background:transparent !important; color:var(--ink); }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui):has(:is(.directory-page, .user-create-page, .user-edit-page)) .panel-page-header { background:transparent !important; border:0 !important; box-shadow:none !important; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui):has(:is(.directory-page, .user-create-page, .user-edit-page)) .panel-page-header:not(.panel-title-surface) { background:transparent !important; border:0 !important; box-shadow:none !important; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page :is(.table-system-card, .admin-table-card) { background:transparent !important; border:0 !important; box-shadow:none !important; overflow:visible !important; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page :is(.table-system-toolbar, .directory-item-card, .table-system-wrap, .directory-user-card-dropdown) { background:var(--card) !important; border:1px solid var(--border) !important; border-radius:12px !important; box-shadow:none !important; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page { padding-top:8px; }

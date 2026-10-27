@@ -288,16 +288,8 @@ protected $fillable = [
 
     public function activeTemporaryPermission(): ?\App\Models\TemporaryCrossBranchPermission
     {
-        if ($this->cachedActiveTemporaryPermission !== null) {
-            return $this->cachedActiveTemporaryPermission;
-        }
-
-        $this->cachedActiveTemporaryPermission = $this->temporaryPermissions()
-            ->active()
-            ->orderByDesc('granted_at')
-            ->first();
-
-        return $this->cachedActiveTemporaryPermission;
+        // Historical relationships remain queryable, but legacy grants never authorize operations.
+        return null;
     }
 
     /**

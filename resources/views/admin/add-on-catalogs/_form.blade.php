@@ -76,6 +76,7 @@
     @media (max-width:720px) { .aoc-grid { grid-template-columns:1fr; } .aoc-actions { display:grid; } }
 </style>
 
+@include('admin.service-management.partials.catalog-form-ui')
 <form method="POST" action="{{ $action }}" class="aoc-form mx-auto">
     @csrf
     @if($isEdit)
@@ -92,14 +93,14 @@
         <div class="aoc-body">
             <div class="aoc-grid">
                 <div>
-                    <label class="aoc-label">Add-on Name</label>
-                    <input type="text" name="name" value="{{ old('name', $catalog->name) }}" class="form-input" required maxlength="150" pattern="[A-Za-zÀ-ž][A-Za-zÀ-ž\s,'()/&-]*" title="Use letters and normal separators only. Numbers and unnecessary symbols are not allowed." placeholder="e.g. Extra flower arrangement">
+                    <label class="aoc-label" for="addon-name">Add-on Name <span aria-hidden="true">*</span></label>
+                    <input id="addon-name" type="text" name="name" value="{{ old('name', $catalog->name) }}" class="form-input" required maxlength="150" pattern="[A-Za-zÀ-ž][A-Za-zÀ-ž\s,'()/&-]*" title="Use letters and normal separators only. Numbers and unnecessary symbols are not allowed." placeholder="e.g. Extra flower arrangement">
                     @error('name') <div class="form-error">{{ $message }}</div> @enderror
                 </div>
                 <div>
-                    <label class="aoc-label">Add-on Type</label>
+                    <label class="aoc-label" for="addon-category">Add-on Type <span aria-hidden="true">*</span></label>
                     <div class="aoc-select-wrap">
-                        <select name="category" class="form-select" required>
+                        <select id="addon-category" name="category" class="form-select" required>
                             @foreach($categoryOptions as $category)
                                 <option value="{{ $category }}" @selected(old('category', $catalog->category ?: 'General') === $category)>{{ $category }}</option>
                             @endforeach
@@ -112,14 +113,14 @@
 
             <div class="aoc-grid">
                 <div>
-                    <label class="aoc-label">Standard Price</label>
-                    <div class="aoc-money"><span>&#8369;</span><input type="number" step="0.01" min="0" inputmode="decimal" name="price" value="{{ old('price', $isEdit ? $catalog->price : '') }}" class="form-input" required placeholder="0.00"></div>
+                    <label class="aoc-label" for="addon-price">Standard Price <span aria-hidden="true">*</span></label>
+                    <div class="aoc-money"><span>&#8369;</span><input id="addon-price" type="number" step="0.01" min="0" inputmode="decimal" name="price" value="{{ old('price', $isEdit ? $catalog->price : '') }}" class="form-input" required placeholder="0.00"></div>
                     @error('price') <div class="form-error">{{ $message }}</div> @enderror
                 </div>
                 <div>
-                    <label class="aoc-label">Unit</label>
+                    <label class="aoc-label" for="addon-unit">Unit <span aria-hidden="true">*</span></label>
                     <div class="aoc-select-wrap">
-                        <select name="unit" class="form-select" required>
+                        <select id="addon-unit" name="unit" class="form-select" required>
                             @foreach($unitOptions as $unit)
                                 <option value="{{ $unit }}" @selected(old('unit', $catalog->unit ?: 'item') === $unit)>{{ ucfirst($unit) }}</option>
                             @endforeach
@@ -131,13 +132,13 @@
             </div>
 
             <div>
-                <label class="aoc-label">Description</label>
-                <textarea name="description" rows="3" class="form-input" maxlength="500" placeholder="Optional staff-facing details.">{{ old('description', $catalog->description) }}</textarea>
+                <label class="aoc-label" for="addon-description">Description</label>
+                <textarea id="addon-description" name="description" rows="3" class="form-input" maxlength="500" placeholder="Optional staff-facing details.">{{ old('description', $catalog->description) }}</textarea>
                 @error('description') <div class="form-error">{{ $message }}</div> @enderror
             </div>
         </div>
         <div class="aoc-actions">
-            <a href="{{ $returnTo }}" class="aoc-secondary"><i class="bi bi-x-circle"></i> Cancel</a>
+            <a href="{{ $returnTo }}" class="aoc-secondary" data-service-form-cancel><i class="bi bi-x-circle"></i> Cancel</a>
             <button class="aoc-primary"><i class="bi bi-check2-circle"></i> {{ $isEdit ? 'Save Changes' : 'Save Add-on' }}</button>
         </div>
     </section>

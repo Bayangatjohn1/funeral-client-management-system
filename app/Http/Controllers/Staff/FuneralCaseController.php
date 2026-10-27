@@ -522,6 +522,10 @@ class FuneralCaseController extends Controller
 
     public function show(FuneralCase $funeral_case)
     {
+        if (auth()->user()?->isOwner()) {
+            return redirect()->route('owner.cases.show', $funeral_case);
+        }
+
         $funeral_case->load(['client', 'deceased', 'branch', 'reportedBranch', 'encodedBy', 'payments.recordedBy', 'payments.encodedBy', 'package.packageInclusions', 'package.packageFreebies', 'caseAddOns', 'serviceDetail', 'tarpaulinAttachment.uploader', 'funeralContract.generator']);
 
         return view('staff.funeral_cases.show', compact('funeral_case'));

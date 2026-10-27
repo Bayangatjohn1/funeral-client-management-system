@@ -1,16 +1,19 @@
-<button type="button" class="panel-scroll-top no-print" aria-label="Scroll to top" hidden>
+<footer class="panel-page-footer no-print" aria-label="Page navigation">
+<button type="button" class="panel-scroll-top" aria-label="Back to top" title="Back to top" hidden>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M12 19V5m-6 6 6-6 6 6" />
     </svg>
 </button>
+</footer>
 <style>
-    .panel-scroll-top { position:fixed; left:50%; bottom:max(24px, env(safe-area-inset-bottom)); transform:translateX(-50%); z-index:40; display:inline-flex; align-items:center; justify-content:center; width:52px; height:52px; border-radius:50%; border:1px solid #123525; background:#1B4332; color:#fff; box-shadow:0 6px 20px rgba(8,29,19,.32); cursor:pointer; }
+    .panel-page-footer { display:flex; justify-content:center; padding:16px 0 max(16px, env(safe-area-inset-bottom)); }
+    .panel-scroll-top { position:relative; display:inline-flex; align-items:center; justify-content:center; width:52px; height:52px; border-radius:50%; border:0; background:transparent; color:#374151; box-shadow:none; cursor:pointer; transition:background-color .15s ease,color .15s ease; }
     .panel-scroll-top svg { width:24px; height:24px; flex:none; }
     .panel-scroll-top[hidden] { display:none !important; }
-    .panel-scroll-top:hover { background:#123525; box-shadow:0 8px 24px rgba(8,29,19,.4); }
-    .panel-scroll-top:focus-visible { outline:3px solid #34D399; outline-offset:3px; }
-    html[data-theme='dark'] .panel-scroll-top { border-color:#6EE7B7; background:#34D399; color:#07130E; box-shadow:0 6px 20px rgba(0,0,0,.5); }
-    html[data-theme='dark'] .panel-scroll-top:hover { background:#6EE7B7; }
+    .panel-scroll-top:hover { background:rgba(100,116,139,.14); color:#111827; }
+    .panel-scroll-top:focus-visible { background:rgba(100,116,139,.14); outline:2px solid #64748B; outline-offset:3px; }
+    html[data-theme='dark'] .panel-scroll-top { background:transparent; color:#E5E7EB; box-shadow:none; }
+    html[data-theme='dark'] .panel-scroll-top:hover, html[data-theme='dark'] .panel-scroll-top:focus-visible { background:rgba(148,163,184,.18); color:#F9FAFB; }
     html[data-theme='dark'] .panel-scroll-top:focus-visible { outline-color:#F8FAFC; }
     @media print { .panel-scroll-top { display:none !important; } }
 </style>
@@ -23,7 +26,8 @@
         const update = () => {
             const visibleOverlay = [...document.querySelectorAll('[role="dialog"][aria-modal="true"]:not([hidden]):not([aria-hidden="true"])')]
                 .some(dialog => dialog.getClientRects().length > 0 && getComputedStyle(dialog).visibility !== 'hidden' && getComputedStyle(dialog).opacity !== '0');
-            button.hidden = scroller.scrollHeight <= scroller.clientHeight + 80 || scroller.scrollTop <= 80 || visibleOverlay;
+            const shouldHide = scroller.scrollHeight <= scroller.clientHeight + 80 || visibleOverlay;
+            if (button.hidden !== shouldHide) button.hidden = shouldHide;
         };
         const cancel = () => cancelAnimationFrame(animation);
         scroller.addEventListener('scroll', update, { passive:true });

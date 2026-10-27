@@ -383,7 +383,15 @@
             @if($isBranchAdminView ?? false)
                 @include('partials.audit_log_filters')
             @else
-            <form method="GET" action="{{ route('admin.audit-logs.index') }}" class="audit-toolbar uniform-record-filters">
+            @php
+                $hasAuditFilters = !empty($filters['audit_log_id'])
+                    || !empty($filters['user_id'])
+                    || !empty($filters['branch_id'])
+                    || !empty($filters['action_type'])
+                    || !empty($filters['date_from'])
+                    || !empty($filters['date_to']);
+            @endphp
+            <form method="GET" action="{{ route('admin.audit-logs.index') }}" class="audit-toolbar audit-system-toolbar uniform-record-filters">
                 @if(!empty($filters['audit_log_id']))
                     <input type="hidden" name="audit_log_id" value="{{ $filters['audit_log_id'] }}">
                     <span class="audit-filter-control">Viewing audit event #{{ $filters['audit_log_id'] }}</span>
@@ -413,7 +421,7 @@
                 @else
                     <span class="audit-filter-control is-select">
                         <i class="bi bi-building"></i>
-                        <select name="branch_id" class="audit-select">
+                        <select name="branch_id" class="audit-select" aria-label="Filter by branch">
                             <option value="">All Branches</option>
                             @foreach($branches as $branch)
                                 <option value="{{ $branch->id }}" {{ (string)($filters['branch_id'] ?? '') === (string)$branch->id ? 'selected' : '' }}>{{ $branch->branch_code }}</option>
@@ -432,19 +440,22 @@
                     </select>
                 </span>
 
-                <span class="audit-filter-control">
+                <details class="audit-filter-menu audit-system-more">
+                    <summary><i class="bi bi-sliders" aria-hidden="true"></i>More Filters @if(!empty($filters['date_from']) || !empty($filters['date_to']))<span class="audit-more-active">Active</span>@endif<i class="bi bi-chevron-down" aria-hidden="true"></i></summary>
+                    <div class="audit-filter-popover audit-system-secondary">
+                        <strong>Event date range</strong>                <span class="audit-filter-control">
                     <i class="bi bi-calendar-event"></i>
-                    <input type="date" name="date_from" value="{{ $filters['date_from'] ?? '' }}" class="audit-select" title="Date from">
+                    <span class="audit-date-label">From</span><input aria-label="Date from" type="date" name="date_from" value="{{ $filters['date_from'] ?? '' }}" class="audit-select" title="Date from">
                 </span>
 
                 <span class="audit-filter-control">
                     <i class="bi bi-calendar-check"></i>
-                    <input type="date" name="date_to" value="{{ $filters['date_to'] ?? '' }}" class="audit-select" title="Date to">
+                    <span class="audit-date-label">To</span><input aria-label="Date to" type="date" name="date_to" value="{{ $filters['date_to'] ?? '' }}" class="audit-select" title="Date to">
                 </span>
 
                 <span class="audit-filter-control is-select">
                     <i class="bi bi-list-ol"></i>
-                    <select name="per_page" class="audit-select" title="Records per page">
+                    <select aria-label="Records per page" name="per_page" class="audit-select" title="Records per page">
                         @foreach(($perPageOptions ?? [25, 50, 100, 200]) as $size)
                             <option value="{{ $size }}" {{ (int)($filters['per_page'] ?? 25) === (int)$size ? 'selected' : '' }}>
                                 {{ $size }} / page
@@ -453,10 +464,15 @@
                     </select>
                 </span>
 
-                <a href="{{ route('admin.audit-logs.index') }}" class="audit-action">
-                    <i class="bi bi-arrow-counterclockwise"></i>
+                    </div>
+                </details>
+                <div class="audit-system-actions">
+                @if($hasAuditFilters)
+                <a href="{{ route('admin.audit-logs.index') }}" class="audit-action filter-clear-action">
+                    <i class="bi bi-x-circle" aria-hidden="true"></i>
                     <span>Clear</span>
                 </a>
+                @endif
                 <a href="{{ route('admin.audit-logs.exportPdf', request()->query()) }}" target="_blank" rel="noopener" class="audit-action">
                     <i class="bi bi-filetype-pdf"></i>
                     <span>PDF</span>
@@ -465,6 +481,7 @@
                     <i class="bi bi-funnel"></i>
                     <span>Apply</span>
                 </button>
+                </div>
             </form>
             @endif
         </div>
@@ -639,6 +656,19 @@
     </section>
 </div>
 <script>
+(() => {
+    const menu = document.querySelector('.audit-system-more');
+    if (!menu) return;
+    document.addEventListener('click', event => {
+        if (menu.open && !menu.contains(event.target)) menu.open = false;
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && menu.open) {
+            menu.open = false;
+            menu.querySelector('summary').focus();
+        }
+    });
+})();
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.audit-details-button').forEach(trigger => {
         let modal;

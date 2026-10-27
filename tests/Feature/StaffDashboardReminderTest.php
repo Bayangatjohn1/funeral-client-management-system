@@ -277,7 +277,8 @@ class StaffDashboardReminderTest extends TestCase
         $this->actingAs($branchAdmin)
             ->get(route('admin.reminders.index', ['tab' => 'current_wake']))
             ->assertOk()
-            ->assertSee('Currently in Wake')
+            ->assertSee('Ongoing Wakes')
+            ->assertViewHas('calendarWakes', fn ($items) => $items->count() === 1 && $items->first()['case_id'] === $activeWake->id)
             ->assertSee('ACTIVE-WAKE')
             ->assertDontSee('ENDED-WAKE');
 
@@ -352,15 +353,30 @@ class StaffDashboardReminderTest extends TestCase
                 'focus_case' => $case->id,
             ]))
             ->assertOk()
-            ->assertSee('id="case-reminder-'.$case->id.'"', false)
-            ->assertSee('class="rp-item rp-item--focused"', false);
+            ->assertViewHas('focusedCaseId', $case->id)
+            ->assertViewHas('calendarEvents', fn ($items) => $items->contains('case_id', $case->id))
+            ->assertSee('ceremony is-focused', false)
+            ->assertSee('data-calendar-event="event-'.$case->id.'-service_today"', false);
+    }
+
+    public function test_notification_focus_cannot_expose_another_branch_case(): void
+    {
+        Carbon::setTestNow('2026-09-26 10:00:00');
+        $own = $this->branch();
+        $other = Branch::create(['branch_code' => 'BR002', 'branch_name' => 'Other', 'is_active' => true]);
+        $case = $this->case($other, ['case_code' => 'FOREIGN-FOCUS']);
+        $staff = User::factory()->create(['role' => 'staff', 'branch_id' => $own->id, 'is_active' => true]);
+        $this->actingAs($staff)->get(route('staff.reminders.index', ['tab' => 'all', 'focus_case' => $case->id, 'branch_id' => $other->id]))
+            ->assertOk()->assertDontSee('FOREIGN-FOCUS')
+            ->assertViewHas('modalCases', fn ($items) => $items->isEmpty())
+            ->assertViewHas('calendarEvents', fn ($items) => $items->isEmpty());
     }
 
     public function test_admin_payment_summary_uses_one_consistent_case_cohort(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-09-28 10:00:00'));
         $branch = $this->branch();
-        $admin = User::factory()->create(['role' => 'admin', 'admin_scope' => 'main', 'branch_id' => $branch->id, 'is_active' => true]);
+        $admin = User::factory()->create(['role' => 'admin', 'admin_scope' => 'branch', 'branch_id' => $branch->id, 'is_active' => true]);
         $currentCase = $this->case($branch, [
             'case_code' => 'CURRENT-COHORT',
             'total_amount' => 10000,
@@ -433,7 +449,7 @@ class StaffDashboardReminderTest extends TestCase
     {
         Carbon::setTestNow(Carbon::parse('2026-09-28 10:00:00'));
         $branch = $this->branch();
-        $admin = User::factory()->create(['role' => 'admin', 'admin_scope' => 'main', 'branch_id' => $branch->id, 'is_active' => true]);
+        $admin = User::factory()->create(['role' => 'admin', 'admin_scope' => 'branch', 'branch_id' => $branch->id, 'is_active' => true]);
         $openBalance = $this->case($branch, ['case_code' => 'OPEN-BALANCE']);
         $settled = $this->case($branch, [
             'case_code' => 'SETTLED-BALANCE',
@@ -505,7 +521,7 @@ class StaffDashboardReminderTest extends TestCase
         $staff = User::factory()->create(['role' => 'staff', 'branch_id' => $branch->id, 'is_active' => true]);
         $this->actingAs($staff)->get(route('staff.reminders.index', ['tab' => 'schedules', 'schedule_section' => 'upcoming', 'calendar_date' => '2026-10-09']))
             ->assertOk()->assertSee('Same time')->assertSee('9:30 AM')->assertSee('10:30 AM')->assertDontSee('TIMELINE-DRAFT');
-        $this->get('/staff')->assertOk()->assertSee('Schedule Advisory')->assertSee('View timeline')
+        $this->get('/staff')->assertOk()->assertSee('Schedules')->assertSee('View All Schedules')
             ->assertViewHas('attentionReminders', fn ($items) => ! $items->contains('type', 'same_day_schedule'));
         $this->get(route('staff.reminders.index', ['tab' => 'warnings']))->assertOk()->assertDontSee('TIMELINE-ONE')->assertDontSee('TIMELINE-TWO');
         $this->get(route('staff.reminders.index', ['tab' => 'schedules', 'schedule_section' => 'upcoming', 'calendar_date' => '2026-10-09']))->assertOk()->assertSee('data-calendar-event', false)->assertDontSee('also scheduled with:');

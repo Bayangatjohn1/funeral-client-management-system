@@ -66,6 +66,7 @@
     @media (max-width:720px) { .fbc-grid { grid-template-columns:1fr; } .fbc-actions { display:grid; } }
 </style>
 
+@include('admin.service-management.partials.catalog-form-ui')
 <form method="POST" action="{{ $action }}" class="fbc-form mx-auto">
     @csrf
     @if($isEdit)
@@ -82,13 +83,13 @@
         <div class="fbc-body">
             <div class="fbc-grid">
                 <div>
-                    <label class="fbc-label">Freebie Name</label>
-                    <input type="text" name="name" value="{{ old('name', $catalog->name) }}" class="form-input" required maxlength="150" pattern="[A-Za-zÀ-ž][A-Za-zÀ-ž\s,'()/&-]*" title="Use letters and normal separators only. Numbers and unnecessary symbols are not allowed." placeholder="e.g. Memorial folder">
+                    <label class="fbc-label" for="freebie-name">Freebie Name <span aria-hidden="true">*</span></label>
+                    <input id="freebie-name" type="text" name="name" value="{{ old('name', $catalog->name) }}" class="form-input" required maxlength="150" pattern="[A-Za-zÀ-ž][A-Za-zÀ-ž\s,'()/&-]*" title="Use letters and normal separators only. Numbers and unnecessary symbols are not allowed." placeholder="e.g. Memorial folder">
                     @error('name') <div class="form-error">{{ $message }}</div> @enderror
                 </div>
                 <div>
-                    <label class="fbc-label">Default Unit</label>
-                    <input list="freebie_unit_options" type="text" name="default_unit" value="{{ old('default_unit', $catalog->default_unit ?: 'item') }}" class="form-input" required maxlength="40" pattern=".*[A-Za-z].*" title="Enter a unit with letters." placeholder="item, set, copy">
+                    <label class="fbc-label" for="freebie-unit">Default Unit <span aria-hidden="true">*</span></label>
+                    <input id="freebie-unit" list="freebie_unit_options" type="text" name="default_unit" value="{{ old('default_unit', $catalog->default_unit ?: 'item') }}" class="form-input" required maxlength="40" pattern=".*[A-Za-z].*" title="Enter a unit with letters." placeholder="item, set, copy">
                     <datalist id="freebie_unit_options">
                         @foreach($unitOptions as $unit)
                             <option value="{{ $unit }}"></option>
@@ -99,7 +100,7 @@
             </div>
         </div>
         <div class="fbc-actions">
-            <a href="{{ $returnTo }}" class="fbc-secondary"><i class="bi bi-x-circle"></i> Cancel</a>
+            <a href="{{ $returnTo }}" class="fbc-secondary" data-service-form-cancel><i class="bi bi-x-circle"></i> Cancel</a>
             <button class="fbc-primary"><i class="bi bi-check2-circle"></i> {{ $isEdit ? 'Save Changes' : 'Save Freebie' }}</button>
         </div>
     </section>

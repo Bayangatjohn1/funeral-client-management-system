@@ -215,6 +215,12 @@
     gap: 4px;
     margin-top: 2px;
 }
+.ec-wrap :is(input, select, textarea)[aria-invalid="true"] {
+    border-color: #b91c1c !important;
+}
+html[data-theme='dark'] .ec-wrap :is(input, select, textarea)[aria-invalid="true"] {
+    border-color: #fca5a5 !important;
+}
 
 /* Readonly display field */
 .ec-readonly {
@@ -277,9 +283,10 @@
     margin-top: 2px;
 }
 .ec-fin-card.is-discount .ec-fin-label,
-.ec-fin-card.is-discount .ec-fin-value { color: #b45309; }
+.ec-fin-card.is-discount .ec-fin-value { color: var(--ec-discount-ink, #b45309); }
 .ec-fin-card.is-total .ec-fin-label,
-.ec-fin-card.is-total .ec-fin-value { color: #2d6a2d; }
+.ec-fin-card.is-total .ec-fin-value { color: var(--ec-total-ink, #2d6a2d); }
+html[data-theme='dark'] .ec-wrap { --ec-total-ink:#86EFAC; --ec-discount-ink:#FCD34D; }
 
 /* ── Error banner ─────────────────────────────────────────── */
 .ec-banner {
@@ -303,6 +310,10 @@
     gap: 10px;
     flex-wrap: wrap;
     justify-content: flex-end;
+    padding-top: 2px;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
 }
 .ec-save-btn {
     display: inline-flex;
@@ -387,6 +398,8 @@ html[data-theme='dark'] .ec-banner     { background: #2a0a0a; border-color: #7f1
     .ec-name-grid { grid-template-columns: 1fr; }
     .ec-fin       { grid-template-columns: 1fr; }
     .ec-meta__item { min-width: 0; flex: 1; }
+    .ec-footer { display: grid; grid-template-columns: 1fr 1fr; }
+    .ec-footer :is(.ec-save-btn, .ec-cancel-btn) { width: 100%; justify-content: center; }
 }
 </style>
 
@@ -407,9 +420,10 @@ html[data-theme='dark'] .ec-banner     { background: #2a0a0a; border-color: #7f1
 
     {{-- Error banner ──────────────────────────────────────── --}}
     @if($errors->any())
-        <div class="ec-banner">
+        <div class="ec-banner" role="alert" aria-live="polite">
             <i class="bi bi-exclamation-triangle-fill"></i>
             <div>
+                <div><strong>Please correct the highlighted fields before saving.</strong></div>
                 @foreach($errors->all() as $error)
                     <div>{{ $error }}</div>
                 @endforeach
@@ -428,12 +442,10 @@ html[data-theme='dark'] .ec-banner     { background: #2a0a0a; border-color: #7f1
     @endif
 
     {{-- Hero header ───────────────────────────────────────── --}}
-    <div class="ec-hero">
+    <div class="ec-hero panel-title-surface centered-page-header">
         <div class="ec-hero__top">
             <div class="ec-hero__left">
-                <span class="ec-hero__tag">
-                    <i class="bi bi-pencil-square"></i> Edit Case Record
-                </span>
+                <span class="ec-hero__tag">Edit Case Record</span>
                 <div class="ec-hero__title">
                     {{ $funeral_case->client?->full_name ?? 'Client N/A' }}
                 </div>
@@ -567,10 +579,10 @@ html[data-theme='dark'] .ec-banner     { background: #2a0a0a; border-color: #7f1
                 </div>
 
                 <div class="ec-field">
-                    <label class="ec-label" for="ec_dod">Date of Death</label>
+                    <label class="ec-label" for="ec_dod">Date of Death <span class="ec-req" aria-hidden="true">*</span></label>
                     <input type="date" id="ec_dod" name="date_of_death"
                         value="{{ old('date_of_death', $funeral_case->deceased?->died?->format('Y-m-d') ?? $funeral_case->deceased?->date_of_death?->format('Y-m-d')) }}"
-                        class="form-input w-full">
+                        class="form-input w-full" max="{{ now()->toDateString() }}" required aria-required="true" aria-invalid="{{ $errors->has('date_of_death') ? 'true' : 'false' }}">
                     @error('date_of_death')<div class="ec-err"><i class="bi bi-exclamation-circle"></i> {{ $message }}</div>@enderror
                 </div>
 
@@ -596,10 +608,10 @@ html[data-theme='dark'] .ec-banner     { background: #2a0a0a; border-color: #7f1
                 </div>
 
                 <div class="ec-field">
-                    <label class="ec-label" for="ec_interment">Interment Date</label>
+                    <label class="ec-label" for="ec_interment">Interment Date <span class="ec-req" aria-hidden="true">*</span></label>
                     <input type="date" id="ec_interment" name="interment_at"
                         value="{{ old('interment_at', $funeral_case->interment_at?->format('Y-m-d')) }}"
-                        class="form-input w-full">
+                        class="form-input w-full" required aria-required="true" aria-invalid="{{ $errors->has('interment_at') ? 'true' : 'false' }}">
                     @error('interment_at')<div class="ec-err"><i class="bi bi-exclamation-circle"></i> {{ $message }}</div>@enderror
                 </div>
 
@@ -690,10 +702,10 @@ html[data-theme='dark'] .ec-banner     { background: #2a0a0a; border-color: #7f1
                 </div>
 
                 <div class="ec-field">
-                    <label class="ec-label" for="ec_svc_date">Funeral Ceremony Date</label>
+                    <label class="ec-label" for="ec_svc_date">Funeral Ceremony Date <span class="ec-req" aria-hidden="true">*</span></label>
                     <input type="date" id="ec_svc_date" name="funeral_service_at"
                         value="{{ old('funeral_service_at', $funeral_case->funeral_service_at?->format('Y-m-d')) }}"
-                        class="form-input w-full">
+                        class="form-input w-full" required aria-required="true" aria-invalid="{{ $errors->has('funeral_service_at') ? 'true' : 'false' }}">
                     @error('funeral_service_at')<div class="ec-err"><i class="bi bi-exclamation-circle"></i> {{ $message }}</div>@enderror
                 </div>
 
@@ -791,12 +803,12 @@ html[data-theme='dark'] .ec-banner     { background: #2a0a0a; border-color: #7f1
 
     {{-- Footer buttons ─────────────────────────────────────── --}}
     <div class="ec-footer">
-        <button type="submit" class="ec-save-btn">
-            <i class="bi bi-save2"></i> Save Changes
-        </button>
         <a href="{{ $returnTo }}" class="ec-cancel-btn">
             <i class="bi bi-x"></i> Cancel
         </a>
+        <button type="submit" class="ec-save-btn">
+            <i class="bi bi-save2"></i> Save Changes
+        </button>
     </div>
 
 </div>

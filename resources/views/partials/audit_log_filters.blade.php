@@ -11,6 +11,11 @@
     foreach ($auditRanges as $label => $range) {
         if (($filters['date_from'] ?? '') === $range[0] && ($filters['date_to'] ?? '') === $range[1]) $auditDateLabel = $label;
     }
+    $hasAuditFilters = !empty($filters['audit_log_id'])
+        || !empty($filters['user_id'])
+        || !empty($filters['action_type'])
+        || !empty($filters['date_from'])
+        || !empty($filters['date_to']);
 @endphp
 <form method="GET" action="{{ route('admin.audit-logs.index') }}" class="audit-compact-toolbar" data-audit-compact>
     @if(!empty($filters['audit_log_id']))
@@ -41,7 +46,9 @@
         <span class="audit-filter-control is-select"><select name="per_page" class="audit-select">@foreach($perPageOptions as $size)<option value="{{ $size }}" @selected((int)($filters['per_page'] ?? 25) === $size)>{{ $size }}</option>@endforeach</select></span>
     </label>
     <div class="audit-compact-actions">
-        <a href="{{ route('admin.audit-logs.index') }}" class="audit-action"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>Clear</a>
+        @if($hasAuditFilters)
+        <a href="{{ route('admin.audit-logs.index') }}" class="audit-action filter-clear-action"><i class="bi bi-x-circle" aria-hidden="true"></i>Clear</a>
+        @endif
         <a href="{{ route('admin.audit-logs.exportPdf', request()->query()) }}" class="audit-action" target="_blank" rel="noopener"><i class="bi bi-filetype-pdf" aria-hidden="true"></i>PDF</a>
         <noscript><button type="submit" class="audit-action audit-action-primary">Apply</button></noscript>
     </div>

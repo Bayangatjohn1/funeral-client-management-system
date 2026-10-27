@@ -43,10 +43,7 @@
         }
     </style>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Syne:wght@700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="{{ asset('vendor/offline/fonts.css') }}" rel="stylesheet">
     <link rel="icon" href="{{ asset('images/login-logo.png') }}" type="image/png">
     <link rel="shortcut icon" href="{{ asset('images/login-logo.png') }}" type="image/png">
 
@@ -54,7 +51,7 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="panel-shell-body{{ auth()->user()?->role === 'staff' ? ' staff-ui' : '' }}{{ auth()->user()?->isBranchAdmin() ? ' branch-admin-ui' : '' }}{{ auth()->user()?->isSystemAdmin() ? ' system-admin-ui' : '' }}" data-sidebar-manual>
+<body class="panel-shell-body{{ auth()->user()?->role === 'staff' ? ' staff-ui' : '' }}{{ auth()->user()?->isBranchAdmin() ? ' branch-admin-ui' : '' }}{{ auth()->user()?->isSystemAdmin() ? ' system-admin-ui' : '' }}{{ auth()->user()?->isOwner() ? ' owner-ui' : '' }}" data-sidebar-manual>
     <script>
         (function () {
             const desktopMedia = window.matchMedia('(min-width: 1024px)');
@@ -215,7 +212,7 @@
             @endphp
 
             @unless($hideLayoutTopbar)
-            <header class="topbar">
+            <header class="topbar panel-title-surface centered-page-header">
                 <div class="topbar-leading">
                     <button
                         type="button"
@@ -229,7 +226,7 @@
                     </button>
 
                     <div class="topbar-heading">
-                        <h1 class="topbar-title"><x-page-title-icon inline />@yield('page_title', 'Dashboard')</h1>
+                        <h1 class="topbar-title">@yield('page_title', 'Dashboard')</h1>
                         @if($pageDesc !== '')
                             <div class="topbar-desc">@yield('page_desc')</div>
                         @endif
@@ -248,7 +245,7 @@
                         <button
                             type="button"
                             class="topbar-notification {{ $isReminderPage ? 'is-active' : '' }}"
-                            aria-label="Open reminders and schedule"
+                            aria-label="Open schedules and reminders"
                             aria-expanded="false"
                             data-notification-toggle
                         >
@@ -353,9 +350,9 @@
                             <div class="topbar-notification-menu__footer">
                                 <button type="button" class="topbar-notification-footer-btn" data-notification-mark-read>Mark all as read</button>
                                 @if($notificationHref)
-                                    <a href="{{ $notificationHref }}" class="topbar-notification-footer-btn is-primary">Open Reminders <i class="bi bi-arrow-up-right"></i></a>
+                                    <a href="{{ $notificationHref }}" class="topbar-notification-footer-btn is-primary">Open Schedules <i class="bi bi-arrow-up-right"></i></a>
                                 @else
-                                    <button type="button" class="topbar-notification-footer-btn is-primary" disabled>Open Reminders</button>
+                                    <button type="button" class="topbar-notification-footer-btn is-primary" disabled>Open Schedules</button>
                                 @endif
                             </div>
                         </div>
@@ -387,7 +384,7 @@
 
             <main class="page-content">
                 @if($showInlinePageHeader)
-                    <div class="panel-page-header">
+                    <div class="panel-page-header panel-title-surface">
                         <div class="panel-page-header__leading">
                             <button
                                 type="button"
@@ -401,9 +398,6 @@
                             </button>
                             @hasSection('page_back')
                                 @yield('page_back')
-                            @endif
-                            @if(! str_contains($__env->yieldContent('page_back'), 'user-page-title-icon') && ! str_contains($__env->yieldContent('page_back'), 'branch-header-icon'))
-                                <x-page-title-icon />
                             @endif
                             <div class="panel-page-header__copy">
                                 <h1>@yield('page_title', 'Dashboard')@hasSection('page_title_badge')<span class="panel-page-header__badge">@yield('page_title_badge')</span>@endif</h1>
@@ -427,7 +421,9 @@
                 @if(auth()->user()?->isSystemAdmin() && request('return_to') === url('/admin') && !request()->is('admin'))
                     <div class="px-4 py-2"><a class="btn btn-secondary" href="{{ url('/admin') }}"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Dashboard</a></div>
                 @endif
+                @include('partials.branch-sync-status')
                 @yield('content')
+                @include('partials.panel_scroll_top')
                 @include('partials.uniform_filter_styles')
                 @include('partials.shared_filter_ui')
             </main>
@@ -995,6 +991,15 @@
             const countEls = [...menu.querySelectorAll('[data-notification-count]')];
             const summary = menu.querySelector('[data-notification-summary]');
 
+            const positionNotificationMenu = () => {
+                if (menu.hidden || !window.matchMedia('(max-width: 640px)').matches) return;
+                const top = Math.max(12, Math.min(toggle.getBoundingClientRect().bottom + 8, window.innerHeight - menu.offsetHeight - 12));
+                menu.style.setProperty('--notification-top', `${top}px`);
+            };
+
+            window.addEventListener('resize', positionNotificationMenu, { passive: true });
+            window.addEventListener('scroll', positionNotificationMenu, { passive: true, capture: true });
+
             const updateVisibleState = (bucket = 'all') => {
                 cards.forEach((card) => {
                     const cardBuckets = (card.getAttribute('data-buckets') || card.getAttribute('data-bucket') || '').split(/\s+/);
@@ -1054,6 +1059,7 @@
             const openMenu = () => {
                 toggle.setAttribute('aria-expanded', 'true');
                 menu.hidden = false;
+                positionNotificationMenu();
             };
 
             toggle.addEventListener('click', (event) => {
@@ -1149,7 +1155,11 @@
         })();
 
     </script>
-@include('partials.panel_scroll_top')
+
 @include('partials.idle_session')
+@include('partials.page-title-surface')
+@if(auth()->user()?->isOwner())
+@include('owner.partials.visual-reference')
+@endif
 </body>
 </html>

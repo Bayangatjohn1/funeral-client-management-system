@@ -1,22 +1,10 @@
 @extends('layouts.panel')
 
-@section('page_title', 'Reminders & Schedules')
+@section('page_title', 'Schedules & Reminders')
 @section('page_desc', 'Track wake periods, funeral ceremonies, interments, and payment follow-ups.')
-
-@section('page_back')
-    <a
-        href="{{ request()->routeIs('admin.*') ? url('/admin') : url('/staff') }}"
-        class="rp-back rp-header-back"
-        aria-label="Back"
-        data-label="Back"
-    >
-        <i class="bi bi-chevron-left" aria-hidden="true"></i>
-    </a>
-@endsection
 
 @php
     $remindersRoute = request()->routeIs('admin.*') ? 'admin.reminders.index' : 'staff.reminders.index';
-    $dashboardUrl   = request()->routeIs('admin.*') ? url('/admin') : url('/staff');
     $selectedBranch = $branchChoices->firstWhere('id', $selectedBranchId ?? null);
     $hasBranchSwitcher = $branchChoices->count() > 1;
     $dueWindow = $filters['due_window'] ?? (request()->filled('date') ? 'custom' : 'any');
@@ -90,67 +78,6 @@
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-    }
-
-    /* ── Back button ──────────────────────────────────────────── */
-    .rp-back {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        width: fit-content;
-        padding: 8px 13px;
-        border: 1px solid #c8d6c3;
-        border-radius: 10px;
-        font-size: 11px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: #3a3f3a;
-        background: #FAFAF7;
-        text-decoration: none;
-        transition: background .15s, border-color .15s, color .15s;
-    }
-    .rp-back:hover { background: #F3F0E8; border-color: #3E4A3D; color: #3E4A3D; }
-    .rp-back:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(62,74,61,0.18); }
-    .rp-header-back {
-        position: relative;
-        flex: 0 0 36px;
-        width: 36px;
-        height: 36px;
-        margin-top: 1px;
-        padding: 0;
-        justify-content: center;
-        border-radius: 10px;
-    }
-    .rp-header-back i { font-size: 15px; }
-    .rp-header-back::after {
-        content: attr(data-label);
-        position: absolute;
-        top: calc(100% + 7px);
-        left: 0;
-        z-index: 40;
-        padding: 5px 8px;
-        border-radius: 7px;
-        background: #243126;
-        color: #fff;
-        font-size: 10px;
-        font-weight: 700;
-        line-height: 1;
-        text-transform: none;
-        letter-spacing: 0;
-        white-space: nowrap;
-        box-shadow: 0 5px 14px rgba(20, 35, 24, .18);
-        opacity: 0;
-        visibility: hidden;
-        transform: translateY(-2px);
-        transition: opacity .15s ease, transform .15s ease, visibility .15s ease;
-        pointer-events: none;
-    }
-    .rp-header-back:hover::after,
-    .rp-header-back:focus-visible::after {
-        opacity: 1;
-        visibility: visible;
-        transform: translateY(0);
     }
 
     /* ── Filter card ──────────────────────────────────────────── */
@@ -736,10 +663,8 @@
     html[data-theme='dark'] .rp-field select { background: #132844; border-color: #3b5677; color: #eef5ff !important; }
     html[data-theme='dark'] .rp-field select option { background: #132844; color: #eef5ff; }
     html[data-theme='dark'] .rp-filter-card__title { color: #7fa3c8; }
-    html[data-theme='dark'] .rp-filter-reset { color: #6a8aa8; background: #162b47; border-color: #335074; }
+    html[data-theme='dark'] .rp-filter-reset { color: #B9D2E8; background: #162b47; border-color: #335074; }
     html[data-theme='dark'] .rp-filter-reset:hover { color: #a8c8e8; background: #1a3251; border-color: #44658f; }
-    html[data-theme='dark'] .rp-back { background: #162b47; border-color: #335074; color: #d9e7fb; }
-    html[data-theme='dark'] .rp-back:hover { background: #1a3251; border-color: #44658f; color: #fff; }
     html[data-theme='dark'] .rp-field label { color: #6a8baa; }
     html[data-theme='dark'] .rp-filter-note { color: #506880; }
     html[data-theme='dark'] .rp-tabs-row { border-bottom-color: #1e3a57; }
@@ -818,7 +743,7 @@
             'current_wake' => collect($currentWakeItems ?? []),
             'today'    => $reminders->whereIn('type', ['wake_start_today', 'wake_end_today', 'service_today', 'interment_today']),
             'upcoming' => $reminders->whereIn('type', ['upcoming_wake_start', 'upcoming_wake_end', 'upcoming_service', 'upcoming_interment']),
-            'warnings' => $reminders->whereIn('type', ['interment_approaching', 'interment_completed']),
+            'warnings' => $reminders->whereIn('type', ['interment_approaching', 'interment_completed', 'interment_date_completed', 'interment_date_today_balance']),
             'unpaid'   => $reminders->where('type', 'balance'),
         ];
 
@@ -841,7 +766,10 @@
             'upcoming_interment' => ['label' => 'Interment',         'class' => 'chip-indigo'],
             'interment_approaching' => ['label' => 'Upcoming Interment With Balance', 'class' => 'chip-orange'],
             'interment_completed'   => ['label' => 'Balance After Interment',          'class' => 'chip-red'],
-            'same_day_schedule'     => ['label' => 'Same-Day Schedule',                'class' => 'chip-blue'],
+            'interment_date_completed' => ['label' => 'Balance After Scheduled Interment Date', 'class' => 'chip-red'],
+            'interment_date_today_balance' => ['label' => 'Interment Today — Balance to Review', 'class' => 'chip-orange'],
+            'same_day_service_schedule' => ['label' => 'Same-Day Service Schedule', 'class' => 'chip-blue'],
+            'same_day_interment_schedule' => ['label' => 'Same-Day Interment Schedule', 'class' => 'chip-blue'],
         ];
 
         // Payment status badge
@@ -889,7 +817,7 @@
 
                     // Collect same-day schedule entries for staff awareness.
                     $conflicts = $group
-                        ->where('type', 'same_day_schedule')
+                        ->filter(fn ($item) => str_starts_with($item['type'], 'same_day_'))
                         ->pluck('conflict')
                         ->filter()
                         ->values()
@@ -900,7 +828,7 @@
                         'case_code' => $first['case_code'] ?? 'N/A',
                         'case'      => $first['case'] ?? null,
                         'types'     => $group->pluck('type')->unique()->values()->toArray(),
-                        'events'    => $group->sortBy('sort_date')->values(),
+                        'events'    => app(\App\Services\ReminderService::class)->sortReminders($group)->values(),
                         'date'      => $first['date'] ?? null,
                         'conflicts' => $conflicts, // schedule conflicts with other cases
                     ];
@@ -943,13 +871,13 @@
                         $types         = $card['types'];
                         $scheduleEvents = collect($card['events'] ?? []);
                         $isOperationalScheduleTab = in_array($activeTab, ['current_wake', 'today', 'upcoming'], true);
-                        $typePriority = ['interment_completed', 'interment_approaching', 'same_day_schedule', 'current_wake', 'service_today', 'interment_today', 'upcoming_interment', 'balance', 'upcoming_service'];
+                        $typePriority = ['interment_completed', 'interment_date_completed', 'interment_approaching', 'interment_date_today_balance', 'same_day_interment_schedule', 'same_day_service_schedule', 'current_wake', 'wake_start_today', 'wake_end_today', 'service_today', 'interment_today', 'upcoming_wake_start', 'upcoming_wake_end', 'upcoming_interment', 'balance', 'upcoming_service'];
                         $dominantType = collect($typePriority)->first(fn($type) => in_array($type, $types, true)) ?? ($types[0] ?? 'alert');
 
                         // Build unique chip list — avoid showing "Unpaid Balance" chip + pay status chip redundantly
                         if ($activeTab === 'warnings') {
                             $chips = collect($types)
-                                ->reject(fn($type) => $type === 'interment_completed')
+                                ->reject(fn($type) => in_array($type, ['interment_completed', 'interment_date_completed'], true))
                                 ->map(fn($type) => $typeChip[$type] ?? null)
                                 ->filter()
                                 ->unique('label')
@@ -984,13 +912,13 @@
                         $showBalance = $isUnpaid
                             && $case
                             && in_array($activeTab, ['all', 'warnings', 'unpaid'], true)
-                            && (bool) array_intersect($types, ['balance', 'interment_approaching', 'interment_completed']);
+                            && (bool) array_intersect($types, ['balance', 'interment_approaching', 'interment_completed', 'interment_date_completed', 'interment_date_today_balance']);
                         $showInterment = $intermentSchedule && match ($activeTab) {
                             'today' => in_array('interment_today', $types, true),
                             'upcoming' => (bool) array_intersect($types, ['upcoming_service', 'upcoming_interment']),
-                            'warnings' => (bool) array_intersect($types, ['interment_approaching', 'interment_completed']),
+                            'warnings' => (bool) array_intersect($types, ['interment_approaching', 'interment_completed', 'interment_date_completed', 'interment_date_today_balance']),
                             'unpaid' => false,
-                            default => (bool) array_intersect($types, ['interment_today', 'upcoming_interment', 'interment_approaching', 'interment_completed']),
+                            default => (bool) array_intersect($types, ['interment_today', 'upcoming_interment', 'interment_approaching', 'interment_completed', 'interment_date_completed', 'interment_date_today_balance']),
                         };
                         $showService = $serviceSchedule && match ($activeTab) {
                             'today' => in_array('service_today', $types, true),
@@ -1000,8 +928,10 @@
                         $reason = [
                             'current_wake' => 'The wake period is currently active for this case.',
                             'interment_completed' => 'The interment has passed and this case still has a remaining balance.',
+                            'interment_date_completed' => 'The scheduled interment date has passed and this case still has a remaining balance.',
                             'interment_approaching' => 'The interment is within the next 24 hours and this case has a remaining balance.',
-                            'same_day_schedule' => 'Another service or interment is scheduled on the same day.',
+                            'interment_date_today_balance' => 'Interment is scheduled today, but no interment time was recorded and a remaining balance remains.',
+                            'same_day_service_schedule', 'same_day_interment_schedule' => 'Another service or interment is scheduled on the same day.',
                             'service_today' => 'Funeral Ceremony scheduled for today.',
                             'interment_today' => 'Interment scheduled for today.',
                             'upcoming_interment' => 'Upcoming interment schedule.',
@@ -1009,7 +939,7 @@
                             'balance' => 'This case has a remaining balance.',
                         ][$dominantType] ?? 'Case reminder for staff review.';
 
-                        if ($dominantType === 'interment_completed') {
+                        if (in_array($dominantType, ['interment_completed', 'interment_date_completed'], true)) {
                             $reason = $paymentStatus === 'UNPAID'
                                 ? 'Scheduled interment time has passed, but no payment has been recorded. Please review the case.'
                                 : 'Scheduled interment time has passed, and a remaining balance is still recorded. Please review the payment record.';
@@ -1018,7 +948,7 @@
                             $reason = $paymentStatus === 'UNPAID'
                                 ? "Interment is scheduled {$scheduleDay}, and no payment has been recorded. Please review the case."
                                 : "Interment is scheduled {$scheduleDay}, and a remaining balance is recorded. Please review the payment record.";
-                        } elseif ($dominantType === 'same_day_schedule') {
+                        } elseif (in_array($dominantType, ['same_day_service_schedule', 'same_day_interment_schedule'], true)) {
                             $conflictTypes = collect($card['conflicts'])->pluck('type')->unique();
                             $scheduleName = $conflictTypes->count() === 1
                                 ? ($conflictTypes->first() === 'interment' ? 'interment' : 'service')
@@ -1026,7 +956,7 @@
                             $reason = "Another {$scheduleName} is scheduled on the same day. Please review the schedules for coordination.";
                         }
 
-                        $moveCompletedDescription = $activeTab === 'warnings' && $dominantType === 'interment_completed';
+                        $moveCompletedDescription = $activeTab === 'warnings' && in_array($dominantType, ['interment_completed', 'interment_date_completed'], true);
 
                         $isPaymentAction = $activeTab === 'warnings';
                         $actionUrl = $isPaymentAction

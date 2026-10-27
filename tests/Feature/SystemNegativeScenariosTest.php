@@ -153,7 +153,7 @@ class SystemNegativeScenariosTest extends TestCase
         $this->assertDatabaseCount('funeral_cases', 0);
     }
 
-    public function test_intake_rejects_request_date_before_date_of_death(): void
+    public function test_intake_uses_server_recording_date_instead_of_a_posted_earlier_date(): void
     {
         $mainBranch = $this->createBranch('BR001', 'Main Branch');
         $staff = $this->createUser('staff', $mainBranch, true);
@@ -172,11 +172,12 @@ class SystemNegativeScenariosTest extends TestCase
             'interment_at' => now()->setTime(10, 0)->format('Y-m-d H:i:s'),
         ]));
 
-        // `service_requested_at` is audit-only; earlier request timestamps are allowed
-        // as long as the funeral timeline uses `died` → `funeral_service_at` → `interment_at`.
+        // Recording date is server-owned. Posted historical values cannot backdate the record.
         $response->assertRedirect('/intake/main');
         $response->assertSessionMissing('errors');
         $this->assertDatabaseCount('funeral_cases', 1);
+        $this->assertSame(today()->toDateString(), FuneralCase::first()->service_requested_at->toDateString());
+
     }
 
     public function test_intake_rejects_future_date_of_death(): void
@@ -358,6 +359,13 @@ class SystemNegativeScenariosTest extends TestCase
     private function baseIntakePayload(Branch $branch, Package $package, array $overrides = []): array
     {
         return array_merge([
+            'payment_method' => 'none',
+            'wake_start_date' => now()->toDateString(),
+            'wake_start_time' => '07:00',
+            'wake_end_date' => now()->toDateString(),
+            'wake_end_time' => '08:00',
+            'funeral_service_time' => '09:00',
+            'interment_time' => '10:00',
             'service_requested_at' => now()->toDateString(),
             'branch_id' => $branch->id,
             'client_name' => 'Client Intake',

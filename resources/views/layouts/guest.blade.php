@@ -12,9 +12,7 @@
         @endif
 
         <!-- Fonts -->
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Syne:wght@700&display=swap" rel="stylesheet">
+        <link href="{{ asset('vendor/offline/fonts.css') }}" rel="stylesheet">
         <link rel="icon" href="{{ asset('images/login-logo.png') }}" type="image/png">
         <link rel="shortcut icon" href="{{ asset('images/login-logo.png') }}" type="image/png">
 

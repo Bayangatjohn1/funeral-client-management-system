@@ -54,12 +54,41 @@ html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .au
 .audit-compact-actions .audit-action { padding:0 12px; }
 @media(max-width:1100px) { .audit-compact-toolbar { grid-template-columns:repeat(2,minmax(0,1fr)); } .audit-compact-actions { grid-column:1 / -1; justify-content:flex-end; } }
 @media(max-width:540px) { .audit-compact-toolbar { grid-template-columns:minmax(0,1fr); } .audit-filter-popover { left:0; right:auto; } }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui):has(.audit-ref-page) .panel-page-header { background:transparent !important; border:0 !important; box-shadow:none !important; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui):has(.audit-ref-page) .panel-page-header:not(.panel-title-surface) { background:transparent !important; border:0 !important; box-shadow:none !important; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .audit-ref-page { padding:8px var(--panel-content-inline,20px) 20px; background:transparent !important; color:var(--ink); }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .audit-ref-page :is(.table-system-card,.table-system-list) { background:transparent !important; border:0 !important; box-shadow:none !important; overflow:visible; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .audit-ref-page .admin-table-card { margin-top:0; }
+html[data-theme] body.panel-shell-body.system-admin-ui .audit-ref-page .table-system-list { padding:0; margin:0; }
+html[data-theme] body.panel-shell-body.system-admin-ui .audit-ref-page .table-system-wrap { margin:0; width:100%; box-sizing:border-box; }
+html[data-theme] body.panel-shell-body.system-admin-ui .audit-ref-page .table-system-table :is(th,td) { padding:14px 16px; }
+html[data-theme] body.panel-shell-body.system-admin-ui .audit-ref-page .table-system-table :is(td,.audit-primary,.audit-secondary,.status-badge) { font-weight:400; }
+html[data-theme] body.panel-shell-body.system-admin-ui .audit-ref-page .table-system-table th { font-weight:500; }
+html[data-theme] body.panel-shell-body.system-admin-ui .audit-ref-page .audit-primary { font-size:14px; line-height:1.5; }
+html[data-theme] body.panel-shell-body.system-admin-ui .audit-ref-page .audit-secondary { font-size:13px; line-height:1.5; }
+html[data-theme] body.panel-shell-body.system-admin-ui .audit-ref-page .audit-action-text > .status-badge { align-self:flex-start; width:auto; }
+html[data-theme] body.panel-shell-body.system-admin-ui .audit-ref-page :is(.audit-select,.audit-filter-menu > summary) { font-weight:400 !important; }
+html[data-theme] body.panel-shell-body.system-admin-ui .audit-ref-page .audit-action { font-weight:500; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .audit-ref-page .admin-table-toolbar { position:sticky; top:16px; z-index:30; padding:12px; margin-bottom:16px; background:var(--card) !important; border:1px solid var(--border) !important; border-radius:12px; overflow:visible; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .audit-ref-page .audit-toolbar { grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+html[data-theme] body.panel-shell-body.system-admin-ui .audit-ref-page .audit-system-toolbar { grid-template-columns:repeat(3,minmax(120px,1fr)) auto auto; gap:8px; }
+.audit-system-actions { display:flex; align-items:center; gap:8px; }
+.audit-system-actions .audit-action { padding-inline:12px; white-space:nowrap; }
+.audit-system-secondary { display:grid; gap:12px; width:320px; }
+.audit-system-secondary > strong { font-size:13px; color:var(--ink); }
+html[data-theme] body.panel-shell-body.system-admin-ui .audit-system-secondary .is-select .audit-select { padding-left:40px; }
+.audit-system-secondary .audit-filter-control:not(.is-select) > i { display:none; }
+.audit-system-secondary .audit-date-label { position:absolute; left:12px; z-index:2; font-size:12px; color:var(--ink-muted); pointer-events:none; }
+html[data-theme] body.panel-shell-body.system-admin-ui .audit-system-secondary .audit-filter-control:not(.is-select) .audit-select { padding-left:56px; }
+.audit-more-active { font-size:11px; padding:2px 5px; border-radius:4px; background:var(--card); }
+@media(max-width:1100px) {
+    html[data-theme] body.panel-shell-body.system-admin-ui .audit-ref-page .audit-system-toolbar { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .audit-system-actions { grid-column:2 / -1; justify-content:flex-end; }
+}
+@media(max-width:600px) {
+    html[data-theme] body.panel-shell-body.system-admin-ui .audit-ref-page .audit-system-toolbar { grid-template-columns:minmax(0,1fr); }
+    .audit-system-actions { grid-column:1; justify-content:flex-start; flex-wrap:wrap; }
+    .audit-system-more .audit-filter-popover { left:0; right:auto; }
+}
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .audit-ref-page .audit-filter-control { height:44px; border:1px solid var(--border); border-radius:8px; background:var(--surface-muted); }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .audit-ref-page .audit-select { height:100%; min-height:0; border:0; border-radius:inherit; background:transparent !important; color:var(--ink); font-size:14px; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .audit-ref-page :is(.audit-filter-control > i,.audit-filter-control::after) { color:var(--ink-muted); }

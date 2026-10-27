@@ -32,7 +32,7 @@ class ServiceManagementController extends Controller
         $status = $validated['status'] ?? ($activeTab === 'caskets' ? 'available' : 'active');
 
         $packagesQuery = Package::query()
-            ->with(['packageInclusions.casketCatalog', 'packageFreebies'])
+            ->with(['packageInclusions.casketCatalog', 'packageFreebies.catalog'])
             ->orderBy('name');
 
         $packageStatsQuery = clone $packagesQuery;

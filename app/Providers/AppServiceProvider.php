@@ -22,5 +22,9 @@ class AppServiceProvider extends ServiceProvider
     {
         Paginator::defaultView('components.pagination.table');
         Paginator::defaultSimpleView('components.pagination.table');
+        if (in_array(config('branch_sync.mode'), ['central', 'branch'], true)) {
+            // Offline deployments must not follow a development server's public/hot marker.
+            \Illuminate\Support\Facades\Vite::useHotFile(storage_path('framework/branch-sync-production.hot'));
+        }
     }
 }

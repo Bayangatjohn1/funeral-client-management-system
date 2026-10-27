@@ -28,7 +28,7 @@ class ReminderController extends Controller
         }
 
         $validated = $request->validate([
-            'alert_type' => 'nullable|in:balance,service_today,interment_today,upcoming_service,upcoming_interment,interment_approaching,interment_completed,same_day_schedule,all',
+            'alert_type' => 'nullable|in:balance,wake_start_today,wake_end_today,service_today,interment_today,upcoming_wake_start,upcoming_wake_end,upcoming_service,upcoming_interment,interment_approaching,interment_completed,interment_date_completed,interment_date_today_balance,same_day_service_schedule,same_day_interment_schedule,all',
             'date' => 'nullable|date',
             'due_window' => 'nullable|in:any,today,tomorrow,this_week,next_7,this_month,custom',
             'case_status' => 'nullable|in:DRAFT,ACTIVE,COMPLETED',
@@ -46,6 +46,7 @@ class ReminderController extends Controller
         if (($validated['tab'] ?? null) === 'unpaid') {
             return redirect()->route($request->routeIs('admin.*') ? 'admin.payment-monitoring' : 'payments.history', array_filter([
                 'tab' => 'summary', 'payment_status' => 'WITH_BALANCE', 'branch_id' => $branchId,
+                'focus_case' => $validated['focus_case'] ?? null,
             ], fn ($value) => $value !== null));
         }
 
@@ -73,10 +74,8 @@ class ReminderController extends Controller
                 ]));
 
             return $items->merge($branchItems);
-        }, collect())->sortBy([
-            ['severity_rank', 'desc'],
-            ['sort_date', 'asc'],
-        ])->values();
+        }, collect());
+        $reminders = $reminderService->sortReminders($reminders)->values();
         $currentWakeItems = $reminderBranches->reduce(function (Collection $items, Branch $branch) use ($reminderService) {
             $branchItems = $reminderService
                 ->currentlyInWake((int) $branch->id, now())
@@ -94,14 +93,21 @@ class ReminderController extends Controller
                 ]));
 
             return $items->merge($branchItems);
-        }, collect())->sortBy('sort_date')->values();
+        }, collect());
+        $currentWakeItems = $reminderService->sortReminders($currentWakeItems)->values();
         $requestedTab = $validated['tab'] ?? 'schedules';
         $activeTab = $requestedTab === 'warnings' ? 'warnings' : 'schedules';
         $scheduleSection = $validated['schedule_section'] ?? match ($requestedTab) { 'current_wake' => 'ongoing', 'upcoming' => 'upcoming', default => 'today' };
         $initialDate = $requestedTab === 'upcoming' ? now()->addDay()->toDateString() : now()->toDateString();
-        if (!empty($validated['focus_case']) && !in_array($requestedTab, ['today', 'current_wake'], true)) {
-            $focused = $reminders->firstWhere('case_id', (int) $validated['focus_case']);
-            $initialDate = ($focused['date'] ?? null)?->toDateString() ?? $initialDate;
+        if (!empty($validated['focus_case']) && in_array($requestedTab, ['all', 'schedules', 'upcoming'], true) && empty($validated['schedule_section'])) {
+            // Resolve notification targets from the already authorized event set, never a global case lookup.
+            $focusedEvent = $reminders->where('case_id', (int) $validated['focus_case'])
+                ->filter(fn ($item) => !empty($item['date']) && $item['date']->gte(now()->startOfDay()))
+                ->sortBy('sort_date')->first();
+            if ($focusedEvent) {
+                $scheduleSection = $focusedEvent['date']->isToday() ? 'today' : 'upcoming';
+                $initialDate = $focusedEvent['date']->toDateString();
+            }
         }
         $calendarDate = \Carbon\Carbon::parse($validated['calendar_date'] ?? $validated['date'] ?? $initialDate)->startOfDay();
         if ($scheduleSection !== 'upcoming') $calendarDate = now()->startOfDay();
@@ -122,7 +128,7 @@ class ReminderController extends Controller
             'today' => $reminders->whereIn('type', ['wake_start_today', 'wake_end_today', 'service_today', 'interment_today'])->count(),
             'upcoming' => $reminders->whereIn('type', ['upcoming_wake_start', 'upcoming_wake_end', 'upcoming_service', 'upcoming_interment'])->count(),
         ];
-        $calendarEvents = $calendarEvents->filter(fn ($event) => $scheduleSection === 'today' ? $event['date']->isToday() : ($scheduleSection === 'upcoming' && $event['date']->toDateString() > now()->toDateString()))->sortBy('sort_date')->values();
+        $calendarEvents = $reminderService->sortReminders($calendarEvents->filter(fn ($event) => $scheduleSection === 'today' ? $event['date']->isToday() : ($scheduleSection === 'upcoming' && $event['date']->toDateString() > now()->toDateString())))->values();
         $calendarWakes = $scheduleSection === 'ongoing' ? $calendarWakes->where('active', true)->values() : collect();
 
         $scheduleSearch = $scheduleSection === 'upcoming' ? trim($validated['schedule_q'] ?? '') : '';
@@ -146,7 +152,7 @@ class ReminderController extends Controller
             'current_wake' => $currentWakeItems->pluck('case_id')->unique()->count(),
             'today'    => $reminders->whereIn('type', ['wake_start_today', 'wake_end_today', 'service_today', 'interment_today'])->count(),
             'upcoming' => $reminders->whereIn('type', ['upcoming_wake_start', 'upcoming_wake_end', 'upcoming_service', 'upcoming_interment'])->count(),
-            'warnings' => $reminders->whereIn('type', ['interment_approaching', 'interment_completed'])->pluck('case_id')->unique()->count(),
+            'warnings' => $reminders->whereIn('type', ['interment_approaching', 'interment_completed', 'interment_date_completed', 'interment_date_today_balance'])->pluck('case_id')->unique()->count(),
             'unpaid'   => $reminders->where('type', 'balance')->pluck('case_id')->unique()->count(),
         ];
 

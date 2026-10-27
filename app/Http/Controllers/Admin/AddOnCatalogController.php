@@ -182,7 +182,7 @@ class AddOnCatalogController extends Controller
 
         $add_on_catalog->update(['is_active' => ! $add_on_catalog->is_active]);
 
-        return back()->with('success', $add_on_catalog->is_active ? 'Add-on restored.' : 'Add-on archived.');
+        return back()->with('success', $add_on_catalog->name.' '.($add_on_catalog->is_active ? 'restored.' : 'archived.'));
     }
 
     private function rules(): array

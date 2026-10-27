@@ -33,7 +33,7 @@
     <button
         type="button"
         class="topbar-notification {{ ($isReminderPage ?? false) ? 'is-active' : '' }}"
-        aria-label="Open reminders and schedule"
+        aria-label="Open schedules and reminders"
         aria-expanded="false"
         data-notification-toggle
     >
@@ -47,7 +47,7 @@
         @unless($compactNotificationMenu)
             <div class="topbar-notification-menu__head">
                 <div>
-                    <strong>Reminders &amp; Schedules</strong>
+                    <strong>Schedules &amp; Reminders</strong>
                     <small data-notification-summary>{{ $notificationTotal ?? 0 }} case{{ ($notificationTotal ?? 0) === 1 ? '' : 's' }} with active reminders</small>
                 </div>
                 @if($notificationHref ?? null)
@@ -71,7 +71,9 @@
                         'today' => 'bi-calendar-day',
                         default => 'bi-calendar-event',
                     };
-                    $itemDate = $item['date']?->format('M d, Y h:i A') ?? 'No date';
+                    $itemDate = $item['date']
+                        ? ($item['has_time'] ? $item['date']->format('M d, Y h:i A') : $item['date']->format('M d, Y').' · Time not recorded')
+                        : 'No date';
                     $daysAway = $item['date']
                         ? now()->startOfDay()->diffInDays($item['date']->copy()->startOfDay(), false)
                         : null;
@@ -146,9 +148,9 @@
 
         <div class="topbar-notification-menu__footer">
             @if($notificationHref ?? null)
-                <a href="{{ $notificationHref }}" class="topbar-notification-footer-btn is-primary">Open Reminders <i class="bi bi-arrow-up-right"></i></a>
+                <a href="{{ $notificationHref }}" class="topbar-notification-footer-btn is-primary">Open Schedules <i class="bi bi-arrow-up-right"></i></a>
             @else
-                <button type="button" class="topbar-notification-footer-btn is-primary" disabled>Open Reminders</button>
+                <button type="button" class="topbar-notification-footer-btn is-primary" disabled>Open Schedules</button>
             @endif
         </div>
     </div>

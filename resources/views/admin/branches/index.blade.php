@@ -3,10 +3,6 @@
 @section('page_title', 'Branch Management')
 @section('page_desc', 'Manage branch details and status.')
 @section('hide_layout_topbar', '1')
-@section('page_back')
-    <span class="branch-header-icon" aria-hidden="true"><i class="bi bi-building"></i></span>
-@endsection
-
 @section('topbar_actions')
     <button id="openBranchCreateModal" type="button" class="btn btn-primary-custom btn-sm">
         <i class="bi bi-plus-circle" aria-hidden="true"></i>
@@ -1041,7 +1037,7 @@ html[data-theme] body.system-admin-ui .branch-management-page .table-system-pagi
     html[data-theme] body.system-admin-ui .branch-management-page .branch-kpi-strip { grid-template-columns:minmax(0,1fr); }
 }
 /* Branch directory composition follows the supplied BranchManagementView reference. */
-html[data-theme] body.system-admin-ui:has(.branch-management-page) .panel-page-header {
+html[data-theme] body.system-admin-ui:has(.branch-management-page) .panel-page-header:not(.panel-title-surface) {
     width:100% !important; margin:0; padding:1rem var(--panel-content-inline) 0; background:transparent !important;
     border:0 !important; border-radius:0 !important; box-shadow:none !important;
 }
@@ -1108,7 +1104,7 @@ html[data-theme='dark'] body.system-admin-ui .branch-management-page .branch-ref
 @media(max-width:1200px) { html[data-theme] body.system-admin-ui .branch-management-page .branch-directory-card-view > .grid { grid-template-columns:repeat(2,minmax(0,1fr)) !important; } }
 @media(max-width:750px) { html[data-theme] body.system-admin-ui .branch-management-page .branch-directory-card-view > .grid { grid-template-columns:minmax(0,1fr) !important; } }
 @media(max-width:1100px) { html[data-theme] body.system-admin-ui .branch-management-page .table-system-toolbar .table-toolbar { flex-wrap:wrap; } html[data-theme] body.system-admin-ui .branch-management-page .table-toolbar-field:first-of-type { max-width:none; } }
-@media(max-width:700px) { html[data-theme] body.system-admin-ui:has(.branch-management-page) .panel-page-header { margin:0; padding:.75rem var(--panel-content-inline) 0; } html[data-theme] body.system-admin-ui .branch-management-page .table-toolbar-field:first-of-type, html[data-theme] body.system-admin-ui .branch-management-page .table-toolbar-field:not(:first-of-type) { flex:1 1 100%; max-width:none; } html[data-theme] body.system-admin-ui .branch-management-page .branch-status-segments { width:100%; } html[data-theme] body.system-admin-ui .branch-management-page .branch-status-segments button { flex:1; } }
+@media(max-width:700px) { html[data-theme] body.system-admin-ui:has(.branch-management-page) .panel-page-header:not(.panel-title-surface) { margin:0; padding:.75rem var(--panel-content-inline) 0; } html[data-theme] body.system-admin-ui .branch-management-page .table-toolbar-field:first-of-type, html[data-theme] body.system-admin-ui .branch-management-page .table-toolbar-field:not(:first-of-type) { flex:1 1 100%; max-width:none; } html[data-theme] body.system-admin-ui .branch-management-page .branch-status-segments { width:100%; } html[data-theme] body.system-admin-ui .branch-management-page .branch-status-segments button { flex:1; } }
 /* Compact Add Branch form, scoped so the existing branch-details modal is unchanged. */
 #branchCreateModalSheet { width:min(640px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); border-radius:1rem !important; }
 #branchCreateModalSheet .branch-create-scroll { max-height:calc(100dvh - 34px); overflow-y:auto; }

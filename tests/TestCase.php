@@ -37,14 +37,23 @@ abstract class TestCase extends BaseTestCase
         $testConnection = $_ENV['DB_CONNECTION'] ?? $_SERVER['DB_CONNECTION'] ?? null;
         $testDatabase = $_ENV['DB_DATABASE'] ?? $_SERVER['DB_DATABASE'] ?? null;
 
-        if ($testConnection !== 'sqlite' || $testDatabase !== ':memory:') {
+        $mysqlValidation = ($_ENV['OFFLINE_MYSQL_VALIDATION'] ?? null) === '1'
+            && $testConnection === 'mysql' && $testDatabase === 'offline_validation_20261021'
+            && ($_ENV['DB_HOST'] ?? null) === '127.0.0.1';
+        if (! $mysqlValidation && ($testConnection !== 'sqlite' || $testDatabase !== ':memory:')) {
             throw new \RuntimeException(
                 'Unsafe test database configuration. PHPUnit must use sqlite with DB_DATABASE=:memory:.'
             );
         }
 
         $app['config']->set('app.env', 'testing');
-        $app['config']->set('database.default', 'sqlite');
+        $app['config']->set('database.default', $mysqlValidation ? 'mysql' : 'sqlite');
+        if ($mysqlValidation) {
+            $app['config']->set('database.connections.mysql', array_replace($app['config']->get('database.connections.mysql'), [
+                'url' => null, 'host' => '127.0.0.1', 'port' => 3306, 'database' => 'offline_validation_20261021',
+                'username' => $_ENV['DB_USERNAME'], 'password' => $_ENV['DB_PASSWORD'],
+            ]));
+        }
         $app['config']->set('database.connections.sqlite.database', ':memory:');
         $app['config']->set('cache.default', 'array');
         $app['config']->set('session.driver', 'array');

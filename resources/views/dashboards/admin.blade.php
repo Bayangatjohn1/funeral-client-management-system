@@ -619,8 +619,7 @@
     .admin-dashboard-shell .dashboard-click-card:hover,
     .admin-dashboard-shell .admin-financial-card:hover,
     .admin-dashboard-shell .admin-top-controls select:hover,
-    .admin-dashboard-shell .input-custom:hover,
-    .admin-dashboard-shell .topbar-notification:hover {
+    .admin-dashboard-shell .input-custom:hover {
         background-color: var(--color-bg-muted) !important;
         border-color: var(--color-border-strong) !important;
         color: var(--color-text-primary) !important;
@@ -684,16 +683,16 @@
         letter-spacing: 0 !important;
     }
 
-    .admin-dashboard-shell a[href]:focus,
-    .admin-dashboard-shell button:focus,
-    .admin-dashboard-shell select:focus,
-    .admin-dashboard-shell input:focus,
-    .admin-dashboard-shell [role="button"]:focus,
-    .admin-dashboard-shell a[href]:focus-visible,
-    .admin-dashboard-shell button:focus-visible,
-    .admin-dashboard-shell select:focus-visible,
-    .admin-dashboard-shell input:focus-visible,
-    .admin-dashboard-shell [role="button"]:focus-visible {
+    .admin-dashboard-shell a[href]:focus:not([data-notification] *),
+    .admin-dashboard-shell button:focus:not([data-notification] *),
+    .admin-dashboard-shell select:focus:not([data-notification] *),
+    .admin-dashboard-shell input:focus:not([data-notification] *),
+    .admin-dashboard-shell [role="button"]:focus:not([data-notification] *),
+    .admin-dashboard-shell a[href]:focus-visible:not([data-notification] *),
+    .admin-dashboard-shell button:focus-visible:not([data-notification] *),
+    .admin-dashboard-shell select:focus-visible:not([data-notification] *),
+    .admin-dashboard-shell input:focus-visible:not([data-notification] *),
+    .admin-dashboard-shell [role="button"]:focus-visible:not([data-notification] *) {
         outline: none !important;
         outline-offset: 0 !important;
         box-shadow: none !important;
@@ -704,8 +703,7 @@
     .admin-dashboard-shell .admin-financial-card:hover,
     .admin-dashboard-shell .admin-top-controls select:hover,
     .admin-dashboard-shell .input-custom:hover,
-    .admin-dashboard-shell .admin-date-filter-link:hover,
-    .admin-dashboard-shell .topbar-notification:hover {
+    .admin-dashboard-shell .admin-date-filter-link:hover {
         background-color: #DDE6D8 !important;
         border-color: #8B9A8B !important;
         color: var(--color-text-primary) !important;
@@ -714,8 +712,8 @@
     .admin-dashboard-shell .is-active,
     .admin-dashboard-shell .active,
     .admin-dashboard-shell [aria-pressed="true"],
-    .admin-dashboard-shell a[href]:focus-visible,
-    .admin-dashboard-shell button:focus-visible,
+    .admin-dashboard-shell a[href]:focus-visible:not([data-notification] *),
+    .admin-dashboard-shell button:focus-visible:not([data-notification] *),
     .admin-dashboard-shell select:focus,
     .admin-dashboard-shell .input-custom:focus {
         border-color: var(--color-primary) !important;
@@ -2677,41 +2675,11 @@
             overflow-y: auto;
         }
     }
-    /* Flat page heading shared with the rest of the application dashboards. */
-    .admin-dashboard-greeting.admin-dashboard-greeting--flat {
-        padding: .25rem 0 .75rem;
-        border: 0 !important;
-        border-radius: 0 !important;
-        background: transparent !important;
-        box-shadow: none !important;
-        overflow: visible;
-    }
-
-    html:not([data-theme='dark']) .admin-dashboard-shell .admin-dashboard-greeting.admin-dashboard-greeting--flat {
-        border:0 !important;
-        border-color:transparent !important;
-        background:transparent !important;
-        background-color:transparent !important;
-        box-shadow:none !important;
-        overflow:visible;
-    }
-
-    html[data-theme='dark'] .admin-dashboard-shell .admin-dashboard-greeting.admin-dashboard-greeting--flat {
-        border: 0 !important;
-        background: transparent !important;
-        background-color:transparent !important;
-    }
-
-    @media (max-width: 767px) {
-        .admin-dashboard-greeting.admin-dashboard-greeting--flat {
-            padding: .2rem 0 .65rem;
-        }
-    }
 </style>
 
 <div class="dashboard-fit-page">
 <div class="admin-dashboard-shell {{ $isBranchAdmin ? 'branch-admin-view' : '' }} w-full space-y-6 antialiased text-slate-900 animate-float-up">
-    <section class="admin-dashboard-greeting admin-dashboard-greeting--flat">
+    <section class="admin-dashboard-greeting panel-title-surface">
         <div class="admin-dashboard-greeting__title">
             <button
                 type="button"
@@ -2726,8 +2694,7 @@
             <div>
                 @if($isBranchAdmin)
                     <div class="branch-dashboard-title-row"><h1><x-page-title-icon icon="grid" inline />Dashboard</h1><span class="branch-dashboard-context-badge">Daily Operations</span></div>
-                    <p>Overview of branch cases, schedules, and payments.</p>
-                    <span class="branch-dashboard-name">{{ $adminBranchLabel }}</span>
+                    <p class="branch-dashboard-name">@if($adminBranch){{ $adminBranch->branch_code }} &mdash; {{ $adminBranch->branch_name }}@else{{ $adminBranchLabel }}@endif</p>
                 @else
                     <h1><x-page-title-icon icon="grid" inline />Good day, {{ $adminFirstName }}</h1>
                     <p>{{ $adminSubtitle }}</p>
@@ -3195,7 +3162,7 @@
                                     <div class="branch-record-card__field"><strong>{{ $item['ends_at']?->format('M d, Y · g:i A') ?? 'Not set' }}</strong><small>Expected End</small></div>
                                 </div>
                             </div>
-                            <a class="branch-row-destination" href="{{ $caseDetailsUrl }}" aria-label="View Case Details for {{ $item['case_code'] }}"><i class="bi bi-eye" aria-hidden="true"></i><span class="branch-row-destination__label" aria-hidden="true">View Case Details</span></a>
+                            <a data-branch-case-summary class="branch-row-destination" href="{{ $caseDetailsUrl }}" aria-label="View Case Details for {{ $item['case_code'] }}"><i class="bi bi-eye" aria-hidden="true"></i><span class="branch-row-destination__label" aria-hidden="true">View Case Details</span></a>
                         </article>
                     @empty
                         <div class="branch-record-empty">No cases are currently in wake.</div>
@@ -3231,7 +3198,7 @@
                                     <span class="branch-record-card__event-meta"><i class="bi bi-geo-alt" aria-hidden="true"></i> {{ $item['location'] ?: 'Location not set' }}</span>
                                 </div>
                             </div>
-                            <a class="branch-row-destination" href="{{ $caseDetailsUrl }}" aria-label="View Case Details for {{ $item['case_code'] ?? 'case' }}"><i class="bi bi-eye" aria-hidden="true"></i><span class="branch-row-destination__label" aria-hidden="true">View Case Details</span></a>
+                            <a data-branch-case-summary class="branch-row-destination" href="{{ $caseDetailsUrl }}" aria-label="View Case Details for {{ $item['case_code'] ?? 'case' }}"><i class="bi bi-eye" aria-hidden="true"></i><span class="branch-row-destination__label" aria-hidden="true">View Case Details</span></a>
                         </article>
                     @empty
                         <div class="branch-record-empty">No scheduled events today.</div>
@@ -3274,7 +3241,7 @@
                                             </div>
                                         @endforeach
                             </div>
-                            <a class="branch-row-destination" href="{{ $caseDetailsUrl }}" aria-label="View Case Details for {{ $caseGroup['case_code'] }}"><i class="bi bi-eye" aria-hidden="true"></i><span class="branch-row-destination__label" aria-hidden="true">View Case Details</span></a>
+                            <a data-branch-case-summary class="branch-row-destination" href="{{ $caseDetailsUrl }}" aria-label="View Case Details for {{ $caseGroup['case_code'] }}"><i class="bi bi-eye" aria-hidden="true"></i><span class="branch-row-destination__label" aria-hidden="true">View Case Details</span></a>
                         </article>
                     @empty
                         <div class="branch-record-empty">No upcoming schedules in the next seven days.</div>
@@ -3295,8 +3262,18 @@
                 <div class="branch-balance-list">
                     @forelse($balanceCases->take(3) as $item)
                         @php $itemPaymentUrl = route('admin.payment-monitoring', array_merge($branchLinkParams, ['payment_status' => 'WITH_BALANCE', 'q' => $item['case_code'] ?? '', 'tab' => 'summary'])); @endphp
-                        <a href="{{ $itemPaymentUrl }}" class="branch-balance-item">
+                        <a href="{{ $itemPaymentUrl }}" data-branch-case-summary class="branch-balance-item">
                             <span><strong>{{ $item['case_code'] ?? 'Service record' }}</strong><small>{{ $item['deceased_name'] ?? 'Deceased' }} · {{ $item['case']->client?->full_name ?? 'Client not set' }}</small></span>
+                            <template data-branch-summary-content>
+                                <dl class="branch-summary-fields">
+                                    <div><dt>Case</dt><dd>{{ $item['case_code'] }}</dd></div>
+                                    <div><dt>Deceased</dt><dd>{{ $item['deceased_name'] }}</dd></div>
+                                    <div><dt>Client</dt><dd>{{ $item['case']->client?->full_name ?? 'Not provided' }}</dd></div>
+                                    <div><dt>Total Service Value</dt><dd>PHP {{ number_format((float) data_get($item, 'case.total_amount', 0), 2) }}</dd></div>
+                                    <div><dt>Paid to date</dt><dd>PHP {{ number_format((float) data_get($item, 'case.total_paid', 0), 2) }}</dd></div>
+                                    <div><dt>Remaining balance</dt><dd>PHP {{ number_format((float) data_get($item, 'case.balance_amount', 0), 2) }}</dd></div>
+                                </dl>
+                            </template>
                             <span class="branch-balance-item__amount">PHP {{ number_format((float) data_get($item, 'case.balance_amount', 0), 2) }}</span>
                             <i class="bi bi-chevron-right" aria-hidden="true"></i>
                         </a>
@@ -3330,4 +3307,7 @@
 
 </div>
 </div>
+@if($isBranchAdmin)
+@include('dashboards.partials.branch-case-summary')
+@endif
 @endsection

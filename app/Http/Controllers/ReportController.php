@@ -208,6 +208,8 @@ class ReportController extends Controller
             'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'collection_state' => ['nullable', Rule::in(['WITH_BALANCE', 'AFTER_INTERMENT', 'WITH_PAYMENTS'])],
+            'date_basis' => ['nullable', Rule::in(['recording'])],
             'payment_status' => ['nullable', Rule::in(['PAID', 'PARTIAL', 'UNPAID'])],
             'payment_method' => ['nullable', Rule::in(['cash', 'cashless', 'bank_transfer'])],
             'case_status' => ['nullable', Rule::in(['DRAFT', 'ACTIVE', 'COMPLETED'])],
@@ -295,6 +297,15 @@ class ReportController extends Controller
             ->latest('created_at');
 
         $this->applyCommonCaseFilters($query, $request, $branchScope);
+        if ($request->filled('collection_state')) {
+            $overview = app(\App\Support\OwnerDashboardOverview::class);
+            $matchingCases = match ($request->input('collection_state')) {
+                'AFTER_INTERMENT' => $overview->risks(null),
+                'WITH_PAYMENTS' => $overview->cases(null)->where('total_paid', '>', 0),
+                default => $overview->cases(null)->where('balance_amount', '>', 0),
+            };
+            $query->whereIn('id', $matchingCases->select('id'));
+        }
 
         if ($request->filled('verification_status')) {
             $query->where('verification_status', $request->string('verification_status'));
@@ -546,7 +557,7 @@ class ReportController extends Controller
             'deceased'          => 'Deceased',
             'service'           => 'Service',
             'payment_status'    => 'Payment Status',
-            'gross_amount'      => 'Gross Amount',
+            'gross_amount'      => 'Total Service Value',
             'collected_amount'  => 'Collected Amount',
             'remaining_balance' => 'Remaining Balance',
             'last_payment_date' => 'Last Payment Date',
@@ -592,7 +603,7 @@ class ReportController extends Controller
             'paid_cases'        => 'Paid Cases',
             'partial_cases'     => 'Partial Cases',
             'unpaid_cases'      => 'Unpaid Cases',
-            'gross_amount'      => 'Gross Amount',
+            'gross_amount'      => 'Total Service Value',
             'collected_amount'  => 'Collected Amount',
             'remaining_balance' => 'Remaining Balance',
         ][$metric] ?? $metric;
@@ -656,8 +667,10 @@ class ReportController extends Controller
             $request->filled('date_from') ? $request->input('date_from') : null,
             $request->filled('date_to') ? $request->input('date_to') : null,
         );
-        $query->when($startAt, fn ($q) => $q->whereRaw('COALESCE(service_requested_at, created_at) >= ?', [$startAt]))
-            ->when($endAt, fn ($q) => $q->whereRaw('COALESCE(service_requested_at, created_at) <= ?', [$endAt]));
+        $dateColumn = $request->input('report_type') === self::REPORT_MASTER_CASES && $request->input('date_basis') === 'recording'
+            ? 'created_at' : 'COALESCE(service_requested_at, created_at)';
+        $query->when($startAt, fn ($q) => $q->whereRaw($dateColumn.' >= ?', [$startAt]))
+            ->when($endAt, fn ($q) => $q->whereRaw($dateColumn.' <= ?', [$endAt]));
     }
 
     private function normalizeReportType(?string $reportType): string
@@ -678,20 +691,13 @@ class ReportController extends Controller
             abort(403);
         }
 
-        if ($user->isOwner() && $reportType && $reportType !== self::REPORT_OWNER_BRANCH_ANALYTICS) {
+        if ($user->isOwner() && $reportType && ! array_key_exists($reportType, $this->availableReportTypes())) {
             abort(403);
         }
     }
 
     private function availableReportTypes(): array
     {
-        $user = auth()->user();
-        if ($user?->isOwner()) {
-            return [
-                self::REPORT_OWNER_BRANCH_ANALYTICS => 'Branch Performance Report',
-            ];
-        }
-
         return [
             self::REPORT_OWNER_BRANCH_ANALYTICS => 'Branch Performance Report',
             self::REPORT_SALES => 'Collection Report',
@@ -824,9 +830,9 @@ class ReportController extends Controller
             self::REPORT_OWNER_BRANCH_ANALYTICS => [
                 'branch' => 'Branch',
                 'total_cases' => 'Cases in Period',
-                'gross_amount' => 'Total Amount Availed',
-                'collected_amount' => 'All Payments',
-                'remaining_balance' => 'Current Collectibles',
+                'gross_amount' => 'Total Service Value',
+                'collected_amount' => 'Collected',
+                'remaining_balance' => 'Remaining Balance',
                 'paid_cases' => 'Paid Cases',
                 'partial_cases' => 'Partially Paid Cases',
                 'unpaid_cases' => 'Unpaid Cases',
@@ -847,8 +853,8 @@ class ReportController extends Controller
                 'case_code' => 'Case No.',
                 'name' => 'Client / Deceased',
                 'branch' => 'Branch',
-                'total_amount' => 'Total Amount Availed',
-                'total_paid' => 'Total Paid',
+                'total_amount' => 'Total Service Value',
+                'total_paid' => 'Collected',
                 'balance' => 'Remaining Balance',
                 'case_status' => 'Case Status',
                 'payment_status' => 'Payment Status',

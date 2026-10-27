@@ -3,6 +3,8 @@
 @section('page_title', 'Record Retention')
 @section('page_desc', 'Review five-year retention deadlines and manage auditable legal holds.')
 
+@section('suppress_layout_page_header', '1')
+
 @section('content')
 @php
     $activeStatus = request('status');
@@ -20,7 +22,7 @@
 </style>
 
 <div class="retention-page retention-stack animate-float-up">
-    <header class="retention-hero"><div class="retention-hero-copy"><button type="button" id="mobileSidebarToggle" class="mobile-menu-btn" aria-label="Open navigation" aria-expanded="false" aria-controls="appSidebar"><i class="bi bi-list"></i></button><span class="retention-icon"><i class="bi bi-hourglass-split"></i></span><div><h1>Record Retention</h1><p>Five-year retention monitoring and legal-hold governance across all branches.</p></div></div><div class="policy-chip"><i class="bi bi-shield-lock"></i>Review-only disposal policy</div></header>
+    <header class="retention-hero panel-title-surface centered-page-header"><div class="retention-hero-copy"><button type="button" id="mobileSidebarToggle" class="mobile-menu-btn" aria-label="Open navigation" aria-expanded="false" aria-controls="appSidebar"><i class="bi bi-list"></i></button><div><h1>Record Retention</h1><p>Five-year retention monitoring and legal-hold governance across all branches.</p></div></div><div class="policy-chip"><i class="bi bi-shield-lock"></i>Review-only disposal policy</div></header>
 
     @if(session('success'))<div class="retention-alert success" role="status"><i class="bi bi-check-circle-fill"></i><strong>{{ session('success') }}</strong></div>@endif
     @if($errors->any())<div class="retention-alert error" role="alert"><i class="bi bi-exclamation-circle-fill"></i><div><strong>The legal-hold request could not be completed:</strong><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div></div>@endif

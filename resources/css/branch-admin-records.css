@@ -1,6 +1,6 @@
 /* Case Records counterpart: staff remaining-pages-visual-system, not dashboard tables.
    Branch-only scope preserves the System Admin consumer of the same Blade view. */
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui):has(.master-records-page) {
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.master-records-page) {
     --border-strong: #C6D4CB;
     --records-card: var(--card);
     --records-card-alt: var(--surface-muted);
@@ -10,12 +10,12 @@ html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui):has
     --records-text: var(--ink);
     --records-muted: var(--ink-muted);
 }
-html[data-theme='dark'] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui):has(.master-records-page) {
+html[data-theme='dark'] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.master-records-page) {
     --border: #264333;
     --border-strong: #41634F;
     --records-card-strong: #183124;
 }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page {
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page {
     --records-card: var(--card);
     --records-card-alt: var(--surface-muted);
     --records-card-strong: #EBF3ED;
@@ -29,33 +29,33 @@ html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .ma
     max-height: none !important;
     overflow: visible !important;
 }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page :is(.table-system-list, .table-system-wrap, .table-wrapper) {
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page :is(.table-system-list, .table-system-wrap, .table-wrapper) {
     flex: 0 0 auto !important;
     height: auto !important;
     max-height: none !important;
 }
-html[data-theme='dark'] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page { --records-card-strong: #183124; }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui):has(.master-records-page) .panel-page-header {
+html[data-theme='dark'] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page { --records-card-strong: #183124; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.master-records-page) .panel-page-header:not(.panel-title-surface) {
     background: transparent !important;
     border: 0 !important;
     box-shadow: none !important;
 }
-html[data-theme='dark'] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui):has(.master-records-page) .panel-page-header__copy p { color: var(--brand) !important; }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page :is(.table-primary, .table-financial-total) {
+html[data-theme='dark'] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.master-records-page) .panel-page-header__copy p { color: var(--brand) !important; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page :is(.table-primary, .table-financial-total) {
     font-size: 14px;
     font-weight: 600;
     line-height: 1.5;
 }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-secondary {
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .table-secondary {
     margin-top: 4px;
     font-size: 12px;
     line-height: 1.5;
 }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page :is(.case-compact-input, .case-compact-select, .case-compact-date-select, .case-compact-sort-select, .table-quick-tab) {
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page :is(.case-compact-input, .case-compact-select, .case-compact-date-select, .case-compact-sort-select, .table-quick-tab) {
     font-size: 14px !important;
     letter-spacing: normal !important;
 }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .records-view-case {
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .records-view-case {
     width: 44px;
     height: 44px;
     min-height: 44px;
@@ -64,65 +64,65 @@ html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .ma
     background: var(--surface-muted);
     border-color: var(--border);
 }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page :is(input, select, button, a[href], [data-clickable-row]):focus-visible {
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page :is(input, select, button, a[href], [data-clickable-row]):focus-visible {
     outline: 2px solid var(--brand) !important;
     outline-offset: 2px !important;
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 18%, transparent) !important;
 }
 /* Each control owns one surface; native selects inside it remain transparent. */
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar {
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar {
     background: var(--card) !important;
 }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar :is(.case-compact-search-control, .case-compact-input) {
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar :is(.case-compact-search-control, .case-compact-input) {
     background: var(--surface-muted) !important;
 }
 @media (min-width: 1201px) {
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-filter {
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar .case-compact-filter {
         grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr) auto auto !important;
         grid-template-areas: none !important;
     }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-filter-bar { display: contents !important; }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-search-field { grid-area: 1 / 1 !important; }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-date-filter { grid-area: 1 / 2 !important; }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-sort-filter { grid-area: 1 / 3 !important; }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-more { grid-area: 1 / 4 !important; }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-rows-per-page { grid-area: 1 / 5 !important; }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar :is(.case-compact-date-filter, .case-compact-sort-filter) {
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar .case-compact-filter-bar { display: contents !important; }
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar .case-compact-search-field { grid-area: 1 / 1 !important; }
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar .case-compact-date-filter { grid-area: 1 / 2 !important; }
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar .case-compact-sort-filter { grid-area: 1 / 3 !important; }
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar .case-compact-more { grid-area: 1 / 4 !important; }
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar .case-rows-per-page { grid-area: 1 / 5 !important; }
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar :is(.case-compact-date-filter, .case-compact-sort-filter) {
         width: 100% !important;
         min-width: 0 !important;
         max-width: none !important;
     }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-applied-filters {
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar .case-applied-filters {
         grid-area: 2 / 1 / 3 / 5 !important;
         width: auto !important;
         margin: 0 !important;
         align-items: center;
     }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-actions {
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar .case-compact-actions {
         grid-area: 1 / 6 !important;
         margin: 0 !important;
         justify-content: flex-end;
         align-self: center;
     }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar :is(.case-compact-chip, .case-compact-reset) {
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar :is(.case-compact-chip, .case-compact-reset) {
         min-height: 36px;
         height: auto;
         padding-block: 6px;
     }
 }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar :is(.case-compact-date-select, .case-compact-sort-select) {
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar :is(.case-compact-date-select, .case-compact-sort-select) {
     background: transparent !important;
     border: 0 !important;
     box-shadow: none !important;
 }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page :is(.table-system-card, .admin-table-card) {
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page :is(.table-system-card, .admin-table-card) {
     background: transparent !important;
     border: 0 !important;
     box-shadow: none !important;
     padding: 0 !important;
 }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .records-view-case { position: relative; overflow: visible; }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .records-action-tooltip {
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .records-view-case { position: relative; overflow: visible; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .records-action-tooltip {
     position: absolute;
     right: calc(100% + 8px);
     top: 50%;
@@ -138,8 +138,8 @@ html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .ma
     visibility: hidden;
     z-index: 10;
 }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .records-view-case:is(:hover, :focus-visible) .records-action-tooltip { opacity: 1; visibility: visible; }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-master-table {
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .records-view-case:is(:hover, :focus-visible) .records-action-tooltip { opacity: 1; visibility: visible; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-master-table {
     display: table !important;
     min-width: 1200px !important;
     width: 100% !important;
@@ -148,26 +148,26 @@ html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .ma
     border-collapse: collapse !important;
 }
 @media (max-width: 767px) {
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar :is(.case-compact-date-filter, .case-compact-sort-filter) {
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar :is(.case-compact-date-filter, .case-compact-sort-filter) {
         width: 100% !important;
         max-width: none !important;
     }
     /* Keep all eight columns and scroll only the table region. */
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-system-wrap { overflow-x: auto !important; }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-master-table colgroup { display: table-column-group !important; }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-master-table thead { display: table-header-group !important; }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-master-table tbody { display: table-row-group !important; }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-master-table tr {
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .table-system-wrap { overflow-x: auto !important; }
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-master-table colgroup { display: table-column-group !important; }
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-master-table thead { display: table-header-group !important; }
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-master-table tbody { display: table-row-group !important; }
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-master-table tr {
         display: table-row !important;
         border: 0 !important;
         border-radius: 0 !important;
     }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-master-table :is(th, td) {
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-master-table :is(th, td) {
         display: table-cell !important;
         width: auto !important;
         max-width: none !important;
         padding: .9rem 1rem !important;
     }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-master-table td::before { content: none !important; display: none !important; }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-master-table td > * { grid-column: auto; }
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-master-table td::before { content: none !important; display: none !important; }
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-master-table td > * { grid-column: auto; }
 }

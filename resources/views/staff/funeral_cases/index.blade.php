@@ -1304,7 +1304,44 @@
                 @include('staff.intake._form')
             </div>
         @else
-            <div class="case-records-top-wrapper">
+            <div class="case-records-tabs-row">
+                <div class="table-quick-tabs case-records-tabs" role="tablist" aria-label="Case record tabs">
+                    <a
+                        href="{{ $allTabUrl }}"
+                        role="tab"
+                        aria-selected="{{ $isAllTab ? 'true' : 'false' }}"
+                        class="table-quick-tab {{ $isAllTab ? 'table-quick-tab-active' : '' }}"
+                    >
+                        All
+                    </a>
+                    <a
+                        href="{{ $draftTabUrl }}"
+                        role="tab"
+                        aria-selected="{{ $isDraftTab ? 'true' : 'false' }}"
+                        class="table-quick-tab {{ $isDraftTab ? 'table-quick-tab-active' : '' }}"
+                    >
+                        Draft
+                    </a>
+                    <a
+                        href="{{ $activeTabUrl }}"
+                        role="tab"
+                        aria-selected="{{ $isActiveTab ? 'true' : 'false' }}"
+                        class="table-quick-tab {{ $isActiveTab ? 'table-quick-tab-active' : '' }}"
+                    >
+                        Active
+                    </a>
+                    <a
+                        href="{{ $completedTabUrl }}"
+                        role="tab"
+                        aria-selected="{{ $isCompletedTab ? 'true' : 'false' }}"
+                        class="table-quick-tab {{ $isCompletedTab ? 'table-quick-tab-active' : '' }}"
+                    >
+                        Completed
+                    </a>
+                </div>
+            </div>
+
+<div class="case-records-top-wrapper">
             <div class="table-system-toolbar case-records-controls">
                 @include('partials.case_filter_toolbar', [
                     'showPerPage' => true,
@@ -1418,9 +1455,9 @@
                     <div class="table-toolbar-reset-wrap">
                         <span class="table-toolbar-label opacity-0 select-none">Actions</span>
                         <div class="filter-actions">
-                            <a href="{{ route('funeral-cases.index', ['tab' => $activeTab, 'record_scope' => $recordScope]) }}" class="btn-outline btn-filter-reset">
-                                <i class="bi bi-arrow-counterclockwise"></i>
-                                <span>Reset</span>
+                            <a href="{{ route('funeral-cases.index', ['tab' => $activeTab, 'record_scope' => $recordScope]) }}" class="btn-outline btn-filter-reset filter-clear-action">
+                                <i class="bi bi-x-circle" aria-hidden="true"></i>
+                                <span>Clear</span>
                             </a>
                             <button type="submit" class="btn-secondary">
                                 <i class="bi bi-funnel"></i>
@@ -1433,42 +1470,7 @@
             </div>
             </div>{{-- /.case-records-top-wrapper --}}
 
-            <div class="case-records-tabs-row">
-                <div class="table-quick-tabs case-records-tabs" role="tablist" aria-label="Case record tabs">
-                    <a
-                        href="{{ $allTabUrl }}"
-                        role="tab"
-                        aria-selected="{{ $isAllTab ? 'true' : 'false' }}"
-                        class="table-quick-tab {{ $isAllTab ? 'table-quick-tab-active' : '' }}"
-                    >
-                        All
-                    </a>
-                    <a
-                        href="{{ $draftTabUrl }}"
-                        role="tab"
-                        aria-selected="{{ $isDraftTab ? 'true' : 'false' }}"
-                        class="table-quick-tab {{ $isDraftTab ? 'table-quick-tab-active' : '' }}"
-                    >
-                        Draft
-                    </a>
-                    <a
-                        href="{{ $activeTabUrl }}"
-                        role="tab"
-                        aria-selected="{{ $isActiveTab ? 'true' : 'false' }}"
-                        class="table-quick-tab {{ $isActiveTab ? 'table-quick-tab-active' : '' }}"
-                    >
-                        Active
-                    </a>
-                    <a
-                        href="{{ $completedTabUrl }}"
-                        role="tab"
-                        aria-selected="{{ $isCompletedTab ? 'true' : 'false' }}"
-                        class="table-quick-tab {{ $isCompletedTab ? 'table-quick-tab-active' : '' }}"
-                    >
-                        Completed
-                    </a>
-                </div>
-            </div>
+
 
             <div class="table-system-list">
                 <div class="table-system-list-header">

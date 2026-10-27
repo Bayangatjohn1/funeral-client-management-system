@@ -20,6 +20,12 @@
             <x-staff-nav-icon name="payments" />
             <span>Payment Monitoring</span>
         </a>
+
+        <a href="{{ route('staff.reminders.index') }}"
+           class="{{ $isActive(request()->routeIs('staff.reminders.index')) }}">
+            <x-staff-nav-icon name="reminders" />
+            <span>Schedules &amp; Reminders</span>
+        </a>
     </div>
 </div>
 

@@ -1887,7 +1887,7 @@
         margin-top: 18px;
     }
 
-    .service-tool-card {
+    .service-tool-card:not(.hidden) {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
         align-items: start;
@@ -2508,6 +2508,7 @@
         }
     }
     </style>
+    @include('staff.intake._interaction-styles')
 
     <div id="branch_toast" role="status" aria-live="polite" class="hidden fixed left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl bg-slate-900 text-white text-sm font-semibold transition-all duration-300 opacity-0 translate-y-[-8px] toast-pop intake-toast-branch">
         <i class="bi bi-building intake-notice-icon" aria-hidden="true"></i>
@@ -2520,11 +2521,8 @@
     </div>
 
 @if($showIntakePageHeading)
-    <header class="intake-top-shell" aria-labelledby="intake-page-title">
+    <header class="intake-top-shell panel-title-surface centered-page-header" aria-labelledby="intake-page-title">
         <div class="intake-brand">
-            <div class="intake-brand-logo" aria-hidden="true">
-                <i class="bi bi-file-earmark-plus"></i>
-            </div>
             <div class="intake-page-heading-copy">
                 <h1 id="intake-page-title">{{ $isOtherEntryMode ? 'Case Intake - Other Branch' : 'Case Intake - Main Branch' }}</h1>
                 <p>{{ $isOtherEntryMode ? 'Record a completed case reported by another branch.' : 'Record client, deceased, service, and payment details for a new case.' }}</p>
@@ -2554,7 +2552,7 @@
 
     <div class="intake-section-shell">
 
-        <div class="wizard-steps-shell hide-scrollbar" id="wizardSteps">
+        <div class="wizard-steps-shell hide-scrollbar" id="wizardSteps" role="group" aria-label="Case intake progress">
     @php
         $steps = [
             1 => 'Client Info',
@@ -2578,6 +2576,7 @@
         <button
             type="button"
             data-step="{{ $num }}"
+            aria-controls="intake-step-{{ $num }}"
             class="wizard-tab {{ $num === 1 ? 'active-step' : '' }}"
         >
             <div class="wz-track">
@@ -2610,6 +2609,7 @@
 
         <form method="POST" action="{{ $formAction ?? route('intake.main.store') }}" enctype="multipart/form-data" id="intakeWizardForm">
             @csrf
+            <input type="hidden" name="submission_id" value="{{ old('submission_id', (string) \Illuminate\Support\Str::uuid()) }}">
 
             <input type="hidden" name="branch_id" id="branch_id" value="{{ $initialSelectedBranchId }}">
             <input type="hidden" name="intake_draft_id" id="intake_draft_id" value="{{ $intakeDraft?->id }}">
@@ -2632,7 +2632,7 @@
             @endif
 
             <div id="intakeFormContent">
-                <section class="wizard-panel" data-step="1">
+                <section class="wizard-panel" data-step="1" id="intake-step-1">
                     <div class="section-title-block">
                         <div class="section-heading-icon">
                             <i class="bi bi-person-fill"></i>
@@ -2648,17 +2648,17 @@
                             <div class="sm:col-span-3 text-[10px] font-black uppercase tracking-widest text-amber-800">External Reporter Details</div>
 
                             <div>
-                                <label class="field-label">Reporter Name</label>
+                                <label class="field-label" for="reporter_name">Reporter Name</label>
                                 <input type="text" name="reporter_name" id="reporter_name" value="{{ $intakeValue('reporter_name') }}" data-validate="letters-spaces" data-label="reporter name" class="form-input">
                             </div>
 
                             <div>
-                                <label class="field-label">Contact Number</label>
-                                <input type="text" name="reporter_contact" value="{{ $intakeValue('reporter_contact') }}" data-validate="digits" data-label="reporter contact number" class="form-input">
+                                <label class="field-label" for="reporter_contact">Contact Number</label>
+                                <input type="text" name="reporter_contact" id="reporter_contact" value="{{ $intakeValue('reporter_contact') }}" data-validate="digits" data-label="reporter contact number" class="form-input">
                             </div>
 
                             <div>
-                                <label class="field-label">Encoded Date</label>
+                                <label class="field-label" for="reported_at">Encoded Date</label>
                                 <input
                                     type="datetime-local"
                                     name="reported_at"
@@ -2678,24 +2678,24 @@
                             <div class="intake-section-kicker"><i class="bi bi-person-lines-fill"></i><span>Client name</span></div>
                             <div class="intake-name-grid">
                                 <div>
-                                    <label class="field-label">First Name <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="client_first_name" value="{{ $intakeValue('client_first_name') }}" data-label="client first name" class="form-input" placeholder="First name" required>
+                                    <label class="field-label" for="client_first_name">First Name <span class="text-rose-500">*</span></label>
+                                    <input type="text" name="client_first_name" id="client_first_name" value="{{ $intakeValue('client_first_name') }}" data-label="client first name" class="form-input" placeholder="First name" required>
                                     @error('client_first_name') <p class="intake-field-error">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
-                                    <label class="field-label">Middle Name</label>
-                                    <input type="text" name="client_middle_name" value="{{ $intakeValue('client_middle_name') }}" data-label="client middle name" class="form-input" placeholder="Middle name">
+                                    <label class="field-label" for="client_middle_name">Middle Name</label>
+                                    <input type="text" name="client_middle_name" id="client_middle_name" value="{{ $intakeValue('client_middle_name') }}" data-label="client middle name" class="form-input" placeholder="Middle name">
                                     @error('client_middle_name') <p class="intake-field-error">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
-                                    <label class="field-label">Last Name <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="client_last_name" value="{{ $intakeValue('client_last_name') }}" data-label="client last name" class="form-input" placeholder="Last name" required>
+                                    <label class="field-label" for="client_last_name">Last Name <span class="text-rose-500">*</span></label>
+                                    <input type="text" name="client_last_name" id="client_last_name" value="{{ $intakeValue('client_last_name') }}" data-label="client last name" class="form-input" placeholder="Last name" required>
                                     @error('client_last_name') <p class="intake-field-error">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
-                                    <label class="field-label">Suffix</label>
+                                    <label class="field-label" for="client_suffix">Suffix</label>
                                     <div class="form-select-wrap">
-                                        <select name="client_suffix" data-label="client suffix" class="form-input">
+                                        <select name="client_suffix" id="client_suffix" data-label="client suffix" class="form-input">
                                             <option value="" {{ $intakeValue('client_suffix') === null || $intakeValue('client_suffix') === '' ? 'selected' : '' }}>None</option>
                                             @foreach(['Jr.', 'Sr.', 'II', 'III', 'IV', 'V'] as $suffixOption)
                                                 <option value="{{ $suffixOption }}" {{ $intakeValue('client_suffix') === $suffixOption ? 'selected' : '' }}>{{ $suffixOption }}</option>
@@ -2711,9 +2711,9 @@
                             <div class="intake-section-kicker"><i class="bi bi-telephone-fill"></i><span>Contact and relationship</span></div>
                             <div class="intake-info-grid">
                                 <div>
-                                    <label class="field-label">Relationship to Deceased <span class="text-rose-500">*</span></label>
+                                    <label class="field-label" for="client_relationship">Relationship to Deceased <span class="text-rose-500">*</span></label>
                                     <div class="form-select-wrap">
-                                        <select name="client_relationship" data-label="relationship to the deceased" class="form-input" required>
+                                        <select name="client_relationship" id="client_relationship" data-label="relationship to the deceased" class="form-input" required>
                                             <option value="">Select relationship</option>
                                             @foreach(['Father', 'Mother', 'Spouse', 'Child', 'Sibling', 'Relative', 'Guardian', 'Other'] as $relationship)
                                                 <option value="{{ $relationship }}" {{ $intakeValue('client_relationship') === $relationship ? 'selected' : '' }}>
@@ -2725,10 +2725,10 @@
                                 </div>
 
                                 <div>
-                                    <label class="field-label">Mobile Number <span class="text-rose-500">*</span></label>
+                                    <label class="field-label" for="client_contact_number">Mobile Number <span class="text-rose-500">*</span></label>
                                     <input
                                         type="text"
-                                        name="client_contact_number"
+                                        name="client_contact_number" id="client_contact_number"
                                         value="{{ $intakeValue('client_contact_number') }}"
                                         data-validate="philippine-mobile"
                                         data-label="contact number"
@@ -2743,7 +2743,7 @@
                                 </div>
 
                                 <div class="intake-full-field">
-                                    <label class="field-label">Complete Address <span class="text-rose-500">*</span></label>
+                                    <label class="field-label" for="client_address">Complete Address <span class="text-rose-500">*</span></label>
                                     <input type="text" name="client_address" id="client_address" value="{{ $intakeValue('client_address') }}" data-label="client address" class="form-input" placeholder="House no., street, barangay, city/municipality, province" required>
                                 </div>
                             </div>
@@ -2751,7 +2751,7 @@
                     </div>
                 </section>
 
-                <section class="wizard-panel hidden" data-step="2">
+                <section class="wizard-panel hidden" data-step="2" id="intake-step-2">
                     <div class="section-title-block">
                         <div class="section-heading-icon">
                             <i class="bi bi-person-vcard-fill"></i>
@@ -2767,24 +2767,24 @@
                             <div class="intake-section-kicker"><i class="bi bi-person-vcard"></i><span>Deceased name</span></div>
                             <div class="intake-name-grid">
                                 <div>
-                                    <label class="field-label">First Name <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="deceased_first_name" value="{{ $intakeValue('deceased_first_name') }}" data-label="deceased first name" class="form-input" placeholder="First name" required>
+                                    <label class="field-label" for="deceased_first_name">First Name <span class="text-rose-500">*</span></label>
+                                    <input type="text" name="deceased_first_name" id="deceased_first_name" value="{{ $intakeValue('deceased_first_name') }}" data-label="deceased first name" class="form-input" placeholder="First name" required>
                                     @error('deceased_first_name') <p class="intake-field-error">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
-                                    <label class="field-label">Middle Name</label>
-                                    <input type="text" name="deceased_middle_name" value="{{ $intakeValue('deceased_middle_name') }}" data-label="deceased middle name" class="form-input" placeholder="Middle name">
+                                    <label class="field-label" for="deceased_middle_name">Middle Name</label>
+                                    <input type="text" name="deceased_middle_name" id="deceased_middle_name" value="{{ $intakeValue('deceased_middle_name') }}" data-label="deceased middle name" class="form-input" placeholder="Middle name">
                                     @error('deceased_middle_name') <p class="intake-field-error">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
-                                    <label class="field-label">Last Name <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="deceased_last_name" value="{{ $intakeValue('deceased_last_name') }}" data-label="deceased last name" class="form-input" placeholder="Last name" required>
+                                    <label class="field-label" for="deceased_last_name">Last Name <span class="text-rose-500">*</span></label>
+                                    <input type="text" name="deceased_last_name" id="deceased_last_name" value="{{ $intakeValue('deceased_last_name') }}" data-label="deceased last name" class="form-input" placeholder="Last name" required>
                                     @error('deceased_last_name') <p class="intake-field-error">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
-                                    <label class="field-label">Suffix</label>
+                                    <label class="field-label" for="deceased_suffix">Suffix</label>
                                     <div class="form-select-wrap">
-                                        <select name="deceased_suffix" data-label="deceased suffix" class="form-input">
+                                        <select name="deceased_suffix" id="deceased_suffix" data-label="deceased suffix" class="form-input">
                                             <option value="" {{ $intakeValue('deceased_suffix') === null || $intakeValue('deceased_suffix') === '' ? 'selected' : '' }}>None</option>
                                             @foreach(['Jr.', 'Sr.', 'II', 'III', 'IV', 'V'] as $suffixOption)
                                                 <option value="{{ $suffixOption }}" {{ $intakeValue('deceased_suffix') === $suffixOption ? 'selected' : '' }}>{{ $suffixOption }}</option>
@@ -2803,9 +2803,9 @@
                                     <label class="field-label">Date of Birth <span class="text-rose-500">*</span></label>
                                     <div class="relative">
                                         <input type="text" name="born" id="born" value="{{ $intakeValue('born') }}" data-label="birthdate" class="form-input pr-10 cursor-pointer" placeholder="Select birth date" autocomplete="off" required>
-                                        <span id="born_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
+                                        <button type="button" id="born_picker_trigger" aria-label="Open birth date calendar" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
                                             <i class="bi bi-calendar-event text-lg"></i>
-                                        </span>
+                                        </button>
                                     </div>
                                     @error('born')
                                         <p class="intake-field-error">{{ $message }}</p>
@@ -2817,9 +2817,9 @@
                                     <label class="field-label">Date of Death <span class="text-rose-500">*</span></label>
                                     <div class="relative">
                                         <input type="text" name="died" id="died" value="{{ $intakeValue('died') }}" data-label="date of death" class="form-input pr-10 cursor-pointer" placeholder="Select date of death" autocomplete="off" required>
-                                        <span id="died_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
+                                        <button type="button" id="died_picker_trigger" aria-label="Open date of death calendar" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
                                             <i class="bi bi-calendar-event text-lg"></i>
-                                        </span>
+                                        </button>
                                     </div>
                                     @error('died')
                                         <p class="intake-field-error">{{ $message }}</p>
@@ -2828,13 +2828,13 @@
                                 </div>
 
                                 <div>
-                                    <label class="field-label">Age</label>
+                                    <label class="field-label" for="age">Age</label>
                                     <input type="number" name="age" id="age" value="{{ $intakeValue('age') }}" class="form-input bg-slate-50 text-slate-500 cursor-not-allowed" readonly>
                                     <p class="intake-field-help">Auto-computed.</p>
                                 </div>
 
                                 <div class="intake-full-field">
-                                    <label class="field-label">Complete Address <span class="text-rose-500">*</span></label>
+                                    <label class="field-label" for="deceased_address">Complete Address <span class="text-rose-500">*</span></label>
                                     <input type="text" name="deceased_address" id="deceased_address" value="{{ $intakeValue('deceased_address', $intakeValue('client_address')) }}" data-label="deceased address" class="form-input" placeholder="House no., street, barangay, city/municipality, province" required>
                                 </div>
                             </div>
@@ -2844,7 +2844,7 @@
                             <div class="intake-section-kicker"><i class="bi bi-patch-check"></i><span>Senior citizen verification</span></div>
                             <div class="intake-info-grid">
                                 <div>
-                                    <label class="field-label">Senior Citizen Status</label>
+                                    <label class="field-label" for="senior_citizen_status">Senior Citizen Status</label>
                                     <div class="form-select-wrap">
                                         <select name="senior_citizen_status" id="senior_citizen_status" data-label="senior citizen status" class="form-input w-full">
                                             <option value="0" {{ $intakeValue('senior_citizen_status', '0') === '0' ? 'selected' : '' }}>No / Standard</option>
@@ -2855,12 +2855,12 @@
                                 </div>
 
                                 <div id="senior_id_wrap" class="hidden">
-                                    <label class="field-label">Senior Citizen ID Number <span class="text-slate-400 normal-case tracking-normal font-normal">(Optional)</span></label>
+                                    <label class="field-label" for="senior_citizen_id_number">Senior Citizen ID Number <span class="text-slate-400 normal-case tracking-normal font-normal">(Optional)</span></label>
                                     <input type="text" name="senior_citizen_id_number" id="senior_citizen_id_number" value="{{ $intakeValue('senior_citizen_id_number') }}" data-label="Senior Citizen ID number" class="form-input" placeholder="Enter Senior Citizen ID number">
                                 </div>
 
                                 <div id="senior_proof_wrap" class="intake-full-field hidden">
-                                    <label class="field-label">Upload Senior ID / Certificate <span class="text-slate-400 normal-case tracking-normal font-normal">(Optional)</span></label>
+                                    <label class="field-label" for="senior_proof">Upload Senior ID / Certificate <span class="text-slate-400 normal-case tracking-normal font-normal">(Optional)</span></label>
                                     <input type="file" name="senior_proof" id="senior_proof" accept=".jpg,.jpeg,.png,.webp,.pdf" class="form-input">
                                     <p class="intake-field-help">Accepted: JPG, PNG, WEBP, PDF. Max 5MB.</p>
                                 </div>
@@ -2869,7 +2869,7 @@
                     </div>
                 </section>
 
-                <section class="wizard-panel hidden" data-step="3">
+                <section class="wizard-panel hidden" data-step="3" id="intake-step-3">
                     <div class="pkg-grid-header">
                         <div>
                             <p class="pkg-section-title">Service Packages</p>
@@ -3023,33 +3023,123 @@
                     </div>
 
                     @if(empty($entryMode) || $entryMode === 'main')
-                        <div id="custom_package_fields" class="hidden mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 rounded-xl border border-amber-100 bg-amber-50/70 px-4 py-4">
-                            <div class="md:col-span-2">
-                                <label class="field-label">Client Preference Package Name</label>
-                                <input type="text" name="custom_package_name" id="client_pref_package" value="{{ $intakeValue('custom_package_name') }}" class="form-input" placeholder="Custom package name">
+                        <div id="custom_package_fields" class="hidden mt-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+                            <div class="mb-4 border-b border-slate-200 pb-3">
+                                <h4 class="text-sm font-bold text-slate-900">Build a custom package</h4>
+                                <p class="mt-1 text-sm text-slate-600">Enter the agreed all-in price and what it covers. Add extras using Optional Add-ons or Manual Charges.</p>
                             </div>
-
-                            <div>
-                                <label class="field-label">Inclusions (comma or line separated)</label>
-                                <textarea name="custom_package_inclusions" id="client_pref_inclusions" class="form-textarea" rows="3" placeholder="Hearse, viewing chapel, etc.">{{ $intakeValue('custom_package_inclusions') }}</textarea>
+                            <div class="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(12rem,0.45fr)]">
+                                <div>
+                                    <label for="client_pref_package" class="field-label">Package name <span aria-hidden="true">*</span></label>
+                                    <input type="text" name="custom_package_name" id="client_pref_package" maxlength="150" value="{{ $intakeValue('custom_package_name') }}" class="form-input" placeholder="e.g. Family arrangement" aria-describedby="client_pref_package_help">
+                                    <p id="client_pref_package_help" class="mt-1 text-xs text-slate-600">This name appears in the case record.</p>
+                                    @error('custom_package_name') <p class="intake-field-error" role="alert">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <label for="client_pref_price" class="field-label">All-in package price (PHP) <span aria-hidden="true">*</span></label>
+                                    <input type="number" step="0.01" min="0.01" inputmode="decimal" name="custom_package_price" id="client_pref_price" value="{{ $intakeValue('custom_package_price') }}" class="form-input" placeholder="0.00" aria-describedby="client_pref_price_help">
+                                    <p id="client_pref_price_help" class="mt-1 text-xs text-slate-600">Must be greater than zero. Extra charges are listed separately.</p>
+                                    @error('custom_package_price') <p class="intake-field-error" role="alert">{{ $message }}</p> @enderror
+                                </div>
+                                <div class="md:col-span-2">
+                                    <p class="field-label">Included services <span aria-hidden="true">*</span></p>
+                                    <p class="mb-3 text-xs text-slate-600">These services, the selected casket, and agreed days are included in your custom price. No automatic casket or extension charges are added.</p>
+                                    <div class="grid gap-2" id="custom_service_choices" role="group" aria-label="Included services">
+                                        @foreach([\App\Models\Package::SERVICE_BODY_RETRIEVAL, \App\Models\Package::SERVICE_EMBALMING, \App\Models\Package::SERVICE_CASKET, \App\Models\Package::SERVICE_HOME_VIEWING, \App\Models\Package::SERVICE_HEARSE] as $serviceType)
+                                            @php
+                                                $selectedCustomTypes = (array) $intakeValue('custom_service_types', array_keys(\App\Models\Package::serviceTypeOptions()));
+                                                $coverageUnit = in_array($serviceType, [\App\Models\Package::SERVICE_BODY_RETRIEVAL, \App\Models\Package::SERVICE_HEARSE], true) ? 'km' : 'days';
+                                            @endphp
+                                            <div class="rounded-lg border border-[#B8D0C0] bg-[#F7FAF8] p-3">
+                                                <label class="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-900">
+                                                    <input type="checkbox" name="custom_service_types[]" value="{{ $serviceType }}" class="custom-service-check h-4 w-4 accent-[#1A4935]" @checked(in_array($serviceType, $selectedCustomTypes, true))>
+                                                    {{ \App\Models\Package::serviceTypeOptions()[$serviceType] }}
+                                                </label>
+                                                @if($serviceType === \App\Models\Package::SERVICE_BODY_RETRIEVAL)
+                                                    <div class="custom-service-dependent mt-2"><span class="custom-inclusion-chip">Included</span></div>
+                                                @elseif($serviceType === \App\Models\Package::SERVICE_HEARSE)
+                                                    <div class="custom-service-dependent mt-2">
+                                                        <div class="custom-inclusion-editor" data-inclusion-kind="hearse">
+                                                            <div class="custom-inclusion-summary"><span class="custom-inclusion-chip" data-custom-inclusion-chip></span><button type="button" class="custom-inclusion-edit-label" aria-label="Choose a hearse">Choose a hearse</button></div>
+                                                            <dialog class="custom-inclusion-dialog" aria-labelledby="custom_hearse_dialog_title">
+                                                                <div class="custom-inclusion-dialog-heading"><h4 id="custom_hearse_dialog_title">Choose a hearse</h4><button type="button" class="custom-inclusion-close" aria-label="Close hearse selection">×</button></div>
+                                                                <p class="custom-inclusion-help">Choose from the vehicle types configured by System Admin.</p>
+                                                                <div id="custom_hearse_catalog_options" data-hearse-catalog-options>
+                                                                    <p class="custom-inclusion-help">No hearse vehicles are configured yet. You can continue with Hearse included and select a vehicle when the catalog is available.</p>
+                                                                </div>
+                                                                <button type="button" class="custom-inclusion-done">Done</button>
+                                                            </dialog>
+                                                        </div>
+                                                    </div>
+                                                @elseif($serviceType === \App\Models\Package::SERVICE_CASKET)
+                                                    <div class="custom-service-dependent mt-2">
+                                                        <div class="custom-inclusion-editor">
+                                                        <div class="custom-inclusion-summary"><span class="custom-inclusion-chip" data-custom-inclusion-chip></span><button type="button" class="custom-inclusion-edit-label" aria-label="Choose a casket">Choose a casket</button></div>
+                                                        <dialog class="custom-inclusion-dialog" aria-labelledby="custom_casket_dialog_title">
+                                                        <div class="custom-inclusion-dialog-heading"><h4 id="custom_casket_dialog_title">Included casket</h4><button type="button" class="custom-inclusion-close" aria-label="Close included casket">×</button></div>
+                                                        <p class="custom-inclusion-help">This casket is covered by the agreed custom price.</p>
+                                                        <label for="custom_casket_catalog_id" class="field-label">Included casket</label>
+                                                        <select name="custom_casket_catalog_id" id="custom_casket_catalog_id" data-label="included casket" class="form-input">
+                                                            <option value="">Choose an available casket</option>
+                                                            @foreach($activeCaskets->where('is_available', true) as $casket)
+                                                                <option value="{{ $casket->id }}" @selected((string) $intakeValue('custom_casket_catalog_id') === (string) $casket->id)>{{ $casket->display_name }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                        @error('custom_casket_catalog_id') <p class="intake-field-error" role="alert">{{ $message }}</p> @enderror
+                                                        <button type="button" class="custom-inclusion-done">Done</button>
+                                                        </dialog></div>
+                                                    </div>
+                                                @else
+                                                    <div class="custom-service-dependent mt-2">
+                                                        <div class="custom-inclusion-editor">
+                                                        <div class="custom-inclusion-summary"><span class="custom-inclusion-chip" data-custom-inclusion-chip></span><button type="button" class="custom-inclusion-edit-label" aria-label="Set {{ \App\Models\Package::serviceTypeOptions()[$serviceType] }} agreed days">Set agreed days</button></div>
+                                                        <dialog class="custom-inclusion-dialog" aria-labelledby="custom_{{ $serviceType }}_dialog_title">
+                                                        <div class="custom-inclusion-dialog-heading"><h4 id="custom_{{ $serviceType }}_dialog_title">{{ \App\Models\Package::serviceTypeOptions()[$serviceType] }} days</h4><button type="button" class="custom-inclusion-close" aria-label="Close {{ \App\Models\Package::serviceTypeOptions()[$serviceType] }} days">×</button></div>
+                                                        <p class="custom-inclusion-help">These agreed days are covered by the custom price.</p>
+                                                        <label for="custom_coverage_{{ $serviceType }}" class="field-label">Included {{ $coverageUnit }}</label>
+                                                        <input type="number" min="1" step="1" name="custom_service_coverage[{{ $serviceType }}]" id="custom_coverage_{{ $serviceType }}" data-label="{{ \App\Models\Package::serviceTypeOptions()[$serviceType] }} included {{ $coverageUnit }}" value="{{ data_get($intakeValue('custom_service_coverage', []), $serviceType) }}" class="form-input" placeholder="0">
+                                                        @error('custom_service_coverage.'.$serviceType) <p class="intake-field-error" role="alert">{{ $message }}</p> @enderror
+                                                        <button type="button" class="custom-inclusion-done">Done</button>
+                                                        </dialog></div>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                    @error('custom_service_types') <p class="intake-field-error" role="alert">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <p class="field-label">Catalog freebies <span class="font-normal text-slate-500">(optional)</span></p>
+                                    <div id="custom_freebie_choices" class="max-h-36 space-y-1 overflow-y-auto rounded-lg border border-[#B8D0C0] bg-[#F7FAF8] p-3">
+                                        @forelse($activeFreebies as $freebie)
+                                            <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-900">
+                                                <input type="checkbox" name="custom_freebie_catalog_ids[]" value="{{ $freebie->id }}" data-freebie-name="{{ $freebie->name }}" class="custom-freebie-check h-4 w-4 accent-[#1A4935]" @checked(in_array((string) $freebie->id, array_map('strval', (array) $intakeValue('custom_freebie_catalog_ids', [])), true))>
+                                                {{ $freebie->name }}
+                                            </label>
+                                        @empty
+                                            <p class="text-xs text-slate-600">No active freebies are available.</p>
+                                        @endforelse
+                                    </div>
+                                    @error('custom_freebie_catalog_ids') <p class="intake-field-error" role="alert">{{ $message }}</p> @enderror
+                                </div>
+                                <textarea id="client_pref_inclusions" class="hidden" tabindex="-1" aria-hidden="true"></textarea>
+                                <textarea id="client_pref_freebies" class="hidden" tabindex="-1" aria-hidden="true"></textarea>
                             </div>
-
-                            <div>
-                                <label class="field-label">Freebies / Notes</label>
-                                <textarea name="custom_package_freebies" id="client_pref_freebies" class="form-textarea" rows="3" placeholder="Flower standee, mass card, etc.">{{ $intakeValue('custom_package_freebies') }}</textarea>
-                            </div>
-
-                            <div>
-                                <label class="field-label">Preferred Price</label>
-                                <input type="number" step="0.01" min="0" name="custom_package_price" id="client_pref_price" value="{{ $intakeValue('custom_package_price') }}" class="form-input" placeholder="0.00">
-                            </div>
+                            @if(filled($intakeValue('custom_other_inclusions')))
+                                <div class="mt-3">
+                                    <p class="field-label">Previously agreed inclusions</p>
+                                    <input type="hidden" name="custom_other_inclusions" id="custom_other_inclusions" value="{{ $intakeValue('custom_other_inclusions') }}">
+                                    <p class="text-sm whitespace-pre-line">{{ $intakeValue('custom_other_inclusions') }}</p>
+                                </div>
+                            @endif
+                            <p class="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">Your agreed price covers the selected inclusions. Optional catalog add-ons below and Manual Charges are extra and increase the total.</p>
                         </div>
                     @endif
 
                     <ul id="selected_package_inclusions" class="hidden"></ul>
                     <ul id="selected_package_freebies" class="hidden"></ul>
 
-                    <div id="package_details_modal" class="hidden fixed inset-0 z-[210] items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="package_details_title">
+                    <dialog id="package_details_modal" class="hidden fixed inset-0 z-[210] items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="package_details_title">
                         <div class="absolute inset-0" style="background:var(--modal-scrim);" data-package-details-close></div>
                         <div class="relative max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200">
                             <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
@@ -3079,7 +3169,7 @@
                                 </button>
                             </div>
                         </div>
-                    </div>
+                    </dialog>
 
                     <div id="intake_service_modal_backdrop" class="intake-modal-backdrop hidden"></div>
 
@@ -3127,7 +3217,7 @@
                             <div id="selected_add_ons_lines" class="mt-3 hidden space-y-2"></div>
                         </div>
 
-                        <div id="optional_add_ons_panel" class="optional-add-ons-panel mt-4 hidden overflow-hidden rounded-xl border border-[#C9C5BB] bg-white" role="dialog" aria-modal="true" aria-label="Available optional add-ons">
+                        <dialog id="optional_add_ons_panel" class="optional-add-ons-panel mt-4 hidden overflow-hidden rounded-xl border border-[#C9C5BB] bg-white" role="dialog" aria-modal="true" aria-label="Available optional add-ons">
                             <div class="border-b border-[#E5E0D5] bg-[#FBFAF7] p-4">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
                                     <div>
@@ -3146,20 +3236,6 @@
                                 </div>
                             </div>
                             <div id="optional_add_ons_list" class="max-h-[420px] overflow-y-auto p-4 space-y-2"></div>
-                            <div id="billing_additional_services_section" class="mx-4 mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                                <div class="flex flex-wrap items-center justify-between gap-3">
-                                    <div>
-                                        <h5 class="text-[10px] font-black uppercase tracking-widest text-slate-600">Manual Charges</h5>
-                                        <p class="mt-1 text-xs font-medium text-slate-500">Use this only for requested charges that are not listed in the add-ons catalog.</p>
-                                    </div>
-                                    <button type="button" id="add_additional_service_item" class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">
-                                        <i class="bi bi-plus-circle"></i> Add Line
-                                    </button>
-                                </div>
-                                <div id="additional_service_items_list" class="mt-4 space-y-2"></div>
-                                <input type="hidden" name="additional_service_amount" id="additional_service_amount" value="{{ $intakeValue('additional_service_amount') }}">
-                                <input type="hidden" name="additional_services" id="additional_services" value="{{ $intakeValue('additional_services') }}">
-                            </div>
                             <div class="flex flex-wrap items-center justify-between gap-3 border-t border-[#E5E0D5] bg-[#FBFAF7] p-4">
                                 <div class="text-xs font-bold text-[#5F685F]">Draft total: &#8369; <span id="draft_add_ons_total">0.00</span></div>
                                 <div class="flex flex-wrap items-center gap-2">
@@ -3169,12 +3245,12 @@
                                     </button>
                                 </div>
                             </div>
-                        </div>
+                        </dialog>
                         @error('selected_add_ons') <div class="intake-field-error">{{ $message }}</div> @enderror
                     </div>
                     </div>
 
-                    <div id="package_adjustments_panel" class="package-adjustments-modal hidden" role="dialog" aria-modal="true" aria-labelledby="package_adjustments_title">
+                    <dialog id="package_adjustments_panel" class="package-adjustments-modal hidden" role="dialog" aria-modal="true" aria-labelledby="package_adjustments_title">
                         <div class="package-adjustments-head flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 p-4">
                             <div>
                                 <h5 id="package_adjustments_title" class="service-tool-title">
@@ -3215,7 +3291,7 @@
                                         </div>
 
                                         <div id="replacement_casket_wrap" class="mt-4 hidden">
-                                            <label class="field-label">Alternative Casket</label>
+                                            <label class="field-label" for="replacement_casket_catalog_id">Alternative Casket</label>
                                             <select name="replacement_casket_catalog_id" id="replacement_casket_catalog_id" class="form-input" data-label="replacement casket">
                                                 <option value="">Select replacement or upgrade casket</option>
                                                 @foreach(($activeCaskets ?? collect()) as $casket)
@@ -3369,7 +3445,7 @@
                                             </label>
                                         </div>
                                         <div id="retrieval_excess_wrap" class="mt-3 hidden">
-                                            <label class="field-label">Excess KM</label>
+                                            <label class="field-label" for="retrieval_excess_kilometers">Excess KM</label>
                                             <input type="number" step="0.01" min="0" name="retrieval_excess_kilometers" id="retrieval_excess_kilometers" value="{{ $intakeValue('retrieval_excess_kilometers') }}" class="form-input" placeholder="0" data-label="retrieval excess kilometers">
                                             @error('retrieval_excess_kilometers') <div class="intake-field-error">{{ $message }}</div> @enderror
                                         </div>
@@ -3419,7 +3495,7 @@
                                             </label>
                                         </div>
                                         <div id="hearse_excess_wrap" class="mt-3 hidden">
-                                            <label class="field-label">Excess KM</label>
+                                            <label class="field-label" for="hearse_excess_kilometers">Excess KM</label>
                                             <input type="number" step="0.01" min="0" name="hearse_excess_kilometers" id="hearse_excess_kilometers" value="{{ $intakeValue('hearse_excess_kilometers') }}" class="form-input" placeholder="0" data-label="hearse excess kilometers">
                                             @error('hearse_excess_kilometers') <div class="intake-field-error">{{ $message }}</div> @enderror
                                         </div>
@@ -3434,7 +3510,7 @@
                                 <i class="bi bi-check2-circle"></i> Done
                             </button>
                         </div>
-                    </div>
+                    </dialog>
 
                     <div class="service-details-area">
                         <div class="section-title-block mb-6">
@@ -3474,9 +3550,9 @@
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div class="relative">
                                     <input type="text" name="wake_start_date" id="wake_start_date" value="{{ $intakeValue('wake_start_date') }}" data-label="wake start date" class="form-input pr-10 cursor-pointer" placeholder="Wake date" autocomplete="off" required>
-                                    <span id="wake_start_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
+                                    <button type="button" id="wake_start_picker_trigger" aria-label="Open wake start date calendar" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
                                         <i class="bi bi-calendar-event text-lg"></i>
-                                    </span>
+                                    </button>
                                 </div>
                                 <div class="time-input-wrap" data-time-picker="wake_start_time">
                                     <input type="hidden" name="wake_start_time" id="wake_start_time" value="{{ $intakeValue('wake_start_time') ? substr($intakeValue('wake_start_time'), 0, 5) : '' }}" data-label="wake start time" class="schedule-time-value" required>
@@ -3506,9 +3582,9 @@
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div class="relative">
                                     <input type="text" name="wake_end_date" id="wake_end_date" value="{{ $intakeValue('wake_end_date') }}" data-label="wake end date" class="form-input pr-10 cursor-pointer" placeholder="Wake end date" autocomplete="off" required>
-                                    <span id="wake_end_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
+                                    <button type="button" id="wake_end_picker_trigger" aria-label="Open wake end date calendar" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
                                         <i class="bi bi-calendar-event text-lg"></i>
-                                    </span>
+                                    </button>
                                 </div>
                                 <div class="time-input-wrap" data-time-picker="wake_end_time">
                                     <input type="hidden" name="wake_end_time" id="wake_end_time" value="{{ $intakeValue('wake_end_time') ? substr($intakeValue('wake_end_time'), 0, 5) : '' }}" data-label="wake end time" class="schedule-time-value" required>
@@ -3545,9 +3621,9 @@
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div class="relative">
                                     <input type="text" name="funeral_service_at" id="funeral_service_at" value="{{ $intakeValue('funeral_service_at') }}" data-label="funeral ceremony date" class="form-input pr-10 cursor-pointer" placeholder="Ceremony date" autocomplete="off" required>
-                                    <span id="wake_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
+                                    <button type="button" id="wake_picker_trigger" aria-label="Open funeral ceremony date calendar" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
                                         <i class="bi bi-calendar-event text-lg"></i>
-                                    </span>
+                                    </button>
                                 </div>
                                 <div class="time-input-wrap" data-time-picker="funeral_service_time">
                                     <input type="hidden" name="funeral_service_time" id="funeral_service_time" value="{{ $intakeValue('funeral_service_time') ? substr($intakeValue('funeral_service_time'), 0, 5) : '' }}" data-label="funeral ceremony time" class="schedule-time-value" required>
@@ -3577,9 +3653,9 @@
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div class="relative">
                                     <input type="text" name="interment_at" id="interment_at" value="{{ $intakeValue('interment_at') }}" data-label="interment date" class="form-input pr-10 cursor-pointer" placeholder="Interment date" autocomplete="off" required>
-                                    <span id="inter_picker_trigger" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
+                                    <button type="button" id="inter_picker_trigger" aria-label="Open interment date calendar" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
                                         <i class="bi bi-calendar-event text-lg"></i>
-                                    </span>
+                                    </button>
                                 </div>
                                 <div class="time-input-wrap" data-time-picker="interment_time">
                                     <input type="hidden" name="interment_time" id="interment_time" value="{{ $intakeValue('interment_time') ? substr($intakeValue('interment_time'), 0, 5) : '' }}" data-label="interment time" class="schedule-time-value" required>
@@ -3618,17 +3694,17 @@
                             <div class="service-info-stack">
 
                         <div class="md:col-span-1">
-                            <label class="field-label">Wake Location <span class="text-rose-500">*</span></label>
+                            <label class="field-label" for="wake_location">Wake Location <span class="text-rose-500">*</span></label>
                             <input type="text" name="wake_location" id="wake_location" value="{{ $intakeValue('wake_location') }}" data-label="wake location" class="form-input" placeholder="Chapel or House Address" required>
                         </div>
 
                         <div>
-                            <label class="field-label">Place of Interment / Cemetery <span class="text-rose-500">*</span></label>
-                            <input type="text" name="place_of_cemetery" value="{{ $intakeValue('place_of_cemetery') }}" data-label="place of interment or cemetery" class="form-input" placeholder="Cemetery Name" required>
+                            <label class="field-label" for="place_of_cemetery">Place of Interment / Cemetery <span class="text-rose-500">*</span></label>
+                            <input type="text" name="place_of_cemetery" id="place_of_cemetery" value="{{ $intakeValue('place_of_cemetery') }}" data-label="place of interment or cemetery" class="form-input" placeholder="Cemetery Name" required>
                         </div>
 
                         <div>
-                            <label class="field-label">Case Status <span class="text-rose-500">*</span></label>
+                            <label class="field-label" for="case_status">Case Status <span class="text-rose-500">*</span></label>
 
                             @if($isOtherEntryMode)
                                 <input type="hidden" name="case_status" id="case_status" value="COMPLETED">
@@ -3646,13 +3722,13 @@
                     </div>
 
                     <div class="service-photo-upload">
-                        <label class="field-label">Upload Deceased Photo (Optional)</label>
-                        <input type="file" name="deceased_photo" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300">
+                        <label class="field-label" for="deceased_photo">Upload Deceased Photo (Optional)</label>
+                        <input type="file" name="deceased_photo" id="deceased_photo" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300">
                     </div>
                     </div>{{-- /service-details-wrapper --}}
                 </section>
 
-                <section class="wizard-panel hidden" data-step="4">
+                <section class="wizard-panel hidden" data-step="4" id="intake-step-4">
                     <div class="section-title-block">
                         <div class="section-heading-icon">
                             <i class="bi bi-receipt"></i>
@@ -3662,6 +3738,21 @@
                             <p>Review the summary and record the initial deposit or full payment.</p>
                         </div>
                     </div>
+
+                            <div id="billing_additional_services_section" class="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                    <div>
+                                        <h5 class="text-[10px] font-black uppercase tracking-widest text-slate-600">Manual Charges</h5>
+                                        <p class="mt-1 text-xs font-medium text-slate-500">Use this only for requested charges that are not listed in the add-ons catalog.</p>
+                                    </div>
+                                    <button type="button" id="add_additional_service_item" class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">
+                                        <i class="bi bi-plus-circle"></i> Add Line
+                                    </button>
+                                </div>
+                                <div id="additional_service_items_list" class="mt-4 space-y-2"></div>
+                                <input type="hidden" name="additional_service_amount" id="additional_service_amount" value="{{ $intakeValue('additional_service_amount') }}">
+                                <input type="hidden" name="additional_services" id="additional_services" value="{{ $intakeValue('additional_services') }}">
+                            </div>
 
                     <div class="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6 mt-6">
 
@@ -3762,13 +3853,13 @@
 
                                     <div id="payment_details_section" class="payment-details-shell hidden space-y-5">
                                     <div id="cash_reference_wrap">
-                                        <label class="field-label">Receipt / Reference No. <span class="text-slate-400 font-medium">(optional)</span></label>
+                                        <label class="field-label" for="cash_reference_number">Receipt / Reference No. <span class="text-slate-400 font-medium">(optional)</span></label>
                                         <input type="text" name="reference_number" id="cash_reference_number" value="{{ $intakeValue('reference_number') }}" data-label="receipt reference" class="form-input" placeholder="Optional receipt or reference number">
                                     </div>
 
                                     <div id="cashless_details_wrap" class="hidden space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
                                         <div>
-                                            <label class="field-label">Cashless Type</label>
+                                            <label class="field-label" for="cashless_type">Cashless Type</label>
                                             <div class="payment-select-wrap"><i class="bi bi-credit-card payment-select-icon" aria-hidden="true"></i>
                                             <select name="cashless_type" id="cashless_type" class="form-input">
                                                 <option value="">Select cashless type</option>
@@ -3794,11 +3885,11 @@
                                                 <i class="bi bi-chevron-down payment-select-chevron" aria-hidden="true"></i></div>
                                             </div>
                                             <div>
-                                                <label class="field-label">Account Name</label>
+                                                <label class="field-label" for="account_name">Account Name</label>
                                                 <input type="text" name="account_name" id="account_name" value="{{ $intakeValue('account_name') }}" class="form-input" maxlength="120" placeholder="Optional">
                                             </div>
                                             <div id="other_bank_name_wrap" class="hidden md:col-span-2">
-                                                <label class="field-label">Other Bank Name</label>
+                                                <label class="field-label" for="other_bank_name">Other Bank Name</label>
                                                 <input type="text" name="other_bank_name" id="other_bank_name" value="{{ $intakeValue('other_bank_name') }}" class="form-input" maxlength="100">
                                             </div>
                                         </div>
@@ -3827,7 +3918,7 @@
 
                                         <div data-intake-cashless-panel="card" class="intake-cashless-panel hidden grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
-                                                <label class="field-label">Card Type</label>
+                                                <label class="field-label" for="card_type">Card Type</label>
                                                 <select name="card_type" id="card_type" class="form-input">
                                                     <option value="">Select card type</option>
                                                     <option value="debit" {{ $intakeValue('card_type') === 'debit' ? 'selected' : '' }}>Debit</option>
@@ -3835,11 +3926,11 @@
                                                 </select>
                                             </div>
                                             <div>
-                                                <label class="field-label">Terminal / Provider</label>
+                                                <label class="field-label" for="terminal_provider">Terminal / Provider</label>
                                                 <input type="text" name="terminal_provider" id="terminal_provider" value="{{ $intakeValue('terminal_provider') }}" class="form-input" maxlength="80" placeholder="Optional">
                                             </div>
                                             <div>
-                                                <label class="field-label">Approval Code</label>
+                                                <label class="field-label" for="approval_code">Approval Code</label>
                                                 <input type="text" name="approval_code" id="approval_code" value="{{ $intakeValue('approval_code') }}" class="form-input" maxlength="40">
                                             </div>
                                         </div>
@@ -3850,13 +3941,13 @@
                                                 <input type="text" data-intake-payment-channel-field value="{{ $intakeValue('payment_channel') }}" class="form-input" maxlength="100" placeholder="e.g. PalawanPay">
                                             </div>
                                             <div>
-                                                <label class="field-label">Notes</label>
-                                                <input type="text" name="payment_notes" value="{{ $intakeValue('payment_notes') }}" class="form-input" maxlength="255" placeholder="Optional">
+                                                <label class="field-label" for="payment_notes">Notes</label>
+                                                <input type="text" name="payment_notes" id="payment_notes" value="{{ $intakeValue('payment_notes') }}" class="form-input" maxlength="255" placeholder="Optional">
                                             </div>
                                         </div>
 
                                         <div>
-                                            <label class="field-label">Reference No.</label>
+                                            <label class="field-label" for="reference_number">Reference No.</label>
                                             <input type="text" id="reference_number" value="{{ $intakeValue('reference_number', $intakeValue('bank_reference')) }}" data-label="reference number" class="form-input" placeholder="e.g. TXN-20240101-001">
                                         </div>
                                         <input type="hidden" name="wallet_provider" id="wallet_provider" value="{{ $intakeValue('wallet_provider') }}">
@@ -3887,7 +3978,7 @@
                                     <div id="payment_amount_section" class="hidden space-y-5">
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                                         <div>
-                                            <label class="field-label">Amount Received</label>
+                                            <label class="field-label" for="amount_paid">Amount Received</label>
                                             <div class="flex items-center rounded-lg border border-slate-300 bg-white focus-within:ring-2 focus-within:ring-slate-900">
                                                 <span class="pl-3 pr-2 text-slate-500 font-bold text-lg">&#8369;</span>
                                                 <input
@@ -3981,7 +4072,7 @@
                                     <div class="border-t border-slate-100 pt-3 space-y-2 text-xs">
                                         <div class="flex justify-between items-center gap-2 text-slate-500">
                                             <span>Payment Status</span>
-                                            <span class="font-bold text-slate-700 whitespace-nowrap">&#8369;&nbsp;<span id="summary_payment_status_dummy" class="hidden"></span><span id="summary_payment_status" class="font-bold">UNPAID</span></span>
+                                            <span class="font-bold text-slate-700 whitespace-nowrap"><span id="summary_payment_status_dummy" class="hidden"></span><span id="summary_payment_status" class="font-bold">UNPAID</span></span>
                                         </div>
                                         <div class="flex justify-between items-start gap-3 text-slate-500">
                                             <span>Payment Method</span>
@@ -4028,7 +4119,7 @@
                     </div>
                 </section>
 
-                <section class="wizard-panel hidden" data-step="5">
+                <section class="wizard-panel hidden" data-step="5" id="intake-step-5">
                     <div class="section-title-block pb-4 border-b border-slate-100">
                         <div class="section-heading-icon">
                             <i class="bi bi-clipboard-check"></i>
@@ -4054,10 +4145,11 @@
                             <div class="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 group relative shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
                                 <button
                                     type="button"
-                                    class="review-edit absolute top-4 right-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-900 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    class="review-edit absolute top-4 right-4 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:text-slate-900 flex items-center gap-1 min-h-8 px-2"
                                     data-jump-step="{{ $card['step'] }}"
+                                    aria-label="Edit {{ $card['title'] }} details"
                                 >
-                                    <i class="bi bi-pencil-square"></i> Edit
+                                    <i class="bi bi-pencil-square" aria-hidden="true"></i> Edit
                                 </button>
 
                                 <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">{{ $card['title'] }}</h4>
@@ -4116,7 +4208,7 @@
     </div>{{-- /intake-section-shell --}}
 
     {{-- Cancel Confirmation Modal --}}
-    <div id="intakeCancelModal" role="dialog" aria-modal="true" aria-labelledby="intakeCancelTitle" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4" style="backdrop-filter:blur(3px);">
+    <dialog id="intakeCancelModal" role="dialog" aria-modal="true" aria-labelledby="intakeCancelTitle" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4" style="backdrop-filter:blur(3px);">
         <div class="absolute inset-0" id="intakeCancelModalBackdrop" style="background:var(--modal-scrim);"></div>
         <div class="cancel-modal-box">
             <p id="intakeCancelTitle" class="cancel-modal-title">Save this intake before leaving?</p>
@@ -4130,12 +4222,12 @@
                 </button>
             </div>
         </div>
-    </div>
+    </dialog>
 
 </div>{{-- /intake-root --}}
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<link rel="stylesheet" href="{{ asset('vendor/offline/flatpickr.min.css') }}">
+<script src="{{ asset('vendor/offline/flatpickr.min.js') }}"></script>
 <script>
 (() => {
     const f = document.getElementById('intakeWizardForm');
@@ -4412,7 +4504,7 @@
     const list = (value) => String(value || '').split(/\r?\n|,|;/).map((item) => item.trim()).filter(Boolean);
     const textOrDash = (value) => String(value || '').trim() || '-';
     const parseAddOns = (radio = pkg()) => {
-        if (!radio || radio.value === 'custom') return [];
+        if (!radio) return [];
         return Array.isArray(globalAddOns) ? globalAddOns : [];
     };
     const parseJsonDataset = (radio, key, fallback = []) => {
@@ -4501,7 +4593,9 @@
         return {
             services: serviceRows.join('') || '<div class="text-sm font-semibold text-slate-500">No included services configured.</div>',
             freebies: freebieRows.join('') || '<div class="text-sm font-semibold text-slate-500">No freebies configured.</div>',
-            coverage: coverageRows.join('') || '<div class="text-sm font-semibold text-slate-500">No included limits or extra charges configured.</div>',
+            coverage: radio === customPkgRadio
+                ? legacyInclusions.map(item => packageDetailRow(item, 'Included in the agreed all-in price.', 'bi-check2-circle')).join('') || '<div class="text-sm">Select the services and coverage included in this custom package.</div>'
+                : coverageRows.join('') || '<div class="text-sm font-semibold text-slate-500">No included limits or extra charges configured.</div>',
         };
     };
     const activatePackageDetailTab = (target = 'services') => {
@@ -4511,11 +4605,48 @@
             tab.classList.toggle('text-white', active);
             tab.classList.toggle('text-slate-500', !active);
             tab.setAttribute('aria-selected', active ? 'true' : 'false');
+            tab.tabIndex = active ? 0 : -1;
+            tab.id = `package-detail-tab-${tab.dataset.packageDetailTab}`;
+            tab.setAttribute('aria-controls', `package_detail_${tab.dataset.packageDetailTab}`);
         });
         packageDetailPanels.forEach((panel) => {
             panel.classList.toggle('hidden', panel.id !== `package_detail_${target}`);
+            panel.setAttribute('aria-labelledby', panel.id.replace('package_detail_', 'package-detail-tab-'));
         });
     };
+    const intakeDialogStates = new Map();
+    const setIntakeDialog = (modal, open, firstFocus = null) => {
+        if (!modal) return;
+        const state = intakeDialogStates.get(modal);
+        if (open && !state) {
+            const previousFocus = document.activeElement;
+            intakeDialogStates.set(modal, { previousFocus });
+            document.body.dataset.intakeModalOpen = 'true';
+            modal.classList.remove('hidden');
+            modal.showModal();
+            modal.tabIndex = -1;
+            (firstFocus || modal.querySelector('button, input, select, textarea, a[href]') || modal).focus();
+        } else if (!open && state) {
+            modal.close();
+            modal.classList.add('hidden');
+            intakeDialogStates.delete(modal);
+            if (!intakeDialogStates.size) delete document.body.dataset.intakeModalOpen;
+            if (state.previousFocus?.isConnected && state.previousFocus.getClientRects().length) state.previousFocus.focus();
+        }
+    };
+    document.addEventListener('keydown', event => {
+        if (event.key !== 'Tab' || !intakeDialogStates.size) return;
+        const modal = [...intakeDialogStates.keys()].at(-1);
+        const controls = [...modal.querySelectorAll('button, a[href], input, select, textarea, [tabindex]')]
+            .filter(element => !element.disabled && !element.inert && element.tabIndex >= 0 && element.getClientRects().length);
+        const first = controls[0], last = controls.at(-1);
+        if (!first) { event.preventDefault(); modal.focus(); return; }
+        if (event.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) {
+            event.preventDefault(); last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !modal.contains(document.activeElement))) {
+            event.preventDefault(); first.focus();
+        }
+    }, true);
     const openPackageDetails = (radio = pkg()) => {
         if (!radio || !packageDetailsModal) return;
         const rows = detailRowsForPackage(radio);
@@ -4524,19 +4655,18 @@
         if (packageDetailsSubtitle) {
             const casket = includedCasketFor(radio);
             packageDetailsSubtitle.textContent = radio.value === 'custom'
-                ? 'Price set during package setup. Manual package details are entered in the custom fields.'
+                ? `PHP ${fmt(radio.dataset.price)} agreed all-in price. Selected casket and days are included. Optional add-ons and Manual Charges are extra.`
                 : `PHP ${fmt(radio.dataset.price)} | ${counts.inclusions} inclusion(s) | ${counts.freebies} freebie(s) | Casket: ${casket.name || 'Not configured'}`;
         }
         if (packageDetailServices) packageDetailServices.innerHTML = rows.services;
         if (packageDetailFreebies) packageDetailFreebies.innerHTML = rows.freebies;
         if (packageDetailCoverage) packageDetailCoverage.innerHTML = rows.coverage;
         activatePackageDetailTab('services');
-        packageDetailsModal.classList.remove('hidden');
         packageDetailsModal.classList.add('flex');
-        packageDetailsModal.querySelector('button[data-package-details-close]')?.focus();
+        setIntakeDialog(packageDetailsModal, true, packageDetailsModal.querySelector('button[data-package-details-close]'));
     };
     const closePackageDetails = () => {
-        packageDetailsModal?.classList.add('hidden');
+        setIntakeDialog(packageDetailsModal, false);
         packageDetailsModal?.classList.remove('flex');
     };
     const checkedAddOns = () => [...document.querySelectorAll('.optional-add-on-checkbox:checked')]
@@ -4549,14 +4679,30 @@
         }));
     const appliedAddOns = () => parseAddOns().filter((addOn) => oldSelectedAddOns.has(String(addOn.id)));
     const addOnsTotal = () => appliedAddOns().reduce((sum, addOn) => sum + num(addOn.price), 0);
+    [packageDetailsModal, packageAdjustmentsPanel, optionalAddOnsPanel, document.getElementById('intakeCancelModal')].filter(Boolean).forEach(modal => {
+        modal.addEventListener('cancel', event => event.preventDefault());
+        if (modal === packageDetailsModal || modal.id === 'intakeCancelModal') {
+            modal.addEventListener('click', event => {
+                if (event.target !== modal) return;
+                if (modal === packageDetailsModal) closePackageDetails();
+                else document.getElementById('intakeCancelModalKeep')?.click();
+            });
+        }
+        if (modal === packageAdjustmentsPanel || modal === optionalAddOnsPanel) {
+            modal.addEventListener('click', event => {
+                if (event.target !== modal) return;
+                const rect = modal.getBoundingClientRect();
+                if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) serviceModalBackdrop?.click();
+            });
+        }
+    });
     const syncServiceBackdrop = () => {
-        const hasOpenPanel = !optionalAddOnsPanel?.classList.contains('hidden') || !packageAdjustmentsPanel?.classList.contains('hidden');
-        serviceModalBackdrop?.classList.toggle('hidden', !hasOpenPanel);
-        document.body.style.overflow = hasOpenPanel ? 'hidden' : '';
+        serviceModalBackdrop?.classList.add('hidden');
+        // Scroll locking is owned by the shared dialog lifecycle.
     };
     const setAddOnsPanelOpen = (open) => {
         if (!optionalAddOnsPanel) return;
-        optionalAddOnsPanel.classList.toggle('hidden', !open);
+        setIntakeDialog(optionalAddOnsPanel, open, optionalAddOnsSearch);
         chooseAddOnsBtn?.setAttribute('aria-expanded', open ? 'true' : 'false');
         syncServiceBackdrop();
         if (open) {
@@ -4565,13 +4711,11 @@
     };
     const setPackageAdjustmentsOpen = (open) => {
         if (!packageAdjustmentsPanel) return;
-        packageAdjustmentsPanel.classList.toggle('hidden', !open);
+        setIntakeDialog(packageAdjustmentsPanel, open, closePackageAdjustmentsBtn);
         openPackageAdjustmentsBtn?.setAttribute('aria-expanded', open ? 'true' : 'false');
         syncServiceBackdrop();
         if (open) {
             closePackageAdjustmentsBtn?.focus();
-        } else {
-            openPackageAdjustmentsBtn?.focus();
         }
     };
     const syncDraftAddOnsTotal = () => {
@@ -4613,10 +4757,10 @@
         row.className = 'grid grid-cols-1 sm:grid-cols-[1fr_150px_38px] gap-2 rounded-lg border border-slate-200 bg-white p-3';
         row.dataset.additionalServiceRow = '1';
         row.innerHTML = `
-            <input type="text" name="additional_service_items[${index}][description]" value="${escapeHtml(item.description || '')}" class="form-input" placeholder="Service description" data-label="additional service description" data-additional-description>
+            <input type="text" name="additional_service_items[${index}][description]" value="${escapeHtml(item.description || '')}" class="form-input" placeholder="Service description" aria-label="Manual charge description" data-label="additional service description" data-additional-description>
             <div class="flex items-center rounded-lg border border-slate-300 bg-white focus-within:ring-2 focus-within:ring-slate-900">
                 <span class="pl-3 pr-2 text-slate-500 font-bold">&#8369;</span>
-                <input type="number" step="0.01" min="0" name="additional_service_items[${index}][amount]" value="${escapeHtml(item.amount || '')}" class="w-full border-0 focus:outline-none focus:ring-0 font-bold p-3" placeholder="0.00" data-label="additional service amount" data-additional-amount>
+                <input type="number" step="0.01" min="0" name="additional_service_items[${index}][amount]" value="${escapeHtml(item.amount || '')}" class="w-full border-0 focus:outline-none focus:ring-0 font-bold p-3" placeholder="0.00" aria-label="Manual charge amount in PHP" data-label="additional service amount" data-additional-amount>
             </div>
             <button type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-rose-50 hover:text-rose-600" aria-label="Remove additional service line" data-remove-additional-service>
                 <i class="bi bi-x-lg"></i>
@@ -4765,7 +4909,7 @@
         }
     };
 
-    const labelFor = (field) => field?.dataset?.label || field?.getAttribute('placeholder') || 'this field';
+    const labelFor = (field) => field?.dataset?.label || (field?.id && f.querySelector(`label[for="${field.id}"]`)?.textContent?.replace(/\*/g, '').trim()) || field?.getAttribute('placeholder') || 'this field';
 
     const fieldByName = (name) => f.querySelector(`[name="${name}"]`);
 
@@ -4796,6 +4940,8 @@
     let restoringPickerState = false;
     const showFieldError = (field, message) => {
         if (!field) return false;
+        const inclusionDialog = field.closest('.custom-inclusion-dialog');
+        if (inclusionDialog && !collectingValidation) setIntakeDialog(inclusionDialog, true, field);
         const errorEl = fieldErrorElement(field);
         field.setCustomValidity(message);
         setFieldError(field, errorEl, message, field._flatpickr?.altInput);
@@ -5345,6 +5491,37 @@
     const syncPreferredPackage = () => {
         if (!customPkgRadio) return;
 
+        const serviceRows = [...document.querySelectorAll('.custom-service-check:checked')].map((input) => {
+            const label = input.closest('label')?.textContent?.trim() || input.value;
+            const dependent = input.closest('.rounded-lg')?.querySelector('.custom-service-dependent input, .custom-service-dependent select');
+            const detail = dependent?.tagName === 'SELECT'
+                ? dependent.selectedOptions?.[0]?.textContent?.trim()
+                : (dependent?.value ? `${dependent.value} ${['body_retrieval', 'hearse'].includes(input.value) ? 'km' : 'days'}` : '');
+            return detail && !detail.startsWith('Choose') ? `${label} - ${detail}` : label;
+        });
+        document.querySelectorAll('.custom-inclusion-editor').forEach((editor) => {
+            const field = editor.querySelector('input,select');
+            const chip = editor.querySelector('[data-custom-inclusion-chip]');
+            const value = field?.tagName === 'SELECT'
+                ? (field.value ? field.selectedOptions[0].textContent.trim() : '')
+                : (Number(field?.value) > 0 ? `${field.value} days` : '');
+            const action = editor.querySelector('.custom-inclusion-edit-label');
+            const serviceName = editor.closest('.rounded-lg')?.querySelector('label')?.textContent.trim() || '';
+            const isHearse = editor.dataset.inclusionKind === 'hearse';
+            const isCasket = field?.tagName === 'SELECT' && !isHearse;
+            if (chip) {
+                chip.textContent = value || '';
+                chip.hidden = !value;
+            }
+            if (action) {
+                action.textContent = value ? (isCasket || isHearse ? 'Change' : 'Edit') : (isHearse ? 'Choose a hearse' : isCasket ? 'Choose a casket' : 'Set agreed days');
+                action.setAttribute('aria-label', value ? (isHearse ? 'Change hearse' : isCasket ? 'Change included casket' : `Edit ${serviceName} days`) : (isHearse ? 'Choose a hearse' : isCasket ? 'Choose a casket' : `Set ${serviceName} agreed days`));
+            }
+        });
+        const otherRows = (document.getElementById('custom_other_inclusions')?.value || '').split(/\r?\n/u).map((value) => value.trim()).filter(Boolean);
+        if (prefIncl) prefIncl.value = [...serviceRows, ...otherRows].join('\n');
+        if (prefFree) prefFree.value = [...document.querySelectorAll('.custom-freebie-check:checked')].map((input) => input.dataset.freebieName).join('\n');
+
         if (prefPkg) customPkgRadio.dataset.name = prefPkg.value || 'Client Preference';
         if (prefPrice) customPkgRadio.dataset.price = prefPrice.value || '0';
         if (prefIncl) customPkgRadio.dataset.inclusions = prefIncl.value || '';
@@ -5374,10 +5551,10 @@
         if (freebies) freebies.innerHTML = list(selected?.dataset.freebies).map((item) => `<li>${escapeHtml(item)}</li>`).join('');
 
         const addOns = parseAddOns(selected);
-        if (optionalAddOnsSection) optionalAddOnsSection.classList.toggle('hidden', !selected || selected === customPkgRadio);
+        if (optionalAddOnsSection) optionalAddOnsSection.classList.toggle('hidden', !selected);
         setAddOnsPanelOpen(false);
         if (optionalAddOnsList) {
-            if (!selected || selected === customPkgRadio) {
+            if (!selected) {
                 optionalAddOnsList.innerHTML = '';
             } else if (addOns.length === 0) {
                 optionalAddOnsList.innerHTML = '<div class="rounded-lg border border-[#C9C5BB] bg-white px-3 py-3 text-sm font-semibold text-[#5F685F]">No add-ons are currently available.</div>';
@@ -5406,8 +5583,9 @@
         }
         if (optionalAddOnsSearch) optionalAddOnsSearch.value = '';
         if (chooseAddOnsBtn) {
-            const unavailable = !selected || selected === customPkgRadio || addOns.length === 0;
+            const unavailable = !selected || addOns.length === 0;
             chooseAddOnsBtn.disabled = unavailable;
+            chooseAddOnsBtn.hidden = addOns.length === 0;
             chooseAddOnsBtn.classList.toggle('opacity-50', unavailable);
             chooseAddOnsBtn.classList.toggle('cursor-not-allowed', unavailable);
             chooseAddOnsBtn.innerHTML = addOns.length === 0
@@ -5444,10 +5622,25 @@
             customPkgFields.classList.toggle('hidden', !isCustomSelected);
         }
 
-        [prefPkg, prefPrice, prefIncl, prefFree].forEach((field) => {
+        [prefPkg, prefPrice].forEach((field) => {
             if (!field) return;
             field.disabled = !isCustomSelected;
             if (!isCustomSelected) field.setCustomValidity('');
+        });
+        [prefPkg, prefPrice].forEach((field) => {
+            if (field) field.required = isCustomSelected;
+        });
+        customPkgFields?.querySelectorAll('.custom-service-check, .custom-freebie-check, #custom_other_inclusions').forEach((field) => {
+            field.disabled = !isCustomSelected;
+        });
+        customPkgFields?.querySelectorAll('.custom-service-check').forEach((checkbox) => {
+            const dependent = checkbox.closest('.rounded-lg')?.querySelector('.custom-service-dependent');
+            if (!dependent) return;
+            dependent.classList.toggle('hidden', !checkbox.checked || !isCustomSelected);
+            dependent.querySelectorAll('input, select').forEach((field) => {
+                field.disabled = !checkbox.checked || !isCustomSelected;
+                field.required = checkbox.checked && isCustomSelected;
+            });
         });
 
         if (selected && shouldToast) {
@@ -5598,9 +5791,12 @@
             reviewPackage.innerHTML = [
                 detailRow('Selected Package', selected?.dataset?.name || '-'),
                 detailRow('Package Price', `PHP ${fmt(t.packagePrice)}`),
-                detailRow('Inclusions', list(selected?.dataset.inclusions).join(', ') || '-'),
-                detailRow('Freebies / Notes', list(selected?.dataset.freebies).join(', ') || '-'),
-                detailRow('Replacement Casket', selectedReplacementCasket()?.name || 'Use included casket'),
+                detailRow('Included services and items', list(selected?.dataset.inclusions).join(', ') || '-'),
+                detailRow('Freebies', list(selected?.dataset.freebies).join(', ') || 'None'),
+                ...(isCustomSelected() && document.querySelector('.custom-service-check[value="casket"]')?.checked
+                    ? [detailRow('Included Casket', document.getElementById('custom_casket_catalog_id')?.selectedOptions?.[0]?.textContent?.trim() || '-')]
+                    : []),
+                ...(!isCustomSelected() ? [detailRow('Replacement Casket', selectedReplacementCasket()?.name || 'Use included casket')] : []),
                 detailRow('Optional Add-ons', selectedAddOnRows.length
                     ? selectedAddOnRows.map((addOn) => `${addOn.name} x1 - PHP ${fmt(addOn.price)}`).join(', ')
                     : 'No optional add-ons selected.'),
@@ -5908,12 +6104,22 @@
             targets.forEach(t => t && t.classList.add('field-error'));
             targets.forEach(t => t?.closest?.('.form-select-wrap')?.classList.add('is-error'));
             targets.forEach(t => t && t.setAttribute('aria-invalid', 'true'));
+            if (errEl.id) targets.forEach(target => {
+                const descriptions = new Set((target.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean));
+                descriptions.add(errEl.id);
+                target.setAttribute('aria-describedby', [...descriptions].join(' '));
+            });
             errEl.textContent = message;
             errEl.classList.remove('hidden');
         } else {
             targets.forEach(t => t && t.classList.remove('field-error'));
             targets.forEach(t => t?.closest?.('.form-select-wrap')?.classList.remove('is-error'));
             targets.forEach(t => t && t.removeAttribute('aria-invalid'));
+            if (errEl.id) targets.forEach(target => {
+                const descriptions = (target.getAttribute('aria-describedby') || '').split(/\s+/).filter(id => id && id !== errEl.id);
+                if (descriptions.length) target.setAttribute('aria-describedby', descriptions.join(' '));
+                else target.removeAttribute('aria-describedby');
+            });
             errEl.textContent = '';
             errEl.classList.add('hidden');
         }
@@ -6265,7 +6471,7 @@
         let valid = true;
         const flatpickrDateFields = ['born', 'died', 'wake_start_date', 'funeral_service_at', 'interment_at'];
 
-        for (const field of [...panel.querySelectorAll('input, select, textarea')].filter((element) => element.type !== 'hidden' && !element.disabled)) {
+        for (const field of [...panel.querySelectorAll('input, select, textarea')].filter((element) => element.type !== 'hidden' && !element.disabled && !element.dataset.intakeDateAlternate)) {
             const isFlatpickrDate = flatpickrDateFields.includes(field.id);
 
             // Do NOT clear date custom validity here
@@ -6318,6 +6524,16 @@
         if (!panel) return true;
 
         valid = validatePanelFields(panel) && valid;
+        if (targetStep === 3 && customPkgRadio?.checked && prefIncl) {
+            syncPreferredPackage();
+            const includedItems = prefIncl.value.split(/\r\n|\r|\n/u).map((item) => item.trim()).filter(Boolean);
+            if (includedItems.length === 0) {
+                const message = 'Select at least one included service.';
+                const other = document.querySelector('.custom-service-check');
+                showFieldError(other, message);
+                valid = false;
+            }
+        }
         if (targetStep === 1) valid = validateClientInformationStep() && valid;
         if (targetStep === 2) valid = validateDeceasedInformationStep() && valid;
         if (targetStep === 2) validateDobDod('full');
@@ -6645,6 +6861,8 @@
     const attemptedSteps = new Set();
     const validationTarget = field => {
         if (!field) return null;
+        const inclusionDialog = field.closest('.custom-inclusion-dialog');
+        if (inclusionDialog && !inclusionDialog.open) return field.closest('.custom-inclusion-editor').querySelector('.custom-inclusion-edit-label');
         const input = field._flatpickr?.altInput || field;
         if (getComputedStyle(input).display !== 'none' && !['hidden', 'radio', 'checkbox'].includes(input.type)) return input;
         const label = field.closest('label') || (field.id && f.querySelector(`label[for="${field.id}"]`));
@@ -6660,11 +6878,16 @@
             summary.className = 'intake-validation-summary';
             summary.setAttribute('role', 'region');
             summary.setAttribute('aria-label', 'Fields to check');
-            panel.querySelector('.section-title-block')?.insertAdjacentElement('afterend', summary);
+            const stepHeading = panel.querySelector(':scope > .section-title-block');
+            if (stepHeading) {
+                stepHeading.insertAdjacentElement('afterend', summary);
+            } else {
+                panel.prepend(summary);
+            }
         }
         const errors = [];
         panel.querySelectorAll('input,select,textarea').forEach(field => {
-            if (field.disabled || (field.type === 'hidden' && !field._flatpickr)) return;
+            if (field.disabled || field.dataset.intakeDateAlternate || (field.type === 'hidden' && !field._flatpickr)) return;
             const inlineError = fieldErrorElement(field, false);
             const message = field.validationMessage || (inlineError && !inlineError.classList.contains('hidden') ? inlineError.textContent.trim() : '');
             if (!message) return;
@@ -6717,6 +6940,10 @@
                 arrow.textContent = '→';
                 link.append(number, text, arrow);
                 link.addEventListener('click', () => {
+                    if (target.matches('.custom-inclusion-edit-label')) {
+                        target.click();
+                        return;
+                    }
                     target.scrollIntoView({ block: 'center', behavior: 'smooth' });
                     target.focus({ preventScroll: true });
                     f.querySelectorAll('.validation-highlight').forEach(field => field.classList.remove('validation-highlight'));
@@ -6783,7 +7010,8 @@
         const anchor = wizardSteps || formContent;
         if (!anchor) return;
 
-        const scroller = anchor.closest('.page-content') || document.querySelector('.page-content');
+        const scroller = [anchor.closest('.page-content'), anchor.closest('.main-area')]
+            .find(element => element && /(auto|scroll)/.test(getComputedStyle(element).overflowY));
         if (scroller) {
             const scrollerRect = scroller.getBoundingClientRect();
             const anchorRect = anchor.getBoundingClientRect();
@@ -6791,7 +7019,7 @@
 
             scroller.scrollTo({
                 top: scrollTop,
-                behavior: smooth ? 'smooth' : 'auto'
+                behavior: smooth && !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'auto'
             });
             return;
         }
@@ -6799,13 +7027,15 @@
         const topbarHeight = document.querySelector('.topbar')?.getBoundingClientRect?.().height || 0;
         const anchorTop = anchor.getBoundingClientRect().top + window.scrollY;
         const scrollTop = Math.max(anchorTop - topbarHeight - 10, 0);
-        window.scrollTo({ top: scrollTop, behavior: smooth ? 'smooth' : 'auto' });
+        window.scrollTo({ top: scrollTop, behavior: smooth && !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'auto' });
     };
 
     const syncProgressVisibility = () => {
         tabs.forEach((tab) => {
             const tabStep = Number(tab.dataset.step);
-            tab.classList.toggle('is-locked', tabStep > maxUnlockedStep);
+            const locked = tabStep > maxUnlockedStep;
+            tab.classList.toggle('is-locked', locked);
+            tab.setAttribute('aria-disabled', String(locked));
         });
     };
 
@@ -6833,8 +7063,20 @@
 
             tab.classList.toggle('active-step', active);
             tab.classList.toggle('completed-step', completed);
+            if (active) tab.setAttribute('aria-current', 'step');
+            else tab.removeAttribute('aria-current');
         });
         syncProgressVisibility();
+
+        // Keep the current step visible inside the horizontal mobile progress rail.
+        const activeTab = tabs.find(tab => Number(tab.dataset.step) === step);
+        if (wizardSteps && activeTab) {
+            const railRect = wizardSteps.getBoundingClientRect();
+            const tabRect = activeTab.getBoundingClientRect();
+            if (tabRect.left < railRect.left || tabRect.right > railRect.right) {
+                wizardSteps.scrollTo({ left: wizardSteps.scrollLeft + tabRect.left - railRect.left - 16, behavior: 'auto' });
+            }
+        }
 
         if (prev) prev.disabled = step === 1;
         next?.classList.toggle('hidden', step === totalSteps);
@@ -7178,6 +7420,15 @@
         const rememberTypedValue = (picker, input, errorEl, type) => {
             const visible = picker?.altInput;
             if (!visible) return;
+            visible.dataset.intakeDateAlternate = 'true';
+            visible.setAttribute('aria-label', input.dataset.label || input.name);
+            visible.setAttribute('title', 'Use a full month name, for example October 13, 2026, or choose a date from the calendar.');
+            const hint = document.createElement('p');
+            hint.id = `${input.id}_format_help`;
+            hint.className = 'intake-field-help';
+            hint.textContent = 'Example: October 13, 2026. You can also use the calendar.';
+            input.closest('.relative')?.insertAdjacentElement('afterend', hint);
+            visible.setAttribute('aria-describedby', hint.id);
 
             input.dataset.userTyped = input.dataset.userTyped || '0';
             input.dataset.lastTypedValue = input.dataset.lastTypedValue || '';
@@ -7942,6 +8193,15 @@
 
     packageDetailTabs.forEach((tab) => {
         tab.addEventListener('click', () => activatePackageDetailTab(tab.dataset.packageDetailTab));
+        tab.addEventListener('keydown', event => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            const index = packageDetailTabs.indexOf(tab);
+            const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? packageDetailTabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + packageDetailTabs.length) % packageDetailTabs.length;
+            const target = packageDetailTabs[nextIndex];
+            activatePackageDetailTab(target.dataset.packageDetailTab);
+            target.focus();
+        });
     });
 
     packageDetailsModal?.addEventListener('keydown', (event) => {
@@ -8062,6 +8322,40 @@
         syncPreferredPackage();
         renderPkg(false);
         render();
+    });
+
+    customPkgFields?.querySelectorAll('.custom-inclusion-editor').forEach((editor) => {
+        const dialog = editor.querySelector('dialog');
+        const field = dialog.querySelector('input,select');
+        const opener = editor.querySelector('.custom-inclusion-edit-label');
+        opener.addEventListener('click', () => setIntakeDialog(dialog, true, field));
+        const close = () => setIntakeDialog(dialog, false);
+        editor.querySelector('.custom-inclusion-close').addEventListener('click', close);
+        dialog.addEventListener('cancel', (event) => { event.preventDefault(); close(); });
+        dialog.addEventListener('click', (event) => {
+            if (event.target !== dialog) return;
+            const bounds = dialog.getBoundingClientRect();
+            if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) close();
+        });
+    });
+    customPkgFields?.querySelectorAll('.custom-inclusion-done').forEach((button) => {
+        button.addEventListener('click', () => {
+            const editor = button.closest('.custom-inclusion-dialog');
+            const field = editor?.querySelector('input,select');
+            if (field && !field.checkValidity()) {
+                showFieldError(field, field.validationMessage);
+                field.focus();
+                return;
+            }
+            setIntakeDialog(editor, false);
+        });
+    });
+    customPkgFields?.querySelectorAll('.custom-service-check, .custom-freebie-check, .custom-service-dependent input, .custom-service-dependent select, #custom_other_inclusions').forEach((field) => {
+        field.addEventListener(field.matches('input[type="checkbox"], select') ? 'change' : 'input', () => {
+            syncPreferredPackage();
+            renderPkg(false);
+            render();
+        });
     });
 
     document.querySelectorAll('[data-validate]').forEach((element) => {
@@ -8340,7 +8634,12 @@
     go(initialStep >= 5 ? 4 : initialStep, { scroll: false, smooth: false });
     try {
         const recovery = JSON.parse(localStorage.getItem(intakeAutosaveKey) || 'null');
-        if (recovery?.fields && !@json(session()->hasOldInput())) {
+        const hasRecoverableEntries = Object.entries(recovery?.fields || {}).some(([name, value]) => {
+            const userFields = /^(client_(first_name|middle_name|last_name|suffix|contact_number|address)|deceased_(first_name|middle_name|last_name|suffix|address)|born|died|package_id|custom_package_(name|price)|custom_other_inclusions|senior_citizen_id_number|wake_(location|start_date|end_date|start_time|end_time)|funeral_service_at|interment_at|place_of_cemetery|reporter_(name|contact))$/;
+            if (['custom_service_types[]', 'custom_freebie_catalog_ids[]'].includes(name)) return Array.isArray(value) && value.length > 0;
+            return (userFields.test(name) || /^additional_service_items\[\d+\]\[description\]$/.test(name)) && String(value ?? '').trim() !== '';
+        });
+        if (recovery?.fields && hasRecoverableEntries && !@json(session()->hasOldInput())) {
             const notice = document.createElement('div');
             notice.id = 'intake_autosave_recovery';
             notice.setAttribute('role', 'region');
@@ -8411,17 +8710,14 @@
     };
 
     // Mark dirty on any user interaction with the form
-    f.addEventListener('input',  () => { formIsDirty = true; queueLocalDraftSave(); }, { passive: true });
-    f.addEventListener('change', () => { formIsDirty = true; queueLocalDraftSave(); }, { passive: true });
+    f.addEventListener('input',  () => { document.getElementById('intake_autosave_recovery')?.remove(); formIsDirty = true; queueLocalDraftSave(); }, { passive: true });
+    f.addEventListener('change', () => { document.getElementById('intake_autosave_recovery')?.remove(); formIsDirty = true; queueLocalDraftSave(); }, { passive: true });
 
     const openCancelModal  = () => {
-        cancelModal?.classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
-        cancelKeep?.focus();
+        setIntakeDialog(cancelModal, true, cancelKeep);
     };
     const closeCancelModal = () => {
-        cancelModal?.classList.add('hidden');
-        document.body.style.overflow = '';
+        setIntakeDialog(cancelModal, false);
     };
     const doCancel = () => { window.location.href = cancelUrl; };
     const saveDraftFromCancel = () => {

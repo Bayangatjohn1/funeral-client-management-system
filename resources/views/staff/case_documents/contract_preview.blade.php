@@ -134,10 +134,10 @@
 </style>
 
 <div class="contract-preview-wrap">
-    <div class="contract-preview-head">
+    <div class="contract-preview-head panel-title-surface centered-page-header">
         <div>
             <div class="contract-eyebrow">Contract Preview</div>
-            <h1 class="contract-title"><x-page-title-icon icon="file-earmark-text" inline />Review Funeral Contract</h1>
+            <h1 class="contract-title">Review Funeral Contract</h1>
             <p class="contract-subtitle">Review the saved case details that will appear on the Funeral Contract before issuing it.</p>
         </div>
         <a href="{{ route('funeral-cases.show', ['funeral_case' => $funeral_case, 'return_to' => request()->query('return_to')]) }}" class="btn-outline">

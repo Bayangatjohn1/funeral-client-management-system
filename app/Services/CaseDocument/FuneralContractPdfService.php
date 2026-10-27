@@ -108,6 +108,9 @@ class FuneralContractPdfService
 
     private function contractNumber(FuneralCase $case, mixed $generatedAt): string
     {
+        if (config('branch_sync.mode') === 'branch') {
+            return 'FCN-'.config('branch_sync.branch_code').'-'.$generatedAt->format('Y').'-'.str_pad((string) $case->id, 6, '0', STR_PAD_LEFT);
+        }
         return 'FCN-' . $generatedAt->format('Y') . '-' . str_pad((string) $case->id, 6, '0', STR_PAD_LEFT);
     }
 

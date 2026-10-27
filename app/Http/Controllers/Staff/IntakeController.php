@@ -9,11 +9,13 @@ use App\Models\CasketCatalog;
 use App\Models\Client;
 use App\Models\Deceased;
 use App\Models\FuneralCase;
+use App\Models\FreebieCatalog;
 use App\Models\IntakeDraft;
 use App\Models\Package;
 use App\Models\Payment;
 use App\Models\ServiceDetail;
 use App\Support\AuditLogger;
+use App\Support\CustomPackageSelection;
 use App\Support\IntakePricingService;
 use App\Support\Payments\PaymentDetails;
 use App\Support\Validation\FieldRules;
@@ -26,6 +28,15 @@ use Illuminate\Validation\Rule;
 
 class IntakeController extends Controller
 {
+    private function initialPaymentSubmissionHash(array $validated, int $branchId, array $details): string
+    {
+        return hash('sha256', json_encode([
+            'source' => 'intake', 'branch_id' => $branchId,
+            'amount_cents' => (int) round((float) $validated['amount_paid'] * 100),
+            'paid_at' => Carbon::parse($validated['paid_at'])->toDateTimeString(), 'details' => $details,
+        ], JSON_THROW_ON_ERROR));
+    }
+
     private const CLIENT_RELATIONSHIP_OPTIONS = [
         'Father',
         'Mother',
@@ -148,21 +159,8 @@ class IntakeController extends Controller
         $operationalBranchId = (int) ($user->operationalBranchId() ?? $user->branch_id ?? 0);
         $canEncodeAnyBranch = $user->canEncodeAnyBranch();
 
-        $packages = Package::with([
-                'packageInclusions.casketCatalog',
-                'packageFreebies' => fn ($query) => $query->where(function ($freebieQuery) {
-                    $freebieQuery->whereNull('freebie_catalog_id')
-                        ->orWhereHas('catalog', fn ($catalogQuery) => $catalogQuery->where('is_active', true));
-                }),
-            ])
-            ->where('is_active', true)
-            ->whereDoesntHave('packageInclusions', function ($query) {
-                $query->whereNotNull('casket_catalog_id')
-                    ->whereHas('casketCatalog', fn ($catalogQuery) => $catalogQuery
-                        ->where(function ($statusQuery) {
-                            $statusQuery->where('is_active', false)->orWhere('is_available', false);
-                        }));
-            })
+        $packages = app(\App\Support\ServiceCatalogPolicy::class)
+            ->intakePackages(Package::query()->with(['packageInclusions.casketCatalog', 'packageFreebies.catalog']))
             ->orderBy('name')
             ->get();
         $activeAddOns = AddOnCatalog::where('is_active', true)
@@ -172,6 +170,7 @@ class IntakeController extends Controller
         $activeCaskets = CasketCatalog::where('is_active', true)
             ->orderBy('name')
             ->get();
+        $activeFreebies = FreebieCatalog::where('is_active', true)->orderBy('name')->get();
 
         $branchQuery = Branch::where('is_active', true)->orderBy('branch_code');
         if ($mode === 'other') {
@@ -190,6 +189,7 @@ class IntakeController extends Controller
             'packages' => $packages,
             'activeAddOns' => $activeAddOns,
             'activeCaskets' => $activeCaskets,
+            'activeFreebies' => $activeFreebies,
             'branches' => $branches,
             'nextCode' => $this->nextCaseCode((int) $defaultBranchId),
             'nextCodeMap' => $branches->mapWithKeys(function ($branch) {
@@ -321,26 +321,38 @@ class IntakeController extends Controller
             'branch_id' => 'required|integer|exists:branches,id',
             'package_id' => [
                 'required',
-                function ($attribute, $value, $fail) {
+                function ($attribute, $value, $fail) use ($mode) {
                     if ((string) $value === 'custom') {
+                        if ($mode !== 'main') {
+                            $fail('Custom packages are only available for main-branch intake.');
+                        }
                         return;
                     }
                     if (!is_numeric($value)) {
                         $fail('Please select a valid package.');
                         return;
                     }
-                    $exists = Package::where('is_active', true)
-                        ->where('id', (int) $value)
+                    $exists = app(\App\Support\ServiceCatalogPolicy::class)
+                        ->intakePackages(Package::query()->whereKey((int) $value))
                         ->exists();
                     if (!$exists) {
-                        $fail('Selected package is unavailable.');
+                        $fail('This package is no longer available for new intake. Choose another package.');
                     }
                 },
             ],
             'custom_package_name' => 'exclude_unless:package_id,custom|required|string|max:150',
-            'custom_package_price' => 'exclude_unless:package_id,custom|required|numeric|min:0',
-            'custom_package_inclusions' => 'exclude_unless:package_id,custom|nullable|string|max:1000',
-            'custom_package_freebies' => 'exclude_unless:package_id,custom|nullable|string|max:1000',
+            'custom_package_price' => 'exclude_unless:package_id,custom|required|numeric|min:0.01',
+            'custom_service_types' => 'exclude_unless:package_id,custom|nullable|array|max:5',
+            'custom_service_types.*' => ['string', 'distinct', Rule::in([
+                Package::SERVICE_BODY_RETRIEVAL, Package::SERVICE_EMBALMING, Package::SERVICE_CASKET,
+                Package::SERVICE_HOME_VIEWING, Package::SERVICE_HEARSE,
+            ])],
+            'custom_service_coverage' => 'exclude_unless:package_id,custom|nullable|array',
+            'custom_service_coverage.*' => 'nullable|numeric|min:0|max:100000',
+            'custom_casket_catalog_id' => 'exclude_unless:package_id,custom|nullable|integer',
+            'custom_freebie_catalog_ids' => 'exclude_unless:package_id,custom|nullable|array|max:20',
+            'custom_freebie_catalog_ids.*' => 'integer|distinct',
+            'custom_other_inclusions' => 'exclude_unless:package_id,custom|nullable|string|max:1000',
             'additional_services' => 'nullable|string|max:1000',
             'additional_service_amount' => 'nullable|numeric|min:0',
             'additional_service_items' => 'nullable|array|max:20',
@@ -365,6 +377,7 @@ class IntakeController extends Controller
             'paid_at' => ['exclude_unless:mark_as_paid,1', 'required_if:mark_as_paid,1', 'date_format:Y-m-d\TH:i,Y-m-d H:i:s', 'before_or_equal:now'],
             'amount_paid' => ['required_if:mark_as_paid,1', 'regex:/^\d+(\.\d{1,2})?$/', 'numeric', 'gt:0'],
             'confirm_review' => 'nullable|boolean',
+            'submission_id' => ['nullable', 'uuid'],
             'intake_draft_id' => 'nullable|integer|exists:intake_drafts,id',
         ], PaymentDetails::rules(), [
             'payment_method' => ['required', 'in:cash,cashless,none'],
@@ -412,6 +425,10 @@ class IntakeController extends Controller
             'confirm_review' => 'You must confirm that the information is correct before saving.',
             'additional_service_amount.numeric' => 'Additional charges must be a valid amount.',
             'additional_service_amount.min' => 'Additional charges cannot be negative.',
+            'custom_package_name.required' => 'Enter a name for the custom package.',
+            'custom_package_price.required' => 'Enter the agreed package price.',
+            'custom_package_price.min' => 'The custom package price must be greater than zero.',
+            'custom_package_inclusions.required' => 'List at least one service or item included in the custom package.',
             'additional_service_items.*.description.max' => 'Additional service description is too long.',
             'additional_service_items.*.amount.numeric' => 'Additional service amount must be valid.',
             'additional_service_items.*.amount.min' => 'Additional service amount cannot be negative.',
@@ -586,26 +603,13 @@ class IntakeController extends Controller
 
         $package = null;
         if (!$isCustomPackage) {
-            $package = Package::with([
-                    'packageInclusions.casketCatalog',
-                    'packageFreebies' => fn ($query) => $query->where(function ($freebieQuery) {
-                        $freebieQuery->whereNull('freebie_catalog_id')
-                            ->orWhereHas('catalog', fn ($catalogQuery) => $catalogQuery->where('is_active', true));
-                    }),
-                ])
-                ->where('id', $selectedPackageId)
-                ->where('is_active', true)
-                ->whereDoesntHave('packageInclusions', function ($query) {
-                    $query->whereNotNull('casket_catalog_id')
-                        ->whereHas('casketCatalog', fn ($catalogQuery) => $catalogQuery
-                            ->where(function ($statusQuery) {
-                                $statusQuery->where('is_active', false)->orWhere('is_available', false);
-                            }));
-                })
+            $package = app(\App\Support\ServiceCatalogPolicy::class)
+                ->intakePackages(Package::query()->with(['packageInclusions.casketCatalog', 'packageFreebies.catalog'])
+                    ->whereKey($selectedPackageId))
                 ->first();
 
             if (!$package) {
-                return back()->withErrors(['package_id' => 'Selected package is unavailable.'])->withInput();
+                return back()->withErrors(['package_id' => 'This package is no longer available for new intake. Choose another package.'])->withInput();
             }
         }
 
@@ -639,6 +643,26 @@ class IntakeController extends Controller
         $normalizedDeceasedAddress = strtolower(trim((string) $validated['deceased_address']));
         $clientDuplicateKey = $request->filled('client_name') ? 'client_name' : 'client_first_name';
         $deceasedDuplicateKey = $request->filled('deceased_name') ? 'deceased_name' : 'deceased_first_name';
+
+        if ($request->boolean('mark_as_paid') && !empty($validated['submission_id'])) {
+            $savedPayment = Payment::withTrashed()->where('branch_id', $branchId)
+                ->where('submission_id', $validated['submission_id'])->first();
+            if ($savedPayment) {
+                $savedCase = FuneralCase::with(['client', 'deceased'])->where('branch_id', $branchId)
+                    ->find($savedPayment->funeral_case_id);
+                $same = $savedCase && $savedCase->entry_source === $entrySource
+                    && strtolower(trim((string) $savedCase->client?->full_name)) === $normalizedClientName
+                    && strtolower(trim((string) $savedCase->deceased?->full_name)) === $normalizedDeceasedName
+                    && hash_equals((string) $savedPayment->submission_hash,
+                        $this->initialPaymentSubmissionHash($validated, $branchId, $paymentDetails));
+                if (!$same) {
+                    return back()->withErrors(['submission_id' => 'This submission was already saved with different details. Review Case Records before starting another intake.'])->withInput();
+                }
+                $this->authorize('view', $savedCase);
+                return redirect()->route('funeral-cases.show', $savedCase)
+                    ->with('success', 'Recovered existing case '.$savedCase->case_code.'. This retry did not apply changes or create another case or payment. Review the saved details and payment history.');
+            }
+        }
 
         if ($normalizedClientName === $normalizedDeceasedName) {
             return back()->withErrors([
@@ -711,6 +735,11 @@ class IntakeController extends Controller
         $servicePackageName = $isCustomPackage
             ? ($validated['custom_package_name'] ?? 'Client Preference')
             : $package->name;
+        if ($isCustomPackage) {
+            $validated['custom_package_configuration'] = app(CustomPackageSelection::class)->resolve($validated);
+            $validated['custom_package_inclusions'] = $validated['custom_package_configuration']['inclusions_text'];
+            $validated['custom_package_freebies'] = $validated['custom_package_configuration']['freebies_text'];
+        }
         $pricingService = app(IntakePricingService::class);
         $selectionErrors = $pricingService->validateSelections($package, $validated, $isCustomPackage);
         if ($selectionErrors !== []) {
@@ -719,7 +748,7 @@ class IntakeController extends Controller
 
         $pricing = $pricingService->price($package, $validated, $isCustomPackage, now());
         $coffinType = $isCustomPackage
-            ? 'CUSTOM'
+            ? ($pricing['included_casket']['name'] ?? 'CUSTOM')
             : ($pricing['selected_casket']['name'] ?? $pricing['included_casket']['name'] ?? $package->coffin_type);
         $packagePrice = $pricing['base_price'];
         $additionalServiceAmount = $pricing['additional_total'];
@@ -761,7 +790,7 @@ class IntakeController extends Controller
 
         $pricing = $pricingService->price($package, $validated, $isCustomPackage, now());
         $coffinType = $isCustomPackage
-            ? 'CUSTOM'
+            ? ($pricing['included_casket']['name'] ?? 'CUSTOM')
             : ($pricing['selected_casket']['name'] ?? $pricing['included_casket']['name'] ?? $package->coffin_type);
         $packagePrice = $pricing['base_price'];
         $additionalServiceAmount = $pricing['additional_total'];
@@ -1123,6 +1152,9 @@ class IntakeController extends Controller
                 if ($markAsPaid) {
                     $paidAt = Carbon::parse($validated['paid_at']);
                     $payment = Payment::create([
+                        'submission_id' => $validated['submission_id'] ?? null,
+                        'submission_hash' => isset($validated['submission_id'])
+                            ? $this->initialPaymentSubmissionHash($validated, $branchId, $paymentDetails) : null,
                         'funeral_case_id'  => $funeralCase->id,
                         'branch_id'        => $branchId,
                         'payment_record_no' => Payment::nextPaymentRecordNumber($paidAt),

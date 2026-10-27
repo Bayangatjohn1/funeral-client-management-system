@@ -1,27 +1,50 @@
 <style>
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .payment-monitoring-page .pm-toolbar { display: flex !important; flex-wrap: wrap !important; }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .payment-monitoring-page .pm-toolbar .pm-field {
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui) .payment-monitoring-page .pm-toolbar { display: flex !important; flex-wrap: wrap !important; }
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui) .payment-monitoring-page .pm-toolbar .pm-field {
         flex: 1 0 160px;
         min-width: 160px !important;
     }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .payment-monitoring-page .pm-toolbar .pm-field:has(select[name='payment_status']) {
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui) .payment-monitoring-page .pm-toolbar .pm-field:has(select[name='payment_status']) {
         flex-basis: 210px;
         min-width: 210px !important;
     }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .payment-monitoring-page .pm-toolbar .pm-field.branch-readonly {
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui) .payment-monitoring-page .pm-toolbar .pm-field.branch-readonly {
         flex: 1 0 300px;
         min-width: 300px !important;
         max-width: none;
     }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .payment-monitoring-page .pm-toolbar .pm-field.search {
-        flex: 2 1 240px;
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui) .payment-monitoring-page .pm-toolbar .pm-field.search {
+        flex: 1 1 22rem;
         min-width: 240px !important;
+        max-width:34rem;
+        margin-right:clamp(20px,3vw,48px);
     }
     @media (max-width: 600px) {
-        html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .payment-monitoring-page .pm-toolbar .pm-field {
+        html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui) .payment-monitoring-page .pm-toolbar .pm-field {
             flex: 1 0 100% !important;
             min-width: 0 !important;
             max-width: 100%;
+        }
+        html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui) .payment-monitoring-page .pm-toolbar .pm-field.search { margin-right:0; }
+    }
+    @media (min-width: 1201px) {
+        html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui) .payment-monitoring-page .pm-toolbar {
+            flex-wrap:nowrap !important; gap:10px !important;
+        }
+        html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui) .payment-monitoring-page .pm-toolbar .pm-field.search {
+            flex:1 1 24rem !important; min-width:18rem !important; max-width:30rem !important; margin-right:clamp(18px,2vw,32px) !important;
+        }
+        html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui) .payment-monitoring-page .pm-toolbar .pm-field.branch {
+            flex:0 1 12rem !important; min-width:10.5rem !important;
+        }
+        html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui) .payment-monitoring-page .pm-toolbar .pm-field:has(select[name='payment_status']) {
+            flex:0 1 13.5rem !important; min-width:12rem !important;
+        }
+        html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui) .payment-monitoring-page .pm-toolbar .pm-field:has(select[name='date_preset']) {
+            flex:0 1 11rem !important; min-width:9.5rem !important;
+        }
+        html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui) .payment-monitoring-page .pm-toolbar :is(.pm-more-filters,.pm-page-size,.pm-actions) {
+            flex:0 0 auto !important; margin-left:0 !important;
         }
     }
     html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .payment-monitoring-page .pm-kpi-inner {
@@ -112,7 +135,7 @@
     }
 
     /* Keep page titles on the workspace canvas, matching the approved Staff screens. */
-    html[data-theme] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) .panel-page-header {
+    html[data-theme] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) .panel-page-header:not(.panel-title-surface) {
         color: var(--staff-records-ink) !important;
         background: transparent !important;
         border: 0 !important;

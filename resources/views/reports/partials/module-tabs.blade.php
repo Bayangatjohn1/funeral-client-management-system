@@ -16,7 +16,7 @@
         ['label' => '1. Overview (Performance & Branch Bar Chart)', 'icon' => 'bi-bar-chart-line', 'target' => 'ba-panel-performance'],
         ['label' => '2. Payments (Payment Doughnut Chart)', 'icon' => 'bi-pie-chart', 'target' => 'ba-panel-payment'],
         ['label' => '3. Collections (Snapshot & Period Bar Chart)', 'icon' => 'bi-cash-stack', 'target' => 'ba-panel-collection'],
-        ['label' => '4. Revenue Trend (Line Chart & Pacing)', 'icon' => 'bi-graph-up-arrow', 'target' => 'ba-panel-trend'],
+        ['label' => '4. Service Value Trend (Line Chart & Pacing)', 'icon' => 'bi-graph-up-arrow', 'target' => 'ba-panel-trend'],
     ];
     $reportsUrl = route('reports.index', array_filter([
         'report_type' => $currentReportType ?: 'owner_branch_analytics',
@@ -343,23 +343,13 @@
         }
     </style>
 
-    <div class="reports-reference-heading">
+    <div class="reports-reference-heading panel-title-surface centered-page-header">
     <div class="reports-module-title-block">
         <button type="button" id="mobileSidebarToggle" class="mobile-menu-btn" aria-label="Open navigation" aria-expanded="false" aria-controls="appSidebar"><i class="bi bi-list" aria-hidden="true"></i></button>
-        <div class="reports-reference-scope">
-            <span class="reports-reference-branch"><i class="bi bi-building" aria-hidden="true"></i>
-                @if($activeModule === 'analytics')
-                    {{ $selectedBranch ? $selectedBranch->branch_code . ' - ' . $selectedBranch->branch_name : 'All Branches' }}
-                @else
-                    <span x-text="analyticsBranchLabel()"></span>
-                @endif
-            </span>
-            @if(auth()->user()?->isBranchAdmin())
-                <span class="reports-reference-lock"><i class="bi bi-lock" aria-hidden="true"></i> Assigned Branch Scope Enforced</span>
-            @endif
+        <div class="reports-module-heading-copy">
+            <h1 class="reports-module-title">Reports &amp; Analytics</h1>
+            <p class="reports-module-subtitle">Analytics charts, branch performance, and operational reports.</p>
         </div>
-        <h1 class="reports-module-title"><x-page-title-icon icon="bar-chart" inline />Reports &amp; Analytics</h1>
-        <p class="reports-module-subtitle">Analytics charts, branch performance, and operational reports.</p>
     </div>
 
     <nav class="reports-module-tabs reports-module-primary-tabs" aria-label="Reports and analytics module">
@@ -396,7 +386,7 @@
     @endif
 
     @if($activeModule === 'analytics')
-        <div class="reports-module-controls" aria-label="Analytics scope controls">
+        <div class="reports-module-controls reports-analytics-scope" aria-label="Analytics scope controls">
             <form method="GET" action="{{ route($analyticsRouteName) }}" class="reports-reference-period">
                 <span class="reports-reference-date-label"><i class="bi bi-calendar3" aria-hidden="true"></i> Date Range:</span>
                 @if($branchId)

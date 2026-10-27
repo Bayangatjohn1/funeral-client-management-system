@@ -316,12 +316,12 @@ class AdminScopeAuthorizationTest extends TestCase
             ->assertOk()->assertViewHas('packages', fn ($packages) => $packages->pluck('name')->all() === ['Sorting Fixture Zeta', 'Sorting Fixture Alpha']);
     }
 
-    public function test_branch_admin_main_intake_uses_assigned_branch_instead_of_br001(): void
+    public function test_staff_main_intake_uses_assigned_branch_instead_of_br001(): void
     {
         $mainBranch = $this->createBranch('BR001', 'Main Branch');
         $branch = $this->createBranch('BR002', 'Branch Two');
         $package = $this->createPackage();
-        $branchAdmin = $this->createBranchAdmin($branch);
+        $branchAdmin = User::factory()->create(['role' => 'staff', 'branch_id' => $branch->id, 'is_active' => true]);
 
         $response = $this->actingAs($branchAdmin)->post('/intake/main', [
             'service_requested_at' => now()->toDateString(),
@@ -365,6 +365,7 @@ class AdminScopeAuthorizationTest extends TestCase
             'senior_citizen_id_number' => null,
             'pwd_id_number' => null,
             'confirm_review' => 1,
+            'payment_method' => 'none',
         ]);
 
         $response->assertRedirect(route('funeral-cases.index', ['record_scope' => 'main'], absolute: false));
@@ -378,6 +379,19 @@ class AdminScopeAuthorizationTest extends TestCase
             'entry_source' => 'MAIN',
             'case_status' => 'ACTIVE',
         ]);
+    }
+
+    public function test_branch_scope_never_grants_admin_intake_recording_permission(): void
+    {
+        foreach (['BR001', 'BR002', 'BR003'] as $code) {
+            $branch = $this->createBranch($code, $code);
+            $admin = $this->createBranchAdmin($branch);
+            $this->actingAs($admin)->get('/intake/main')->assertForbidden();
+            $this->post('/intake/main', ['branch_id' => $branch->id])->assertForbidden();
+            $this->post('/intake', ['branch_id' => $branch->id])->assertForbidden();
+        }
+        $this->assertDatabaseCount('funeral_cases', 0);
+        $this->assertDatabaseCount('clients', 0);
     }
 
     public function test_main_branch_admin_cannot_create_owner_accounts_or_assign_main_scope_through_user_management(): void

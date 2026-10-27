@@ -7,7 +7,7 @@
         str_contains($title, 'backup') => 'database-check',
         str_contains($title, 'retention') => 'archive',
         str_contains($title, 'report'), str_contains($title, 'analytics') => 'bar-chart',
-        str_contains($title, 'reminder'), str_contains($title, 'schedule') => 'calendar-event',
+        str_contains($title, 'reminder'), str_contains($title, 'schedule') => 'schedule-reminders',
         str_contains($title, 'payment'), str_contains($title, 'sales') => 'cash-coin',
         str_contains($title, 'profile') => 'person-circle',
         str_contains($title, 'user') => 'people',
@@ -25,4 +25,10 @@
         default => 'file-earmark-text',
     };
 @endphp
-<span {{ $attributes->class(['page-title-icon', 'page-title-icon--inline' => $inline]) }} aria-hidden="true"><i class="bi bi-{{ $resolvedIcon }}"></i></span>
+<span {{ $attributes->class(['page-title-icon', 'page-title-icon--inline' => $inline]) }} aria-hidden="true">
+    @if($resolvedIcon === 'schedule-reminders')
+        <x-schedule-reminders-icon />
+    @else
+        <i class="bi bi-{{ $resolvedIcon }}"></i>
+    @endif
+</span>

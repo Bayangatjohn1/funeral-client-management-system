@@ -16,6 +16,10 @@
     html[data-theme] body.panel-shell-body :is(.records-page, .master-records-page) {
         overflow: visible !important;
     }
+    /* Sticky filters must use the page scroller, not a clipped card ancestor. */
+    html[data-theme] body.panel-shell-body .master-records-page > .table-system-card {
+        overflow: visible !important;
+    }
     /* Focus belongs to the composite field, not a second box around its select. */
     html[data-theme] body.panel-shell-body :is(.records-page, .master-records-page) .case-record-filters .case-compact-seg :is(.case-compact-date-select, .case-compact-sort-select):is(:focus, :focus-visible) {
         outline: none !important;

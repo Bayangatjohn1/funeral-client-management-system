@@ -215,6 +215,7 @@ class CaseDocumentController extends Controller
 
     public function print(FuneralCase $funeral_case, CaseDocument $document): Response
     {
+        abort_if(auth()->user()?->isOwner(), 403);
         $this->authorizeDocumentAccess($funeral_case, $document);
 
         AuditLogger::log(

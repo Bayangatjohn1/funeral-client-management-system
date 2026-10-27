@@ -44,17 +44,54 @@ class AdminRecoveryWorkflowTest extends TestCase
         $case = $this->case($branch);
         $payment = Payment::create(['funeral_case_id' => $case->id, 'branch_id' => $branch->id, 'payment_record_no' => 'PAY-2026-000001', 'payment_method' => 'cash', 'payment_mode' => 'cash', 'amount' => 4000, 'paid_at' => now(), 'paid_date' => today(), 'status' => 'POSTED', 'recorded_by' => $staff->id]);
         $case->recalculatePaymentTotals();
+        $payment->update(['submission_id' => (string) \Illuminate\Support\Str::uuid(), 'submission_hash' => str_repeat('a', 64)]);
 
-        $this->actingAs($staff)->post(route('payments.corrections.store', $payment), ['correction_type' => 'CORRECT', 'amount' => 3000, 'paid_date' => today()->toDateString(), 'reason' => 'The encoded amount does not match the receipt.'])->assertSessionHasNoErrors();
+        $this->actingAs($staff)->post(route('payments.corrections.store', $payment), [
+            'correction_type' => 'CORRECT', 'amount' => 4000,
+            'reason' => 'The payment details require review.',
+        ])->assertSessionHasErrors('correction_type');
+        $this->actingAs($staff)->post(route('payments.corrections.store', $payment), [
+            'correction_type' => 'CORRECT', 'amount' => 12.345,
+            'paid_date' => today()->addDay()->toDateString(), 'payment_method' => 'unsupported',
+            'reason' => 'The payment details require review.',
+        ])->assertSessionHasErrors(['amount', 'paid_date', 'payment_method']);
+        $this->assertSame(0, PaymentCorrectionRequest::count());
+
+        $this->actingAs($staff)->post(route('payments.corrections.store', $payment), ['correction_type' => 'CORRECT', 'amount' => 3000, 'paid_date' => today()->subDay()->toDateString(), 'reason' => 'The encoded amount does not match the receipt.'])->assertSessionHasNoErrors();
         $correction = PaymentCorrectionRequest::firstOrFail();
         $this->assertSame('PENDING', $correction->status);
         $this->assertSame('POSTED', $payment->fresh()->status);
+
+        $this->actingAs($admin)->get(route('admin.payments.index', ['tab' => 'corrections']))
+            ->assertOk()->assertSee('Original payment')->assertSee('Requested correction');
 
         $this->actingAs($admin)->post(route('admin.payment-corrections.approve', $correction))->assertSessionHasNoErrors();
         $this->assertSame('VOIDED', $payment->fresh()->status);
         $this->assertSame('APPROVED', $correction->fresh()->status);
         $this->assertSame('3000.00', $correction->fresh()->replacementPayment->amount);
         $this->assertSame('3000.00', $case->fresh()->total_paid);
+        $replacement = $correction->fresh()->replacementPayment;
+        $this->assertNull($replacement->submission_id);
+        $this->assertNull($replacement->submission_hash);
+        $this->assertSame('7000.00', $replacement->balance_after_payment);
+        $this->assertSame('PARTIAL', $replacement->payment_status_after_payment);
+        $this->assertNotNull($payment->fresh()->submission_id);
+        $this->assertSame(today()->subDay()->toDateString(), $replacement->paid_at->toDateString());
+        $this->assertSame($payment->paid_at->format('H:i:s'), $replacement->paid_at->format('H:i:s'));
+        $log = \App\Models\AuditLog::where('action', 'PAYMENT_CORRECTION_APPROVED')->firstOrFail();
+        $this->assertSame($correction->reason, $log->metadata['reason']);
+        $this->assertSame('PHP 4,000.00', $log->metadata['changes'][0]['before']);
+        $this->assertSame('PHP 3,000.00', $log->metadata['changes'][0]['after']);
+        $system = $this->admin('system');
+        $this->actingAs($system)->get(route('admin.audit-logs.index', ['action' => 'PAYMENT_CORRECTION']))
+            ->assertOk()->assertSee('Payment Correction Approved');
+        $this->get(route('admin.audit-logs.show', $log))->assertOk()->assertJsonPath('metadata.reason', $correction->reason);
+        $otherBranch = Branch::create(['branch_code' => 'BR099', 'branch_type' => 'branch', 'branch_name' => 'Other Branch', 'is_active' => true]);
+        $otherAdmin = $this->admin('branch', $otherBranch);
+        $this->actingAs($otherAdmin)->get(route('admin.audit-logs.index', ['action' => 'PAYMENT_CORRECTION']))
+            ->assertOk()->assertDontSee('Payment Correction Approved');
+        $this->get(route('admin.audit-logs.show', $log))->assertForbidden();
+
     }
 
     public function test_legal_hold_overrides_pending_disposal_status(): void
@@ -81,6 +118,103 @@ class AdminRecoveryWorkflowTest extends TestCase
 
         $response->assertRedirect()->assertSessionHasErrors('backup');
         $this->assertDatabaseCount('system_backups', 0);
+    }
+
+    public function test_correction_approval_cannot_overpay_and_rolls_back_original_and_audit(): void
+    {
+        $branch = $this->branch();
+        $case = $this->case($branch);
+        $staff = User::factory()->create(['role' => 'staff', 'branch_id' => $branch->id, 'is_active' => true]);
+        $payment = Payment::create(['funeral_case_id' => $case->id, 'branch_id' => $branch->id,
+            'amount' => 4000, 'payment_method' => 'cash', 'paid_at' => now(), 'status' => 'POSTED', 'recorded_by' => $staff->id]);
+        $case->recalculatePaymentTotals();
+        $this->actingAs($staff)->post(route('payments.corrections.store', $payment), [
+            'correction_type' => 'CORRECT', 'amount' => 11000, 'reason' => 'Review the receipt amount carefully.',
+        ])->assertSessionHasNoErrors();
+        $correction = PaymentCorrectionRequest::firstOrFail();
+        $this->actingAs($this->admin('branch', $branch))
+            ->post(route('admin.payment-corrections.approve', $correction))->assertStatus(422);
+        $this->assertSame('POSTED', $payment->fresh()->status);
+        $this->assertSame('PENDING', $correction->fresh()->status);
+        $this->assertDatabaseCount('payments', 1);
+        $this->assertSame('4000.00', $case->fresh()->total_paid);
+        $this->assertSame(0, \App\Models\AuditLog::where('action', 'PAYMENT_CORRECTION_APPROVED')->count());
+    }
+
+    public function test_repeated_correction_request_and_approval_preserve_one_replacement(): void
+    {
+        $branch = $this->branch();
+        $case = $this->case($branch);
+        $staff = User::factory()->create(['role' => 'staff', 'branch_id' => $branch->id, 'is_active' => true]);
+        $payment = Payment::create(['funeral_case_id' => $case->id, 'branch_id' => $branch->id,
+            'amount' => 4000, 'payment_method' => 'cash', 'paid_at' => now(), 'status' => 'POSTED', 'recorded_by' => $staff->id]);
+        $case->recalculatePaymentTotals();
+        $payload = ['correction_type' => 'CORRECT', 'amount' => 3000, 'reason' => 'Correct the receipt amount carefully.'];
+        $this->actingAs($staff)->post(route('payments.corrections.store', $payment), $payload)->assertSessionHasNoErrors();
+        $this->post(route('payments.corrections.store', $payment), $payload)->assertStatus(422);
+        $this->assertDatabaseCount('payment_correction_requests', 1);
+        $correction = PaymentCorrectionRequest::firstOrFail();
+        $this->actingAs($this->admin('branch', $branch))->post(route('admin.payment-corrections.approve', $correction))->assertSessionHasNoErrors();
+        $this->post(route('admin.payment-corrections.approve', $correction))->assertStatus(409);
+        $this->assertDatabaseCount('payments', 2);
+        $this->assertSame('VOIDED', $payment->fresh()->status);
+        $this->assertSame('3000.00', $case->fresh()->total_paid);
+        $this->assertSame(1, \App\Models\AuditLog::where('action', 'PAYMENT_CORRECTION_APPROVED')->count());
+    }
+
+    public function test_administrative_other_branch_report_cannot_be_changed_through_corrections(): void
+    {
+        $branch = $this->branch();
+        $case = $this->case($branch, ['entry_source' => 'OTHER_BRANCH']);
+        $staff = User::factory()->create(['role' => 'staff', 'branch_id' => $branch->id, 'is_active' => true]);
+        $payment = Payment::create(['funeral_case_id' => $case->id, 'branch_id' => $branch->id,
+            'amount' => 10000, 'payment_method' => 'cash', 'paid_at' => now(), 'status' => 'POSTED', 'recorded_by' => $staff->id]);
+        $case->recalculatePaymentTotals();
+        $this->actingAs($staff)->post(route('payments.corrections.store', $payment), [
+            'correction_type' => 'CORRECT', 'amount' => 9000, 'reason' => 'Attempt to modify an administrative report.',
+        ])->assertStatus(422);
+        $this->assertDatabaseCount('payment_correction_requests', 0);
+        // Even a historical pending request must not provide a report-payment write bypass.
+        $correction = PaymentCorrectionRequest::create(['payment_id' => $payment->id, 'branch_id' => $branch->id,
+            'requested_by' => $staff->id, 'correction_type' => 'CORRECT', 'reason' => 'Legacy pending request.',
+            'original_values' => ['amount' => 10000], 'proposed_values' => ['amount' => 9000]]);
+        $this->actingAs($this->admin('branch', $branch))->post(route('admin.payment-corrections.approve', $correction))->assertStatus(422);
+        $this->assertSame('POSTED', $payment->fresh()->status);
+        $this->assertSame('PENDING', $correction->fresh()->status);
+        $this->assertSame('10000.00', $case->fresh()->total_paid);
+        $this->assertDatabaseCount('payments', 1);
+    }
+
+    public function test_activated_branch_payment_correction_cannot_be_approved_on_central(): void
+    {
+        $branch = $this->branch();
+        $case = $this->case($branch);
+        $staff = User::factory()->create(['role' => 'staff', 'branch_id' => $branch->id, 'is_active' => true]);
+        $admin = $this->admin('branch', $branch);
+        $payment = Payment::create(['funeral_case_id' => $case->id, 'branch_id' => $branch->id,
+            'payment_method' => 'cash', 'amount' => 4000, 'status' => 'POSTED', 'paid_at' => now(), 'recorded_by' => $staff->id]);
+        $case->recalculatePaymentTotals();
+        $installation = (string) \Illuminate\Support\Str::uuid();
+        config(['branch_sync.mode' => 'branch', 'branch_sync.branch_code' => $branch->branch_code]);
+        \App\Services\BranchSync\SyncState::put('installation', $installation);
+        \App\Services\BranchSync\SyncState::put('references_at', now()->toIso8601String());
+        $this->actingAs($staff)->post(route('payments.corrections.store', $payment), [
+            'correction_type' => 'CORRECT', 'amount' => 3000, 'paid_date' => today()->toDateString(), 'reason' => 'Correct the received amount.',
+        ])->assertSessionHasNoErrors();
+        $correction = PaymentCorrectionRequest::firstOrFail();
+        \Illuminate\Support\Facades\DB::table('branch_sync_peers')->insert([
+            'branch_code' => $branch->branch_code, 'token_hash' => hash('sha256', 'test-only'),
+            'installation_id' => $installation, 'activation_state' => 'active',
+        ]);
+        config(['branch_sync.mode' => 'central']);
+        $this->actingAs($admin)->post(route('admin.payment-corrections.approve', $correction))->assertStatus(409);
+        $this->assertSame('PENDING', $correction->fresh()->status);
+        $this->assertSame('POSTED', $payment->fresh()->status);
+        config(['branch_sync.mode' => 'branch']);
+        $this->post(route('admin.payment-corrections.approve', $correction))->assertSessionHasNoErrors();
+        $this->assertSame('APPROVED', $correction->fresh()->status);
+        $this->assertSame('3000.00', $case->fresh()->total_paid);
+        $this->assertTrue(\App\Services\BranchSync\SyncState::get('dirty'));
     }
 
     public function test_wrong_backup_password_reopens_the_dialog_with_an_inline_error(): void

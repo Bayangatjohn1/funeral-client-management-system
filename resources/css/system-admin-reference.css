@@ -22,7 +22,7 @@ html[data-theme='dark'] body.system-admin-ui {
     --brand:#B5D6C4; --brand-hover:#CDE5D7; --records-hover:#1B3527;
 }
 html[data-theme] body.panel-shell-body.system-admin-ui :is(.app-shell,.main-area,.page-content) { background:var(--surface) !important; }
-html[data-theme] body.system-admin-ui .panel-page-header { background:transparent !important; border:0 !important; box-shadow:none !important; }
+html[data-theme] body.system-admin-ui .panel-page-header:not(.panel-title-surface) { background:transparent !important; border:0 !important; box-shadow:none !important; }
 html[data-theme] body.system-admin-ui .sidebar :is(.nav-link,.profile-pill) { font-family:var(--font-body); }
 html[data-theme] body.system-admin-ui .sidebar .nav-link { color:var(--ink-muted); }
 html[data-theme] body.system-admin-ui .sidebar .nav-link:hover { background:var(--records-hover); color:var(--ink); }

@@ -7,6 +7,9 @@ import './login-throttle';
 import './remember-email';
 import './password-reset';
 import './password-welcome';
+import './package-wizard';
+import './service-confirm';
+import '../css/branch-sync.css';
 
 import Alpine from 'alpinejs';
 
@@ -782,8 +785,8 @@ function initCaseCompactFilters() {
                 moreText.textContent = open ? 'Hide Filters' : 'More Filters';
             }
             if (moreIcon) {
-                moreIcon.classList.toggle('bi-chevron-down', !open);
-                moreIcon.classList.toggle('bi-chevron-up', open);
+                moreIcon.classList.add('bi-chevron-down');
+                moreIcon.classList.remove('bi-chevron-up');
             }
         };
 

@@ -30,6 +30,45 @@ html[data-theme='dark'] body.panel-shell-body {
     --filter-ui-surface:#14261D; --filter-ui-menu:#112218; --filter-ui-border:#29523D;
     --filter-ui-text:#F8FAFC; --filter-ui-muted:#94A3B8; --filter-ui-focus:#34D399;
 }
+/* Shared, non-destructive action for clearing an applied filter set. */
+html[data-theme] body.panel-shell-body .page-content .filter-clear-action {
+    display:inline-flex; align-items:center; justify-content:center; gap:7px;
+    min-height:44px; padding:0 13px; border:1px solid #C79B55 !important;
+    border-radius:8px; background:#F6E8CC !important; color:#704514 !important;
+    font-family:'Plus Jakarta Sans','Segoe UI',sans-serif; font-size:14px; font-weight:600;
+    line-height:1; text-decoration:none; white-space:nowrap; box-shadow:none;
+}
+html[data-theme] body.panel-shell-body .page-content .filter-clear-action:hover {
+    border-color:#A9762E !important; background:#EFDDBB !important; color:#56330C !important;
+}
+html[data-theme] body.panel-shell-body .page-content .filter-clear-action:focus-visible {
+    outline:2px solid #9A6B27 !important; outline-offset:2px;
+}
+html[data-theme='dark'] body.panel-shell-body .page-content .filter-clear-action {
+    border-color:#9B7844 !important; background:#382C1D !important; color:#F4D9A4 !important;
+}
+html[data-theme='dark'] body.panel-shell-body .page-content .filter-clear-action:hover {
+    border-color:#C79B55 !important; background:#493923 !important; color:#FFF0CF !important;
+}
+/* These two modules have highly specific legacy button rules; keep the shared
+   filter-clear semantics at the component boundary without altering other buttons. */
+html[data-theme] body.panel-shell-body .page-content .payment-monitoring-page .pm-actions > .pm-btn.filter-clear-action[data-pm-clear-filters],
+html[data-theme] body.panel-shell-body .page-content .service-reference .service-filter-actions .table-toolbar-reset-wrap > .btn.filter-clear-action[data-service-reset] {
+    border-color:#C79B55 !important; background:#F6E8CC !important; color:#704514 !important;
+}
+html[data-theme] body.panel-shell-body .page-content .payment-monitoring-page .pm-actions > .pm-btn.filter-clear-action[data-pm-clear-filters]:hover,
+html[data-theme] body.panel-shell-body .page-content .service-reference .service-filter-actions .table-toolbar-reset-wrap > .btn.filter-clear-action[data-service-reset]:hover {
+    border-color:#A9762E !important; background:#EFDDBB !important; color:#56330C !important;
+}
+html[data-theme='dark'] body.panel-shell-body .page-content .payment-monitoring-page .pm-actions > .pm-btn.filter-clear-action[data-pm-clear-filters],
+html[data-theme='dark'] body.panel-shell-body .page-content .service-reference .service-filter-actions .table-toolbar-reset-wrap > .btn.filter-clear-action[data-service-reset] {
+    border-color:#9B7844 !important; background:#382C1D !important; color:#F4D9A4 !important;
+}
+html[data-theme='dark'] body.panel-shell-body .page-content .payment-monitoring-page .pm-actions > .pm-btn.filter-clear-action[data-pm-clear-filters]:hover,
+html[data-theme='dark'] body.panel-shell-body .page-content .service-reference .service-filter-actions .table-toolbar-reset-wrap > .btn.filter-clear-action[data-service-reset]:hover {
+    border-color:#C79B55 !important; background:#493923 !important; color:#FFF0CF !important;
+}
+html[data-theme] body.panel-shell-body .page-content .filter-clear-action[hidden] { display:none !important; }
 html[data-theme] body.panel-shell-body .page-content :is(form[method='get' i],[data-table-toolbar],.case-record-filters,.reports-module-controls,.reports-filter-card,.ba-workspace-filters,.owner-history-filter-panel,.rp-header-filters) {
     --uniform-filter-bg:var(--filter-ui-surface); --uniform-filter-border:var(--filter-ui-border); --uniform-filter-text:var(--filter-ui-text);
     font-family:'Plus Jakarta Sans','Segoe UI',sans-serif;

@@ -1,6 +1,6 @@
 <style>
 /* Share the dashboard's fonts, surfaces and text hierarchy. */
-body.panel-shell-body:has(.rp-wrap) .panel-page-header{background:var(--staff-card,#f4f8f5)!important;border-color:var(--staff-border,#aec7b7)!important}
+body.panel-shell-body:has(.rp-wrap) .panel-page-header:not(.panel-title-surface){background:var(--staff-card,#f4f8f5)!important;border-color:var(--staff-border,#aec7b7)!important}
 body.panel-shell-body:has(.rp-wrap) .panel-page-header__copy h1{font-family:var(--font-heading);font-size:clamp(24px,2vw,32px)!important;font-weight:700;letter-spacing:-.025em;color:var(--staff-ink,#081d13)!important}
 body.panel-shell-body:has(.rp-wrap) .panel-page-header__copy p{font-family:var(--font-body);font-size:14px!important;line-height:1.6;letter-spacing:0;color:var(--staff-muted,#1b3e2e)!important}
 html[data-theme] body.panel-shell-body .rp-wrap .schedule-calendar{--cal-surface:var(--staff-card,#f4f8f5);--cal-card:var(--staff-card,#f4f8f5);--cal-ink:var(--staff-ink,#081d13);--cal-muted:var(--staff-muted,#1b3e2e);--cal-line:var(--staff-border,#aec7b7);--cal-soft:var(--staff-soft,#d0e2d6);font-family:var(--font-body);letter-spacing:0;border-radius:16px}
@@ -12,7 +12,7 @@ html[data-theme] body.panel-shell-body .rp-wrap .calendar-event.wake-end{backgro
 .calendar-dot.wake-end{background:#8b6bb1}
 html[data-theme=dark] body.panel-shell-body .rp-wrap .calendar-event.wake-end{background:#2d243b;border-color:#65517f;border-left-color:#b59bd8;color:#e5d6f6}
 html[data-theme] body.panel-shell-body .rp-wrap .calendar-event :is(span,strong,small){color:inherit!important}
-html[data-theme=dark] body.panel-shell-body:has(.rp-wrap) .panel-page-header{background:#112218!important;border-color:#29523d!important}
+html[data-theme=dark] body.panel-shell-body:has(.rp-wrap) .panel-page-header:not(.panel-title-surface){background:#112218!important;border-color:#29523d!important}
 html[data-theme=dark] body.panel-shell-body:has(.rp-wrap) .panel-page-header__copy h1{color:#f8fafc!important}
 html[data-theme=dark] body.panel-shell-body:has(.rp-wrap) .panel-page-header__copy p{color:#b1c8b9!important}
 html[data-theme=dark] body.panel-shell-body .rp-wrap .schedule-calendar{--cal-surface:#112218;--cal-card:#14261d;--cal-ink:#f8fafc;--cal-muted:#b1c8b9;--cal-line:#29523d;--cal-soft:#1b3527}
@@ -37,14 +37,14 @@ html[data-theme] body.panel-shell-body .rp-wrap .schedule-calendar{margin:20px 0
 .schedule-calendar :is(.calendar-toolbar,.upcoming-tools,.schedule-section-tabs){padding-left:24px;padding-right:24px}
 .schedule-calendar .calendar-controls{align-items:center}
 @media(max-width:767px){body.panel-shell-body .rp-wrap{padding:12px 16px 28px}.schedule-calendar :is(.calendar-toolbar,.upcoming-tools,.schedule-section-tabs){padding-left:18px;padding-right:18px}body.panel-shell-body .rp-wrap .rp-tabs-row{gap:18px}}
-html[data-theme] body.panel-shell-body:has(.rp-wrap) .panel-page-header{background:transparent!important;border-color:transparent!important;box-shadow:none!important}
+html[data-theme] body.panel-shell-body:has(.rp-wrap) .panel-page-header:not(.panel-title-surface){background:transparent!important;border-color:transparent!important;box-shadow:none!important}
 html[data-theme] body.panel-shell-body:has(.rp-wrap) .panel-page-header::before,
 html[data-theme] body.panel-shell-body:has(.rp-wrap) .panel-page-header::after{background:none!important}
-html[data-theme] body.panel-shell-body:has(.rp-wrap) .panel-page-header{padding:20px 28px 8px!important;margin:0!important;min-height:0!important;align-items:center}
+html[data-theme] body.panel-shell-body:has(.rp-wrap) .panel-page-header:not(.panel-title-surface){padding:20px 28px 8px!important;margin:0!important;min-height:0!important;align-items:center}
 body.panel-shell-body:has(.rp-wrap) .panel-page-header__copy h1{margin:0!important;line-height:1.2}
 body.panel-shell-body:has(.rp-wrap) .panel-page-header__copy p{margin:6px 0 0!important;line-height:1.5}
 body.panel-shell-body .rp-wrap{padding-top:8px}
-@media(max-width:767px){html[data-theme] body.panel-shell-body:has(.rp-wrap) .panel-page-header{padding:16px 16px 8px!important;gap:14px}body.panel-shell-body .rp-wrap{padding-top:4px}}
+@media(max-width:767px){html[data-theme] body.panel-shell-body:has(.rp-wrap) .panel-page-header:not(.panel-title-surface){padding:16px 16px 8px!important;gap:14px}body.panel-shell-body .rp-wrap{padding-top:4px}}
 .schedule-calendar .calendar-toolbar{padding-top:16px;padding-bottom:12px}
 .schedule-calendar .upcoming-tools{padding-top:0;padding-bottom:16px;gap:12px}
 .schedule-calendar .schedule-section-range{margin-top:6px}
@@ -52,7 +52,7 @@ body.panel-shell-body .rp-wrap{padding-top:8px}
 .schedule-calendar .case-list-intro{margin-bottom:12px!important}
 .schedule-calendar .upcoming-case-card{margin-bottom:12px}
 /* Compact vertical rhythm; reset inherited form/header margins. */
-html[data-theme] body.panel-shell-body:has(.rp-wrap) .panel-page-header{padding-top:16px!important;padding-bottom:0!important}
+html[data-theme] body.panel-shell-body:has(.rp-wrap) .panel-page-header:not(.panel-title-surface){padding-top:16px!important;padding-bottom:0!important}
 body.panel-shell-body .rp-wrap{padding-top:0!important}
 body.panel-shell-body .rp-wrap .rp-tabs-row{min-height:44px}
 body.panel-shell-body .rp-wrap .rp-tab{min-height:44px;padding-top:10px;padding-bottom:10px}

@@ -71,7 +71,7 @@ html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.page-content, .
     font-family: var(--font-body) !important;
     color: var(--ink) !important;
 }
-html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .panel-page-header {
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .panel-page-header:not(.panel-title-surface) {
     background: var(--ops-panel) !important;
     border: 1px solid var(--ops-border) !important;
     color: var(--ops-text) !important;
@@ -130,9 +130,10 @@ html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .branch-dashboard-na
 }
 html[data-theme='dark'] body:is(.branch-admin-ui,.system-admin-ui) .branch-dashboard-name { color: #6EE7B7; }
 html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .branch-admin-view .admin-dashboard-greeting {
-    background: transparent !important;
-    border: 0 !important;
-    box-shadow: none !important;
+    background: var(--card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: .85rem !important;
+    box-shadow: 0 2px 5px rgb(8 29 19 / 4%) !important;
 }
 /* Dashboard component surfaces are owned by branch-admin-dashboard.css. */
 html[data-theme='dark'] body:is(.branch-admin-ui,.system-admin-ui) .branch-admin-view :is(.bg-white, .bg-slate-50, .bg-slate-100, .bg-gray-50) {
@@ -168,26 +169,192 @@ html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .pm-modal {
     color: var(--ink) !important;
 }
 html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .rp-wrap {
-    background: var(--surface) !important;
+    background: transparent !important;
     color: var(--ink) !important;
     font-family: var(--font-body) !important;
 }
-html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .rp-wrap :is(.rp-tabs-card, .rp-filter-card, .rp-list-card, .rp-calendar-card, .rp-item) {
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .rp-wrap :is(.rp-filter-card, .rp-list-card, .rp-calendar-card, .rp-item) {
     background: var(--card) !important;
     border-color: var(--border) !important;
     color: var(--ink) !important;
 }
-html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .rp-wrap :is(.rp-tabs-row, .rp-filter-card__head, .rp-list-head) {
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .rp-wrap :is(.rp-filter-card__head, .rp-list-head) {
     background: var(--surface-muted) !important;
     border-color: var(--border) !important;
 }
 html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .rp-wrap :is(.rp-tab.is-idle, .rp-filter-note, .rp-item-meta) { color: var(--ink-muted) !important; }
-html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .rp-wrap .rp-tab.is-active {
-    background: #1B4332 !important;
-    border-color: #1B4332 !important;
+
+/* Schedules & Reminders has two navigation levels. Keep the primary choice compact
+   and visually separate from the schedule-category switch inside the calendar. */
+html[data-theme] body.branch-admin-ui .rp-wrap .rp-tabs-card {
+    display: grid;
+    gap: 14px;
+    background: transparent !important;
+    border: 0 !important;
+    color: var(--ink) !important;
+}
+html[data-theme] body.branch-admin-ui .rp-wrap .rp-tabs-row {
+    width: fit-content;
+    max-width: 100%;
+    margin: 0;
+    padding: 5px;
+    gap: 5px;
+    border: 1px solid var(--border) !important;
+    border-radius: 12px;
+    background: var(--card) !important;
+    box-shadow: 0 2px 5px rgb(15 36 28 / 4%);
+}
+html[data-theme] body.branch-admin-ui .rp-wrap .rp-tab {
+    min-height: 42px;
+    padding: 9px 13px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+}
+html[data-theme] body.branch-admin-ui .rp-wrap .rp-tab.is-idle:hover {
+    background: var(--records-hover) !important;
+    border-color: var(--border-strong) !important;
+    color: var(--ink) !important;
+}
+html[data-theme] body.branch-admin-ui .rp-wrap .rp-tab :is(i, .rp-tab__count) {
+    color: inherit !important;
+}
+html[data-theme] body.branch-admin-ui .rp-wrap .rp-tab__count {
+    min-width: 22px;
+    min-height: 22px;
+    border: 1px solid var(--border);
+    background: var(--surface-muted) !important;
+    color: var(--ink-muted) !important;
+    box-shadow: none;
+}
+html[data-theme] body.branch-admin-ui .rp-wrap .rp-tab.is-active .rp-tab__count {
+    border-color: #285A44;
+    background: #285A44 !important;
     color: #FFFFFF !important;
 }
-html[data-theme='dark'] body:is(.branch-admin-ui,.system-admin-ui) .rp-wrap .rp-tab.is-active { background: #10B981 !important; color: #052E16 !important; }
+html[data-theme] body.branch-admin-ui .rp-wrap .rp-tab:focus-visible,
+html[data-theme] body.branch-admin-ui .rp-wrap .schedule-section-tab:focus-visible {
+    outline: 2px solid var(--branch-admin-focus);
+    outline-offset: 2px;
+    box-shadow: none;
+}
+html[data-theme] body.branch-admin-ui .rp-wrap .schedule-calendar {
+    margin: 0;
+    border-color: var(--border);
+    border-radius: 14px;
+    box-shadow: 0 2px 5px rgb(15 36 28 / 4%);
+}
+html[data-theme] body.branch-admin-ui .rp-wrap .schedule-section-tabs {
+    width: fit-content;
+    max-width: calc(100% - 32px);
+    margin: 16px 16px 0;
+    padding: 4px;
+    gap: 4px;
+    border: 1px solid var(--cal-line);
+    border-radius: 11px;
+    background: var(--cal-soft);
+}
+html[data-theme] body.branch-admin-ui .rp-wrap .schedule-section-tab {
+    min-height: 40px;
+    padding: 8px 12px;
+    border-color: transparent;
+    background: transparent;
+    color: var(--cal-muted) !important;
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .rp-wrap .schedule-calendar .schedule-section-tab:not(.is-active):hover {
+    border-color: var(--border-strong) !important;
+    background: var(--records-hover) !important;
+    color: var(--ink) !important;
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .rp-wrap .schedule-calendar .schedule-section-tab.is-active {
+    border-color: #285A44 !important;
+    background: #285A44 !important;
+    color: #FFFFFF !important;
+    box-shadow: none;
+}
+html[data-theme] body.branch-admin-ui .rp-wrap .schedule-section-tab > span {
+    border: 1px solid var(--cal-line);
+    background: var(--cal-card);
+    color: var(--cal-muted);
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .rp-wrap .schedule-calendar .schedule-section-tab.is-active > span {
+    border-color: rgb(255 255 255 / 34%);
+    background: rgb(255 255 255 / 14%);
+    color: #FFFFFF;
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .rp-wrap .schedule-calendar .schedule-section-tab.is-active:hover {
+    border-color: #1C4232 !important;
+    background: #1C4232 !important;
+    color: #FFFFFF !important;
+}
+html[data-theme] body.branch-admin-ui .rp-wrap .calendar-toolbar {
+    padding: 18px 20px 14px;
+}
+html[data-theme] body.branch-admin-ui .rp-wrap .calendar-legend {
+    padding: 0 20px 15px;
+}
+html[data-theme] body.branch-admin-ui .rp-wrap .calendar-agenda {
+    padding: 0 20px 18px;
+}
+html[data-theme] body.branch-admin-ui .rp-wrap .calendar-empty {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    min-height: 150px;
+    padding: 28px 20px;
+}
+html[data-theme] body.branch-admin-ui .rp-wrap .calendar-empty > i {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    margin-bottom: 12px;
+    border: 1px solid var(--cal-line);
+    border-radius: 10px;
+    background: var(--cal-soft);
+    color: var(--cal-ink);
+    font-size: 18px;
+}
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .rp-wrap .rp-tab.is-active {
+    background: #D0E2D6 !important;
+    border-color: #AEC7B7 !important;
+    color: #1B4332 !important;
+}
+html[data-theme='dark'] body:is(.branch-admin-ui,.system-admin-ui) .rp-wrap .rp-tab.is-active {
+    background: #1B3527 !important;
+    border-color: #41634F !important;
+    color: #D6E8DD !important;
+}
+html[data-theme='dark'] body.branch-admin-ui .rp-wrap .rp-tab.is-active .rp-tab__count {
+    border-color: #5A826B;
+    background: #285A44 !important;
+    color: #FFFFFF !important;
+}
+html[data-theme='dark'] body.panel-shell-body.branch-admin-ui .rp-wrap .schedule-calendar .schedule-section-tab.is-active {
+    border-color: #5A826B !important;
+    background: #285A44 !important;
+    color: #FFFFFF !important;
+}
+html[data-theme='dark'] body.panel-shell-body.branch-admin-ui .rp-wrap .schedule-calendar .schedule-section-tab.is-active > span {
+    border-color: rgb(255 255 255 / 34%);
+    background: rgb(255 255 255 / 14%);
+    color: #FFFFFF;
+}
+
+@media (max-width: 767px) {
+    html[data-theme] body.branch-admin-ui .rp-wrap .rp-tabs-row {
+        width: 100%;
+        overflow-x: auto;
+    }
+    html[data-theme] body.branch-admin-ui .rp-wrap .rp-tab { flex: 0 0 auto; }
+    html[data-theme] body.branch-admin-ui .rp-wrap .schedule-section-tabs {
+        width: auto;
+        max-width: none;
+        margin: 12px 12px 0;
+    }
+    html[data-theme] body.branch-admin-ui .rp-wrap .calendar-toolbar { padding: 16px; }
+    html[data-theme] body.branch-admin-ui .rp-wrap .calendar-legend { padding: 0 16px 14px; }
+    html[data-theme] body.branch-admin-ui .rp-wrap .calendar-agenda { padding: 0 16px 16px; }
+}
 
 /* Match the staff Case Records visual hierarchy without changing master-record columns. */
 html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page {

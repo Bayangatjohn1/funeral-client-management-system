@@ -13,7 +13,9 @@
     $includedCasket = $displaySnapshot['included_casket'];
     $selectedCasket = $displaySnapshot['selected_casket'];
     $discountDisplay = $displaySnapshot['discount'];
-    $pkgCoffin = $includedCasket['name'] ?? $funeral_case->coffin_type;
+    $isCustomPackage = (bool) ($funeral_case->pricing_snapshot['custom_package'] ?? false)
+        || (bool) $funeral_case->custom_package_name;
+    $pkgCoffin = $includedCasket['name'] ?? ($isCustomPackage ? null : $funeral_case->coffin_type);
     $isOtherBranch = ($funeral_case->entry_source ?? 'MAIN') === 'OTHER_BRANCH';
     $balanceDue    = (float) $funeral_case->balance_amount > 0;
     $displayIntermentAt = $funeral_case->interment_at
@@ -376,12 +378,6 @@
         <div class="cv-field-value" style="font-variant-numeric:tabular-nums;">₱ {{ number_format((float) $pkgPrice, 2) }}</div>
       </div>
       @endif
-      @if($funeral_case->custom_package_name)
-      <div class="cv-field">
-        <div class="cv-field-label">Custom Name</div>
-        <div class="cv-field-value">{{ $funeral_case->custom_package_name }}</div>
-      </div>
-      @endif
       @if($funeral_case->service_type)
       <div class="cv-field cv-field-package">
         <div class="cv-field-label">Service Type</div>
@@ -713,9 +709,11 @@
             <a href="{{ route('funeral-cases.documents.preview', [$funeral_case, $funeralContract]) }}" target="_blank" rel="noopener" class="btn-outline">
               <i class="bi bi-eye mr-1"></i>Review Funeral Contract
             </a>
+            @if(!auth()->user()?->isOwner())
             <a href="{{ route('funeral-cases.documents.print', [$funeral_case, $funeralContract]) }}" target="_blank" rel="noopener" class="btn-outline">
               <i class="bi bi-printer mr-1"></i>Print
             </a>
+            @endif
             @if($canGenerateFuneralContract)
               <a href="{{ route('funeral-cases.documents.contract.preview', ['funeral_case' => $funeral_case, 'return_to' => $returnUrl ?? null]) }}" class="btn-secondary">
                 <i class="bi bi-file-earmark-text mr-1"></i>Review Contract Form

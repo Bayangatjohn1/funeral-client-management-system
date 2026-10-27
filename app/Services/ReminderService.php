@@ -19,19 +19,14 @@ class ReminderService
         $cases = $this->fetchMainOperationalCases($branchId);
         $conflicts = $this->mapConflicts($cases);
 
-        $attention = $this->buildAttentionReminders($cases, $conflicts, $referenceNow)
-            ->reject(fn ($item) => $item['type'] === 'same_day_schedule')
-            ->sortBy([
-                ['severity_rank', 'desc'],
-                ['sort_date', 'asc'],
-            ])
-            ->take(8)
-            ->values();
+        $attention = $this->sortReminders(
+            $this->buildAttentionReminders($cases, $conflicts, $referenceNow)
+                ->reject(fn ($item) => str_starts_with($item['type'], 'same_day_')),
+            true
+        )->take(8)->values();
 
         $todayScheduleCases = $this->fetchTodayScheduleCases($branchId, $today);
-        $todaySchedule = $this->buildTodaySchedule($todayScheduleCases, $today, $conflicts)
-            ->sortBy('sort_date')
-            ->values();
+        $todaySchedule = $this->sortReminders($this->buildTodaySchedule($todayScheduleCases, $today, $conflicts))->values();
 
         return [
             'attention' => $attention,
@@ -91,12 +86,7 @@ class ReminderService
             });
         }
 
-        return $allReminders
-            ->sortBy([
-                ['severity_rank', 'desc'],
-                ['sort_date', 'asc'],
-            ])
-            ->values();
+        return $this->sortReminders($allReminders)->values();
     }
 
     /** Cases whose wake window is active at the supplied moment. */
@@ -142,7 +132,8 @@ class ReminderService
                 'wake_start_today', 'wake_end_today', 'service_today', 'interment_today',
                 'upcoming_wake_start', 'upcoming_wake_end', 'upcoming_service', 'upcoming_interment',
             ], true))
-            ->sortBy('sort_date')->groupBy(fn ($item) => $item['date']->toDateString())
+            ->pipe(fn (Collection $items) => $this->sortReminders($items))
+            ->groupBy(fn ($item) => $item['date']->toDateString())
             ->map(fn ($events, $date) => [
                 'key' => $branchId.'-'.$date, 'branch_id' => $branchId, 'date' => $date,
                 'events' => $events->values(), 'case_count' => $events->pluck('case_id')->unique()->count(),
@@ -176,7 +167,7 @@ class ReminderService
                     'start' => $start, 'end' => $end, 'active' => $start->lessThanOrEqualTo(now()) && $end->greaterThan(now())]);
             }
         }
-        return ['events' => $events->sortBy('sort_date')->values(), 'wakes' => $wakes->sortBy('start')->values()];
+        return ['events' => $this->sortReminders($events)->values(), 'wakes' => $wakes->sortBy('start')->values()];
     }
 
     /** Full schedule for one already scoped case, including earlier and later dates. */
@@ -188,7 +179,8 @@ class ReminderService
             ['service', 'funeral_service_at', 'service_today', 'Funeral Ceremony'],
             ['interment', 'interment_at', 'interment_today', 'Interment'],
         ])->map(fn ($fields) => $this->formatReminder($case, $fields[2], $fields[3], 'info',
-            $this->scheduleDateTime($case, $fields[0], $case->{$fields[1]}), true));
+            $this->scheduleDateTime($case, $fields[0], $case->{$fields[1]}), true))
+            ->pipe(fn (Collection $items) => $this->sortReminders($items));
     }
 
     public function upcomingCases(int $branchId, array $filters = [], string $search = ''): Collection
@@ -198,9 +190,12 @@ class ReminderService
             ->filter(fn ($case) => $search === '' || mb_stripos($case->case_code.' '.$case->deceased?->full_name, $search) !== false)
             ->map(function ($case) {
                 $events = $this->caseSchedule($case);
-                $next = $events->filter(fn ($event) => $event['date'] && $event['date']->toDateString() > now()->toDateString())->sortBy('sort_date')->first();
+                $next = $this->sortReminders($events->filter(fn ($event) => $event['date'] && $event['date']->toDateString() > now()->toDateString()))->first();
                 return ['case' => $case, 'events' => $events, 'next_at' => $next['date'] ?? null];
-            })->filter(fn ($item) => $item['next_at'] !== null)->sortBy('next_at')->values();
+            })->filter(fn ($item) => $item['next_at'] !== null)->sort(function (array $left, array $right): int {
+                return $left['next_at']->copy()->startOfDay()->timestamp <=> $right['next_at']->copy()->startOfDay()->timestamp
+                    ?: ((int) $left['case']->id <=> (int) $right['case']->id);
+            })->values();
     }
 
     private function resolveDueWindow(array $filters, Carbon $today): array
@@ -267,8 +262,8 @@ class ReminderService
     }
 
     /**
-     * Fetch every case with a service or interment scheduled today. Completed
-     * cases remain visible so an interment does not disappear after its time passes.
+     * Fetch every operational event scheduled today. Completed cases remain
+     * visible so an event does not disappear after its recorded time passes.
      */
     private function fetchTodayScheduleCases(int $branchId, Carbon $today): Collection
     {
@@ -279,7 +274,9 @@ class ReminderService
                 $query->where('entry_source', 'MAIN')->orWhereNull('entry_source');
             })
             ->where(function ($query) use ($today) {
-                $query->whereDate('funeral_service_at', $today->toDateString())
+                $query->whereDate('wake_start_date', $today->toDateString())
+                    ->orWhereDate('wake_end_date', $today->toDateString())
+                    ->orWhereDate('funeral_service_at', $today->toDateString())
                     ->orWhereDate('interment_at', $today->toDateString());
             })
             ->get();
@@ -356,7 +353,9 @@ class ReminderService
                 && in_array($case->payment_status, ['UNPAID', 'PARTIAL'], true);
             $intermentAt = $this->scheduleDateTime($case, 'interment', $case->interment_at);
 
-            if ($hasBalance && $intermentAt?->lessThan($now)) {
+            $hasRecordedIntermentTime = (bool) $case->interment_time;
+
+            if ($hasBalance && $hasRecordedIntermentTime && $intermentAt?->lessThan($now)) {
                 $completedMessage = $case->payment_status === 'UNPAID'
                     ? 'Scheduled interment time has passed, but no payment has been recorded. Please review the case.'
                     : 'Scheduled interment time has passed, and a remaining balance is still recorded. Please review the payment record.';
@@ -371,7 +370,7 @@ class ReminderService
                     null,
                     $completedMessage
                 ));
-            } elseif ($hasBalance && $intermentAt?->betweenIncluded($now, $approachingUntil)) {
+            } elseif ($hasBalance && $hasRecordedIntermentTime && $intermentAt?->betweenIncluded($now, $approachingUntil)) {
                 $scheduleDay = $intermentAt->isSameDay($today) ? 'today' : 'tomorrow';
                 $approachingMessage = $case->payment_status === 'UNPAID'
                     ? "Interment is scheduled {$scheduleDay}, and no payment has been recorded. Please review the case."
@@ -387,6 +386,30 @@ class ReminderService
                     null,
                     $approachingMessage
                 ));
+            } elseif ($hasBalance && ! $hasRecordedIntermentTime && $intermentAt) {
+                if ($intermentAt->copy()->startOfDay()->lessThan($today)) {
+                    $items->push($this->formatReminder(
+                        $case,
+                        'interment_date_completed',
+                        'Balance After Scheduled Interment Date',
+                        'danger',
+                        $intermentAt,
+                        false,
+                        null,
+                        'The scheduled interment date has passed, and a remaining balance is still recorded. Please review the payment record.'
+                    ));
+                } elseif ($intermentAt->isSameDay($today)) {
+                    $items->push($this->formatReminder(
+                        $case,
+                        'interment_date_today_balance',
+                        'Interment Today — Balance to Review',
+                        'warning',
+                        $intermentAt,
+                        false,
+                        null,
+                        'Interment is scheduled today. Its time was not recorded, and a remaining balance is still recorded. Please review the payment record.'
+                    ));
+                }
             }
 
             if ($case->case_status !== 'COMPLETED') {
@@ -399,7 +422,7 @@ class ReminderService
                         fn ($c) => $c['case_id'] !== $case->id
                     ));
                     $items->push($this->formatReminder(
-                        $case, 'same_day_schedule', 'Same-Day Service Schedule', 'info',
+                        $case, 'same_day_service_schedule', 'Same-Day Service Schedule', 'info',
                         $case->funeral_service_at, false,
                         ['type' => 'service', 'date' => $funeralDateStr, 'cases' => $conflictingCases],
                         'Another service is scheduled on the same day. Please review the schedules for coordination.'
@@ -412,7 +435,7 @@ class ReminderService
                         fn ($c) => $c['case_id'] !== $case->id
                     ));
                     $items->push($this->formatReminder(
-                        $case, 'same_day_schedule', 'Same-Day Interment Schedule', 'info',
+                        $case, 'same_day_interment_schedule', 'Same-Day Interment Schedule', 'info',
                         $case->interment_at, false,
                         ['type' => 'interment', 'date' => $intermentDateStr, 'cases' => $conflictingCases],
                         'Another interment is scheduled on the same day. Please review the schedules for coordination.'
@@ -536,6 +559,7 @@ class ReminderService
             },
             'date'             => $date,
             'sort_date'        => $date?->copy() ?? now(),
+            'event_kind'       => $scheduleType,
             'is_schedule_card' => $isScheduleCard,
             'conflict'         => $conflict,  // null for non-warning types
             'message'          => $message,
@@ -561,5 +585,84 @@ class ReminderService
         return $scheduleTime
             ? $date->copy()->setTimeFromTimeString((string) $scheduleTime)
             : $date->copy();
+    }
+
+    /**
+     * Stable event order: date, recorded time, untimed events, event kind, case.
+     * Date-only entries deliberately sort after recorded times on the same day.
+     */
+    public function sortReminders(Collection $items, bool $attentionOnly = false): Collection
+    {
+        $eventOrder = ['wake_start' => 1, 'wake_end' => 2, 'service' => 3, 'interment' => 4];
+        $attentionOrder = [
+            'interment_completed' => 1,
+            'interment_date_completed' => 1,
+            'interment_approaching' => 2,
+            'interment_date_today_balance' => 3,
+        ];
+
+        return $items->sort(function (array $left, array $right) use ($eventOrder, $attentionOrder, $attentionOnly): int {
+            $leftAttention = $attentionOrder[$left['type']] ?? null;
+            $rightAttention = $attentionOrder[$right['type']] ?? null;
+
+            if ($attentionOnly || $leftAttention !== null || $rightAttention !== null) {
+                $leftPriority = $leftAttention ?? 99;
+                $rightPriority = $rightAttention ?? 99;
+                if ($leftPriority !== $rightPriority) return $leftPriority <=> $rightPriority;
+            } elseif (($left['severity_rank'] ?? 0) !== ($right['severity_rank'] ?? 0)) {
+                return ($right['severity_rank'] ?? 0) <=> ($left['severity_rank'] ?? 0);
+            }
+
+            $leftDate = $left['date']?->copy()->startOfDay()?->getTimestamp() ?? PHP_INT_MAX;
+            $rightDate = $right['date']?->copy()->startOfDay()?->getTimestamp() ?? PHP_INT_MAX;
+            if ($leftDate !== $rightDate) return $leftDate <=> $rightDate;
+
+            $leftTimed = ! empty($left['has_time']) ? 0 : 1;
+            $rightTimed = ! empty($right['has_time']) ? 0 : 1;
+            if ($leftTimed !== $rightTimed) return $leftTimed <=> $rightTimed;
+
+            if ($leftTimed === 0) {
+                $leftTime = $left['date']?->getTimestamp() ?? PHP_INT_MAX;
+                $rightTime = $right['date']?->getTimestamp() ?? PHP_INT_MAX;
+                if ($leftTime !== $rightTime) return $leftTime <=> $rightTime;
+            }
+
+            $leftKind = $eventOrder[$left['event_kind'] ?? ''] ?? 99;
+            $rightKind = $eventOrder[$right['event_kind'] ?? ''] ?? 99;
+            if ($leftKind !== $rightKind) return $leftKind <=> $rightKind;
+
+            return ((int) $left['case_id']) <=> ((int) $right['case_id']);
+        });
+    }
+
+    /** The first time a cached notification classification can change. */
+    public function nextNotificationTransitionAt(array $branchIds, Carbon $now): Carbon
+    {
+        $transition = $now->copy()->addSeconds(120);
+        $candidates = [$now->copy()->startOfDay()->addDay()];
+
+        foreach (array_unique(array_map('intval', $branchIds)) as $branchId) {
+            foreach ($this->fetchScheduleCases($branchId) as $case) {
+                foreach ([
+                    ['interment', $case->interment_at, $case->interment_time],
+                    ['wake_start', $case->wake_start_date, $case->wake_start_time],
+                    ['wake_end', $case->wake_end_date, $case->wake_end_time],
+                    ['service', $case->funeral_service_at, $case->funeral_service_time],
+                ] as [$kind, $date, $time]) {
+                    $at = $this->scheduleDateTime($case, $kind, $date);
+                    if (! $at || ! $time) continue;
+                    $approaching = $at->copy()->subHours(24);
+                    if ($approaching->greaterThan($now)) $candidates[] = $approaching;
+                    // A recorded interment changes only after its scheduled second.
+                    if ($kind === 'interment' && $at->greaterThanOrEqualTo($now)) $candidates[] = $at->copy()->addSecond();
+                }
+            }
+        }
+
+        foreach ($candidates as $candidate) {
+            if ($candidate->greaterThan($now) && $candidate->lessThan($transition)) $transition = $candidate;
+        }
+
+        return $transition;
     }
 }

@@ -623,6 +623,43 @@ class BranchSyncTest extends TestCase
         $this->get('/api/branch-sync/v1/files/'.$hash, $this->headers('BR002'))->assertNotFound();
     }
 
+    public function test_webp_deceased_photo_and_senior_proof_sync_without_losing_payments(): void
+    {
+        [, $cases] = $this->fixtures();
+        $webp = base64_decode('UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEADsD+JaQAA3AAAAAA', true);
+        $this->assertSame('image/webp', (new \finfo(FILEINFO_MIME_TYPE))->buffer($webp));
+        Storage::disk('public')->put('deceased-photos/test.webp', $webp);
+        Storage::disk('public')->put('senior-proofs/test.webp', $webp);
+        $cases[0]->deceased->update([
+            'photo_path' => 'deceased-photos/test.webp',
+            'senior_proof_path' => 'senior-proofs/test.webp',
+        ]);
+        $this->peer();
+        $snapshot = app(SyncSnapshot::class)->export('BR001', 'operational');
+        $hash = hash('sha256', $webp);
+        $this->push($snapshot)->assertStatus(409);
+        $this->post('/api/branch-sync/v1/files/'.$hash, [
+            'file' => UploadedFile::fake()->createWithContent('test.webp', $webp),
+        ], $this->headers())->assertOk()->assertJsonPath('hash', $hash);
+        $this->push($snapshot)->assertOk();
+        $this->push($snapshot)->assertOk()->assertJsonPath('duplicate', true);
+        $deceased = $cases[0]->deceased->fresh();
+        foreach (['photo_path', 'senior_proof_path'] as $field) {
+            $this->assertSame('branch-sync/BR001/'.$hash.'.webp', $deceased->$field);
+            $this->assertSame($webp, Storage::disk('public')->get($deceased->$field));
+        }
+        $this->assertSame(1, Payment::count());
+        $this->assertSame(1000.0, (float) $cases[0]->fresh()->total_paid);
+        $this->assertSame(0.0, (float) $cases[0]->fresh()->balance_amount);
+        $this->post('/api/branch-sync/v1/files/'.str_repeat('0', 64), [
+            'file' => UploadedFile::fake()->createWithContent('test.webp', $webp),
+        ], $this->headers())->assertUnprocessable();
+        $invalid = '<?php echo "invalid image";';
+        $this->post('/api/branch-sync/v1/files/'.hash('sha256', $invalid), [
+            'file' => UploadedFile::fake()->createWithContent('disguised.webp', $invalid),
+        ], $this->headers())->assertUnprocessable();
+    }
+
     public function test_a_lost_acknowledgment_can_be_replayed_and_wrong_acknowledgments_are_not_accepted(): void
     {
         $this->fixtures();

@@ -103,7 +103,7 @@ class BranchSyncController extends Controller
         $bytes = file_get_contents($request->file('file')->getRealPath());
         abort_unless(hash_equals($hash, hash('sha256', $bytes)), 422);
         $mime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($bytes);
-        abort_unless(in_array($mime, ['application/pdf', 'image/jpeg', 'image/png'], true), 422);
+        abort_unless(in_array($mime, ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'], true), 422);
         $peer = $request->attributes->get('sync_peer');
         abort_unless(Storage::disk('local')->put('branch-sync/incoming/'.$peer->branch_code.'/'.$hash, $bytes), 503);
         return response()->json(['hash' => $hash]);

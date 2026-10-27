@@ -401,7 +401,7 @@ class SyncSnapshot
         $bytes = Storage::disk($disk)->get($path);
         $hash = hash('sha256', $bytes);
         $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-        if (! in_array($extension, ['pdf', 'jpg', 'jpeg', 'png'], true)) {
+        if (! in_array($extension, ['pdf', 'jpg', 'jpeg', 'png', 'webp'], true)) {
             throw new RuntimeException('Unsupported sync file extension.');
         }
         if (! Storage::disk('local')->put('branch-sync/blobs/'.$hash, $bytes)) {
@@ -415,7 +415,7 @@ class SyncSnapshot
     {
         if (! in_array($disk, ['public', 'local'], true)
             || ! preg_match('/^[a-f0-9]{64}$/', $file['hash'] ?? '')
-            || ! in_array($file['extension'] ?? '', ['jpg', 'jpeg', 'png', 'pdf'], true)) {
+            || ! in_array($file['extension'] ?? '', ['jpg', 'jpeg', 'png', 'pdf', 'webp'], true)) {
             throw new RuntimeException('Invalid sync file manifest.');
         }
         $blob = 'branch-sync/incoming/'.$branchCode.'/'.$file['hash'];

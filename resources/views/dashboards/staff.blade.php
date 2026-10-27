@@ -1,18 +1,34 @@
-﻿@extends('layouts.panel')
+@extends('layouts.panel')
 
-@section('page_title', 'Staff Dashboard')
+@section('page_title', 'Dashboard')
 @section('page_desc', 'Daily operations and follow-up center')
 @section('hide_layout_topbar', '1')
 
 @section('content')
+@include('staff.partials.schedule-styles')
+<style>
+html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .staff-grid{align-items:stretch}
+html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 :is([data-activity-card],[data-schedules-card]){height:100%;min-height:0!important;display:flex;flex-direction:column}
+html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 :is([data-activity-card],[data-schedules-card])>.staff-card-head{flex:0 0 auto}
+html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 :is([data-activity-panel],[data-schedule-panel]){flex:1;min-height:0;overflow:visible}
+html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 [data-schedules-card] .staff-list{max-height:none;overflow:visible;align-content:start}
+html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 :is([data-activity-panel],[data-schedule-panel])[hidden]{display:none!important}
+@media(max-width:1179px){html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 :is([data-activity-card],[data-schedules-card]){height:auto;max-height:none}}
+html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 [data-schedules-card] .ref-schedule-card{padding:12px 14px}
+html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 [data-schedules-card] .staff-list{gap:10px;padding:16px 20px}
+html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 [data-schedules-card] :is(.ref-schedule-top,.ref-schedule-person){margin-bottom:4px;gap:8px}
+html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 [data-activity-panel=cases]{display:flex;flex-direction:column}
+html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .dashboard-activity-pagination{margin-top:auto}
+</style>
 @php
     $branchLabel = trim(($dashboardBranch->branch_code ?? 'BR001') . ' - ' . ($dashboardBranch->branch_name ?? 'Main Branch'));
     $todayLabel = now()->format('l, F j, Y');
-    $staffFirstName = \Illuminate\Support\Str::of(auth()->user()?->name ?? 'Staff')->trim()->explode(' ')->first();
+    $sameTimeCounts = $scheduleGroups->flatMap(fn ($group) => $group['events'])->filter(fn ($event) => $event['has_time'] && $event['date'])->groupBy(fn ($event) => $event['date']->format('Y-m-d H:i'))->map->count();
+
 
     $attentionItems = collect($attentionReminders ?? [])->take(3)->values();
-    $todayItems = collect($todaySchedule ?? [])->take(3)->values();
-    $upcomingItems = collect($upcomingSchedule ?? [])->take(3)->values();
+    $todayItems = collect($todaySchedule ?? [])->take(5)->values();
+    $upcomingItems = collect($upcomingSchedule ?? [])->take(5)->values();
 
     $outstandingCases = collect($unpaidCases ?? [])
         ->filter(fn ($case) => (float) ($case->balance_amount ?? 0) > 0)
@@ -21,1631 +37,10 @@
 
 @endphp
 
-<style>
-    .staff-dashboard-v2 {
-        color: #3E4A3D;
-        display: flex;
-        flex-direction: column;
-        gap: 1.15rem;
-        width: 100%;
-        max-width: 100%;
-        overflow-x: clip;
-        box-sizing: border-box;
-        padding: 0 clamp(.4rem, .9vw, 1rem) 1rem;
-        margin: 0 auto;
-    }
 
-    .staff-dashboard-v2 > section {
-        width: 100%;
-        min-width: 0;
-    }
-
-    .staff-card {
-        background: #ffffff;
-        border: 1px solid #d9e2ec;
-        border-radius: 1.1rem;
-        overflow: hidden;
-        min-width: 0;
-    }
-
-    .staff-card--equal {
-        display: flex;
-        flex-direction: column;
-    }
-
-    .staff-card--equal .overflow-x-auto {
-        flex: 1 1 auto;
-    }
-
-    .staff-header-card {
-        background: linear-gradient(180deg, #fcfcfd 0%, #f6f7f9 100%);
-        border: 1px solid #d6dbe3;
-        border-radius: 1.2rem;
-        border-top-left-radius: 0;
-        border-top-right-radius: 0;
-        padding: 1.1rem 1.2rem;
-        display: grid;
-        gap: 1rem;
-    }
-
-    .staff-header-main {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 1rem;
-        flex-wrap: wrap;
-    }
-
-    .staff-header-title-group {
-        display: flex;
-        align-items: flex-start;
-        gap: .85rem;
-        min-width: 0;
-    }
-
-    .staff-title {
-        font-family: var(--font-heading);
-        font-size: 1.8rem;
-        line-height: 1.08;
-        letter-spacing: -0.03em;
-        color: #0b1422;
-        margin: 0;
-    }
-
-    .staff-subtitle {
-        margin-top: .35rem;
-        color: #5F685F;
-        font-size: .98rem;
-    }
-
-    .staff-branch-chip {
-        display: inline-flex;
-        align-items: center;
-        border-radius: 999px;
-        padding: .23rem .72rem;
-        font-size: .82rem;
-        font-weight: 700;
-        letter-spacing: .02em;
-        color: var(--accent);
-        background: rgba(37, 99, 235, 0.08);
-        border: 1px solid rgba(37, 99, 235, 0.20);
-    }
-
-    .staff-tools {
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        gap: .6rem;
-        flex-wrap: wrap;
-    }
-
-    .staff-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: .42rem;
-        border: 1px solid #d7dde6;
-        background: #FAFAF7;
-        border-radius: .75rem;
-        padding: .52rem .74rem;
-        font-size: .9rem;
-        color: #5F685F;
-        white-space: nowrap;
-    }
-
-    .staff-pill i {
-        color: #3E4A3D;
-        font-size: .86rem;
-    }
-
-    .staff-action-grid {
-        display: grid;
-        grid-template-columns: repeat(1, minmax(0, 1fr));
-        gap: .7rem;
-    }
-
-    .staff-action-card {
-        display: flex;
-        align-items: center;
-        gap: .78rem;
-        border: 1px solid #d9e2ec;
-        border-radius: 1rem;
-        padding: .92rem .98rem;
-        transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background-color .16s ease, color .16s ease;
-    }
-
-    .staff-action-card:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 14px 26px rgba(15, 23, 42, .08);
-    }
-
-    .staff-action-card .icon {
-        width: 2.35rem;
-        height: 2.35rem;
-        border-radius: .72rem;
-        display: grid;
-        place-items: center;
-        font-size: 1rem;
-    }
-
-    .staff-action-card .title {
-        font-weight: 700;
-        font-size: 1.04rem;
-        line-height: 1.18;
-        margin: 0;
-        color: inherit;
-        text-rendering: geometricPrecision;
-    }
-
-    .staff-action-card .desc {
-        margin: .12rem 0 0;
-        font-size: .9rem;
-        color: inherit;
-    }
-
-    .staff-action-card.is-dark {
-        background: linear-gradient(180deg, #223651 0%, #1a2d46 100%);
-        border-color: #2c4769;
-        color: #f8fbff;
-    }
-
-    .staff-action-card.is-dark .icon {
-        background: rgba(226, 232, 240, .18);
-        color: #f8fbff;
-    }
-
-    .staff-action-card.is-dark .desc {
-        color: #d8e4f2;
-    }
-
-    .staff-action-card.is-dark .title {
-        color: #f8fbff;
-    }
-
-    .staff-action-card.is-green {
-        background: linear-gradient(180deg, #1a8076 0%, #176f66 100%);
-        border-color: #21766e;
-        color: #f2fbfa;
-    }
-
-    .staff-action-card.is-green .icon {
-        background: rgba(236, 253, 250, .18);
-        color: #ecfeff;
-    }
-
-    .staff-action-card.is-green .desc {
-        color: #d4f4ee;
-    }
-
-    .staff-action-card.is-green .title {
-        color: #f0fffb;
-    }
-
-    .staff-action-card.is-light {
-        background: linear-gradient(180deg, #f7f9fc 0%, #f2f6fb 100%);
-        border-color: #d3deea;
-        color: #1a2b41;
-    }
-
-    .staff-action-card.is-light .icon {
-        background: #e7eef7;
-        color: #3d5573;
-    }
-
-    .staff-action-card.is-light .desc {
-        color: #5f748d;
-    }
-
-    .staff-action-card.is-light .title {
-        color: #1a2b41;
-    }
-
-    .staff-grid {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr);
-        gap: 1rem;
-        width: 100%;
-        min-width: 0;
-        align-items: start;
-    }
-
-    .staff-col {
-        display: grid;
-        gap: 1rem;
-        align-content: start;
-        min-width: 0;
-    }
-
-    .staff-col-wide {
-        grid-column: 1 / -1;
-    }
-
-    .staff-subgrid-two {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr);
-        gap: 1rem;
-        min-width: 0;
-    }
-
-    .staff-card-head {
-        padding: 1rem 1.1rem;
-        border-bottom: 1px solid #C9C5BB;
-        display: flex;
-        position: relative;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: .75rem;
-        flex-wrap: wrap;
-    }
-
-    .staff-card-head > div {
-        min-width: 0;
-        flex: 1 1 auto;
-    }
-
-    .staff-card-head--fixed-actions {
-        flex-wrap: nowrap;
-        align-items: flex-start;
-    }
-
-    .staff-card-head--fixed-actions .staff-head-actions {
-        margin-left: auto;
-        flex: 0 0 auto;
-    }
-
-    .staff-card-head-main {
-        display: flex;
-        flex-direction: row;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: .75rem 1rem;
-        min-width: 0;
-        flex: 1 1 auto;
-        flex-wrap: wrap;
-    }
-
-    .staff-card-head-main > div:first-child {
-        min-width: 0;
-        flex: 1 1 12rem;
-    }
-
-    .staff-card-head-controls {
-        display: flex;
-        flex: 0 0 auto;
-        flex-direction: column;
-        align-items: flex-end;
-        gap: .35rem;
-        margin-left: auto;
-    }
-
-    .staff-card--hover-action .staff-head-actions {
-        min-height: 1.05rem;
-        opacity: 0;
-        visibility: hidden;
-        transition: opacity .16s ease, visibility .16s ease;
-    }
-
-    .staff-card--hover-action .staff-head-actions .staff-link {
-        font-size: .76rem;
-        line-height: 1.2;
-        font-weight: 600;
-    }
-
-    .staff-card--hover-action .staff-head-actions .staff-link i {
-        font-size: .7rem;
-        margin-left: .12rem;
-    }
-
-    .staff-card--hover-action:hover .staff-head-actions,
-    .staff-card--hover-action:focus-within .staff-head-actions {
-        opacity: 1;
-        visibility: visible;
-    }
-
-    [data-schedules-card] .staff-card-head-main {
-        flex-wrap: nowrap;
-        gap: .5rem;
-    }
-
-    [data-schedules-card] .staff-card-head-main > div:first-child {
-        flex: 1 1 auto;
-    }
-
-    [data-schedules-card] .staff-card-head-controls {
-        flex-shrink: 0;
-    }
-
-    [data-schedules-card] .staff-tabs {
-        gap: .18rem;
-        padding: .18rem;
-    }
-
-    [data-schedules-card] .staff-tab-btn {
-        padding: .28rem .42rem;
-        font-size: .73rem;
-    }
-
-    .staff-card-head-controls--summary .staff-head-actions {
-        justify-content: flex-end;
-    }
-
-    .staff-card-head h3 {
-        margin: 0;
-        font-size: 1.05rem;
-        line-height: 1.15;
-        color: #3E4A3D;
-    }
-
-    .staff-card-head p {
-        margin: .12rem 0 0;
-        color: #5F685F;
-        font-size: .92rem;
-    }
-
-    .staff-link {
-        font-weight: 600;
-        color: #0b4f9f;
-        font-size: .92rem;
-        white-space: nowrap;
-    }
-
-    .staff-link:hover {
-        color: #0a63cc;
-    }
-
-    .staff-tabs {
-        display: inline-flex;
-        align-items: center;
-        gap: .35rem;
-        padding: .22rem;
-        border-radius: .72rem;
-        border: 1px solid #d6e0eb;
-        background: #f5f8fc;
-    }
-
-    .staff-tab-btn {
-        border: 0;
-        background: transparent;
-        color: #51657e;
-        border-radius: .58rem;
-        padding: .32rem .62rem;
-        font-size: .82rem;
-        font-weight: 700;
-        cursor: pointer;
-        white-space: nowrap;
-    }
-
-    .staff-tab-btn:hover {
-        color: #24384f;
-        background: #ebf1f8;
-    }
-
-    .staff-tab-btn.is-active {
-        background: #dfeaf7;
-        color: #15395f;
-        box-shadow: inset 0 0 0 1px #c5d8ef;
-    }
-
-    .staff-tab-panel[hidden] {
-        display: none !important;
-    }
-
-    .staff-card-tabs-bar {
-        padding: .6rem 1.1rem 0;
-        border-bottom: 1px solid #C9C5BB;
-    }
-
-    .staff-card-head--compact {
-        padding: .1rem 0 .6rem;
-        border-bottom: 1px solid #C9C5BB;
-    }
-
-    .staff-card--month {
-        padding: .8rem 1rem;
-    }
-
-    .staff-table {
-        width: 100%;
-        border-collapse: collapse;
-        table-layout: fixed;
-        min-width: 640px;
-    }
-
-    .staff-table thead th {
-        text-align: left;
-        font-size: .73rem;
-        letter-spacing: .08em;
-        color: #5F685F;
-        border-bottom: 1px solid #C9C5BB;
-        padding: .7rem .95rem;
-        background: #FAFAF7;
-        white-space: nowrap;
-    }
-
-    .staff-table td {
-        border-bottom: 1px solid #C9C5BB;
-        padding: .78rem .95rem;
-        vertical-align: middle;
-        font-size: .95rem;
-        overflow-wrap: anywhere;
-    }
-
-    .staff-table tbody tr:last-child td {
-        border-bottom: 0;
-    }
-
-    .staff-table-code {
-        color: #0b4f9f;
-        font-weight: 700;
-    }
-
-    .staff-muted {
-        color: #5F685F;
-        font-size: .88rem;
-    }
-
-    .status-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: .34rem;
-        border-radius: 999px;
-        padding: .24rem .66rem;
-        border: 1px solid transparent;
-        font-size: .79rem;
-        font-weight: 600;
-    }
-
-    .status-pill.active {
-        background: #dcfce7;
-        border-color: #bbf7d0;
-        color: #4F6F4D;
-    }
-
-    .status-pill.completed {
-        background: #f1f5f9;
-        border-color: #C9C5BB;
-        color: #5F685F;
-    }
-
-    .status-pill.draft {
-        background: #fef3c7;
-        border-color: #fde68a;
-        color: #92400e;
-    }
-
-    .status-pill.unpaid {
-        background: #fee2e2;
-        border-color: #fecaca;
-        color: #9E4B3F;
-    }
-
-    .staff-money {
-        font-weight: 700;
-        color: #0f766e;
-    }
-
-    .staff-list {
-        padding: .35rem .8rem .8rem;
-        display: grid;
-        gap: .55rem;
-    }
-
-    .staff-list-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: .8rem;
-        padding: .7rem .68rem;
-        border-radius: .8rem;
-        border: 1px solid #C9C5BB;
-        background: #fcfdff;
-        min-width: 0;
-        flex-wrap: wrap;
-    }
-
-    .staff-list-row > div {
-        min-width: 0;
-    }
-
-    .staff-list-row > .text-right {
-        margin-left: auto;
-        flex-shrink: 0;
-    }
-
-    .staff-list-row strong {
-        color: #3E4A3D;
-        font-size: 1rem;
-        display: block;
-        line-height: 1.2;
-        overflow-wrap: anywhere;
-    }
-
-    .staff-list-row small {
-        color: #5F685F;
-        font-size: .89rem;
-        overflow-wrap: anywhere;
-    }
-
-    .staff-balance-cta {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: .62rem;
-        border: 1px solid #111827;
-        background: #0b1118;
-        color: #FAFAF7;
-        font-size: .83rem;
-        font-weight: 700;
-        padding: .4rem .72rem;
-    }
-
-    .staff-balance-cta:hover {
-        background: #111827;
-        color: #ffffff;
-    }
-
-    .staff-attention-pill {
-        font-size: .73rem;
-        font-weight: 700;
-        border-radius: 999px;
-        padding: .18rem .52rem;
-        border: 1px solid transparent;
-        white-space: nowrap;
-    }
-
-    .staff-attention-pill.danger {
-        background: #fee2e2;
-        color: #9E4B3F;
-        border-color: #fecaca;
-    }
-
-    .staff-attention-pill.warning {
-        background: #fef3c7;
-        color: #92400e;
-        border-color: #fde68a;
-    }
-
-    .staff-attention-pill.info {
-        background: #C9C5BB;
-        color: #333333;
-        border-color: #C9C5BB;
-    }
-
-    .staff-attention-date {
-        display: block;
-        margin-top: .2rem;
-        color: var(--color-text-secondary);
-        font-size: .79rem;
-        font-weight: 600;
-    }
-
-    .staff-payment-state {
-        margin-top: .38rem;
-    }
-
-    .staff-empty {
-        text-align: center;
-        color: #5F685F;
-        padding: 1.2rem .9rem;
-    }
-
-    .staff-empty i {
-        display: block;
-        font-size: 1.45rem;
-        color: #7A8076;
-        margin-bottom: .25rem;
-    }
-
-    .staff-upcoming-date {
-        width: 3.2rem;
-        min-width: 3.2rem;
-        border-radius: .72rem;
-        border: 1px solid #d9e2ec;
-        background: #FAFAF7;
-        text-align: center;
-        padding: .35rem .15rem;
-    }
-
-    .staff-upcoming-date strong {
-        display: block;
-        font-size: 1.02rem;
-        line-height: 1.1;
-        color: #3E4A3D;
-    }
-
-    .staff-upcoming-date span {
-        font-size: .73rem;
-        text-transform: uppercase;
-        color: #5F685F;
-    }
-
-    .staff-monthly-list {
-        margin: 0;
-        padding: .15rem 0 0;
-        list-style: none;
-    }
-
-    .staff-monthly-list li {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: .7rem;
-        border-top: 1px solid #C9C5BB;
-        padding: .72rem 0;
-        color: #5F685F;
-    }
-
-    .staff-monthly-list li:first-child {
-        border-top: 0;
-    }
-
-    .staff-monthly-list strong {
-        color: #3E4A3D;
-    }
-
-    .staff-monthly-list strong.good {
-        color: #0f766e;
-    }
-
-    .staff-monthly-list strong.warn {
-        color: #9E4B3F;
-    }
-
-    .recent-cases-pagination {
-        border-top: 1px solid #C9C5BB;
-        padding: .5rem .8rem;
-    }
-
-    .recent-cases-pagination .table-paginator {
-        justify-content: flex-end;
-    }
-
-    .recent-cases-pagination .table-paginator-meta {
-        display: none;
-    }
-
-    @media (min-width: 700px) {
-        .staff-action-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-    }
-
-    @media (min-width: 860px) and (max-width: 1179px) {
-        .staff-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-
-        .staff-grid > .staff-col:last-child,
-        .staff-col-wide {
-            grid-column: 1 / -1;
-        }
-
-        .staff-subgrid-two {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-    }
-
-    @media (min-width: 1180px) {
-        .staff-action-grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-
-        .staff-grid {
-            grid-template-columns: minmax(0, 2.2fr) minmax(340px, 0.95fr);
-            align-items: start;
-            gap: 1.1rem;
-        }
-
-        .staff-col-wide {
-            grid-column: auto;
-        }
-
-        .staff-subgrid-two {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-    }
-
-    @media (max-width: 699px) {
-        .staff-dashboard-v2 {
-            padding: 0 .3rem .8rem;
-        }
-
-        .staff-header-card {
-            padding: .95rem;
-        }
-
-        .staff-card-head {
-            padding: .9rem .9rem;
-        }
-
-        .staff-list {
-            padding: .3rem .65rem .7rem;
-        }
-
-        .staff-card-head--fixed-actions {
-            flex-wrap: wrap;
-        }
-
-        .staff-card-head--fixed-actions .staff-head-actions {
-            margin-left: 0;
-            align-self: flex-start;
-            margin-top: 0;
-        }
-
-        .staff-card-head-controls {
-            width: 100%;
-            align-items: flex-start;
-            margin-left: 0;
-        }
-
-        [data-schedules-card] .staff-card-head-main {
-            flex-wrap: wrap;
-        }
-
-        .staff-balance-cta {
-            width: 100%;
-            margin-top: .35rem;
-        }
-    }
-
-    @media (hover: none) {
-        .staff-card--hover-action .staff-head-actions {
-            opacity: 1;
-            visibility: visible;
-            transform: none;
-        }
-    }
-
-    /* Botanical Suite light-theme coverage */
-    .staff-dashboard-v2 {
-        color: var(--color-text-primary);
-    }
-
-    .staff-card,
-    .staff-header-card,
-    .staff-list-row,
-    .staff-upcoming-date {
-        background: var(--color-bg-surface);
-        border-color: var(--color-border);
-    }
-
-    .staff-header-card {
-        background: linear-gradient(180deg, var(--color-bg-surface) 0%, var(--color-bg-muted) 100%);
-    }
-
-    .staff-title,
-    .staff-card-head h3,
-    .staff-list-row strong,
-    .staff-monthly-list strong,
-    .staff-upcoming-date strong,
-    .staff-action-card.is-light .title {
-        color: var(--color-text-primary);
-    }
-
-    .staff-subtitle,
-    .staff-card-head p,
-    .staff-muted,
-    .staff-list-row small,
-    .staff-monthly-list li,
-    .staff-upcoming-date span,
-    .staff-empty,
-    .staff-action-card.is-light .desc {
-        color: var(--color-text-secondary);
-    }
-
-    .staff-branch-chip {
-        color: var(--color-primary);
-        background: rgba(139, 154, 139, .18);
-        border: 1px solid rgba(139, 154, 139, .35);
-    }
-
-    .staff-pill,
-    .staff-tabs,
-    .staff-action-card.is-light .icon {
-        background: var(--color-bg-muted);
-        border-color: var(--color-border);
-        color: var(--color-text-secondary);
-    }
-
-    .staff-pill i,
-    .staff-link,
-    .staff-table-code {
-        color: var(--color-primary);
-    }
-
-    .staff-link:hover {
-        color: var(--color-primary-hover);
-    }
-
-    .staff-action-card {
-        border-color: var(--color-border);
-    }
-
-    .staff-action-card:hover {
-        border-color: var(--color-border-strong);
-        box-shadow: 0 14px 26px rgba(62, 74, 61, .10);
-    }
-
-    .staff-action-card.is-dark {
-        background: linear-gradient(180deg, var(--color-primary) 0%, var(--color-primary-active) 100%);
-        border-color: var(--color-primary);
-        color: var(--color-bg-surface);
-    }
-
-    .staff-action-card.is-dark .icon,
-    .staff-action-card.is-green .icon {
-        background: rgba(250, 250, 247, .16);
-        color: var(--color-bg-surface);
-    }
-
-    .staff-action-card.is-dark .title,
-    .staff-action-card.is-dark .desc,
-    .staff-action-card.is-green .title,
-    .staff-action-card.is-green .desc {
-        color: var(--color-bg-surface);
-    }
-
-    .staff-action-card.is-green {
-        background: linear-gradient(180deg, var(--color-success) 0%, #5D785C 100%);
-        border-color: var(--color-success);
-        color: var(--color-bg-surface);
-    }
-
-    .staff-action-card.is-light {
-        background: linear-gradient(180deg, var(--color-bg-surface) 0%, var(--color-bg-muted) 100%);
-        border-color: var(--color-border);
-        color: var(--color-text-primary);
-    }
-
-    .staff-action-card.is-light .icon {
-        color: var(--color-primary);
-    }
-
-    .staff-tab-btn {
-        color: var(--color-text-secondary);
-    }
-
-    .staff-tab-btn:hover {
-        color: var(--color-primary);
-        background: rgba(139, 154, 139, .16);
-    }
-
-    .staff-tab-btn.is-active {
-        background: var(--color-primary);
-        color: var(--color-bg-surface);
-        box-shadow: inset 0 0 0 1px var(--color-primary-active);
-    }
-
-    .staff-card-head,
-    .staff-card-tabs-bar,
-    .staff-card-head--compact,
-    .staff-table thead th,
-    .staff-table td,
-    .recent-cases-pagination,
-    .staff-monthly-list li {
-        border-color: var(--color-border);
-    }
-
-    .staff-table thead th {
-        background: var(--color-bg-muted);
-        color: var(--color-text-secondary);
-    }
-
-    .staff-table tbody tr:hover td {
-        background: var(--color-bg-muted);
-    }
-
-    .status-pill.active {
-        background: rgba(111, 138, 109, .16);
-        border-color: rgba(111, 138, 109, .35);
-        color: #4F6F4D;
-    }
-
-    .status-pill.completed,
-    .staff-attention-pill.info {
-        background: var(--color-bg-muted);
-        border-color: var(--color-border);
-        color: var(--color-text-secondary);
-    }
-
-    .status-pill.draft,
-    .staff-attention-pill.warning {
-        background: rgba(184, 121, 86, .16);
-        border-color: rgba(184, 121, 86, .35);
-        color: #8A5638;
-    }
-
-    .status-pill.unpaid,
-    .staff-attention-pill.danger {
-        background: rgba(158, 75, 63, .16);
-        border-color: rgba(158, 75, 63, .35);
-        color: #7F3A32;
-    }
-
-    .staff-money,
-    .staff-monthly-list strong.good {
-        color: var(--color-success);
-    }
-
-    .staff-monthly-list strong.warn {
-        color: var(--color-danger);
-    }
-
-    .staff-balance-cta {
-        background: var(--color-primary);
-        border-color: var(--color-primary);
-        color: var(--color-bg-surface);
-    }
-
-    .staff-balance-cta:hover {
-        background: var(--color-primary-hover);
-        border-color: var(--color-primary-hover);
-        color: #ffffff;
-    }
-
-    html[data-theme='dark'] .staff-dashboard-v2 {
-        color: #C9C5BB;
-    }
-
-    html[data-theme='dark'] .staff-card,
-    html[data-theme='dark'] .staff-header-card,
-    html[data-theme='dark'] .staff-list-row,
-    html[data-theme='dark'] .staff-upcoming-date {
-        background: #182638;
-        border-color: #3f536b;
-    }
-
-    html[data-theme='dark'] .staff-header-card {
-        background: linear-gradient(180deg, #1c2d43 0%, #182638 100%);
-    }
-
-    html[data-theme='dark'] .staff-title,
-    html[data-theme='dark'] .staff-card-head h3,
-    html[data-theme='dark'] .staff-list-row strong,
-    html[data-theme='dark'] .staff-monthly-list strong,
-    html[data-theme='dark'] .staff-upcoming-date strong {
-        color: #f8fbff;
-    }
-
-    html[data-theme='dark'] .staff-subtitle,
-    html[data-theme='dark'] .staff-card-head p,
-    html[data-theme='dark'] .staff-muted,
-    html[data-theme='dark'] .staff-list-row small,
-    html[data-theme='dark'] .staff-monthly-list li,
-    html[data-theme='dark'] .staff-upcoming-date span,
-    html[data-theme='dark'] .staff-empty {
-        color: #9fb1c8;
-    }
-
-    html[data-theme='dark'] .staff-table thead th {
-        background: #202d3f;
-        border-bottom-color: #3f536b;
-        color: #9fb1c8;
-    }
-
-    html[data-theme='dark'] .staff-table td,
-    html[data-theme='dark'] .staff-card-head,
-    html[data-theme='dark'] .recent-cases-pagination,
-    html[data-theme='dark'] .staff-monthly-list li {
-        border-color: #3f536b;
-    }
-
-    html[data-theme='dark'] .staff-action-card.is-dark {
-        background: linear-gradient(180deg, #263c58 0%, #1d314b 100%);
-        border-color: #446081;
-        color: #f8fbff;
-    }
-
-    html[data-theme='dark'] .staff-action-card.is-dark .icon {
-        background: rgba(248, 251, 255, .16);
-        color: #f8fbff;
-    }
-
-    html[data-theme='dark'] .staff-action-card.is-dark .desc {
-        color: #d6e4f4;
-    }
-
-    html[data-theme='dark'] .staff-action-card.is-dark .title {
-        color: #f8fbff;
-    }
-
-    html[data-theme='dark'] .staff-action-card.is-green {
-        background: linear-gradient(180deg, #1e625d 0%, #1b5753 100%);
-        border-color: #2d7a75;
-        color: #effcf9;
-    }
-
-    html[data-theme='dark'] .staff-action-card.is-green .icon {
-        background: rgba(239, 252, 249, .18);
-        color: #e8fffb;
-    }
-
-    html[data-theme='dark'] .staff-action-card.is-green .desc {
-        color: #c9efe8;
-    }
-
-    html[data-theme='dark'] .staff-action-card.is-green .title {
-        color: #ecfffb;
-    }
-
-    html[data-theme='dark'] .staff-action-card.is-light {
-        background: linear-gradient(180deg, #223148 0%, #1b2a3f 100%);
-        border-color: #3f536b;
-        color: #f8fbff;
-    }
-
-    html[data-theme='dark'] .staff-action-card.is-light .desc {
-        color: #b8c7da;
-    }
-
-    html[data-theme='dark'] .staff-action-card.is-light .icon {
-        background: #2b3a50;
-        color: #dbe6f3;
-    }
-
-    html[data-theme='dark'] .staff-action-card.is-light .title {
-        color: #f1f6fd;
-    }
-
-    html[data-theme='dark'] .staff-pill {
-        background: #223148;
-        border-color: #3f536b;
-        color: #d9e2ef;
-    }
-
-    html[data-theme='dark'] .staff-branch-chip {
-        background: rgba(194, 122, 43, .16);
-        border-color: rgba(194, 122, 43, .45);
-        color: #f6c081;
-    }
-
-    html[data-theme='dark'] .staff-link {
-        color: #8ec5ff;
-    }
-
-    html[data-theme='dark'] .staff-link:hover {
-        color: #bfdbfe;
-    }
-
-    html[data-theme='dark'] .staff-tabs {
-        background: #1f3046;
-        border-color: #3f536b;
-    }
-
-    html[data-theme='dark'] .staff-tab-btn {
-        color: #b7c7da;
-    }
-
-    html[data-theme='dark'] .staff-tab-btn:hover {
-        color: #e5edf6;
-        background: #2a3e58;
-    }
-
-    html[data-theme='dark'] .staff-tab-btn.is-active {
-        background: #2b4666;
-        color: #f8fbff;
-        box-shadow: inset 0 0 0 1px #42698f;
-    }
-
-    html[data-theme='dark'] .staff-card-tabs-bar {
-        border-bottom-color: #3f536b;
-    }
-
-    html[data-theme='dark'] .staff-card-head--compact {
-        border-bottom-color: #3f536b;
-    }
-
-    html[data-theme='dark'] .status-pill.active {
-        background: rgba(34, 197, 94, .15);
-        border-color: rgba(34, 197, 94, .28);
-        color: #86efac;
-    }
-
-    html[data-theme='dark'] .status-pill.completed {
-        background: rgba(148, 163, 184, .15);
-        border-color: rgba(148, 163, 184, .3);
-        color: #C9C5BB;
-    }
-
-    html[data-theme='dark'] .status-pill.draft {
-        background: rgba(245, 185, 66, .15);
-        border-color: rgba(245, 185, 66, .3);
-        color: #fcd34d;
-    }
-
-    html[data-theme='dark'] .status-pill.unpaid {
-        background: rgba(239, 68, 68, .15);
-        border-color: rgba(239, 68, 68, .3);
-        color: #fda4af;
-    }
-
-    html[data-theme='dark'] .staff-money,
-    html[data-theme='dark'] .staff-monthly-list strong.good {
-        color: #6ee7b7;
-    }
-
-    html[data-theme='dark'] .staff-monthly-list strong.warn {
-        color: #fda4af;
-    }
-
-    /* UI/UX refinement: quieter surfaces, clearer hierarchy, consistent rhythm. */
-    .staff-dashboard-v2 {
-        gap: 1rem;
-        padding: .75rem clamp(.75rem, 1.2vw, 1.15rem) 1.4rem;
-        color: var(--color-text-primary);
-        background:
-            linear-gradient(90deg, rgba(62, 74, 61, 0.035) 0 1px, transparent 1px),
-            linear-gradient(180deg, rgba(62, 74, 61, 0.03) 0 1px, transparent 1px),
-            repeating-linear-gradient(135deg, rgba(62, 74, 61, 0.018) 0 1px, transparent 1px 12px);
-        background-size: 44px 44px, 44px 44px, 16px 16px;
-    }
-
-    .staff-card,
-    .staff-header-card,
-    .staff-list-row,
-    .staff-upcoming-date,
-    .staff-action-card,
-    .staff-tabs,
-    .staff-pill {
-        border-radius: 8px;
-    }
-
-    .staff-card,
-    .staff-header-card {
-        box-shadow: none;
-    }
-
-    .staff-dashboard-v2 *,
-    .staff-dashboard-v2 *::before,
-    .staff-dashboard-v2 *::after {
-        box-shadow: none !important;
-    }
-
-    .staff-dashboard-v2 a[href],
-    .staff-dashboard-v2 button,
-    .staff-dashboard-v2 [role="button"],
-    .staff-dashboard-v2 .staff-pill,
-    .staff-dashboard-v2 .staff-tab-btn {
-        cursor: pointer;
-    }
-
-    .staff-dashboard-v2 button:disabled,
-    .staff-dashboard-v2 [aria-disabled="true"] {
-        cursor: not-allowed;
-    }
-
-    .staff-header-card {
-        border-top-left-radius: 8px;
-        border-top-right-radius: 8px;
-        padding: 1rem;
-    }
-
-    .staff-title {
-        font-size: clamp(1.45rem, 2.2vw, 1.85rem);
-        font-weight: 700;
-        letter-spacing: 0;
-        color: var(--color-text-primary);
-    }
-
-    .staff-subtitle {
-        max-width: 62ch;
-        margin-top: .25rem;
-        font-size: .92rem;
-        font-weight: 600;
-        color: var(--color-text-secondary);
-    }
-
-    .staff-action-grid {
-        gap: .65rem;
-    }
-
-    .staff-action-card {
-        padding: .82rem .9rem;
-        box-shadow: none;
-        transform: none;
-    }
-
-    .staff-action-card:hover {
-        transform: none;
-        box-shadow: none;
-    }
-
-    .staff-action-card .icon {
-        width: 2.15rem;
-        height: 2.15rem;
-        border-radius: 8px;
-    }
-
-    .staff-action-card .title {
-        font-size: .98rem;
-    }
-
-    .staff-action-card .desc {
-        font-size: .84rem;
-    }
-
-    .staff-action-card.is-dark {
-        background: var(--color-primary);
-        border-color: var(--color-primary);
-    }
-
-    .staff-action-card.is-green {
-        background: var(--color-bg-surface);
-        border-color: var(--color-border);
-        border-left: 4px solid var(--color-success);
-        color: var(--color-text-primary);
-    }
-
-    .staff-action-card.is-green .icon {
-        background: rgba(111, 138, 109, .16);
-        color: var(--color-success-text);
-    }
-
-    .staff-action-card.is-green .title {
-        color: var(--color-text-primary);
-    }
-
-    .staff-action-card.is-green .desc {
-        color: var(--color-text-secondary);
-    }
-
-    .staff-card-head {
-        padding: .9rem 1rem;
-        background: color-mix(in srgb, var(--color-bg-muted) 58%, transparent);
-    }
-
-    .staff-card-head h3 {
-        font-size: 1rem;
-        font-weight: 700;
-        letter-spacing: 0;
-        color: var(--color-text-primary);
-    }
-
-    .staff-card-head p {
-        font-size: .86rem;
-        color: var(--color-text-secondary);
-    }
-
-    .staff-table thead th {
-        letter-spacing: .04em;
-        font-size: .7rem;
-    }
-
-    .staff-list-row {
-        background: var(--color-bg-surface);
-        transition: background-color .14s ease, border-color .14s ease, color .14s ease;
-    }
-
-    a.staff-list-row:hover {
-        background: var(--color-bg-muted);
-        border-color: var(--color-border-strong);
-        transform: none;
-    }
-
-    .staff-dashboard-v2 a[href],
-    .staff-dashboard-v2 button,
-    .staff-dashboard-v2 [role="button"],
-    .staff-dashboard-v2 .staff-action-card,
-    .staff-dashboard-v2 .staff-list-row,
-    .staff-dashboard-v2 .staff-pill,
-    .staff-dashboard-v2 .staff-tab-btn,
-    .staff-dashboard-v2 .staff-balance-cta,
-    .staff-dashboard-v2 .staff-link,
-    .staff-dashboard-v2 .topbar-notification {
-        transition: background-color .14s ease, border-color .14s ease, color .14s ease;
-    }
-
-    .staff-dashboard-v2 a[href]:hover,
-    .staff-dashboard-v2 button:hover,
-    .staff-dashboard-v2 [role="button"]:hover,
-    .staff-dashboard-v2 .staff-action-card:hover,
-    .staff-dashboard-v2 .staff-list-row:hover,
-    .staff-dashboard-v2 .staff-pill:hover,
-    .staff-dashboard-v2 .staff-tab-btn:hover,
-    .staff-dashboard-v2 .staff-balance-cta:hover,
-    .staff-dashboard-v2 .staff-link:hover,
-    .staff-dashboard-v2 .topbar-notification:hover {
-        transform: none !important;
-        box-shadow: none !important;
-        filter: none !important;
-    }
-
-    .staff-dashboard-v2 .staff-action-card:hover,
-    .staff-dashboard-v2 .staff-list-row:hover,
-    .staff-dashboard-v2 .staff-pill:hover,
-    .staff-dashboard-v2 .staff-tab-btn:hover,
-    .staff-dashboard-v2 .topbar-notification:hover {
-        background: var(--color-bg-muted);
-        border-color: var(--color-border-strong);
-        color: var(--color-text-primary);
-    }
-
-    .staff-dashboard-v2 .staff-tab-btn.is-active,
-    .staff-dashboard-v2 .staff-pill.is-active,
-    .staff-dashboard-v2 [aria-pressed="true"] {
-        background: color-mix(in srgb, var(--color-primary) 10%, var(--color-bg-surface));
-        border-color: var(--color-primary);
-        color: var(--color-primary);
-    }
-
-    html[data-theme='dark'] .staff-dashboard-v2 {
-        background:
-            linear-gradient(90deg, rgba(148, 163, 184, 0.04) 0 1px, transparent 1px),
-            linear-gradient(180deg, rgba(148, 163, 184, 0.035) 0 1px, transparent 1px),
-            repeating-linear-gradient(135deg, rgba(148, 163, 184, 0.026) 0 1px, transparent 1px 12px);
-        background-size: 44px 44px, 44px 44px, 16px 16px;
-    }
-
-    .staff-dashboard-v2,
-    .staff-dashboard-v2 *,
-    .staff-dashboard-v2 *::before,
-    .staff-dashboard-v2 *::after,
-    .staff-dashboard-v2 [class*="shadow"],
-    .staff-dashboard-v2 [class*="drop-shadow"],
-    .staff-dashboard-v2 [class*="hover:shadow"],
-    .staff-dashboard-v2 .staff-header-card,
-    .staff-dashboard-v2 .staff-action-card,
-    .staff-dashboard-v2 .staff-pill,
-    .staff-dashboard-v2 .staff-tools,
-    .staff-dashboard-v2 .topbar-notification,
-    .staff-dashboard-v2 .topbar-notification-menu,
-    .staff-dashboard-v2 .topbar-notification-card {
-        box-shadow: none !important;
-        filter: none !important;
-    }
-
-    .staff-dashboard-v2 .staff-action-card:hover,
-    .staff-dashboard-v2 .staff-list-row:hover,
-    .staff-dashboard-v2 .topbar-notification:hover,
-    .staff-dashboard-v2 .topbar-notification[aria-expanded="true"],
-    .staff-dashboard-v2 .topbar-notification.is-active {
-        transform: none !important;
-        box-shadow: none !important;
-        filter: none !important;
-    }
-
-    .staff-dashboard-v2 {
-        font-family: var(--font-body);
-    }
-
-    .staff-dashboard-v2 h1,
-    .staff-dashboard-v2 h2,
-    .staff-dashboard-v2 h3,
-    .staff-dashboard-v2 h4,
-    .staff-dashboard-v2 .staff-title,
-    .staff-dashboard-v2 .staff-action-card .title,
-    .staff-dashboard-v2 .staff-stat-value,
-    .staff-dashboard-v2 .staff-balance-value {
-        font-family: var(--font-heading) !important;
-        letter-spacing: 0 !important;
-    }
-
-    .staff-dashboard-v2 label,
-    .staff-dashboard-v2 th,
-    .staff-dashboard-v2 .staff-pill,
-    .staff-dashboard-v2 .staff-tab-btn,
-    .staff-dashboard-v2 .staff-action-card .desc,
-    .staff-dashboard-v2 p[class*="font-black"],
-    .staff-dashboard-v2 span[class*="font-black"],
-    .staff-dashboard-v2 div[class*="font-black"],
-    .staff-dashboard-v2 p[class*="font-bold"],
-    .staff-dashboard-v2 span[class*="font-bold"],
-    .staff-dashboard-v2 [class*="tracking"] {
-        font-weight: 650 !important;
-        letter-spacing: 0 !important;
-    }
-
-    .staff-dashboard-v2 a[href]:focus,
-    .staff-dashboard-v2 button:focus,
-    .staff-dashboard-v2 select:focus,
-    .staff-dashboard-v2 input:focus,
-    .staff-dashboard-v2 [role="button"]:focus,
-    .staff-dashboard-v2 a[href]:focus-visible,
-    .staff-dashboard-v2 button:focus-visible,
-    .staff-dashboard-v2 select:focus-visible,
-    .staff-dashboard-v2 input:focus-visible,
-    .staff-dashboard-v2 [role="button"]:focus-visible {
-        outline: none !important;
-        outline-offset: 0 !important;
-        box-shadow: none !important;
-    }
-
-    .staff-dashboard-v2 .staff-action-card:hover,
-    .staff-dashboard-v2 .staff-list-row:hover,
-    .staff-dashboard-v2 .staff-pill:hover,
-    .staff-dashboard-v2 .staff-tab-btn:hover,
-    .staff-dashboard-v2 .staff-balance-cta:hover,
-    .staff-dashboard-v2 .staff-link:hover,
-    .staff-dashboard-v2 .topbar-notification:hover {
-        background: #DDE6D8 !important;
-        border-color: #8B9A8B !important;
-        color: var(--color-text-primary) !important;
-    }
-
-    .staff-dashboard-v2 .staff-tab-btn.is-active,
-    .staff-dashboard-v2 .staff-pill.is-active,
-    .staff-dashboard-v2 [aria-pressed="true"],
-    .staff-dashboard-v2 a[href]:focus-visible,
-    .staff-dashboard-v2 button:focus-visible {
-        background: #D5DFCF !important;
-        border-color: var(--color-primary) !important;
-        color: var(--color-text-primary) !important;
-    }
-
-    html:not([data-theme='dark']) .staff-dashboard-v2 {
-        --dash-card-soft: #D3DEC9;
-        --dash-card-alt: #DCE6D6;
-        --dash-card-strong: #C7D5BE;
-        --dash-card-warm: #E1DFCC;
-        --dash-hover: #C5D3BC;
-        --dash-active: #B8C9AF;
-        --dash-text: #232821;
-        --dash-muted: #3F4C3E;
-    }
-
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-card,
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-header-card,
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-action-card,
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-list-row,
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-upcoming-date,
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-month-card,
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-tools,
-    html:not([data-theme='dark']) .staff-dashboard-v2 .bg-white {
-        background: var(--dash-card-soft) !important;
-        color: var(--dash-text) !important;
-        border-color: #AEBBA8 !important;
-        box-shadow: none !important;
-        filter: none !important;
-        backdrop-filter: none !important;
-    }
-
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-action-card:nth-child(even),
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-card:nth-of-type(even),
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-list-row:nth-child(even) {
-        background: var(--dash-card-alt) !important;
-    }
-
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-action-card.is-dark,
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-action-card.is-green,
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-card-head,
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-card-tabs-bar {
-        background: var(--dash-card-strong) !important;
-        border-color: #9CAC94 !important;
-        color: var(--dash-text) !important;
-    }
-
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-action-card.is-light:nth-child(4),
-    html:not([data-theme='dark']) .staff-dashboard-v2 [data-attention-card],
-    html:not([data-theme='dark']) .staff-dashboard-v2 [data-outstanding-card] {
-        background: var(--dash-card-warm) !important;
-    }
-
-    html:not([data-theme='dark']) .staff-dashboard-v2 h1,
-    html:not([data-theme='dark']) .staff-dashboard-v2 h2,
-    html:not([data-theme='dark']) .staff-dashboard-v2 h3,
-    html:not([data-theme='dark']) .staff-dashboard-v2 h4,
-    html:not([data-theme='dark']) .staff-dashboard-v2 strong,
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-title,
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-action-card .title,
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-stat-value,
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-balance-value {
-        color: var(--dash-text) !important;
-        opacity: 1 !important;
-    }
-
-    html:not([data-theme='dark']) .staff-dashboard-v2 p,
-    html:not([data-theme='dark']) .staff-dashboard-v2 small,
-    html:not([data-theme='dark']) .staff-dashboard-v2 label,
-    html:not([data-theme='dark']) .staff-dashboard-v2 span,
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-subtitle,
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-action-card .desc,
-    html:not([data-theme='dark']) .staff-dashboard-v2 [class*="text-slate"],
-    html:not([data-theme='dark']) .staff-dashboard-v2 [class*="text-gray"] {
-        color: var(--dash-muted) !important;
-        opacity: 1 !important;
-    }
-
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-action-card .icon,
-    html:not([data-theme='dark']) .staff-dashboard-v2 [class*="bg-slate-50"],
-    html:not([data-theme='dark']) .staff-dashboard-v2 [class*="bg-emerald-50"],
-    html:not([data-theme='dark']) .staff-dashboard-v2 [class*="bg-red-50"],
-    html:not([data-theme='dark']) .staff-dashboard-v2 [class*="bg-amber-50"] {
-        background: transparent !important;
-        box-shadow: none !important;
-    }
-
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-action-card:hover,
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-list-row:hover,
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-pill:hover,
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-tab-btn:hover,
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-balance-cta:hover,
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-link:hover,
-    html:not([data-theme='dark']) .staff-dashboard-v2 .topbar-notification:hover,
-    html:not([data-theme='dark']) .staff-dashboard-v2 button:hover {
-        background: var(--dash-hover) !important;
-        border-color: #8EA083 !important;
-        color: var(--dash-text) !important;
-    }
-
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-tab-btn.is-active,
-    html:not([data-theme='dark']) .staff-dashboard-v2 .staff-pill.is-active,
-    html:not([data-theme='dark']) .staff-dashboard-v2 [aria-pressed="true"],
-    html:not([data-theme='dark']) .staff-dashboard-v2 a[href]:focus-visible,
-    html:not([data-theme='dark']) .staff-dashboard-v2 button:focus-visible {
-        background: var(--dash-active) !important;
-        border-color: #3E4A3D !important;
-        color: var(--dash-text) !important;
-    }
-
-    .staff-dashboard-v2 .staff-header-card {
-        overflow: visible !important;
-        position: relative;
-        z-index: 30;
-    }
-
-    .staff-dashboard-v2 .staff-header-main {
-        position: relative;
-        z-index: 80;
-    }
-
-    .staff-dashboard-v2 .staff-action-grid {
-        position: relative;
-        z-index: 1;
-    }
-
-    .staff-dashboard-v2 .staff-tools,
-    .staff-dashboard-v2 .topbar-notification-wrap {
-        position: relative;
-        z-index: 90;
-    }
-
-    .staff-dashboard-v2 .topbar-notification-menu {
-        z-index: 5000 !important;
-    }
-
-    /* Clean dashboard heading: no surrounding card container. */
-    .staff-header-card {
-        padding: .25rem 0 .75rem;
-        background: transparent;
-        border: 0;
-        border-radius: 0;
-    }
-    .staff-title {
-        color: var(--color-text-primary);
-        font-size: clamp(1.55rem, 2.3vw, 2rem);
-        line-height: 1.12;
-        letter-spacing: -.02em;
-    }
-    .staff-subtitle {
-        display: flex;
-        align-items: center;
-        gap: .55rem;
-        flex-wrap: wrap;
-        margin-top: .4rem;
-    }
-    .staff-workspace-label {
-        color: var(--color-text-secondary);
-        font-size: .9rem;
-        font-weight: 700;
-        letter-spacing: .015em;
-    }
-    .staff-branch-chip {
-        padding: .2rem .6rem;
-        font-size: .76rem;
-    }
-    html[data-theme='dark'] .staff-header-card {
-        background: transparent;
-        border: 0;
-    }
-    html[data-theme='dark'] .staff-workspace-label { color: #b8c5d3; }
-
-    @media (max-width: 699px) {
-        .staff-header-card { padding: .2rem 0 .65rem; }
-        .staff-header-main { align-items: center; }
-    }
-</style>
 
 <div class="staff-dashboard-v2">
-    <section class="staff-header-card">
+    <section class="staff-header-card panel-title-surface">
         <div class="staff-header-main">
             <div class="staff-header-title-group">
                 <button
@@ -1658,27 +53,32 @@
                 >
                     <i class="bi bi-list"></i>
                 </button>
-                <div>
-                    <h1 class="staff-title">Good day, {{ $staffFirstName }}</h1>
-                    <p class="staff-subtitle">
-                        <span class="staff-workspace-label">Your Daily Workspace</span>
-                        <span class="staff-branch-chip">{{ $branchLabel }}</span>
-                    </p>
+                <div class="staff-identity">
+                    <div class="staff-page-title-row"><h1 class="staff-title"><x-page-title-icon icon="grid" inline />Dashboard</h1><span class="staff-context-badge">Daily Operations</span></div>
+                    <p class="staff-dashboard-description">Overview of cases, scheduled services, and recorded payments.</p>
+                    <span class="staff-branch-chip">{{ $branchLabel }}</span>
                 </div>
             </div>
-            <div class="staff-tools">
-                <div class="staff-pill"><i class="bi bi-calendar3"></i> {{ $todayLabel }}</div>
-                @include('partials.topbar-notifications', ['compactNotificationMenu' => true])
-            </div>
+            @include('partials.dashboard-header-controls', ['dashboardDateLabel' => $todayLabel, 'dashboardShowNotifications' => true, 'dashboardCompactNotifications' => true])
         </div>
+    </section>
 
+    <section class="staff-summary-grid" aria-label="Daily operations summary">
+        <article class="staff-summary-card"><div class="staff-summary-label">Ongoing Cases <i class="bi bi-clipboard" aria-hidden="true"></i></div><strong>{{ $ongoingCount }}</strong><p>Draft and active branch cases</p></article>
+        <article class="staff-summary-card"><div class="staff-summary-label">Today's Schedule <i class="bi bi-calendar3" aria-hidden="true"></i></div><strong>{{ collect($todaySchedule)->count() }}</strong><p>Events in today's schedule</p></article>
+        <article class="staff-summary-card"><div class="staff-summary-label">Today's Collections <i class="bi bi-credit-card" aria-hidden="true"></i></div><strong class="staff-summary-money">&#8369; {{ number_format((float) $todayPaidTotal, 2) }}</strong><p>Current daily collection total</p></article>
+        <article class="staff-summary-card"><div class="staff-summary-label">Needs Attention <i class="bi bi-exclamation-triangle" aria-hidden="true"></i></div><strong>{{ collect($attentionReminders)->count() }}</strong><p>Existing case follow-up reminders</p></article>
+    </section>
+
+    <section aria-label="Quick actions">
         <div class="staff-action-grid">
-            <a href="{{ route('intake.main.create') }}" class="staff-action-card is-dark">
+            <a href="{{ route('intake.main.create') }}" class="staff-action-card is-light">
                 <div class="icon"><i class="bi bi-plus-lg"></i></div>
                 <div>
                     <p class="title">Record New Case</p>
                     <p class="desc">Create a funeral record</p>
                 </div>
+                <span class="staff-action-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span>
             </a>
 
             <a href="{{ route('funeral-cases.index') }}" class="staff-action-card is-light">
@@ -1687,6 +87,7 @@
                     <p class="title">Case Records</p>
                     <p class="desc">View all branch cases</p>
                 </div>
+                <span class="staff-action-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span>
             </a>
 
             <a href="{{ route('payments.history') }}" class="staff-action-card is-light">
@@ -1695,6 +96,7 @@
                     <p class="title">Payment Monitoring</p>
                     <p class="desc">Browse all payments</p>
                 </div>
+                <span class="staff-action-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span>
             </a>
         </div>
     </section>
@@ -1705,13 +107,13 @@
                 <div class="staff-card-head staff-card-head--fixed-actions">
                     <div class="staff-card-head-main">
                         <div>
-                            <h3>Recent Activity</h3>
+                            <div class="ref-panel-title"><h3>Recent Daily Activity</h3></div>
                             <p data-activity-copy>New cases recorded today in your branch</p>
                         </div>
                         <div class="staff-card-head-controls">
                             <div class="staff-tabs" data-activity-tabs>
-                                <button type="button" class="staff-tab-btn is-active" data-activity-tab="cases" aria-pressed="true">Cases Today</button>
-                                <button type="button" class="staff-tab-btn" data-activity-tab="payments" aria-pressed="false">Payments Today</button>
+                                <button type="button" class="staff-tab-btn is-active" data-activity-tab="cases" aria-pressed="true"><i class="bi bi-clipboard" aria-hidden="true"></i> Cases ({{ $recentCases->total() }})</button>
+                                <button type="button" class="staff-tab-btn" data-activity-tab="payments" aria-pressed="false"><i class="bi bi-credit-card" aria-hidden="true"></i> Payments ({{ $recentPayments->count() }})</button>
                             </div>
                             <div class="staff-head-actions flex items-center gap-2">
                                 <a href="{{ route('funeral-cases.index') }}" class="staff-link" data-activity-link="cases">Go to Case Records <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
@@ -1721,130 +123,72 @@
                     </div>
                 </div>
 
-                <div data-activity-panel="cases">
-                    <div class="overflow-x-auto">
-                        <table class="staff-table">
-                            <thead>
-                                <tr>
-                                    <th>Case</th>
-                                    <th>Deceased - Client</th>
-                                    <th>Status</th>
-                                    <th>Package Selected</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($recentCases as $case)
-                                    @php
-                                        $statusClass = match($case->case_status) {
-                                            'ACTIVE' => 'active',
-                                            'COMPLETED' => 'completed',
-                                            default => 'draft',
-                                        };
-                                    @endphp
-                                    <tr>
-                                        <td>
-                                            <span class="staff-table-code">{{ $case->case_code }}</span>
-                                            <div class="staff-muted">Created by {{ $case->encodedBy?->name ?? 'Unknown user' }}</div>
-                                            <div class="staff-muted">{{ $case->created_at?->format('M d, Y · h:i A') }}</div>
-                                        </td>
-                                        <td>
-                                            <strong>{{ $case->deceased->full_name ?? 'Unknown' }}</strong>
-                                            <div class="staff-muted">{{ $case->client->full_name ?? 'No client record' }}</div>
-                                        </td>
-                                        <td>
-                                            <span class="status-pill {{ $statusClass }}">{{ \Illuminate\Support\Str::title(strtolower($case->case_status)) }}</span>
-                                        </td>
-                                        <td>
-                                            <strong>{{ $case->package_name_snapshot ?: $case->custom_package_name ?: $case->package?->name ?: $case->service_package ?: 'No package selected' }}</strong>
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="4" class="staff-empty">
-                                            <i class="bi bi-inbox"></i>
-                                            No new cases created today.
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
+                @include('staff.partials.dashboard-activity')
+            </article>
 
-                    @if($recentCases->hasPages())
-                        <div class="recent-cases-pagination">
-                            {{ $recentCases->onEachSide(1)->links() }}
+        </div>
+
+        <div class="staff-col">
+            <article class="staff-card staff-card--hover-action" data-schedules-card>
+                <div class="staff-card-head staff-card-head--fixed-actions">
+                    <div class="staff-card-head-main">
+                        <div>
+                            <h3>Schedules</h3>
+                            <p data-schedule-copy>Today's scheduled events</p>
                         </div>
-                    @endif
+                        <div class="staff-card-head-controls">
+                            <div class="staff-tabs" data-schedule-tabs>
+                                <button type="button" class="staff-tab-btn is-active" data-schedule-tab="today" aria-pressed="true">Today ({{ collect($todaySchedule)->count() }})</button>
+                                <button type="button" class="staff-tab-btn" data-schedule-tab="upcoming" aria-pressed="false" title="Upcoming events">Upcoming ({{ collect($upcomingSchedule)->count() }})</button>
+                            </div>
+                            <div class="staff-head-actions flex items-center gap-2">
+                                <a href="{{ route('staff.reminders.index', ['tab' => 'today']) }}" class="staff-link" data-schedule-link="today">View All Schedules <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                                <a href="{{ route('staff.reminders.index', ['tab' => 'upcoming']) }}" class="staff-link hidden" data-schedule-link="upcoming">View All Schedules <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div data-activity-panel="payments" hidden>
-                    <div class="overflow-x-auto">
-                        <table class="staff-table">
-                            <thead>
-                                <tr>
-                                    <th class="text-center">Deceased - Client</th>
-                                    <th class="text-center">Payment - Date &amp; Time</th>
-                                    <th class="text-center">Payment Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($recentPayments as $payment)
-                                    @php
-                                        $paidAt = $payment->paid_at ?? $payment->created_at;
-                                        $caseCode = $payment->funeralCase?->case_code ?? 'N/A';
-                                        $deceasedName = $payment->funeralCase?->deceased?->full_name ?? 'Unknown';
-                                        $clientName = $payment->funeralCase?->client?->full_name ?? 'No client';
-                                        $method = $payment->method ? \Illuminate\Support\Str::title(strtolower((string) $payment->method)) : 'Payment';
-                                        $rawStatus = strtoupper((string) ($payment->payment_status_after_payment ?: $payment->funeralCase?->payment_status ?: 'UNPAID'));
-                                        $statusLabel = match($rawStatus) {
-                                            'PAID' => 'Fully Paid',
-                                            'PARTIAL' => 'Partial',
-                                            default => 'Unpaid',
-                                        };
-                                        $statusClass = match($rawStatus) {
-                                            'PAID' => 'completed',
-                                            'PARTIAL' => 'draft',
-                                            default => 'unpaid',
-                                        };
-                                    @endphp
-                                    <tr>
-                                        <td class="text-center">
-                                            <strong>{{ $deceasedName }}</strong>
-                                            <div class="staff-muted">{{ $caseCode }} - {{ $clientName }}</div>
-                                        </td>
-                                        <td class="text-center">
-                                            <span class="status-pill completed">{{ $method }}</span>
-                                            <div class="staff-muted">{{ optional($paidAt)->format('M d, Y · h:i A') }}</div>
-                                        </td>
-                                        <td class="text-center">
-                                            <span class="status-pill {{ $statusClass }}">{{ $statusLabel }}</span>
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="3" class="staff-empty">
-                                            <i class="bi bi-receipt"></i>
-                                            No payments recorded today.
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
+                <div data-schedule-panel="today"><p class="dashboard-schedule-count">Showing {{ $todayItems->count() }} of {{ collect($todaySchedule)->count() }} events today.</p>
+                    <div class="staff-list">
+                        @forelse($todayItems as $item)
+                            @include('staff.partials.dashboard-schedule', ['item' => $item, 'upcoming' => false])
+                        @empty
+                            <div class="staff-empty">
+                                <i class="bi bi-calendar-x"></i>
+                                No events scheduled today.
+                            </div>
+                        @endforelse
+                    </div>
+                </div>
+
+                <div data-schedule-panel="upcoming" hidden><p class="dashboard-schedule-count">Showing {{ $upcomingItems->count() }} of {{ collect($upcomingSchedule)->count() }} upcoming events.</p>
+                    <div class="staff-list">
+                        @forelse($upcomingItems as $item)
+                            @include('staff.partials.dashboard-schedule', ['item' => $item, 'upcoming' => true])
+                        @empty
+                            <div class="staff-empty">
+                                <i class="bi bi-calendar2-check"></i>
+                                No upcoming events scheduled.
+                            </div>
+                        @endforelse
                     </div>
                 </div>
             </article>
 
+        </div>
+    </section>
             <div class="staff-subgrid-two">
                 <article class="staff-card staff-card--hover-action" data-attention-card>
                     <div class="staff-card-head">
                         <div class="staff-card-head-main">
                             <div>
-                                <h3>Needs Attention</h3>
+                                <div class="ref-panel-title"><h3>Needs Attention</h3><span class="ref-attention-count">{{ collect($attentionReminders)->count() }} pending</span></div>
                                 <p>Cases requiring follow-up</p>
                             </div>
                             <div class="staff-card-head-controls staff-card-head-controls--summary">
                                 <div class="staff-head-actions">
-                                    <a href="{{ route('staff.reminders.index') }}" class="staff-link">Go to Reminders <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                                    <a href="{{ route('staff.reminders.index', ['tab' => 'warnings']) }}" class="staff-link">View All <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
                                 </div>
                             </div>
                         </div>
@@ -1859,25 +203,26 @@
                                     default => 'info',
                                 };
                                 $scheduleLabel = match($item['type'] ?? '') {
-                                    'interment_completed', 'interment_approaching' => 'Interment',
-                                    'same_day_schedule' => ($item['conflict']['type'] ?? null) === 'interment' ? 'Interment' : 'Service',
+                                    'interment_completed', 'interment_date_completed', 'interment_approaching', 'interment_date_today_balance' => 'Interment',
+                                    'same_day_interment_schedule' => 'Interment',
+                                    'same_day_service_schedule' => 'Service',
                                     default => 'Schedule',
                                 };
                             @endphp
-                            <a href="{{ route('funeral-cases.show', ['funeral_case' => $item['case_id'], 'return_to' => request()->fullUrl()]) }}" class="staff-list-row">
+                            <div class="ref-attention-card">
                                 <div>
-                                    <strong>{{ $item['deceased_name'] }} - {{ $item['case_code'] }}</strong>
-                                    <small>
+                                    <div class="ref-attention-top"><strong>{{ $item['case_code'] }}</strong><span>{{ $item['deceased_name'] }}</span></div>
+                                    <small class="ref-attention-message"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i><span>
                                         {{ $item['message'] ?? $item['label'] }}
-                                    </small>
+                                    </span></small>
                                     @if(!empty($item['date']))
                                         <span class="staff-attention-date">
-                                            {{ $scheduleLabel }}: {{ $item['date']->format('M d, Y · h:i A') }}
+                                            {{ $scheduleLabel }}: {{ $item['date']->format('M d, Y') }}{{ !empty($item['has_time']) ? ' · '.$item['date']->format('h:i A') : ' · Time not recorded' }}
                                         </span>
                                     @endif
                                 </div>
-                                <span class="staff-attention-pill {{ $pillClass }}">{{ $item['label'] }}</span>
-                            </a>
+                                <div class="dashboard-attention-actions"><span class="staff-attention-pill {{ $pillClass }}">{{ $item['label'] }}</span><button type="button" class="dashboard-view-icon" data-attention-dialog="attention-case-{{ $item['case_id'] }}" aria-label="View Payment Summary" data-tip="View Payment Summary"><i class="bi bi-wallet2" aria-hidden="true"></i></button></div>
+                            </div>
                         @empty
                             <div class="staff-empty">
                                 <i class="bi bi-check2-circle"></i>
@@ -1904,19 +249,18 @@
 
                     <div class="staff-list">
                         @forelse($outstandingCases as $case)
-                            <a href="{{ route('funeral-cases.show', ['funeral_case' => $case->id, 'return_to' => request()->fullUrl()]) }}" class="staff-list-row">
-                                <div>
-                                    <strong>{{ $case->deceased->full_name ?? 'Unknown' }} - {{ $case->case_code }}</strong>
-                                    <small>{{ $case->client->full_name ?? 'No client record' }}</small>
+                            <div class="ref-balance-card">
+                                <a class="ref-balance-case" href="{{ route('funeral-cases.show', ['funeral_case' => $case->id, 'return_to' => request()->fullUrl()]) }}">
+                                    <strong><span class="ref-mono">{{ $case->case_code }}</span> · {{ $case->client?->full_name ?? 'No client record' }}</strong>
+                                    <small>For: {{ $case->deceased?->full_name ?? 'Unknown' }}</small>
+                                </a>
+                                <div class="ref-balance-actions"><div class="text-right">
+                                    <div class="ref-balance-amount">&#8369; {{ number_format((float) $case->balance_amount, 2) }}</div>
                                     <span class="status-pill staff-payment-state {{ $case->payment_status === 'PARTIAL' ? 'draft' : 'unpaid' }}">
                                         {{ $case->payment_status === 'PARTIAL' ? 'Partially Paid' : 'No Payment Yet' }}
                                     </span>
-                                </div>
-                                <div class="text-right">
-                                    <small class="staff-muted">Remaining balance</small>
-                                    <div class="staff-money staff-money--danger">&#8369; {{ number_format((float) $case->balance_amount, 2) }}</div>
-                                </div>
-                            </a>
+                                </div><a href="{{ route('payments.history', ['case_id' => $case->id, 'record_payment' => 1]) }}" class="ref-collect"><i class="bi bi-credit-card" aria-hidden="true"></i> Collect</a></div>
+                            </div>
                         @empty
                             <div class="staff-empty">
                                 <i class="bi bi-patch-check"></i>
@@ -1926,79 +270,6 @@
                     </div>
                 </article>
             </div>
-        </div>
-
-        <div class="staff-col">
-            <article class="staff-card staff-card--hover-action" data-schedules-card>
-                <div class="staff-card-head staff-card-head--fixed-actions">
-                    <div class="staff-card-head-main">
-                        <div>
-                            <h3>Schedules</h3>
-                            <p data-schedule-copy>Today's Services and Interments</p>
-                        </div>
-                        <div class="staff-card-head-controls">
-                            <div class="staff-tabs" data-schedule-tabs>
-                                <button type="button" class="staff-tab-btn is-active" data-schedule-tab="today" aria-pressed="true">Today</button>
-                                <button type="button" class="staff-tab-btn" data-schedule-tab="upcoming" aria-pressed="false">Upcoming Interments</button>
-                            </div>
-                            <div class="staff-head-actions flex items-center gap-2">
-                                <a href="{{ route('staff.reminders.index', ['tab' => 'today']) }}" class="staff-link" data-schedule-link="today">View all <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
-                                <a href="{{ route('staff.reminders.index', ['tab' => 'upcoming']) }}" class="staff-link hidden" data-schedule-link="upcoming">View all <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div data-schedule-panel="today">
-                    <div class="staff-list">
-                        @forelse($todayItems as $item)
-                            <a href="{{ route('funeral-cases.show', ['funeral_case' => $item['case_id'], 'return_to' => request()->fullUrl()]) }}" class="staff-list-row">
-                                <div>
-                                    <strong>{{ $item['deceased_name'] }}</strong>
-                                    <small>{{ $item['case_code'] }}</small>
-                                </div>
-                                <div class="text-right">
-                                    <div class="staff-money staff-money--info">
-                                        {{ $item['date']?->isStartOfDay() ? $item['date']?->format('M d') : $item['date']?->format('h:i A') }}
-                                    </div>
-                                    <small class="staff-muted">{{ $item['label'] }}</small>
-                                </div>
-                            </a>
-                        @empty
-                            <div class="staff-empty">
-                                <i class="bi bi-calendar-x"></i>
-                                No services today.
-                            </div>
-                        @endforelse
-                    </div>
-                </div>
-
-                <div data-schedule-panel="upcoming" hidden>
-                    <div class="staff-list">
-                        @forelse($upcomingItems as $item)
-                            <a href="{{ route('funeral-cases.show', ['funeral_case' => $item['case_id'], 'return_to' => request()->fullUrl()]) }}" class="staff-list-row staff-list-row--center">
-                                <div class="staff-upcoming-date">
-                                    <strong>{{ $item['date']?->format('d') }}</strong>
-                                    <span>{{ $item['date']?->format('M') }}</span>
-                                </div>
-                                <div class="staff-list-main">
-                                    <strong>{{ $item['deceased_name'] }}</strong>
-                                    <small>{{ $item['case_code'] }} - {{ $item['label'] }}</small>
-                                </div>
-                                <div class="staff-money staff-money--info">{{ $item['date']?->format('h:i A') }}</div>
-                            </a>
-                        @empty
-                            <div class="staff-empty">
-                                <i class="bi bi-calendar2-check"></i>
-                                No upcoming interments scheduled.
-                            </div>
-                        @endforelse
-                    </div>
-                </div>
-            </article>
-
-        </div>
-    </section>
 </div>
 
 <script>
@@ -2016,12 +287,6 @@
             if (outstandingCard) outstandingCard.style.minHeight = '';
 
             if (!desktopQuery.matches) return;
-
-            if (activityCard && schedulesCard) {
-                const topRowHeight = Math.max(activityCard.offsetHeight, schedulesCard.offsetHeight);
-                activityCard.style.minHeight = topRowHeight + 'px';
-                schedulesCard.style.minHeight = topRowHeight + 'px';
-            }
 
             const lowerCards = [attentionCard, outstandingCard].filter(Boolean);
             if (lowerCards.length > 1) {
@@ -2123,8 +388,8 @@
 
             if (copy) {
                 copy.textContent = key === 'today'
-                    ? "Today's Services and Interments"
-                    : 'Upcoming Interments';
+                    ? "Today's scheduled events"
+                    : 'Upcoming events';
             }
 
             window.dispatchEvent(new Event('staff-dashboard-reflow'));
@@ -2137,4 +402,12 @@
         activate('today');
     })();
 </script>
+
+@include('staff.partials.dashboard-activity-navigation')
+@php
+    $modalCases = $todayItems->merge($upcomingItems)->unique('case_id')->map(fn ($event) => ['case' => $event['case'], 'branch_label' => $branchLabel, 'events' => app(\App\Services\ReminderService::class)->caseSchedule($event['case'])]);
+@endphp
+@include('staff.partials.case-schedule-dialogs', ['dashboardScheduleModal' => true])
+@include('staff.partials.dashboard-schedule-navigation')
+@include('staff.partials.dashboard-attention-dialogs')
 @endsection

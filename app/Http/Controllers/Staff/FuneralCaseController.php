@@ -95,6 +95,7 @@ class FuneralCaseController extends Controller
                 'deceased_id',
                 'package_id',
                 'case_code',
+                'encoded_by',
                 'service_requested_at',
                 'created_at',
                 'updated_at',
@@ -110,6 +111,7 @@ class FuneralCaseController extends Controller
             ])
             ->with([
                 'client:id,full_name,contact_number',
+                'encodedBy:id,name',
                 'deceased:id,full_name',
                 'serviceDetail:id,funeral_case_id,internment_date',
                 'branch:id,branch_code,branch_name',
@@ -520,6 +522,10 @@ class FuneralCaseController extends Controller
 
     public function show(FuneralCase $funeral_case)
     {
+        if (auth()->user()?->isOwner()) {
+            return redirect()->route('owner.cases.show', $funeral_case);
+        }
+
         $funeral_case->load(['client', 'deceased', 'branch', 'reportedBranch', 'encodedBy', 'payments.recordedBy', 'payments.encodedBy', 'package.packageInclusions', 'package.packageFreebies', 'caseAddOns', 'serviceDetail', 'tarpaulinAttachment.uploader', 'funeralContract.generator']);
 
         return view('staff.funeral_cases.show', compact('funeral_case'));

@@ -147,7 +147,6 @@
 </div>
 
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&display=swap');
     .font-serif { font-family: 'Libre Baskerville', serif; }
 
     @media print {

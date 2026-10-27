@@ -504,6 +504,7 @@
 
     <form method="POST" action="{{ route('payments.store') }}" id="paymentForm" class="pf-shell">
         @csrf
+        <input type="hidden" name="submission_id" value="{{ old('submission_id', (string) \Illuminate\Support\Str::uuid()) }}">
 
         <section class="pf-section pf-section--case">
             <div class="pf-section-head">

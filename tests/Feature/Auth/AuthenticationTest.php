@@ -45,10 +45,10 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect('/staff');
+        $response->assertRedirect(route('security.setup'));
     }
 
-    public function test_branch_admin_login_redirects_to_admin_dashboard(): void
+    public function test_branch_admin_login_redirects_to_mfa_setup(): void
     {
         $branch = Branch::create([
             'branch_code' => 'BR002',
@@ -69,7 +69,7 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->assertAuthenticatedAs($user);
-        $response->assertRedirect('/admin');
+        $response->assertRedirect(route('security.setup'));
     }
 
     public function test_authenticated_dashboard_pages_are_sent_with_no_cache_headers(): void
@@ -101,6 +101,62 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->assertGuest();
+    }
+
+    public function test_login_throttle_survives_refresh_and_releases_after_the_window(): void
+    {
+        $this->freezeTime();
+        $user = User::factory()->create(['role' => 'staff', 'is_active' => true]);
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->post('/login', ['email' => $user->email, 'password' => 'wrong'])->assertSessionHasErrors('email');
+        }
+        $this->assertGuest();
+        $this->get('/login')->assertOk()->assertViewHas('throttleEmail', $user->email)->assertViewHas('throttleSeconds', 60);
+        $this->travel(20)->seconds();
+        $this->get('/login')->assertViewHas('throttleSeconds', 40);
+        $this->post('/login', ['email' => $user->email, 'password' => 'password'])->assertSessionHasErrors('email');
+        $this->assertGuest();
+        $this->travel(40)->seconds();
+        $this->get('/login')->assertViewHas('throttleSeconds', 0);
+        $this->post('/login', ['email' => $user->email, 'password' => 'password'])->assertRedirect(route('security.setup'));
+        $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_wrong_credentials_from_a_stale_login_page_do_not_resume_pending_mfa(): void
+    {
+        $user = User::factory()->create(['role' => 'staff', 'is_active' => true]);
+        $this->post('/login', ['email' => $user->email, 'password' => 'password'])->assertRedirect(route('security.setup'));
+        $this->assertAuthenticatedAs($user);
+        $this->post('/login', ['email' => $user->email, 'password' => 'incorrect-password'])
+            ->assertSessionHasErrors('email');
+        $this->assertGuest();
+        for ($attempt = 0; $attempt < 6; $attempt++) {
+            $this->post('/login', ['email' => $user->email, 'password' => 'incorrect-password'])->assertSessionHasErrors('email');
+            $this->assertGuest();
+        }
+        $this->get('/login')->assertOk()->assertViewHas('throttleSeconds', fn ($seconds) => $seconds > 0);
+        $this->get(route('security.setup'))->assertRedirect(route('login'));
+    }
+
+    public function test_enrolled_account_cannot_resume_mfa_after_a_wrong_password_submission(): void
+    {
+        $user = User::factory()->create(['role' => 'staff', 'is_active' => true]);
+        $user->two_factor_secret = (new \PragmaRX\Google2FA\Google2FA)->generateSecretKey();
+        $user->two_factor_confirmed_at = now();
+        $user->save();
+        $this->post('/login', ['email' => $user->email, 'password' => 'password'])->assertRedirect(route('security.challenge'));
+        $this->post('/login', ['email' => $user->email, 'password' => 'wrong'])->assertSessionHasErrors('email');
+        $this->assertGuest();
+        $this->get(route('security.challenge'))->assertRedirect(route('login'));
+    }
+
+    public function test_returning_to_login_clears_an_incomplete_mfa_sign_in(): void
+    {
+        $user = User::factory()->create(['role' => 'staff', 'is_active' => true]);
+        $this->post('/login', ['email' => $user->email, 'password' => 'password'])->assertRedirect(route('security.setup'));
+        $this->get('/login')->assertOk();
+        $this->assertGuest();
+        $this->get(route('security.setup'))->assertRedirect(route('login'));
     }
 
     public function test_users_can_logout(): void

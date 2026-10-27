@@ -1,0 +1,49 @@
+<style>
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-hub-filter { grid-template-columns:minmax(280px,34rem) minmax(0,1fr); column-gap:clamp(20px,3vw,48px); }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-filter-actions { grid-template-columns:minmax(150px,1fr) minmax(160px,1fr) auto; }
+@media(max-width:800px) { html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-hub-filter { grid-template-columns:minmax(0,1fr); } }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-hub-tabs { background:transparent !important; border:0 !important; box-shadow:none !important; }
+.service-modal { width:100vw; max-width:none; height:100dvh; max-height:none; margin:0; border:0; background:transparent; }
+.service-modal::backdrop { background:var(--modal-scrim,rgba(15,23,42,.72)); }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .service-modal__panel { background:var(--card); border:1px solid var(--border); border-radius:12px; box-shadow:none; width:min(860px,calc(100vw - 32px)); }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .service-modal__head { display:flex !important; padding:20px; padding-right:76px; background:var(--card); border-color:var(--border); }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .service-modal__head h2 { color:var(--ink); font-size:20px; font-weight:700; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .service-modal__head p { color:var(--ink-muted); font-weight:400; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .service-modal__floating-close { display:grid; width:44px; height:44px; border-radius:8px; background:var(--surface-muted); border-color:var(--border); color:var(--ink); box-shadow:none; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-package-card__foot { justify-content:flex-end; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub :is(a,button)[data-service-modal-title^="View"] { position:relative; display:inline-flex; align-items:center; justify-content:center; width:44px; min-width:44px; height:44px; padding:0; background:var(--surface-muted) !important; border:1px solid var(--border); border-radius:8px; color:var(--brand) !important; font-size:16px; opacity:1 !important; visibility:visible !important; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub :is(a,button)[data-service-modal-title^="View"] > span { display:none; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub :is(.row-hover-actions,.service-package-card__foot) { opacity:1 !important; visibility:visible !important; overflow:visible; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-search-field { width:100%; max-width:none; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-hub-filter { width:100%; max-width:none; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .table-col-actions :is(a,button) { opacity:1 !important; visibility:visible !important; color:var(--brand) !important; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .table-system-table :is(td,tr) { background:var(--card) !important; color:var(--ink) !important; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui):has(.service-management-hub) .panel-page-header:not(.panel-title-surface) { background:transparent !important; border:0 !important; box-shadow:none !important; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub { background:transparent !important; padding-top:8px; color:var(--ink); }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub :is(.service-hub-card,.service-hub-nav,.service-viewbar,.service-hub-panels) { background:transparent !important; border:0 !important; box-shadow:none !important; overflow:visible; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-hub-nav { padding:0 0 16px; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-hub-toolbar { position:sticky; top:16px; z-index:30; padding:12px; margin-bottom:16px; background:var(--card) !important; border:1px solid var(--border) !important; border-radius:12px; overflow:visible; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-hub-filter { display:grid; grid-template-columns:minmax(280px,34rem) minmax(0,1fr); column-gap:clamp(20px,3vw,48px); row-gap:12px; align-items:center; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-filter-actions { display:grid; grid-template-columns:minmax(150px,1fr) minmax(160px,1fr) auto; gap:12px; align-items:center; justify-self:end; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .table-toolbar-label { display:none; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub :is(.table-toolbar-input-wrap,.table-toolbar-select-wrap) { height:44px; background:var(--surface-muted) !important; border:1px solid var(--border) !important; border-radius:8px; box-sizing:border-box; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub :is(.table-toolbar-input-wrap,.table-toolbar-select-wrap) > :is(input,select) { height:100% !important; min-height:0 !important; background:transparent !important; border:0 !important; color:var(--ink) !important; border-radius:inherit; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub :is(.service-hub-tab,.service-view-toggle,.service-package-card) { background:var(--card) !important; border:1px solid var(--border) !important; border-radius:12px; box-shadow:none !important; color:var(--ink) !important; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub :is(.service-hub-tab.is-active,.service-view-option.is-active,.service-hub-tab b) { background:var(--surface-muted) !important; color:var(--brand) !important; border-color:var(--brand) !important; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-viewbar { justify-content:flex-start; padding:0 0 16px; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-package-cards { padding:0; gap:16px; grid-template-columns:repeat(3,minmax(0,1fr)); }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub :is(.service-package-card__head,.service-package-card__price,.service-package-card__lists,.service-package-card__foot) { padding:16px; background:transparent !important; border-color:var(--border) !important; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub :is(h3,h4,strong) { color:var(--ink) !important; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub :is(p,small,em,.service-package-card__foot > span) { color:var(--ink-muted) !important; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-package-table { margin:0; overflow-x:auto; border:1px solid var(--border); border-radius:12px; isolation:isolate; position:relative; z-index:0; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-package-table table { min-width:760px; background:var(--card); }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-pagination { background:transparent !important; border:0 !important; padding:16px 0 0; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub :is(a,button,input,select):focus-visible { outline:2px solid var(--brand) !important; outline-offset:2px; }
+@media(max-width:1100px) {
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-hub-filter { grid-template-columns:minmax(0,1fr); column-gap:0; }
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-search-field { max-width:none; }
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-filter-actions { width:100%; justify-self:stretch; }
+}
+@media(max-width:1000px) { html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-package-cards { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:600px) { html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub :is(.service-hub-filter,.service-package-cards) { grid-template-columns:minmax(0,1fr); } html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-hub-tabs { flex-wrap:wrap; } }
+</style>

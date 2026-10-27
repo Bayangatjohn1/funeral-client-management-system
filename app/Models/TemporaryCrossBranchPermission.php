@@ -2,11 +2,22 @@
 
 namespace App\Models;
 
-use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 
 class TemporaryCrossBranchPermission extends Model
 {
+    protected static function booted(): void
+    {
+        static::saving(function (self $permission) {
+            if (($permission->is_active ?? true) && !$permission->is_used
+                && (!$permission->exists || $permission->isDirty(['is_active', 'is_used', 'user_id', 'allowed_branch_id', 'expires_at']))) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'permission' => 'Temporary cross-branch encoding is disabled. Use the assigned branch.',
+                ]);
+            }
+        });
+    }
+
     protected $fillable = [
         'user_id',
         'allowed_branch_id',
@@ -43,12 +54,7 @@ class TemporaryCrossBranchPermission extends Model
 
     public function scopeActive($query)
     {
-        return $query->where('is_active', true)
-            ->where('is_used', false)
-            ->where(function ($q) {
-                $q->whereNull('expires_at')
-                    ->orWhere('expires_at', '>', Carbon::now());
-            });
+        return $query->whereRaw('1 = 0');
     }
 
     public function markUsed(): void
@@ -73,7 +79,7 @@ class TemporaryCrossBranchPermission extends Model
         }
 
         if ($this->is_active) {
-            return "Active – {$code}";
+            return "Disabled legacy grant – {$code}";
         }
 
         return 'None';

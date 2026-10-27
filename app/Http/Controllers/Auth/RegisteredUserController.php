@@ -44,6 +44,9 @@ class RegisteredUserController extends Controller
         event(new Registered($user));
 
         Auth::login($user);
+        $request->session()->regenerate();
+        \App\Support\IdleSession::start($request);
+        $request->session()->put('account_security', \App\Support\AccountSecurity::fingerprint($user));
 
         return redirect(route('dashboard', absolute: false));
     }

@@ -116,7 +116,7 @@
         ],
         'master_cases' => [
             'case_code' => 'Case No.', 'name' => 'Client / Deceased', 'branch' => 'Branch',
-            'total_amount' => 'Total Amount Availed', 'total_paid' => 'All Payments', 'balance' => 'Current Balance',
+            'total_amount' => 'Total Service Value', 'total_paid' => 'Collected', 'balance' => 'Remaining Balance',
             'case_status' => 'Case Status', 'payment_status' => 'Payment Status',
         ],
         'audit_logs' => [
@@ -124,8 +124,8 @@
             'module' => 'Module', 'record_id' => 'Record ID', 'branch' => 'Branch', 'status' => 'Status', 'remarks' => 'Remarks',
         ],
         'owner_branch_analytics' => [
-            'branch' => 'Branch', 'total_cases' => 'Cases in Period', 'gross_amount' => 'Total Amount Availed',
-            'collected_amount' => 'All Payments', 'remaining_balance' => 'Current Collectibles',
+            'branch' => 'Branch', 'total_cases' => 'Cases in Period', 'gross_amount' => 'Total Service Value',
+            'collected_amount' => 'Collected', 'remaining_balance' => 'Remaining Balance',
             'paid_cases' => 'Paid Cases', 'partial_cases' => 'Partially Paid Cases', 'unpaid_cases' => 'Unpaid Cases',
         ],
     ];

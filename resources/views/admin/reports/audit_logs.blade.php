@@ -5,6 +5,8 @@
 @section('hide_layout_topbar', '1')
 
 @section('content')
+@include('partials.audit_logs_visual_styles')
+@include('partials.case_records_layout_styles')
 @php
     use Illuminate\Support\Str;
 
@@ -378,10 +380,25 @@
 
     <section class="table-system-card admin-table-card">
         <div class="table-system-toolbar admin-table-toolbar">
-            <form method="GET" action="{{ route('admin.audit-logs.index') }}" class="audit-toolbar uniform-record-filters">
+            @if($isBranchAdminView ?? false)
+                @include('partials.audit_log_filters')
+            @else
+            @php
+                $hasAuditFilters = !empty($filters['audit_log_id'])
+                    || !empty($filters['user_id'])
+                    || !empty($filters['branch_id'])
+                    || !empty($filters['action_type'])
+                    || !empty($filters['date_from'])
+                    || !empty($filters['date_to']);
+            @endphp
+            <form method="GET" action="{{ route('admin.audit-logs.index') }}" class="audit-toolbar audit-system-toolbar uniform-record-filters">
+                @if(!empty($filters['audit_log_id']))
+                    <input type="hidden" name="audit_log_id" value="{{ $filters['audit_log_id'] }}">
+                    <span class="audit-filter-control">Viewing audit event #{{ $filters['audit_log_id'] }}</span>
+                @endif
                 <span class="audit-filter-control is-select">
                     <i class="bi bi-person"></i>
-                    <select name="user_id" class="audit-select">
+                    <select name="user_id" class="audit-select" aria-label="Filter by user">
                         <option value="">All Users</option>
                         @foreach($users as $user)
                             <option value="{{ $user->id }}" {{ (string)($filters['user_id'] ?? '') === (string)$user->id ? 'selected' : '' }}>{{ $user->name }}</option>
@@ -404,7 +421,7 @@
                 @else
                     <span class="audit-filter-control is-select">
                         <i class="bi bi-building"></i>
-                        <select name="branch_id" class="audit-select">
+                        <select name="branch_id" class="audit-select" aria-label="Filter by branch">
                             <option value="">All Branches</option>
                             @foreach($branches as $branch)
                                 <option value="{{ $branch->id }}" {{ (string)($filters['branch_id'] ?? '') === (string)$branch->id ? 'selected' : '' }}>{{ $branch->branch_code }}</option>
@@ -415,7 +432,7 @@
 
                 <span class="audit-filter-control is-select">
                     <i class="bi bi-lightning-charge"></i>
-                    <select name="action_type" class="audit-select">
+                    <select name="action_type" class="audit-select" aria-label="Filter by action type">
                         <option value="">Any Action</option>
                         @foreach($actionTypes as $type)
                             <option value="{{ $type }}" {{ ($filters['action_type'] ?? '') === $type ? 'selected' : '' }}>{{ ucfirst($type) }}</option>
@@ -423,19 +440,22 @@
                     </select>
                 </span>
 
-                <span class="audit-filter-control">
+                <details class="audit-filter-menu audit-system-more">
+                    <summary><i class="bi bi-sliders" aria-hidden="true"></i>More Filters @if(!empty($filters['date_from']) || !empty($filters['date_to']))<span class="audit-more-active">Active</span>@endif<i class="bi bi-chevron-down" aria-hidden="true"></i></summary>
+                    <div class="audit-filter-popover audit-system-secondary">
+                        <strong>Event date range</strong>                <span class="audit-filter-control">
                     <i class="bi bi-calendar-event"></i>
-                    <input type="date" name="date_from" value="{{ $filters['date_from'] ?? '' }}" class="audit-select" title="Date from">
+                    <span class="audit-date-label">From</span><input aria-label="Date from" type="date" name="date_from" value="{{ $filters['date_from'] ?? '' }}" class="audit-select" title="Date from">
                 </span>
 
                 <span class="audit-filter-control">
                     <i class="bi bi-calendar-check"></i>
-                    <input type="date" name="date_to" value="{{ $filters['date_to'] ?? '' }}" class="audit-select" title="Date to">
+                    <span class="audit-date-label">To</span><input aria-label="Date to" type="date" name="date_to" value="{{ $filters['date_to'] ?? '' }}" class="audit-select" title="Date to">
                 </span>
 
                 <span class="audit-filter-control is-select">
                     <i class="bi bi-list-ol"></i>
-                    <select name="per_page" class="audit-select" title="Records per page">
+                    <select aria-label="Records per page" name="per_page" class="audit-select" title="Records per page">
                         @foreach(($perPageOptions ?? [25, 50, 100, 200]) as $size)
                             <option value="{{ $size }}" {{ (int)($filters['per_page'] ?? 25) === (int)$size ? 'selected' : '' }}>
                                 {{ $size }} / page
@@ -444,10 +464,15 @@
                     </select>
                 </span>
 
-                <a href="{{ route('admin.audit-logs.index') }}" class="audit-action">
-                    <i class="bi bi-arrow-counterclockwise"></i>
+                    </div>
+                </details>
+                <div class="audit-system-actions">
+                @if($hasAuditFilters)
+                <a href="{{ route('admin.audit-logs.index') }}" class="audit-action filter-clear-action">
+                    <i class="bi bi-x-circle" aria-hidden="true"></i>
                     <span>Clear</span>
                 </a>
+                @endif
                 <a href="{{ route('admin.audit-logs.exportPdf', request()->query()) }}" target="_blank" rel="noopener" class="audit-action">
                     <i class="bi bi-filetype-pdf"></i>
                     <span>PDF</span>
@@ -456,7 +481,9 @@
                     <i class="bi bi-funnel"></i>
                     <span>Apply</span>
                 </button>
+                </div>
             </form>
+            @endif
         </div>
 
         <div class="table-system-list">
@@ -517,9 +544,13 @@
                                 </td>
                                 <td class="audit-col-data relative">
                                     <details>
-                                        <summary class="audit-details-button">
-                                            <span>Details</span>
-                                            <i class="bi bi-chevron-down"></i>
+                                        <summary class="audit-details-button" aria-label="View log details">
+                                            @if(($isBranchAdminView ?? false) || auth()->user()?->isSystemAdmin())
+                                            <i class="bi bi-eye" aria-hidden="true"></i>
+                                            <span class="audit-eye-tooltip" aria-hidden="true">View log details</span>
+                                            @else
+                                            <span>Details</span><i class="bi bi-chevron-down"></i>
+                                            @endif
                                         </summary>
                                         @php
                                             $metadataJson = json_encode($log->metadata ?? []);
@@ -619,16 +650,58 @@
             </div>
 
             <div class="table-system-pagination">
-                @if($logs->hasPages()){{ $logs->links() }}@endif
+                @include('partials.case_records_pagination', ['cases' => $logs])
             </div>
         </div>
     </section>
 </div>
-@endsection
-
-@push('scripts')
 <script>
+(() => {
+    const menu = document.querySelector('.audit-system-more');
+    if (!menu) return;
+    document.addEventListener('click', event => {
+        if (menu.open && !menu.contains(event.target)) menu.open = false;
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && menu.open) {
+            menu.open = false;
+            menu.querySelector('summary').focus();
+        }
+    });
+})();
 document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.audit-details-button').forEach(trigger => {
+        let modal;
+        trigger.setAttribute('role', 'button');
+        trigger.setAttribute('aria-haspopup', 'dialog');
+        trigger.addEventListener('click', event => {
+            event.preventDefault();
+            if (!modal) {
+                modal = document.createElement('dialog');
+                modal.className = 'audit-log-dialog';
+                modal.setAttribute('aria-label', 'Audit log details');
+                const header = document.createElement('header');
+                const title = document.createElement('h2'); title.textContent = 'Audit Log Details';
+                const close = document.createElement('button'); close.type = 'button'; close.setAttribute('aria-label', 'Close audit log details'); close.innerHTML = '<i class="bi bi-x-lg" aria-hidden="true"></i>';
+                header.append(title, close);
+                const context = document.createElement('dl'); context.className = 'audit-log-context';
+                const labels = ['Event Date', 'User', 'Branch', 'Action', 'Target Entity'];
+                Array.from(trigger.closest('tr').cells).slice(0, 5).forEach((cell, index) => {
+                    const group = document.createElement('div');
+                    const label = document.createElement('dt'); label.textContent = labels[index];
+                    const value = document.createElement('dd'); value.textContent = cell.innerText.trim();
+                    group.append(label, value); context.append(group);
+                });
+                const panel = trigger.parentElement.querySelector('.audit-details-panel');
+                modal.append(header, context, panel); document.body.append(modal);
+                close.addEventListener('click', () => modal.close());
+                modal.addEventListener('close', () => { document.body.classList.remove('audit-log-modal-open'); trigger.focus({preventScroll:true}); });
+                modal.addEventListener('click', event => { if (event.target !== modal) return; const rect = modal.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) modal.close(); });
+            }
+            modal.showModal(); document.body.classList.add('audit-log-modal-open');
+        });
+        trigger.addEventListener('keydown', event => { if (event.key === ' ') { event.preventDefault(); trigger.click(); } });
+    });
     document.querySelectorAll('.load-audit-details').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             e.preventDefault();
@@ -654,4 +727,4 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 </script>
-@endpush
+@endsection

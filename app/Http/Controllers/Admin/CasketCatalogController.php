@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\CasketCatalog;
 use App\Support\AuditLogger;
+use App\Support\ServiceCatalogPolicy;
 use Illuminate\Http\Request;
 
 class CasketCatalogController extends Controller
@@ -101,10 +102,12 @@ class CasketCatalogController extends Controller
         $this->ensureCanView();
 
         $casket_catalog->loadCount('packageInclusions');
+        $affectedPackages = app(ServiceCatalogPolicy::class)->activePackagesUsingCasket($casket_catalog);
 
         return view('admin.casket-catalogs.show', [
             'catalog' => $casket_catalog,
             'canManage' => $request->user()->isMainAdmin(),
+            'affectedPackages' => $affectedPackages,
         ]);
     }
 
@@ -171,9 +174,16 @@ class CasketCatalogController extends Controller
     {
         $this->ensureCanManage();
 
+        if ($casket_catalog->is_active) {
+            $affected = app(ServiceCatalogPolicy::class)->activePackagesUsingCasket($casket_catalog);
+            if ($affected->isNotEmpty()) {
+                return back()->withErrors(['casket' => 'This casket cannot be archived yet. Update or archive the packages using it first: '.$affected->pluck('name')->join(', ').'.']);
+            }
+        }
+
         $casket_catalog->update(['is_active' => ! $casket_catalog->is_active]);
 
-        return back()->with('success', $casket_catalog->is_active ? 'Casket restored.' : 'Casket archived.');
+        return back()->with('success', $casket_catalog->name.' '.($casket_catalog->is_active ? 'restored.' : 'archived.'));
     }
 
     public function toggleAvailability(CasketCatalog $casket_catalog)
@@ -199,7 +209,7 @@ class CasketCatalogController extends Controller
             $casket_catalog->is_available ? 'Casket marked available' : 'Casket marked unavailable'
         );
 
-        return back()->with('success', $casket_catalog->is_available ? 'Casket marked available.' : 'Casket marked unavailable.');
+        return back()->with('success', $casket_catalog->name.' marked '.($casket_catalog->is_available ? 'available.' : 'unavailable.'));
     }
 
     private function rules(?CasketCatalog $catalog = null): array

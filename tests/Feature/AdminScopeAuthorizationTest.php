@@ -29,6 +29,23 @@ class AdminScopeAuthorizationTest extends TestCase
         $this->actingAs($admin)->get('/admin/packages')->assertOk();
     }
 
+    public function test_branch_drill_down_highlights_without_hiding_other_branches(): void
+    {
+        $mainBranch = $this->createBranch('BR001', 'Main Branch');
+        $secondBranch = $this->createBranch('BR002', 'Second Branch');
+        $this->createBranch('BR003', 'Third Branch');
+        $admin = $this->createMainAdmin($mainBranch);
+
+        foreach (['highlight_branch', 'branch_id'] as $parameter) {
+            $this->actingAs($admin)
+                ->get('/admin/branches?'.$parameter.'='.$secondBranch->id)
+                ->assertOk()
+                ->assertViewHas('branches', fn ($branches) => $branches->total() === 3)
+                ->assertSee('Second Branch')
+                ->assertSee('Third Branch');
+        }
+    }
+
     public function test_legacy_main_branch_admin_without_scope_still_keeps_admin_access(): void
     {
         $mainBranch = $this->createBranch('BR001', 'Main Branch');
@@ -88,11 +105,46 @@ class AdminScopeAuthorizationTest extends TestCase
             ->get('/admin/users?branch_id='.$otherBranch->id.'&role=admin')
             ->assertOk()
             ->assertSee($staff->email)
-            ->assertDontSee('name="branch_id"', false)
-            ->assertDontSee('name="role"', false)
+            ->assertDontSee('<select name="branch_id"', false)
+            ->assertDontSee('<select name="role"', false)
             ->assertDontSee('All Branches')
             ->assertDontSee('All Roles')
             ->assertDontSee('Staff Only');
+    }
+
+    public function test_user_directory_summaries_follow_role_scope_not_selected_filters(): void
+    {
+        $branch = $this->createBranch('BR002', 'Branch Two');
+        $otherBranch = $this->createBranch('BR003', 'Branch Three');
+        $branchAdmin = $this->createBranchAdmin($branch);
+        User::factory()->create(['name' => 'Active Scoped Staff', 'role' => 'staff', 'branch_id' => $branch->id, 'is_active' => true]);
+        User::factory()->create(['name' => 'Inactive Scoped Staff', 'role' => 'staff', 'branch_id' => $branch->id, 'is_active' => false]);
+        User::factory()->create(['name' => 'Other Branch Staff', 'role' => 'staff', 'branch_id' => $otherBranch->id, 'is_active' => true]);
+
+        $this->actingAs($branchAdmin)
+            ->get('/admin/users?status=active')
+            ->assertOk()
+            ->assertViewHas('directoryStats', fn (array $stats) => $stats['total'] === 2 && $stats['active'] === 1 && $stats['inactive'] === 1)
+            ->assertDontSee('Other Branch Staff')
+            ->assertDontSee('Inactive Scoped Staff');
+    }
+
+    public function test_user_status_feedback_names_the_user_and_new_status(): void
+    {
+        $branch = $this->createBranch('BR001', 'Main Branch');
+        $admin = $this->createMainAdmin($branch);
+        $staff = User::factory()->create([
+            'name' => 'Case Staff',
+            'role' => 'staff',
+            'branch_id' => $branch->id,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->patch(route('admin.users.toggleActive', $staff, absolute: false))
+            ->assertSessionHas('success', 'Case Staff is now inactive.');
+
+        $this->assertFalse($staff->fresh()->is_active);
     }
 
     public function test_service_page_title_reflects_admin_access_level(): void
@@ -248,12 +300,28 @@ class AdminScopeAuthorizationTest extends TestCase
             ->assertDontSee('Catalog Package 20');
     }
 
-    public function test_branch_admin_main_intake_uses_assigned_branch_instead_of_br001(): void
+    public function test_services_sort_full_results_and_show_all_package_contents(): void
+    {
+        $branch = $this->createBranch('BR020', 'Catalog Branch');
+        $actor = $this->createBranchAdmin($branch);
+        foreach (['Zeta', 'Alpha'] as $name) {
+            Package::create(['name' => 'Sorting Fixture '.$name, 'price' => 1000, 'is_active' => true,
+                'inclusions' => "Item One\nItem Two\nItem Three\nItem Four",
+                'freebies' => "Gift One\nGift Two\nGift Three\nGift Four"]);
+        }
+        $this->actingAs($actor)->get('/admin/service-management?tab=packages&q=Sorting+Fixture&sort=name_asc')
+            ->assertOk()->assertSee('Item Four')->assertSee('Gift Four')
+            ->assertViewHas('packages', fn ($packages) => $packages->pluck('name')->all() === ['Sorting Fixture Alpha', 'Sorting Fixture Zeta']);
+        $this->actingAs($actor)->get('/admin/service-management?tab=packages&q=Sorting+Fixture&sort=name_desc')
+            ->assertOk()->assertViewHas('packages', fn ($packages) => $packages->pluck('name')->all() === ['Sorting Fixture Zeta', 'Sorting Fixture Alpha']);
+    }
+
+    public function test_staff_main_intake_uses_assigned_branch_instead_of_br001(): void
     {
         $mainBranch = $this->createBranch('BR001', 'Main Branch');
         $branch = $this->createBranch('BR002', 'Branch Two');
         $package = $this->createPackage();
-        $branchAdmin = $this->createBranchAdmin($branch);
+        $branchAdmin = User::factory()->create(['role' => 'staff', 'branch_id' => $branch->id, 'is_active' => true]);
 
         $response = $this->actingAs($branchAdmin)->post('/intake/main', [
             'service_requested_at' => now()->toDateString(),
@@ -297,6 +365,7 @@ class AdminScopeAuthorizationTest extends TestCase
             'senior_citizen_id_number' => null,
             'pwd_id_number' => null,
             'confirm_review' => 1,
+            'payment_method' => 'none',
         ]);
 
         $response->assertRedirect(route('funeral-cases.index', ['record_scope' => 'main'], absolute: false));
@@ -310,6 +379,19 @@ class AdminScopeAuthorizationTest extends TestCase
             'entry_source' => 'MAIN',
             'case_status' => 'ACTIVE',
         ]);
+    }
+
+    public function test_branch_scope_never_grants_admin_intake_recording_permission(): void
+    {
+        foreach (['BR001', 'BR002', 'BR003'] as $code) {
+            $branch = $this->createBranch($code, $code);
+            $admin = $this->createBranchAdmin($branch);
+            $this->actingAs($admin)->get('/intake/main')->assertForbidden();
+            $this->post('/intake/main', ['branch_id' => $branch->id])->assertForbidden();
+            $this->post('/intake', ['branch_id' => $branch->id])->assertForbidden();
+        }
+        $this->assertDatabaseCount('funeral_cases', 0);
+        $this->assertDatabaseCount('clients', 0);
     }
 
     public function test_main_branch_admin_cannot_create_owner_accounts_or_assign_main_scope_through_user_management(): void
@@ -891,14 +973,14 @@ class AdminScopeAuthorizationTest extends TestCase
             'is_active' => true,
         ]);
 
-        $formResponse = $this->actingAs($systemAdmin)->get('/admin/users/create');
+        $formResponse = $this->actingAs($systemAdmin)->get('/admin/users/create?role=branch_admin');
         $formResponse
             ->assertOk()
-            ->assertSee('<option value="branch_admin"', false)
+            ->assertSee('Create Branch Admin Account')
             ->assertSee('BR001 - Main Branch')
             ->assertSee('BR002 - Branch Two')
             ->assertSee("branchHint.textContent = isBranchAdmin", false)
-            ->assertSee('including the Main Branch', false);
+            ->assertSee('including Main Branch', false);
 
         $mainBranchOptionPattern = '/<option\s+value="'.preg_quote((string) $mainBranch->id, '/').'"[^>]*>\s*BR001 - Main Branch/s';
         $disabledMainBranchPattern = '/<option\s+value="'.preg_quote((string) $mainBranch->id, '/').'"[^>]*disabled/s';
@@ -958,7 +1040,7 @@ class AdminScopeAuthorizationTest extends TestCase
             ->count());
     }
 
-    public function test_system_admin_selection_creates_an_unassigned_global_admin(): void
+    public function test_ordinary_user_creation_rejects_system_admin_assignment(): void
     {
         $mainBranch = $this->createBranch('BR001', 'Main Branch');
         $systemAdmin = User::factory()->create([
@@ -976,14 +1058,9 @@ class AdminScopeAuthorizationTest extends TestCase
                 'role' => 'system_admin',
                 'branch_id' => $mainBranch->id,
             ])
-            ->assertRedirect(route('admin.users.index', absolute: false));
+            ->assertSessionHasErrors('role');
 
-        $this->assertDatabaseHas('users', [
-            'email' => 'second.system.admin@gmail.com',
-            'role' => 'admin',
-            'admin_scope' => 'system',
-            'branch_id' => null,
-        ]);
+        $this->assertDatabaseMissing('users', ['email' => 'second.system.admin@gmail.com']);
     }
 
     public function test_crafted_admin_scope_cannot_escalate_a_branch_admin_request(): void

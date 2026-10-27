@@ -12,12 +12,18 @@
             document.documentElement.setAttribute('data-theme', theme);
         })();
     </script>
+    <link href="{{ asset('vendor/offline/fonts.css') }}" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
         body {
             margin:0;
             background:#DCE6D6;
             color:#1F2D20;
+        }
+        body:is(.branch-admin-ui,.system-admin-ui) {
+            background:var(--surface);
+            color:var(--ink);
+            font-family:var(--font-body);
         }
         .page-content {
             min-height:100vh;
@@ -29,6 +35,17 @@
             margin-left:auto;
             margin-right:auto;
         }
+        body:is(.branch-admin-ui,.system-admin-ui) .page-content {
+            background:var(--surface) !important;
+            color:var(--ink);
+        }
+        body.service-catalog-form-frame .page-content { padding:0; }
+        body.service-catalog-modal-frame { min-height:0; height:auto; }
+        body.service-catalog-modal-frame .page-content { min-height:0 !important; height:auto; overflow:visible; }
+        body.service-catalog-form-frame :is(.pkg-hero,.cc-head,.aoc-head,.fbc-head) { display:none !important; }
+        body.service-catalog-form-frame :is(.cc-card,.aoc-card,.fbc-card) { border:0 !important; border-radius:0 !important; box-shadow:none !important; }
+        body.service-catalog-form-frame #packageForm.package-wizard { gap:0; }
+        body.service-catalog-form-frame #packageForm.package-wizard .package-wizard-nav { border-radius:0; }
         [data-page-context-toast],
         .management-toast {
             display:none !important;
@@ -52,11 +69,16 @@
         }
     </style>
 </head>
-<body>
+<body class="{{ auth()->user()?->isBranchAdmin() ? 'branch-admin-ui' : '' }}{{ auth()->user()?->isSystemAdmin() ? ' system-admin-ui' : '' }}{{ request()->boolean('service_form') ? ' service-catalog-form-frame' : '' }}{{ request()->boolean('modal') ? ' service-catalog-modal-frame' : '' }}">
     <main class="page-content">
         @yield('content')
     </main>
     <script>
+        document.addEventListener('keydown', event => {
+            if (event.key !== 'Escape' || window.parent === window) return;
+            if (document.querySelector('.svc-status-dialog[open]')) return;
+            window.parent.closeServiceCatalogModal?.();
+        });
         document.addEventListener('click', function (event) {
             const trigger = event.target.closest('[data-service-modal-url]');
 
@@ -72,7 +94,26 @@
                 event.preventDefault();
                 window.parent.closeServiceCatalogModal();
             }
+
+            const cancelTrigger = event.target.closest('[data-service-form-cancel]');
+            if (cancelTrigger && window.parent && window.parent !== window && window.parent.cancelServiceCatalogModal) {
+                event.preventDefault();
+                window.parent.cancelServiceCatalogModal();
+            }
+        });
+        document.addEventListener('submit', function (event) {
+            if (!document.body.classList.contains('service-catalog-form-frame') || event.defaultPrevented) return;
+            const form = event.target;
+            if (!(form instanceof HTMLFormElement)) return;
+            const submit = event.submitter || form.querySelector('button[type="submit"]');
+            form.setAttribute('aria-busy', 'true');
+            if (submit) {
+                submit.disabled = true;
+                submit.dataset.originalLabel = submit.innerHTML;
+                submit.innerHTML = '<i class="bi bi-arrow-repeat" aria-hidden="true"></i> Saving…';
+            }
         });
     </script>
+@include('partials.idle_session')
 </body>
 </html>

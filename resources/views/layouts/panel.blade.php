@@ -43,9 +43,7 @@
         }
     </style>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Syne:wght@700&display=swap" rel="stylesheet">
+    <link href="{{ asset('vendor/offline/fonts.css') }}" rel="stylesheet">
     <link rel="icon" href="{{ asset('images/login-logo.png') }}" type="image/png">
     <link rel="shortcut icon" href="{{ asset('images/login-logo.png') }}" type="image/png">
 
@@ -53,7 +51,7 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="panel-shell-body">
+<body class="panel-shell-body{{ auth()->user()?->role === 'staff' ? ' staff-ui' : '' }}{{ auth()->user()?->isBranchAdmin() ? ' branch-admin-ui' : '' }}{{ auth()->user()?->isSystemAdmin() ? ' system-admin-ui' : '' }}{{ auth()->user()?->isOwner() ? ' owner-ui' : '' }}" data-sidebar-manual>
     <script>
         (function () {
             const desktopMedia = window.matchMedia('(min-width: 1024px)');
@@ -136,6 +134,7 @@
                 </div>
 
                 <div class="sidebar-account-dropdown" data-account-dropdown hidden>
+                    @if(!(auth()->user()?->role === 'staff' && request()->is('staff')))
                     <div class="sidebar-account-dropdown__section">
                         <p class="sidebar-account-dropdown__label">Appearance</p>
                         <button type="button" class="theme-toggle theme-toggle--sidebar" data-theme-toggle aria-label="Toggle color theme">
@@ -151,6 +150,7 @@
                             </span>
                         </button>
                     </div>
+                    @endif
 
                     <div class="sidebar-account-dropdown__section">
                         <a href="{{ route('profile.edit') }}" class="sidebar-account-dropdown__logout" aria-label="My Profile">
@@ -212,7 +212,7 @@
             @endphp
 
             @unless($hideLayoutTopbar)
-            <header class="topbar">
+            <header class="topbar panel-title-surface centered-page-header">
                 <div class="topbar-leading">
                     <button
                         type="button"
@@ -245,7 +245,7 @@
                         <button
                             type="button"
                             class="topbar-notification {{ $isReminderPage ? 'is-active' : '' }}"
-                            aria-label="Open reminders and schedule"
+                            aria-label="Open schedules and reminders"
                             aria-expanded="false"
                             data-notification-toggle
                         >
@@ -350,9 +350,9 @@
                             <div class="topbar-notification-menu__footer">
                                 <button type="button" class="topbar-notification-footer-btn" data-notification-mark-read>Mark all as read</button>
                                 @if($notificationHref)
-                                    <a href="{{ $notificationHref }}" class="topbar-notification-footer-btn is-primary">Open Reminders <i class="bi bi-arrow-up-right"></i></a>
+                                    <a href="{{ $notificationHref }}" class="topbar-notification-footer-btn is-primary">Open Schedules <i class="bi bi-arrow-up-right"></i></a>
                                 @else
-                                    <button type="button" class="topbar-notification-footer-btn is-primary" disabled>Open Reminders</button>
+                                    <button type="button" class="topbar-notification-footer-btn is-primary" disabled>Open Schedules</button>
                                 @endif
                             </div>
                         </div>
@@ -384,7 +384,7 @@
 
             <main class="page-content">
                 @if($showInlinePageHeader)
-                    <div class="panel-page-header">
+                    <div class="panel-page-header panel-title-surface">
                         <div class="panel-page-header__leading">
                             <button
                                 type="button"
@@ -400,7 +400,7 @@
                                 @yield('page_back')
                             @endif
                             <div class="panel-page-header__copy">
-                                <h1>@yield('page_title', 'Dashboard')</h1>
+                                <h1>@yield('page_title', 'Dashboard')@hasSection('page_title_badge')<span class="panel-page-header__badge">@yield('page_title_badge')</span>@endif</h1>
                                 @if($pageDesc !== '')
                                     <p>@yield('page_desc')</p>
                                 @endif
@@ -418,11 +418,25 @@
                         @endif
                     </div>
                 @endif
+                @if(auth()->user()?->isSystemAdmin() && request('return_to') === url('/admin') && !request()->is('admin'))
+                    <div class="px-4 py-2"><a class="btn btn-secondary" href="{{ url('/admin') }}"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Dashboard</a></div>
+                @endif
+                @include('partials.branch-sync-status')
                 @yield('content')
+                @include('partials.panel_scroll_top')
                 @include('partials.uniform_filter_styles')
+                @include('partials.shared_filter_ui')
             </main>
         </div>
     </div>
+
+    @if(session('personal_password_set'))
+        @include('partials.password_changed_welcome')
+    @endif
+
+    @if(request()->routeIs('intake.saved') && session('intake_payment.id'))
+        @include('staff.intake._payment-success')
+    @endif
 
     @if(session('warning'))
         <div class="flash-warning">{{ session('warning') }}</div>
@@ -503,9 +517,32 @@
                 const label = link.querySelector('span')?.textContent?.trim();
                 if (!label) return;
                 link.setAttribute('data-nav-label', label);
-                link.setAttribute('title', label);
                 link.setAttribute('aria-label', label);
             });
+
+            const railTooltip = document.createElement('div');
+            railTooltip.className = 'sidebar-rail-tooltip';
+            railTooltip.setAttribute('aria-hidden', 'true');
+            document.body.appendChild(railTooltip);
+            const hideRailTooltip = () => { railTooltip.hidden = true; };
+            const showRailTooltip = (link) => {
+                if (!desktopMedia.matches || !document.body.hasAttribute('data-sidebar-collapsed')) return;
+                const label = link.getAttribute('data-nav-label');
+                if (!label) return;
+                const rect = link.getBoundingClientRect();
+                railTooltip.textContent = label;
+                railTooltip.style.left = `${rect.right + 10}px`;
+                railTooltip.style.top = `${rect.top + rect.height / 2}px`;
+                railTooltip.hidden = false;
+            };
+            hideRailTooltip();
+            navLinks.forEach((link) => {
+                link.addEventListener('mouseenter', () => showRailTooltip(link));
+                link.addEventListener('mouseleave', hideRailTooltip);
+                link.addEventListener('focus', () => showRailTooltip(link));
+                link.addEventListener('blur', hideRailTooltip);
+            });
+            sidebar.querySelector('.sidebar-scroll')?.addEventListener('scroll', hideRailTooltip, { passive: true });
 
             const brandName = sidebar.querySelector('.sidebar-brand-name')?.textContent?.trim();
             const brand = sidebar.querySelector('.sidebar-brand');
@@ -515,6 +552,7 @@
             }
 
             const closeSidebar = () => {
+                hideRailTooltip();
                 document.body.removeAttribute('data-sidebar-open');
                 if (toggle) {
                     toggle.setAttribute('aria-expanded', 'false');
@@ -534,17 +572,21 @@
                 if (!lockToggle) return;
 
                 const locked = document.body.hasAttribute('data-sidebar-locked');
+                const manualSidebar = document.body.hasAttribute('data-sidebar-manual');
                 lockToggle.setAttribute('aria-pressed', locked ? 'true' : 'false');
-                lockToggle.setAttribute('aria-label', locked ? 'Unlock sidebar' : 'Lock sidebar open');
-                lockToggle.setAttribute('title', locked ? 'Unlock sidebar' : 'Lock sidebar open');
+                const label = manualSidebar ? (locked ? 'Collapse sidebar' : 'Expand sidebar') : (locked ? 'Unlock sidebar' : 'Lock sidebar open');
+                lockToggle.setAttribute('aria-label', label);
+                lockToggle.setAttribute('title', label);
+                if (manualSidebar) lockToggle.setAttribute('aria-expanded', String(locked));
 
                 const icon = lockToggle.querySelector('i');
                 if (icon) {
-                    icon.className = locked ? 'bi bi-pin-angle-fill' : 'bi bi-pin-angle';
+                    icon.className = manualSidebar ? (locked ? 'bi bi-layout-sidebar-inset' : 'bi bi-layout-sidebar') : (locked ? 'bi bi-pin-angle-fill' : 'bi bi-pin-angle');
                 }
             };
 
             const setSidebarLocked = (locked, persist = true) => {
+                hideRailTooltip();
                 if (!desktopMedia.matches) {
                     document.body.removeAttribute('data-sidebar-locked');
                     syncLockButton();
@@ -654,42 +696,7 @@
             });
         })();
 
-        (function () {
-            const navLinks = document.querySelectorAll('.sidebar .nav-link[href]');
-            if (!navLinks.length) return;
-
-            const prefetched = new Set();
-
-            const prefetch = (href) => {
-                if (!href || prefetched.has(href)) return;
-                prefetched.add(href);
-
-                const link = document.createElement('link');
-                link.rel = 'prefetch';
-                link.as = 'document';
-                link.href = href;
-                document.head.appendChild(link);
-            };
-
-            navLinks.forEach((link) => {
-                const href = link.getAttribute('href');
-                if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
-
-                let absolute = '';
-                try {
-                    const target = new URL(href, window.location.href);
-                    if (target.origin !== window.location.origin) return;
-                    absolute = target.href;
-                } catch (error) {
-                    return;
-                }
-
-                const warm = () => prefetch(absolute);
-                link.addEventListener('mouseenter', warm, { once: true });
-                link.addEventListener('focus', warm, { once: true });
-                link.addEventListener('touchstart', warm, { once: true, passive: true });
-            });
-        })();
+        // Authenticated pages must not be prefetched: GET requests can consume session flash messages.
 
         (function () {
             const indicator = document.getElementById('globalLoadingIndicator');
@@ -710,7 +717,7 @@
             }
 
             function shouldIgnoreNavigationLink(link, e) {
-                if (!link || !isNormalLeftClick(e)) return true;
+                if (e.defaultPrevented || !link || !isNormalLeftClick(e)) return true;
                 if (link.target === '_blank' || link.hasAttribute('download')) return true;
 
                 const href = link.getAttribute('href') || '';
@@ -984,6 +991,15 @@
             const countEls = [...menu.querySelectorAll('[data-notification-count]')];
             const summary = menu.querySelector('[data-notification-summary]');
 
+            const positionNotificationMenu = () => {
+                if (menu.hidden || !window.matchMedia('(max-width: 640px)').matches) return;
+                const top = Math.max(12, Math.min(toggle.getBoundingClientRect().bottom + 8, window.innerHeight - menu.offsetHeight - 12));
+                menu.style.setProperty('--notification-top', `${top}px`);
+            };
+
+            window.addEventListener('resize', positionNotificationMenu, { passive: true });
+            window.addEventListener('scroll', positionNotificationMenu, { passive: true, capture: true });
+
             const updateVisibleState = (bucket = 'all') => {
                 cards.forEach((card) => {
                     const cardBuckets = (card.getAttribute('data-buckets') || card.getAttribute('data-bucket') || '').split(/\s+/);
@@ -1043,6 +1059,7 @@
             const openMenu = () => {
                 toggle.setAttribute('aria-expanded', 'true');
                 menu.hidden = false;
+                positionNotificationMenu();
             };
 
             toggle.addEventListener('click', (event) => {
@@ -1074,6 +1091,7 @@
         (function () {
             // JS-driven sidebar hover-expand so the gap between sidebar and
             // the fly-out dropdown never causes an accidental collapse.
+            if (document.body.hasAttribute('data-sidebar-manual')) return;
             const sidebar   = document.getElementById('appSidebar');
             const desktop   = window.matchMedia('(min-width: 1024px)');
             if (!sidebar) return;
@@ -1137,5 +1155,11 @@
         })();
 
     </script>
+
+@include('partials.idle_session')
+@include('partials.page-title-surface')
+@if(auth()->user()?->isOwner())
+@include('owner.partials.visual-reference')
+@endif
 </body>
 </html>

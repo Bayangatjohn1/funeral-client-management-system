@@ -1,0 +1,151 @@
+/* System Admin adopts staff foundations. Page-specific shared styles own their components. */
+html[data-theme] body.system-admin-ui {
+    --surface:#DCE8E0; --card:#F4F8F5; --surface-panel:var(--card); --white:var(--card);
+    --surface-muted:#D0E2D6; --border:#AEC7B7; --border-strong:#8CAE99;
+    --ink:#081D13; --ink-muted:#1B3E2E; --ink-faint:#365845;
+    --brand:#1B4332; --brand-hover:#123325; --brand-soft:var(--surface-muted); --brand-mid:var(--brand); --accent:var(--brand);
+    --records-card:var(--card); --records-card-alt:var(--surface-muted); --records-hover:#C2DAC9;
+    --records-border:var(--border); --records-text:var(--ink); --records-muted:var(--ink-muted);
+    --ops-page-bg:var(--surface); --ops-page-bg-alt:var(--surface); --ops-bg:var(--surface); --ops-surface:var(--card); --ops-input:var(--card); --ops-table-head:var(--surface-muted); --ops-table-row:var(--card); --ops-border-strong:var(--border-strong); --ops-panel:var(--card); --ops-panel-2:var(--surface-muted); --ops-border:var(--border);
+    --ops-text:var(--ink); --ops-text-2:var(--ink-muted); --ops-accent:var(--brand); --ops-shadow:0 2px 5px rgb(8 29 19 / 4%);
+    --staff-canvas:var(--surface); --staff-card:var(--card); --staff-soft:var(--surface-muted); --staff-hover:var(--records-hover);
+    --staff-border:var(--border); --staff-ink:var(--ink); --staff-muted:var(--ink-muted); --staff-action:var(--brand); --staff-accent:var(--brand);
+    --color-bg-page:var(--surface); --color-bg-surface:var(--card); --color-bg-muted:var(--surface-muted);
+    --color-text-primary:var(--ink); --color-text-secondary:var(--ink-muted); --color-text-muted:var(--ink-faint);
+    --color-border:var(--border); --color-border-strong:var(--border-strong); --color-primary:var(--brand); --color-primary-hover:var(--brand-hover);
+    --font-body:'Plus Jakarta Sans','Segoe UI',sans-serif; --font-heading:var(--font-body);
+    font-family:var(--font-body); color:var(--ink);
+}
+html[data-theme='dark'] body.system-admin-ui {
+    --surface:#07130E; --card:#112218; --surface-muted:#14261D; --border:#29523D; --border-strong:#41634F;
+    --ink:#F8FAFC; --ink-muted:#B5C7BC; --ink-faint:#B5C7BC;
+    --brand:#B5D6C4; --brand-hover:#CDE5D7; --records-hover:#1B3527;
+}
+html[data-theme] body.panel-shell-body.system-admin-ui :is(.app-shell,.main-area,.page-content) { background:var(--surface) !important; }
+html[data-theme] body.system-admin-ui .panel-page-header:not(.panel-title-surface) { background:transparent !important; border:0 !important; box-shadow:none !important; }
+html[data-theme] body.system-admin-ui .sidebar :is(.nav-link,.profile-pill) { font-family:var(--font-body); }
+html[data-theme] body.system-admin-ui .sidebar .nav-link { color:var(--ink-muted); }
+html[data-theme] body.system-admin-ui .sidebar .nav-link:hover { background:var(--records-hover); color:var(--ink); }
+html[data-theme] body.system-admin-ui .sidebar .nav-link.active { background:#1B4332; color:#fff; }
+html[data-theme] body.system-admin-ui .sidebar .nav-link.active :is(svg,i) { color:#fff; }
+html[data-theme] body.system-admin-ui :is(a,button,input,select,textarea,summary):focus-visible { outline:2px solid var(--brand); outline-offset:3px; }
+html[data-theme] body.system-admin-ui :is(button,summary,.btn) { transition:background-color 150ms ease,border-color 150ms ease; }
+html[data-theme] body.system-admin-ui :is(.btn-primary,.btn-primary-custom,.ops-btn-primary) { background:#1B4332 !important; border-color:#1B4332 !important; color:#fff !important; }
+html[data-theme] body.system-admin-ui :is(.btn-primary,.btn-primary-custom,.ops-btn-primary):hover { background:#123325 !important; border-color:#123325 !important; }
+html[data-theme] body.system-admin-ui :is(.btn-secondary,.btn-secondary-custom,.btn-outline,.row-action-trigger,.user-view-button):hover { background:var(--records-hover) !important; color:var(--ink) !important; }
+/* Multi-branch controls remain available; the directory wraps rather than shrinking them. */
+html[data-theme] body.system-admin-ui .directory-page .table-system-toolbar .table-toolbar { grid-template-columns:repeat(3,minmax(0,1fr)) !important; }
+html[data-theme] body.system-admin-ui .directory-page .table-system-toolbar .user-page-size { justify-content:flex-start; }
+html[data-theme] body.system-admin-ui .audit-ref-page .audit-toolbar { grid-template-columns:repeat(3,minmax(0,1fr)); }
+/* Branch directory and standalone/edit dialogs have no staff business counterpart. */
+html[data-theme] body.system-admin-ui .branch-management-page { background:transparent; padding-top:8px; }
+html[data-theme] body.system-admin-ui .branch-management-page :is(.table-system-head,.table-system-toolbar,.branch-directory-card,.branch-card-dropdown,.table-system-wrap) { background:var(--card) !important; border-color:var(--border) !important; border-radius:12px !important; }
+html[data-theme] body.system-admin-ui .branch-management-page :is(.branch-card-head,.branch-card-footer,.branch-card-metric,.table-system-table th) { background:var(--surface-muted) !important; border-color:var(--border) !important; }
+html[data-theme] body.system-admin-ui .branch-management-page :is(.branch-card-title,.branch-card-code,.branch-card-metric-value,.table-system-table td,.table-system-title) { color:var(--ink) !important; }
+html[data-theme] body.system-admin-ui .branch-management-page :is(.branch-card-address,.branch-card-metric-label,.table-secondary) { color:var(--ink-muted) !important; }
+html[data-theme] body.system-admin-ui .branch-management-page .table-system-table td { background:var(--card) !important; border-color:var(--border) !important; }
+html[data-theme] body.system-admin-ui .branch-management-page .table-system-table tbody tr:hover td { background:var(--records-hover) !important; }
+html[data-theme] body.system-admin-ui .branch-management-page .table-system-toolbar { margin-bottom:16px; }
+html[data-theme] body.system-admin-ui .branch-management-page .table-system-pagination { background:transparent !important; border:0 !important; margin-top:16px; }
+html[data-theme] body.system-admin-ui :is(#branchCreateStandaloneForm,.branch-edit-form,#branchCreateModal,#branchEditModal) :is(.bg-white,.bg-slate-50,.bg-slate-100,.rounded-2xl,.border-b,.border-t) { background:var(--card) !important; border-color:var(--border) !important; }
+html[data-theme] body.system-admin-ui :is(#branchCreateStandaloneForm,.branch-edit-form,#branchCreateModal,#branchEditModal) :is(.text-slate-900,.text-slate-700,h2) { color:var(--ink) !important; font-family:var(--font-heading); }
+html[data-theme] body.system-admin-ui :is(#branchCreateStandaloneForm,.branch-edit-form,#branchCreateModal,#branchEditModal) :is(.text-slate-500,.label-section) { color:var(--ink-muted) !important; }
+html[data-theme] body.system-admin-ui :is(.form-input,.form-select,.aoc-form input,.fbc-form input,.cc-form input,.pkg-workspace input,.pkg-workspace select) { background:var(--card) !important; color:var(--ink) !important; border-color:var(--border) !important; min-height:44px; border-radius:8px; }
+/* Catalog write forms keep all existing fields, rules, actions and status meanings. */
+html[data-theme] body.system-admin-ui :is(.aoc-form,.fbc-form,.cc-form,.pkg-workspace,.prof-shell,.ace-wrap) { color:var(--ink); font-family:var(--font-body); }
+html[data-theme] body.system-admin-ui :is(.aoc-card,.fbc-card,.cc-card,.pkg-card,.pkg-hero,.prof-card,.ace-card) { background:var(--card) !important; border:1px solid var(--border) !important; border-radius:12px !important; box-shadow:none !important; }
+html[data-theme] body.system-admin-ui :is(.aoc-head,.fbc-head,.cc-head,.pkg-card-head,.prof-card-head,.ace-card__head) { background:var(--surface-muted) !important; border-color:var(--border) !important; }
+html[data-theme] body.system-admin-ui :is(.aoc-form,.fbc-form,.cc-form,.pkg-workspace,.prof-shell,.ace-wrap) :is(h1,h2,h3,.aoc-title,.fbc-title,.cc-title,.pkg-title,label) { color:var(--ink) !important; font-family:var(--font-heading); }
+html[data-theme] body.system-admin-ui :is(.aoc-copy,.fbc-copy,.cc-copy,.pkg-subtitle,.prof-subtitle,.form-hint) { color:var(--ink-muted) !important; }
+/* Governance screens: readable staff sizing and independent scrollable tables. */
+html[data-theme] body.system-admin-ui :is(.recovery-page,.retention-page) { font:14px/1.5 var(--font-body); color:var(--ink); max-width:1440px; }
+html[data-theme] body.system-admin-ui :is(.recovery-panel,.retention-panel,.recovery-metric,.retention-metric,.retention-toolbar,.recovery-dialog) { background:var(--card); border-color:var(--border); border-radius:12px; }
+html[data-theme] body.system-admin-ui :is(.recovery-panel-head,.retention-panel-head,.recovery-dialog-head,.recovery-dialog-footer,.recovery-table th,.retention-table th,.recovery-pagination,.retention-pagination) { background:var(--surface-muted); border-color:var(--border); color:var(--ink-muted); }
+html[data-theme] body.system-admin-ui :is(.recovery-table,.retention-table) :is(th,td) { font-size:13px; padding:14px 16px; border-color:var(--border); }
+html[data-theme] body.system-admin-ui :is(.recovery-table,.retention-table) tbody tr:hover td { background:var(--records-hover); }
+html[data-theme] body.system-admin-ui :is(.recovery-metric,.retention-metric) span { color:var(--ink-muted); font-size:12px; }
+html[data-theme] body.system-admin-ui :is(.recovery-metric,.retention-metric) strong { color:var(--ink); font-size:18px; }
+html[data-theme] body.system-admin-ui :is(.recovery-panel,.retention-panel,.recovery-dialog) h2 { color:var(--ink); font-size:18px; font-family:var(--font-heading); }
+html[data-theme] body.system-admin-ui :is(.recovery-panel p,.retention-panel p,.recovery-sub,.case-sub,.recovery-label,.retention-toolbar-copy span,.recovery-empty,.retention-empty) { color:var(--ink-muted); font-size:13px; }
+html[data-theme] body.system-admin-ui :is(.recovery-icon,.retention-icon,.recovery-metric i,.retention-metric>i:first-child,.recovery-action,.retention-filter) { background:var(--surface-muted); border-color:var(--border); color:var(--brand); }
+html[data-theme] body.system-admin-ui :is(.recovery-input,.hold-input) { background:var(--card) !important; color:var(--ink) !important; border-color:var(--border) !important; min-height:44px !important; font-size:14px !important; }
+html[data-theme] body.system-admin-ui :is(.recovery-btn,.hold-button,.recovery-action,.retention-filter) { min-height:44px; font-size:13px; }
+html[data-theme] body.system-admin-ui :is(.recovery-btn,.hold-button):not(.release) { background:#1B4332; border-color:#1B4332; color:#fff; }
+html[data-theme] body.system-admin-ui :is(.recovery-btn,.hold-button):not(.release):hover { background:#123325; }
+html[data-theme] body.system-admin-ui :is(.recovery-action,.retention-filter,.retention-metric):hover { background:var(--records-hover); transform:none; }
+html[data-theme] body.system-admin-ui .retention-filter.active { background:#1B4332; color:#fff; border-color:#1B4332; }
+html[data-theme='dark'] body.system-admin-ui :is(.retention-alert.policy,.recovery-note) { background:#352A13; border-color:#79622B; color:#F0D892; }
+html[data-theme='dark'] body.system-admin-ui :is(.recovery-alert.success,.retention-alert.success,.status-pill.success,.status-pill.retained) { background:#163522; color:#BBF7D0; border-color:#36684B; }
+html[data-theme='dark'] body.system-admin-ui :is(.recovery-alert.error,.retention-alert.error,.status-pill.danger,.status-pill.legal_hold) { background:#351A1D; color:#FECACA; border-color:#884A53; }
+html[data-theme='dark'] body.system-admin-ui :is(.status-pill.warning,.status-pill.pending_disposal_review,.hold-button.release) { background:#352A13; color:#F0D892; border-color:#79622B; }
+@media(max-width:900px) { html[data-theme] body.system-admin-ui .directory-page .table-system-toolbar .table-toolbar { grid-template-columns:repeat(2,minmax(0,1fr)) !important; } }
+@media(max-width:540px) { html[data-theme] body.system-admin-ui .directory-page .table-system-toolbar .table-toolbar { grid-template-columns:minmax(0,1fr) !important; } }
+@media(prefers-reduced-motion:reduce) { body.system-admin-ui *,body.system-admin-ui *::before,body.system-admin-ui *::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
+
+html[data-theme] body.panel-shell-body.system-admin-ui .page-content::before,html[data-theme] body.panel-shell-body.system-admin-ui .page-content::after { content:none; }
+html[data-theme] body.panel-shell-body.system-admin-ui .branch-management-page :is(.branch-directory-card-view,.table-system-list,.table-system-head) { background:transparent !important; border:0 !important; padding:0 !important; }
+html[data-theme] body.panel-shell-body.system-admin-ui .branch-management-page :is(.directory-item-card,.branch-kpi-card) { background:var(--bm-card,var(--card)) !important; border-color:var(--bm-border,var(--border)) !important; border-radius:12px !important; }
+html[data-theme] body.panel-shell-body.system-admin-ui .branch-management-page :is(.directory-item-card:hover,.branch-kpi-card:hover) { background:var(--bm-hover,var(--records-hover)) !important; border-color:var(--bm-border,var(--border-strong)) !important; }
+html[data-theme] body.panel-shell-body.system-admin-ui .branch-management-page :is(.branch-card-identity,.branch-card-footer,.branch-card-metric) { background:transparent !important; border-color:var(--border) !important; }
+html[data-theme] body.panel-shell-body.system-admin-ui .branch-management-page :is(.branch-card-name,.branch-code-pill,.branch-kpi-card__value) { color:var(--ink) !important; }
+html[data-theme] body.panel-shell-body.system-admin-ui .branch-management-page :is(.branch-kpi-card__label,.branch-kpi-card__desc) { color:var(--ink-muted) !important; font-size:12px; white-space:normal; }
+html[data-theme] body.panel-shell-body.system-admin-ui .branch-management-page .branch-kpi-card__icon { background:var(--surface-muted); color:var(--brand); width:40px; height:40px; }
+html[data-theme] body.panel-shell-body.system-admin-ui .branch-management-page .branch-card-actions { opacity:1; transform:none; }
+html[data-theme] body.panel-shell-body.system-admin-ui .branch-management-page .branch-card-menu summary { min-height:44px; background:var(--surface-muted); color:var(--ink); border-color:var(--border); }
+html[data-theme] body.panel-shell-body.system-admin-ui .branch-management-page .row-action-trigger { background:var(--surface-muted) !important; color:var(--ink) !important; border-color:var(--border) !important; }
+/* Native dialog backdrop owns the dim layer; the dialog viewport itself stays clear. */
+html[data-theme] body.system-admin-ui :is(#branchCreateModalOverlay,#branchModalOverlay) { width:100vw; max-width:none; height:100dvh; max-height:none; margin:0; padding:16px; border:0; background:transparent !important; backdrop-filter:none !important; }
+html[data-theme] body.system-admin-ui :is(#branchCreateModalOverlay,#branchModalOverlay)::backdrop { background:var(--modal-scrim,rgba(15,23,42,.72)); }
+html[data-theme] body.system-admin-ui :is(#branchCreateModalSheet,#branchModalSheet,#branchModalContent,#branchCreateForm) { background:var(--card) !important; color:var(--ink); border-color:var(--border) !important; border-radius:12px; }
+html[data-theme] body.system-admin-ui :is(#branchCreateModalSheet,#branchModalSheet) :is(.bg-white,.bg-slate-50,.bg-slate-100,.rounded-2xl,.border-b,.border-t) { background:var(--card) !important; border-color:var(--border) !important; }
+html[data-theme] body.system-admin-ui :is(#branchCreateModalSheet,#branchModalSheet) :is(.text-slate-900,.text-slate-700,h2) { color:var(--ink) !important; font-family:var(--font-heading); }
+html[data-theme] body.system-admin-ui :is(#branchCreateModalSheet,#branchModalSheet) :is(.text-slate-500,.label-section) { color:var(--ink-muted) !important; }
+html[data-theme] body.system-admin-ui :is(#branchCreateModalClose,.branch-modal-close) { display:grid; place-items:center; width:44px; height:44px; border-radius:8px; background:var(--surface-muted); color:var(--ink); }
+body.admin-dialog-open .page-content { overflow:hidden !important; }
+body.admin-dialog-open .panel-scroll-top { display:none !important; }
+html[data-theme] body.system-admin-ui .backup-dialog { background:var(--card); color:var(--ink); border-color:var(--border); font-family:var(--font-body); border-radius:12px; }
+html[data-theme] body.system-admin-ui :is(.backup-dialog-head,.backup-dialog-actions,.backup-includes,.restore-summary) { background:var(--surface-muted); border-color:var(--border); color:var(--ink); }
+html[data-theme] body.system-admin-ui .backup-dialog :is(h2,.backup-dialog-close,.backup-cancel,.restore-fields label) { color:var(--ink); }
+html[data-theme] body.system-admin-ui .backup-dialog :is(p,.backup-includes li,.restore-confirm-hint) { color:var(--ink-muted); font-size:13px; }
+html[data-theme] body.system-admin-ui :is(.backup-dialog-close,.backup-cancel) { background:var(--surface-muted); border-color:var(--border); min-height:44px; }
+html[data-theme] body.system-admin-ui .restore-fields :is(input,textarea) { color:var(--ink); background:var(--card); border-color:var(--border); font-size:14px; min-height:44px; }
+html[data-theme='dark'] body.system-admin-ui .restore-warning { color:#F0D892; background:#352A13; border-color:#79622B; }
+html[data-theme] body.system-admin-ui :is(.pkg-panel,.pkg-summary,.pkg-preview,.prof-section-card,.prof-hero-card,.prof-modal-card) { background:var(--card) !important; border-color:var(--border) !important; border-radius:12px; box-shadow:none !important; }
+html[data-theme] body.system-admin-ui :is(.pkg-panel-head,.pkg-summary-head,.prof-section-head,.prof-modal-head,.prof-modal-foot) { background:var(--surface-muted) !important; border-color:var(--border) !important; }
+html[data-theme] body.system-admin-ui :is(.pkg-panel-title,.pkg-summary-title,.prof-value,.prof-name,.prof-section-title,.prof-modal-title) { color:var(--ink) !important; font-family:var(--font-heading); }
+html[data-theme] body.system-admin-ui :is(.pkg-panel-copy,.prof-label,.prof-email,.prof-modal-desc,.prof-lock-note) { color:var(--ink-muted) !important; }
+html[data-theme] body.system-admin-ui :is(.prof-field,.prof-security-row,.pkg-service,.pkg-service-row,.pkg-money) { background:var(--card) !important; border-color:var(--border) !important; }
+html[data-theme] body.system-admin-ui .prof-modal-close { width:44px; height:44px; background:var(--surface-muted); color:var(--ink); border-color:var(--border); }
+html[data-theme] body.system-admin-ui :is(.prof-modal-overlay,.prof-overlay) { background:var(--modal-scrim,rgba(15,23,42,.72)); }
+html[data-theme] body.system-admin-ui :is(.aoc-form,.fbc-form,.cc-form,.pkg-workspace) :is(.form-input,.form-select,textarea,select) { background:var(--card) !important; border-color:var(--border) !important; color:var(--ink) !important; min-height:44px; }
+html[data-theme] body.system-admin-ui :is(.user-create-page,.user-edit-page) { background:transparent !important; color:var(--ink); }
+html[data-theme] body.system-admin-ui :is(.user-create-shell,.user-create-head,.user-create-footer,.user-create-section,.user-edit-page .modal-shell-card,.user-edit-page .modal-shell-card > .border-b,.user-edit-page .modal-shell-card > form > .border-t) { background:var(--card) !important; border-color:var(--border) !important; border-radius:12px; }
+html[data-theme] body.system-admin-ui :is(.user-create-page,.user-edit-page) :is(h2,h3,.label-section,.text-slate-900) { color:var(--ink) !important; font-family:var(--font-heading); }
+html[data-theme] body.system-admin-ui :is(.user-create-page,.user-edit-page) :is(p,.form-hint,.text-slate-500,.text-slate-600) { color:var(--ink-muted) !important; }
+html[data-theme] body.system-admin-ui .panel-page-header::after { content:none; }
+html[data-theme] body.system-admin-ui .recovery-actions .recovery-action { background:var(--surface-muted); color:var(--ink); border-color:var(--border); }
+html[data-theme] body.system-admin-ui .recovery-actions .recovery-action:hover { background:var(--records-hover); }
+html[data-theme] body.system-admin-ui :is(.aoc-note,.fbc-note,.cc-note,.aoc-money,.cc-money,.pkg-note,.prof-lock-note) { background:var(--surface-muted) !important; color:var(--ink-muted) !important; border-color:var(--border) !important; }
+html[data-theme] body.system-admin-ui :is(.aoc-note,.fbc-note,.cc-note) :is(span,i) { color:var(--ink-muted) !important; }
+html[data-theme] body.system-admin-ui :is(.aoc-actions,.fbc-actions,.cc-actions,.prof-sheet) { background:var(--card) !important; border-color:var(--border) !important; color:var(--ink); }
+html[data-theme] body.system-admin-ui :is(.aoc-secondary,.fbc-secondary,.cc-secondary) { background:var(--surface-muted) !important; color:var(--ink) !important; border-color:var(--border) !important; min-height:44px; }
+html[data-theme] body.system-admin-ui :is(.aoc-primary,.fbc-primary,.cc-primary) { background:#1B4332 !important; color:#fff !important; border-color:#1B4332 !important; min-height:44px; }
+html[data-theme] body.system-admin-ui :is(.aoc-primary,.fbc-primary,.cc-primary):hover { background:#123325 !important; }
+html[data-theme] body.system-admin-ui :is(.aoc-secondary,.fbc-secondary,.cc-secondary):hover { background:var(--records-hover) !important; }
+html.system-admin-modal-open,body.system-admin-modal-open { overflow:hidden; }
+body.system-admin-modal-open .page-content { overflow:hidden !important; }
+body.system-admin-modal-open .panel-scroll-top { display:none !important; }
+html[data-theme] body.system-admin-ui .reports-page :is(.reports-btn,.reports-control,.reports-select) { min-height:44px; }
+html[data-theme] body.system-admin-ui .reports-page .reports-metric-icon { background:var(--surface-muted); color:var(--brand); border:1px solid var(--border); }
+html[data-theme] body.system-admin-ui .reports-page :is(.reports-btn-secondary,.reports-btn-neutral) { background:var(--surface-muted); color:var(--ink); border-color:var(--border); }
+html[data-theme] body.system-admin-ui .reports-page .reports-btn-primary { background:#1B4332; color:#fff; border-color:#1B4332; }
+html[data-theme] body.system-admin-ui .reports-page .reports-btn-primary:hover:not(:disabled) { background:#123325; transform:none; }
+html[data-theme] body.system-admin-ui .reports-page :is(.reports-btn-secondary,.reports-btn-neutral):hover:not(:disabled) { background:var(--records-hover); transform:none; }
+html[data-theme] body.system-admin-ui .admin-table-page { --records-hover:#C2DAC9; }
+html[data-theme='dark'] body.system-admin-ui .admin-table-page { --records-hover:#1B3527; }
+html[data-theme='dark'] body.system-admin-ui :is(.form-error,.backup-field-error) { color:#FECACA; }
+html[data-theme] body.system-admin-ui .page-content { scroll-padding-top:96px; }
+html[data-theme] body.system-admin-ui .page-content :is(a,button,input,select,textarea,summary) { scroll-margin-block:24px; }
+@media(max-width:540px) { html[data-theme] body.system-admin-ui .directory-page .table-system-toolbar { position:static; } }
+body.system-admin-ui:has(.prof-overlay.is-open) .page-content { overflow:hidden !important; }
+body.system-admin-ui:has(.prof-overlay.is-open) .panel-scroll-top { display:none !important; }

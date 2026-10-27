@@ -1,0 +1,297 @@
+/* Reference intake presentation; existing form fields and wizard hooks are retained. */
+/* Shared dark foundations cover static and dynamically inserted intake controls. */
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference {
+    color-scheme: dark;
+    --color-bg-surface: #112218;
+    --color-bg-muted: #14261D;
+    --color-border: #29523D;
+    --color-border-strong: #34D399;
+    --color-text-primary: #F8FAFC;
+    --color-text-secondary: #94A3B8;
+    --color-primary: #1B4332;
+    --color-primary-hover: #245B43;
+    --color-primary-active: #123325;
+}
+/* Keep every intake step on the same dark surfaces and readable text hierarchy. */
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.service-tool-card, .pkg-card-body [class*='bg-white/']) { background: var(--staff-soft) !important; border-color: var(--staff-border) !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.pkg-section-title, .service-tool-title, .service-tool-value) { color: var(--staff-ink) !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.pkg-section-sub, .service-tool-help, .pkg-card-body [class*='text-[#']) { color: var(--staff-muted) !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference #open_package_adjustments_btn { background: #1B4332 !important; color: #F8FAFC !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.package-card, .pkg-premium-card, .subsection-soft, .service-detail-panel, .package-adjustments-head, .package-adjustments-body, .package-adjustments-foot, .payment-type-card, .payment-method-card) { background: var(--staff-card) !important; border-color: var(--staff-border) !important; color: var(--staff-ink) !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200) { background: var(--staff-soft) !important; border-color: var(--staff-border) !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(h3, h4, h5, h6, .pkg-name, .pkg-price, .pkg-price sub, .text-slate-900, .text-slate-800, .text-slate-700) { color: var(--staff-ink) !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.pkg-price-note, .pkg-tier-label, .section-title-text p, .text-slate-600, .text-slate-500, .text-slate-400) { color: var(--staff-muted) !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.pkg-select-btn, .package-details-btn) { background: #1B4332 !important; border-color: var(--staff-border) !important; color: #F8FAFC !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference .package-card:has(.package-radio:checked) { background: #142D21 !important; border-color: #34D399 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference .wizard-tab.completed-step { background: #102C20 !important; border-color: #29523D !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference .wizard-tab.completed-step .wizard-step-label { color: #D1FAE5 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference .wizard-tab .wz-sub { color: #94A3B8 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference .wizard-tab.is-locked { opacity: .8; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.border-slate-200, .border-slate-300) { border-color: var(--staff-border) !important; }
+body.panel-shell-body.staff-ui .intake-reference .wake-period-group { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--staff-border); border-radius: 10px; background: var(--staff-card); }
+body.panel-shell-body.staff-ui .intake-reference .wake-period-heading { font-size: .875rem; font-weight: 700; color: var(--staff-ink); }
+body.panel-shell-body.staff-ui .intake-reference .wake-duration-summary { padding: 12px !important; background: var(--staff-soft) !important; }
+body.panel-shell-body.staff-ui .intake-reference .wake-duration-summary .schedule-field-label p { display: none; }
+body.panel-shell-body.staff-ui .intake-reference .wake-duration-summary .service-readout { padding: 0 !important; border: 0 !important; min-height: 0 !important; background: transparent !important; }
+body.panel-shell-body.staff-ui .intake-root .schedule-time-popover { width: 280px !important; padding: 16px !important; grid-template-columns: 1fr !important; gap: 12px !important; background: var(--staff-card) !important; border-color: var(--staff-border) !important; }
+body.panel-shell-body.staff-ui .intake-root .time-editor-fields { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: end; }
+body.panel-shell-body.staff-ui .intake-root .time-editor-fields label { display: grid; gap: 6px; font-size: .75rem; font-weight: 600; }
+body.panel-shell-body.staff-ui .intake-root .time-editor-fields input { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--staff-border); background: var(--staff-card); color: var(--staff-ink); border-radius: 8px; padding: 8px; text-align: center; font-size: 1.25rem; }
+body.panel-shell-body.staff-ui .intake-root .time-editor-colon { padding-bottom: 10px; }
+body.panel-shell-body.staff-ui .intake-root :is(.time-period-buttons, .time-minute-shortcuts) { display: flex; gap: 8px; }
+body.panel-shell-body.staff-ui .intake-root :is(.time-period-buttons, .time-minute-shortcuts) button { flex: 1; min-height: 44px; border: 1px solid var(--staff-border); border-radius: 8px; color: var(--staff-ink); background: var(--staff-card); }
+body.panel-shell-body.staff-ui .intake-root .time-period-buttons button[aria-pressed='true'], body.panel-shell-body.staff-ui .intake-root .time-editor-apply { background: #1B4332; color: white; }
+body.panel-shell-body.staff-ui .intake-root .time-editor-apply { min-height: 44px; border-radius: 8px; font-weight: 600; }
+body.panel-shell-body.staff-ui .intake-root .time-editor-error { color: #DC2626 !important; font-size: .75rem; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root .time-editor-error { color: #FCA5A5 !important; }
+@media (max-width: 767px) {
+    body.panel-shell-body.staff-ui .intake-root .schedule-time-popover { position: fixed !important; inset: auto 16px 16px !important; width: auto !important; z-index: 300; }
+    body.panel-shell-body.staff-ui .intake-reference .schedule-field-row { grid-template-columns: minmax(0, 1fr) !important; gap: 12px !important; }
+}
+body.panel-shell-body.staff-ui:has(.intake-reference) .page-content { overflow: visible !important; }
+body.panel-shell-body.staff-ui:has(.intake-reference) .main-area { overflow-y: auto !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .intake-section-shell { flex: none !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .wizard-tab .wz-body { align-items: flex-start !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference #intakeFormContent > .wizard-panel:not(.hidden) { flex: none !important; min-height: 0 !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference #intakeFormContent .intake-field-section { flex: none !important; min-height: 0 !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference :is(#intakeCancelBtn, #wizardPrev) { background: var(--staff-card) !important; color: var(--staff-ink) !important; border-color: var(--staff-border) !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .intake-field-error { color: #DC2626 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference .intake-field-error { color: #FCA5A5 !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference :is(label, .field-label) { color: var(--staff-ink) !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .intake-section-shell { border: 0 !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .wizard-tab .wz-body { background: transparent !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .intake-top-shell { background: var(--staff-card) !important; border-color: var(--staff-border) !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .wizard-tab { flex-direction: row !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.wizard-tab .wizard-step-label, .wizard-tab .wz-sub) { text-align: left !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference :is(input, textarea)::placeholder { color: var(--staff-muted) !important; opacity: .8; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference {
+    --intake-page: var(--staff-canvas);
+    --intake-card: var(--staff-card);
+    --intake-card-alt: var(--staff-card);
+    --intake-card-strong: var(--staff-soft);
+    --intake-hover: var(--staff-hover);
+    --intake-active: var(--staff-soft);
+    --intake-border: var(--staff-border);
+    --intake-border-strong: var(--staff-action);
+    --intake-text: var(--staff-ink);
+    --intake-muted: var(--staff-muted);
+    --intake-dark: #1B4332;
+    --intake-dark-hover: #123325;
+    height: auto !important; max-height: none !important; min-height: 100vh !important;
+    padding: 24px !important; background: var(--staff-canvas) !important;
+    gap: 24px; overflow: visible !important;
+}
+body.panel-shell-body.staff-ui .intake-root.intake-reference > :is(.intake-top-shell, .intake-section-shell) { width: 100%; max-width: 1024px; margin-inline: auto; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .intake-top-shell { border-radius: 12px !important; padding: 20px !important; min-height: 0 !important; gap: 16px; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .intake-page-heading-copy h1 { font-size: 1.125rem !important; line-height: 1.5; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .intake-page-heading-copy p { font-size: .75rem !important; line-height: 1.5; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .intake-progress-rail { display: none; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .intake-section-shell { flex-direction: column !important; gap: 24px; overflow: visible !important; flex: none; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .wizard-steps-shell { order: 0; width: 100% !important; display: flex !important; flex-direction: row !important; gap: 8px; padding: 16px !important; border: 1px solid var(--staff-border) !important; border-radius: 12px !important; background: var(--staff-card) !important; overflow-x: auto !important; overflow-y: hidden !important; flex-shrink: 0; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.wizard-steps-group-label, .wz-line) { display: none !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .wizard-tab { flex: 1 0 150px; width: auto; min-width: 150px; align-items: center; gap: 10px; padding: 8px !important; border: 1px solid transparent !important; border-radius: 8px; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .wizard-tab .wz-track { order: 0; width: 28px; padding: 0 !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .wizard-tab .wz-body { order: 1; padding: 0 !important; margin: 0 !important; min-height: 0 !important; align-items: flex-start; text-align: left; background: transparent !important; visibility: visible !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .wizard-tab .wizard-step-number { width: 28px; height: 28px; box-shadow: none !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .wizard-tab .wizard-step-label { font-size: .75rem !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .wizard-tab .wz-sub { font-size: .625rem !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .wizard-tab.is-locked { opacity: .6; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .wizard-tab.active-step { background: var(--staff-soft) !important; border-color: var(--staff-border) !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .wizard-tab:is(.active-step, .completed-step) .wizard-step-number { background: #1B4332 !important; border-color: #1B4332 !important; color: white !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .intake-form-wrapper { order: 1; overflow: visible !important; background: transparent !important; border: 0 !important; flex: none !important; min-height: 0 !important; height: auto !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference :is(#intakeWizardForm, #intakeFormContent) { flex: none !important; height: auto !important; min-height: 0 !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .intake-section-shell { height: auto !important; min-height: 0 !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .intake-field-section { padding: 16px 18px !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.intake-name-grid, .intake-info-grid) { gap: 16px !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .section-title-block { margin-bottom: 20px !important; padding-bottom: 16px; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference #intakeFormContent { padding: 0 !important; overflow: visible !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .wizard-panel { border-radius: 12px !important; padding: 24px !important; background: var(--staff-card) !important; border-color: var(--staff-border) !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .intake-field-section { background: transparent !important; border-color: var(--staff-border) !important; border-radius: 8px !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.form-input, .form-textarea) { background: var(--staff-card) !important; color: var(--staff-ink) !important; border-color: var(--staff-border) !important; border-radius: 8px !important; min-height: 44px; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.form-input, .form-textarea):focus { border-color: var(--staff-action) !important; box-shadow: 0 0 0 2px var(--staff-soft) !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.form-input, .form-textarea).field-error { border-color: #DC2626 !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .footer-action-bar { position: static !important; margin-top: 24px !important; padding: 16px 20px !important; background: var(--staff-card) !important; border: 1px solid var(--staff-border) !important; border-radius: 12px !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference :is(#wizardNext, #saveIntakeRecord) { background: #1B4332 !important; color: white !important; box-shadow: none !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .intake-theme-button { display: grid; place-items: center; width: 40px; height: 40px; flex: 0 0 40px; border: 1px solid var(--staff-border); border-radius: 8px; background: var(--staff-soft); color: var(--staff-action); }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.section-title-text h3, .intake-section-kicker, .wizard-step-label) { color: var(--staff-ink) !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.intake-page-heading-copy p, .intake-section-kicker i) { color: var(--staff-action) !important; }
+/* The panel's floating navigation button must not cover the intake heading. */
+@media (min-width: 768px) and (max-width: 1024px) {
+    body.panel-shell-body.staff-ui .intake-root.intake-reference { padding-top: 72px !important; }
+}
+@media (max-width: 767px) {
+    body.panel-shell-body.staff-ui .intake-root.intake-reference { padding: 72px 16px 16px !important; gap: 16px; }
+    body.panel-shell-body.staff-ui .intake-root.intake-reference .intake-section-shell { gap: 16px; }
+    body.panel-shell-body.staff-ui .intake-root.intake-reference .wizard-steps-shell { padding: 12px !important; }
+    body.panel-shell-body.staff-ui .intake-root.intake-reference .wizard-panel { padding: 20px !important; }
+    body.panel-shell-body.staff-ui .intake-root.intake-reference .intake-top-shell { padding: 16px !important; }
+    body.panel-shell-body.staff-ui .intake-root.intake-reference .intake-brand { min-width: 0; max-width: 100%; flex-shrink: 1; gap: 10px; }
+    body.panel-shell-body.staff-ui .intake-root.intake-reference .intake-brand-logo { display: none; }
+    body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.intake-name-grid, .intake-info-grid) { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+/* Final dark states override the older navy/cream intake styles. */
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(#package_adjustments_panel, #optional_add_ons_panel, #package_details_modal > .relative, #intakeCancelModal .cancel-modal-box) { background: #112218 !important; color: #F8FAFC !important; border-color: #29523D !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(#intakeCancelModalKeep, #intakeCancelModalDiscard) { background: #14261D !important; color: #F8FAFC !important; border-color: #527461 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference #intakeCancelModalSaveDraft { background: #1B4332 !important; color: #F8FAFC !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.payment-method-card, .payment-type-card).active-tab { background: #163B2A !important; border-color: #34D399 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference input:-webkit-autofill { -webkit-text-fill-color: #F8FAFC; -webkit-box-shadow: 0 0 0 1000px #14261D inset; caret-color: #F8FAFC; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui:has(.intake-reference) .flatpickr-calendar :is(.flatpickr-prev-month, .flatpickr-next-month) svg { fill: #34D399 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(input:not([type='hidden']):not([type='checkbox']):not([type='radio']), select, textarea, .schedule-time-display, .schedule-time-popover, .service-readout) { background: #14261D !important; color: #F8FAFC !important; border-color: #29523D !important; color-scheme: dark; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(input, textarea)::placeholder { color: #94A3B8 !important; opacity: 1 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(input, select, textarea):focus-visible { outline: 2px solid #34D399 !important; outline-offset: 2px; box-shadow: none !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(input[readonly], input:disabled, select:disabled, textarea:disabled) { background: #0C1C13 !important; color: #94A3B8 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(input[type='checkbox'], input[type='radio']) { accent-color: #34D399; background-color: #14261D; border-color: #527461; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is([class*='bg-[#'], [class*='bg-white/'], .cancel-modal-box, .review-card, .review-section, .bpay-tab-group, .service-tool-card, .schedule-field-row, .time-input-wrap, #package_details_modal .relative, #package_details_modal .bg-white) { background-color: #14261D !important; border-color: #29523D !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is([class*='text-[#'], .cancel-modal-title, .review-label, .review-value, .field-label, .time-column-label, .schedule-field-label .field-label) { color: #F8FAFC !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.cancel-modal-msg, .intake-field-help, .schedule-field-label p, .service-detail-panel-header p, .service-tool-help, .bpay-help, small) { color: #94A3B8 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference button { color: #F8FAFC; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(button[class*='bg-white'], .review-edit, [data-package-details-close], #cancel_add_ons_btn, #cancel_package_adjustments_btn) { background: #14261D !important; border-color: #29523D !important; color: #F8FAFC !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(button[class*='bg-[#'], #saveDraftBtn, #apply_add_ons_btn, #apply_package_adjustments_btn, .time-editor-apply) { background: #1B4332 !important; border-color: #29523D !important; color: #F8FAFC !important; }
+/* Hover colors are shared with the reference dashboard below. */
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference button:focus-visible { outline: 2px solid #34D399; outline-offset: 3px; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.payment-type-card, .payment-method-card, .optional-add-on-row):has(input:checked) { background: #163B2A !important; border-color: #34D399 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.time-period-buttons button[aria-pressed='true'], .wizard-tab.active-step) { background: #1B4332 !important; color: #F8FAFC !important; border-color: #34D399 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.field-error, .form-input.field-error) { border-color: #FB7185 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.intake-field-error, .time-editor-error, .text-rose-500, .text-rose-600, .text-red-600) { color: #FDA4AF !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.bg-amber-50, .bg-amber-100) { background: #35250D !important; border-color: #805A1E !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.text-amber-700, .text-amber-800, .text-amber-900) { color: #FCD34D !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui:has(.intake-reference) .flatpickr-calendar { background: #112218 !important; border-color: #29523D !important; color: #F8FAFC !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui:has(.intake-reference) .flatpickr-calendar :is(.flatpickr-day, .flatpickr-weekday, .flatpickr-current-month, .numInput, .intake-year-dropdown) { color: #F8FAFC !important; background-color: transparent !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui:has(.intake-reference) .flatpickr-day.flatpickr-disabled { color: #6B8276 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui:has(.intake-reference) .flatpickr-day:is(.selected, .startRange, .endRange) { background: #1B4332 !important; border-color: #34D399 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui:has(.intake-reference) .flatpickr-day:not(.flatpickr-disabled):hover { background: #245B43 !important; }
+
+/* Payment choices retain native radios for mouse, touch, and keyboard selection. */
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference .wizard-panel[data-step='4'] p:not(.intake-field-error) { color: #94A3B8 !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.payment-method-card, .payment-type-card) { position: relative; display: flex; align-items: center; gap: 12px; min-height: 88px; padding: 16px 42px 16px 16px !important; border: 1px solid var(--staff-border) !important; border-radius: 10px !important; background: var(--staff-card) !important; color: var(--staff-ink) !important; transition: background .15s, border-color .15s; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.payment-method-card, .payment-type-card):has(input:checked) { background: var(--staff-soft) !important; border-color: var(--staff-action) !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.payment-method-card, .payment-type-card):has(input:checked)::after { content: '\F26E'; font-family: bootstrap-icons; position: absolute; top: 16px; right: 14px; color: var(--staff-action); font-size: 18px; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.payment-method-card, .payment-type-card):focus-within { outline: 2px solid var(--staff-action); outline-offset: 3px; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .payment-choice-title { display: flex; align-items: center; gap: 10px; font-size: .875rem; font-weight: 700; color: var(--staff-ink) !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .payment-choice-icon { display: grid; place-items: center; width: 36px; height: 36px; flex: 0 0 36px; border-radius: 8px; background: var(--staff-soft); color: var(--staff-action); font-size: 18px; }
+body.panel-shell-body.staff-ui .intake-root .billing-heading-icon { background: var(--staff-soft); color: var(--staff-action); border: 1px solid var(--staff-border); }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root .billing-heading-icon { background: #06251B; color: #34D399; border-color: #29523D; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .payment-type-copy { display: grid; gap: 6px; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .payment-choice-help { font-size: .75rem; font-weight: 400; color: var(--staff-muted); }
+body.panel-shell-body.staff-ui .intake-root.intake-reference #payment_type_group { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 0 !important; background: transparent !important; border: 0 !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .payment-select-wrap { position: relative; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .payment-select-wrap select { appearance: none; padding-left: 42px !important; padding-right: 40px !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.payment-select-icon, .payment-select-chevron) { position: absolute; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--staff-action); }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .payment-select-icon { left: 14px; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference .payment-select-chevron { right: 14px; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.payment-method-card, .payment-type-card):has(input:checked) { background: #163B2A !important; border-color: #34D399 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.payment-choice-icon, .section-heading-icon, #mark_as_paid_icon, .wizard-panel[data-step='4'] .bg-slate-800) { background: #06251B !important; color: #34D399 !important; border: 1px solid #29523D; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(#package_adjustments_panel, #optional_add_ons_panel, #package_details_modal) :is(h5, h6, strong, .service-tool-title) { color: #F8FAFC !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(#package_adjustments_panel, #optional_add_ons_panel) :is(.bg-white, .bg-slate-50, [class*='bg-[#']) { background: #14261D !important; border-color: #29523D !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(#package_adjustments_panel, #optional_add_ons_panel) button { background: #14261D !important; color: #F8FAFC !important; border-color: #527461 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :is(#apply_add_ons_btn, #apply_package_adjustments_btn, #confirm_package_adjustments_btn) { background: #1B4332 !important; color: #F8FAFC !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.package-adjustments-head, .package-adjustments-foot) { flex-shrink: 0; }
+@media (max-width: 699px) {
+    body.panel-shell-body.staff-ui .intake-root.intake-reference :is(#payment_method_group, #payment_type_group) { grid-template-columns: minmax(0, 1fr) !important; }
+    body.panel-shell-body.staff-ui .intake-root.intake-reference :is(.payment-method-card, .payment-type-card) { min-height: 76px; }
+}
+
+/* Remaining date header and billing readouts. */
+html[data-theme='dark'] body.panel-shell-body.staff-ui:has(.intake-reference) .flatpickr-calendar .flatpickr-current-month :is(.flatpickr-monthDropdown-months, .intake-year-dropdown, input.cur-year) { background: #14261D !important; color: #F8FAFC !important; border-color: #527461 !important; color-scheme: dark; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui:has(.intake-reference) .flatpickr-calendar :is(.flatpickr-prev-month, .flatpickr-next-month) { background: #14261D !important; color: #34D399 !important; border: 1px solid #29523D !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui:has(.intake-reference) .flatpickr-calendar :is(.flatpickr-prev-month, .flatpickr-next-month)::before { color: #34D399 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui:has(.intake-reference) .flatpickr-calendar .flatpickr-day.today { border-color: #34D399 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :has(> #payment_paid_preview) { color: #6EE7B7 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :has(> #payment_balance_preview) { color: #F8FAFC !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :has(> :has(> #payment_paid_preview)) { background: #102C20 !important; border-color: #29523D !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference :has(> :has(> #payment_balance_preview)) { background: #0C1C13 !important; border-color: #527461 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root.intake-reference .payment-summary-label { color: #94A3B8 !important; opacity: 1 !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference #amount_paid { border: 0 !important; border-radius: 0 !important; box-shadow: none !important; background: transparent !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference :has(> #amount_paid):focus-within { outline: 2px solid var(--staff-action); outline-offset: 2px; box-shadow: none !important; }
+body.panel-shell-body.staff-ui .intake-root.intake-reference #amount_paid:focus-visible { outline: 0 !important; }
+/* Shared reference interactions for staff intake and dashboard. */
+html[data-theme] body.panel-shell-body.staff-ui :is(.staff-dashboard-v2, .intake-root) :is(button, a, .payment-method-card, .payment-type-card, .package-card) {
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 :is(.staff-action-card .icon, .staff-action-arrow) { transition: transform 150ms ease, background-color 150ms ease; }
+@media (hover: hover) and (pointer: fine) {
+    html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .staff-action-card.is-light:hover { background: var(--staff-card) !important; border-color: var(--staff-action) !important; box-shadow: 0 1px 3px rgb(0 0 0 / 12%); }
+    html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .staff-action-card:hover .icon { transform: scale(1.02); }
+    html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .staff-action-card:hover .staff-action-arrow { transform: translateX(2px); background: var(--staff-hover) !important; }
+    html[data-theme] body.panel-shell-body.staff-ui .intake-root :is(.payment-method-card, .payment-type-card, .package-card):not(:has(input:disabled)):hover { border-color: var(--staff-action) !important; box-shadow: 0 1px 3px rgb(0 0 0 / 12%); }
+    html[data-theme] body.panel-shell-body.staff-ui .intake-root :is(.payment-method-card, .payment-type-card):not(:has(input:checked)):hover { background: var(--staff-hover) !important; }
+    html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 :is(a.ref-schedule-card, a.ref-attention-card, .ref-activity-row):hover { background: var(--staff-hover) !important; border-color: var(--staff-action) !important; }
+    html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 :is(.staff-link, .ref-balance-case):hover { text-decoration: underline; text-underline-offset: 3px; }
+    html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .staff-tab-btn:not(.is-active):hover { background: var(--staff-hover) !important; color: var(--staff-ink) !important; }
+    html[data-theme] body.panel-shell-body.staff-ui .intake-root button:not(:disabled):not([aria-disabled='true']):hover { filter: brightness(.94); }
+    html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .ref-collect:hover,
+    html[data-theme] body.panel-shell-body.staff-ui .intake-root :is(#wizardNext, #apply_add_ons_btn, #apply_package_adjustments_btn, .time-editor-apply):not(:disabled):hover { background: #123325 !important; color: #FFF !important; filter: none; }
+}
+html[data-theme] body.panel-shell-body.staff-ui :is(.staff-dashboard-v2, .intake-root) :is(button, a):focus-visible { outline: 2px solid var(--staff-action); outline-offset: 3px; }
+html[data-theme] body.panel-shell-body.staff-ui .intake-root :is(.payment-method-card, .payment-type-card, .package-card):focus-within { outline: 2px solid var(--staff-action); outline-offset: 3px; }
+html[data-theme] body.panel-shell-body.staff-ui :is(.staff-dashboard-v2, .intake-root) :is(button, .staff-action-card, .payment-method-card, .payment-type-card):not(:disabled):active { box-shadow: inset 0 0 0 2px var(--staff-border); }
+@media (prefers-reduced-motion: reduce) {
+    html[data-theme] body.panel-shell-body.staff-ui :is(.staff-dashboard-v2, .intake-root) :is(button, a, .payment-method-card, .payment-type-card, .package-card, .icon, .staff-action-arrow) { transition: none !important; transform: none !important; }
+}
+/* Lock the actual staff scroll container while the leave dialog is open. */
+html[data-theme] body.panel-shell-body.staff-ui:has(#intakeCancelModal:not(.hidden)) .main-area { overflow: hidden !important; }
+html[data-theme] body.panel-shell-body.staff-ui .intake-root #intakeCancelModal .cancel-modal-box { width: min(100%, 480px); padding: 28px; max-height: calc(100dvh - 32px); overflow-y: auto; position: relative; }
+html[data-theme] body.panel-shell-body.staff-ui .intake-root #intakeCancelModal .cancel-modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
+html[data-theme] body.panel-shell-body.staff-ui .intake-root #intakeCancelModal .cancel-modal-actions button { min-height: 48px; padding: 12px 16px; line-height: 1.4; white-space: normal; }
+html[data-theme] body.panel-shell-body.staff-ui .intake-root #intakeCancelModalSaveDraft { grid-column: 1 / -1; }
+html[data-theme] body.panel-shell-body.staff-ui .intake-root #intakeCancelModalDiscard { color: var(--staff-ink) !important; }
+@media (max-width: 480px) { html[data-theme] body.panel-shell-body.staff-ui .intake-root #intakeCancelModal .cancel-modal-actions { grid-template-columns: 1fr; } }
+/* Review confirmation retains its native required checkbox and a clear visual mark. */
+html[data-theme] body.panel-shell-body.staff-ui .intake-root .review-confirmation { position: relative; align-items: center; background: var(--staff-card) !important; border-color: var(--staff-border) !important; color: var(--staff-ink) !important; min-height: 76px; }
+html[data-theme] body.panel-shell-body.staff-ui .intake-root #confirm_review.review-confirmation-input { position: absolute; width: 24px !important; height: 24px !important; left: 20px; margin: 0; opacity: 0; }
+html[data-theme] body.panel-shell-body.staff-ui .intake-root .review-confirmation-mark { display: grid; place-items: center; flex: 0 0 24px; width: 24px; height: 24px; border: 2px solid #527461; border-radius: 6px; background: var(--staff-card); color: #FFF; }
+html[data-theme] body.panel-shell-body.staff-ui .intake-root .review-confirmation-mark i { visibility: hidden; font-size: 17px; line-height: 1; color: #FFF !important; }
+html[data-theme] body.panel-shell-body.staff-ui .intake-root #confirm_review:checked + .review-confirmation-mark { background: #1B4332; border-color: #1B4332; }
+html[data-theme] body.panel-shell-body.staff-ui .intake-root #confirm_review:checked + .review-confirmation-mark i { visibility: visible; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root #confirm_review:checked + .review-confirmation-mark { background: #34D399; border-color: #34D399; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root #confirm_review:checked + .review-confirmation-mark i { color: #07130E !important; }
+html[data-theme] body.panel-shell-body.staff-ui .intake-root #confirm_review:focus-visible + .review-confirmation-mark { outline: 2px solid var(--staff-action); outline-offset: 4px; }
+html[data-theme] body.panel-shell-body.staff-ui .intake-root .review-confirmation-copy { color: var(--staff-ink) !important; }
+@media (hover: hover) { html[data-theme] body.panel-shell-body.staff-ui .intake-root .review-confirmation:hover { border-color: var(--staff-action) !important; } }
+/* Readable dark text across all five intake steps, including resumed drafts. */
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root :is(.intake-form-wrapper, .wizard-panel, .intake-draft-banner, .review-card, .cancel-modal-box) {
+    --color-text-primary: #F8FAFC;
+    --color-text-secondary: #B3C2BC;
+    --color-bg-surface: #112218;
+    --color-border: #527461;
+    color: #F8FAFC;
+}
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root :is(h1, h2, h3, h4, h5, h6, .field-label, .review-value, .pkg-section-title, .pkg-tier-label, .payment-choice-title, .intake-draft-banner [class*='color-text-primary'], [class*='text-slate-7'], [class*='text-slate-8'], [class*='text-slate-9'], [class*='text-[var(--color-text-primary)']) { color: #F8FAFC !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root :is(.intake-draft-banner, .wizard-step-sub, .payment-choice-help, .review-label, .intake-field-help, .pkg-section-sub, .service-tool-help, .intake-meta-value, [class*='text-slate-4'], [class*='text-slate-5'], [class*='text-slate-6'], [class*='text-[var(--color-text-secondary)']) { color: #B3C2BC !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root :is(.intake-draft-banner .ops-btn-outline, .review-edit, #wizardPrev, #intakeCancelBtn) { background: #14261D !important; color: #F8FAFC !important; border-color: #527461 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root :is(.section-heading-icon, .subsection-icon, .intake-draft-banner i, .field-label i, .schedule-field-label i, .service-tool-icon, .payment-choice-title i, .review-edit i) { color: #6EE7B7 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root :is(.text-blue-400, .text-blue-500) { color: #93C5FD !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root :is(.text-emerald-600, .text-emerald-700, .text-emerald-800) { color: #6EE7B7 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root :is(.text-amber-500, .text-amber-600, .text-amber-800, .text-amber-900) { color: #FCD34D !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root :is(.text-rose-500, .text-rose-600, .text-rose-900, .intake-field-error) { color: #FDA4AF !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root :is(.bg-amber-50, .bg-amber-100) { background: #352810 !important; border-color: #927344 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root :is(.bg-rose-50, .bg-rose-100) { background: #351A22 !important; border-color: #915368 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root :is(.bg-emerald-50, .bg-emerald-100) { background: #102C20 !important; border-color: #527461 !important; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root :is(input, textarea)::placeholder { color: #B3C2BC !important; opacity: 1; }
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root input[type='datetime-local']::-webkit-calendar-picker-indicator { opacity: 1; }
+/* Field names use a lighter weight and subtle tracking for comfortable scanning. */
+html[data-theme] body.panel-shell-body.staff-ui .intake-root :is(.field-label, .schedule-field-label > label, .schedule-field-label .field-label, .review-label) {
+    font-weight: var(--field-label-weight, 500) !important;
+    letter-spacing: var(--field-label-tracking, .035em) !important;
+}
+/* Intake notices share a quiet, readable corner placement. */
+html[data-theme] body.panel-shell-body.staff-ui .intake-root :is(#branch_toast, #package_toast) {
+    position: fixed !important; left: auto !important; right: 24px !important;
+    top: max(24px, env(safe-area-inset-top)) !important; bottom: auto !important;
+    transform: none !important; width: max-content !important; max-width: min(380px, calc(100vw - 48px)) !important;
+    padding: 14px 18px !important; border-radius: 12px !important;
+    background: #EAF2ED !important; color: #1B4332 !important; border: 1px solid #AEC7B7 !important;
+    box-shadow: 0 6px 20px rgb(8 29 19 / 12%) !important; font-weight: 500 !important;
+    line-height: 1.5; z-index: 190 !important; pointer-events: none;
+}
+html[data-theme='dark'] body.panel-shell-body.staff-ui .intake-root :is(#branch_toast, #package_toast) { background: #14261D !important; color: #D1FAE5 !important; border-color: #527461 !important; }
+html[data-theme] body.panel-shell-body.staff-ui .intake-root #package_toast i { color: inherit !important; }
+html[data-theme] body.panel-shell-body.staff-ui .intake-root:has(#branch_toast:not(.hidden)) #package_toast { top: 136px !important; }
+@media (max-width: 699px) {
+    html[data-theme] body.panel-shell-body.staff-ui .intake-root :is(#branch_toast, #package_toast) { right: 16px !important; top: max(72px, calc(env(safe-area-inset-top) + 16px)) !important; max-width: calc(100vw - 32px) !important; }
+    html[data-theme] body.panel-shell-body.staff-ui .intake-root:has(#branch_toast:not(.hidden)) #package_toast { top: 184px !important; }
+}
+html[data-theme] body.panel-shell-body.staff-ui .intake-root :is(#branch_toast, #package_toast):not(.hidden) { display: flex !important; align-items: flex-start; gap: 10px; }
+html[data-theme] body.panel-shell-body.staff-ui .intake-root .intake-notice-icon { flex: 0 0 auto; font-size: 20px; line-height: 1.5; color: inherit !important; }
+html[data-theme] body.panel-shell-body.staff-ui .intake-root :is(.intake-notice-text, .package-toast-text) { min-width: 0; overflow-wrap: anywhere; }

@@ -5,7 +5,8 @@ use Symfony\Component\Process\Process;
 require __DIR__ . '/../../vendor/autoload.php';
 
 $basePath = realpath(__DIR__ . '/../..');
-$databasePath = $basePath . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'database_dusk.sqlite';
+$databasePath = $_SERVER['DUSK_QA_DATABASE'] ?? getenv('DUSK_QA_DATABASE')
+    ?: $basePath . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'database_dusk.sqlite';
 $port = (int) ($_SERVER['DUSK_QA_PORT'] ?? getenv('DUSK_QA_PORT') ?: 8005);
 while ($port < 8025 && @fsockopen('127.0.0.1', $port, $errno, $errstr, 0.1)) {
     $port++;

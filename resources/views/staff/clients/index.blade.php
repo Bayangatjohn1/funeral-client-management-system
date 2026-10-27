@@ -4,7 +4,7 @@
 @section('page_desc', 'Family representatives, contact details, and linked case history.')
 
 @section('content')
-<div class="records-page">
+<div class="records-page staff-clients-page">
 @if(session('success'))
     <div class="flash-success">
         {{ session('success') }}
@@ -99,21 +99,21 @@
                         ]);
                     @endphp
                     <tr>
-                        <td>
+                        <td data-label="Family Representative">
                             <div class="table-primary">{{ $client->full_name }}</div>
-                            <div class="table-secondary">{{ $client->client_code ?? 'CL-' . str_pad($client->id, 3, '0', STR_PAD_LEFT) }}</div>
+                            <div class="table-secondary staff-records-mono">{{ $client->client_code ?? 'CL-' . str_pad($client->id, 3, '0', STR_PAD_LEFT) }}</div>
                         </td>
-                        <td>
-                            <div class="table-primary">{{ $client->contact_number ?: '-' }}</div>
+                        <td data-label="Contact">
+                            <div class="table-primary staff-records-mono">{{ $client->contact_number ?: '-' }}</div>
                             <div class="table-secondary">{{ \Illuminate\Support\Str::limit($client->address ?: 'Address not recorded', 42) }}</div>
                         </td>
-                        <td>
+                        <td data-label="Linked Cases">
                             <div class="table-primary">{{ $client->funeral_cases_count }} linked {{ \Illuminate\Support\Str::plural('case', $client->funeral_cases_count) }}</div>
                             <div class="table-secondary">{{ $latestCase?->deceased?->full_name ? \Illuminate\Support\Str::limit($latestCase->deceased->full_name, 34) : 'No linked case yet' }}</div>
                         </td>
-                        <td>
+                        <td data-label="Latest Activity">
                             @if($latestCase)
-                                <div class="table-primary">{{ $latestCase->case_code ?? 'Latest case' }}</div>
+                                <div class="table-primary staff-records-mono">{{ $latestCase->case_code ?? 'Latest case' }}</div>
                                 <div class="table-secondary">
                                     {{ $latestCase->created_at?->format('M d, Y') ?? 'Date pending' }}
                                     @if($latestCase->case_status)
@@ -125,7 +125,7 @@
                                 <div class="table-secondary">Created {{ $client->created_at?->format('M d, Y') ?? 'recently' }}</div>
                             @endif
                         </td>
-                        <td class="table-col-actions">
+                        <td class="table-col-actions" data-label="Actions">
                             <div class="table-row-actions">
                                 <div class="row-action-menu" data-row-menu>
                                     <button
@@ -392,4 +392,5 @@
     })();
 </script>
 </div>
+@include('staff.partials.remaining-pages-visual-system')
 @endsection

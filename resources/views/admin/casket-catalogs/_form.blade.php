@@ -69,6 +69,7 @@
     @media (max-width:680px) { .cc-grid { grid-template-columns:1fr; } .cc-actions { display:grid; } }
 </style>
 
+@include('admin.service-management.partials.catalog-form-ui')
 <form method="POST" action="{{ $action }}" class="cc-form mx-auto">
     @csrf
     @if($isEdit)
@@ -84,25 +85,25 @@
         <div class="cc-body">
             <div class="cc-grid">
                 <div>
-                    <label class="cc-label">Casket Name</label>
-                    <input type="text" name="name" value="{{ old('name', $catalog->name) }}" class="form-input" required maxlength="150" pattern=".*[A-Za-z].*" title="Enter a casket name with letters." placeholder="e.g. Premium Hardwood Casket">
+                    <label class="cc-label" for="casket-name">Casket Name <span aria-hidden="true">*</span></label>
+                    <input id="casket-name" type="text" name="name" value="{{ old('name', $catalog->name) }}" class="form-input" required maxlength="150" pattern=".*[A-Za-z].*" title="Enter a casket name with letters." placeholder="e.g. Premium Hardwood Casket">
                     @error('name') <div class="form-error">{{ $message }}</div> @enderror
                 </div>
                 <div>
-                    <label class="cc-label">Reference Value</label>
-                    <div class="cc-money"><span>&#8369;</span><input type="number" step="0.01" min="0.01" inputmode="decimal" name="standard_price" value="{{ old('standard_price', $isEdit ? $catalog->standard_price : '') }}" class="form-input" required placeholder="0.00"></div>
+                    <label class="cc-label" for="casket-price">Reference Value <span aria-hidden="true">*</span></label>
+                    <div class="cc-money"><span>&#8369;</span><input id="casket-price" type="number" step="0.01" min="0.01" inputmode="decimal" name="standard_price" value="{{ old('standard_price', $isEdit ? $catalog->standard_price : '') }}" class="form-input" required placeholder="0.00"></div>
                     <p class="cc-help">Reference value for this catalog item. It helps keep package casket selection consistent.</p>
                     @error('standard_price') <div class="form-error">{{ $message }}</div> @enderror
                 </div>
             </div>
             <div>
-                <label class="cc-label">Type or Material</label>
-                <input type="text" name="type_or_material" value="{{ old('type_or_material', $catalog->type_or_material) }}" class="form-input" maxlength="100" placeholder="e.g. Hardwood, Metal, Glass">
+                <label class="cc-label" for="casket-material">Type or Material</label>
+                <input id="casket-material" type="text" name="type_or_material" value="{{ old('type_or_material', $catalog->type_or_material) }}" class="form-input" maxlength="100" placeholder="e.g. Hardwood, Metal, Glass">
                 @error('type_or_material') <div class="form-error">{{ $message }}</div> @enderror
             </div>
             <div>
-                <label class="cc-label">Description</label>
-                <textarea name="description" rows="3" class="form-input" maxlength="500" placeholder="Optional details for staff.">{{ old('description', $catalog->description) }}</textarea>
+                <label class="cc-label" for="casket-description">Description</label>
+                <textarea id="casket-description" name="description" rows="3" class="form-input" maxlength="500" placeholder="Optional details for staff.">{{ old('description', $catalog->description) }}</textarea>
                 @error('description') <div class="form-error">{{ $message }}</div> @enderror
             </div>
             <div>
@@ -115,7 +116,7 @@
             </div>
         </div>
         <div class="cc-actions">
-            <a href="{{ $returnTo }}" class="cc-secondary"><i class="bi bi-x-circle"></i> Cancel</a>
+            <a href="{{ $returnTo }}" class="cc-secondary" data-service-form-cancel><i class="bi bi-x-circle"></i> Cancel</a>
             <button class="cc-primary"><i class="bi bi-check2-circle"></i> {{ $isEdit ? 'Save Changes' : 'Save Casket' }}</button>
         </div>
     </section>

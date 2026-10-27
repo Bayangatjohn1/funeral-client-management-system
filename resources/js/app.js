@@ -1,5 +1,15 @@
 import './case-record-filters';
+import './chart-hover-tooltip';
+import './system-admin-reference';
 import './bootstrap';
+import './idle-session';
+import './login-throttle';
+import './remember-email';
+import './password-reset';
+import './password-welcome';
+import './package-wizard';
+import './service-confirm';
+import '../css/branch-sync.css';
 
 import Alpine from 'alpinejs';
 
@@ -364,7 +374,12 @@ function initFilterSelectAffordances() {
                 item.setAttribute('role', 'option');
                 item.setAttribute('aria-selected', option.selected ? 'true' : 'false');
                 item.dataset.value = option.value;
-                item.textContent = optionLabel(option);
+                const label = document.createElement('span');
+                label.textContent = optionLabel(option);
+                const check = document.createElement('i');
+                check.className = 'bi bi-check2 filter-select-menu__check';
+                check.setAttribute('aria-hidden', 'true');
+                item.append(label, check);
 
                 if (option.selected) item.classList.add('is-selected');
 
@@ -551,6 +566,50 @@ function initLiveSearchSuggestions() {
     });
 }
 
+const caseDateDialogs = new Map();
+window.setCaseCustomDateOpen = (form, open) => {
+    if (!form) return;
+    for (const [owner, state] of caseDateDialogs) {
+        if (!owner.isConnected) { state.dialog.remove(); caseDateDialogs.delete(owner); }
+    }
+    let state = caseDateDialogs.get(form);
+    const select = form.querySelector('[data-case-date-preset-select]');
+    if (!state && open) {
+        const panel = form.querySelector('[data-case-custom-panel]');
+        if (!panel || !select) return;
+        if (!form.id) form.id = `case-date-form-${Date.now()}`;
+        const dialog = document.createElement('dialog');
+        dialog.className = 'case-date-dialog';
+        dialog.setAttribute('aria-label', 'Custom Date Range');
+        const head = document.createElement('div'); head.className = 'case-date-head';
+        const title = document.createElement('h2'); title.textContent = 'Custom Date Range';
+        const close = document.createElement('button'); close.type = 'button'; close.setAttribute('aria-label', 'Close custom date range'); close.innerHTML = '<i class="bi bi-x-lg" aria-hidden="true"></i>';
+        head.append(title, close);
+        panel.hidden = false;
+        panel.querySelectorAll('input,button').forEach(control => control.setAttribute('form', form.id));
+        panel.querySelectorAll('input[type="date"]').forEach((input, index) => {
+            input.required = true;
+            input.id = `${form.id}-custom-date-${index}`;
+            input.parentElement.querySelector('label')?.setAttribute('for', input.id);
+        });
+        const apply = panel.querySelector('button[type="submit"]'); if (apply) { apply.textContent = 'Apply Date Range'; apply.removeAttribute('name'); }
+        const reset = panel.querySelector('.case-compact-pop-reset');
+        const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'case-date-cancel'; cancel.textContent = 'Cancel';
+        if (reset) reset.replaceWith(cancel); else panel.querySelector('.case-compact-pop-actions')?.prepend(cancel);
+        dialog.append(head, panel); document.body.append(dialog);
+        state = {dialog, panel}; caseDateDialogs.set(form, state);
+        const dismiss = () => dialog.close(); close.addEventListener('click', dismiss); cancel.addEventListener('click', dismiss);
+        dialog.addEventListener('close', () => { panel.querySelectorAll('input[type="date"]').forEach(input => input.required = false); document.body.classList.remove('case-date-open'); select.focus({preventScroll:true}); });
+        dialog.addEventListener('click', event => { if (event.target === dialog) { const r = dialog.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) dialog.close(); } });
+        const dates = panel.querySelectorAll('input[type="date"]');
+        if (dates.length === 2) { dates[0].addEventListener('change', () => dates[1].min = dates[0].value); dates[1].min = dates[0].value; }
+        form.addEventListener('submit', () => { if (dialog.open) dialog.close(); });
+    }
+    if (!state) return;
+    if (open && !state.dialog.open) { state.panel.hidden = false; state.panel.querySelectorAll('input[type="date"]').forEach(input => input.required = true); state.dialog.showModal(); document.body.classList.add('case-date-open'); state.panel.querySelector('input')?.focus(); }
+    if (!open && state.dialog.open) state.dialog.close();
+};
+
 function initCaseCompactFilters() {
     if (document.body.dataset.caseFilterDismissReady !== '1') {
         document.body.dataset.caseFilterDismissReady = '1';
@@ -714,10 +773,7 @@ function initCaseCompactFilters() {
         };
 
         const setCustomOpen = (open) => {
-            if (!customPanel) return;
-            customPanel.hidden = !open;
-            customToggle?.setAttribute('aria-expanded', open ? 'true' : 'false');
-            datePreset?.setAttribute('aria-expanded', open ? 'true' : 'false');
+            window.setCaseCustomDateOpen(form, open);
         };
 
         const setMoreOpen = (open) => {
@@ -729,8 +785,8 @@ function initCaseCompactFilters() {
                 moreText.textContent = open ? 'Hide Filters' : 'More Filters';
             }
             if (moreIcon) {
-                moreIcon.classList.toggle('bi-chevron-down', !open);
-                moreIcon.classList.toggle('bi-chevron-up', open);
+                moreIcon.classList.add('bi-chevron-down');
+                moreIcon.classList.remove('bi-chevron-up');
             }
         };
 
@@ -900,6 +956,7 @@ function initCaseCompactFilters() {
                 && !customPanel.contains(event.target)
                 && !customToggle?.contains(event.target)
                 && !datePreset?.contains(event.target)
+                && !event.target.closest('.filter-select-menu, .case-date-dialog')
             ) {
                 setCustomOpen(false);
             }
@@ -976,7 +1033,7 @@ function initCaseRecordTabTransitions() {
     });
 
     document.addEventListener('click', async (event) => {
-        const link = event.target.closest('.case-records-tabs a[href]');
+        const link = event.target instanceof Element ? event.target.closest('.case-records-tabs a[href]') : null;
         if (!link) return;
         if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
 
@@ -1026,6 +1083,8 @@ function initCaseRecordTabTransitions() {
 
 function initServiceManagementHub() {
     const hub = document.querySelector('[data-service-hub]');
+    // Server-paginated hub owns its tab navigation, filtering and modal lifecycle.
+    if (hub?.hasAttribute('data-service-server-navigation')) return;
     if (!hub || hub.dataset.serviceHubInitialized === 'true') return;
 
     const tabs = [...hub.querySelectorAll('[data-service-tab]')];
@@ -1211,6 +1270,11 @@ initCaseRecordTabTransitions();
 initServiceManagementHub();
 
 document.addEventListener('panel-ui:reset', initFilterSelectAffordances);
+document.addEventListener('master-case-records:updated', () => {
+    initTableToolbarBehavior();
+    initLiveSearchSuggestions();
+    initCaseCompactFilters();
+});
 
 window.Alpine = Alpine;
 

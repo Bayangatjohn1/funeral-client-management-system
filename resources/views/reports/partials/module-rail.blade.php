@@ -5,7 +5,7 @@
         ['label' => 'Overview', 'icon' => 'bi-bar-chart-line', 'target' => 'ba-panel-performance'],
         ['label' => 'Payments', 'icon' => 'bi-wallet2', 'target' => 'ba-panel-payment'],
         ['label' => 'Collections', 'icon' => 'bi-cash-stack', 'target' => 'ba-panel-collection'],
-        ['label' => 'Revenue Trend', 'icon' => 'bi-graph-up-arrow', 'target' => 'ba-panel-trend'],
+        ['label' => 'Service Value Trend', 'icon' => 'bi-graph-up-arrow', 'target' => 'ba-panel-trend'],
     ];
     $reportTypes = $reportTypes ?? [];
     $currentReportType = $currentReportType ?? request('report_type');

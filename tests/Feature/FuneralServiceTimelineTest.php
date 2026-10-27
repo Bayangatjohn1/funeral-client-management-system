@@ -141,9 +141,6 @@ class FuneralServiceTimelineTest extends TestCase
             'role' => $role,
             'branch_id' => $branch?->id,
         ]);
-        if ($isMainAdmin) {
-            $user->assignRole('admin');
-        }
         return $user;
     }
 
@@ -154,6 +151,7 @@ class FuneralServiceTimelineTest extends TestCase
         $intermentAt = now()->addDays(2)->setTime(9, 0)->format('Y-m-d H:i:s');
 
         return array_merge([
+            'payment_method' => 'none',
             'service_requested_at' => now()->toDateString(),
             'branch_id' => $branch->id,
             'client_name' => 'Client Intake',

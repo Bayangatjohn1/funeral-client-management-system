@@ -61,6 +61,8 @@ Route::middleware(['auth', 'no_cache', 'active'])->get('/dashboard', function ()
 
 Route::middleware(['auth', 'no_cache', 'active', 'owner'])->group(function () {
     Route::get('/owner', [OwnerDashboardController::class, 'dashboard'])->name('owner.dashboard');
+    Route::get('/owner/dashboard/details', [OwnerDashboardController::class, 'dashboardDetails'])->name('owner.dashboard.details');
+    Route::get('/owner/collections', [OwnerDashboardController::class, 'collections'])->name('owner.collections');
     Route::get('/owner/branch-analytics', [OwnerDashboardController::class, 'analytics'])->name('owner.analytics');
     Route::get('/owner/case-history', [OwnerDashboardController::class, 'history'])->name('owner.history');
     Route::get('/owner/sales-per-branch', function () {
@@ -266,17 +268,18 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->get(
             ->whereIn('type', ['wake_start_today', 'wake_end_today', 'service_today', 'interment_today'])
             ->sortBy('sort_date'));
         $attentionReminders = $attentionReminders->merge($fullReminders
-            ->where('severity', 'danger'));
+            ->whereIn('type', ['interment_completed', 'interment_date_completed', 'interment_approaching', 'interment_date_today_balance']));
         $upcomingSchedule = $upcomingSchedule->merge($fullReminders
             ->whereIn('type', ['upcoming_wake_start', 'upcoming_wake_end', 'upcoming_service', 'upcoming_interment'])
             ->filter(fn ($item) => $item['date'] && $item['date']->lessThanOrEqualTo($upcomingEnd))
             ->sortBy('sort_date'));
         $balanceReminders = $balanceReminders->merge($fullReminders->where('type', 'balance'));
     }
-    $todaySchedule = $todaySchedule->sortBy('sort_date')->values();
+    $todaySchedule = $reminderService->sortReminders($todaySchedule)->values();
     $currentlyInWake = $currentlyInWake->unique(fn ($item) => $item['branch_id'].'-'.$item['case_id'])->values();
-    $attentionReminders = $attentionReminders->unique(fn ($item) => $item['branch_id'].'-'.$item['case_id'])->values();
-    $upcomingSchedule = $upcomingSchedule->sortBy('sort_date')->unique(fn ($item) => implode('|', [
+    $attentionReminders = $reminderService->sortReminders($attentionReminders, true)
+        ->unique(fn ($item) => $item['branch_id'].'-'.$item['case_id'])->values();
+    $upcomingSchedule = $reminderService->sortReminders($upcomingSchedule)->unique(fn ($item) => implode('|', [
         $item['branch_id'],
         $item['case_id'],
         $item['type'],
@@ -322,7 +325,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->get(
     $user = auth()->user();
     $dashboardBranchId = (int) ($user->operationalBranchId() ?? 0);
     $canEncodeAnyBranch = $user->canEncodeAnyBranch();
-    $dashboardBranch = Branch::select(['id', 'branch_code', 'branch_name'])->find($dashboardBranchId);
+    $dashboardBranch = Branch::select(['id', 'branch_code', 'branch_name', 'address'])->find($dashboardBranchId);
     $today = now()->startOfDay();
 
     $clientCount = Client::where('branch_id', $dashboardBranchId)->count();
@@ -368,7 +371,10 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->get(
         ->get();
 
     $reminderService = app(\App\Services\ReminderService::class);
-    $dashboardReminders = $reminderService->buildDashboard($dashboardBranchId, $today);
+    // Use the actual current time for approaching/after-interment classification;
+    // $today remains the date boundary for dashboard totals and date queries.
+    $dashboardReminders = $reminderService->buildDashboard($dashboardBranchId, now());
+    $scheduleGroups = $reminderService->scheduleGroups($dashboardBranchId);
     $attentionReminders = $dashboardReminders['attention'];
     $todaySchedule = $dashboardReminders['today'];
 
@@ -380,7 +386,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->get(
         })
         ->whereBetween('created_at', [$today->copy()->startOfDay(), $today->copy()->endOfDay()])
         ->latest('created_at')
-        ->paginate(5, ['*'], 'recent_cases_page')
+        ->paginate(3, ['*'], 'recent_cases_page')
         ->withQueryString();
 
     $recentPayments = Payment::with([
@@ -413,10 +419,8 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->get(
 
     $upcomingSchedule = $reminderService
         ->buildFullList($dashboardBranchId, [], $today)
-        ->where('type', 'upcoming_interment')
+        ->whereIn('type', ['upcoming_wake_start', 'upcoming_wake_end', 'upcoming_service', 'upcoming_interment'])
         ->sortBy('sort_date')
-        ->unique('case_id')
-        ->take(6)
         ->values();
 
     return view('dashboards.staff', compact(
@@ -433,6 +437,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->get(
         'todaySchedule',
         'upcomingSchedule',
         'attentionReminders',
+        'scheduleGroups',
         'recentCases',
         'recentPayments',
         'canEncodeAnyBranch'
@@ -451,10 +456,12 @@ Route::middleware(['auth', 'no_cache', 'active'])->group(function () {
         ->name('funeral-cases.documents.contract.preview-pdf');
     Route::post('funeral-cases/{funeral_case}/documents/funeral-contract', [CaseDocumentController::class, 'store'])
         ->name('funeral-cases.documents.contract.store');
+    Route::post('funeral-cases/{funeral_case}/documents/funeral-contract/correct-birth-date', [CaseDocumentController::class, 'correctBirthDate'])
+        ->name('funeral-cases.documents.contract.correct-birth-date');
+    Route::get('funeral-cases/{funeral_case}/documents/{document}/revisions/{revision}/preview', [CaseDocumentController::class, 'revisionPreview'])
+        ->name('funeral-cases.documents.revisions.preview');
     Route::get('funeral-cases/{funeral_case}/documents/{document}/preview', [CaseDocumentController::class, 'preview'])
         ->name('funeral-cases.documents.preview');
-    Route::get('funeral-cases/{funeral_case}/documents/{document}/download', [CaseDocumentController::class, 'download'])
-        ->name('funeral-cases.documents.download');
     Route::get('funeral-cases/{funeral_case}/documents/{document}/print', [CaseDocumentController::class, 'print'])
         ->name('funeral-cases.documents.print');
 });
@@ -462,6 +469,8 @@ Route::middleware(['auth', 'no_cache', 'active'])->group(function () {
 Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->group(function () {
     Route::get('intake', [IntakeController::class, 'create'])->name('intake.create');
     Route::post('intake', [IntakeController::class, 'store'])->name('intake.store');
+    Route::get('intake/saved', [IntakeController::class, 'saved'])->name('intake.saved');
+    Route::get('intake/schedule-advisory', [IntakeController::class, 'scheduleAdvisory'])->name('intake.schedule-advisory');
     Route::get('intake/main', [IntakeController::class, 'createMain'])->name('intake.main.create');
     Route::post('intake/main', [IntakeController::class, 'storeMain'])->name('intake.main.store');
     Route::get('intake/other', [IntakeController::class, 'createOther'])->name('intake.other.create');
@@ -511,17 +520,21 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->pref
 Route::middleware(['auth', 'no_cache', 'active', 'admin'])->prefix('admin')->group(function () {
     Route::get('/users', [UserController::class, 'index'])->name('admin.users.index');
     Route::get('/users/create', [UserController::class, 'create'])->name('admin.users.create');
+    Route::get('/system-admins/create', [UserController::class, 'createSystemAdmin'])->name('admin.system-admins.create');
+    Route::post('/system-admins', [UserController::class, 'store'])->middleware('throttle:6,1')->name('admin.system-admins.store');
     Route::post('/users', [UserController::class, 'store'])->name('admin.users.store');
 
     // Edit
     Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('admin.users.edit');
+    Route::get('/users/{user}/role', [UserController::class, 'editRole'])->name('admin.users.role.edit');
+    Route::patch('/users/{user}/role', [UserController::class, 'changeRole'])->middleware('throttle:6,1')->name('admin.users.role.update');
     Route::put('/users/{user}', [UserController::class, 'update'])->name('admin.users.update');
 
     // Activate/Deactivate
     Route::patch('/users/{user}/toggle-active', [UserController::class, 'toggleActive'])->name('admin.users.toggleActive');
 
     // Optional: Reset Password
-    Route::patch('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('admin.users.resetPassword');
+    Route::patch('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->middleware('throttle:6,1')->name('admin.users.resetPassword');
 });
 
 Route::middleware(['auth', 'no_cache', 'active', 'main_admin'])->prefix('admin')->group(function () {
@@ -529,6 +542,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'main_admin'])->prefix('admin')
     Route::get('/branches', [BranchController::class, 'index'])->name('admin.branches.index');
     Route::get('/branches/create', [BranchController::class, 'create'])->name('admin.branches.create');
     Route::post('/branches', [BranchController::class, 'store'])->name('admin.branches.store');
+    Route::get('/branches/{branch}/disable-check', [BranchController::class, 'disableCheck'])->name('admin.branches.disableCheck');
     Route::get('/branches/{branch}/edit', [BranchController::class, 'edit'])->name('admin.branches.edit');
     Route::put('/branches/{branch}', [BranchController::class, 'update'])->name('admin.branches.update');
     Route::patch('/branches/{branch}/toggle-status', [BranchController::class, 'toggleStatus'])->name('admin.branches.toggleStatus');
@@ -592,3 +606,9 @@ Route::middleware(['auth', 'no_cache', 'active'])->group(function () {
 
 
 require __DIR__.'/auth.php';
+
+Route::middleware(['auth', 'no_cache', 'active'])->get('/sync/status', function () {
+    abort_unless(config('branch_sync.mode') === 'branch', 404);
+    return response()->json(app(\App\Services\BranchSync\BranchSyncService::class)->status())
+        ->header('Cache-Control', 'no-store, private');
+})->name('sync.status');

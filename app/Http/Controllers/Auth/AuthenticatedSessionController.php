@@ -16,7 +16,11 @@ class AuthenticatedSessionController extends Controller
      */
     public function create(): View
     {
-        return view('auth.login');
+        $throttleEmail = (string) session('login_throttle_email', '');
+        $key = \Illuminate\Support\Str::transliterate(\Illuminate\Support\Str::lower($throttleEmail).'|'.request()->ip());
+        $seconds = $throttleEmail !== '' && \Illuminate\Support\Facades\RateLimiter::tooManyAttempts($key, 5)
+            ? \Illuminate\Support\Facades\RateLimiter::availableIn($key) : 0;
+        return view('auth.login', ['throttleEmail' => $throttleEmail, 'throttleSeconds' => $seconds]);
     }
 
     /**
@@ -26,8 +30,12 @@ class AuthenticatedSessionController extends Controller
     {
         $request->authenticate();
         $request->session()->regenerate();
+        \App\Support\IdleSession::start($request);
 
         $user = $request->user();
+        $request->session()->put('account_security', \App\Support\AccountSecurity::fingerprint($user));
+        $request->session()->forget(['mfa_user_id', 'mfa_setup_secret', 'mfa_recovery_display']);
+        $request->session()->forget('login_throttle_email');
 
         if (!$user->is_active) {
             Auth::guard('web')->logout();
@@ -39,8 +47,22 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
+        if (($user->isBranchAdmin() || $user->isStaff()) && $user->branch_id && ! $user->branch?->is_active) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return back()->withErrors([
+                'email' => 'Your assigned branch is currently inactive. Please contact the system administrator.',
+            ]);
+        }
+
         if ($user->isOwner()) {
             return redirect()->intended('/owner');
+        }
+
+        if ($user->requiresMfa()) {
+            return redirect()->route($user->two_factor_confirmed_at ? 'security.challenge' : 'security.setup');
         }
 
         if ($user->isAdmin()) {

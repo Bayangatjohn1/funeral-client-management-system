@@ -134,6 +134,9 @@ class BranchAnalyticsService
             'casesPerBranch' => $casesPerBranch,
             'chart' => $chart,
             'allAnalyticsCases' => $this->analyticsCases(clone $base),
+            'branchComparisonRows' => app(\App\Support\OwnerDashboardOverview::class)->data([
+                'branch_id'=>$branchId, 'range'=>'CUSTOM', 'date_from'=>$dateFrom, 'date_to'=>$dateTo,
+            ])['branchRows']->whereIn('branch.id', $branches->pluck('id'))->values(),
         ];
     }
 
@@ -191,14 +194,7 @@ class BranchAnalyticsService
 
     public function serviceAmountExpression(): string
     {
-        return "
-            CASE
-                WHEN COALESCE(total_paid, 0) > 0 AND COALESCE(balance_amount, 0) = 0 THEN COALESCE(total_paid, 0)
-                WHEN COALESCE(total_paid, 0) > 0 AND COALESCE(balance_amount, 0) > 0 THEN COALESCE(total_paid, 0) + COALESCE(balance_amount, 0)
-                WHEN COALESCE(total_paid, 0) = 0 AND COALESCE(balance_amount, 0) > 0 THEN COALESCE(balance_amount, 0)
-                ELSE COALESCE(total_amount, 0)
-            END
-        ";
+        return 'COALESCE(total_amount, 0)';
     }
 
     private function verifiedCasesQuery(Carbon $startAt, Carbon $endAt, mixed $branchId = null): Builder
@@ -372,7 +368,11 @@ class BranchAnalyticsService
             while ($cursor->lte($end) && $limit < 12) {
                 $weekStart = $cursor->copy()->startOfWeek()->startOfDay();
                 $weekEnd = $cursor->copy()->endOfWeek()->endOfDay();
-                $labels[] = $weekStart->format('M d') . ' - ' . $weekEnd->format('M d');
+                $visibleStart = $weekStart->lt($start) ? $start->copy() : $weekStart;
+                $visibleEnd = $weekEnd->gt($end) ? $end->copy() : $weekEnd;
+                $labels[] = $visibleStart->isSameDay($visibleEnd)
+                    ? $visibleStart->format('M d')
+                    : $visibleStart->format('M d') . ' - ' . $visibleEnd->format('M d');
 
                 $weekRevenue = 0.0;
                 $weekVolume = 0;
@@ -495,15 +495,7 @@ class BranchAnalyticsService
 
     private function serviceAmountForCase(FuneralCase $case): float
     {
-        $totalPaid = (float) ($case->total_paid ?? 0);
-        $balance = (float) ($case->balance_amount ?? 0);
-
-        return match (true) {
-            $totalPaid > 0 && $balance <= 0 => $totalPaid,
-            $totalPaid > 0 && $balance > 0 => $totalPaid + $balance,
-            $totalPaid <= 0 && $balance > 0 => $balance,
-            default => (float) ($case->total_amount ?? 0),
-        };
+        return (float) ($case->total_amount ?? 0);
     }
 
     private function branchName(?Branch $branch): string

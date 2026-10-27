@@ -40,4 +40,9 @@ class CaseDocument extends Model
     {
         return $this->document_type === self::TYPE_FUNERAL_CONTRACT;
     }
+
+    public function revisions()
+    {
+        return $this->hasMany(CaseDocumentRevision::class)->orderBy('revision_number');
+    }
 }

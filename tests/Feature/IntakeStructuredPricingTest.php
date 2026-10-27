@@ -6,6 +6,7 @@ use App\Models\AddOnCatalog;
 use App\Models\Branch;
 use App\Models\CasketCatalog;
 use App\Models\FuneralCase;
+use App\Models\FreebieCatalog;
 use App\Models\Package;
 use App\Models\PackageFreebie;
 use App\Models\PackageInclusion;
@@ -35,6 +36,28 @@ class IntakeStructuredPricingTest extends TestCase
         $this->assertSame(5, $fiveDays['days']);
         $this->assertSame(4, $fiveDays['nights']);
         $this->assertSame('5 Wake Days', $fiveDays['label']);
+    }
+
+    public function test_custom_agreed_casket_and_days_are_not_charged_twice_and_transport_needs_no_km(): void
+    {
+        $casket = CasketCatalog::create(['name' => 'Agreed Casket', 'standard_price' => 15000, 'is_active' => true, 'is_available' => true]);
+        $extra = AddOnCatalog::create(['name' => 'Extra flowers', 'price' => 2000, 'unit' => 'set', 'is_active' => true]);
+        $input = [
+            'custom_package_price' => 50000,
+            'custom_service_types' => [Package::SERVICE_CASKET, Package::SERVICE_EMBALMING, Package::SERVICE_HOME_VIEWING, Package::SERVICE_HEARSE, Package::SERVICE_BODY_RETRIEVAL],
+            'custom_service_coverage' => [Package::SERVICE_EMBALMING => 5, Package::SERVICE_HOME_VIEWING => 5],
+            'custom_casket_catalog_id' => $casket->id,
+        ];
+        $input['custom_package_configuration'] = app(\App\Support\CustomPackageSelection::class)->resolve($input);
+        $service = app(IntakePricingService::class);
+        $included = $service->price(null, $input, true);
+        $this->assertSame(50000.0, $included['total']);
+        $this->assertSame([], $included['service_charges']);
+        $withExtra = $service->price(null, $input + ['selected_add_ons' => [$extra->id]], true);
+        $this->assertSame(52000.0, $withExtra['total']);
+        $this->assertSame(2000.0, $withExtra['add_ons_total']);
+        $extra->update(['is_active' => false]);
+        $this->assertArrayHasKey('selected_add_ons', $service->validateSelections(null, ['selected_add_ons' => [$extra->id]], true));
     }
 
     public function test_pricing_service_charges_embalming_and_home_viewing_extensions_separately(): void
@@ -245,7 +268,7 @@ class IntakeStructuredPricingTest extends TestCase
         ]);
     }
 
-    public function test_custom_package_preserves_manual_pricing_and_skips_automatic_catalog_charges(): void
+    public function test_custom_package_preserves_agreed_price_and_adds_selected_catalog_extras(): void
     {
         $this->travelTo('2026-07-20 10:00:00');
 
@@ -271,13 +294,14 @@ class IntakeStructuredPricingTest extends TestCase
             'standard_price' => 50000,
             'is_active' => true,
         ]);
+        $freebie = FreebieCatalog::create(['name' => 'Catalog freebie', 'default_unit' => 'piece', 'is_active' => true]);
 
         $response = $this->actingAs($staff)->post('/intake/main', $this->payload($branch, $placeholderPackage, [
             'package_id' => 'custom',
             'custom_package_name' => 'Family Custom',
             'custom_package_price' => 50000,
-            'custom_package_inclusions' => 'Manual inclusion',
-            'custom_package_freebies' => 'Manual freebie',
+            'custom_other_inclusions' => 'Manual inclusion',
+            'custom_freebie_catalog_ids' => [$freebie->id],
             'replacement_casket_catalog_id' => $casket->id,
             'actual_retrieval_kilometers' => 100,
             'actual_hearse_kilometers' => 100,
@@ -294,12 +318,177 @@ class IntakeStructuredPricingTest extends TestCase
         $case = FuneralCase::query()->latest('id')->first();
         $this->assertSame('Family Custom', $case->service_package);
         $this->assertSame(50000.0, (float) $case->package_price_snapshot);
-        $this->assertSame(51000.0, (float) $case->total_amount);
-        $this->assertSame(0.0, (float) $case->add_ons_total_amount);
+        $this->assertSame(56000.0, (float) $case->total_amount);
+        $this->assertSame(5000.0, (float) $case->add_ons_total_amount);
         $this->assertSame('CUSTOM', $case->coffin_type);
         $this->assertTrue($case->pricing_snapshot['custom_package']);
         $this->assertSame([], $case->pricing_snapshot['service_charges']);
-        $this->assertSame([], $case->pricing_snapshot['add_ons']);
+        $this->assertSame('Choir', $case->pricing_snapshot['add_ons'][0]['name']);
+        $this->assertSame('Manual inclusion', $case->pricing_snapshot['inclusions'][0]['name']);
+        $this->assertSame('Catalog freebie', $case->pricing_snapshot['freebies'][0]['name']);
+        $display = app(\App\Support\CaseSnapshotDisplayService::class)->data($case);
+        $this->assertSame(['Manual inclusion'], $display['inclusions']);
+        $this->assertSame(['Catalog freebie'], $display['freebies']);
+        $this->actingAs($staff)->get(route('funeral-cases.show', $case))
+            ->assertOk()
+            ->assertSee('Family Custom')
+            ->assertSee('Manual inclusion')
+            ->assertSee('Catalog freebie')
+            ->assertDontSee('Custom Name')
+            ->assertDontSee('>CUSTOM<', false);
+        $page = $this->actingAs($staff)->get(route('funeral-cases.show', $case))->getContent();
+        $printTemplate = (string) preg_replace('/^.*?<template id="casePrintTemplate">(.*?)<\/template>.*$/s', '$1', $page);
+        $this->assertNotSame($page, $printTemplate);
+        $this->assertStringContainsString('Family Custom', $printTemplate);
+        $this->assertStringContainsString('Manual inclusion', $printTemplate);
+        $this->assertStringContainsString('Catalog freebie', $printTemplate);
+        $this->assertStringNotContainsString('Included Casket / Coffin', $printTemplate);
+
+        $olderSnapshot = $case->pricing_snapshot;
+        $olderSnapshot['inclusions'] = [];
+        $olderSnapshot['freebies'] = [];
+        $case->update(['pricing_snapshot' => $olderSnapshot]);
+        $olderDisplay = app(\App\Support\CaseSnapshotDisplayService::class)->data($case->fresh());
+        $this->assertSame(['Manual inclusion'], $olderDisplay['inclusions']);
+        $this->assertSame(['Catalog freebie'], $olderDisplay['freebies']);
+    }
+
+    public function test_custom_package_requires_a_positive_price_and_a_real_inclusion(): void
+    {
+        $this->travelTo('2026-07-20 10:00:00');
+
+        $branch = $this->branch();
+        $staff = User::factory()->create([
+            'role' => 'staff',
+            'branch_id' => $branch->id,
+            'is_active' => true,
+        ]);
+        $package = Package::create([
+            'name' => 'Fallback Package',
+            'price' => 50000,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($staff)->post('/intake/main', $this->payload($branch, $package, [
+            'package_id' => 'custom',
+            'custom_package_name' => 'Family Custom',
+            'custom_package_price' => 0,
+            'custom_other_inclusions' => '',
+        ]))->assertSessionHasErrors(['custom_package_price']);
+
+        $this->actingAs($staff)->post('/intake/main', $this->payload($branch, $package, [
+            'package_id' => 'custom',
+            'custom_package_name' => 'Family Custom',
+            'custom_package_price' => 50000,
+            'custom_other_inclusions' => '',
+        ]))->assertSessionHasErrors(['custom_service_types']);
+
+        $this->assertDatabaseCount('funeral_cases', 0);
+    }
+
+    public function test_custom_package_uses_only_available_catalog_items_and_snapshots_the_selection(): void
+    {
+        $this->travelTo('2026-07-20 10:00:00');
+        $branch = $this->branch();
+        $staff = User::factory()->create(['role' => 'staff', 'branch_id' => $branch->id, 'is_active' => true]);
+        $package = Package::create(['name' => 'Fallback Package', 'price' => 50000, 'is_active' => true]);
+        $casket = CasketCatalog::create(['name' => 'Family Casket', 'standard_price' => 15000, 'is_active' => true, 'is_available' => true]);
+        $freebie = FreebieCatalog::create(['name' => 'Flower Stand', 'default_unit' => 'piece', 'is_active' => true]);
+        $custom = [
+            'package_id' => 'custom',
+            'custom_package_name' => 'Family Arrangement',
+            'custom_package_price' => 50000,
+            'custom_service_types' => [Package::SERVICE_CASKET, Package::SERVICE_HEARSE],
+            'custom_service_coverage' => [Package::SERVICE_HEARSE => 20],
+            'custom_casket_catalog_id' => $casket->id,
+            'custom_freebie_catalog_ids' => [$freebie->id],
+            'custom_other_inclusions' => 'Memorial photo',
+        ];
+
+        $this->actingAs($staff)->post('/intake/main', $this->payload($branch, $package, $custom))
+            ->assertRedirect('/funeral-cases?record_scope=main');
+
+        $case = FuneralCase::query()->latest('id')->firstOrFail();
+        $this->assertSame('Family Casket', $case->coffin_type);
+        $this->assertSame($casket->id, $case->pricing_snapshot['included_casket']['id']);
+        $this->assertSame(20.0, (float) $case->pricing_snapshot['inclusions'][1]['included_kilometers']);
+        $this->assertSame('Flower Stand', $case->pricing_snapshot['freebies'][0]['name']);
+        $this->assertSame(50000.0, (float) $case->total_amount);
+
+        $casket->update(['is_available' => false]);
+        $this->actingAs($staff)->post('/intake/main', $this->payload($branch, $package, $custom + ['client_contact_number' => '09170000001', 'deceased_first_name' => 'Juan']))
+            ->assertSessionHasErrors(['custom_casket_catalog_id']);
+        $this->assertDatabaseCount('funeral_cases', 1);
+
+        $casket->update(['is_available' => true]);
+        $freebie->update(['is_active' => false]);
+        $this->actingAs($staff)->post('/intake/main', $this->payload($branch, $package, $custom + ['client_contact_number' => '09170000002', 'deceased_first_name' => 'Pedro']))
+            ->assertSessionHasErrors(['custom_freebie_catalog_ids']);
+        $this->assertDatabaseCount('funeral_cases', 1);
+    }
+
+    public function test_custom_package_requires_days_and_a_catalog_casket_when_selected(): void
+    {
+        $this->travelTo('2026-07-20 10:00:00');
+        $branch = $this->branch();
+        $staff = User::factory()->create(['role' => 'staff', 'branch_id' => $branch->id, 'is_active' => true]);
+        $package = Package::create(['name' => 'Fallback Package', 'price' => 50000, 'is_active' => true]);
+
+        $this->actingAs($staff)->post('/intake/main', $this->payload($branch, $package, [
+            'package_id' => 'custom',
+            'custom_package_name' => 'Family Arrangement',
+            'custom_package_price' => 50000,
+            'custom_service_types' => [Package::SERVICE_EMBALMING],
+        ]))->assertSessionHasErrors(['custom_service_coverage.embalming']);
+
+        $this->actingAs($staff)->post('/intake/main', $this->payload($branch, $package, [
+            'package_id' => 'custom',
+            'custom_package_name' => 'Family Arrangement',
+            'custom_package_price' => 50000,
+            'custom_service_types' => [Package::SERVICE_CASKET],
+        ]))->assertSessionHasErrors(['custom_casket_catalog_id']);
+
+        $this->assertDatabaseCount('funeral_cases', 0);
+    }
+
+    public function test_custom_builder_only_lists_available_caskets_and_active_freebies(): void
+    {
+        $branch = $this->branch();
+        $staff = User::factory()->create(['role' => 'staff', 'branch_id' => $branch->id, 'is_active' => true]);
+        CasketCatalog::create(['name' => 'Ready Casket', 'standard_price' => 15000, 'is_active' => true, 'is_available' => true]);
+        CasketCatalog::create(['name' => 'Unavailable Casket', 'standard_price' => 15000, 'is_active' => true, 'is_available' => false]);
+        FreebieCatalog::create(['name' => 'Ready Freebie', 'default_unit' => 'piece', 'is_active' => true]);
+        FreebieCatalog::create(['name' => 'Archived Freebie', 'default_unit' => 'piece', 'is_active' => false]);
+
+        $response = $this->actingAs($staff)->get('/intake/main')->assertOk();
+        $page = $response->getContent();
+        preg_match('/<select[^>]+id="custom_casket_catalog_id"[^>]*>(.*?)<\/select>/s', $page, $casketOptions);
+        preg_match('/<div[^>]+id="custom_freebie_choices"[^>]*>(.*?)<\/div>/s', $page, $freebieOptions);
+        $this->assertStringContainsString('Ready Casket', $casketOptions[1] ?? '');
+        $this->assertStringNotContainsString('Unavailable Casket', $casketOptions[1] ?? '');
+        $this->assertStringContainsString('Ready Freebie', $freebieOptions[1] ?? '');
+        $this->assertStringNotContainsString('Archived Freebie', $freebieOptions[1] ?? '');
+    }
+
+    public function test_other_branch_intake_rejects_a_posted_custom_package(): void
+    {
+        $this->travelTo('2026-07-20 10:00:00');
+        $mainBranch = $this->branch();
+        $otherBranch = Branch::create(['branch_code' => 'BR002', 'branch_name' => 'Other Branch', 'address' => 'Other', 'is_active' => true]);
+        $admin = User::factory()->create(['role' => 'admin', 'admin_scope' => 'system', 'branch_id' => $mainBranch->id, 'is_active' => true]);
+        $package = Package::create(['name' => 'Standard', 'price' => 50000, 'is_active' => true]);
+
+        $this->actingAs($admin)
+            ->from('/intake/other')
+            ->post('/intake/other', $this->payload($otherBranch, $package, [
+                'package_id' => 'custom',
+                'custom_package_name' => 'Other Branch Custom',
+                'custom_package_price' => 50000,
+            ]))
+            ->assertRedirect('/intake/other')
+            ->assertSessionHasErrors('package_id');
+
+        $this->assertDatabaseCount('funeral_cases', 0);
     }
 
     public function test_admin_package_service_limits_reload_into_intake_details_and_pricing_service(): void
@@ -605,6 +794,7 @@ class IntakeStructuredPricingTest extends TestCase
             'pwd_status' => 0,
             'tax_rate' => 0,
             'confirm_review' => 1,
+            'payment_method' => 'none',
         ], $overrides);
     }
 

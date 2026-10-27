@@ -20,22 +20,35 @@ Route::middleware(['guest', 'no_cache'])->group(function () {
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
 
-    Route::post('login', [AuthenticatedSessionController::class, 'store']);
+    Route::post('login', [AuthenticatedSessionController::class, 'store'])->name('login.store');
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');
 
     Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
-        ->name('password.email');
+        ->middleware('throttle:6,1')->name('password.email');
 
     Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])
         ->name('password.reset');
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])
-        ->name('password.store');
+        ->middleware('throttle:6,1')->name('password.store');
 });
 
 Route::middleware(['auth', 'no_cache'])->group(function () {
+    Route::middleware('active')->group(function () {
+        Route::get('session/status', [\App\Http\Controllers\Auth\IdleSessionController::class, 'status'])->name('session.status');
+        Route::post('session/keep-alive', [\App\Http\Controllers\Auth\IdleSessionController::class, 'keepAlive'])->middleware('throttle:10,1')->name('session.keep_alive');
+    });
+    Route::middleware('active')->group(function () {
+    Route::get('security/change-password', [\App\Http\Controllers\Auth\AccountSecurityController::class, 'password'])->name('security.password');
+    Route::post('security/change-password', [\App\Http\Controllers\Auth\AccountSecurityController::class, 'changePassword'])->middleware('throttle:6,1')->name('security.password.update');
+    Route::get('security/setup', [\App\Http\Controllers\Auth\AccountSecurityController::class, 'setup'])->name('security.setup');
+    Route::post('security/setup', [\App\Http\Controllers\Auth\AccountSecurityController::class, 'enroll'])->middleware('throttle:6,1')->name('security.enroll');
+    Route::get('security/challenge', [\App\Http\Controllers\Auth\AccountSecurityController::class, 'challenge'])->name('security.challenge');
+    Route::post('security/challenge', [\App\Http\Controllers\Auth\AccountSecurityController::class, 'verify'])->middleware('throttle:6,1')->name('security.verify');
+    Route::get('security/recovery', [\App\Http\Controllers\Auth\AccountSecurityController::class, 'recovery'])->name('security.recovery');
+    });
     Route::get('verify-email', EmailVerificationPromptController::class)
         ->name('verification.notice');
 

@@ -3,6 +3,7 @@
 @section('page_title', 'Reports & Analytics')
 @section('page_desc', 'Analytics charts, branch performance, and operational reports.')
 @section('hide_layout_topbar', '1')
+@section('suppress_layout_page_header', '1')
 
 @section('content')
 @php
@@ -50,11 +51,12 @@
         ],
     ];
     $branchMeta = $branches->values()->map(fn ($branch) => [
+        'id' => (int) $branch->id,
         'code' => (string) $branch->branch_code,
         'name' => (string) $branch->branch_name,
     ])->all();
-    $overallCollectionRate = ($totalCollected + $totalOutstanding) > 0
-        ? (($totalCollected / ($totalCollected + $totalOutstanding)) * 100)
+    $overallCollectionRate = $totalSales > 0
+        ? (($totalCollected / $totalSales) * 100)
         : 0;
     $overallAvgRevenuePerCase = $totalCases > 0 ? ($totalSales / $totalCases) : 0;
     $periodLabels = $chart['period']['labels'] ?? [];
@@ -67,29 +69,11 @@
         ? route('owner.history')
         : route('reports.index', ['report_type' => 'master_cases']);
     $analyticsCaseCollection = collect($allAnalyticsCases ?? []);
-    $branchRankingRows = $branches->map(function ($branch) use ($analyticsCaseCollection) {
-        $branchCases = $analyticsCaseCollection->where('branchCode', (string) $branch->branch_code);
-        $totalRevenue = (float) $branchCases->sum('totalAmount');
-        $totalPaid = (float) $branchCases->sum('totalPaid');
-        $outstandingBalance = (float) $branchCases->sum('balanceAmount');
-        $totalCases = (int) $branchCases->count();
-        $collectionBase = $totalPaid + $outstandingBalance;
-
-        return [
-            'branch_code' => (string) $branch->branch_code,
-            'branch_name' => (string) $branch->branch_name,
-            'total_revenue' => $totalRevenue,
-            'total_cases' => $totalCases,
-            'average_per_case' => $totalCases > 0 ? $totalRevenue / $totalCases : 0,
-            'paid_cases' => (int) $branchCases->where('paymentStatus', 'PAID')->count(),
-            'partial_cases' => (int) $branchCases->where('paymentStatus', 'PARTIAL')->count(),
-            'unpaid_cases' => (int) $branchCases->where('paymentStatus', 'UNPAID')->count(),
-            'collection_rate' => $collectionBase > 0 ? ($totalPaid / $collectionBase) * 100 : 0,
-        ];
-    })
-        ->sortByDesc('total_revenue')
-        ->values()
-        ->all();
+    $branchRankingRows = collect($branchComparisonRows)->map(fn ($row) => [
+        'branch_id'=>$row['branch']->id, 'branch_code'=>$row['branch']->branch_code, 'branch_name'=>$row['branch']->branch_name,
+        'total_revenue'=>$row['service'], 'total_cases'=>$row['cases'],
+        'collected'=>$row['cohortCollected'], 'remaining'=>$row['cohortRemaining'], 'rate'=>$row['rate'],
+    ])->sortByDesc('total_revenue')->values()->all();
     $hasComparisonData = collect($comparisonRevenue)->merge($comparisonVolume)->contains(fn ($value) => (float) $value > 0);
     $hasPeriodData = collect($periodCases)->merge($periodServiceAmounts)->merge($periodCollectedAmounts)->merge($periodOutstandingBalances)->contains(fn ($value) => (float) $value > 0);
     $hasPaymentData = ((int) $statusCounts['paid'] + (int) $statusCounts['partial'] + (int) $statusCounts['unpaid'] + (int) $statusCounts['ongoing']) > 0;
@@ -104,24 +88,13 @@
     $branchChartContext = $branchPerformanceTitle . ' · ' . $filterScopeLabel . ' · ' . $periodContextLabel;
     $needsAttentionCount = (int) $statusCounts['partial'] + (int) $statusCounts['unpaid'];
     $needsAttentionAmount = (float) $totalOutstanding;
-    $formatCompactPeso = function ($amount) {
-        $amount = (float) $amount;
-
-        if (abs($amount) >= 1000000) {
-            return 'PHP ' . rtrim(rtrim(number_format($amount / 1000000, 2), '0'), '.') . 'M';
-        }
-
-        if (abs($amount) >= 1000) {
-            return 'PHP ' . number_format($amount / 1000, 0) . 'K';
-        }
-
-        return 'PHP ' . number_format($amount, 2);
-    };
+    $formatExactPeso = fn ($amount) => '₱' . number_format((float) $amount, 2);
     $branchPerformanceReportUrl = route('reports.index', ['report_type' => 'owner_branch_analytics']);
 @endphp
 
 <div class="ba-shell" data-reports-module-shell>
     @include('reports.partials.module-tabs', [
+        'deferSubtabs' => true,
         'activeModule' => 'analytics',
         'analyticsRouteName' => $analyticsRouteName,
         'analyticsBranchScope' => $analyticsBranchScope,
@@ -154,192 +127,6 @@
             </div>
         </header>
 
-        <section class="ba-summary-grid" aria-label="Overview summary">
-            <article class="ba-summary-card">
-                <div class="ba-summary-icon">
-                    <i class="bi bi-briefcase"></i>
-                </div>
-                <div class="ba-summary-content">
-                    <span>Total Cases</span>
-                    <strong>{{ number_format($totalCases) }}</strong>
-                    <small>{{ $filterScopeLabel }} · {{ $periodContextLabel }}</small>
-                    <div class="ba-kpi-actions" aria-label="Total cases actions">
-                        <a class="ba-kpi-action" href="{{ $branchPerformanceReportUrl }}" aria-label="Open branch performance report">
-                            Open Report
-                            <i class="bi bi-arrow-right-short" aria-hidden="true"></i>
-                        </a>
-                    </div>
-                </div>
-            </article>
-            <article class="ba-summary-card">
-                <div class="ba-summary-icon">
-                    <i class="bi bi-receipt"></i>
-                </div>
-                <div class="ba-summary-content">
-                    <span>Gross Amount</span>
-                    <strong>{{ $formatCompactPeso($totalSales) }}</strong>
-                    <small>For selected range</small>
-                    <div class="ba-kpi-actions" aria-label="Gross amount actions">
-                        <button type="button" class="ba-kpi-action ba-kpi-jump" data-target="ba-panel-trend" aria-label="View revenue trend analytics">
-                            View Trend
-                            <i class="bi bi-arrow-right-short" aria-hidden="true"></i>
-                        </button>
-                    </div>
-                </div>
-            </article>
-            <article class="ba-summary-card">
-                <div class="ba-summary-icon">
-                    <i class="bi bi-cash-coin"></i>
-                </div>
-                <div class="ba-summary-content">
-                    <span>Collected</span>
-                    <strong>{{ $formatCompactPeso($totalCollected) }}</strong>
-                    <small>{{ number_format($overallCollectionRate, 1) }}% collection rate</small>
-                    <div class="ba-kpi-actions" aria-label="Collected amount actions">
-                        <button type="button" class="ba-kpi-action ba-kpi-jump" data-target="ba-panel-collection" aria-label="View collections analytics">
-                            View Collections
-                            <i class="bi bi-arrow-right-short" aria-hidden="true"></i>
-                        </button>
-                    </div>
-                </div>
-            </article>
-            <article class="ba-summary-card ba-summary-card-warning">
-                <div class="ba-summary-icon">
-                    <i class="bi bi-exclamation-circle"></i>
-                </div>
-                <div class="ba-summary-content">
-                    <span>Outstanding</span>
-                    <strong>{{ $formatCompactPeso($totalOutstanding) }}</strong>
-                    <small>{{ number_format(max(0, 100 - $overallCollectionRate), 1) }}% remaining</small>
-                    <div class="ba-kpi-actions" aria-label="Outstanding amount actions">
-                        <button type="button" class="ba-kpi-action ba-kpi-jump" data-target="ba-panel-payment" aria-label="View payment status analytics">
-                            View Payments
-                            <i class="bi bi-arrow-right-short" aria-hidden="true"></i>
-                        </button>
-                    </div>
-                </div>
-            </article>
-        </section>
-
-        <header class="ba-workspace-head">
-            <div class="ba-head-row ba-filter-row">
-                <div class="ba-workspace-filters uniform-record-filters" role="group" aria-label="Branch Analytics Filters">
-                    <form method="GET" action="{{ route($analyticsRouteName) }}" class="ba-branch-form ba-branch-form-inline">
-                        @if($isCustomRange)
-                            <input type="hidden" name="range" value="CUSTOM">
-                            <input type="hidden" name="date_from" value="{{ $dateFrom }}">
-                            <input type="hidden" name="date_to" value="{{ $dateTo }}">
-                        @else
-                            <input type="hidden" name="range" value="{{ $range }}">
-                        @endif
-                        <label for="baBranchFilter" class="ba-filter-label ba-visually-hidden">Branch Filter</label>
-                        <div class="ba-branch-select-wrap" title="{{ $filterScopeLabel }}">
-                            <i class="bi bi-building"></i>
-                            <select id="baBranchFilter" name="branch_id" class="ba-branch-select" onchange="this.form.submit()">
-                                @if($analyticsBranchScope['can_select_all'] ?? true)
-                                    <option value="">All Branches</option>
-                                @endif
-                                @foreach($branches as $branch)
-                                    <option value="{{ $branch->id }}" @selected((string) $branchId === (string) $branch->id)>
-                                        {{ $branch->branch_code }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            <i class="bi bi-chevron-down ba-branch-select-chev"></i>
-                        </div>
-                    </form>
-
-                    <div class="ba-filter-group">
-                        <span class="ba-filter-label ba-visually-hidden">Period Filter</span>
-                        <div class="ba-seg" role="group" aria-label="Period Filter">
-                            <form method="GET" action="{{ route($analyticsRouteName) }}" class="ba-period-form">
-                                @if($branchId)
-                                    <input type="hidden" name="branch_id" value="{{ $branchId }}">
-                                @endif
-                                <label for="baPeriodFilter" class="ba-filter-label ba-visually-hidden">Date Range Filter</label>
-                                <div class="ba-period-select-wrap">
-                                    <i class="bi bi-calendar3"></i>
-                                    <select id="baPeriodFilter" name="range" class="ba-period-select">
-                                        @foreach (['TODAY', 'THIS_MONTH', 'THIS_YEAR'] as $rangeKey)
-                                            <option value="{{ $rangeKey }}" @selected($range === $rangeKey)>
-                                                {{ ucwords(strtolower(str_replace('_', ' ', $rangeKey))) }}
-                                            </option>
-                                        @endforeach
-                                        <option value="CUSTOM" @selected($isCustomRange)>Custom Range</option>
-                                    </select>
-                                    <i class="bi bi-chevron-down ba-branch-select-chev"></i>
-                                </div>
-                            </form>
-                            <div class="ba-custom-range-wrap">
-                                <div class="ba-date-popover ba-date-popover-inline" id="baDatePopover" style="{{ $isCustomRange ? 'display: block;' : 'display: none;' }}">
-                                    <form method="GET" action="{{ route($analyticsRouteName) }}">
-                                        @if($branchId)
-                                            <input type="hidden" name="branch_id" value="{{ $branchId }}">
-                                        @endif
-                                        <input type="hidden" name="range" value="CUSTOM">
-
-                                        <div class="ba-pop-label">Custom Date Range</div>
-                                        <div class="ba-pop-fields">
-                                            <div class="ba-pop-field">
-                                                <label class="ba-pop-field-label" for="baDateFrom">Date From</label>
-                                                <input
-                                                    id="baDateFrom"
-                                                    type="date"
-                                                    name="date_from"
-                                                    value="{{ old('date_from', $dateFrom) }}"
-                                                    class="ba-pop-input"
-                                                    required
-                                                >
-                                            </div>
-                                            <div class="ba-pop-field">
-                                                <label class="ba-pop-field-label" for="baDateTo">Date To</label>
-                                                <input
-                                                    id="baDateTo"
-                                                    type="date"
-                                                    name="date_to"
-                                                    value="{{ old('date_to', $dateTo) }}"
-                                                    class="ba-pop-input"
-                                                    required
-                                                >
-                                            </div>
-                                        </div>
-
-                                        <div class="ba-pop-actions">
-                                            <button type="submit" class="ba-pop-apply">Apply</button>
-                                            <a href="{{ $clearCustomUrl }}" class="ba-pop-reset">Reset</a>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                @if($hasPageFilters)
-                    <a href="{{ route($analyticsRouteName) }}" class="ba-filter-clear">
-                        <i class="bi bi-x-circle"></i>
-                        <span>Clear filters</span>
-                    </a>
-                @endif
-            </div>
-
-            <div class="ba-head-row ba-head-row-nav">
-                <div class="ba-workspace-chips" aria-label="Applied filters">
-                    <div class="ba-context-chip" title="Applied Date Range">
-                        <i class="bi bi-calendar3"></i>
-                        <span>{{ \Carbon\Carbon::parse($dateFrom)->format('M d, Y') }} - {{ \Carbon\Carbon::parse($dateTo)->format('M d, Y') }}</span>
-                    </div>
-                    <div class="ba-context-chip" title="Applied Branch">
-                        <i class="bi bi-building"></i>
-                        <span>{{ $filterScopeLabel }}</span>
-                    </div>
-                    <div class="ba-context-chip ba-context-muted" title="Applied Period">
-                        <i class="bi bi-funnel"></i>
-                        <span>{{ $periodChipLabel }}</span>
-                    </div>
-                </div>
-            </div>
-        </header>
-
         <div class="ba-global-filterbar" id="baGlobalFilterBar" hidden>
             <div class="ba-global-filter-main">
                 <span class="ba-global-filter-label">Active chart filters</span>
@@ -353,6 +140,58 @@
             </div>
         </div>
 
+        <section class="ra-kpi-grid" aria-label="Overview summary">
+            <article class="ra-kpi-card">
+                <div class="ra-kpi-content"><div class="ra-kpi-heading"><span>Total Cases</span><i class="bi bi-stack"></i></div>
+                    <strong>{{ number_format($totalCases) }}</strong>
+                    <div class="ra-kpi-footer" aria-label="Total cases actions">
+                        <small>{{ $filterScopeLabel }} · {{ $periodContextLabel }}</small>
+                        <button type="button" class="ra-kpi-action ba-kpi-jump" data-target="ba-panel-performance" aria-label="View cases analytics">
+                            View Cases
+                            <i class="bi bi-arrow-down-short" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+            </article>
+            <article class="ra-kpi-card">
+                <div class="ra-kpi-content"><div class="ra-kpi-heading"><span>Total Service Value</span><i class="bi bi-currency-dollar"></i></div>
+                    <strong>{{ $formatExactPeso($totalSales) }}</strong>
+                    <div class="ra-kpi-footer" aria-label="Total service value actions">
+                        <small>After discounts · selected period</small>
+                        <button type="button" class="ra-kpi-action ba-kpi-jump" data-target="ba-panel-trend" aria-label="View service value trend analytics">
+                            View Service Value
+                            <i class="bi bi-arrow-down-short" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+            </article>
+            <article class="ra-kpi-card">
+                <div class="ra-kpi-content"><div class="ra-kpi-heading"><span>Collected</span><i class="bi bi-check-circle"></i></div>
+                    <strong>{{ $formatExactPeso($totalCollected) }}</strong>
+                    <div class="ra-kpi-footer" aria-label="Collected amount actions">
+                        <small>{{ number_format($overallCollectionRate, 1) }}% collection rate</small>
+                        <button type="button" class="ra-kpi-action ba-kpi-jump" data-target="ba-panel-collection" aria-label="View collections analytics">
+                            View Collections
+                            <i class="bi bi-arrow-down-short" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+            </article>
+            <article class="ra-kpi-card ra-kpi-warning">
+                <div class="ra-kpi-content"><div class="ra-kpi-heading"><span>Remaining Balance</span><i class="bi bi-exclamation-circle"></i></div>
+                    <strong>{{ $formatExactPeso($totalOutstanding) }}</strong>
+                    <div class="ra-kpi-footer" aria-label="Remaining balance actions">
+                        <small>{{ number_format(max(0, 100 - $overallCollectionRate), 1) }}% remaining</small>
+                        <button type="button" class="ra-kpi-action ba-kpi-jump" data-target="ba-panel-payment" aria-label="View payment status analytics">
+                            View Status
+                            <i class="bi bi-arrow-down-short" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        @include('reports.partials.workspace-subtabs', ['activeModule' => 'analytics'])
         <div class="ba-panels">
             <article class="ba-panel {{ $activeAnalyticsPanel === 'ba-panel-performance' ? 'active' : '' }}" id="ba-panel-performance" role="tabpanel" @if($activeAnalyticsPanel !== 'ba-panel-performance') hidden @endif>
                 @if($chart['mode'] === 'all')
@@ -362,7 +201,7 @@
                                 <h4 class="ba-panel-title">Branch Comparison</h4>
                             </div>
                             <div class="ba-panel-actions">
-                                <span class="ba-panel-note">Revenue and case volume</span>
+                                <label>Compare by <select id="baComparisonMetric" aria-label="Branch comparison metric"><option value="service">Total Service Value</option><option value="rate">Collection Rate</option><option value="cases">Cases Recorded</option></select></label>
                             </div>
                         </div>
 
@@ -374,53 +213,26 @@
                                     <span>Try selecting a wider date range or another branch.</span>
                                 </div>
                             @endunless
-                            <canvas id="serviceCasesChart"></canvas>
+                            <canvas id="serviceCasesChart" role="img" aria-label="Branch comparison for the selected metric"></canvas>
                         </div>
-                        <div class="ba-insight-row ba-insights-hidden" id="baBranchInsights" aria-label="Branch performance insights"></div>
+                        <p class="ba-panel-note">Cases recorded in the selected period. Collection Rate uses valid payments for those cases through now.</p>
                     </div>
 
-                    <div class="ba-compare-card ba-branch-ranking-card">
-                        <div class="ba-compare-title">
-                            <i class="bi bi-list-ol"></i>
-                            <span>Branch Ranking</span>
-                        </div>
-                        <div class="ba-compare-table-wrap">
-                            <table class="ba-compare-table">
-                                <thead>
-                                    <tr>
-                                        <th>Rank</th>
-                                        <th>Branch</th>
-                                        <th>Total Revenue</th>
-                                        <th>Total Cases</th>
-                                        <th>Avg per Case</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @forelse($branchRankingRows as $index => $row)
-                                        <tr
-                                            class="ba-ranking-row"
-                                            data-branch-code="{{ $row['branch_code'] }}"
-                                            role="button"
-                                            tabindex="0"
-                                            aria-label="View {{ $row['branch_code'] }} - {{ $row['branch_name'] }} records"
-                                        >
-                                            <td>{{ $index + 1 }}</td>
-                                            <td title="{{ $row['branch_code'] }} - {{ $row['branch_name'] }}">
-                                                {{ $row['branch_code'] }} - {{ $row['branch_name'] }}
-                                            </td>
-                                            <td>PHP {{ number_format($row['total_revenue'], 2) }}</td>
-                                            <td>{{ number_format($row['total_cases']) }}</td>
-                                            <td>PHP {{ number_format($row['average_per_case'], 2) }}</td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="5" class="ba-empty-cell">No branch performance data available for selected filters.</td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                    <details class="ba-compare-card ba-branch-ranking-card" id="baBranchRanking">
+                        <summary class="ba-ranking-toggle"><i class="bi bi-list-ol" aria-hidden="true"></i><span>Branch Ranking</span><small data-ranking-metric-label>Total Service Value</small><i class="bi bi-chevron-down" aria-hidden="true"></i></summary>
+                        <p id="baRankingBasis">Ranked by Total Service Value · Cases recorded in the selected period. Ties share the same rank.</p>
+                        <ol id="baMetricRankingBody" class="ba-ranked-list" aria-label="Branch ranking">
+                            @foreach($branchRankingRows as $row)
+                            <li><button type="button" class="ba-ranked-entry" data-branch-code="{{ $row['branch_code'] }}" data-service="{{ $row['total_revenue'] }}" data-cases="{{ $row['total_cases'] }}" data-rate="{{ $row['rate'] ?? '' }}" data-collected="{{ $row['collected'] }}" data-remaining="{{ $row['remaining'] }}" aria-label="View {{ $row['branch_code'] }} - {{ $row['branch_name'] }} breakdown">
+                                <span data-exact-rank class="ba-ranked-number"></span>
+                                <span class="ba-ranked-name">{{ $row['branch_name'] }}<small>{{ $row['branch_code'] }}</small></span>
+                                <span class="ba-ranked-value" data-ranked-value></span>
+                                <span class="ba-ranked-context" data-ranked-context></span>
+                                <i class="bi bi-arrow-up-right ba-ranked-arrow" aria-hidden="true"></i>
+                            </button></li>
+                            @endforeach
+                        </ol>
+                    </details>
                 @else
                     <div class="ba-branch-perf-head">
                         <h4 class="ba-panel-title">{{ $branchPerformanceTitle }}</h4>
@@ -444,23 +256,16 @@
                         <canvas id="branchPerformanceChart"></canvas>
                     </div>
 
-                    <div class="ba-branch-kpi-grid ba-branch-kpi-grid-compact">
-                        <article class="ba-branch-kpi-card">
-                            <span>Average Service Amount per Case</span>
-                            <strong>PHP {{ number_format($overallAvgRevenuePerCase, 2) }}</strong>
-                        </article>
-                    </div>
-
-                    <div class="ba-compare-card">
-                        <div class="ba-compare-title">Branch Performance Table</div>
+                    <details class="ba-compare-card ra-period-breakdown">
+                        <summary><span><i class="bi bi-table" aria-hidden="true"></i><strong>Performance Breakdown by Period</strong><small>Exact totals and average service value per case</small></span><i class="bi bi-chevron-down ra-period-chevron" aria-hidden="true"></i></summary>
                         <div class="ba-compare-table-wrap">
-                            <table class="ba-compare-table">
+                            <table class="ba-compare-table ra-period-table">
                                 <thead>
                                     <tr>
                                         <th>Period</th>
                                         <th>Total Cases</th>
-                                        <th>Total Service Amount</th>
-                                        <th>Average Service Amount per Case</th>
+                                        <th>Total Service Value</th>
+                                        <th>Average Service Value per Case</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -470,11 +275,11 @@
                                             $periodService = (float) ($periodServiceAmounts[$index] ?? 0);
                                             $periodAvgRevenue = $periodCaseCount > 0 ? ($periodService / $periodCaseCount) : 0;
                                         @endphp
-                                        <tr>
+                                        <tr class="{{ $periodCaseCount > 0 ? 'has-activity' : 'no-activity' }}">
                                             <td>{{ (string) ($periodLabels[$index] ?? $_periodLabel ?? '-') }}</td>
                                             <td>{{ number_format($periodCaseCount) }}</td>
-                                            <td>PHP {{ number_format($periodService, 2) }}</td>
-                                            <td>PHP {{ number_format($periodAvgRevenue, 2) }}</td>
+                                            <td>{{ $formatExactPeso($periodService) }}</td>
+                                            <td>{{ $formatExactPeso($periodAvgRevenue) }}</td>
                                         </tr>
                                     @empty
                                         <tr>
@@ -484,24 +289,41 @@
                                 </tbody>
                             </table>
                         </div>
-                    </div>
+                    </details>
                 @endif
+@isset($packageBreakdown)
+<section class="owner-package-analysis" aria-labelledby="owner-package-analysis-title">
+    <h2 id="owner-package-analysis-title"><i class="bi bi-box-seam" aria-hidden="true"></i> Most Selected Packages</h2>
+    <p>Verified cases in the selected branch and period. Includes all payment statuses.</p>
+    @php($packageCaseTotal = collect($packageBreakdown)->sum('total_cases'))
+    <ol class="package-demand-list">
+    @forelse(collect($packageBreakdown)->sortByDesc('total_cases') as $package)
+        @php($packageShare = $packageCaseTotal > 0 ? $package->total_cases / $packageCaseTotal * 100 : 0)
+        <li><details class="package-demand-item">
+            <summary><span class="package-demand-name">{{ $package->service_package }}</span><span class="package-demand-count">{{ number_format($package->total_cases) }} {{ $package->total_cases == 1 ? 'case' : 'cases' }} <small>· {{ number_format($packageShare, 1) }}%</small><i class="bi bi-chevron-down" aria-hidden="true"></i></span><span class="package-demand-track" aria-hidden="true"><span style="width:{{ $packageShare }}%"></span></span></summary>
+            <dl><div><dt>Total Service Value</dt><dd>₱{{ number_format($package->service_value, 2) }}</dd></div></dl>
+        </details></li>
+    @empty
+        <li class="package-demand-empty">No package records in this period.</li>
+    @endforelse
+    </ol>
+</section>
+@endisset
             </article>
 
             <article class="ba-panel {{ $activeAnalyticsPanel === 'ba-panel-payment' ? 'active' : '' }}" id="ba-panel-payment" role="tabpanel" @if($activeAnalyticsPanel !== 'ba-panel-payment') hidden @endif>
                 <div class="ba-panel-head">
-                    <h4 class="ba-panel-title">Payment Status</h4>
+                    <div><h4 class="ba-panel-title"><i class="bi bi-pie-chart" aria-hidden="true"></i> Payment Status Doughnut Chart (Paid, Partial, Unpaid)</h4><p class="ba-panel-subtitle">Select a payment status to view its summary.</p></div>
                     <div class="ba-panel-actions">
                         <span class="ba-panel-note" data-default-note="Paid vs partial vs unpaid case distribution">Paid vs partial vs unpaid case distribution</span>
                     </div>
                 </div>
                 <div class="ba-tab-context" data-context-tab="payment" hidden></div>
                 <div class="ba-status-pills">
-                    <span class="ba-status-pill ba-paid">Paid: {{ number_format($statusCounts['paid']) }}</span>
-                    <span class="ba-status-pill ba-partial">Partial: {{ number_format($statusCounts['partial']) }}</span>
-                    <span class="ba-status-pill ba-unpaid">Unpaid: {{ number_format($statusCounts['unpaid']) }}</span>
                     <span class="ba-status-pill ba-ongoing">Ongoing: {{ number_format($statusCounts['ongoing']) }}</span>
                 </div>
+                <div class="ba-payment-layout">
+                <div class="ba-payment-chart-column">
                 <div class="ba-chart-frame ba-chart-frame-narrow {{ ! $hasPaymentData ? 'has-empty-state' : '' }}">
                     @unless($hasPaymentData)
                         <div class="ba-chart-empty">
@@ -511,19 +333,36 @@
                         </div>
                     @endunless
                     <canvas id="paymentChart"></canvas>
+                    @if($hasPaymentData)
+                    <div class="ba-payment-center"><span>Total Cases</span><strong>{{ number_format($statusCounts['paid'] + $statusCounts['partial'] + $statusCounts['unpaid']) }}</strong><small>Payment distribution</small></div>
+                    @endif
                 </div>
-                <div class="ba-insight-row ba-insights-hidden" id="baPaymentInsights" aria-label="Payment status insights"></div>
+                <p class="ba-payment-chart-hint">Select a slice to view its summary.</p>
+                </div>
+                <div id="baPaymentInsights" class="ba-payment-status-cards" aria-label="Payment status insights"></div>
+                </div>
+                <div class="ba-payment-settlement">
+                    <div><span>Overall Account Settlement Ratio</span><strong>{{ number_format($overallCollectionRate, 1) }}% collected</strong></div>
+                    <div class="ba-payment-settlement-track" aria-label="Payment status distribution">
+                        @php($paymentCaseTotal = $statusCounts['paid'] + $statusCounts['partial'] + $statusCounts['unpaid'])
+                        @foreach(['paid' => 'Paid', 'partial' => 'Partial', 'unpaid' => 'Unpaid'] as $statusKey => $statusLabel)
+                        @php($statusPercent = $paymentCaseTotal > 0 ? $statusCounts[$statusKey] / $paymentCaseTotal * 100 : 0)
+                        <span class="is-{{ $statusKey }}" style="width:{{ $statusPercent }}%" title="{{ $statusLabel }}: {{ number_format($statusPercent, 1) }}%"></span>
+                        @endforeach
+                    </div>
+                </div>
+<details class="ba-compare-card ra-period-breakdown ba-summary-breakdown"><summary><span><i class="bi bi-table" aria-hidden="true"></i><strong>Payment Status Breakdown</strong><small>All payment statuses in the selected branch and date range.</small></span><i class="bi bi-chevron-down ra-period-chevron" aria-hidden="true"></i></summary><div class="ba-compare-table-wrap"><table class="ba-compare-table ra-period-table"><thead><tr><th>Payment Status</th><th>Cases</th><th>Total Service Value</th><th>Collected</th><th>Remaining Balance</th></tr></thead><tbody id="baPaymentBreakdown"></tbody></table></div></details>
             </article>
 
             <article class="ba-panel {{ $activeAnalyticsPanel === 'ba-panel-trend' ? 'active' : '' }}" id="ba-panel-trend" role="tabpanel" @if($activeAnalyticsPanel !== 'ba-panel-trend') hidden @endif>
                 <div class="ba-panel-head">
-                    <h4 class="ba-panel-title">Revenue Trend</h4>
+                    <h4 class="ba-panel-title">Service Value Trend</h4>
                     <div class="ba-panel-actions">
                         <span class="ba-panel-note" data-default-note="Period movement">Period movement</span>
                     </div>
                 </div>
                 <div class="ba-tab-context" data-context-tab="trend" hidden></div>
-                <div class="ba-insight-row ba-insights-hidden" id="baRevenueInsights" aria-label="Revenue trend key metrics"></div>
+
                 <div class="ba-chart-frame {{ ! $hasTrendData ? 'has-empty-state' : '' }}">
                     @unless($hasTrendData)
                         <div class="ba-chart-empty">
@@ -534,6 +373,7 @@
                     @endunless
                     <canvas id="trendChart"></canvas>
                 </div>
+<details class="ba-compare-card ra-period-breakdown ba-summary-breakdown"><summary><span><i class="bi bi-table" aria-hidden="true"></i><strong>Service Value Breakdown</strong><small>All periods in the selected branch and date range.</small></span><i class="bi bi-chevron-down ra-period-chevron" aria-hidden="true"></i></summary><div class="ba-compare-table-wrap"><table class="ba-compare-table ra-period-table"><thead><tr><th>Period</th><th>Cases Recorded</th><th>Total Service Value</th><th>Average Service Value per Case</th></tr></thead><tbody id="baRevenueInsightsBreakdown"></tbody></table></div></details>
             </article>
 
             <article class="ba-panel {{ $activeAnalyticsPanel === 'ba-panel-collection' ? 'active' : '' }}" id="ba-panel-collection" role="tabpanel" @if($activeAnalyticsPanel !== 'ba-panel-collection') hidden @endif>
@@ -563,7 +403,8 @@
                     @endunless
                     <canvas id="collectionChart"></canvas>
                 </div>
-                <div class="ba-insight-row ba-insights-hidden" id="baCollectionInsights" aria-label="Collection status insights"></div>
+
+<details class="ba-compare-card ra-period-breakdown ba-summary-breakdown"><summary><span><i class="bi bi-table" aria-hidden="true"></i><strong>Collections Breakdown</strong><small>All periods in the selected branch and date range.</small></span><i class="bi bi-chevron-down ra-period-chevron" aria-hidden="true"></i></summary><p class="ba-breakdown-note">Collected and remaining balances, grouped by case recording date.</p><div class="ba-compare-table-wrap"><table class="ba-compare-table ra-period-table"><thead><tr><th>Case Recording Period</th><th>Cases</th><th>Collected</th><th>Remaining Balance</th><th>Collection Rate</th></tr></thead><tbody id="baCollectionInsightsBreakdown"></tbody></table></div></details>
             </article>
         </div>
 
@@ -584,14 +425,14 @@
                     </button>
                     <button type="button" class="ba-master-records-btn" id="baMasterRecordsBtn">
                         <i class="bi bi-folder2-open"></i>
-                        <span>View full Master Case Records</span>
+                        <span>View Case Monitoring Report</span>
                     </button>
                 </div>
             </div>
 
             <div class="ba-drilldown-kpis">
                 <article class="ba-branch-kpi-card ba-drill-kpi ba-kpi-revenue">
-                    <span>Total Revenue</span>
+                    <span>Total Service Value</span>
                     <strong id="baFilteredRevenue">PHP 0.00</strong>
                 </article>
                 <article class="ba-branch-kpi-card ba-drill-kpi ba-kpi-cases">
@@ -603,32 +444,10 @@
                     <strong id="baFilteredAverage">PHP 0.00</strong>
                 </article>
                 <article class="ba-branch-kpi-card ba-drill-kpi ba-kpi-outstanding" id="baOutstandingCard">
-                    <span>Outstanding Balance</span>
+                    <span>Remaining Balance</span>
                     <strong id="baFilteredOutstanding">PHP 0.00</strong>
                 </article>
             </div>
-
-            <details class="ba-breakdown-section" open>
-                <summary class="ba-breakdown-summary">
-                    <span>
-                        <i class="bi bi-pie-chart" aria-hidden="true"></i>
-                        Status Breakdowns
-                    </span>
-                    <small>Payment and collection mix</small>
-                    <i class="bi bi-chevron-down" aria-hidden="true"></i>
-                </summary>
-
-                <div class="ba-breakdown-grid">
-                    <div class="ba-compare-card ba-breakdown-card">
-                        <div class="ba-compare-title">Payment Status Breakdown</div>
-                        <div class="ba-breakdown-list" id="baPaymentBreakdown"></div>
-                    </div>
-                    <div class="ba-compare-card ba-breakdown-card">
-                        <div class="ba-compare-title">Collection Status Breakdown</div>
-                        <div class="ba-breakdown-list" id="baCollectionBreakdown"></div>
-                    </div>
-                </div>
-            </details>
 
             <div class="ba-compare-card">
                 <div class="ba-compare-title" id="baCasesTableTitle">All Cases</div>
@@ -643,7 +462,7 @@
                                 <th>Deceased</th>
                                 <th>Payment</th>
                                 <th>Collection</th>
-                                <th>Total Revenue</th>
+                                <th>Total Service Value</th>
                                 <th>Balance</th>
                             </tr>
                         </thead>
@@ -655,8 +474,29 @@
     </section>
         </div>
     </div>
+<dialog id="baBranchSummary" class="ba-branch-summary" aria-labelledby="baBranchSummaryTitle">
+    <header><h2 id="baBranchSummaryTitle">Branch summary</h2><button type="button" data-close-branch-summary aria-label="Close branch summary"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+    <div class="ba-branch-summary-body"><p data-branch-summary-scope></p><small data-branch-summary-metric></small><strong data-branch-summary-value></strong><dl data-branch-summary-figures></dl></div>
+    <footer><a data-branch-summary-report>View Case Monitoring Report <i class="bi bi-arrow-up-right" aria-hidden="true"></i></a></footer>
+</dialog>
+<style>
+.ba-breakdown-note{margin:0;padding:12px 20px;color:var(--ink-muted);font-size:13px;font-weight:400;line-height:1.5;background:transparent;border:0;border-radius:0}
+.ba-summary-breakdown{order:9;width:100%;min-width:0}.ba-summary-breakdown tbody tr:last-child{border-top:2px solid var(--border)}.ba-summary-breakdown th:not(:first-child),.ba-summary-breakdown td:not(:first-child){text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.owner-package-analysis{order:10;margin:24px 0 0;padding:20px;background:var(--card);color:var(--ink);border:1px solid var(--border);border-radius:16px;font-family:var(--font-body)}
+.owner-package-analysis h2{display:flex;align-items:center;gap:8px;font-size:18px;font-weight:600;margin:0}
+.owner-package-analysis p{font-size:13px;color:var(--ink-muted);margin:6px 0 16px}
+.package-demand-list{list-style:none;padding:0;margin:0;display:grid;gap:12px}
+.package-demand-item summary{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 16px;padding:12px;border-radius:8px;cursor:pointer;list-style:none}
+.package-demand-item summary::-webkit-details-marker{display:none}
+.package-demand-item summary:hover{background:var(--surface-muted)}
+.package-demand-item summary:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.package-demand-name{overflow-wrap:anywhere}.package-demand-count{font-variant-numeric:tabular-nums;white-space:nowrap}.package-demand-count small{color:var(--ink-muted)}
+.package-demand-count i{display:inline-block;margin-left:12px;font-size:12px;transition:transform .15s}.package-demand-item[open] .package-demand-count i{transform:rotate(180deg)}
+.package-demand-track{grid-column:1 / -1;height:8px;background:var(--surface-muted);border-radius:6px;overflow:hidden}.package-demand-track>span{display:block;height:100%;background:#64748b;border-radius:6px}
+.package-demand-item dl{margin:0 12px 12px;padding-top:12px;border-top:1px solid var(--border)}.package-demand-item dl>div{display:flex;justify-content:space-between;gap:16px}.package-demand-item dt{font-size:13px;color:var(--ink-muted)}.package-demand-item dd{margin:0;font-variant-numeric:tabular-nums}
+@media(max-width:480px){.owner-package-analysis{padding:14px}.package-demand-item summary{grid-template-columns:minmax(0,1fr)}.package-demand-count{grid-row:2}.package-demand-track{grid-row:3}}
+</style>
 </div>
-
 <div class="ba-chart-modal" id="baChartModal" hidden aria-hidden="true">
     <div class="ba-chart-modal__backdrop" data-chart-modal-close aria-hidden="true"></div>
     <section class="ba-chart-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="baChartModalTitle">
@@ -5043,7 +4883,7 @@ html:not([data-theme='dark']) .ba-branch-select option:checked {
 }
 
 .ba-chart-modal__backdrop {
-    background: rgba(35, 43, 34, 0.72) !important;
+    background: var(--modal-scrim) !important;
     backdrop-filter: blur(2px);
     -webkit-backdrop-filter: blur(2px);
 }
@@ -5237,7 +5077,7 @@ html body .ba-shell .ba-panel-actions {
 }
 
 html body .ba-shell .ba-panel-note {
-    background: #E7EEDF !important;
+    background: var(--ra-muted) !important;
     border: 0 !important;
     border-radius: 999px !important;
     color: #667160 !important;
@@ -5461,11 +5301,7 @@ html body .ba-shell .reports-module-main > .ba-workspace {
     box-sizing: border-box !important;
 }
 
-html body .ba-shell .ba-workspace[data-active-analytics-panel="ba-panel-payment"] > .ba-summary-grid,
-html body .ba-shell .ba-workspace[data-active-analytics-panel="ba-panel-collection"] > .ba-summary-grid,
-html body .ba-shell .ba-workspace[data-active-analytics-panel="ba-panel-trend"] > .ba-summary-grid {
-    display: none !important;
-}
+
 
 html body .ba-shell #ba-panel-trend.active > .ba-panel-head {
     order: 0 !important;
@@ -5643,7 +5479,7 @@ html body .ba-shell .ba-table-scroll-hint {
 }
 
 html body .ba-shell .ba-panel-note {
-    background: #E7EEDF !important;
+    background: var(--ra-muted) !important;
     border-radius: 999px !important;
     padding: 0.28rem 0.5rem !important;
     font-size: 0.78rem !important;
@@ -5764,8 +5600,86 @@ html body .ba-shell .ba-chart-mode-btn,
 html body .ba-shell .ba-kpi-action {
     border-radius: 7px !important;
 }
+
+/* Compact disclosure for the Analytics ranking; chart remains the primary view. */
+html body .ba-shell #baBranchRanking { padding:0; border:1px solid var(--border); border-radius:12px; background:var(--card); overflow:hidden; }
+html body .ba-shell #baBranchRanking > summary.ba-ranking-toggle { display:flex; align-items:center; gap:10px; margin:0; padding:16px 20px; min-height:52px; background:transparent; border:0; border-radius:0; color:var(--ink); font-size:15px; font-weight:500; cursor:pointer; list-style:none; }
+#baBranchRanking > summary::-webkit-details-marker { display:none; }
+#baBranchRanking > summary::marker { content:''; }
+#baBranchRanking > summary > small { margin-left:auto; font-size:12px; font-weight:400; color:var(--ink-muted); }
+#baBranchRanking > summary > .bi-chevron-down { font-size:12px; transition:transform .15s; }
+#baBranchRanking[open] > summary > .bi-chevron-down { transform:rotate(180deg); }
+html body .ba-shell #baBranchRanking > summary:hover { background:var(--surface-muted); }
+#baBranchRanking > summary:focus-visible { outline:2px solid var(--brand); outline-offset:-3px; }
+html body .ba-shell #baBranchRanking[open] > summary { border-bottom:1px solid var(--border); }
+#baBranchRanking > #baRankingBasis { margin:0; padding:14px 20px; font-size:12px; line-height:1.6; color:var(--ink-muted); font-weight:400; }
+#baBranchRanking .ba-compare-table-wrap { margin:0 20px 20px; }
+@media(max-width:600px) { html body .ba-shell #baBranchRanking > summary.ba-ranking-toggle { padding:14px 16px; } #baBranchRanking .ba-compare-table-wrap { margin-inline:16px; } }
+
+#baBranchRanking .ba-compare-table { width:100%; min-width:640px; table-layout:auto; }
+#baBranchRanking .ba-compare-table :is(th,td)[hidden] { display:none; }
+html body .ba-shell #baBranchRanking .ba-compare-table th { font-weight:500 !important; letter-spacing:0; text-transform:none; font-size:12px !important; }
+#baBranchRanking .ba-compare-table :is(th,td) { padding:14px 16px; vertical-align:middle; }
+#baBranchRanking .ba-compare-table :is(th,td).is-numeric { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+#baBranchRanking .ba-compare-table td.is-selected-metric { font-weight:600; }
+#baBranchRanking .ba-compare-table th.is-selected-metric { text-decoration:underline; text-underline-offset:5px; }
+#baBranchRanking [data-exact-rank] { width:64px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+#baBranchRanking .is-leading [data-exact-rank] { font-weight:600; }
+#baBranchRanking .ba-ranking-row { cursor:pointer; }
+#baBranchRanking .ba-compare-table td:nth-child(2) { min-width:190px; }
+
+#baBranchRanking .ba-ranked-list { list-style:none; margin:0; padding:0 20px 20px; display:grid; gap:8px; }
+#baBranchRanking .ba-ranked-list > li { list-style:none; margin:0; padding:0; }
+#baBranchRanking .ba-ranked-entry { width:100%; display:grid; grid-template-columns:36px minmax(0,1fr) auto 16px; align-items:center; gap:10px 14px; padding:16px; border:1px solid var(--border); border-radius:10px; background:var(--card); color:var(--ink); text-align:left; font:400 14px/1.5 var(--font-body); cursor:pointer; }
+#baBranchRanking .ba-ranked-entry.is-leading { background:var(--surface-muted); }
+#baBranchRanking .ba-ranked-entry:hover { border-color:var(--brand); }
+#baBranchRanking .ba-ranked-entry:focus-visible { outline:2px solid var(--brand); outline-offset:2px; }
+#baBranchRanking .ba-ranked-entry.is-selected { border-color:var(--brand); }
+.ba-ranked-number { font-variant-numeric:tabular-nums; color:var(--ink-muted); }
+.ba-ranked-name { display:grid; gap:2px; font-weight:500; }
+.ba-ranked-name > small { font-size:11px; color:var(--ink-muted); font-weight:400; }
+.ba-ranked-value { text-align:right; font-size:17px; font-weight:500; font-variant-numeric:tabular-nums; }
+.ba-ranked-context { grid-column:2 / 4; display:flex; flex-wrap:wrap; gap:12px 32px; color:var(--ink-muted); font-size:12px; }
+.ba-ranked-context > span { display:grid; gap:2px; }
+.ba-ranked-context small { font-size:11px; }
+.ba-ranked-context > span > span { color:var(--ink); font-variant-numeric:tabular-nums; }
+.ba-ranked-arrow { grid-column:4; grid-row:1; font-size:13px; }
+@media(max-width:600px) { #baBranchRanking .ba-ranked-list { padding-inline:12px; } #baBranchRanking .ba-ranked-entry { grid-template-columns:28px minmax(0,1fr) 16px; gap:8px; padding:14px; }.ba-ranked-value { grid-column:2; grid-row:2; text-align:left; font-size:16px; }.ba-ranked-context { grid-column:2 / 4; grid-row:3; gap:8px 16px; }.ba-ranked-arrow { grid-column:3; } }
+
+body.ba-branch-summary-open { overflow:hidden; }
+.ba-branch-summary { width:min(520px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); margin:auto; padding:0; border:1px solid var(--border); border-radius:16px; background:var(--card); color:var(--ink); font:400 14px/1.5 var(--font-body); overflow:auto; }
+.ba-branch-summary::backdrop { background:var(--modal-scrim,rgba(15,23,42,.72)); }
+.ba-branch-summary header { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:20px 24px; border-bottom:1px solid var(--border); }
+.ba-branch-summary h2 { font-size:18px; font-weight:500; margin:0; color:var(--ink); }
+.ba-branch-summary header button { width:40px; height:40px; flex-shrink:0; border:1px solid var(--border); border-radius:8px; background:var(--surface-muted); color:var(--ink); cursor:pointer; }
+.ba-branch-summary-body { padding:24px; }
+.ba-branch-summary-body > p { margin:0 0 24px; font-size:12px; color:var(--ink-muted); }
+.ba-branch-summary-body > small { display:block; font-size:13px; }
+.ba-branch-summary-body > strong { display:block; font-size:30px; margin:8px 0 24px; font-weight:500; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+.ba-branch-summary dl { margin:0; }
+.ba-branch-summary dl > div { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; padding:12px 0; border-top:1px solid var(--border); }
+.ba-branch-summary dt { color:var(--ink-muted); font-size:12px; }
+.ba-branch-summary dd { margin:0; font-variant-numeric:tabular-nums; }
+.ba-branch-summary footer { padding:16px 24px; border-top:1px solid var(--border); }
+.ba-branch-summary footer a { display:flex; justify-content:center; align-items:center; gap:8px; padding:12px; border-radius:8px; background:#1B4332; color:white; text-decoration:none; font-weight:500; }
+.ba-branch-summary :is(button,a):focus-visible { outline:2px solid var(--brand); outline-offset:3px; }
+.ba-branch-summary header button:hover { background:var(--owner-hover,var(--surface-muted)); }
+.ba-branch-summary footer a:hover { background:#123325; }
+
+.ra-analytics-tabs { display:flex; width:100%; justify-content:safe center; overflow-x:auto; flex-wrap:nowrap; }
+.ra-analytics-tabs > .ba-tab-btn { flex:0 0 auto; }
+
+/* Highlight the applied filter itself, while the surrounding bar stays neutral. */
+html[data-theme] body #baGlobalFilterBar { background:var(--card) !important; border:1px solid var(--border) !important; box-shadow:none; }
+html[data-theme] body #baGlobalFilterBar .ba-active-filter-chip { background:#374151 !important; color:#FFFFFF !important; border:1px solid #374151 !important; }
+html[data-theme='dark'] body #baGlobalFilterBar .ba-active-filter-chip { background:#D1D5DB !important; color:#111827 !important; border-color:#D1D5DB !important; }
+#baGlobalFilterBar .ba-filter-chip-remove { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; padding:0; opacity:1; border-radius:50%; }
+#baGlobalFilterBar .ba-filter-chip-remove, #baGlobalFilterBar .ba-filter-chip-remove span { color:inherit !important; background:transparent !important; }
+#baGlobalFilterBar .ba-filter-chip-remove:focus-visible { outline:2px solid currentColor; outline-offset:2px; }
 </style>
 
+@include('reports.partials.visual-reference')
+@include('reports.partials.analytics-reference-components')
 <script data-ba-analytics-script>
 window.SabanganAnalyticsSoftNav = window.SabanganAnalyticsSoftNav || (() => {
     let isLoading = false;
@@ -5918,11 +5832,11 @@ window.SabanganAnalyticsSoftNav.init();
 
     const isDark = document.documentElement.dataset.theme === 'dark';
     const chartTheme = {
-        primary: '#344332',
-        secondary: '#93A58D',
-        success: '#56755A',
-        warning: '#BD7A55',
-        danger: '#A24B42',
+        primary: isDark ? '#38BDB0' : '#147D79',
+        secondary: isDark ? '#72A9F5' : '#3974C5',
+        success: isDark ? '#65CD96' : '#2E925F',
+        warning: isDark ? '#E8B858' : '#B97819',
+        danger: isDark ? '#F08C88' : '#C05B57',
         neutral: '#6F796B',
         surface: '#EAF1E2',
         border: '#AEBCA5',
@@ -5979,7 +5893,7 @@ window.SabanganAnalyticsSoftNav.init();
         PARTIAL: 'Partial',
         UNPAID: 'Unpaid',
         COLLECTED: 'Collected',
-        OUTSTANDING: 'Outstanding',
+        OUTSTANDING: 'Remaining Balance',
     };
 
     const statusSentenceLabels = {
@@ -5987,7 +5901,7 @@ window.SabanganAnalyticsSoftNav.init();
         PARTIAL: 'Partial',
         UNPAID: 'Unpaid',
         COLLECTED: 'Collected',
-        OUTSTANDING: 'Outstanding',
+        OUTSTANDING: 'Remaining Balance',
     };
 
     const activeFilterCount = () => [
@@ -6034,7 +5948,7 @@ window.SabanganAnalyticsSoftNav.init();
         if (analyticsFilters.revenuePeriod) {
             items.push({
                 key: 'revenuePeriod',
-                label: 'Period',
+                label: 'Case Period',
                 value: analyticsFilters.revenuePeriod.label,
                 rawValue: analyticsFilters.revenuePeriod.label,
             });
@@ -6186,6 +6100,20 @@ window.SabanganAnalyticsSoftNav.init();
 
         target.innerHTML = cards.map((card, index) => {
             const accessibleLabel = `${card.label}: ${card.value}. ${card.note || 'Open matching records.'}`;
+            if (targetId === 'baPaymentInsights') {
+                const statuses = ['PAID', 'PARTIAL', 'UNPAID'];
+                const labels = ['Paid Accounts', 'Partial Settlement', 'Unpaid / Collectibles'];
+                const descriptions = ['Zero balance accounts • fully settled', 'With initial deposit, remaining balance pending', 'Zero payment recorded • requires accounting follow-up'];
+                const total = Number(summary.status.paid || 0) + Number(summary.status.partial || 0) + Number(summary.status.unpaid || 0);
+                const count = Number([summary.status.paid, summary.status.partial, summary.status.unpaid][index] || 0);
+                const percent = total > 0 ? count / total * 100 : 0;
+                const selected = analyticsFilters.paymentStatus === statuses[index];
+                return `<button type="button" class="ba-payment-status-card tone-${card.tone} ${selected ? 'is-selected' : ''}" data-insight-index="${index}" aria-pressed="${selected}">
+                    <span class="ba-payment-status-dot" aria-hidden="true"></span>
+                    <span class="ba-payment-status-copy"><strong>${labels[index]} (${percent.toFixed(1)}%)</strong><span>${descriptions[index]}</span><small>${escapeHtml(card.note)}</small></span>
+                    <span class="ba-payment-status-count"><strong>${number.format(count)} ${count === 1 ? 'Case' : 'Cases'}</strong><small>${selected ? 'Filter Selected' : 'Click to filter'}</small></span>
+                </button>`;
+            }
 
             return `
             <article class="ba-insight-card tone-${card.tone || 'blue'} ${card.onClick ? 'is-clickable' : ''} ${card.isSelected ? 'is-selected' : ''}" data-insight-index="${index}" ${card.onClick ? `role="button" tabindex="0" aria-label="${escapeHtml(accessibleLabel)}"` : ''}>
@@ -6201,7 +6129,7 @@ window.SabanganAnalyticsSoftNav.init();
             const el = target.querySelector(`[data-insight-index="${index}"]`);
             if (!el) return;
             el.addEventListener('click', card.onClick);
-            el.addEventListener('keydown', (event) => {
+            if (el.tagName !== 'BUTTON') el.addEventListener('keydown', (event) => {
                 if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
                     card.onClick();
@@ -6266,7 +6194,7 @@ window.SabanganAnalyticsSoftNav.init();
         const collected = allAnalyticsCases.reduce((sum, item) => sum + Number(item.totalPaid || 0), 0);
         const outstanding = allAnalyticsCases.reduce((sum, item) => sum + Number(item.balanceAmount || 0), 0);
         const outstandingCases = allAnalyticsCases.filter((item) => item.collectionStatus === 'OUTSTANDING');
-        const collectible = collected + outstanding;
+        const collectible = allAnalyticsCases.reduce((sum,item)=>sum+Number(item.totalAmount || 0),0);
 
         return {
             collected,
@@ -6307,57 +6235,6 @@ window.SabanganAnalyticsSoftNav.init();
     };
 
     const renderAnalyticsInsights = () => {
-        const branchRows = buildBranchInsightRows();
-        const topRevenue = maxBy(branchRows, (row) => row.revenue);
-        const mostActive = maxBy(branchRows, (row) => row.cases);
-        const needsAttention = maxBy(branchRows, (row) => row.needsAttention || 0);
-
-        if (selectedBranchMeta) {
-            const selected = branchRows[0] || { cases: 0, revenue: 0, average: 0 };
-
-            renderInsightCards('baBranchInsights', [
-                {
-                    label: 'Average per Case',
-                    value: shortMoney(selected.average || 0),
-                    note: `${number.format(selected.cases || 0)} cases included`,
-                    tone: 'blue',
-                },
-            ]);
-        } else {
-            renderInsightCards('baBranchInsights', [
-                {
-                    label: 'Top Revenue Branch',
-                    value: topRevenue ? `${shortMoney(topRevenue.revenue)} revenue` : 'No revenue yet',
-                    note: branchDisplay(topRevenue),
-                    tone: 'blue',
-                    onClick: topRevenue?.code ? () => handleBranchClick(topRevenue.code) : null,
-                    hint: topRevenue?.code ? 'Open records' : null,
-                },
-                {
-                    label: 'Most Active Branch',
-                    value: mostActive ? pluralizeCase(mostActive.cases) : 'No cases yet',
-                    note: branchDisplay(mostActive),
-                    tone: 'blue',
-                    onClick: mostActive?.code ? () => handleBranchClick(mostActive.code) : null,
-                    hint: mostActive?.code ? 'Open records' : null,
-                },
-                {
-                    label: 'Needs Attention',
-                    value: needsAttention && needsAttention.needsAttention > 0
-                        ? pluralizeCase(needsAttention.needsAttention)
-                        : 'No open balances',
-                    note: needsAttention && needsAttention.outstanding > 0
-                        ? `${shortMoney(needsAttention.outstanding)} outstanding`
-                        : 'All selected balances are clear',
-                    tone: needsAttention && needsAttention.needsAttention > 0 ? 'amber' : 'green',
-                    onClick: needsAttention?.code && needsAttention.needsAttention > 0
-                        ? () => handleBranchClick(needsAttention.code)
-                        : null,
-                    hint: needsAttention?.code && needsAttention.needsAttention > 0 ? 'Open records' : null,
-                },
-            ]);
-        }
-
         const paymentRows = buildPaymentInsightRows();
         const needsFollowUpCount = paymentRows.PARTIAL.count + paymentRows.UNPAID.count;
         const needsFollowUpBalance = paymentRows.PARTIAL.balance + paymentRows.UNPAID.balance;
@@ -6403,21 +6280,21 @@ window.SabanganAnalyticsSoftNav.init();
             : 'Selected range';
         renderInsightCards('baRevenueInsights', [
             {
-                label: 'Total Revenue',
+                label: 'Total Service Value',
                 value: shortMoney(revenueRows.total),
                 note: 'For selected range',
                 tone: 'blue',
             },
             {
-                label: 'Avg Monthly Revenue',
+                label: 'Average Service Value per Period',
                 value: shortMoney(revenueRows.average),
-                note: 'Gross service amount',
+                note: 'After discounts',
                 tone: 'blue',
             },
             {
                 label: 'Peak Month',
                 value: revenueRows.peak?.period?.label || revenueRows.peak?.label || '-',
-                note: revenueRows.peak ? `${shortMoney(revenueRows.peak.revenue)} revenue` : 'No revenue yet',
+                note: revenueRows.peak ? `${shortMoney(revenueRows.peak.revenue)} service value` : 'No revenue yet',
                 tone: 'blue',
                 onClick: revenueRows.peak?.period ? () => handleRevenuePeriodClick(revenueRows.peak.period) : null,
                 isSelected: !!revenueRows.peak?.period && analyticsFilters.revenuePeriod?.label === revenueRows.peak?.period?.label,
@@ -6434,16 +6311,16 @@ window.SabanganAnalyticsSoftNav.init();
         const collectionRows = buildCollectionInsightRows();
         renderInsightCards('baCollectionInsights', [
             {
-                label: 'Collected Amount',
-                value: shortMoney(collectionRows.collected),
+                label: 'Collected',
+                value: money.format(collectionRows.collected),
                 note: `${collectionRows.collectionRate.toFixed(1)}% collection rate`,
                 tone: 'green',
                 onClick: () => handleCollectionStatusClick('COLLECTED'),
                 hint: 'Open records',
             },
             {
-                label: 'Outstanding Amount',
-                value: shortMoney(collectionRows.outstanding),
+                label: 'Remaining Balance',
+                value: money.format(collectionRows.outstanding),
                 note: `${number.format(collectionRows.outstandingCases)} cases open`,
                 tone: collectionRows.outstanding > 0 ? 'amber' : 'green',
                 onClick: collectionRows.outstanding > 0 ? () => handleCollectionStatusClick('OUTSTANDING') : null,
@@ -6457,32 +6334,6 @@ window.SabanganAnalyticsSoftNav.init();
                 // Non-clickable: informational only
             },
         ]);
-    };
-
-    const renderBreakdown = (targetId, breakdown, order, totalCases) => {
-        const target = document.getElementById(targetId);
-        if (!target) return;
-
-        target.innerHTML = order.map((key) => {
-            const row = breakdown[key] || { count: 0, amount: 0 };
-            const percentage = totalCases > 0 ? ((row.count / totalCases) * 100) : 0;
-            const tone = statusTone(key);
-            const toneColor = tone === 'status-positive'
-                ? '#597A5C'
-                : tone === 'status-warning'
-                    ? '#BF7A49'
-                    : tone === 'status-danger'
-                        ? '#AE3D31'
-                        : '#8EA083';
-            return `
-                <div class="ba-breakdown-row" style="--ba-breakdown-percent: ${percentage.toFixed(2)}%; --ba-breakdown-tone: ${toneColor};">
-                    <span class="ba-breakdown-label"><span class="ba-status-dot ${tone}"></span>${statusLabels[key] || key}</span>
-                    <span class="ba-breakdown-count">${pluralizeCase(row.count)}</span>
-                    <span class="ba-breakdown-amount">${money.format(row.amount)}</span>
-                    <span class="ba-breakdown-percent">${percentage.toFixed(0)}%</span>
-                </div>
-            `;
-        }).join('');
     };
 
     const renderActiveFilters = () => {
@@ -6516,7 +6367,7 @@ window.SabanganAnalyticsSoftNav.init();
         chipTarget.innerHTML = chips.map(({ key, label, value, rawValue }) => `
             <span class="ba-active-filter-chip ${filterTone(label, rawValue)}">
                 ${label}: ${escapeHtml(value)}
-                <button type="button" class="ba-filter-chip-remove" data-filter-key="${key}" aria-label="Remove ${escapeHtml(label)} filter"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                <button type="button" class="ba-filter-chip-remove" data-filter-key="${key}" aria-label="Remove ${escapeHtml(label)} filter"><span aria-hidden="true">&times;</span></button>
             </span>
         `).join('');
 
@@ -6536,7 +6387,7 @@ window.SabanganAnalyticsSoftNav.init();
                 context: branchLabel ? `This view is filtered by ${branchLabel}.` : '',
             },
             trend: {
-                note: branchLabel ? `Revenue trend for ${branchLabel}.` : 'Total revenue movement',
+                note: branchLabel ? `Service value trend for ${branchLabel}.` : 'Service value movement',
                 context: branchLabel ? `This view is filtered by ${branchLabel}.` : '',
             },
             collection: {
@@ -6665,7 +6516,7 @@ window.SabanganAnalyticsSoftNav.init();
             <div class="ba-modal-drilldown__content">
                 <div class="ba-modal-drilldown__kpis">
                     <article class="ba-modal-kpi">
-                        <span>Total Revenue</span>
+                        <span>Total Service Value</span>
                         <strong>${money.format(filteredSummary.totalRevenue)}</strong>
                     </article>
                     <article class="ba-modal-kpi">
@@ -6697,7 +6548,7 @@ window.SabanganAnalyticsSoftNav.init();
                                     <th>Deceased</th>
                                     <th>Payment</th>
                                     <th>Collection</th>
-                                    <th>Total Revenue</th>
+                                    <th>Total Service Value</th>
                                     <th>Balance</th>
                                 </tr>
                             </thead>
@@ -6709,34 +6560,28 @@ window.SabanganAnalyticsSoftNav.init();
         `;
     };
 
-    const updateMasterRecordsLink = () => {
-        const button = document.getElementById('baMasterRecordsBtn');
-        if (!button) return;
-
-        button.onclick = () => {
-            const params = new URLSearchParams();
-            const branch = analyticsFilters.branchCode
-                ? allAnalyticsCases.find((item) => item.branchCode === analyticsFilters.branchCode)
-                : null;
-
-            if (branch?.branchId || globalBranchId) params.set('branch_id', branch?.branchId || globalBranchId);
-            if (analyticsFilters.paymentStatus) params.set('payment_status', analyticsFilters.paymentStatus);
-            if (analyticsFilters.revenuePeriod?.type === 'day') {
-                params.set('date_preset', 'CUSTOM');
-                params.set('date_from', analyticsFilters.revenuePeriod.date);
-                params.set('date_to', analyticsFilters.revenuePeriod.date);
-            } else if (analyticsFilters.revenuePeriod?.type === 'range') {
-                params.set('date_preset', 'CUSTOM');
-                params.set('date_from', analyticsFilters.revenuePeriod.start);
-                params.set('date_to', analyticsFilters.revenuePeriod.end);
-            } else {
-                params.set('date_preset', 'CUSTOM');
-                params.set('date_from', globalDateFrom);
-                params.set('date_to', globalDateTo);
+    const filteredReportUrl = () => {
+            const params = new URLSearchParams({report_type:'master_cases',verification_status:'VERIFIED',date_basis:'recording'});
+            const branch = analyticsFilters.branchCode ? branchMeta.find(item=>item.code===analyticsFilters.branchCode) : null;
+            if(branch?.id || globalBranchId) params.set('branch_id',branch?.id || globalBranchId);
+            if(analyticsFilters.paymentStatus) params.set('payment_status',analyticsFilters.paymentStatus);
+            if(analyticsFilters.collectionStatus) params.set('collection_state',analyticsFilters.collectionStatus==='OUTSTANDING'?'WITH_BALANCE':'WITH_PAYMENTS');
+            let from=globalDateFrom, to=globalDateTo;
+            const period=analyticsFilters.revenuePeriod;
+            if(period?.type==='day') from=to=period.date;
+            if(period?.type==='range') {from=period.start;to=period.end;}
+            if(period?.type==='month') {
+                from=String(period.year)+'-'+String(period.month).padStart(2,'0')+'-01';
+                const last=new Date(period.year,period.month,0).getDate();
+                to=String(period.year)+'-'+String(period.month).padStart(2,'0')+'-'+last;
             }
-
-            window.location.href = `${masterCaseRecordsUrl}?${params.toString()}`;
+            params.set('date_from',from<globalDateFrom?globalDateFrom:from);
+            params.set('date_to',to>globalDateTo?globalDateTo:to);
+            return @json(route('reports.index'))+'?'+params.toString();
         };
+    const updateMasterRecordsLink = () => {
+        const button=document.getElementById('baMasterRecordsBtn');
+        if(button) button.onclick=()=>{window.location.href=filteredReportUrl();};
     };
 
     const updateChartHighlights = () => {
@@ -6745,15 +6590,83 @@ window.SabanganAnalyticsSoftNav.init();
         });
     };
 
+const branchSummary = document.getElementById('baBranchSummary');
+    let branchSummaryTrigger = null;
+    branchSummary.querySelector('[data-close-branch-summary]').addEventListener('click',()=>branchSummary.close());
+    branchSummary.addEventListener('close',()=>{ document.body.classList.remove('ba-branch-summary-open'); branchSummaryTrigger?.focus(); });
+    const showBranchPerformanceSummary = (code) => {
+        const row = @json($branchRankingRows).find(item=>item.branch_code===code);
+        if(!row) return;
+        branchSummaryTrigger=document.activeElement;
+        const metric=document.getElementById('baComparisonMetric')?.value || 'service';
+        const metricLabel=metric==='rate'?'Collection Rate':metric==='cases'?'Cases Recorded':'Total Service Value';
+        const moneyText=value=>money.format(Number(value));
+        branchSummary.querySelector('h2').textContent=row.branch_name+' · '+row.branch_code;
+        branchSummary.querySelector('[data-branch-summary-scope]').textContent=globalDateFrom+' – '+globalDateTo+' · Recording dates';
+        branchSummary.querySelector('[data-branch-summary-metric]').textContent=metricLabel;
+        branchSummary.querySelector('[data-branch-summary-value]').textContent=metric==='rate'?(row.rate===null?'N/A':Number(row.rate).toFixed(1)+'% collected'):metric==='cases'?number.format(row.total_cases):moneyText(row.total_revenue);
+        const figures=branchSummary.querySelector('dl'); figures.replaceChildren();
+        const add=(label,value)=>{const group=document.createElement('div');const term=document.createElement('dt');term.textContent=label;const definition=document.createElement('dd');definition.textContent=value;group.append(term,definition);figures.append(group);};
+        if(metric==='rate') {add('Total Service Value',moneyText(row.total_revenue));add('Collected · these cases',moneyText(row.collected));add('Remaining · these cases',moneyText(row.remaining));}
+        else if(metric==='cases') add('Total Service Value',moneyText(row.total_revenue));
+        else add('Cases Recorded',number.format(row.total_cases));
+        const url=new URL(@json(route('reports.index')),window.location.origin);
+        const params={report_type:'master_cases',branch_id:row.branch_id,verification_status:'VERIFIED',date_basis:'recording',date_from:globalDateFrom,date_to:globalDateTo};
+        Object.entries(params).forEach(([key,value])=>url.searchParams.set(key,value));
+        branchSummary.querySelector('[data-branch-summary-report]').href=url.toString();
+        branchSummary.showModal();document.body.classList.add('ba-branch-summary-open');
+    };
     const updateBranchRankingSelection = () => {
-        document.querySelectorAll('.ba-ranking-row').forEach((row) => {
+    document.querySelectorAll('.ba-ranked-entry').forEach((row) => {
             row.classList.toggle('is-selected', row.dataset.branchCode === analyticsFilters.branchCode);
         });
     };
 
+    const showFilteredPerformanceSummary = () => {
+        const cases=getFilteredCases();
+        const summary=summarizeCases(cases);
+        const isCollection=Boolean(analyticsFilters.collectionStatus);
+        const isPayment=Boolean(analyticsFilters.paymentStatus);
+        const title=isPayment?analyticsFilters.paymentStatus.toLowerCase().replace(/^./,letter=>letter.toUpperCase())+' Payment Cases':isCollection?(analyticsFilters.collectionStatus==='OUTSTANDING'?'Remaining Balances':'Cases with Recorded Payments'):'Service Value for Selected Period';
+        branchSummaryTrigger=document.activeElement;
+        branchSummary.querySelector('h2').textContent=title;
+        const url=new URL(filteredReportUrl());
+        const selectedSummaryBranch=branchMeta.find(item=>item.code===analyticsFilters.branchCode);
+        const scope=(selectedSummaryBranch?selectedSummaryBranch.code+' — '+selectedSummaryBranch.name:@json($filterScopeLabel))+' · '+activeFilterItems().filter(item=>item.label!=='Branch').map(item=>item.value).join(' · ');
+        branchSummary.querySelector('[data-branch-summary-scope]').textContent=(scope || @json($filterScopeLabel))+' · '+url.searchParams.get('date_from')+' – '+url.searchParams.get('date_to');
+        branchSummary.querySelector('[data-branch-summary-metric]').textContent=isPayment?'Matching cases':isCollection?(analyticsFilters.collectionStatus==='OUTSTANDING'?'Remaining balance':'Payments for these cases'):'Total Service Value';
+        const collected=cases.reduce((sum,item)=>sum+Number(item.totalPaid || 0),0);
+        branchSummary.querySelector('[data-branch-summary-value]').textContent=isPayment?number.format(cases.length):money.format(isCollection?(analyticsFilters.collectionStatus==='OUTSTANDING'?summary.totalOutstanding:collected):summary.totalRevenue);
+        const figures=branchSummary.querySelector('dl');figures.replaceChildren();
+        const add=(caption,value)=>{const group=document.createElement('div');const term=document.createElement('dt');term.textContent=caption;const definition=document.createElement('dd');definition.textContent=value;group.append(term,definition);figures.append(group);};
+        if(!isPayment) add('Matching cases',number.format(cases.length));
+        if(isPayment || isCollection) add('Total Service Value',money.format(summary.totalRevenue));
+        if(isPayment) add('Remaining balance',money.format(summary.totalOutstanding));
+        branchSummary.querySelector('[data-branch-summary-report]').href=url.toString();
+        if(!branchSummary.open) branchSummary.showModal();document.body.classList.add('ba-branch-summary-open');
+    };
     const renderAnalyticsResults = () => {
         const filteredCases = getFilteredCases();
         const filteredSummary = summarizeCases(filteredCases);
+        // Breakdown retains the globally scoped dataset; chart selections affect summaries only.
+        const breakdownRow = (values) => `<tr>${values.map(value => `<td>${escapeHtml(value)}</td>`).join('')}</tr>`;
+        const totals = (rows) => ({ count:rows.length, service:rows.reduce((sum,row)=>sum+Number(row.totalAmount||0),0), collected:rows.reduce((sum,row)=>sum+Number(row.totalPaid||0),0), remaining:rows.reduce((sum,row)=>sum+Number(row.balanceAmount||0),0) });
+        const paymentBody=document.getElementById('baPaymentBreakdown');
+        if(paymentBody) paymentBody.innerHTML=['PAID','PARTIAL','UNPAID'].map(status=>{const t=totals(allAnalyticsCases.filter(row=>row.paymentStatus===status));return breakdownRow([statusSentenceLabels[status]||status,number.format(t.count),money.format(t.service),money.format(t.collected),money.format(t.remaining)]);}).join('');
+        const periods=periodLabels.map(label=>[label,allAnalyticsCases.filter(row=>periodMatches(row.caseDate,parsePeriodFromLabel(label)))]);
+        const periodLabelFor=(key)=>key;
+        const rate=(t)=>t.service>0?`${(t.collected/t.service*100).toFixed(1)}%`:'N/A';
+        const allTotals=totals(allAnalyticsCases);
+        const trendValues=(label,t)=>[label,number.format(t.count),money.format(t.service),money.format(t.count?t.service/t.count:0)];
+        const collectionValues=(label,t)=>[label,number.format(t.count),money.format(t.collected),money.format(t.remaining),rate(t)];
+        const fillBreakdown=(id,values,columns)=>{
+            const body=document.getElementById(id);if(!body)return;
+            const matchingPeriods=id==='baRevenueInsightsBreakdown'?trendChartLabels().map(label=>[label,allAnalyticsCases.filter(row=>periodMatches(row.caseDate,parsePeriodFromLabel(label)))]):periods;
+            body.innerHTML=matchingPeriods.length?matchingPeriods.map(([key,rows])=>breakdownRow(values(periodLabelFor(key),totals(rows)))).join('')+breakdownRow(values('Total',allTotals)):`<tr><td colspan="${columns}">No matching cases.</td></tr>`;
+        };
+        fillBreakdown('baRevenueInsightsBreakdown',trendValues,4);
+        fillBreakdown('baCollectionInsightsBreakdown',collectionValues,5);
+        if(paymentBody&&allAnalyticsCases.length)paymentBody.innerHTML+=breakdownRow(['Total',number.format(allTotals.count),money.format(allTotals.service),money.format(allTotals.collected),money.format(allTotals.remaining)]);
         const filtersCount = activeFilterCount();
         const branchLabel = branchLabelForCode(analyticsFilters.branchCode);
         const paymentLabel = statusSentenceLabels[analyticsFilters.paymentStatus] || analyticsFilters.paymentStatus;
@@ -6762,20 +6675,20 @@ window.SabanganAnalyticsSoftNav.init();
 
         let title = 'Overall Branch Analytics Summary';
         if (filtersCount === 1 && analyticsFilters.branchCode) title = `${branchLabel} Summary`;
-        if (filtersCount === 1 && analyticsFilters.paymentStatus) title = `${paymentLabel} Payment Summary`;
-        if (filtersCount === 1 && analyticsFilters.collectionStatus) title = `${collectionLabel} Collection Summary`;
-        if (filtersCount === 1 && analyticsFilters.revenuePeriod) title = `${periodLabel} Revenue Summary`;
+        if (filtersCount === 1 && analyticsFilters.paymentStatus) title = `${paymentLabel} Payment Cases`;
+        if (filtersCount === 1 && analyticsFilters.collectionStatus) title = analyticsFilters.collectionStatus === 'OUTSTANDING' ? 'Cases with Remaining Balance' : 'Cases with Recorded Payments';
+        if (filtersCount === 1 && analyticsFilters.revenuePeriod) title = `Cases for ${periodLabel}`;
         if (filtersCount > 1) title = 'Filtered Analytics Summary';
 
         let subtitle = 'Showing all cases for the selected date range.';
         if (filtersCount === 1 && analyticsFilters.branchCode) {
             subtitle = `Showing ${pluralizeCase(filteredSummary.totalCases)} for ${branchLabel}.`;
         } else if (filtersCount === 1 && analyticsFilters.paymentStatus) {
-            subtitle = `Showing ${pluralizeCase(filteredSummary.totalCases)} with ${paymentLabel} payment across all branches.`;
+            subtitle = `Showing ${pluralizeCase(filteredSummary.totalCases)} with ${paymentLabel} payment within the selected branch scope.`;
         } else if (filtersCount === 1 && analyticsFilters.collectionStatus) {
             subtitle = `Showing ${pluralizeCase(filteredSummary.totalCases)} ${collectionLabel} collection cases.`;
         } else if (filtersCount === 1 && analyticsFilters.revenuePeriod) {
-            subtitle = `Showing revenue and cases for ${periodLabel}.`;
+            subtitle = `Showing amounts and cases recorded in ${periodLabel}, based on case date.`;
         } else if (filtersCount > 1 && analyticsFilters.branchCode && analyticsFilters.paymentStatus) {
             subtitle = `Showing ${number.format(filteredSummary.totalCases)} ${paymentLabel} payment ${filteredSummary.totalCases === 1 ? 'case' : 'cases'} for ${branchLabel}.`;
         } else if (filtersCount > 1) {
@@ -6785,7 +6698,7 @@ window.SabanganAnalyticsSoftNav.init();
         let tableTitle = 'All Cases';
         if (filtersCount === 1 && analyticsFilters.paymentStatus) tableTitle = `${paymentLabel} Payment Cases`;
         if (filtersCount === 1 && analyticsFilters.branchCode) tableTitle = `Cases from ${analyticsFilters.branchCode}`;
-        if (filtersCount === 1 && analyticsFilters.collectionStatus) tableTitle = `${collectionLabel} Collection Cases`;
+        if (filtersCount === 1 && analyticsFilters.collectionStatus) tableTitle = analyticsFilters.collectionStatus === 'OUTSTANDING' ? 'Cases with Remaining Balance' : 'Cases with Recorded Payments';
         if (filtersCount === 1 && analyticsFilters.revenuePeriod) tableTitle = `${periodLabel} Cases`;
         if (filtersCount > 1) tableTitle = 'Cases matching current filters';
 
@@ -6796,18 +6709,24 @@ window.SabanganAnalyticsSoftNav.init();
         document.getElementById('baFilteredCases').textContent = number.format(filteredSummary.totalCases);
         document.getElementById('baFilteredAverage').textContent = money.format(filteredSummary.averagePerCase);
         document.getElementById('baFilteredOutstanding').textContent = money.format(filteredSummary.totalOutstanding);
-        document.querySelector('.ba-drilldown')?.classList.toggle('has-active-filter', filtersCount > 0);
+        const legacyDrilldown=document.querySelector('.ba-drilldown');
+        if(legacyDrilldown) {legacyDrilldown.classList.remove('has-active-filter');legacyDrilldown.hidden=true;}
         document.getElementById('baOutstandingCard')?.classList.toggle('is-zero', filteredSummary.totalOutstanding <= 0);
 
         renderActiveFilters();
-        renderBreakdown('baPaymentBreakdown', filteredSummary.paymentBreakdown, ['PAID', 'PARTIAL', 'UNPAID'], filteredSummary.totalCases);
-        renderBreakdown('baCollectionBreakdown', filteredSummary.collectionBreakdown, ['COLLECTED', 'OUTSTANDING'], filteredSummary.totalCases);
-        renderFilteredTable(filteredCases);
+
         updateMasterRecordsLink();
         updateChartHighlights();
         updateBranchRankingSelection();
         renderGlobalFilterBar();
         renderTabContext();
+        document.querySelectorAll('#baPaymentInsights [data-insight-index]').forEach((button) => {
+            const selected = analyticsFilters.paymentStatus === ['PAID', 'PARTIAL', 'UNPAID'][Number(button.dataset.insightIndex)];
+            button.classList.toggle('is-selected', selected);
+            button.setAttribute('aria-pressed', String(selected));
+            const hint = button.querySelector('.ba-payment-status-count small');
+            if (hint) hint.textContent = selected ? 'Filter Selected' : 'Click to filter';
+        });
         if (activeModalChart) {
             renderModalDrilldown(filteredCases, filteredSummary, title, subtitle, tableTitle);
         }
@@ -6816,38 +6735,35 @@ window.SabanganAnalyticsSoftNav.init();
     const setAnalyticsFilters = (nextFilters, options = {}) => {
         analyticsFilters = { ...analyticsFilters, ...nextFilters };
         renderAnalyticsResults();
-        if (options.expandChartId) {
-            setTimeout(() => {
-                openChartModalById(options.expandChartId, { focusDrilldown: true }).catch(() => {});
-            }, 0);
-        }
+        if(options.showSummary && activeFilterCount()>0) showFilteredPerformanceSummary();
+
     };
 
     const handleBranchClick = (branchCode, expandChartId = null, forceSelect = false) => {
         setAnalyticsFilters(
             { branchCode: !forceSelect && analyticsFilters.branchCode === branchCode ? null : branchCode },
-            { expandChartId }
+            { showSummary:true }
         );
     };
 
     const handlePaymentStatusClick = (status, expandChartId = null, forceSelect = false) => {
         setAnalyticsFilters(
             { paymentStatus: !forceSelect && analyticsFilters.paymentStatus === status ? null : status },
-            { expandChartId }
+            { showSummary:true }
         );
     };
 
     const handleRevenuePeriodClick = (period, expandChartId = null, forceSelect = false) => {
         setAnalyticsFilters(
             { revenuePeriod: !forceSelect && analyticsFilters.revenuePeriod?.label === period?.label ? null : period },
-            { expandChartId }
+            { showSummary:true }
         );
     };
 
     const handleCollectionStatusClick = (status, expandChartId = null, forceSelect = false) => {
         setAnalyticsFilters(
             { collectionStatus: !forceSelect && analyticsFilters.collectionStatus === status ? null : status },
-            { expandChartId }
+            { showSummary:true }
         );
     };
 
@@ -6862,10 +6778,10 @@ window.SabanganAnalyticsSoftNav.init();
 
     document.getElementById('baClearFiltersBtn')?.addEventListener('click', clearAnalyticsFilters);
     document.getElementById('baGlobalClearFiltersBtn')?.addEventListener('click', clearAnalyticsFilters);
-    document.querySelectorAll('.ba-ranking-row').forEach((row) => {
+    document.querySelectorAll('.ba-ranked-entry').forEach((row) => {
         const selectBranchRow = () => {
             if (row.dataset.branchCode) {
-                handleBranchClick(row.dataset.branchCode);
+                showBranchPerformanceSummary(row.dataset.branchCode);
             }
         };
 
@@ -6916,12 +6832,19 @@ window.SabanganAnalyticsSoftNav.init();
                 },
             },
             tooltip: {
-                backgroundColor: isDark ? '#10253a' : chartTheme.surface,
+                enabled: false,
+                external: (context) => window.SabanganChartHoverTooltip?.render(context),
+                backgroundColor: isDark ? '#112219' : '#F4F8F5',
                 titleColor: isDark ? '#fff' : chartTheme.text,
                 bodyColor: isDark ? '#fff' : chartTheme.text,
-                borderColor: isDark ? '#315f9b' : chartTheme.border,
+                borderColor: isDark ? '#3B6651' : '#AEC7B7',
                 borderWidth: 1,
                 displayColors: true,
+                cornerRadius: 10,
+                padding: 12,
+                titleFont: { size: 13, weight: '700' },
+                bodyFont: { size: 13 },
+                bodySpacing: 6,
             },
         },
     };
@@ -6943,7 +6866,7 @@ window.SabanganAnalyticsSoftNav.init();
             }
 
             const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+            script.src = @json(asset('vendor/offline/chart.umd.js'));
             script.async = true;
             script.dataset.chartjsLoader = 'true';
             script.onload = () => resolve(window.Chart);
@@ -6958,117 +6881,87 @@ window.SabanganAnalyticsSoftNav.init();
         const el = document.getElementById(id);
         if (!el || charts[id]) return charts[id];
 
+        el.dataset.tooltipScope = @json($filterScopeLabel . ' · ' . $periodContextLabel);
+
         const Chart = await loadChartJs();
         charts[id] = new Chart(el, config);
         return charts[id];
     };
 
+    const comparisonRows = @json($branchRankingRows);
+    const comparisonMoney = value => money.format(Number(value || 0));
+    const awaitBranchChart = async (rows, metric, field, label) => {
+        const dataset = {
+            label, data: rows.map(row => row[field]), borderRadius:6, borderWidth:1,
+            maxBarThickness:56, categoryPercentage:0.65, barPercentage:0.65,
+            backgroundColor:chartTheme.primary, borderColor:chartTheme.primary,
+        };
+        const options = {
+            ...sharedOptions,
+            onClick:(event,elements) => {
+                if(elements?.length) showBranchPerformanceSummary(rows[elements[0].index].branch_code);
+            },
+            scales:{
+                x:{grid:{display:false},title:{display:true,text:'Branches',color:textColor},ticks:{color:textColor}},
+                y:{beginAtZero:true, max:metric==='rate'?100:undefined,grid:{color:gridColor},
+                    title:{display:true,text:metric==='rate'?'Collection Rate (%)':metric==='cases'?'Cases Recorded':'Total Service Value (PHP)',color:textColor},
+                    ticks:{color:textColor,precision:metric==='cases'?0:undefined,callback:value=>metric==='rate'?value+'%':metric==='cases'?number.format(value):comparisonMoney(value)}},
+            },
+            plugins:{...sharedOptions.plugins,legend:{display:false},tooltip:{...sharedOptions.plugins.tooltip,callbacks:{
+                label:ctx=>label+': '+(metric==='rate'?Number(ctx.raw).toFixed(1)+'%':metric==='cases'?number.format(ctx.raw):comparisonMoney(ctx.raw)),
+                afterLabel:ctx=>{
+                    const row=rows[ctx.dataIndex];
+                    if(metric==='rate') return ['Total Service Value: '+comparisonMoney(row.total_revenue),'Collected: '+comparisonMoney(row.collected),'Remaining: '+comparisonMoney(row.remaining)];
+                    return metric==='service' ? ['Cases Recorded: '+row.total_cases] : ['Total Service Value: '+comparisonMoney(row.total_revenue)];
+                },
+            }}},
+        };
+        if(charts.serviceCasesChart) {
+            const chart=charts.serviceCasesChart;
+            chart.data={labels:rows.map(row=>row.branch_name),datasets:[dataset]}; chart.options=options; chart.update(); return chart;
+        }
+        return buildChart('serviceCasesChart',{type:'bar',data:{labels:rows.map(row=>row.branch_name),datasets:[dataset]},options});
+    };
+    const syncExactRanking = () => {
+        const select=document.getElementById('baComparisonMetric');
+        const body=document.getElementById('baMetricRankingBody');
+        if(!select || !body) return;
+        const metric=select.value;
+        const score=row=>row.dataset[metric]===''?-1:Number(row.dataset[metric]);
+        const rows=[...body.querySelectorAll('[data-branch-code]')].sort((a,b)=>score(b)-score(a)||a.dataset.branchCode.localeCompare(b.dataset.branchCode));
+        rows.forEach(row=>{
+            const rank=rows.filter(other=>score(other)>score(row)).length+1;
+            row.querySelector('[data-exact-rank]').textContent=score(row)<0?'—':'#'+rank;
+            row.classList.toggle('is-leading',rank===1 && score(row)>0);
+            const value=row.querySelector('[data-ranked-value]');
+            const moneyText=amount=>money.format(Number(amount));
+            value.textContent=metric==='rate'?(score(row)<0?'N/A':Number(row.dataset.rate).toFixed(1)+'% collected'):metric==='cases'?number.format(Number(row.dataset.cases))+' cases':moneyText(row.dataset.service);
+            const context=row.querySelector('[data-ranked-context]');
+            context.replaceChildren();
+            const detail=(label,amount)=>{const part=document.createElement('span');const caption=document.createElement('small');caption.textContent=label;const figure=document.createElement('span');figure.textContent=amount;part.append(caption,figure);context.append(part);};
+            if(metric==='rate' && score(row)>=0) {
+                detail('Total Service Value',moneyText(row.dataset.service));
+                detail('Collected',moneyText(row.dataset.collected));
+                detail('Remaining',moneyText(row.dataset.remaining));
+            } else if(metric==='rate') context.textContent='No service value in the selected period';
+            else if(metric==='service') detail('Cases Recorded',number.format(Number(row.dataset.cases)));
+            else detail('Total Service Value',moneyText(row.dataset.service));
+            body.appendChild(row.parentElement);
+        });
+        document.querySelector('[data-ranking-metric-label]').textContent=select.options[select.selectedIndex].text;
+        document.getElementById('baRankingBasis').textContent=metric==='rate'?'Highest collection rate first · Selected cases, valid payments through now. N/A is unranked.':'Highest to lowest · Cases recorded in the selected period. Tied values share a rank.';
+    };
+    document.getElementById('baComparisonMetric')?.addEventListener('change',async()=>{syncExactRanking();await buildPrimaryChart();});
+    syncExactRanking();
+
     const buildPrimaryChart = () => {
         if (payload.mode === 'all') {
-            return buildChart('serviceCasesChart', {
-                type: 'bar',
-                data: {
-                    labels: barAxisLabels,
-                    datasets: [
-                        {
-                            type: 'bar',
-                            label: 'Total Service Amount',
-                            data: payload.bar.revenue ?? [],
-                            backgroundColor: (ctx) => branchBarColor(ctx, chartTheme.primary),
-                            borderColor: (ctx) => branchBarColor(ctx, chartTheme.primary),
-                            borderWidth: 1,
-                            borderRadius: 6,
-                            yAxisID: 'yRevenue',
-                        },
-                        {
-                            type: 'bar',
-                            label: 'Total Cases',
-                            data: payload.bar.volume ?? [],
-                            backgroundColor: (ctx) => branchBarColor(ctx, chartTheme.secondary),
-                            borderColor: (ctx) => branchBarColor(ctx, chartTheme.secondary),
-                            borderWidth: 1,
-                            borderRadius: 6,
-                            yAxisID: 'yCases',
-                        },
-                    ],
-                },
-                options: {
-                    ...sharedOptions,
-                    onHover: (event, elements) => {
-                        if (event.native?.target) event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
-                    },
-                    onClick: (event, elements, chart) => {
-                        const hit = elements?.[0] || chart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true)?.[0];
-                        if (!hit) return;
-                        const branchCode = branchMeta[hit.index]?.code;
-                        if (branchCode) handleBranchClick(branchCode, 'serviceCasesChart', true);
-                    },
-                    scales: {
-                        yRevenue: {
-                            beginAtZero: true,
-                            grid: { color: gridColor },
-                            title: {
-                                display: true,
-                                text: 'Revenue (PHP)',
-                                color: textColor,
-                                font: { size: 11, weight: '700' },
-                            },
-                            ticks: {
-                                color: textColor,
-                                callback: (value) => money.format(Number(value)),
-                            },
-                        },
-                        yCases: {
-                            beginAtZero: true,
-                            position: 'right',
-                            grid: { drawOnChartArea: false },
-                            title: {
-                                display: true,
-                                text: 'Total Cases',
-                                color: textColor,
-                                font: { size: 11, weight: '700' },
-                            },
-                            ticks: {
-                                precision: 0,
-                                color: textColor,
-                                callback: (value) => number.format(Number(value)),
-                            },
-                        },
-                        x: {
-                            grid: { display: false },
-                            title: {
-                                display: true,
-                                text: 'Branches',
-                                color: textColor,
-                                font: { size: 11, weight: '700' },
-                            },
-                            ticks: {
-                                color: textColor,
-                                maxRotation: 0,
-                                minRotation: 0,
-                            },
-                        },
-                    },
-                    plugins: {
-                        ...sharedOptions.plugins,
-                        tooltip: {
-                            ...sharedOptions.plugins.tooltip,
-                            callbacks: {
-                                title: (items) => {
-                                    const idx = items?.[0]?.dataIndex ?? -1;
-                                    return barTooltipLabels[idx] ?? items?.[0]?.label ?? '';
-                                },
-                                label: (ctx) => {
-                                    if (ctx.dataset.label === 'Total Service Amount') {
-                                        return `${ctx.dataset.label}: ${money.format(Number(ctx.raw || 0))}`;
-                                    }
-                                    return `${ctx.dataset.label}: ${number.format(Number(ctx.raw || 0))}`;
-                                },
-                            },
-                        },
-                    },
-                },
-            });
+            const metric = document.getElementById('baComparisonMetric')?.value || 'service';
+            const rows = @json($branchRankingRows);
+            const field = metric === 'service' ? 'total_revenue' : metric === 'cases' ? 'total_cases' : 'rate';
+            const label = metric === 'service' ? 'Total Service Value' : metric === 'cases' ? 'Cases Recorded' : 'Collection Rate';
+            const chart = awaitBranchChart(rows, metric, field, label);
+            return chart;
         }
 
         return buildChart('branchPerformanceChart', {
@@ -7078,7 +6971,7 @@ window.SabanganAnalyticsSoftNav.init();
                 datasets: [
                     {
                         type: 'bar',
-                        label: 'Total Service Amount',
+                        label: 'Total Service Value',
                         data: periodServiceAmounts,
                         backgroundColor: (ctx) => periodBarColor(ctx, chartTheme.primary),
                         borderColor: (ctx) => periodBarColor(ctx, chartTheme.primary),
@@ -7115,7 +7008,7 @@ window.SabanganAnalyticsSoftNav.init();
                             grid: { color: gridColor },
                             title: {
                                 display: true,
-                                text: 'Revenue (PHP)',
+                                text: 'Service Value (PHP)',
                                 color: textColor,
                                 font: { size: 11, weight: '700' },
                             },
@@ -7157,7 +7050,7 @@ window.SabanganAnalyticsSoftNav.init();
                         ...sharedOptions.plugins.tooltip,
                         callbacks: {
                             label: (ctx) => {
-                                if (ctx.dataset.label === 'Total Service Amount') {
+                                if (ctx.dataset.label === 'Total Service Value') {
                                     return `${ctx.dataset.label}: ${money.format(Number(ctx.raw || 0))}`;
                                 }
                                 return `${ctx.dataset.label}: ${number.format(Number(ctx.raw || 0))}`;
@@ -7169,7 +7062,7 @@ window.SabanganAnalyticsSoftNav.init();
         });
     };
 
-    const billedTotal = summary.totalCollected + summary.totalOutstanding;
+    const billedTotal = summary.totalSales;
     const collectionRate = billedTotal > 0 ? ((summary.totalCollected / billedTotal) * 100) : 0;
     const doughnutPercentLabels = {
         id: 'doughnutPercentLabels',
@@ -7267,6 +7160,7 @@ window.SabanganAnalyticsSoftNav.init();
                             },
                         },
                         legend: {
+                            display: false,
                             labels: {
                                 ...sharedOptions.plugins.legend.labels,
                                 generateLabels: () => fullPaymentSegments.map((segment, index) => ({
@@ -7291,10 +7185,10 @@ window.SabanganAnalyticsSoftNav.init();
                 labels: buildTrendSeries().labels,
                 datasets: [
                     {
-                        label: 'Total Service Amount',
+                        label: 'Total Service Value',
                         data: buildTrendSeries().revenue,
                         borderColor: chartTheme.primary,
-                        backgroundColor: 'rgba(52, 67, 50, 0.10)',
+                        backgroundColor: isDark ? 'rgba(56, 189, 176, 0.14)' : 'rgba(20, 125, 121, 0.10)',
                         borderWidth: 2.5,
                         fill: false,
                         tension: 0.32,
@@ -7331,7 +7225,7 @@ window.SabanganAnalyticsSoftNav.init();
                         grid: { color: gridColor },
                         title: {
                             display: true,
-                            text: 'Revenue (PHP)',
+                            text: 'Service Value (PHP)',
                             color: textColor,
                             font: { size: 11, weight: '700' },
                         },
@@ -7392,7 +7286,7 @@ window.SabanganAnalyticsSoftNav.init();
                     borderRadius: 6,
                 },
                 {
-                    label: 'Outstanding',
+                    label: 'Remaining Balance',
                     data: periodOutstandingBalances,
                     backgroundColor: (ctx) => collectionPeriodColor(ctx, chartTheme.warning, analyticsFilters.collectionStatus === 'COLLECTED'),
                     borderColor: (ctx) => collectionPeriodColor(ctx, chartTheme.warning, analyticsFilters.collectionStatus === 'COLLECTED'),
@@ -7408,7 +7302,7 @@ window.SabanganAnalyticsSoftNav.init();
                         datasets: periodDatasets,
                     }
                     : {
-                        labels: ['Collected', 'Outstanding', 'Total Service Amount'],
+                        labels: ['Collected', 'Remaining Balance', 'Total Service Value'],
                         datasets: [
                             {
                                 label: 'Amount',
@@ -7428,10 +7322,10 @@ window.SabanganAnalyticsSoftNav.init();
                 options: {
                     ...sharedOptions,
                     indexAxis: isByPeriod ? 'x' : 'y',
+                    interaction: { mode: 'nearest', intersect: true, axis: 'xy' },
                     onHover: (event, elements) => {
                         if (event.native?.target) {
-                            const status = collectionStatusForHit(elements?.[0]);
-                            event.native.target.style.cursor = status ? 'pointer' : 'default';
+                            event.native.target.style.cursor = elements?.length ? 'pointer' : 'default';
                         }
                     },
                     onClick: (event, elements, chart) => {
@@ -7444,7 +7338,7 @@ window.SabanganAnalyticsSoftNav.init();
                                 setAnalyticsFilters({
                                     collectionStatus: status,
                                     revenuePeriod: periodForHit(hit),
-                                });
+                                }, {showSummary:true});
                             } else {
                                 handleCollectionStatusClick(status);
                             }
@@ -7656,7 +7550,10 @@ window.SabanganAnalyticsSoftNav.init();
         }
     };
 
+    let panelActivationVersion = 0;
     const activatePanel = async (targetId, options = {}) => {
+        const activationVersion = ++panelActivationVersion;
+        window.SabanganChartHoverTooltip?.hide();
         if (!validPanelIds.has(targetId)) {
             targetId = 'ba-panel-performance';
         }
@@ -7678,7 +7575,18 @@ window.SabanganAnalyticsSoftNav.init();
             panel.hidden = !active;
         });
 
+        clearFiltersOutsidePanel(targetId);
         const activePanel = document.getElementById(targetId);
+        if (options.scrollIntoView) {
+            setTimeout(() => {
+                if (activationVersion !== panelActivationVersion) return;
+                activePanel?.scrollIntoView({
+                    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+                    block: 'start',
+                    inline: 'nearest',
+                });
+            }, 60);
+        }
         const canvases = Array.from(activePanel?.querySelectorAll('canvas') || []);
         await Promise.all(canvases.map(async (canvas) => {
             const chart = await ensureChart(canvas.id);
@@ -7686,16 +7594,13 @@ window.SabanganAnalyticsSoftNav.init();
                 requestAnimationFrame(() => chart.resize());
             }
         }));
+        if (activationVersion !== panelActivationVersion) return;
 
         rememberActivePanel(targetId);
         syncGlobalFilterControls(targetId);
-        clearFiltersOutsidePanel(targetId);
-
-        if (options.scrollIntoView) {
-            activePanel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
 
         setTimeout(() => {
+            if (activationVersion !== panelActivationVersion) return;
             workspace?.classList.remove('is-switching-panel');
         }, 240);
     };
@@ -7747,13 +7652,14 @@ window.SabanganAnalyticsSoftNav.init();
         button.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
         const label = button.querySelector('span');
         if (label) {
-            label.textContent = isExpanded ? 'Exit full screen' : 'Full screen';
+            label.textContent = isExpanded ? 'Exit full screen' : (button.dataset.chartExpand === 'paymentChart' ? 'Expand Doughnut Chart' : 'Full screen');
         }
     };
 
     let modalCloseTimer = null;
 
     const closeChartModal = (immediate = false) => {
+        window.SabanganChartHoverTooltip?.hide();
         if (!chartModal || !chartModalChartSlot) return;
 
         if (modalCloseTimer) {
@@ -7894,17 +7800,6 @@ window.SabanganAnalyticsSoftNav.init();
         if (options.focusDrilldown) focusModalDrilldown();
     };
 
-    const openChartModalById = async (chartId, options = {}) => {
-        const button = document.querySelector(`[data-chart-expand="${chartId}"]`);
-        if (!button) return;
-        await openChartModal(button, options);
-    };
-
-    document.querySelectorAll('[data-chart-expand]').forEach((button) => {
-        button.setAttribute('aria-expanded', 'false');
-        button.addEventListener('click', () => openChartModal(button).catch(() => {}));
-    });
-
     document.querySelectorAll('[data-chart-modal-close]').forEach((control) => {
         control.addEventListener('click', closeChartModal);
     });
@@ -7959,25 +7854,6 @@ window.SabanganAnalyticsSoftNav.init();
         }
     });
 
-    const periodFilter = document.getElementById('baPeriodFilter');
-    const datePopover = document.getElementById('baDatePopover');
-    if (periodFilter && datePopover) {
-        const setCustomRangeState = () => {
-            const isCustom = periodFilter.value === 'CUSTOM';
-            datePopover.style.display = isCustom ? 'block' : 'none';
-            return isCustom;
-        };
-
-        periodFilter.addEventListener('change', () => {
-            if (setCustomRangeState()) {
-                datePopover.querySelector('input')?.focus();
-                return;
-            }
-            periodFilter.form?.submit();
-        });
-
-        setCustomRangeState();
-    }
 })();
 </script>
 @endsection

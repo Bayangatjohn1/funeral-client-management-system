@@ -4,10 +4,13 @@ namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
 use App\Models\CaseDocument;
+use App\Models\CaseDocumentRevision;
 use App\Models\FuneralCase;
 use App\Services\CaseDocument\FuneralContractMapper;
+use App\Services\CaseDocument\FuneralContractLayout;
 use App\Services\CaseDocument\FuneralContractPdfService;
 use App\Services\CaseDocument\FuneralContractSnapshotService;
+use App\Services\CaseDocument\FuneralContractCorrectionService;
 use App\Services\CaseDocument\FuneralContractValidationService;
 use App\Support\AuditLogger;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -22,7 +25,9 @@ class CaseDocumentController extends Controller
         FuneralCase $funeral_case,
         FuneralContractValidationService $validationService,
         FuneralContractSnapshotService $snapshotService,
-        FuneralContractMapper $mapper
+        FuneralContractMapper $mapper,
+        FuneralContractLayout $layout,
+        FuneralContractCorrectionService $correctionService
     ) {
         $this->authorize('generateFuneralContract', $funeral_case);
 
@@ -34,10 +39,14 @@ class CaseDocumentController extends Controller
         }
 
         $funeral_case->loadMissing(['funeralContract.generator']);
+        $funeral_case->funeralContract?->load('revisions');
 
         $contractSnapshot = $snapshotService->previewData($funeral_case);
         $contractView = $mapper->map($contractSnapshot);
         $pricingMismatch = ! (bool) data_get($contractView, 'reconciliation.reconciled', true);
+        $contractLayout = $funeral_case->funeralContract
+            ? $layout->forIssuedContract($contractSnapshot)
+            : $layout->forNewContract($contractView, $contractSnapshot);
 
         return view('staff.case_documents.contract_preview', [
             'funeral_case' => $funeral_case,
@@ -45,6 +54,38 @@ class CaseDocumentController extends Controller
             'contractView' => $contractView,
             'existingDocument' => $funeral_case->funeralContract,
             'pricingMismatch' => $pricingMismatch,
+            'contractLayout' => $contractLayout,
+            'canCorrectBirthDate' => $correctionService->canCorrectBirthDate($funeral_case, $funeral_case->funeralContract),
+            'verifiedBirthDate' => $correctionService->birthDate($funeral_case),
+        ]);
+    }
+
+    public function correctBirthDate(Request $request, FuneralCase $funeral_case, FuneralContractCorrectionService $correctionService): RedirectResponse
+    {
+        $this->authorize('generateFuneralContract', $funeral_case);
+        $validated = $request->validate(['reason' => ['required', 'string', 'min:10', 'max:500']]);
+        $document = $correctionService->correctBirthDate($funeral_case, (int) auth()->id(), trim($validated['reason']));
+
+        AuditLogger::log('case_document.corrected', 'update', 'case_document', $document->id, [
+            'case_id' => $funeral_case->id,
+            'contract_number' => $document->contract_number,
+            'field' => 'deceased.date_of_birth',
+            'reason' => $validated['reason'],
+        ], (int) $funeral_case->branch_id, null, 'success', 'Funeral Contract birth date corrected and reissued', 'Funeral Contract corrected');
+
+        return redirect()->route('funeral-cases.documents.contract.preview', $funeral_case)
+            ->with('success', 'Corrected contract issued. The original PDF and snapshot remain available in Previous Versions.');
+    }
+
+    public function revisionPreview(FuneralCase $funeral_case, CaseDocument $document, CaseDocumentRevision $revision): Response
+    {
+        $this->authorizeDocumentAccess($funeral_case, $document);
+        abort_unless((int) $revision->case_document_id === (int) $document->id, 404);
+        abort_unless(Storage::disk('local')->exists($revision->file_path), 404);
+
+        return response(Storage::disk('local')->get($revision->file_path), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . addslashes($revision->file_name) . '"',
         ]);
     }
 
@@ -108,7 +149,8 @@ class CaseDocumentController extends Controller
         FuneralCase $funeral_case,
         FuneralContractValidationService $validationService,
         FuneralContractSnapshotService $snapshotService,
-        FuneralContractMapper $mapper
+        FuneralContractMapper $mapper,
+        FuneralContractLayout $layout
     ): Response {
         $this->authorize('generateFuneralContract', $funeral_case);
 
@@ -117,7 +159,11 @@ class CaseDocumentController extends Controller
 
         $snapshot = $snapshotService->previewData($funeral_case);
         $contractView = $mapper->map($snapshot);
-        $pdfBinary = Pdf::loadView('pdf.funeral_contract_physical', [
+        $funeral_case->loadMissing('funeralContract');
+        $contractLayout = $funeral_case->funeralContract
+            ? $layout->forIssuedContract($snapshot)
+            : $layout->forNewContract($contractView, $snapshot);
+        $pdfBinary = Pdf::loadView($layout->viewName($contractLayout), [
             'funeral_case' => $funeral_case,
             'generatedAt' => now(),
             'contractNumber' => data_get($contractView, 'contract_number'),
@@ -131,7 +177,7 @@ class CaseDocumentController extends Controller
         ]);
     }
 
-    public function preview(FuneralCase $funeral_case, CaseDocument $document, FuneralContractMapper $mapper): Response
+    public function preview(FuneralCase $funeral_case, CaseDocument $document, FuneralContractMapper $mapper, FuneralContractLayout $layout): Response
     {
         $this->authorizeDocumentAccess($funeral_case, $document);
 
@@ -150,7 +196,7 @@ class CaseDocumentController extends Controller
 
         if ($document->isFuneralContract() && is_array($document->contract_snapshot) && $document->contract_snapshot !== []) {
             $snapshot = $document->contract_snapshot;
-            $pdfBinary = Pdf::loadView('pdf.funeral_contract_physical', [
+            $pdfBinary = Pdf::loadView($layout->viewName($layout->forIssuedContract($snapshot)), [
                 'funeral_case' => $funeral_case,
                 'generatedAt' => $document->generated_at ?: now(),
                 'contractNumber' => $document->contract_number,
@@ -167,35 +213,9 @@ class CaseDocumentController extends Controller
         return $this->inlinePdf($document);
     }
 
-    public function download(FuneralCase $funeral_case, CaseDocument $document, FuneralContractMapper $mapper)
-    {
-        $this->authorizeDocumentAccess($funeral_case, $document);
-
-        AuditLogger::log(
-            'case_document.downloaded',
-            'download',
-            'case_document',
-            $document->id,
-            ['case_id' => $funeral_case->id, 'document_type' => $document->document_type],
-            (int) $funeral_case->branch_id,
-            null,
-            'success',
-            'Funeral Contract downloaded',
-            'Funeral Contract downloaded'
-        );
-
-        if ($document->isFuneralContract() && is_array($document->contract_snapshot) && $document->contract_snapshot !== []) {
-            return $this->snapshotPdfResponse($funeral_case, $document, $mapper, 'attachment');
-        }
-
-        abort_unless(Storage::disk('local')->exists($document->file_path), 404);
-        return Storage::disk('local')->download($document->file_path, $document->file_name, [
-            'Content-Type' => 'application/pdf',
-        ]);
-    }
-
     public function print(FuneralCase $funeral_case, CaseDocument $document): Response
     {
+        abort_if(auth()->user()?->isOwner(), 403);
         $this->authorizeDocumentAccess($funeral_case, $document);
 
         AuditLogger::log(
@@ -236,20 +256,4 @@ class CaseDocumentController extends Controller
         ]);
     }
 
-    private function snapshotPdfResponse(FuneralCase $funeralCase, CaseDocument $document, FuneralContractMapper $mapper, string $disposition): Response
-    {
-        $snapshot = $document->contract_snapshot;
-        $pdfBinary = Pdf::loadView('pdf.funeral_contract_physical', [
-            'funeral_case' => $funeralCase,
-            'generatedAt' => $document->generated_at ?: now(),
-            'contractNumber' => $document->contract_number,
-            'contractSnapshot' => $snapshot,
-            'contractView' => $mapper->map($snapshot),
-        ])->setPaper('a4')->output();
-
-        return response($pdfBinary, 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => $disposition . '; filename="' . addslashes($document->file_name ?: 'funeral-contract.pdf') . '"',
-        ]);
-    }
 }

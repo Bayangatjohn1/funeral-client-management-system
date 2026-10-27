@@ -1,0 +1,304 @@
+/* Staff foundation shared by adopted Branch Admin dashboard and case records.
+   Dashboard component rules remain scoped to branch-admin-view below. */
+html[data-theme] body.panel-shell-body.branch-admin-ui:has(:is(.branch-admin-view, .master-records-page, .case-detail-shell, .payment-monitoring-page, .directory-page, .user-create-page, .user-edit-page, .service-management-hub, .audit-ref-page)) {
+    --surface: #DCE8E0;
+    --card: #F4F8F5;
+    --surface-panel: var(--card);
+    --surface-muted: #D0E2D6;
+    --border: #AEC7B7;
+    --ink: #081D13;
+    --ink-muted: #1B3E2E;
+    --ink-faint: var(--ink-muted);
+    --brand: #1B4332;
+    --accent: var(--brand);
+    --records-hover: #C2DAC9;
+    --dashboard-gap: 1rem;
+    --dashboard-warning: #6B4D08;
+    --dashboard-warning-surface: #F5ECD5;
+    --dashboard-warning-border: #DEC998;
+    --dashboard-selection-text: #1B4332;
+    --dashboard-selection-border: #AEC7B7;
+    --branch-admin-focus: var(--brand);
+    --color-text-primary: var(--ink);
+    --color-text-secondary: var(--ink-muted);
+    --color-text-muted: var(--ink-muted);
+    --color-bg-page: var(--surface);
+    --color-bg-surface: var(--card);
+    --color-bg-muted: var(--surface-muted);
+    --color-border: var(--border);
+    --color-primary: var(--brand);
+    --ops-text: var(--ink);
+    --ops-muted: var(--ink-muted);
+    --ops-text-2: var(--ink-muted);
+    --ops-panel: var(--card);
+    --ops-border: var(--border);
+}
+html[data-theme='dark'] body.panel-shell-body.branch-admin-ui:has(:is(.branch-admin-view, .master-records-page, .case-detail-shell, .payment-monitoring-page, .directory-page, .user-create-page, .user-edit-page, .service-management-hub, .audit-ref-page)) {
+    --surface: #07130E;
+    --card: #112218;
+    --surface-muted: #14261D;
+    --border: #29523D;
+    --ink: #F8FAFC;
+    --ink-muted: #94A3B8;
+    --brand: #34D399;
+    --records-hover: #1B3527;
+    --dashboard-warning: #FBBF24;
+    --dashboard-warning-surface: #35200B;
+    --dashboard-warning-border: #78350F;
+    --dashboard-selection-text: #B5D6C4;
+    --dashboard-selection-border: #41634F;
+}
+
+html[data-theme] body.panel-shell-body.branch-admin-ui:has(:is(.branch-admin-view, .master-records-page, .case-detail-shell, .payment-monitoring-page, .directory-page, .user-create-page, .user-edit-page, .service-management-hub, .audit-ref-page)) :is(.app-shell, .main-area, .page-content) {
+    /* The shared botanical canvas is important; this dashboard owns its canvas. */
+    background: var(--surface) !important;
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .admin-dashboard-shell.branch-admin-view {
+    gap: var(--dashboard-gap);
+    padding-bottom: 0;
+    color: var(--ink);
+    background: transparent;
+}
+/* Replace Tailwind space-y margins with the dashboard's existing flex gap. */
+html[data-theme] body.panel-shell-body.branch-admin-ui .admin-dashboard-shell.branch-admin-view > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0;
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(.admin-kpi-grid, .branch-kpi-grid, .branch-board, .branch-board__column) {
+    gap: var(--dashboard-gap);
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(.admin-kpi-card, .branch-panel) {
+    border-radius: .85rem;
+    background: var(--card);
+    border-color: var(--border);
+    color: var(--ink);
+    box-shadow: 0 2px 5px rgb(8 29 19 / 4%);
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .admin-kpi-card {
+    padding: 1.25rem;
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .admin-kpi-card:hover {
+    background: var(--records-hover);
+    border-color: var(--border);
+    transform: none;
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(.admin-kpi-card__label, .admin-kpi-card__scope) { color: var(--ink-muted); }
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(.admin-kpi-card__value, .branch-panel__count) { color: var(--ink); }
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .admin-kpi-card__arrow {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    border-radius: .5rem;
+    background: var(--surface-muted);
+    color: var(--dashboard-selection-text);
+    border: 1px solid var(--dashboard-selection-border);
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .admin-dashboard-greeting h1 {
+    font-size: clamp(1.5rem, 2.4vw, 2rem);
+    line-height: 1.2;
+    color: var(--ink);
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(.admin-dashboard-greeting p, .branch-panel__title p, .admin-kpi-card__scope) {
+    font-size: .8125rem;
+    line-height: 1.5;
+    color: var(--ink-muted);
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .admin-kpi-card__value {
+    font-size: clamp(1.15rem, 1.4vw, 1.5rem);
+    line-height: 1.2;
+    white-space: normal;
+    overflow: visible;
+    overflow-wrap: anywhere;
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(.admin-kpi-card__icon, .branch-panel__icon) {
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border);
+    border-radius: .6rem;
+    background: var(--surface-muted);
+    color: var(--brand);
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-panel__head {
+    padding: 1rem 1.25rem .5rem;
+    background: var(--card);
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-panel__title h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--ink);
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(.branch-record-list, .branch-balance-list) {
+    padding: .5rem 1.25rem 1.25rem;
+    gap: .75rem;
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(.branch-record-card, .branch-balance-item) {
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: .65rem;
+    background: var(--surface-muted);
+    box-shadow: none;
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-record-card {
+    font-size: .8125rem;
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(.branch-record-card__identity strong, .branch-balance-item strong) {
+    font-size: .875rem;
+    color: var(--ink);
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(.branch-record-card__identity span, .branch-balance-item small, .branch-record-card__event-meta, .branch-record-card__event-support, .branch-case-schedule-count) {
+    font-size: .7rem;
+    color: var(--ink-muted);
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(.branch-record-card__field, .branch-schedule-item, .branch-payment-ring__inside) {
+    background: var(--card);
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(.branch-record-card:hover, .branch-record-card:focus-within, .branch-balance-item:hover, .branch-panel__overflow:hover) {
+    background: var(--records-hover);
+    border-color: var(--border);
+    box-shadow: none;
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(.branch-panel__link, .branch-row-destination, .branch-balance-item > i) {
+    min-height: 40px;
+    border: 1px solid var(--dashboard-selection-border);
+    border-radius: .5rem;
+    background: var(--surface-muted);
+    color: var(--dashboard-selection-text);
+    box-shadow: none;
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-row-destination {
+    width: 40px;
+    height: 40px;
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(.branch-panel__link:hover, .branch-row-destination:hover, .branch-balance-item:hover > i) {
+    background: var(--records-hover);
+    color: var(--dashboard-selection-text);
+    border-color: var(--dashboard-selection-border);
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(.branch-panel__link::after, .branch-row-destination__label) {
+    background: var(--ink);
+    color: var(--card);
+    -webkit-text-fill-color: var(--card);
+    border-color: var(--border);
+    font-size: .75rem;
+    white-space: normal;
+    max-width: 12rem;
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(.branch-panel__overflow, .branch-record-empty) {
+    background: var(--card);
+    border-color: var(--border);
+    color: var(--ink-muted);
+    font-size: .8125rem;
+    border-radius: .65rem;
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(.branch-balance-item__amount, .branch-panel.is-warm .branch-panel__icon) {
+    color: var(--dashboard-warning);
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-panel.is-warm .branch-panel__icon {
+    background: var(--dashboard-warning-surface);
+    border-color: var(--dashboard-warning-border);
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(.branch-balance-item__amount, .branch-payment-line strong, .branch-schedule-item__when) {
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-payment-summary {
+    padding: 1.25rem;
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-payment-line {
+    font-size: .8125rem;
+    overflow-wrap: anywhere;
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-payment-ring {
+    background: conic-gradient(var(--brand) var(--collection-rate), var(--surface-muted) 0);
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(a, button):focus-visible {
+    /* Preserve keyboard focus against the shared panel's important outline reset. */
+    outline: 2px solid var(--branch-admin-focus) !important;
+    outline-offset: 3px !important;
+}
+
+/* Keep the dashboard theme control on the same semantic surface as the date and
+   notification controls. This also wins over the legacy dashboard-wide focus
+   rule that otherwise paints the button with a light-only background. */
+html[data-theme] body.panel-shell-body.branch-admin-ui .admin-dashboard-shell.branch-admin-view .dashboard-header-theme {
+    background: var(--surface-muted) !important;
+    border-color: var(--border) !important;
+    color: var(--brand) !important;
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .admin-dashboard-shell.branch-admin-view .dashboard-header-theme:hover {
+    background: var(--records-hover) !important;
+    border-color: var(--brand) !important;
+    color: var(--brand) !important;
+}
+html[data-theme] body.panel-shell-body.branch-admin-ui .admin-dashboard-shell.branch-admin-view .dashboard-header-theme:focus-visible {
+    background: var(--surface-muted) !important;
+    border-color: var(--brand) !important;
+    color: var(--brand) !important;
+}
+html[data-theme='dark'] body.panel-shell-body.branch-admin-ui .admin-dashboard-shell.branch-admin-view .dashboard-header-theme {
+    color: #FBBF24 !important;
+}
+html[data-theme='dark'] body.panel-shell-body.branch-admin-ui .admin-dashboard-shell.branch-admin-view .dashboard-header-theme:hover {
+    background: var(--records-hover) !important;
+    color: #FDE68A !important;
+}
+@media (max-width: 767px) {
+    html[data-theme] body.panel-shell-body.branch-admin-ui:has(:is(.branch-admin-view, .master-records-page, .case-detail-shell, .payment-monitoring-page, .directory-page, .user-create-page, .user-edit-page, .service-management-hub, .audit-ref-page)) { --dashboard-gap: 1rem; }
+    html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view :is(.branch-record-list, .branch-balance-list, .branch-panel__head, .branch-payment-summary) { padding: 1rem; }
+    html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-balance-item { grid-template-columns: minmax(0, 1fr) auto; }
+    html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-balance-item__amount { grid-column: 1; white-space: normal; overflow-wrap: anywhere; }
+    html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-balance-item > i { grid-column: 2; grid-row: 1 / span 2; }
+}
+@media (min-width: 700px) and (max-width: 1179px) {
+    html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* The branch dashboard follows its content instead of stretching to viewport height. */
+html[data-theme] body.panel-shell-body.branch-admin-ui .dashboard-fit-page:has(.branch-admin-view),
+html[data-theme] body.panel-shell-body.branch-admin-ui .admin-dashboard-shell.branch-admin-view {
+    min-height:0;
+    height:auto;
+    flex:0 0 auto;
+}
+/* Compact the two highlighted gaps without stretching empty operational cards. */
+html[data-theme] body.panel-shell-body.branch-admin-ui .admin-dashboard-shell.branch-admin-view { gap:12px; }
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-balance-item { padding:10px 14px; }
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-payment-summary { padding:12px 20px; }
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-payment-ring { width:96px; height:96px; flex:0 0 96px; }
+html[data-theme] body.panel-shell-body.branch-admin-ui .page-content:has(.branch-admin-view) > .panel-page-footer { padding:6px 0 8px; }
+html[data-theme] body.panel-shell-body.branch-admin-ui .page-content:has(.branch-admin-view) > .panel-page-footer .panel-scroll-top { width:36px; height:36px; }
+
+/* Keep the financial panels aligned with their corresponding operations rows. */
+@media (min-width: 1024px) {
+    html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-board {
+        align-items: stretch;
+        grid-template-rows: repeat(3, minmax(0, auto));
+    }
+
+    html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-board__column {
+        grid-row: 1 / span 3;
+        grid-template-rows: subgrid;
+        align-items: stretch;
+    }
+
+    html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-board__column > .branch-panel {
+        min-height: 0;
+        height: 100%;
+    }
+
+    html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-board__column[aria-label='Branch financial overview'] > .branch-panel:first-child {
+        grid-row: 1 / span 2;
+    }
+
+    html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-board__column[aria-label='Branch financial overview'] > .branch-panel:last-child {
+        grid-row: 3;
+    }
+}
+
+html[data-theme] body.panel-shell-body.branch-admin-ui .branch-admin-view .branch-dashboard-name {
+    display:block;
+    margin:4px 0 0;
+    font-size:14px;
+    font-weight:400;
+    line-height:1.5;
+    color:var(--ink-muted);
+}

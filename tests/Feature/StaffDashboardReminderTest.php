@@ -72,13 +72,13 @@ class StaffDashboardReminderTest extends TestCase
         $this->assertTrue($attention->contains(fn ($item) => $item['case_id'] === $completed->id
             && $item['type'] === 'interment_completed'
             && $item['label'] === 'Balance After Interment'
-            && $item['message'] === 'Interment has been completed, but no payment has been recorded. Please review the case.'));
+            && $item['message'] === 'Scheduled interment time has passed, but no payment has been recorded. Please review the case.'));
         $this->assertTrue($attention->contains(fn ($item) => $item['case_id'] === $approaching->id
             && $item['type'] === 'interment_approaching'
             && $item['label'] === 'Upcoming Interment With Balance'
             && $item['message'] === 'Interment is scheduled tomorrow, and no payment has been recorded. Please review the case.'));
-        $this->assertTrue($attention->contains(fn ($item) => $item['case_id'] === $sameDayOne->id && $item['type'] === 'same_day_schedule'));
-        $this->assertTrue($attention->contains(fn ($item) => $item['case_id'] === $sameDayTwo->id && $item['type'] === 'same_day_schedule'));
+        $this->assertFalse($attention->contains(fn ($item) => $item['case_id'] === $sameDayOne->id && $item['type'] === 'same_day_schedule'));
+        $this->assertFalse($attention->contains(fn ($item) => $item['case_id'] === $sameDayTwo->id && $item['type'] === 'same_day_schedule'));
         $this->assertFalse($attention->contains(fn ($item) => $item['case_id'] === $ordinaryBalance->id));
         $this->assertEmpty($attention->whereIn('type', ['balance', 'service_today', 'interment_today', 'upcoming_service', 'upcoming_interment']));
     }
@@ -211,12 +211,19 @@ class StaffDashboardReminderTest extends TestCase
             'case_status' => 'COMPLETED',
         ]);
 
+        $staff = User::factory()->create(['role' => 'staff', 'branch_id' => $branch->id, 'is_active' => true]);
+        $this->actingAs($staff)->get(route('staff.reminders.index', ['tab' => 'warnings']))
+            ->assertOk()->assertDontSee('Remaining Balances')->assertSee('View in Payment Monitoring')
+            ->assertSee(route('payments.history', ['q' => $partialToday->case_code, 'payment_status' => 'WITH_BALANCE', 'tab' => 'summary']));
+        $this->get(route('staff.reminders.index', ['tab' => 'unpaid']))
+            ->assertRedirect(route('payments.history', ['tab' => 'summary', 'payment_status' => 'WITH_BALANCE', 'branch_id' => $branch->id]));
+
         $attention = app(ReminderService::class)->buildDashboard($branch->id, $now)['attention'];
 
         $this->assertTrue($attention->contains(fn ($item) => $item['case_id'] === $partialToday->id
             && $item['message'] === 'Interment is scheduled today, and a remaining balance is recorded. Please review the payment record.'));
         $this->assertTrue($attention->contains(fn ($item) => $item['case_id'] === $partialCompleted->id
-            && $item['message'] === 'Interment has been completed, and a remaining balance is still recorded. Please review the payment record.'));
+            && $item['message'] === 'Scheduled interment time has passed, and a remaining balance is still recorded. Please review the payment record.'));
     }
 
     public function test_current_wake_is_case_based_and_schedule_is_event_based(): void
@@ -270,7 +277,8 @@ class StaffDashboardReminderTest extends TestCase
         $this->actingAs($branchAdmin)
             ->get(route('admin.reminders.index', ['tab' => 'current_wake']))
             ->assertOk()
-            ->assertSee('Currently in Wake')
+            ->assertSee('Ongoing Wakes')
+            ->assertViewHas('calendarWakes', fn ($items) => $items->count() === 1 && $items->first()['case_id'] === $activeWake->id)
             ->assertSee('ACTIVE-WAKE')
             ->assertDontSee('ENDED-WAKE');
 
@@ -345,15 +353,30 @@ class StaffDashboardReminderTest extends TestCase
                 'focus_case' => $case->id,
             ]))
             ->assertOk()
-            ->assertSee('id="case-reminder-'.$case->id.'"', false)
-            ->assertSee('class="rp-item rp-item--focused"', false);
+            ->assertViewHas('focusedCaseId', $case->id)
+            ->assertViewHas('calendarEvents', fn ($items) => $items->contains('case_id', $case->id))
+            ->assertSee('ceremony is-focused', false)
+            ->assertSee('data-calendar-event="event-'.$case->id.'-service_today"', false);
+    }
+
+    public function test_notification_focus_cannot_expose_another_branch_case(): void
+    {
+        Carbon::setTestNow('2026-09-26 10:00:00');
+        $own = $this->branch();
+        $other = Branch::create(['branch_code' => 'BR002', 'branch_name' => 'Other', 'is_active' => true]);
+        $case = $this->case($other, ['case_code' => 'FOREIGN-FOCUS']);
+        $staff = User::factory()->create(['role' => 'staff', 'branch_id' => $own->id, 'is_active' => true]);
+        $this->actingAs($staff)->get(route('staff.reminders.index', ['tab' => 'all', 'focus_case' => $case->id, 'branch_id' => $other->id]))
+            ->assertOk()->assertDontSee('FOREIGN-FOCUS')
+            ->assertViewHas('modalCases', fn ($items) => $items->isEmpty())
+            ->assertViewHas('calendarEvents', fn ($items) => $items->isEmpty());
     }
 
     public function test_admin_payment_summary_uses_one_consistent_case_cohort(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-09-28 10:00:00'));
         $branch = $this->branch();
-        $admin = User::factory()->create(['role' => 'admin', 'admin_scope' => 'main', 'branch_id' => $branch->id, 'is_active' => true]);
+        $admin = User::factory()->create(['role' => 'admin', 'admin_scope' => 'branch', 'branch_id' => $branch->id, 'is_active' => true]);
         $currentCase = $this->case($branch, [
             'case_code' => 'CURRENT-COHORT',
             'total_amount' => 10000,
@@ -426,7 +449,7 @@ class StaffDashboardReminderTest extends TestCase
     {
         Carbon::setTestNow(Carbon::parse('2026-09-28 10:00:00'));
         $branch = $this->branch();
-        $admin = User::factory()->create(['role' => 'admin', 'admin_scope' => 'main', 'branch_id' => $branch->id, 'is_active' => true]);
+        $admin = User::factory()->create(['role' => 'admin', 'admin_scope' => 'branch', 'branch_id' => $branch->id, 'is_active' => true]);
         $openBalance = $this->case($branch, ['case_code' => 'OPEN-BALANCE']);
         $settled = $this->case($branch, [
             'case_code' => 'SETTLED-BALANCE',
@@ -479,6 +502,101 @@ class StaffDashboardReminderTest extends TestCase
             ->assertSee('OPEN-BALANCE')
             ->assertDontSee('SETTLED-BALANCE')
             ->assertDontSee('STALE-ZERO-BALANCE');
+    }
+
+    public function test_timeline_uses_saved_times_excludes_drafts_and_groups_cross_event_schedules(): void
+    {
+        Carbon::setTestNow('2026-10-04 10:00:00');
+        $branch = $this->branch();
+        $one = $this->case($branch, ['case_code' => 'TIMELINE-ONE', 'funeral_service_at' => '2026-10-09', 'funeral_service_time' => '09:30:00', 'interment_at' => '2026-10-09', 'interment_time' => '10:30:00']);
+        $two = $this->case($branch, ['case_code' => 'TIMELINE-TWO', 'funeral_service_at' => '2026-10-08', 'funeral_service_time' => '08:30:00', 'interment_at' => '2026-10-09', 'interment_time' => '09:30:00']);
+        $draft = $this->case($branch, ['case_code' => 'TIMELINE-DRAFT', 'case_status' => 'DRAFT', 'funeral_service_at' => '2026-10-09', 'funeral_service_time' => '09:30:00']);
+        $groups = app(ReminderService::class)->scheduleGroups($branch->id);
+        $day = $groups->firstWhere('date', '2026-10-09');
+        $this->assertSame(2, $day['case_count']);
+        $this->assertCount(3, $day['events']);
+        $this->assertSame(['09:30', '09:30', '10:30'], $day['events']->pluck('date')->map(fn ($date) => $date->format('H:i'))->all());
+        $this->assertFalse($groups->flatMap(fn ($group) => $group['events'])->contains('case_id', $draft->id));
+        $this->assertTrue($day['events']->every(fn ($event) => $event['has_time']));
+        $staff = User::factory()->create(['role' => 'staff', 'branch_id' => $branch->id, 'is_active' => true]);
+        $this->actingAs($staff)->get(route('staff.reminders.index', ['tab' => 'schedules', 'schedule_section' => 'upcoming', 'calendar_date' => '2026-10-09']))
+            ->assertOk()->assertSee('Same time')->assertSee('9:30 AM')->assertSee('10:30 AM')->assertDontSee('TIMELINE-DRAFT');
+        $this->get('/staff')->assertOk()->assertSee('Schedules')->assertSee('View All Schedules')
+            ->assertViewHas('attentionReminders', fn ($items) => ! $items->contains('type', 'same_day_schedule'));
+        $this->get(route('staff.reminders.index', ['tab' => 'warnings']))->assertOk()->assertDontSee('TIMELINE-ONE')->assertDontSee('TIMELINE-TWO');
+        $this->get(route('staff.reminders.index', ['tab' => 'schedules', 'schedule_section' => 'upcoming', 'calendar_date' => '2026-10-09']))->assertOk()->assertSee('data-calendar-event', false)->assertDontSee('also scheduled with:');
+    }
+
+    public function test_calendar_includes_past_events_and_wakes_overlapping_the_week(): void
+    {
+        Carbon::setTestNow('2026-10-04 14:00:00');
+        $branch = $this->branch();
+        $past = $this->case($branch, ['case_code' => 'CALENDAR-PAST', 'funeral_service_at' => '2026-09-23', 'funeral_service_time' => '07:30', 'interment_at' => '2026-09-23', 'interment_time' => '08:30', 'wake_start_date' => '2026-09-19', 'wake_start_time' => '08:00', 'wake_end_date' => '2026-09-24', 'wake_end_time' => '09:00', 'case_status' => 'COMPLETED', 'payment_status' => 'PAID', 'balance_amount' => 0]);
+        $draft = $this->case($branch, ['case_code' => 'CALENDAR-DRAFT', 'case_status' => 'DRAFT', 'funeral_service_at' => '2026-09-23']);
+        $other = Branch::create(['branch_code' => 'BR002', 'branch_name' => 'Other', 'is_active' => true]);
+        $this->case($other, ['case_code' => 'CALENDAR-OTHER', 'funeral_service_at' => '2026-09-23']);
+        $data = app(ReminderService::class)->calendarData($branch->id, Carbon::parse('2026-09-21'), Carbon::parse('2026-09-27')->endOfDay());
+        $this->assertSame(['CALENDAR-PAST'], $data['events']->pluck('case_code')->unique()->values()->all());
+        $this->assertCount(1, $data['wakes']);
+        $this->assertFalse($data['wakes']->first()['active']);
+        $this->assertSame('07:30', $data['events']->firstWhere('type', 'service_today')['date']->format('H:i'));
+        $staff = User::factory()->create(['role' => 'staff', 'branch_id' => $branch->id, 'is_active' => true]);
+        $this->actingAs($staff)->get(route('staff.reminders.index', ['calendar_date' => '2026-09-23']))
+            ->assertOk()->assertViewHas('activeTab', 'schedules')->assertViewHas('scheduleSection', 'today')->assertDontSee('CALENDAR-PAST')->assertDontSee('CALENDAR-DRAFT')->assertDontSee('CALENDAR-OTHER');
+        $this->get(route('staff.reminders.index', ['calendar_date' => '2026-09-23', 'case_status' => 'ACTIVE']))->assertOk()->assertDontSee('CALENDAR-PAST');
+        $this->get(route('staff.reminders.index', ['tab' => 'today']))->assertOk()->assertViewHas('activeTab', 'schedules');
+        $this->get(route('staff.reminders.index', ['calendar_date' => '2026-02-31']))->assertSessionHasErrors('calendar_date');
+    }
+
+    public function test_schedule_sections_separate_ongoing_wakes_today_and_future_events(): void
+    {
+        Carbon::setTestNow('2026-10-04 14:00:00');
+        $branch = $this->branch();
+        $wake = $this->case($branch, ['case_code' => 'ONGOING-ONLY', 'wake_start_date' => '2026-10-03', 'wake_start_time' => '08:00', 'wake_end_date' => '2026-10-06', 'wake_end_time' => '08:00']);
+        $today = $this->case($branch, ['case_code' => 'TODAY-ONLY', 'funeral_service_at' => '2026-10-04', 'funeral_service_time' => '09:30']);
+        $future = $this->case($branch, ['case_code' => 'FUTURE-ONLY', 'funeral_service_at' => '2026-10-05', 'funeral_service_time' => '10:30']);
+        $staff = User::factory()->create(['role' => 'staff', 'branch_id' => $branch->id, 'is_active' => true]);
+        $this->actingAs($staff)->get(route('staff.reminders.index'))->assertOk()
+            ->assertViewHas('scheduleSection', 'today')->assertViewHas('calendarView', 'day')
+            ->assertSee('TODAY-ONLY')->assertDontSee('ONGOING-ONLY')->assertDontSee('FUTURE-ONLY')
+            ->assertSee('Wake starts and ends, funeral ceremonies, and interments scheduled today.');
+        $this->get(route('staff.reminders.index', ['schedule_section' => 'ongoing']))->assertOk()
+            ->assertSee('ONGOING-ONLY')->assertDontSee('TODAY-ONLY')->assertDontSee('FUTURE-ONLY')
+            ->assertSee('Day 2 of 4')->assertSee('Cases with a wake period currently in progress.');
+        $this->get(route('staff.reminders.index', ['schedule_section' => 'upcoming']))->assertOk()
+            ->assertSee('FUTURE-ONLY')->assertDontSee('TODAY-ONLY')->assertSee('ONGOING-ONLY')
+            ->assertViewHas('calendarWakes', fn ($items) => $items->isEmpty())
+            ->assertViewHas('calendarEvents', fn ($items) => $items->every(fn ($event) => $event['date']->toDateString() > '2026-10-04'))
+            ->assertSee('Wake starts and ends, funeral ceremonies, and interments scheduled after today.');
+        $this->get(route('staff.reminders.index', ['schedule_section' => 'upcoming', 'calendar_date' => '2026-09-23']))->assertOk()->assertViewHas('calendarDate', fn ($date) => $date->toDateString() === '2026-10-05');
+    }
+
+    public function test_complete_case_schedule_search_and_by_case_are_branch_scoped(): void
+    {
+        Carbon::setTestNow('2026-10-04 14:00:00');
+        $branch = $this->branch();
+        $case = $this->case($branch, ['case_code' => 'COMPLETE-SCHED', 'wake_start_date' => '2026-10-05', 'wake_start_time' => '08:00', 'wake_end_date' => '2026-10-25', 'wake_end_time' => '08:30', 'funeral_service_at' => '2026-10-26', 'funeral_service_time' => '09:00', 'interment_at' => '2026-10-27', 'interment_time' => '10:30']);
+        $case->deceased->update(['first_name' => 'Grace', 'middle_name' => null, 'last_name' => 'Santos', 'suffix' => null]);
+        $this->case($branch, ['case_code' => 'OTHER-SCHED', 'funeral_service_at' => '2026-10-06', 'funeral_service_time' => '09:00']);
+        $this->case($branch, ['case_code' => 'DRAFT-SCHED', 'case_status' => 'DRAFT', 'funeral_service_at' => '2026-10-06']);
+        $deleted = $this->case($branch, ['case_code' => 'DELETED-SCHED', 'funeral_service_at' => '2026-10-06']);
+        $deleted->delete();
+        $other = Branch::create(['branch_code' => 'BR002', 'branch_name' => 'Other', 'is_active' => true]);
+        $this->case($other, ['case_code' => 'OUTSIDE-SCHED', 'funeral_service_at' => '2026-10-06']);
+        $staff = User::factory()->create(['role' => 'staff', 'branch_id' => $branch->id, 'is_active' => true]);
+        $query = ['schedule_section' => 'upcoming', 'calendar_date' => '2026-10-05', 'schedule_q' => 'complete'];
+        $this->actingAs($staff)->get(route('staff.reminders.index', $query))->assertOk()
+            ->assertViewHas('calendarEvents', fn ($events) => $events->count() === 1 && $events->first()['label'] === 'Wake Begins')
+            ->assertViewHas('modalCases', fn ($cases) => $cases->count() === 1 && $cases->first()['events']->count() === 4)
+            ->assertSee('Case Schedule')->assertSee('Oct 25, 2026')->assertSee('Oct 26, 2026')->assertSee('Oct 27, 2026')->assertSee('10:30 AM')
+            ->assertDontSee('OTHER-SCHED')->assertDontSee('OUTSIDE-SCHED')->assertDontSee('DRAFT-SCHED')->assertDontSee('DELETED-SCHED');
+        $this->get(route('staff.reminders.index', array_merge($query, ['upcoming_view' => 'cases', 'calendar_date' => '2026-12-01', 'schedule_q' => 'grace'])))
+            ->assertOk()->assertViewHas('calendarEvents', fn ($events) => $events->isEmpty())
+            ->assertViewHas('upcomingCases', fn ($cases) => $cases->count() === 1 && $cases->first()['case']->id === $case->id)
+            ->assertSee('Grace Santos')->assertSee('View Case Schedule');
+        $this->get(route('staff.reminders.index', array_merge($query, ['schedule_q' => 'unknown'])))
+            ->assertOk()->assertSee('No matching upcoming cases')->assertViewHas('upcomingCases', fn ($cases) => $cases->isEmpty());
+        $this->get(route('staff.reminders.index', ['schedule_q' => str_repeat('x', 121)]))->assertSessionHasErrors('schedule_q');
     }
 
     private function branch(): Branch

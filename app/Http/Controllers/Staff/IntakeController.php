@@ -9,11 +9,13 @@ use App\Models\CasketCatalog;
 use App\Models\Client;
 use App\Models\Deceased;
 use App\Models\FuneralCase;
+use App\Models\FreebieCatalog;
 use App\Models\IntakeDraft;
 use App\Models\Package;
 use App\Models\Payment;
 use App\Models\ServiceDetail;
 use App\Support\AuditLogger;
+use App\Support\CustomPackageSelection;
 use App\Support\IntakePricingService;
 use App\Support\Payments\PaymentDetails;
 use App\Support\Validation\FieldRules;
@@ -26,6 +28,15 @@ use Illuminate\Validation\Rule;
 
 class IntakeController extends Controller
 {
+    private function initialPaymentSubmissionHash(array $validated, int $branchId, array $details): string
+    {
+        return hash('sha256', json_encode([
+            'source' => 'intake', 'branch_id' => $branchId,
+            'amount_cents' => (int) round((float) $validated['amount_paid'] * 100),
+            'paid_at' => Carbon::parse($validated['paid_at'])->toDateTimeString(), 'details' => $details,
+        ], JSON_THROW_ON_ERROR));
+    }
+
     private const CLIENT_RELATIONSHIP_OPTIONS = [
         'Father',
         'Mother',
@@ -46,6 +57,52 @@ class IntakeController extends Controller
     public function create()
     {
         return redirect()->route('intake.main.create');
+    }
+
+    public function saved(Request $request)
+    {
+        $saved = $request->session()->get('intake_saved_state');
+        if ($saved) {
+            foreach ($saved as $key => $value) {
+                $request->session()->put($key, $value);
+            }
+        }
+        if (!$request->session()->has('intake_payment.id')) {
+            return redirect()->route('funeral-cases.index', ['record_scope' => 'main']);
+        }
+        $request->session()->keep(['intake_payment', 'summary', 'intake_saved_mode']);
+        return view('staff.intake.saved');
+    }
+
+    public function scheduleAdvisory(Request $request)
+    {
+        $data = $request->validate([
+            'branch_id' => ['required', 'integer', 'exists:branches,id'],
+            'funeral_service_at' => ['required', 'date_format:Y-m-d'],
+            'interment_at' => ['required', 'date_format:Y-m-d'],
+        ]);
+        $user = $request->user();
+        abort_unless($user->canEncodeAnyBranch() || (int) $data['branch_id'] === (int) ($user->operationalBranchId() ?? $user->branch_id), 403);
+        $dates = array_unique([$data['funeral_service_at'], $data['interment_at']]);
+        $cases = FuneralCase::where('branch_id', $data['branch_id'])
+            ->whereIn('case_status', ['DRAFT', 'ACTIVE', 'COMPLETED'])
+            ->where(function ($query) use ($dates) {
+                $query->whereIn(DB::raw('DATE(funeral_service_at)'), $dates)
+                    ->orWhereIn(DB::raw('DATE(interment_at)'), $dates);
+            })->orderBy('case_code')->get();
+        $events = [];
+        foreach ($cases as $case) {
+            foreach (['funeral_service_at' => ['Funeral ceremony', 'funeral_service_time'], 'interment_at' => ['Interment', 'interment_time']] as $field => [$label, $timeField]) {
+                if (!$case->$field) continue;
+                $date = Carbon::parse($case->$field);
+                if (!in_array($date->toDateString(), $dates, true)) continue;
+                $events[] = ['case_code' => $case->case_code, 'event' => $label,
+                    'date' => $date->format('M d, Y'),
+                    'time' => $case->$timeField ? Carbon::parse($case->$timeField)->format('h:i A') : 'Time not recorded',
+                    'status' => $case->case_status];
+            }
+        }
+        return response()->json(['case_count' => $cases->count(), 'events' => $events]);
     }
 
     public function createMain()
@@ -102,21 +159,8 @@ class IntakeController extends Controller
         $operationalBranchId = (int) ($user->operationalBranchId() ?? $user->branch_id ?? 0);
         $canEncodeAnyBranch = $user->canEncodeAnyBranch();
 
-        $packages = Package::with([
-                'packageInclusions.casketCatalog',
-                'packageFreebies' => fn ($query) => $query->where(function ($freebieQuery) {
-                    $freebieQuery->whereNull('freebie_catalog_id')
-                        ->orWhereHas('catalog', fn ($catalogQuery) => $catalogQuery->where('is_active', true));
-                }),
-            ])
-            ->where('is_active', true)
-            ->whereDoesntHave('packageInclusions', function ($query) {
-                $query->whereNotNull('casket_catalog_id')
-                    ->whereHas('casketCatalog', fn ($catalogQuery) => $catalogQuery
-                        ->where(function ($statusQuery) {
-                            $statusQuery->where('is_active', false)->orWhere('is_available', false);
-                        }));
-            })
+        $packages = app(\App\Support\ServiceCatalogPolicy::class)
+            ->intakePackages(Package::query()->with(['packageInclusions.casketCatalog', 'packageFreebies.catalog']))
             ->orderBy('name')
             ->get();
         $activeAddOns = AddOnCatalog::where('is_active', true)
@@ -126,6 +170,7 @@ class IntakeController extends Controller
         $activeCaskets = CasketCatalog::where('is_active', true)
             ->orderBy('name')
             ->get();
+        $activeFreebies = FreebieCatalog::where('is_active', true)->orderBy('name')->get();
 
         $branchQuery = Branch::where('is_active', true)->orderBy('branch_code');
         if ($mode === 'other') {
@@ -144,6 +189,7 @@ class IntakeController extends Controller
             'packages' => $packages,
             'activeAddOns' => $activeAddOns,
             'activeCaskets' => $activeCaskets,
+            'activeFreebies' => $activeFreebies,
             'branches' => $branches,
             'nextCode' => $this->nextCaseCode((int) $defaultBranchId),
             'nextCodeMap' => $branches->mapWithKeys(function ($branch) {
@@ -199,8 +245,15 @@ class IntakeController extends Controller
             $digitsOnly = preg_replace('/\D+/', '', (string) $request->input('client_contact_number'));
             $request->merge(['client_contact_number' => $digitsOnly]);
         }
-        if ($request->boolean('mark_as_paid') && ! $request->filled('payment_method')) {
-            $request->merge(['payment_method' => 'cash']);
+        // A payment method must be selected explicitly; never assume cash.
+        if (in_array($request->input('payment_method'), ['cash', 'cashless'], true)) {
+            $request->merge(['mark_as_paid' => 1]);
+        }
+        if ($request->input('payment_method') === 'none' &&
+            ($request->boolean('mark_as_paid') || $request->filled('payment_type') || $request->filled('amount_paid'))) {
+            return back()->withErrors([
+                'mark_as_paid' => 'Select Cash or Cashless to record a payment, or clear payment details when no payment was received.',
+            ])->withInput();
         }
         if ($request->filled('additional_service_amount') && ! $request->filled('additional_services')) {
             $request->merge(['additional_services' => 'Additional services']);
@@ -211,7 +264,7 @@ class IntakeController extends Controller
         $this->mergeLegacyIntakeNameParts($request, 'deceased');
         $this->mergeLegacyScheduleFields($request, $serverRequestDate);
 
-        $wakeDateRules = ['required', 'date'];
+        $wakeDateRules = ['required', 'date_format:Y-m-d'];
         $scheduleTimeRules = ['required', 'date_format:H:i'];
 
         $validated = $request->validate(array_merge([
@@ -243,17 +296,17 @@ class IntakeController extends Controller
             'pwd_status' => 'nullable|boolean',
             'pwd_id_number' => 'nullable|string|max:100',
             'senior_proof' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
-            'wake_location' => 'required|string|max:255',
+            'wake_location' => ['required', 'string', 'max:255', $this->addressHasPlaceName()],
             'wake_start_date' => $wakeDateRules,
             'wake_start_time' => $scheduleTimeRules,
             'wake_end_date' => $wakeDateRules,
             'wake_end_time' => $scheduleTimeRules,
             'funeral_service_at' => $wakeDateRules,
             'funeral_service_time' => $scheduleTimeRules,
-            'interment_at' => ['required', 'date'],
+            'interment_at' => $wakeDateRules,
             'interment_time' => $scheduleTimeRules,
             'wake_days' => 'nullable|integer|min:0|max:365',
-            'place_of_cemetery' => 'required|string|max:255',
+            'place_of_cemetery' => ['required', 'string', 'max:255', $this->addressHasPlaceName()],
             'case_status' => 'required|in:DRAFT,ACTIVE,COMPLETED',
             'transport_option' => 'nullable|string|max:30',
             'transport_notes' => 'nullable|string|max:500',
@@ -268,26 +321,38 @@ class IntakeController extends Controller
             'branch_id' => 'required|integer|exists:branches,id',
             'package_id' => [
                 'required',
-                function ($attribute, $value, $fail) {
+                function ($attribute, $value, $fail) use ($mode) {
                     if ((string) $value === 'custom') {
+                        if ($mode !== 'main') {
+                            $fail('Custom packages are only available for main-branch intake.');
+                        }
                         return;
                     }
                     if (!is_numeric($value)) {
                         $fail('Please select a valid package.');
                         return;
                     }
-                    $exists = Package::where('is_active', true)
-                        ->where('id', (int) $value)
+                    $exists = app(\App\Support\ServiceCatalogPolicy::class)
+                        ->intakePackages(Package::query()->whereKey((int) $value))
                         ->exists();
                     if (!$exists) {
-                        $fail('Selected package is unavailable.');
+                        $fail('This package is no longer available for new intake. Choose another package.');
                     }
                 },
             ],
             'custom_package_name' => 'exclude_unless:package_id,custom|required|string|max:150',
-            'custom_package_price' => 'exclude_unless:package_id,custom|required|numeric|min:0',
-            'custom_package_inclusions' => 'exclude_unless:package_id,custom|nullable|string|max:1000',
-            'custom_package_freebies' => 'exclude_unless:package_id,custom|nullable|string|max:1000',
+            'custom_package_price' => 'exclude_unless:package_id,custom|required|numeric|min:0.01',
+            'custom_service_types' => 'exclude_unless:package_id,custom|nullable|array|max:5',
+            'custom_service_types.*' => ['string', 'distinct', Rule::in([
+                Package::SERVICE_BODY_RETRIEVAL, Package::SERVICE_EMBALMING, Package::SERVICE_CASKET,
+                Package::SERVICE_HOME_VIEWING, Package::SERVICE_HEARSE,
+            ])],
+            'custom_service_coverage' => 'exclude_unless:package_id,custom|nullable|array',
+            'custom_service_coverage.*' => 'nullable|numeric|min:0|max:100000',
+            'custom_casket_catalog_id' => 'exclude_unless:package_id,custom|nullable|integer',
+            'custom_freebie_catalog_ids' => 'exclude_unless:package_id,custom|nullable|array|max:20',
+            'custom_freebie_catalog_ids.*' => 'integer|distinct',
+            'custom_other_inclusions' => 'exclude_unless:package_id,custom|nullable|string|max:1000',
             'additional_services' => 'nullable|string|max:1000',
             'additional_service_amount' => 'nullable|numeric|min:0',
             'additional_service_items' => 'nullable|array|max:20',
@@ -309,11 +374,15 @@ class IntakeController extends Controller
 
             'mark_as_paid' => 'nullable|boolean',
             'payment_type' => 'required_if:mark_as_paid,1|in:FULL,PARTIAL',
-            'paid_at' => ['required_if:mark_as_paid,1', 'date', 'before_or_equal:now', 'after_or_equal:died'],
+            'paid_at' => ['exclude_unless:mark_as_paid,1', 'required_if:mark_as_paid,1', 'date_format:Y-m-d\TH:i,Y-m-d H:i:s', 'before_or_equal:now'],
             'amount_paid' => ['required_if:mark_as_paid,1', 'regex:/^\d+(\.\d{1,2})?$/', 'numeric', 'gt:0'],
             'confirm_review' => 'nullable|boolean',
+            'submission_id' => ['nullable', 'uuid'],
             'intake_draft_id' => 'nullable|integer|exists:intake_drafts,id',
-        ], PaymentDetails::rules()), array_merge(PaymentDetails::messages(), [
+        ], PaymentDetails::rules(), [
+            'payment_method' => ['required', 'in:cash,cashless,none'],
+        ]), array_merge(PaymentDetails::messages(), [
+            'payment_method.required' => 'Select Cash, Cashless, or No payment received yet.',
             'service_requested_at.required' => 'Request date is required.',
             'service_requested_at.before_or_equal' => 'Request date cannot be in the future.',
             'client_first_name.regex'  => FieldRules::nameRegexMessage('Client first name'),
@@ -349,11 +418,17 @@ class IntakeController extends Controller
             'interment_time.required' => 'Please select an interment date and time.',
             'interment_time.date_format' => 'Please select an interment date and time.',
             'backdated_entry_reason.required_if' => 'Please provide a reason for a backdated request entry.',
-            'paid_at.after_or_equal' => 'Date received cannot be before the case creation date.',
+            'paid_at.required_if' => 'Please select the actual payment received date and time.',
+            'paid_at.date_format' => 'Please enter a valid payment received date and time.',
+            'paid_at.before_or_equal' => 'Payment received date/time cannot be in the future.',
             'reported_at.before_or_equal' => 'Reported date/time cannot be in the future.',
             'confirm_review' => 'You must confirm that the information is correct before saving.',
             'additional_service_amount.numeric' => 'Additional charges must be a valid amount.',
             'additional_service_amount.min' => 'Additional charges cannot be negative.',
+            'custom_package_name.required' => 'Enter a name for the custom package.',
+            'custom_package_price.required' => 'Enter the agreed package price.',
+            'custom_package_price.min' => 'The custom package price must be greater than zero.',
+            'custom_package_inclusions.required' => 'List at least one service or item included in the custom package.',
             'additional_service_items.*.description.max' => 'Additional service description is too long.',
             'additional_service_items.*.amount.numeric' => 'Additional service amount must be valid.',
             'additional_service_items.*.amount.min' => 'Additional service amount cannot be negative.',
@@ -419,55 +494,47 @@ class IntakeController extends Controller
         }
 
         $schedule = $this->resolveScheduleDatetimes($validated);
+        $scheduleErrors = [];
         if ($schedule['request_date']->gt($schedule['wake_start']->copy()->startOfDay())) {
-            return back()->withErrors([
-                'wake_start_date' => 'Wake start date cannot be before the request/recorded date.',
-            ])->withInput();
+            $scheduleErrors['wake_start_date'] = 'Wake start date cannot be before the request/recorded date.';
         }
 
         if ($schedule['funeral_service']->copy()->startOfDay()->lt(Carbon::parse($validated['died'])->startOfDay())) {
-            return back()->withErrors([
-                'funeral_service_at' => 'Funeral Ceremony date must be on or after the date of death.',
-            ])->withInput();
+            $scheduleErrors['funeral_service_at'] = 'Funeral Ceremony date must be on or after the date of death.';
         }
 
         if ($schedule['funeral_service']->lt($schedule['wake_start'])) {
-            return back()->withErrors([
-                'funeral_service_at' => 'Funeral Ceremony date/time cannot be before the Wake End date/time.',
-            ])->withInput();
+            $scheduleErrors['funeral_service_at'] = 'Funeral Ceremony date/time cannot be before the Wake End date/time.';
         }
 
         if ($schedule['wake_end']->lessThanOrEqualTo($schedule['wake_start'])) {
-            return back()->withErrors([
-                'wake_end_date' => 'Wake End Date/Time must be later than the Wake Start Date/Time.',
-            ])->withInput();
+            $scheduleErrors['wake_end_date'] = 'Wake End Date/Time must be later than the Wake Start Date/Time.';
         }
 
         if ($schedule['funeral_service']->lt($schedule['wake_end'])) {
-            return back()->withErrors([
-                'funeral_service_at' => 'Funeral Ceremony Date/Time cannot be earlier than the Wake End Date/Time.',
-            ])->withInput();
+            $scheduleErrors['funeral_service_at'] = 'Funeral Ceremony Date/Time cannot be earlier than the Wake End Date/Time.';
         }
 
         if ($schedule['interment']->copy()->startOfDay()->lt($schedule['funeral_service']->copy()->startOfDay())) {
-            return back()->withErrors([
-                'interment_at' => 'Interment date/time must be after the Funeral Ceremony date/time.',
-            ])->withInput();
+            $scheduleErrors['interment_at'] = 'Interment date/time must be after the Funeral Ceremony date/time.';
         }
 
         if (
             $schedule['interment']->isSameDay($schedule['funeral_service'])
             && $schedule['interment']->lessThanOrEqualTo($schedule['funeral_service'])
         ) {
-            return back()->withErrors([
-                'interment_at' => 'Interment time must be later than the Funeral Ceremony time when both occur on the same date.',
-            ])->withInput();
+            $scheduleErrors['interment_at'] = 'Interment time must be later than the Funeral Ceremony time when both occur on the same date.';
         }
 
         if (!$this->isIntermentAfterDeathDate($validated['died'] ?? null, $schedule['interment']->toDateTimeString())) {
-            return back()->withErrors([
-                'interment_at' => 'Interment date must be on or after the date of death.',
-            ])->withInput();
+            $scheduleErrors['interment_at'] = 'Interment date must be on or after the date of death.';
+        }
+
+        if ($schedule['wake_start']->copy()->startOfDay()->lt(Carbon::parse($validated['died'])->startOfDay())) {
+            $scheduleErrors['wake_start_date'] = 'Wake start date must be on or after the date of death.';
+        }
+        if ($scheduleErrors) {
+            return back()->withErrors($scheduleErrors)->withInput();
         }
 
         $computedWakeDays = $this->resolveWakeDays(
@@ -536,26 +603,13 @@ class IntakeController extends Controller
 
         $package = null;
         if (!$isCustomPackage) {
-            $package = Package::with([
-                    'packageInclusions.casketCatalog',
-                    'packageFreebies' => fn ($query) => $query->where(function ($freebieQuery) {
-                        $freebieQuery->whereNull('freebie_catalog_id')
-                            ->orWhereHas('catalog', fn ($catalogQuery) => $catalogQuery->where('is_active', true));
-                    }),
-                ])
-                ->where('id', $selectedPackageId)
-                ->where('is_active', true)
-                ->whereDoesntHave('packageInclusions', function ($query) {
-                    $query->whereNotNull('casket_catalog_id')
-                        ->whereHas('casketCatalog', fn ($catalogQuery) => $catalogQuery
-                            ->where(function ($statusQuery) {
-                                $statusQuery->where('is_active', false)->orWhere('is_available', false);
-                            }));
-                })
+            $package = app(\App\Support\ServiceCatalogPolicy::class)
+                ->intakePackages(Package::query()->with(['packageInclusions.casketCatalog', 'packageFreebies.catalog'])
+                    ->whereKey($selectedPackageId))
                 ->first();
 
             if (!$package) {
-                return back()->withErrors(['package_id' => 'Selected package is unavailable.'])->withInput();
+                return back()->withErrors(['package_id' => 'This package is no longer available for new intake. Choose another package.'])->withInput();
             }
         }
 
@@ -589,6 +643,26 @@ class IntakeController extends Controller
         $normalizedDeceasedAddress = strtolower(trim((string) $validated['deceased_address']));
         $clientDuplicateKey = $request->filled('client_name') ? 'client_name' : 'client_first_name';
         $deceasedDuplicateKey = $request->filled('deceased_name') ? 'deceased_name' : 'deceased_first_name';
+
+        if ($request->boolean('mark_as_paid') && !empty($validated['submission_id'])) {
+            $savedPayment = Payment::withTrashed()->where('branch_id', $branchId)
+                ->where('submission_id', $validated['submission_id'])->first();
+            if ($savedPayment) {
+                $savedCase = FuneralCase::with(['client', 'deceased'])->where('branch_id', $branchId)
+                    ->find($savedPayment->funeral_case_id);
+                $same = $savedCase && $savedCase->entry_source === $entrySource
+                    && strtolower(trim((string) $savedCase->client?->full_name)) === $normalizedClientName
+                    && strtolower(trim((string) $savedCase->deceased?->full_name)) === $normalizedDeceasedName
+                    && hash_equals((string) $savedPayment->submission_hash,
+                        $this->initialPaymentSubmissionHash($validated, $branchId, $paymentDetails));
+                if (!$same) {
+                    return back()->withErrors(['submission_id' => 'This submission was already saved with different details. Review Case Records before starting another intake.'])->withInput();
+                }
+                $this->authorize('view', $savedCase);
+                return redirect()->route('funeral-cases.show', $savedCase)
+                    ->with('success', 'Recovered existing case '.$savedCase->case_code.'. This retry did not apply changes or create another case or payment. Review the saved details and payment history.');
+            }
+        }
 
         if ($normalizedClientName === $normalizedDeceasedName) {
             return back()->withErrors([
@@ -648,17 +722,24 @@ class IntakeController extends Controller
         }
 
         $scheduleConflictCount = FuneralCase::where('branch_id', $branchId)
+            ->whereIn('case_status', ['DRAFT', 'ACTIVE', 'COMPLETED'])
             ->where(function ($query) use ($validated) {
                 $funeralDate = Carbon::parse($validated['funeral_service_at'])->toDateString();
                 $intermentDate = Carbon::parse($validated['interment_at'])->toDateString();
-                $query->whereDate('funeral_service_at', $funeralDate)
-                    ->orWhereDate('interment_at', $intermentDate);
+                $dates = array_unique([$funeralDate, $intermentDate]);
+                $query->whereIn(DB::raw('DATE(funeral_service_at)'), $dates)
+                    ->orWhereIn(DB::raw('DATE(interment_at)'), $dates);
             })
             ->count();
 
         $servicePackageName = $isCustomPackage
             ? ($validated['custom_package_name'] ?? 'Client Preference')
             : $package->name;
+        if ($isCustomPackage) {
+            $validated['custom_package_configuration'] = app(CustomPackageSelection::class)->resolve($validated);
+            $validated['custom_package_inclusions'] = $validated['custom_package_configuration']['inclusions_text'];
+            $validated['custom_package_freebies'] = $validated['custom_package_configuration']['freebies_text'];
+        }
         $pricingService = app(IntakePricingService::class);
         $selectionErrors = $pricingService->validateSelections($package, $validated, $isCustomPackage);
         if ($selectionErrors !== []) {
@@ -667,7 +748,7 @@ class IntakeController extends Controller
 
         $pricing = $pricingService->price($package, $validated, $isCustomPackage, now());
         $coffinType = $isCustomPackage
-            ? 'CUSTOM'
+            ? ($pricing['included_casket']['name'] ?? 'CUSTOM')
             : ($pricing['selected_casket']['name'] ?? $pricing['included_casket']['name'] ?? $package->coffin_type);
         $packagePrice = $pricing['base_price'];
         $additionalServiceAmount = $pricing['additional_total'];
@@ -709,7 +790,7 @@ class IntakeController extends Controller
 
         $pricing = $pricingService->price($package, $validated, $isCustomPackage, now());
         $coffinType = $isCustomPackage
-            ? 'CUSTOM'
+            ? ($pricing['included_casket']['name'] ?? 'CUSTOM')
             : ($pricing['selected_casket']['name'] ?? $pricing['included_casket']['name'] ?? $package->coffin_type);
         $packagePrice = $pricing['base_price'];
         $additionalServiceAmount = $pricing['additional_total'];
@@ -836,10 +917,12 @@ class IntakeController extends Controller
         $attempt    = 0;
         $maxRetries = 3;
         $createdCaseId = null;
+        $createdPaymentId = null;
         do {
             $attempt++;
             try {
             DB::transaction(function () use (
+                &$createdPaymentId,
                 $validated,
                 $branchId,
                 $selectedPackageId,
@@ -1069,6 +1152,9 @@ class IntakeController extends Controller
                 if ($markAsPaid) {
                     $paidAt = Carbon::parse($validated['paid_at']);
                     $payment = Payment::create([
+                        'submission_id' => $validated['submission_id'] ?? null,
+                        'submission_hash' => isset($validated['submission_id'])
+                            ? $this->initialPaymentSubmissionHash($validated, $branchId, $paymentDetails) : null,
                         'funeral_case_id'  => $funeralCase->id,
                         'branch_id'        => $branchId,
                         'payment_record_no' => Payment::nextPaymentRecordNumber($paidAt),
@@ -1103,6 +1189,7 @@ class IntakeController extends Controller
                     $payment->update([
                         'receipt_number' => $payment->payment_record_no,
                     ]);
+                    $createdPaymentId = $payment->id;
 
                     AuditLogger::log(
                         action: 'payment.created',
@@ -1175,7 +1262,8 @@ class IntakeController extends Controller
             : route('funeral-cases.index', ['record_scope' => 'main']));
 
         $redirectResponse = redirect()
-            ->to($redirectRoute)
+            ->to($createdPaymentId ? route('intake.saved') : $redirectRoute)
+            ->with('intake_saved_mode', $mode)
             ->with('success', 'Case intake record has been saved successfully.')
             ->with('summary', [
                 'package' => $servicePackageName,
@@ -1187,9 +1275,31 @@ class IntakeController extends Controller
             ]);
 
         if ($scheduleConflictCount > 0) {
-            $redirectResponse->with('warning', "Similar schedule already exists in this branch ({$scheduleConflictCount} case/s). Record saved; please double-check logistics.");
+            $redirectResponse->with('warning', "Schedule advisory: {$scheduleConflictCount} other case(s) are scheduled on the same date in this branch. Record saved; review staff, venue, and vehicle availability.");
         }
 
+        if ($createdPaymentId) {
+            $savedPayment = Payment::with(['funeralCase.client', 'funeralCase.deceased'])->findOrFail($createdPaymentId);
+            $redirectResponse->with('intake_payment', [
+                'id' => $savedPayment->id,
+                'record_no' => $savedPayment->display_payment_record_no,
+                'case_code' => $savedPayment->funeralCase->case_code,
+                'client' => $savedPayment->funeralCase->client?->full_name,
+                'deceased' => $savedPayment->funeralCase->deceased?->full_name,
+                'amount' => (float) $savedPayment->amount,
+                'balance' => (float) $savedPayment->balance_after_payment,
+                'method' => PaymentDetails::label($savedPayment),
+                'received_at' => $savedPayment->paid_at->format('M d, Y h:i A'),
+            ]);
+        }
+
+        if ($createdPaymentId) {
+            $request->session()->put('intake_saved_state', [
+                'intake_payment' => $request->session()->get('intake_payment'),
+                'summary' => $request->session()->get('summary'),
+                'intake_saved_mode' => $mode,
+            ]);
+        }
         return $redirectResponse;
     }
 
@@ -1285,8 +1395,15 @@ class IntakeController extends Controller
     private function addressHasPlaceName(): \Closure
     {
         return static function (string $attribute, mixed $value, \Closure $fail): void {
+            $label = match ($attribute) {
+                'wake_location' => 'Wake location',
+                'place_of_cemetery' => 'Place of interment / cemetery',
+                default => 'Complete address',
+            };
             if (! preg_match('/\pL/u', (string) $value)) {
-                $fail('Complete address must include a valid place name.');
+                $fail($label.' must include a place name.');
+            } elseif (! preg_match("/^[\\pL\\pM\\pN .,\x{2019}'#()\\/\\&-]+$/u", (string) $value)) {
+                $fail($label.' may contain letters, numbers, spaces, and address punctuation only (., apostrophe, #, (), /, &, -).');
             }
         };
     }

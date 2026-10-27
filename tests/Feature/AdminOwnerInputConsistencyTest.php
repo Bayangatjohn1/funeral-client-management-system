@@ -11,30 +11,29 @@ class AdminOwnerInputConsistencyTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_date_filter_options_are_consistent_on_desktop_and_mobile(): void
+    public function test_system_admin_dashboard_has_no_obsolete_operational_date_controls(): void
     {
         $this->createBranch('BR001', 'Main Branch');
         $admin = $this->createUser('admin');
-
-        $response = $this->actingAs($admin)->get('/admin');
-        $response->assertOk();
-
-        $html = $response->getContent();
-        $this->assertSame(2, substr_count($html, 'value="this_week"'));
+        $this->actingAs($admin)->get('/admin')->assertOk()
+            ->assertViewIs('dashboards.system-admin')
+            ->assertDontSee('name="date_filter"', false)
+            ->assertSee('System Admin Dashboard');
     }
 
-    public function test_admin_filter_validation_handles_valid_and_invalid_values(): void
+    public function test_unsupported_system_admin_filters_do_not_change_administrative_scope(): void
     {
-        $branch = $this->createBranch('BR001', 'Main Branch');
+        $one = $this->createBranch('BR001', 'Main Branch');
+        $two = $this->createBranch('BR002', 'Branch Two');
         $admin = $this->createUser('admin');
-
-        $this->actingAs($admin)
-            ->get('/admin?date_filter=this_week&branch_id=' . $branch->id)
-            ->assertOk();
-
-        $this->actingAs($admin)
-            ->get('/admin?date_filter=INVALID_OPTION')
-            ->assertSessionHasErrors('date_filter');
+        foreach (['this_week', 'INVALID_OPTION'] as $filter) {
+            $this->actingAs($admin)->get('/admin?date_filter='.$filter.'&branch_id='.$two->id)
+                ->assertOk()->assertViewIs('dashboards.system-admin')
+                ->assertViewHas('branches', fn ($items) => $items->pluck('id')->all() === [$one->id, $two->id]);
+        }
+        $branchAdmin = User::factory()->create(['role' => 'admin', 'admin_scope' => 'branch',
+            'branch_id' => $two->id, 'is_active' => true]);
+        $this->actingAs($branchAdmin)->get('/admin?date_filter=INVALID_OPTION&branch_id='.$one->id)->assertForbidden();
     }
 
     public function test_owner_dashboard_filter_validation_is_consistent(): void

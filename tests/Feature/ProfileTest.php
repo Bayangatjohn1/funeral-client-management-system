@@ -70,8 +70,8 @@ class ProfileTest extends TestCase
             ->get('/funeral-cases?tab=active&record_scope=main')
             ->assertOk()
             ->assertDontSee('<header class="topbar">', false)
-            ->assertSee('panel-floating-menu-btn', false)
-            ->assertDontSee('panel-page-header', false)
+            ->assertSee('id="mobileSidebarToggle"', false)
+            ->assertSee('Case Records')
             ->assertDontSee('<div class="topbar-notification-wrap"', false);
     }
 

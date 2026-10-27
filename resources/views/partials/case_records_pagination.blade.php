@@ -1,4 +1,4 @@
-@if($cases->hasPages())
+@if($cases->hasPages() || ($showSinglePageControls ?? false))
     {{ $cases->links('components.pagination.table') }}
 @else
     <div class="table-paginator-meta">

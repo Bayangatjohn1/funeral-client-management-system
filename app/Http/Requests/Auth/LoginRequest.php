@@ -41,11 +41,12 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        if (! Auth::attempt($this->only('email', 'password'), false)) {
             RateLimiter::hit($this->throttleKey());
+            $this->ensureIsNotRateLimited();
 
             throw ValidationException::withMessages([
-                'email' => trans('auth.failed'),
+                'email' => 'Incorrect email or password. Please check your credentials.',
             ]);
         }
 
@@ -66,6 +67,7 @@ class LoginRequest extends FormRequest
         event(new Lockout($this));
 
         $seconds = RateLimiter::availableIn($this->throttleKey());
+        $this->session()->put('login_throttle_email', (string) $this->input('email'));
 
         throw ValidationException::withMessages([
             'email' => trans('auth.throttle', [

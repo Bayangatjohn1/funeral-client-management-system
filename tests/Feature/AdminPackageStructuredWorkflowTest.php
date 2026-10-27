@@ -623,16 +623,16 @@ class AdminPackageStructuredWorkflowTest extends TestCase
             'is_active' => true,
         ]);
 
-        $this->actingAs($admin)
+        $response = $this->actingAs($admin)
             ->get(route('admin.packages.create', absolute: false))
             ->assertOk()
             ->assertSee('Configured Prayer Card')
             ->assertSee('data-freebie-check', false)
-            ->assertSee('name="included_services[body_retrieval][enabled]" value="1" data-service-toggle checked', false)
-            ->assertSee('name="included_services[embalming][enabled]" value="1" data-service-toggle checked', false)
-            ->assertSee('name="included_services[casket][enabled]" value="1" data-service-toggle checked', false)
-            ->assertSee('name="included_services[home_viewing][enabled]" value="1" data-service-toggle checked', false)
-            ->assertSee('name="included_services[hearse][enabled]" value="1" data-service-toggle checked', false)
+            ->assertSee('name="included_services[body_retrieval][enabled]"', false)
+            ->assertSee('name="included_services[embalming][enabled]"', false)
+            ->assertSee('name="included_services[casket][enabled]"', false)
+            ->assertSee('name="included_services[home_viewing][enabled]"', false)
+            ->assertSee('name="included_services[hearse][enabled]"', false)
             ->assertSee('Select casket')
             ->assertSee('data-package-submit', false)
             ->assertSee('data-update-url', false)
@@ -644,6 +644,16 @@ class AdminPackageStructuredWorkflowTest extends TestCase
             ->assertDontSee('Configure Casket')
             ->assertDontSee('target="_blank"', false)
             ->assertDontSee('Open Casket Catalog');
+
+        $dom = new \DOMDocument;
+        $previous = libxml_use_internal_errors(true);
+        $dom->loadHTML($response->getContent());
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+        $xpath = new \DOMXPath($dom);
+        foreach (['body_retrieval', 'embalming', 'casket', 'home_viewing', 'hearse'] as $service) {
+            $this->assertSame(1, $xpath->query('//input[@name="included_services['.$service.'][enabled]" and @type="checkbox" and @value="1" and @checked]')->length);
+        }
 
         $package = Package::create([
             'name' => 'Editable Compact Package',
@@ -780,9 +790,9 @@ class AdminPackageStructuredWorkflowTest extends TestCase
             ->get(route('admin.add-on-catalogs.create', absolute: false))
             ->assertOk()
             ->assertSee('Add-on Type')
-            ->assertSee('<select name="category"', false)
-            ->assertSee('<select name="unit"', false)
-            ->assertSee('aoc-select-icon', false)
+            ->assertSee('id="addon-category" name="category"', false)
+            ->assertSee('id="addon-unit" name="unit"', false)
+            ->assertSee('form-select', false)
             ->assertDontSee('name="category" value=', false);
 
         $this->actingAs($admin)

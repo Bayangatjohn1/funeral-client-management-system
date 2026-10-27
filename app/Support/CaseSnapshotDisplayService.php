@@ -17,8 +17,10 @@ class CaseSnapshotDisplayService
             'has_snapshot' => $hasSnapshot,
             'package_name' => $this->packageName($case, $snapshot),
             'package_price' => $this->packagePrice($case, $snapshot),
-            'inclusions' => $hasSnapshot ? $this->snapshotInclusions($snapshot) : $this->legacyInclusions($case),
-            'freebies' => $hasSnapshot ? $this->snapshotFreebies($snapshot) : $this->legacyFreebies($case),
+            'inclusions' => $hasSnapshot && (! Arr::get($snapshot, 'custom_package') || Arr::get($snapshot, 'inclusions', []) !== [])
+                ? $this->snapshotInclusions($snapshot) : $this->legacyInclusions($case),
+            'freebies' => $hasSnapshot && (! Arr::get($snapshot, 'custom_package') || Arr::get($snapshot, 'freebies', []) !== [])
+                ? $this->snapshotFreebies($snapshot) : $this->legacyFreebies($case),
             'included_casket' => $hasSnapshot ? Arr::get($snapshot, 'included_casket') : null,
             'selected_casket' => $hasSnapshot ? Arr::get($snapshot, 'selected_casket') : null,
             'service_charges' => $hasSnapshot ? $this->snapshotServiceCharges($snapshot) : [],

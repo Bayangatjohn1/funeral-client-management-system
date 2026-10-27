@@ -135,6 +135,147 @@ class SystemRegressionGuardsTest extends TestCase
             ->assertViewHas('totalOutstanding', 30000.0);
     }
 
+    public function test_owner_overview_packages_trend_and_collection_links_include_partial_cases(): void
+    {
+        $branch = $this->createBranch('BR021', 'Review Branch');
+        $owner = $this->createUser('owner');
+        $package = $this->createPackage();
+        $client = $this->createClient($branch, 'Review Family');
+        $deceased = $this->createDeceased($branch, $client, 'Review Deceased');
+        $case = $this->createCase($branch, $client, $deceased, $package, [
+            'case_code' => 'REVIEW-PARTIAL', 'verification_status' => 'VERIFIED',
+            'total_amount' => 10000, 'total_paid' => 2000, 'balance_amount' => 8000,
+            'payment_status' => 'PARTIAL', 'created_at' => now(),
+            'interment_at' => now()->subDay(),
+        ]);
+        $this->actingAs($owner)->get('/owner?range=THIS_MONTH')->assertOk()
+            ->assertViewHas('topPackages', fn ($rows) => $rows->sum('total_cases') === 1)
+            ->assertViewHas('revenueTrend', fn ($rows) => $rows->sum('value') === 10000.0)
+            ->assertViewHas('attentionCount', 1)->assertViewHas('attentionBalance', 8000.0);
+        foreach (['WITH_PAYMENTS', 'WITH_BALANCE', 'AFTER_INTERMENT'] as $state) {
+            $this->actingAs($owner)->get('/owner/case-history?collection_state='.$state)
+                ->assertOk()->assertViewHas('cases', fn ($rows) => $rows->contains('id', $case->id));
+        }
+        $this->actingAs($owner)->get('/owner?range=THIS_YEAR&branch_id='.$branch->id)
+            ->assertOk()->assertViewHas('branchCards', fn ($rows) => $rows->count() === 1)
+            ->assertViewHas('revenueTrend', fn ($rows) => $rows->sum('value') === 10000.0);
+        $this->actingAs($owner)->get('/owner/case-history?collection_state=INVALID')->assertSessionHasErrors('collection_state');
+    }
+
+    public function test_owner_executive_metrics_use_receipt_dates_and_all_date_balances(): void
+    {
+        $branch = $this->createBranch('BR031', 'Executive Branch');
+        $owner = $this->createUser('owner');
+        $package = $this->createPackage();
+        $client = $this->createClient($branch, 'Executive Client');
+        $deceased = $this->createDeceased($branch, $client, 'Executive Deceased');
+        $oldCase = $this->createCase($branch, $client, $deceased, $package, [
+            'case_code' => 'EXEC-OLD', 'verification_status' => 'VERIFIED',
+            'created_at' => now()->subMonths(2), 'total_amount' => 10000,
+            'total_paid' => 2000, 'balance_amount' => 8000, 'payment_status' => 'PARTIAL',
+            'interment_at' => now()->subMonth(),
+        ]);
+        $oldCase->forceFill(['created_at' => now()->subMonths(2)])->save();
+        foreach (['POSTED' => 2000, 'VOIDED' => 9000] as $status => $amount) {
+            Payment::create(['funeral_case_id'=>$oldCase->id,'branch_id'=>$branch->id,
+                'method'=>'CASH','payment_mode'=>'cash','amount'=>$amount,'paid_at'=>now(),
+                'paid_date'=>now()->toDateString(),'status'=>$status]);
+        }
+        $pendingClient = $this->createClient($branch, 'Pending Executive Client');
+        $pendingDeceased = $this->createDeceased($branch, $pendingClient, 'Pending Executive Deceased');
+        $pending = $this->createCase($branch, $pendingClient, $pendingDeceased, $package, [
+            'case_code' => 'EXEC-PENDING', 'verification_status' => 'PENDING',
+        ]);
+        Payment::create(['funeral_case_id'=>$pending->id,'branch_id'=>$branch->id,
+            'method'=>'CASH','amount'=>6000,'paid_at'=>now(),'paid_date'=>now()->toDateString(),'status'=>'POSTED']);
+        $response = $this->actingAs($owner)->get('/owner?range=THIS_MONTH&branch_id='.$branch->id)->assertOk();
+        $o = $response->viewData('overview');
+        $this->assertSame(0, $o['current']['cases']);
+        $this->assertSame(2000.0, $o['current']['collections']);
+        $this->assertSame(8000.0, $o['current']['outstanding']);
+        $this->assertSame(1, $o['riskCount']);
+        $this->assertSame(2000.0, (float) collect($o['points'])->sum('collections'));
+        $this->assertNull($o['comparison']['collections']);
+        $this->assertNull($o['branchRows']->first()['rate']);
+        $this->assertSame(0.0, $o['branchRows']->first()['cohortCollected']);
+        $this->actingAs($owner)->get('/owner/dashboard/details?kind=collections&range=THIS_MONTH&branch_id='.$branch->id)
+            ->assertOk()->assertJsonPath('count', 1);
+        $drilldown = $this->actingAs($owner)->get('/owner/dashboard/details?kind=collections&range=CUSTOM&date_from='.now()->toDateString().'&date_to='.now()->toDateString().'&branch_id='.$branch->id.'&dashboard_range=THIS_MONTH&dashboard_from='.now()->startOfMonth()->toDateString().'&dashboard_to='.now()->toDateString())
+            ->assertOk()->assertJsonPath('count', 1);
+        $this->assertStringContainsString('range%3DTHIS_MONTH', $drilldown->json('html'));
+        $this->assertStringContainsString('2,000.00', $drilldown->json('html'));
+        $collectionSummary = $this->actingAs($owner)->get('/owner/dashboard/details?summary=1&kind=collections&range=CUSTOM&date_from='.now()->toDateString().'&date_to='.now()->toDateString().'&branch_id='.$branch->id)->assertOk();
+        preg_match('/data-records-url="([^"]+)"/', $collectionSummary->json('html'), $destinationMatch);
+        $destinationUrl = html_entity_decode($destinationMatch[1], ENT_QUOTES);
+        $this->assertSame('/reports', parse_url($destinationUrl, PHP_URL_PATH));
+        parse_str(parse_url($destinationUrl, PHP_URL_QUERY), $destinationFilters);
+        $this->assertSame('sales', $destinationFilters['report_type']);
+        $this->assertSame((string) $branch->id, $destinationFilters['branch_id']);
+        $this->assertSame(now()->toDateString(), $destinationFilters['date_from']);
+        $this->assertSame(now()->toDateString(), $destinationFilters['date_to']);
+        $this->actingAs($owner)->get($destinationUrl)->assertOk();
+        $this->actingAs($owner)->get('/owner/dashboard/details?kind=risks&range=TODAY&branch_id='.$branch->id)
+            ->assertOk()->assertJsonPath('count', 1);
+        $summary = $this->actingAs($owner)->get('/owner/dashboard/details?summary=1&kind=risks&range=TODAY&branch_id='.$branch->id.'&dashboard_range=THIS_MONTH')->assertOk();
+        $this->assertStringContainsString('Cases past interment', $summary->json('html'));
+        $this->assertStringContainsString('AFTER_INTERMENT', $summary->json('html'));
+        $this->assertStringNotContainsString('<table', $summary->json('html'));
+        foreach (['cases', 'service', 'outstanding', 'risks'] as $kind) {
+            $drawer = $this->actingAs($owner)->get('/owner/dashboard/details?summary=1&kind='.$kind.'&range=THIS_MONTH&branch_id='.$branch->id)->assertOk();
+            preg_match('/data-records-url="([^"]+)"/', $drawer->json('html'), $reportMatch);
+            $reportUrl = html_entity_decode($reportMatch[1], ENT_QUOTES);
+            $this->assertSame('/reports', parse_url($reportUrl, PHP_URL_PATH));
+            parse_str(parse_url($reportUrl, PHP_URL_QUERY), $reportFilters);
+            $this->assertSame('master_cases', $reportFilters['report_type']);
+            $this->assertSame('recording', $reportFilters['date_basis']);
+            $report = $this->getJson('/reports/preview?'.http_build_query($reportFilters))->assertOk();
+            if (in_array($kind, ['outstanding', 'risks'])) {
+                $this->assertArrayNotHasKey('date_from', $reportFilters);
+                $this->assertCount(1, $report->json('rows'));
+                $this->assertSame(8000.0, (float) collect($report->json('rows'))->sum('balance'));
+            } else {
+                $this->assertCount(0, $report->json('rows'));
+            }
+        }
+        $oldCase->forceFill(['interment_at'=>null])->save();
+        $deceased->forceFill(['interment_at'=>now()->subMonth()])->save();
+        $history = $this->actingAs($owner)->get('/owner/case-history?collection_state=AFTER_INTERMENT&branch_id='.$branch->id)->assertOk();
+        $this->assertSame(1, $history->viewData('cases')->total());
+        $receipts = $this->actingAs($owner)->get('/owner/collections?range=THIS_MONTH&branch_id='.$branch->id)->assertOk();
+        $this->assertSame(1, $receipts->viewData('records')->total());
+        $this->assertSame(2000.0, $receipts->viewData('scopeAmount'));
+        $staff = $this->createUser('staff', $branch);
+        $this->actingAs($staff)->get('/owner/dashboard/details?kind=collections')->assertForbidden();
+        $this->actingAs($staff)->get('/owner/collections')->assertForbidden();
+        for ($i = 0; $i < 20; $i++) {
+            Payment::create(['funeral_case_id'=>$oldCase->id,'branch_id'=>$branch->id,
+                'method'=>'CASH','amount'=>1,'paid_at'=>now(),'paid_date'=>now()->toDateString(),'status'=>'POSTED']);
+        }
+        $this->actingAs($owner)->get('/owner/dashboard/details?kind=collections&range=THIS_MONTH&branch_id='.$branch->id.'&page=2')
+            ->assertOk()->assertJsonPath('count', 21)->assertSee('Page 2 of 2');
+        $receiptPage = $this->actingAs($owner)->get('/owner/collections?range=THIS_MONTH&branch_id='.$branch->id.'&page=2')->assertOk();
+        $this->assertSame(21, $receiptPage->viewData('records')->total());
+        $this->assertCount(1, $receiptPage->viewData('records')->items());
+        $this->actingAs($owner)->get('/owner/dashboard/details?kind=collections&range=THIS_MONTH&branch_id='.$branch->id.'&q=no-such-case')
+            ->assertOk()->assertJsonPath('count', 0);
+        $cohortDeceased = $this->createDeceased($branch, $client, 'Cohort Deceased');
+        $cohortCase = $this->createCase($branch, $client, $cohortDeceased, $package, [
+            'case_code'=>'EXEC-COHORT', 'verification_status'=>'VERIFIED', 'total_amount'=>10000,
+            'total_paid'=>3000, 'balance_amount'=>7000, 'created_at'=>now(),
+        ]);
+        foreach (['POSTED'=>3000, 'VOIDED'=>5000] as $status=>$amount) {
+            Payment::create(['funeral_case_id'=>$cohortCase->id,'branch_id'=>$branch->id,
+                'method'=>'CASH','amount'=>$amount,'paid_at'=>now()->subMonth(),'status'=>$status]);
+        }
+        $cohortRow = $this->actingAs($owner)->get('/owner?range=THIS_MONTH&branch_id='.$branch->id)
+            ->assertOk()->viewData('overview')['branchRows']->first();
+        $this->assertSame(10000.0, $cohortRow['service']);
+        $this->assertSame(3000.0, $cohortRow['cohortCollected']);
+        $this->assertSame(7000.0, $cohortRow['cohortRemaining']);
+        $this->assertSame(30.0, $cohortRow['rate']);
+
+    }
+
     public function test_intake_blocks_duplicate_active_case_when_identity_matches_existing_record(): void
     {
         $mainBranch = $this->createBranch('BR001', 'Main Branch');
@@ -185,6 +326,67 @@ class SystemRegressionGuardsTest extends TestCase
         $this->assertTrue($mainBranch->is_active);
     }
 
+    public function test_branch_disable_explains_unfinished_and_unpaid_cases_and_blocks_both_paths(): void
+    {
+        $branch = $this->createBranch('BR002', 'Other Branch');
+        $admin = $this->createUser('admin');
+        $package = $this->createPackage();
+        $client = $this->createClient($branch, 'Branch Client');
+        $deceased = $this->createDeceased($branch, $client, 'Branch Deceased');
+        $this->createCase($branch, $client, $deceased, $package);
+
+        $this->actingAs($admin)
+            ->getJson("/admin/branches/{$branch->id}/disable-check")
+            ->assertOk()
+            ->assertJsonPath('can_disable', false)
+            ->assertJsonPath('unfinished_cases', 1)
+            ->assertJsonPath('completed_with_balance', 0);
+
+        $this->actingAs($admin)
+            ->patch("/admin/branches/{$branch->id}/toggle-status")
+            ->assertSessionHasErrors('is_active');
+
+        $this->actingAs($admin)
+            ->put("/admin/branches/{$branch->id}", [
+                'branch_name' => $branch->branch_name,
+                'address' => $branch->address,
+                'is_active' => 0,
+            ])
+            ->assertSessionHasErrors('is_active');
+
+        $this->assertTrue($branch->fresh()->is_active);
+    }
+
+    public function test_completed_case_with_balance_blocks_disable_but_settled_case_does_not(): void
+    {
+        $branch = $this->createBranch('BR002', 'Other Branch');
+        $admin = $this->createUser('admin');
+        $package = $this->createPackage();
+        $client = $this->createClient($branch, 'Branch Client');
+        $deceased = $this->createDeceased($branch, $client, 'Branch Deceased');
+        $case = $this->createCase($branch, $client, $deceased, $package, ['case_status' => 'COMPLETED']);
+        $staff = $this->createUser('staff', $branch);
+
+        $this->actingAs($admin)
+            ->getJson("/admin/branches/{$branch->id}/disable-check")
+            ->assertJsonPath('completed_with_balance', 1);
+
+        $case->update(['total_paid' => 20000, 'balance_amount' => 0, 'payment_status' => 'PAID']);
+
+        $this->actingAs($admin)
+            ->getJson("/admin/branches/{$branch->id}/disable-check")
+            ->assertJsonPath('can_disable', true);
+
+        $this->actingAs($admin)
+            ->patch("/admin/branches/{$branch->id}/toggle-status")
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success', 'BR002 · Other Branch is now inactive.');
+
+        $this->assertFalse($branch->fresh()->is_active);
+        $this->assertTrue($staff->fresh()->is_active);
+        $this->actingAs($staff)->get('/staff')->assertRedirect('/login');
+    }
+
     public function test_other_branch_intake_redirects_back_to_other_branch_reports(): void
     {
         $this->travelTo(now()->setTime(10, 0));
@@ -212,7 +414,7 @@ class SystemRegressionGuardsTest extends TestCase
             'amount_paid' => 20000,
         ]));
 
-        $response->assertRedirect(route('funeral-cases.other-reports', absolute: false));
+        $response->assertRedirect(route('intake.saved', absolute: false));
         $this->assertDatabaseHas('funeral_cases', [
             'branch_id' => $otherBranch->id,
             'entry_source' => 'OTHER_BRANCH',
@@ -368,7 +570,7 @@ class SystemRegressionGuardsTest extends TestCase
         $this->actingAs($branchAdmin)
             ->get('/payments/history?branch_id=' . $mainBranch->id)
             ->assertOk()
-            ->assertSee('Assigned Branch: BR002 - Branch Two')
+            ->assertViewHas('branches', fn ($items) => $items->pluck('id')->all() === [$branchTwo->id])
             ->assertSee('PAY-BR002-001')
             ->assertDontSee('PAY-MAIN-001')
             ->assertDontSee('All Branches')
@@ -529,6 +731,23 @@ class SystemRegressionGuardsTest extends TestCase
             ->assertSee('FCO3001');
     }
 
+    public function test_owner_records_worklist_filters_sort_and_preserve_return_context(): void
+    {
+        $branch = $this->createBranch('BR001', 'Main Branch');
+        $owner = $this->createUser('owner');
+        $package = $this->createPackage();
+        $client = $this->createClient($branch, 'Worklist Client');
+        $deceased = $this->createDeceased($branch, $client, 'Worklist Deceased');
+        $this->createCase($branch, $client, $deceased, $package, ['case_code' => 'OLD001', 'verification_status' => 'VERIFIED', 'case_status' => 'ACTIVE', 'created_at' => now()->subDays(2)]);
+        $this->createCase($branch, $client, $this->createDeceased($branch, $client, 'New Worklist Deceased'), $package, ['case_code' => 'NEW001', 'verification_status' => 'VERIFIED', 'case_status' => 'ACTIVE', 'created_at' => now()]);
+        $this->createCase($branch, $client, $this->createDeceased($branch, $client, 'Hidden Worklist Deceased'), $package, ['case_code' => 'HIDDEN001', 'verification_status' => 'PENDING']);
+        $this->actingAs($owner)->get('/owner/case-history?case_status=ACTIVE&sort=oldest&per_page=10&dashboard_range=THIS_MONTH')
+            ->assertOk()->assertSeeInOrder(['OLD001', 'NEW001'])->assertDontSee('HIDDEN001')
+            ->assertViewHas('cases', fn($cases) => $cases->perPage() === 10 && $cases->total() === 2)
+            ->assertSee('View Full Information for OLD001')->assertSee('dashboard_range=THIS_MONTH', false);
+        $this->actingAs($owner)->get('/owner/case-history?per_page=999')->assertSessionHasErrors('per_page');
+    }
+
     public function test_other_branch_intake_page_shows_completed_and_full_payment_rules_up_front(): void
     {
         $mainBranch = $this->createBranch('BR001', 'Main Branch');
@@ -581,6 +800,7 @@ class SystemRegressionGuardsTest extends TestCase
 
         $response = $this->actingAs($staff)->post('/intake/main', $this->baseIntakePayload($mainBranch, $package, [
             'client_name' => 'Partial Client',
+            'submission_id' => '167266b7-3a41-4ca1-8616-3b88d933668d',
             'client_contact_number' => '09170002000',
             'client_address' => 'Main Branch Address',
             'deceased_name' => 'Partial Deceased',
@@ -592,7 +812,7 @@ class SystemRegressionGuardsTest extends TestCase
             'amount_paid' => 5000,
         ]));
 
-        $response->assertRedirect(route('funeral-cases.index', ['record_scope' => 'main'], absolute: false));
+        $response->assertRedirect(route('intake.saved', absolute: false));
 
         $case = FuneralCase::query()->latest('id')->first();
         $this->assertNotNull($case);
@@ -603,10 +823,37 @@ class SystemRegressionGuardsTest extends TestCase
         $payment = Payment::query()->latest('id')->first();
         $this->assertNotNull($payment);
         $this->assertEquals(5000.0, (float) $payment->amount);
+        $this->assertSame('167266b7-3a41-4ca1-8616-3b88d933668d', $payment->submission_id);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $payment->submission_hash);
         $this->assertSame($case->id, $payment->funeral_case_id);
         $this->assertNotNull($payment->receipt_number);
         $this->assertSame('PARTIAL', $payment->payment_status_after_payment);
         $this->assertEquals(round((float) $case->total_amount - 5000.0, 2), (float) $payment->balance_after_payment);
+    }
+
+    public function test_committed_initial_payment_can_be_recovered_after_losing_the_success_response(): void
+    {
+        $branch = $this->createBranch('BR001', 'Main');
+        $staff = $this->createUser('staff', $branch);
+        $package = $this->createPackage();
+        $payload = $this->baseIntakePayload($branch, $package, [
+            'submission_id' => (string) \Illuminate\Support\Str::uuid(), 'mark_as_paid' => 1,
+            'payment_type' => 'PARTIAL', 'paid_at' => now()->format('Y-m-d H:i:s'), 'amount_paid' => 5000,
+        ]);
+        // Commit, then discard the response and all success-page session state.
+        $this->actingAs($staff)->post('/intake/main', $payload)->assertSessionHasNoErrors();
+        $case = FuneralCase::firstOrFail();
+        $this->flushSession();
+        $this->actingAs($staff)->post('/intake/main', $payload)
+            ->assertRedirect(route('funeral-cases.show', $case, absolute: false))
+            ->assertSessionHas('success', fn ($message) => str_contains($message, 'Recovered existing case '.$case->case_code)
+                && str_contains($message, 'did not apply changes or create another case or payment'));
+        $this->assertDatabaseCount('funeral_cases', 1);
+        $this->assertDatabaseCount('payments', 1);
+        $this->get(route('funeral-cases.show', $case))->assertOk()->assertSee($case->case_code)->assertSee('Transactions');
+        $this->post('/intake/main', array_replace($payload, ['amount_paid' => 6000]))->assertSessionHasErrors('submission_id');
+        $this->assertDatabaseCount('payments', 1);
+        $this->assertSame(5000.0, (float) $case->fresh()->total_paid);
     }
 
     public function test_main_branch_intake_persists_extended_spec_fields(): void
@@ -633,7 +880,7 @@ class SystemRegressionGuardsTest extends TestCase
             'amount_paid' => 19000,
         ]));
 
-        $response->assertRedirect(route('funeral-cases.index', ['record_scope' => 'main'], absolute: false));
+        $response->assertRedirect(route('intake.saved', absolute: false));
 
         $this->assertDatabaseHas('clients', [
             'full_name' => 'Spec Client',
@@ -700,7 +947,7 @@ class SystemRegressionGuardsTest extends TestCase
             'amount_paid' => 21000,
         ]));
 
-        $response->assertRedirect(route('funeral-cases.index', ['record_scope' => 'main'], absolute: false));
+        $response->assertRedirect(route('intake.saved', absolute: false));
 
         $this->assertDatabaseHas('funeral_cases', [
             'discount_type' => 'PWD',
@@ -710,7 +957,7 @@ class SystemRegressionGuardsTest extends TestCase
         ]);
     }
 
-    public function test_case_details_support_case_centered_payment_entry(): void
+    public function test_case_details_review_payments_without_a_record_payment_entry_point(): void
     {
         $mainBranch = $this->createBranch('BR001', 'Main Branch');
         $staff = $this->createUser('staff', $mainBranch, true);
@@ -729,8 +976,12 @@ class SystemRegressionGuardsTest extends TestCase
         $this->actingAs($staff)
             ->get("/funeral-cases/{$case->id}")
             ->assertOk()
-            ->assertSee('Add Payment')
-            ->assertSee('Resulting Payment Status');
+            ->assertDontSee('Record Payment')
+            ->assertSee('Payment Summary')
+            ->assertSee('Transactions');
+        $this->get(route('payments.history', ['case_id' => $case->id, 'record_payment' => 1]))
+            ->assertOk()->assertViewHas('preselectCase', fn ($item) => $item->id === $case->id)
+            ->assertViewHas('autoOpenPayment', true);
 
         $this->actingAs($staff)
             ->post('/payments/pay', [
@@ -762,6 +1013,76 @@ class SystemRegressionGuardsTest extends TestCase
             'funeral_case_id' => $case->id,
             'amount' => 10000,
         ]);
+    }
+
+    public function test_payment_submission_retries_are_idempotent_but_distinct_equal_payments_are_allowed(): void
+    {
+        $branch = $this->createBranch('BR001', 'Main Branch');
+        $staff = $this->createUser('staff', $branch, true);
+        $client = $this->createClient($branch, 'Retry Client');
+        $case = $this->createCase($branch, $client, $this->createDeceased($branch, $client, 'Retry Deceased'), $this->createPackage(), [
+            'total_amount' => 1000, 'total_paid' => 0, 'balance_amount' => 1000,
+            'payment_status' => 'UNPAID', 'case_status' => 'ACTIVE',
+        ]);
+        $request = ['submission_id' => (string) \Illuminate\Support\Str::uuid(), 'funeral_case_id' => $case->id,
+            'paid_at' => now()->format('Y-m-d H:i:s'), 'amount_paid' => 500, 'payment_method' => 'cash'];
+        $this->actingAs($staff)->post('/payments/pay', $request)->assertSessionMissing('errors');
+        $this->post('/payments/pay', $request)->assertSessionMissing('errors');
+        $this->assertDatabaseCount('payments', 1);
+        $this->assertSame(500.0, (float) $case->fresh()->balance_amount);
+        $this->post('/payments/pay', array_replace($request, ['amount_paid' => 501]))->assertSessionHasErrors('submission_id');
+        $request['submission_id'] = (string) \Illuminate\Support\Str::uuid();
+        $this->post('/payments/pay', $request)->assertSessionMissing('errors');
+        $this->post('/payments/pay', $request)->assertSessionMissing('errors');
+        $this->assertDatabaseCount('payments', 2);
+        $this->assertSame('PAID', $case->fresh()->payment_status);
+        $this->assertSame(1000.0, (float) $case->fresh()->total_paid);
+        $this->assertSame(0.0, (float) $case->fresh()->balance_amount);
+        $request['submission_id'] = (string) \Illuminate\Support\Str::uuid();
+        $this->post('/payments/pay', $request)->assertSessionHasErrors('payment');
+        $this->assertDatabaseCount('payments', 2);
+    }
+
+    public function test_legacy_cross_branch_grants_never_expand_operational_access(): void
+    {
+        $branches = [];
+        foreach (['BR001', 'BR002', 'BR003'] as $code) $branches[] = $this->createBranch($code, $code);
+        $package = $this->createPackage();
+        foreach ($branches as $i => $branch) {
+            $other = $branches[($i + 1) % 3];
+            $staff = $this->createUser('staff', $branch, true);
+            $client = $this->createClient($other, 'Foreign Client '.$i);
+            $foreign = $this->createCase($other, $client, $this->createDeceased($other, $client, 'Foreign '.$i), $package);
+            $grantId = \Illuminate\Support\Facades\DB::table('temporary_cross_branch_permissions')->insertGetId([
+                'user_id' => $staff->id, 'allowed_branch_id' => $other->id, 'is_active' => true, 'is_used' => false,
+                'granted_at' => now(), 'expires_at' => now()->addDay(),
+            ]);
+            $this->assertNull($staff->activeTemporaryPermission());
+            $this->assertFalse($staff->canEncodeAnyBranch());
+            $this->assertSame([$branch->id], $staff->branchScopeIds());
+            $this->assertSame(0, \App\Models\TemporaryCrossBranchPermission::active()->count());
+            $this->actingAs($staff)->get('/funeral-cases/'.$foreign->id)->assertForbidden();
+            $this->get('/intake/other')->assertForbidden();
+            $this->post('/intake/other', ['branch_id' => $other->id])->assertForbidden();
+            $this->post('/payments/pay', ['funeral_case_id' => $foreign->id, 'branch_id' => $branch->id,
+                'amount_paid' => 100, 'paid_at' => today()->toDateString(), 'payment_method' => 'cash',
+                'submission_id' => (string) \Illuminate\Support\Str::uuid()])->assertSessionHasErrors();
+            $this->assertDatabaseHas('temporary_cross_branch_permissions', ['id' => $grantId, 'is_active' => true]);
+            $admin = $this->createUser('admin', $branch);
+            $admin->update(['admin_scope' => 'branch']);
+            $this->actingAs($admin)->get('/payments/history?branch_id='.$other->id)
+                ->assertOk()->assertViewHas('branches', fn ($items) => $items->pluck('id')->all() === [$branch->id]);
+        }
+        $this->assertDatabaseCount('payments', 0);
+    }
+
+    public function test_new_temporary_cross_branch_grants_are_disabled_without_removing_history(): void
+    {
+        $branch = $this->createBranch('BR001', 'Main');
+        $staff = $this->createUser('staff', $branch);
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        \App\Models\TemporaryCrossBranchPermission::create(['user_id' => $staff->id, 'allowed_branch_id' => $branch->id,
+            'is_active' => true, 'is_used' => false]);
     }
 
     public function test_cashless_bank_transfer_payment_saves_normalized_details(): void
@@ -1305,6 +1626,7 @@ class SystemRegressionGuardsTest extends TestCase
             'senior_citizen_id_number' => null,
             'pwd_status' => 0,
             'pwd_id_number' => null,
+            'payment_method' => !empty($overrides['mark_as_paid']) ? 'cash' : 'none',
         ], $overrides);
     }
 }

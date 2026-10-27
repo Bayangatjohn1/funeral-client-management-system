@@ -16,7 +16,16 @@ class BranchController extends Controller
         $monthStart = Carbon::now()->startOfMonth();
         $nextMonthStart = (clone $monthStart)->addMonth();
 
-        $query = Branch::withCount('funeralCases')
+        $query = Branch::withCount([
+            'funeralCases',
+            'funeralCases as current_month_cases_count' => fn ($query) => $query
+                ->where('created_at', '>=', $monthStart)
+                ->where('created_at', '<', $nextMonthStart),
+            'funeralCases as draft_cases_count' => fn ($query) => $query->where('case_status', 'DRAFT'),
+            'funeralCases as active_cases_count' => fn ($query) => $query->where('case_status', 'ACTIVE'),
+            'funeralCases as completed_cases_count' => fn ($query) => $query->where('case_status', 'COMPLETED'),
+        ])
+            ->withSum('funeralCases as outstanding_balance_sum', 'balance_amount')
             ->withSum([
                 'funeralCases as current_month_revenue_sum' => fn ($query) => $query
                     ->where('created_at', '>=', $monthStart)
@@ -35,10 +44,6 @@ class BranchController extends Controller
             $query->where('is_active', true);
         } elseif ($request->input('status') === 'inactive') {
             $query->where('is_active', false);
-        }
-
-        if ($request->filled('branch_id')) {
-            $query->where('id', (int) $request->input('branch_id'));
         }
 
         [$sortCol, $sortDir] = match ($request->input('sort', 'code_asc')) {
@@ -121,6 +126,26 @@ class BranchController extends Controller
         return view('admin.branches.edit', compact('branch'));
     }
 
+    public function disableCheck(Branch $branch)
+    {
+        $unfinishedCases = $branch->funeralCases()
+            ->whereIn('case_status', ['DRAFT', 'ACTIVE'])
+            ->count();
+        $completedWithBalance = $branch->funeralCases()
+            ->where('case_status', 'COMPLETED')
+            ->where('balance_amount', '>', 0)
+            ->count();
+
+        return response()->json([
+            'can_disable' => ! $this->isProtectedMainBranch($branch)
+                && $unfinishedCases === 0
+                && $completedWithBalance === 0,
+            'is_main_branch' => $this->isProtectedMainBranch($branch),
+            'unfinished_cases' => $unfinishedCases,
+            'completed_with_balance' => $completedWithBalance,
+        ]);
+    }
+
     public function update(Request $request, Branch $branch)
     {
         $this->trimBranchInput($request);
@@ -134,6 +159,12 @@ class BranchController extends Controller
         if ($this->isProtectedMainBranch($branch) && !$request->boolean('is_active')) {
             return back()->withErrors([
                 'is_active' => 'Main branch (BR001) must remain active.',
+            ])->withInput();
+        }
+
+        if ($branch->is_active && !$request->boolean('is_active') && $this->hasDisableBlockers($branch)) {
+            return back()->withErrors([
+                'is_active' => 'This branch cannot be disabled while it has unfinished cases or completed cases with a remaining balance.',
             ])->withInput();
         }
 
@@ -181,6 +212,11 @@ class BranchController extends Controller
                 ->withErrors(['is_active' => 'Main branch (BR001) must remain active.']);
         }
 
+        if ($branch->is_active && $this->hasDisableBlockers($branch)) {
+            return redirect()->route('admin.branches.index')
+                ->withErrors(['is_active' => 'This branch cannot be disabled while it has unfinished cases or completed cases with a remaining balance.']);
+        }
+
         $previousStatus = $branch->is_active;
 
         $branch->update([
@@ -202,7 +238,12 @@ class BranchController extends Controller
         );
 
         return redirect()->route('admin.branches.index')
-            ->with('success', 'Branch status updated successfully.');
+            ->with('success', sprintf(
+                '%s · %s is now %s.',
+                $branch->branch_code,
+                $branch->branch_name,
+                $branch->is_active ? 'active' : 'inactive'
+            ));
     }
 
     private function nextBranchCode(): string
@@ -308,7 +349,7 @@ class BranchController extends Controller
                     ? '#1 sales | ' . number_format((int) $topBranch->current_month_cases_count) . ' cases'
                     : 'No activity yet',
                 'href' => $topBranch
-                    ? route('admin.branches.index', ['branch_id' => $topBranch->id, 'highlight_branch' => $topBranch->id])
+                    ? route('admin.branches.index', ['highlight_branch' => $topBranch->id])
                     : route('admin.branches.index', ['status' => 'active']),
                 'icon' => 'bi-trophy',
                 'action' => 'View Branch',
@@ -321,7 +362,7 @@ class BranchController extends Controller
                     ? $this->salesAverageComparison((float) $lowestBranch->current_month_revenue_sum, $branchAverageRevenue) . ' | ' . number_format((int) $lowestBranch->current_month_cases_count) . ' cases'
                     : 'No activity yet',
                 'href' => $lowestBranch
-                    ? route('admin.branches.index', ['branch_id' => $lowestBranch->id, 'highlight_branch' => $lowestBranch->id])
+                    ? route('admin.branches.index', ['highlight_branch' => $lowestBranch->id])
                     : route('admin.branches.index', ['status' => 'active']),
                 'icon' => 'bi-activity',
                 'action' => 'View Branch',
@@ -361,6 +402,19 @@ class BranchController extends Controller
     private function isProtectedMainBranch(Branch $branch): bool
     {
         return strtoupper((string) $branch->branch_code) === 'BR001';
+    }
+
+    private function hasDisableBlockers(Branch $branch): bool
+    {
+        return $branch->funeralCases()
+            ->where(function ($query) {
+                $query->whereIn('case_status', ['DRAFT', 'ACTIVE'])
+                    ->orWhere(function ($completed) {
+                        $completed->where('case_status', 'COMPLETED')
+                            ->where('balance_amount', '>', 0);
+                    });
+            })
+            ->exists();
     }
 
     private function normalizeBranchName(string $name): string

@@ -23,6 +23,7 @@ class ServiceManagementController extends Controller
             'tab' => 'nullable|in:packages,caskets,addons,freebies',
             'q' => 'nullable|string|max:100',
             'status' => 'nullable|in:active,archived,all,available,unavailable,out_of_stock',
+            'sort' => 'nullable|in:name_asc,name_desc,latest,oldest',
         ]);
 
         $canManage = $user->isMainAdmin();
@@ -31,7 +32,7 @@ class ServiceManagementController extends Controller
         $status = $validated['status'] ?? ($activeTab === 'caskets' ? 'available' : 'active');
 
         $packagesQuery = Package::query()
-            ->with(['packageInclusions.casketCatalog', 'packageFreebies'])
+            ->with(['packageInclusions.casketCatalog', 'packageFreebies.catalog'])
             ->orderBy('name');
 
         $packageStatsQuery = clone $packagesQuery;
@@ -85,6 +86,15 @@ class ServiceManagementController extends Controller
                 ->when($status !== 'all', fn ($query) => $query->where('is_active', $status === 'active'));
         }
 
+        foreach ([$packagesQuery, $casketsQuery, $addOnsQuery, $freebiesQuery] as $catalogQuery) {
+            $catalogQuery->reorder();
+            match ($validated['sort'] ?? 'name_asc') {
+                'latest' => $catalogQuery->orderByDesc('created_at')->orderByDesc('id'),
+                'oldest' => $catalogQuery->orderBy('created_at')->orderBy('id'),
+                'name_desc' => $catalogQuery->orderByDesc('name')->orderBy('id'),
+                default => $catalogQuery->orderBy('name')->orderBy('id'),
+            };
+        }
         $packages = $packagesQuery->paginate(20, ['*'], 'packages_page')->withQueryString();
         $caskets = $casketsQuery->paginate(20, ['*'], 'caskets_page')->withQueryString();
         $addOns = $addOnsQuery->paginate(20, ['*'], 'addons_page')->withQueryString();

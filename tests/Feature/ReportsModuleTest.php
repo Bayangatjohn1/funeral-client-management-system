@@ -19,6 +19,72 @@ class ReportsModuleTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_branch_admin_payment_monitoring_ignores_attempts_to_change_assigned_branch(): void
+    {
+        $assigned = $this->branch('BR-SCOPE', 'Assigned scope');
+        $other = $this->branch('BR-OUTSIDE', 'Outside scope');
+        $admin = $this->branchAdmin($assigned);
+        $this->case($assigned, ['case_code' => 'SCOPE-ASSIGNED']);
+        $this->case($other, ['case_code' => 'SCOPE-OUTSIDE']);
+        foreach (['', '?branch_id=all', '?branch_id=' . $other->id] as $query) {
+            $this->actingAs($admin)->get('/admin/payments' . $query)
+                ->assertOk()
+                ->assertSee('SCOPE-ASSIGNED')
+                ->assertDontSee('SCOPE-OUTSIDE')
+                ->assertDontSee('Assigned Branch:')
+                ->assertViewHas('totalCasesWithPayments', 1);
+        }
+    }
+
+    public function test_payment_monitoring_page_size_preserves_filters_scope_and_totals(): void
+    {
+        $branch = $this->branch('BR-PM-PAGE', 'Payment pagination');
+        $other = $this->branch('PM-OTHER', 'Other branch');
+        $admin = $this->branchAdmin($branch);
+        for ($index = 1; $index <= 12; $index++) {
+            $this->case($branch, ['case_code' => sprintf('PM-PAGING-%02d', $index)]);
+        }
+        $this->case($other, ['case_code' => 'PM-PAGING-OTHER']);
+        $query = ['q' => 'PM-PAGING', 'per_page' => 10];
+        $first = $this->actingAs($admin)->get(route('admin.payment-monitoring', $query))->assertOk();
+        $cases = $first->viewData('paymentCases');
+        $this->assertSame(12, $cases->total());
+        $this->assertCount(10, $cases->items());
+        parse_str(parse_url($cases->nextPageUrl(), PHP_URL_QUERY), $nextQuery);
+        $this->assertEquals($query + ['page' => 2], $nextQuery);
+        $second = $this->get($cases->nextPageUrl())->assertOk()->assertDontSee('PM-PAGING-OTHER');
+        $this->assertCount(2, $second->viewData('paymentCases')->items());
+        $this->assertEmpty(array_intersect($cases->pluck('id')->all(), $second->viewData('paymentCases')->pluck('id')->all()));
+        $this->assertEquals($first->viewData('totalCasesWithPayments'), $second->viewData('totalCasesWithPayments'));
+        $this->get(route('admin.payment-monitoring', ['per_page' => 999999]))->assertOk()
+            ->assertViewHas('paymentCases', fn ($page) => $page->perPage() === 20);
+    }
+
+    public function test_branch_master_case_pagination_preserves_filters_and_branch_scope(): void
+    {
+        $branch = $this->branch('BR-PAGE', 'Pagination branch');
+        $other = $this->branch('BR-OTHER', 'Other branch');
+        $admin = $this->branchAdmin($branch);
+        for ($index = 1; $index <= 12; $index++) {
+            $this->case($branch, ['case_code' => sprintf('PAGING-%02d', $index)]);
+        }
+        $this->case($other, ['case_code' => 'PAGING-OTHER']);
+        $query = ['q' => 'PAGING', 'case_status' => 'ACTIVE', 'sort' => 'oldest', 'per_page' => 10];
+        $first = $this->actingAs($admin)->get(route('admin.cases.index', $query))->assertOk();
+        $cases = $first->viewData('cases');
+        $this->assertSame(12, $cases->total());
+        $this->assertCount(10, $cases->items());
+        parse_str(parse_url($cases->nextPageUrl(), PHP_URL_QUERY), $nextQuery);
+        $this->assertEquals($query + ['page' => 2], $nextQuery);
+        $second = $this->get($cases->nextPageUrl())->assertOk();
+        $secondCases = $second->viewData('cases');
+        $this->assertSame(2, $secondCases->currentPage());
+        $this->assertCount(2, $secondCases->items());
+        $this->assertEmpty(array_intersect($cases->pluck('id')->all(), $secondCases->pluck('id')->all()));
+        $second->assertDontSee('PAGING-OTHER');
+        $this->get($secondCases->previousPageUrl())->assertOk()->assertViewHas('cases', fn ($page) => $page->currentPage() === 1);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -71,7 +137,7 @@ class ReportsModuleTest extends TestCase
         $this->actingAs($admin)
             ->get('/reports/analytics')
             ->assertOk()
-            ->assertSee('Revenue Trend')
+            ->assertSee('Service Value Trend')
             ->assertSee('Reports');
     }
 
@@ -487,6 +553,7 @@ class ReportsModuleTest extends TestCase
             ->getJson('/reports/preview?report_type=sales&date_from=2026-09-01&date_to=2026-09-30')
             ->assertOk()
             ->assertJsonCount(2, 'rows')
+            ->assertJsonPath('summary.total_records', 2)
             ->assertJsonPath('summary.amount_collected', 30000);
     }
 
@@ -526,10 +593,10 @@ class ReportsModuleTest extends TestCase
             ->get('/reports?report_type=master_cases')
             ->assertOk()
             ->assertSee('Cases in Period')
-            ->assertSee('Current Collectibles')
-            ->assertSee('All Payments for These Cases')
+            ->assertSee('Remaining Balance')
+            ->assertSee('Collected')
             ->assertSee('Payments Received in Period')
-            ->assertSee('Current Balance')
+            ->assertSee('Remaining Balance')
             ->assertSee('Valid payments received within the selected payment period.')
             ->assertDontSee('@click="selectMetric(card.key)"', false)
             ->assertDontSee('View details');
@@ -804,14 +871,62 @@ class ReportsModuleTest extends TestCase
         $this->assertSame([
             'Branch',
             'Cases in Period',
-            'Total Amount Availed',
-            'All Payments',
-            'Current Collectibles',
+            'Total Service Value',
+            'Collected',
+            'Remaining Balance',
             'Paid Cases',
             'Partially Paid Cases',
             'Unpaid Cases',
         ], str_getcsv($lines[0]));
         $this->assertSame('BR001 - Main Branch', str_getcsv($lines[1])[0]);
+    }
+
+    public function test_owner_can_use_collection_and_case_monitoring_reports_without_audit_access(): void
+    {
+        $owner = $this->user('owner');
+        $adminTypes = $this->actingAs($this->user('admin'))
+            ->get('/reports?report_type=sales')->assertOk()->viewData('reportTypes');
+
+        foreach (['sales', 'master_cases'] as $type) {
+            $page = $this->actingAs($owner)->get('/reports?report_type='.$type)->assertOk();
+            $this->assertSame($adminTypes, $page->viewData('reportTypes'));
+            $this->assertSame($type, $page->viewData('defaultReportType'));
+            $this->getJson('/reports/preview?report_type='.$type)->assertOk();
+            $this->get('/reports/print?report_type='.$type)->assertOk();
+            $this->get('/reports/export-csv?report_type='.$type)->assertOk();
+        }
+        $this->getJson('/reports/preview?report_type=audit_logs')->assertForbidden();
+        $this->get('/reports/export-csv?report_type=audit_logs')->assertForbidden();
+    }
+
+    public function test_analytics_report_destination_combines_branch_payment_and_recording_date_filters(): void
+    {
+        $branch = $this->branch('BR901', 'Scoped Branch');
+        $other = $this->branch('BR902', 'Other Branch');
+        $this->case($branch, ['case_code'=>'SCOPE-PARTIAL', 'verification_status'=>'VERIFIED', 'payment_status'=>'PARTIAL', 'total_paid'=>1000, 'balance_amount'=>9000, 'created_at'=>now()]);
+        $this->case($branch, ['case_code'=>'SCOPE-UNPAID', 'verification_status'=>'VERIFIED', 'payment_status'=>'UNPAID', 'total_paid'=>0, 'created_at'=>now()]);
+        $this->case($other, ['case_code'=>'OTHER-PARTIAL', 'verification_status'=>'VERIFIED', 'payment_status'=>'PARTIAL', 'total_paid'=>1000, 'created_at'=>now()]);
+        $params = ['report_type'=>'master_cases', 'branch_id'=>$branch->id, 'date_basis'=>'recording',
+            'verification_status'=>'VERIFIED','payment_status'=>'PARTIAL','collection_state'=>'WITH_PAYMENTS',
+            'date_from'=>now()->toDateString(),'date_to'=>now()->toDateString()];
+        $this->actingAs($this->user('owner'))->getJson('/reports/preview?'.http_build_query($params))
+            ->assertOk()->assertJsonCount(1, 'rows')->assertJsonPath('rows.0.case_code','SCOPE-PARTIAL');
+    }
+
+    public function test_all_analytics_roles_use_final_amount_after_discount_without_rebuilding_it_from_payments(): void
+    {
+        $branch = $this->branch('BR903', 'Discount Branch');
+        $case = $this->case($branch, ['case_code'=>'DISCOUNT-BASIS', 'verification_status'=>'VERIFIED',
+            'subtotal_amount'=>50000, 'discount_amount'=>5000, 'total_amount'=>45000,
+            'total_paid'=>15000, 'balance_amount'=>999, 'created_at'=>now()]);
+        foreach ([$this->user('owner'), $this->user('admin'), $this->branchAdmin($branch)] as $user) {
+            $response = $this->actingAs($user)->get('/reports/analytics?range=THIS_MONTH&branch_id='.$branch->id)->assertOk();
+            $this->assertSame(45000.0, $response->viewData('totalSales'));
+            $this->assertSame(45000.0, (float) $response->viewData('allAnalyticsCases')->first()['totalAmount']);
+            $response->assertSee('Total Service Value')->assertDontSee('Gross Amount Availed');
+        }
+        $this->assertSame(45000.0, (float) $case->fresh()->total_amount);
+        $this->assertSame(5000.0, (float) $case->fresh()->discount_amount);
     }
 
     private function user(string $role, ?Branch $branch = null): User

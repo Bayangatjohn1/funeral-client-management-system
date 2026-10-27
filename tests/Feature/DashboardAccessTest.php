@@ -24,6 +24,16 @@ class DashboardAccessTest extends TestCase
         $response->assertSee('Backup &amp; Recovery', false);
     }
 
+    public function test_branch_dashboard_renders_case_summary_drawer(): void
+    {
+        $branch = $this->createBranch('BR009', 'Summary Branch');
+        $admin = User::factory()->create(['role' => 'admin', 'admin_scope' => 'branch', 'is_active' => true, 'branch_id' => $branch->id]);
+        $this->actingAs($admin)->get('/admin')->assertOk()
+            ->assertSee('Summary Branch')->assertSee('Currently in Wake')
+            ->assertSee('Scheduled Today')->assertSee('Upcoming Events')
+            ->assertSee('Cases With Balance')->assertSee('id="branchCaseSummary"', false);
+    }
+
     public function test_admin_dashboard_content_is_scoped_by_admin_type(): void
     {
         $mainBranch = $this->createBranch('BR001', 'Main Branch');
@@ -37,83 +47,25 @@ class DashboardAccessTest extends TestCase
             'can_encode_any_branch' => false,
         ]);
 
-        $this->actingAs($mainAdmin)
-            ->get('/admin')
-            ->assertOk()
-            ->assertSee('Good day,')
-            ->assertSee('Managing Main Branch and all branch operations')
-            ->assertSee('Payment Summary')
-            ->assertSee('Payment Progress')
-            ->assertSee('Active Cases')
-            ->assertSee('Ongoing Operations')
-            ->assertDontSee('Open Cases')
-            ->assertSee('date_preset=month', false)
-            ->assertDontSee('Active Services')
-            ->assertSee('Operations Overview')
-            ->assertSee('Currently in Wake')
-            ->assertSee('Today’s Scheduled Events')
-            ->assertSee('Upcoming Events')
-            ->assertSee('Cases With Balance')
-            ->assertSee('All Branches')
-            ->assertSee('This Month')
-            ->assertSee('Active &amp; Completed Cases', false)
-            ->assertDontSee('name="date_filter"', false)
-            ->assertDontSee('>Reset<', false)
-            ->assertSee('payment_status=WITH_BALANCE', false)
-            ->assertSee('case_scope=active_completed', false)
-            ->assertDontSee('payment_status=UNPAID', false)
-            ->assertSee('View all reminders')
-            ->assertDontSee('<div class="topbar-notification-menu__chips">', false)
-            ->assertDontSee('>Due<', false)
-            ->assertDontSee('Mark all as read')
-            ->assertSee(route('admin.reminders.index'))
-            ->assertDontSee('View services')
-            ->assertDontSee('Service Status Summary')
-            ->assertDontSee('Add User')
-            ->assertDontSee('New Branch')
-            ->assertDontSee('Network Branches')
-            ->assertDontSee('Active Terminals')
-            ->assertDontSee('Service Catalogs')
-            ->assertDontSee('System Audit Log')
-            ->assertDontSee('Collections by Branch')
-            ->assertDontSee('Cases by Branch');
+        // System Admin intentionally uses the administration dashboard, not branch operations.
+        $this->actingAs($mainAdmin)->get('/admin')->assertOk()
+            ->assertViewIs('dashboards.system-admin')
+            ->assertSee('System Admin Dashboard')
+            ->assertSee('Backup &amp; Recovery', false)
+            ->assertViewHas('branches', fn ($items) => $items->contains('id', $mainBranch->id) && $items->contains('id', $branch->id));
 
-        $this->actingAs($mainAdmin)
-            ->get('/admin?branch_id=')
-            ->assertOk()
-            ->assertSee('Payment Summary')
-            ->assertSee('Operations Overview')
-            ->assertSee('All Branches');
-
-        $this->actingAs($mainAdmin)
-            ->get('/admin?branch_id=' . $branch->id)
-            ->assertOk()
-            ->assertSee(route('admin.reminders.index', ['branch_id' => $branch->id]));
-
-        $this->actingAs($branchAdmin)
-            ->get('/admin')
-            ->assertOk()
-            ->assertSee('Good day,')
-            ->assertSee('Managing branch operations - BR002 - North Branch')
-            ->assertSee('Currently in Wake')
-            ->assertSee('Scheduled Today')
-            ->assertSee('Upcoming Events')
-            ->assertSee('Payment Summary')
-            ->assertDontSee('Quick Actions')
-            ->assertSee('Payment Monitoring')
-            ->assertDontSee('<div class="topbar-notification-menu__chips">', false)
+        $this->actingAs($branchAdmin)->get('/admin')->assertOk()
+            ->assertViewIs('dashboards.admin')
+            ->assertViewHas('selectedBranchId', $branch->id)
+            ->assertSee('North Branch')->assertSee('Daily Operations')
+            ->assertSee('Payments Received')->assertSee('Remaining Balance')
+            ->assertSee('Payment Progress')->assertSee('Active Cases')
+            ->assertSee('Currently in Wake')->assertSee('Scheduled Today')
+            ->assertSee('Upcoming Events')->assertSee('Cases With Balance')
             ->assertSee(route('admin.reminders.index', ['branch_id' => $branch->id]))
-            ->assertDontSee('Record New Case')
-            ->assertDontSee('Record Payment')
-            ->assertDontSee('Open Service Records')
-            ->assertDontSee('Network Branches')
-            ->assertDontSee('Active Terminals')
-            ->assertDontSee('Service Catalogs')
-            ->assertDontSee('System Audit Log')
-            ->assertDontSee('Recent Branch Activity')
-            ->assertDontSee('Collections by Branch')
-            ->assertDontSee('Cases by Branch')
-            ->assertDontSee('Open Master Records');
+            ->assertDontSee('Record New Case')->assertDontSee('Record Payment')
+            ->assertDontSee('System Admin Dashboard');
+
     }
 
     public function test_owner_dashboard_renders_for_owner(): void
@@ -132,28 +84,22 @@ class DashboardAccessTest extends TestCase
         $response->assertDontSee('bi-bell', false);
     }
 
-    public function test_main_admin_defaults_to_all_branches_and_keeps_branch_drill_down(): void
+    public function test_system_admin_uses_administration_dashboard_and_branch_filter_cannot_change_role(): void
     {
         $mainBranch = $this->createBranch('BR001', 'Main Branch');
         $otherBranch = $this->createBranch('BR002', 'North Branch');
         $mainAdmin = $this->createUser('admin', $mainBranch);
-
-        $response = $this->actingAs($mainAdmin)->get('/admin');
-
-        $response
-            ->assertOk()
-            ->assertViewHas('selectedBranchId', null)
-            ->assertSee('<option value="" selected', false)
-            ->assertSee('All Branches')
-            ->assertSee('Payment Summary')
-            ->assertSee('Operations Overview')
-            ->assertDontSee('name="date_filter"', false);
-
-        $this->actingAs($mainAdmin)
-            ->get('/admin?branch_id='.$otherBranch->id)
-            ->assertOk()
-            ->assertViewHas('selectedBranchId', $otherBranch->id)
-            ->assertSee('BR002 - North Branch');
+        foreach (['/admin', '/admin?branch_id='.$otherBranch->id] as $url) {
+            $this->actingAs($mainAdmin)->get($url)->assertOk()
+                ->assertViewIs('dashboards.system-admin')
+                ->assertViewHas('branches', fn ($items) => $items->count() === 2)
+                ->assertDontSee('Record Payment');
+        }
+        $branchAdmin = User::factory()->create(['role' => 'admin', 'admin_scope' => 'branch',
+            'branch_id' => $otherBranch->id, 'is_active' => true]);
+        $this->actingAs($branchAdmin)->get('/admin')->assertOk()
+            ->assertViewIs('dashboards.admin')->assertViewHas('selectedBranchId', $otherBranch->id);
+        $this->get('/admin?branch_id='.$mainBranch->id)->assertForbidden();
     }
 
     public function test_staff_dashboard_renders_for_staff(): void
@@ -163,32 +109,22 @@ class DashboardAccessTest extends TestCase
 
         $response = $this->actingAs($staff)->get('/staff');
 
-        $response->assertOk()
-            ->assertSee('Staff Dashboard')
-            ->assertSee('Good day,')
-            ->assertSee('Your Daily Workspace')
-            ->assertSee('staff-workspace-label', false)
-            ->assertDontSee('<header class="topbar">', false)
-            ->assertSee('staff-header-card', false)
-            ->assertSee('<div class="topbar-notification-wrap"', false)
-            ->assertSee('data-theme-toggle', false)
-            ->assertSee('Cases Today')
-            ->assertSee('Package Selected')
-            ->assertSee('Payments Today')
-            ->assertSee('Go to Case Records')
-            ->assertSee('Go to Payment Monitoring')
-            ->assertSee('Go to Reminders')
+        $response->assertOk()->assertViewIs('dashboards.staff')
+            ->assertSee('Daily Operations')->assertSee('Ongoing Cases')
+            ->assertSee('Recent Daily Activity')->assertSee('Schedules')
+            ->assertSee('Outstanding Balances')->assertSee('Needs Attention')
+            ->assertSee('BR001 - Main Branch')
+            ->assertViewHas('dashboardBranch', fn ($item) => $item->id === $mainBranch->id)
+            ->assertSee('data-activity-tab="cases"', false)
+            ->assertSee('data-activity-tab="payments"', false)
+            ->assertSee(route('intake.main.create'))
+            ->assertSee(route('funeral-cases.index'))
+            ->assertSee(route('payments.history'))
             ->assertSee(route('staff.reminders.index', ['tab' => 'today']))
             ->assertSee(route('staff.reminders.index', ['tab' => 'upcoming']))
-            ->assertDontSee('due_window=today', false)
-            ->assertSee('Cases with remaining balances')
-            ->assertSee("Today's Services and Interments", false)
-            ->assertSee('Upcoming Interments')
-            ->assertSee('Payment - Date &amp; Time', false)
-            ->assertDontSee('<th class="text-right">Amount</th>', false)
-            ->assertDontSee('<th class="text-center">Amount</th>', false)
-            ->assertDontSee('<th class="text-center">Balance</th>', false)
-            ->assertDontSee('data-month-card', false);
+            ->assertDontSee('<header class="topbar">', false)
+            ->assertSee('data-theme-toggle', false);
+
     }
 
     public function test_dashboard_redirects_users_to_their_role_homepages(): void

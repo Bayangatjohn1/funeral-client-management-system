@@ -3,9 +3,10 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendAccountResetLink;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\View\View;
 
 class PasswordResetLinkController extends Controller
@@ -15,7 +16,7 @@ class PasswordResetLinkController extends Controller
      */
     public function create(): View
     {
-        return view('auth.forgot-password');
+        return view('auth.forgot-password', ['recoveryAvailable' => $this->recoveryAvailable()]);
     }
 
     /**
@@ -29,16 +30,20 @@ class PasswordResetLinkController extends Controller
             'email' => ['required', 'email'],
         ]);
 
-        // We will send the password reset link to this user. Once we have attempted
-        // to send the link, we will examine the response then see the message we
-        // need to show to the user. Finally, we'll send out a proper response.
-        $status = Password::sendResetLink(
-            $request->only('email')
-        );
+        if (! $this->recoveryAvailable()) {
+            return back()->with('status', 'Email recovery is currently unavailable. Contact your administrator for assistance.');
+        }
 
-        return $status == Password::RESET_LINK_SENT
-                    ? back()->with('status', __($status))
-                    : back()->withInput($request->only('email'))
-                        ->withErrors(['email' => __($status)]);
+        $email = trim((string) $request->input('email'));
+        $key = 'password-recovery:'.hash('sha256', strtolower($email));
+        // Apply the same cooldown to registered and unknown addresses.
+        RateLimiter::attempt($key, 1, fn () => SendAccountResetLink::dispatch($email), 60);
+        return back()->with('status', 'If this email belongs to an account, a password reset link will be sent. Check your inbox and spam folder. You can request another link after 60 seconds.');
+    }
+
+    private function recoveryAvailable(): bool
+    {
+        return in_array(config('mail.default'), ['smtp', 'brevo', 'ses', 'postmark', 'resend'], true)
+            || (app()->environment('testing') && config('mail.default') === 'array');
     }
 }

@@ -10,6 +10,8 @@ use App\Support\AuditLogger;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class PackageController extends Controller
 {
@@ -76,7 +78,7 @@ class PackageController extends Controller
         return view('admin.packages.create', [
             'serviceTypeOptions' => Package::serviceTypeOptions(),
             'freebieCatalogs' => FreebieCatalog::query()->where('is_active', true)->orderBy('name')->get(),
-            'casketCatalogs' => CasketCatalog::query()->where('is_active', true)->orderBy('name')->get(),
+            'casketCatalogs' => CasketCatalog::query()->where('is_active', true)->where('is_available', true)->orderBy('name')->get(),
         ]);
     }
 
@@ -92,6 +94,7 @@ class PackageController extends Controller
         $promoPayload = $this->resolvePromoPayload($request, $validated);
 
         $package = DB::transaction(function () use ($validated, $promoPayload, $inclusions, $freebies) {
+            $this->assertCatalogItemsAvailable($inclusions, $freebies);
             $package = Package::create([
                 'name' => $validated['name'],
                 'short_description' => $validated['short_description'] ?? null,
@@ -153,6 +156,8 @@ class PackageController extends Controller
         return view('admin.packages.show', [
             'package' => $package,
             'canManage' => $request->user()->isMainAdmin(),
+            'intakeBlockers' => app(\App\Support\ServiceCatalogPolicy::class)->packageBlockers($package),
+            'restoreBlockers' => app(\App\Support\ServiceCatalogPolicy::class)->packageBlockers($package, ignoreArchived: true),
         ]);
     }
 
@@ -198,6 +203,7 @@ class PackageController extends Controller
         ];
 
         DB::transaction(function () use ($package, $validated, $promoPayload, $inclusions, $freebies) {
+            $this->assertCatalogItemsAvailable($inclusions, $freebies);
             $package->update([
                 'name' => $validated['name'],
                 'short_description' => $validated['short_description'] ?? null,
@@ -307,7 +313,7 @@ class PackageController extends Controller
             'custom_inclusions' => ['nullable', 'array'],
             'custom_inclusions.*.description' => ['nullable', 'string', 'max:255', $this->mustContainLetterRule('Custom inclusion must include valid description text.'), $this->allowedNameTextRule('Custom inclusion has unnecessary special characters.')],
             'freebies' => ['nullable', 'array'],
-            'freebies.*.freebie_catalog_id' => ['nullable', 'integer', 'exists:freebie_catalogs,id'],
+            'freebies.*.freebie_catalog_id' => ['nullable', 'integer', Rule::exists('freebie_catalogs', 'id')->where('is_active', true)],
             'freebies.*.freebie_name' => ['nullable', 'string', 'max:255', $this->mustContainLetterRule('Freebie must include valid description text.'), $this->allowedNameTextRule('Freebie has unnecessary special characters.')],
             'freebies.*.quantity' => ['nullable', 'integer', 'min:1', 'max:999'],
             'freebies.*.unit' => ['nullable', 'string', 'max:40'],
@@ -474,8 +480,15 @@ class PackageController extends Controller
 
             $catalogId = $casket['casket_catalog_id'] ?? null;
             $legacyCasketType = trim((string) ($casket['casket_type'] ?? ''));
-            if ((! is_numeric($catalogId) || (int) $catalogId <= 0) && $legacyCasketType === '') {
-                $fail('Please select a casket before saving.');
+            if (! is_numeric($catalogId) || (int) $catalogId <= 0) {
+                if (! empty($casket['legacy_casket_text']) && $legacyCasketType !== '') {
+                    return;
+                }
+                $fail('Select an available casket before saving.');
+                return;
+            }
+            if (! CasketCatalog::query()->whereKey((int) $catalogId)->where('is_active', true)->where('is_available', true)->exists()) {
+                $fail('This casket is no longer available. Choose another casket.');
             }
         };
     }
@@ -589,6 +602,33 @@ class PackageController extends Controller
             ->unique(fn ($row) => mb_strtolower($row['freebie_name']) . '|' . mb_strtolower($row['unit']))
             ->values()
             ->all();
+    }
+
+    private function assertCatalogItemsAvailable(array $inclusions, array $freebies): void
+    {
+        foreach ($inclusions as $item) {
+            $id = $item['casket_catalog_id'] ?? null;
+            if (! $id) {
+                continue;
+            }
+            if (! CasketCatalog::query()->whereKey($id)->where('is_active', true)->where('is_available', true)->lockForUpdate()->exists()) {
+                throw ValidationException::withMessages([
+                    'included_services.casket.casket_catalog_id' => 'This casket is no longer available. Choose another casket.',
+                ]);
+            }
+        }
+
+        foreach ($freebies as $item) {
+            $id = $item['freebie_catalog_id'] ?? null;
+            if (! $id) {
+                continue;
+            }
+            if (! FreebieCatalog::query()->whereKey($id)->where('is_active', true)->lockForUpdate()->exists()) {
+                throw ValidationException::withMessages([
+                    'freebies' => 'A selected freebie is no longer available. Remove or replace it.',
+                ]);
+            }
+        }
     }
 
     private function syncPackageItems(Package $package, array $inclusions, array $freebies): void
@@ -743,7 +783,15 @@ class PackageController extends Controller
     {
         $this->ensureCanManagePackages();
 
-        $package->is_active = !$package->is_active;
+        if (! $package->is_active) {
+            $package->is_active = true;
+            $reasons = app(\App\Support\ServiceCatalogPolicy::class)->packageBlockers($package);
+            if ($reasons !== []) {
+                return back()->withErrors(['package' => 'This package cannot be restored for new intake yet. '.implode(' ', $reasons)]);
+            }
+        } else {
+            $package->is_active = false;
+        }
         $package->save();
 
         AuditLogger::log(
@@ -757,7 +805,7 @@ class PackageController extends Controller
             ],
         );
 
-        return back()->with('success', 'Package status updated.');
+        return back()->with('success', $package->name.' '.($package->is_active ? 'restored.' : 'archived.'));
     }
 
     private function resolvePromoPayload(Request $request, array $validated): array

@@ -12,18 +12,22 @@
             ? route('funeral-cases.index', ['tab' => 'completed'])
             : route('funeral-cases.index', ['tab' => 'active']));
     $requestedReturnUrl = request()->query('return_to');
-    $previousUrl = url()->previous();
-    $currentUrl = request()->fullUrl();
-    $returnUrl = is_string($requestedReturnUrl) && $requestedReturnUrl !== ''
-        ? $requestedReturnUrl
-        : ($previousUrl !== $currentUrl ? $previousUrl : $defaultReturnUrl);
-    if (
-        !is_string($returnUrl)
-        || $returnUrl === ''
-        || !\Illuminate\Support\Str::startsWith($returnUrl, [url('/'), '/'])
-    ) {
-        $returnUrl = $defaultReturnUrl;
-    }
+    $appOrigin = parse_url(url('/'));
+    $requestedOrigin = is_string($requestedReturnUrl) ? parse_url($requestedReturnUrl) : false;
+    $isLocalPath = is_string($requestedReturnUrl)
+        && str_starts_with($requestedReturnUrl, '/')
+        && !str_starts_with($requestedReturnUrl, '//');
+    $isSameOriginUrl = is_array($requestedOrigin)
+        && isset($requestedOrigin['scheme'], $requestedOrigin['host'])
+        && ($requestedOrigin['scheme'] ?? null) === ($appOrigin['scheme'] ?? null)
+        && ($requestedOrigin['host'] ?? null) === ($appOrigin['host'] ?? null)
+        && ($requestedOrigin['port'] ?? null) === ($appOrigin['port'] ?? null);
+    $requestedPath = is_array($requestedOrigin) ? ($requestedOrigin['path'] ?? '') : '';
+    $returnUrl = ($isLocalPath || $isSameOriginUrl)
+        && !str_contains($requestedPath, '/documents/')
+        && $requestedPath !== '/' . ltrim(request()->path(), '/')
+            ? $requestedReturnUrl
+            : $defaultReturnUrl;
     $canRecordPayment = auth()->user()?->can('create', \App\Models\Payment::class)
         && (($funeral_case->entry_source ?? 'MAIN') !== 'OTHER_BRANCH')
         && (int) $funeral_case->branch_id === (int) (auth()->user()?->branch_id ?? 0)
@@ -35,7 +39,10 @@
     $printSnapshot = app(\App\Support\CaseSnapshotDisplayService::class)->data($funeral_case);
     $printPackageName = $printSnapshot['package_name'] ?? $funeral_case->service_package ?? 'Saved Package';
     $printPackagePrice = (float) ($printSnapshot['package_price'] ?? $funeral_case->subtotal_amount ?? 0);
-    $printCasket = ($printSnapshot['included_casket']['name'] ?? null) ?: $funeral_case->coffin_type;
+    $printIsCustomPackage = (bool) ($funeral_case->pricing_snapshot['custom_package'] ?? false)
+        || (bool) $funeral_case->custom_package_name;
+    $printCasket = ($printSnapshot['included_casket']['name'] ?? null)
+        ?: ($printIsCustomPackage ? null : $funeral_case->coffin_type);
     $printIntermentAt = $funeral_case->interment_at
         ?? $funeral_case->deceased?->interment_at
         ?? $funeral_case->serviceDetail?->internment_date
@@ -74,16 +81,14 @@
 @if($paymentLockedMessage)
     <div class="flash-info">{{ $paymentLockedMessage }}</div>
 @endif
-@if($canRecordPayment)
-    <section class="case-record-toolbar" aria-label="Case payment entry">
-        <div class="case-record-actions">
-            <a class="btn-outline" href="{{ route('payments.index', ['case_id' => $funeral_case->id, 'open_payment' => 1]) }}">
-                Add Payment
-            </a>
-            <span class="text-sm">Resulting Payment Status</span>
-        </div>
-    </section>
-@endif
+@section('page_back')
+    @if(!$isOverlay)
+        <a href="{{ $returnUrl }}" class="case-back-icon" aria-label="Back to Case Records" aria-describedby="caseBackTooltip"><i class="bi bi-chevron-left" aria-hidden="true"></i><span id="caseBackTooltip" role="tooltip">Back to Case Records</span></a>
+    @endif
+@endsection
+@section('header_actions')
+    <button id="printCaseBtn" type="button" class="case-print-btn"><i class="bi bi-printer" aria-hidden="true"></i><span>Print Record</span></button>
+@endsection
 
 <style>
     .case-detail-shell,
@@ -191,8 +196,117 @@
 
 {{-- Shared case detail content --}}
 <div class="case-detail-shell">
-    @include('partials.case_view_content')
+    <nav class="case-section-nav no-print" aria-label="Case detail sections">
+        <a href="#case-overview">Overview</a>
+        <a href="#case-people">Deceased / Client</a>
+        <a href="#case-service">Service &amp; Schedule</a>
+        <a href="#case-payments">Payments</a>
+        <a href="#case-documents">Documents</a>
+        @if($funeral_case->entry_source === 'OTHER_BRANCH' || $funeral_case->reporter_name)
+            <a href="#case-source">Record Information</a>
+        @endif
+    </nav>
+    @include('partials.case_view_content', ['staffCaseVisual' => true])
+    @include('staff.partials.case-details-visual-system')
 </div>
+
+<script>
+    (() => {
+        const nav = document.querySelector('.case-section-nav');
+        const scroller = document.querySelector('.page-content');
+        if (!nav || !scroller) return;
+        const links = [...nav.querySelectorAll('a[href^="#"]')];
+        const sections = links
+            .map(link => ({ link, target: document.getElementById(link.hash.slice(1)) }))
+            .filter(item => item.target);
+        let animation;
+        let scrollFrame;
+        let lockedLink = null;
+        const cancel = () => {
+            cancelAnimationFrame(animation);
+            lockedLink = null;
+        };
+        const setActive = activeLink => {
+            links.forEach(link => {
+                const active = link === activeLink;
+                link.classList.toggle('is-active', active);
+                if (active) link.setAttribute('aria-current', 'location');
+                else link.removeAttribute('aria-current');
+            });
+        };
+        const syncActiveSection = () => {
+            scrollFrame = null;
+            if (lockedLink) {
+                setActive(lockedLink);
+                return;
+            }
+            const threshold = scroller.getBoundingClientRect().top + nav.offsetHeight + 24;
+            let current = null;
+            let closestDistance = Number.POSITIVE_INFINITY;
+            sections.forEach(item => {
+                const distance = Math.abs(item.target.getBoundingClientRect().top - threshold);
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    current = item;
+                }
+            });
+            if (current) setActive(current.link);
+        };
+        const queueActiveSync = () => {
+            if (!scrollFrame) scrollFrame = requestAnimationFrame(syncActiveSection);
+        };
+        scroller.addEventListener('wheel', cancel, { passive: true });
+        scroller.addEventListener('touchstart', cancel, { passive: true });
+        scroller.addEventListener('pointerdown', event => {
+            if (!event.target.closest('.case-section-nav')) cancel();
+        }, { passive: true });
+        document.addEventListener('keydown', event => {
+            if (!['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) return;
+            if (event.target.matches('input, textarea, select, [contenteditable="true"]')) return;
+            if (event.target.closest('.case-section-nav')) return;
+            cancel();
+        });
+        scroller.addEventListener('scroll', queueActiveSync, { passive: true });
+        const animateTo = (end, activeLink) => {
+            cancel();
+            lockedLink = activeLink;
+            const start = scroller.scrollTop;
+            if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                scroller.scrollTop = end;
+                queueActiveSync();
+                return;
+            }
+            const started = performance.now();
+            const step = now => {
+                const progress = Math.min(1, (now - started) / 1000);
+                const eased = progress < .5 ? 4 * progress ** 3 : 1 - (-2 * progress + 2) ** 3 / 2;
+                scroller.scrollTop = start + (end - start) * eased;
+                if (progress < 1) animation = requestAnimationFrame(step);
+                else {
+                    queueActiveSync();
+                }
+            };
+            animation = requestAnimationFrame(step);
+        };
+        nav.addEventListener('click', event => {
+            const link = event.target.closest('a[href^="#"]');
+            const target = link && document.getElementById(link.hash.slice(1));
+            if (!target) return;
+            event.preventDefault();
+            cancel();
+            setActive(link);
+            const start = scroller.scrollTop;
+            const stickyOffset = nav.offsetHeight + 16;
+            const end = Math.max(0, Math.min(scroller.scrollHeight - scroller.clientHeight,
+                start + target.getBoundingClientRect().top - scroller.getBoundingClientRect().top - stickyOffset));
+            history.replaceState(null, '', link.hash);
+            animateTo(end, link);
+        });
+        const initialLink = links.find(link => link.hash === window.location.hash) || links[0];
+        if (initialLink) setActive(initialLink);
+        queueActiveSync();
+    })();
+</script>
 
 @if($focusEvent || $focusEvents->isNotEmpty() || $focusWakePeriod || $focusScheduleSection)
 <script>
@@ -259,9 +373,16 @@
 <template id="casePrintTemplate">
     <div class="print-record">
         <div class="print-header">
-            <div>
-                <div class="print-brand">Sabangan Caguioa</div>
-                <div class="print-subtitle">Funeral Home System</div>
+            <div class="print-identity">
+                <img class="print-logo" src="{{ asset('images/login-logo.png') }}" alt="">
+                <div>
+                    <div class="print-brand">Sabangan Caguioa</div>
+                    <div class="print-subtitle">Funeral Home System</div>
+                    <div class="print-branch">{{ $funeral_case->branch?->branch_name ?? 'N/A' }}</div>
+                    @if(filled($funeral_case->branch?->address))
+                        <div class="print-address">{{ $funeral_case->branch->address }}</div>
+                    @endif
+                </div>
             </div>
             <div class="print-code">
                 <span>Case Record</span>
@@ -358,10 +479,22 @@
                     <span>Package Price</span>
                     <strong>PHP {{ number_format($printPackagePrice, 2) }}</strong>
                 </div>
-                <div class="print-field">
-                    <span>Included Casket / Coffin</span>
-                    <strong>{{ $printCasket ?: 'N/A' }}</strong>
-                </div>
+                @if($printCasket)
+                    <div class="print-field">
+                        <span>Included Casket / Coffin</span>
+                        <strong>{{ $printCasket }}</strong>
+                    </div>
+                @endif
+                @if($printIsCustomPackage)
+                    <div class="print-field">
+                        <span>Inclusions</span>
+                        <strong>{{ implode(' · ', $printSnapshot['inclusions']) ?: 'None listed' }}</strong>
+                    </div>
+                    <div class="print-field">
+                        <span>Freebies</span>
+                        <strong>{{ implode(' · ', $printSnapshot['freebies']) ?: 'None listed' }}</strong>
+                    </div>
+                @endif
                 <div class="print-field">
                     <span>Service Type</span>
                     <strong>{{ $funeral_case->service_type ?: 'N/A' }}</strong>
@@ -393,7 +526,7 @@
             </div>
         </div>
 
-        <div class="print-section">
+        <div class="print-section print-section--payment">
             <div class="print-section-title">Payment Summary</div>
             <div class="print-grid print-grid-3">
                 <div class="print-field">
@@ -418,21 +551,6 @@
     </div>
 </template>
 
-{{-- Record actions --}}
-<div class="no-print case-record-toolbar">
-    @if(!$isOverlay)
-        <a href="{{ $returnUrl }}" class="btn-outline">
-            <i class="bi bi-arrow-left"></i><span>Back</span>
-        </a>
-    @else
-        <div></div>
-    @endif
-    <div class="case-record-actions">
-        <button id="printCaseBtn" type="button" class="case-print-btn">
-            <i class="bi bi-printer"></i><span>Print Record</span>
-        </button>
-    </div>
-</div>
 
 <style>
     @media print {
@@ -532,99 +650,134 @@
             doc.open();
             doc.write('<!doctype html><html><head>');
             doc.write(`<style>
-                @page { size: auto; margin: 14mm; }
+                @page { size: A4 portrait; margin: 12mm 13mm; }
                 * { box-sizing: border-box; }
+                html { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
                 body {
                     margin: 0;
                     padding: 0;
                     background: #fff;
-                    color: #111827;
+                    color: #1b2a22;
                     font-family: Arial, sans-serif;
-                    font-size: 12px;
-                    line-height: 1.45;
+                    font-size: 10pt;
+                    line-height: 1.35;
                 }
-                .print-record { width: 100%; }
+                .print-record { width: 100%; max-width: 184mm; margin: 0 auto; }
                 .print-header {
+                    display: grid;
+                    grid-template-columns: minmax(0, 1fr) auto;
+                    align-items: center;
+                    gap: 16px;
+                    padding-bottom: 12px;
+                    border-bottom: 2px solid #31553a;
+                    margin-bottom: 12px;
+                    break-inside: avoid;
+                }
+                .print-identity {
                     display: flex;
-                    justify-content: space-between;
-                    align-items: flex-start;
-                    gap: 20px;
-                    padding-bottom: 14px;
-                    border-bottom: 2px solid #111827;
-                    margin-bottom: 14px;
+                    align-items: center;
+                    gap: 10px;
+                    min-width: 0;
+                }
+                .print-logo {
+                    display: block;
+                    width: 42px;
+                    height: 42px;
+                    flex: 0 0 42px;
+                    object-fit: contain;
                 }
                 .print-brand {
-                    font-size: 20px;
+                    font-size: 15pt;
                     font-weight: 700;
-                    letter-spacing: .01em;
+                    letter-spacing: -.015em;
+                    line-height: 1.12;
                 }
                 .print-subtitle {
-                    font-size: 11px;
-                    color: #4b5563;
+                    font-size: 8pt;
+                    color: #53665a;
                     text-transform: uppercase;
-                    letter-spacing: .08em;
+                    letter-spacing: .07em;
                     margin-top: 2px;
                 }
+                .print-branch { margin-top: 5px; font-size: 9pt; font-weight: 700; }
+                .print-address { margin-top: 1px; color: #53665a; font-size: 8pt; line-height: 1.25; }
                 .print-code {
                     text-align: right;
                     display: grid;
-                    gap: 2px;
+                    gap: 3px;
                 }
                 .print-code span,
                 .print-field span,
                 .print-section-title {
-                    color: #4b5563;
-                    font-size: 10px;
+                    color: #53665a;
+                    font-size: 7.5pt;
                     font-weight: 700;
                     text-transform: uppercase;
-                    letter-spacing: .08em;
+                    letter-spacing: .055em;
                 }
                 .print-code strong {
-                    font-size: 18px;
-                    font-family: Arial, sans-serif;
+                    font-size: 15pt;
+                    font-variant-numeric: tabular-nums;
+                    line-height: 1.1;
                 }
                 .print-section {
-                    border: 1px solid #d1d5db;
-                    margin-bottom: 10px;
-                    break-inside: avoid;
+                    margin-bottom: 12px;
+                    break-inside: auto;
+                    page-break-inside: auto;
                 }
                 .print-section-title {
-                    padding: 8px 10px;
-                    background: #f3f4f6;
-                    border-bottom: 1px solid #d1d5db;
+                    padding: 5px 0 6px;
+                    border-bottom: 1px solid #9caf9f;
+                    color: #264b34;
+                    font-size: 8pt;
+                    break-after: avoid-page;
+                    page-break-after: avoid;
                 }
                 .print-grid {
-                    display: grid;
-                    gap: 0;
+                    display: block;
+                    padding: 3px 0 0;
+                    font-size: 0;
                 }
-                .print-grid-2 { grid-template-columns: 1fr 1fr; }
-                .print-grid-3 { grid-template-columns: repeat(3, 1fr); }
                 .print-field {
-                    min-height: 52px;
-                    padding: 9px 10px;
-                    border-right: 1px solid #e5e7eb;
-                    border-bottom: 1px solid #e5e7eb;
+                    display: inline-block;
+                    min-width: 0;
+                    padding: 5px 12px 5px 0;
+                    vertical-align: top;
+                    font-size: 10pt;
+                    break-inside: avoid;
+                    page-break-inside: avoid;
                 }
-                .print-field:nth-child(2n) { border-right: 0; }
-                .print-grid-3 .print-field:nth-child(2n) { border-right: 1px solid #e5e7eb; }
-                .print-grid-3 .print-field:nth-child(3n) { border-right: 0; }
+                .print-grid-2 .print-field { width: 50%; }
+                .print-grid-3 .print-field { width: 33.333%; }
+                .print-field span { display: block; }
                 .print-field strong {
                     display: block;
-                    margin-top: 3px;
-                    color: #111827;
-                    font-size: 12.5px;
+                    margin-top: 2px;
+                    color: #17251c;
+                    font-size: 9.5pt;
                     font-weight: 700;
+                    line-height: 1.25;
+                    overflow-wrap: anywhere;
                 }
-                .print-full { grid-column: 1 / -1; border-right: 0 !important; }
+                .print-field.print-full { width: 100%; }
+                .print-section--payment {
+                    border-top: 1px solid #9caf9f;
+                }
+                .print-section--payment .print-field strong {
+                    font-size: 11pt;
+                    font-variant-numeric: tabular-nums;
+                    white-space: nowrap;
+                }
                 .print-footer {
                     display: flex;
                     justify-content: space-between;
                     gap: 16px;
-                    margin-top: 14px;
-                    padding-top: 8px;
-                    border-top: 1px solid #d1d5db;
-                    color: #4b5563;
-                    font-size: 10px;
+                    margin-top: 11px;
+                    padding-top: 7px;
+                    border-top: 1px solid #cbd7ce;
+                    color: #53665a;
+                    font-size: 7.5pt;
+                    break-inside: avoid;
                 }
             </style>`);
             doc.write('</head><body>');

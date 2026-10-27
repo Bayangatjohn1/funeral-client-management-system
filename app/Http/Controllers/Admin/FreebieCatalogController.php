@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\FreebieCatalog;
 use App\Support\AuditLogger;
+use App\Support\ServiceCatalogPolicy;
 use Illuminate\Http\Request;
 
 class FreebieCatalogController extends Controller
@@ -100,10 +101,12 @@ class FreebieCatalogController extends Controller
         $this->ensureCanView();
 
         $freebie_catalog->loadCount('packageFreebies');
+        $affectedPackages = app(ServiceCatalogPolicy::class)->activePackagesUsingFreebie($freebie_catalog);
 
         return view('admin.freebie-catalogs.show', [
             'catalog' => $freebie_catalog,
             'canManage' => $request->user()->isMainAdmin(),
+            'affectedPackages' => $affectedPackages,
         ]);
     }
 
@@ -163,6 +166,13 @@ class FreebieCatalogController extends Controller
     {
         $this->ensureCanManage();
 
+        if ($freebie_catalog->is_active) {
+            $affected = app(ServiceCatalogPolicy::class)->activePackagesUsingFreebie($freebie_catalog);
+            if ($affected->isNotEmpty()) {
+                return back()->withErrors(['freebie' => 'This freebie cannot be archived yet. Update or archive the packages using it first: '.$affected->pluck('name')->join(', ').'.']);
+            }
+        }
+
         $freebie_catalog->update([
             'is_active' => ! $freebie_catalog->is_active,
         ]);
@@ -180,7 +190,7 @@ class FreebieCatalogController extends Controller
             $freebie_catalog->is_active ? 'Freebie catalog item restored' : 'Freebie catalog item archived'
         );
 
-        return back()->with('success', $freebie_catalog->is_active ? 'Freebie restored.' : 'Freebie archived.');
+        return back()->with('success', $freebie_catalog->name.' '.($freebie_catalog->is_active ? 'restored.' : 'archived.'));
     }
 
     private function rules(): array

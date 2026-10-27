@@ -33,6 +33,8 @@
     .contract-section { margin-top:18px; }
     .contract-section:first-child { margin-top:0; }
     .contract-section-title { font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-muted, #64748b); margin-bottom:9px; }
+    .contract-layout-note { border:1px solid var(--border, #d4ddd7); border-radius:10px; padding:10px 12px; margin-bottom:12px; color:var(--ink, #111827); background:var(--subtle, #f8fafc); font-size:13px; }
+    .contract-layout-note strong { display:block; margin-bottom:2px; }
     .contract-fields { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
     .contract-field { border:1px solid var(--border, #e2e8f0); border-radius:10px; padding:10px 12px; background:var(--subtle, #f8fafc); }
     .contract-label { font-size:11px; color:var(--ink-muted, #64748b); text-transform:uppercase; letter-spacing:.05em; font-weight:700; }
@@ -108,6 +110,7 @@
     .paper-client { width:46%; margin-top:18px; }
     html[data-theme="dark"] .contract-card { background:#111827; border-color:#334155; box-shadow:none; }
     html[data-theme="dark"] .contract-field,
+    html[data-theme="dark"] .contract-layout-note,
     html[data-theme="dark"] .contract-list li { background:#0f172a; border-color:#334155; }
     html[data-theme="dark"] .contract-title,
     html[data-theme="dark"] .contract-card-title,
@@ -131,13 +134,13 @@
 </style>
 
 <div class="contract-preview-wrap">
-    <div class="contract-preview-head">
+    <div class="contract-preview-head panel-title-surface centered-page-header">
         <div>
             <div class="contract-eyebrow">Contract Preview</div>
             <h1 class="contract-title">Review Funeral Contract</h1>
             <p class="contract-subtitle">Review the saved case details that will appear on the Funeral Contract before issuing it.</p>
         </div>
-        <a href="{{ route('funeral-cases.show', $funeral_case) }}" class="btn-outline">
+        <a href="{{ route('funeral-cases.show', ['funeral_case' => $funeral_case, 'return_to' => request()->query('return_to')]) }}" class="btn-outline">
             <i class="bi bi-arrow-left mr-1"></i>Back to Case
         </a>
     </div>
@@ -155,6 +158,14 @@
             <div class="contract-card-body">
                 <div class="contract-section">
                     <div class="contract-section-title">Print Layout Preview</div>
+                    <div class="contract-layout-note">
+                        <strong>{{ $contractLayout === 'condensed' ? 'Condensed Contract' : 'Detailed Contract' }}</strong>
+                        {{ $existingDocument
+                            ? 'This issued contract keeps its saved print layout and contract number.'
+                            : ($contractLayout === 'condensed'
+                                ? 'No additional services or add-ons in the saved case.'
+                                : 'Additional services or add-ons are itemized in the detailed layout.') }}
+                    </div>
                     <div class="contract-pdf-preview">
                         <iframe
                             class="contract-pdf-frame"
@@ -280,9 +291,42 @@
         <div class="contract-card">
             <div class="contract-card-head">
                 <i class="bi bi-pencil-square"></i>
-                <div class="contract-card-title">Optional Contract Details</div>
+                <div class="contract-card-title">{{ $existingDocument ? 'Issued Contract' : 'Optional Contract Details' }}</div>
             </div>
             <div class="contract-card-body">
+                @if($existingDocument)
+                    <p class="contract-help">This contract is already issued. Its saved details cannot be silently replaced.</p>
+                    @if(data_get($contractSnapshot, 'remarks'))
+                        <div class="contract-field" style="margin-top:12px"><div class="contract-label">Issued Remarks</div><div class="contract-value">{{ data_get($contractSnapshot, 'remarks') }}</div></div>
+                    @endif
+                    @if($canCorrectBirthDate)
+                        <div class="contract-layout-note">
+                            <strong>Birth date missing from issued contract</strong>
+                            Verified case record: {{ $fmtDate($verifiedBirthDate) }}. Reissuing adds only this date; all other saved contract details and the contract number stay the same. The original PDF remains in Previous Versions.
+                        </div>
+                        <form method="POST" action="{{ route('funeral-cases.documents.contract.correct-birth-date', $funeral_case) }}" class="contract-form-grid" onsubmit="return confirm('Issue a corrected contract with the verified birth date? The original will remain available for audit.');">
+                            @csrf
+                            <div class="contract-input-group">
+                                <label for="correction_reason">Reason for correction</label>
+                                <textarea id="correction_reason" name="reason" required minlength="10" maxlength="500" placeholder="Explain why the birth date must be added">{{ old('reason') }}</textarea>
+                                @error('reason')<div class="contract-help" role="alert">{{ $message }}</div>@enderror
+                            </div>
+                            <button type="submit" class="btn-secondary">Issue Corrected Contract</button>
+                        </form>
+                    @endif
+                    @if($existingDocument->revisions->isNotEmpty())
+                        <div class="contract-section" style="margin-top:20px">
+                            <div class="contract-section-title">Previous Versions</div>
+                            <ul class="contract-list">
+                                @foreach($existingDocument->revisions as $revision)
+                                    <li><span>Version {{ $revision->revision_number }} · {{ $revision->generated_at?->format('M d, Y h:i A') ?: 'Date not recorded' }} · {{ $revision->reason }}</span>
+                                        <a href="{{ route('funeral-cases.documents.revisions.preview', [$funeral_case, $existingDocument, $revision]) }}" target="_blank" rel="noopener">View original PDF</a>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+                @else
                 @if($pricingMismatch ?? false)
                     <div class="flash-error mb-4">
                         The saved pricing breakdown does not match the case total. Please review the case billing record before finalizing the contract.
@@ -304,12 +348,13 @@
                     </div>
 
                     <div class="contract-actions">
-                        <a href="{{ route('funeral-cases.show', $funeral_case) }}" class="btn-outline">Cancel</a>
+                        <a href="{{ route('funeral-cases.show', ['funeral_case' => $funeral_case, 'return_to' => request()->query('return_to')]) }}" class="btn-outline">Cancel</a>
                         <button type="submit" class="btn-secondary" @disabled($pricingMismatch ?? false)>
                             <i class="bi bi-check2-circle mr-1"></i>Save and Generate PDF
                         </button>
                     </div>
                 </form>
+                @endif
             </div>
         </div>
     </div>

@@ -20,10 +20,14 @@ class SystemAdminDashboardController extends Controller
             'users as active_staff_count' => fn ($q) => $q->where('role', 'staff')->where('is_active', true),
             'users as active_admin_count' => fn ($q) => $q->where('role', 'admin')->where('admin_scope', 'branch')->where('is_active', true),
         ])->orderBy('branch_code')->get();
-        $roleCounts = User::where('is_active', true)->selectRaw('role, COUNT(*) total')->groupBy('role')->pluck('total', 'role');
+        $branches->each(function ($branch) {
+            $branch->setAttribute('coverage_status', !$branch->is_active ? 'Inactive' : ($branch->active_admin_count ? 'Covered' : 'Needs Admin'));
+        });
+        $managedUsers = User::where('role', '!=', 'owner')->whereKeyNot(auth()->id());
+        $roleCounts = (clone $managedUsers)->where('is_active', true)->selectRaw('role, COUNT(*) total')->groupBy('role')->pluck('total', 'role');
         $adminCounts = [
-            'system' => User::where('role', 'admin')->where('admin_scope', 'system')->where('is_active', true)->count(),
-            'branch' => User::where('role', 'admin')->where('admin_scope', 'branch')->where('is_active', true)->count(),
+            'system' => (clone $managedUsers)->where('role', 'admin')->where('admin_scope', 'system')->where('is_active', true)->count(),
+            'branch' => (clone $managedUsers)->where('role', 'admin')->where('admin_scope', 'branch')->where('is_active', true)->count(),
         ];
         $unassignedUsers = User::where('is_active', true)->whereIn('role', ['staff'])->whereNull('branch_id')->count();
         $branchesWithoutAdmin = $branches->where('is_active', true)->where('active_admin_count', 0);
@@ -32,9 +36,9 @@ class SystemAdminDashboardController extends Controller
         $backupOverdue = !$lastBackup || $lastBackup->verified_at->lt(now()->subHours(26));
 
         $attention = collect();
-        foreach ($branchesWithoutAdmin as $branch) $attention->push(['severity' => 'warning', 'message' => $branch->branch_code.' has no enabled Branch Admin account.', 'url' => route('admin.users.index', ['branch_id' => $branch->id, 'role' => 'admin', 'admin_scope' => 'branch'])]);
-        if ($unassignedUsers) $attention->push(['severity' => 'warning', 'message' => "$unassignedUsers enabled staff account(s) have no assigned branch.", 'url' => route('admin.users.index', ['role' => 'staff', 'status' => 'active', 'assignment' => 'unassigned'])]);
-        if ($backupOverdue) $attention->push(['severity' => 'critical', 'message' => $lastBackup ? 'The latest verified backup is overdue.' : 'No verified system backup exists.', 'url' => route('admin.backups.index')]);
+        if ($backupOverdue) $attention->push(['severity' => 'critical', 'message' => $lastBackup ? 'The latest verified backup is overdue.' : 'No verified system backup exists.', 'action' => 'Review backups', 'url' => route('admin.backups.index')]);
+        foreach ($branchesWithoutAdmin as $branch) $attention->push(['severity' => 'warning', 'message' => $branch->branch_code.' has no active Branch Admin account.', 'action' => 'Review branch admins', 'url' => route('admin.users.index', ['branch_id' => $branch->id, 'role' => 'admin', 'admin_scope' => 'branch'])]);
+        if ($unassignedUsers) $attention->push(['severity' => 'warning', 'message' => "$unassignedUsers active staff account(s) have no assigned branch.", 'action' => 'Assign staff branch', 'url' => route('admin.users.index', ['role' => 'staff', 'status' => 'active', 'assignment' => 'unassigned'])]);
 
         return view('dashboards.system-admin', [
             'branches' => $branches,
@@ -47,10 +51,10 @@ class SystemAdminDashboardController extends Controller
             'unavailableCaskets' => $unavailableCaskets,
             'activeAddOns' => AddOnCatalog::where('is_active', true)->count(),
             'activeFreebies' => FreebieCatalog::where('is_active', true)->count(),
-            'inactiveUsers' => User::where('is_active', false)->count(),
+            'inactiveUsers' => (clone $managedUsers)->where('is_active', false)->count(),
             'unassignedUsers' => $unassignedUsers,
             'attention' => $attention,
-            'activities' => AuditLog::with('actor')->latest()->limit(8)->get(),
+            'activities' => AuditLog::with(['actor', 'branch'])->latest()->limit(5)->get(),
             'lastBackup' => $lastBackup,
             'backupOverdue' => $backupOverdue,
         ]);

@@ -153,7 +153,7 @@ class PaymentController extends Controller
             'payment_method' => ['nullable', 'in:cash,cashless,bank_transfer'],
             'status_after_payment' => ['nullable', 'in:PAID,PARTIAL,UNPAID'],
             'sort' => ['nullable', 'in:asc,desc'],
-            'tab' => ['nullable', 'in:summary,transactions'],
+            'tab' => ['nullable', 'in:summary,transactions,corrections'],
             'record_payment' => ['nullable', 'boolean'],
             'case_id' => ['nullable', 'integer', 'exists:funeral_cases,id'],
         ], [
@@ -435,8 +435,10 @@ class PaymentController extends Controller
             ]);
         }
 
+        $requestedPageSize = (int) $request->input('per_page', 20);
+        $pageSize = in_array($requestedPageSize, [10, 20, 50, 100], true) ? $requestedPageSize : 20;
         $paymentCases = $paymentCasesQuery
-            ->paginate(20)
+            ->paginate($pageSize)
             ->withQueryString();
 
         $filteredPayments = function ($query) use ($applyPaymentFilters) {
@@ -511,7 +513,14 @@ class PaymentController extends Controller
             ->paginate(20, ['*'], 'transactions_page')
             ->withQueryString();
 
+        $correctionQuery = $user->isBranchAdmin()
+            ? \App\Models\PaymentCorrectionRequest::where('branch_id', $user->branch_id)
+            : null;
+
         return view('staff.payments.history', [
+            'pendingCorrectionCount' => $correctionQuery ? (clone $correctionQuery)->where('status', 'PENDING')->count() : 0,
+            'correctionRequests' => $correctionQuery && $activeTab === 'corrections'
+                ? $correctionQuery->with(['payment.funeralCase', 'requester', 'reviewer', 'replacementPayment'])->latest()->paginate(20)->withQueryString() : null,
             'paymentCases' => $paymentCases,
             'transactionCases' => $transactionCases,
             'q' => $q,
@@ -546,6 +555,7 @@ class PaymentController extends Controller
         $this->authorize('create', Payment::class);
 
         $validated = $request->validate(array_merge([
+            'submission_id' => ['nullable', 'uuid'],
             'funeral_case_id' => ['required', 'exists:funeral_cases,id'],
             'paid_at' => PaymentDetails::dateRules(),
             'amount_paid' => PaymentDetails::amountRules(),
@@ -563,6 +573,13 @@ class PaymentController extends Controller
         $receiptOrNo = $receiptOrNo === '' ? null : $receiptOrNo;
 
         $paymentDetails = PaymentDetails::normalize($request);
+        $submissionHash = hash('sha256', json_encode([
+            'case' => (int) $validated['funeral_case_id'],
+            'cents' => (int) round((float) $validated['amount_paid'] * 100),
+            'paid_at' => Carbon::parse($validated['paid_at'])->toDateTimeString(),
+            'details' => $paymentDetails, 'receipt' => $receiptOrNo,
+            'received_by' => $validated['received_by'] ?? null, 'remarks' => $validated['remarks'] ?? null,
+        ], JSON_THROW_ON_ERROR));
         $paymentDetailErrors = PaymentDetails::validateNormalized($paymentDetails);
         if ($paymentDetailErrors !== []) {
             return back()->withErrors($paymentDetailErrors)->withInput();
@@ -573,6 +590,9 @@ class PaymentController extends Controller
             ->first();
 
         if ($precheckCase) {
+            if ($this->replayedPayment($validated['submission_id'] ?? null, $submissionHash, $precheckCase)) {
+                return redirect()->route('funeral-cases.show', $precheckCase)->with('success', 'This payment submission was already processed.');
+            }
             $amountPaid = round((float) $validated['amount_paid'], 2);
             $remainingBalance = round((float) $precheckCase->balance_amount, 2);
             $paidAt = Carbon::parse($validated['paid_at']);
@@ -582,12 +602,6 @@ class PaymentController extends Controller
                 return back()->withErrors([
                     'amount_paid' => $message,
                     'payment' => $message,
-                ])->withInput();
-            }
-
-            if ($precheckCase->created_at && $paidAt->lt($precheckCase->created_at)) {
-                return back()->withErrors([
-                    'paid_at' => 'Date received cannot be before the case creation date.',
                 ])->withInput();
             }
 
@@ -613,7 +627,7 @@ class PaymentController extends Controller
             $attempt++;
 
             try {
-                DB::transaction(function () use ($validated, $paymentDetails, $receiptOrNo, &$savedPaymentId) {
+                DB::transaction(function () use ($validated, $paymentDetails, $receiptOrNo, $submissionHash, &$savedPaymentId) {
                 $user = auth()->user();
                 $branchScopeIds = $this->paymentWriteBranchIds($user);
 
@@ -625,6 +639,11 @@ class PaymentController extends Controller
                     })
                     ->lockForUpdate()
                     ->firstOrFail();
+
+                if ($existing = $this->replayedPayment($validated['submission_id'] ?? null, $submissionHash, $funeralCase)) {
+                    $savedPaymentId = $existing->id;
+                    return;
+                }
 
                 if (($funeralCase->entry_source ?? 'MAIN') === 'OTHER_BRANCH') {
                     throw new \RuntimeException('Other-branch cases must already be fully paid before encoding. Payment updates are blocked.');
@@ -656,8 +675,9 @@ class PaymentController extends Controller
                     throw new \RuntimeException("Payment exceeds balance. Remaining allowed amount is {$allowed}.");
                 }
 
-                $balance = round(max($totalDue - $newPaid, 0), 2);
-                $status = $newPaid <= 0 ? 'UNPAID' : ($balance > 0 ? 'PARTIAL' : 'PAID');
+                $totals = $funeralCase->paymentTotalsFor($newPaid);
+                $balance = $totals['balance_amount'];
+                $status = $totals['payment_status'];
                 $paidAt = Carbon::parse($validated['paid_at']);
 
                 $isCashless = $paymentDetails['payment_method'] === 'cashless';
@@ -666,6 +686,8 @@ class PaymentController extends Controller
                     : null;
 
                 $payment = Payment::create([
+                    'submission_id' => $validated['submission_id'] ?? null,
+                    'submission_hash' => isset($validated['submission_id']) ? $submissionHash : null,
                     'funeral_case_id'  => $funeralCase->id,
                     'branch_id'        => $funeralCase->branch_id,
                     'payment_record_no' => Payment::nextPaymentRecordNumber($paidAt),
@@ -708,11 +730,7 @@ class PaymentController extends Controller
                 ]);
                 $savedPaymentId = $payment->id;
 
-                $funeralCase->update([
-                    'payment_status' => $status,
-                    'total_paid' => $newPaid,
-                    'balance_amount' => $balance,
-                ]);
+                $funeralCase->update($totals);
 
                 AuditLogger::log(
                     'payment.created',
@@ -830,6 +848,18 @@ class PaymentController extends Controller
         ]);
     }
 
+    private function replayedPayment(?string $submissionId, string $hash, FuneralCase $case): ?Payment
+    {
+        if (! $submissionId) {
+            return null; // Legacy callers without an identity cannot be inferred to be duplicate payments.
+        }
+        $payment = Payment::withTrashed()->where('branch_id', $case->branch_id)->where('submission_id', $submissionId)->first();
+        if ($payment && ((int) $payment->funeral_case_id !== (int) $case->id || ! hash_equals((string) $payment->submission_hash, $hash))) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['submission_id' => 'This submission was already used for different payment details. Reload the payment form.']);
+        }
+        return $payment;
+    }
+
     public function updateReceipt(Request $request, Payment $payment)
     {
         $this->authorize('update', $payment);
@@ -889,6 +919,7 @@ class PaymentController extends Controller
 
     public function summary(Payment $payment)
     {
+        abort_if(auth()->user()?->isOwner(), 403);
         $this->authorize('view', $payment);
 
         $payment->load([
@@ -905,6 +936,7 @@ class PaymentController extends Controller
 
     public function printHistory(Request $request, FuneralCase $funeralCase)
     {
+        abort_if($request->user()?->isOwner(), 403);
         $branchIds = $this->paymentViewBranchIds($request->user());
         abort_unless(in_array((int) $funeralCase->branch_id, $branchIds, true), 403);
 
@@ -943,7 +975,6 @@ class PaymentController extends Controller
 
         if (($user->role ?? null) === 'owner' || (method_exists($user, 'isMainAdmin') && $user->isMainAdmin())) {
             $ids = Branch::query()
-                ->where('is_active', true)
                 ->pluck('id')
                 ->all();
         } else {

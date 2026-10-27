@@ -92,15 +92,13 @@ class FuneralCasePolicy
 
     public function generateFuneralContract(User $user, FuneralCase $case): bool
     {
-        if ($user->isOwner()) {
+        if ($user->isSystemAdmin()) {
             return true;
         }
 
-        if (! $user->isAdmin()) {
-            return false;
-        }
-
-        return $this->branchMatch($user, $case);
+        return $user->isBranchAdmin()
+            && (int) $user->branch_id > 0
+            && (int) $user->branch_id === (int) $case->branch_id;
     }
 
     private function branchMatch(User $user, FuneralCase $case): bool

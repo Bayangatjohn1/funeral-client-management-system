@@ -1,10 +1,11 @@
 @extends('layouts.panel')
 
 @section('page_title','Edit User')
-@section('page_desc', 'Update user profile details, roles, and credentials.')
+@section('page_desc', 'Update this user account.')
 @section('hide_layout_topbar', '1')
-
 @section('content')
+@include('partials.user_management_visual_styles')
+@if(session('success'))<div class="flash-success" role="status">{{ session('success') }}</div>@endif
 @php
     $returnTo = old('return_to', request('return_to', route('admin.users.index')));
     $hasSplitUserNames = \Illuminate\Support\Facades\Schema::hasColumn('users', 'first_name')
@@ -167,7 +168,7 @@
 
             <input type="hidden" name="return_to" value="{{ $returnTo }}">
 
-            @if ($errors->any())
+            @if ($errors->any() && old('password_reset_action') !== '1')
                 <div class="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
                     <div class="font-semibold">User was not saved. Please fix the following:</div>
                     <ul class="mt-1 list-disc pl-5 space-y-1">
@@ -181,9 +182,12 @@
             <div class="modal-shell-card max-w-5xl mx-auto rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
                 <div class="px-6 sm:px-8 py-5 border-b border-slate-200 bg-slate-50">
                     <div class="flex items-start justify-between gap-3">
-                        <div>
+                        <div class="user-form-heading">
+                            <span class="user-form-heading-icon" aria-hidden="true"><i class="bi bi-pencil-square"></i></span>
+                            <div>
                             <h2 class="text-2xl font-semibold text-slate-900">Account details</h2>
                             <p class="text-sm text-slate-500 mt-1">Update the user profile, role access, and contact information.</p>
+                            </div>
                         </div>
                         <span class="user-edit-badge inline-flex items-center">
                             User ID: {{ $user->id }}
@@ -201,32 +205,32 @@
                         <div class="grid gap-5 md:grid-cols-2">
                             @if($hasSplitUserNames)
                                 <div>
-                                    <label class="label-section">First Name <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="first_name" value="{{ old('first_name', $user->first_name ?: $fallbackFirstName) }}" class="form-input" placeholder="Juan" autocapitalize="words" data-name-case required>
+                                    <label for="user_edit_first_name" class="label-section">First Name <span class="text-rose-500">*</span></label>
+                                    <input type="text" id="user_edit_first_name" name="first_name" value="{{ old('first_name', $user->first_name ?: $fallbackFirstName) }}" class="form-input" placeholder="Juan" autocapitalize="words" data-name-case required>
                                     @error('first_name') <div class="form-error">{{ $message }}</div> @enderror
                                     <div class="form-error hidden" data-field-error="first_name"></div>
                                 </div>
 
                                 @if($hasMiddleName)
                                     <div>
-                                        <label class="label-section">Middle Name</label>
-                                        <input type="text" name="middle_name" value="{{ old('middle_name', $user->middle_name) }}" class="form-input" placeholder="Santos" autocapitalize="words" data-name-case>
+                                        <label for="user_edit_middle_name" class="label-section">Middle Name</label>
+                                        <input type="text" id="user_edit_middle_name" name="middle_name" value="{{ old('middle_name', $user->middle_name) }}" class="form-input" placeholder="Santos" autocapitalize="words" data-name-case>
                                         @error('middle_name') <div class="form-error">{{ $message }}</div> @enderror
                                         <div class="form-error hidden" data-field-error="middle_name"></div>
                                     </div>
                                 @endif
 
                                 <div>
-                                    <label class="label-section">Last Name <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="last_name" value="{{ old('last_name', $user->last_name ?: $fallbackLastName) }}" class="form-input" placeholder="Dela Cruz" autocapitalize="words" data-name-case required>
+                                    <label for="user_edit_last_name" class="label-section">Last Name <span class="text-rose-500">*</span></label>
+                                    <input type="text" id="user_edit_last_name" name="last_name" value="{{ old('last_name', $user->last_name ?: $fallbackLastName) }}" class="form-input" placeholder="Dela Cruz" autocapitalize="words" data-name-case required>
                                     @error('last_name') <div class="form-error">{{ $message }}</div> @enderror
                                     <div class="form-error hidden" data-field-error="last_name"></div>
                                 </div>
 
                                 @if($hasSuffix)
                                     <div>
-                                        <label class="label-section">Suffix</label>
-                                        <select name="suffix" class="form-select">
+                                        <label for="user_edit_suffix" class="label-section">Suffix</label>
+                                        <select name="suffix" class="form-select" id="user_edit_suffix">
                                             <option value="">Select suffix</option>
                                             @foreach(['Jr.', 'Sr.', 'II', 'III', 'IV', 'V'] as $suffix)
                                                 <option value="{{ $suffix }}" {{ old('suffix', $user->suffix) === $suffix ? 'selected' : '' }}>{{ $suffix }}</option>
@@ -237,18 +241,19 @@
                                 @endif
                             @else
                                 <div>
-                                    <label class="label-section">Name <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="name" value="{{ old('name', $user->name) }}" class="form-input" placeholder="Juan Dela Cruz" autocapitalize="words" data-name-case required>
+                                    <label for="user_edit_name" class="label-section">Name <span class="text-rose-500">*</span></label>
+                                    <input type="text" id="user_edit_name" name="name" value="{{ old('name', $user->name) }}" class="form-input" placeholder="Juan Dela Cruz" autocapitalize="words" data-name-case required>
                                     @error('name') <div class="form-error">{{ $message }}</div> @enderror
                                     <div class="form-error hidden" data-field-error="name"></div>
                                 </div>
                             @endif
 
                             <div>
-                                <label class="label-section">Email <span class="text-rose-500">*</span></label>
-                                <input type="email" name="email" value="{{ old('email', $user->email) }}" class="form-input" placeholder="user@example.com" required>
+                                <label for="user_edit_email" class="label-section">Email <span class="text-rose-500">*</span></label>
+                                <input type="email" id="user_edit_email" name="email" value="{{ old('email', $user->email) }}" class="form-input" placeholder="user@example.com" required>
                                 @error('email') <div class="form-error">{{ $message }}</div> @enderror
                                 <div class="form-error hidden" data-field-error="email"></div>
+                                @if($isEditingSystemAdmin)<label for="edit_current_password" class="label-section mt-3">Your current password (required to change this email)</label><input id="edit_current_password" name="current_password" type="password" class="form-input" autocomplete="current-password">@error('current_password')<div class="form-error">{{ $message }}</div>@enderror @endif
                             </div>
                         </div>
                     </div>
@@ -261,38 +266,31 @@
 
                         <div class="grid gap-5 md:grid-cols-2">
                             <div>
-                                <label class="label-section">Role <span class="text-rose-500">*</span></label>
-                                <select name="role" id="role" class="form-select" required {{ $isEditingSystemAdmin ? 'disabled' : '' }}>
-                                    @if($isSystemAdmin)
-                                        <option value="staff" {{ old('role', $user->role) == 'staff' ? 'selected' : '' }}>Staff</option>
-                                        <option value="branch_admin" {{ old('role') == 'branch_admin' || (old('role') == 'admin' && old('admin_scope') !== 'system') || (!old('role') && $isEditingBranchAdmin) ? 'selected' : '' }}>Branch Admin</option>
-                                        <option value="system_admin" {{ old('role') == 'system_admin' || (old('role') == 'admin' && old('admin_scope') === 'system') || (!old('role') && $isEditingSystemAdmin) ? 'selected' : '' }}>System Admin</option>
-                                    @elseif($isBranchAdmin)
-                                        <option value="staff" selected>Staff</option>
-                                    @endif
+                                <label for="role" class="label-section">Role <span class="text-rose-500">*</span></label>
+                                <select id="role" class="form-select" disabled>
+                                    <option value="{{ $isEditingSystemAdmin ? 'system_admin' : ($isEditingBranchAdmin ? 'branch_admin' : 'staff') }}">{{ $user->roleLabel() }}</option>
                                 </select>
-
-                                @if($isEditingSystemAdmin)
-                                    <input type="hidden" name="role" value="system_admin">
+                                <input type="hidden" name="role" value="{{ $isEditingSystemAdmin ? 'system_admin' : ($isEditingBranchAdmin ? 'branch_admin' : 'staff') }}">
+                                @if($isSystemAdmin && !$isEditingSystemAdmin && auth()->id() !== $user->id)
+                                    <a href="{{ route('admin.users.role.edit', $user) }}" class="btn btn-outline mt-2">Change Role</a>
                                 @endif
-
                                 @error('role') <div class="form-error">{{ $message }}</div> @enderror
                                 <div class="form-error hidden" data-field-error="role"></div>
                                 <div class="form-hint mt-1">
                                     @if($isEditingSystemAdmin)
                                         System Admin access is preserved and cannot be downgraded here.
                                     @elseif($isEditingBranchAdmin)
-                                        Branch Admin role changes to Staff will be rejected by the system.
+                                        Use Change Role to promote or demote operational accounts.
                                     @elseif($isBranchAdmin)
                                         Branch Admins can only manage Staff accounts.
                                     @else
-                                        Admin accounts managed here remain Branch Admins.
+                                        Role changes are handled separately through Change Role.
                                     @endif
                                 </div>
                             </div>
 
                             <div>
-                                <label class="label-section">Branch</label>
+                                <label for="branch_id" class="label-section">Branch</label>
                                 <select name="branch_id" id="branch_id" class="form-select" {{ $shouldLockBranch ? 'disabled' : '' }}>
                                     <option value="">- Select Branch -</option>
                                     @foreach($branches as $branch)
@@ -315,7 +313,7 @@
                                 <div class="form-error hidden" data-field-error="branch_id"></div>
                                 <div id="branch_hint" class="form-hint mt-1">
                                     @if($isEditingStaff)
-                                        Staff remain auto-assigned to the current branch and cannot be reassigned here.
+                                        System Admin can assign Staff to an active branch. Branch Admin can only manage Staff in their assigned branch.
                                     @elseif($isEditingBranchAdmin)
                                         Branch Admin can use any active branch, including Main Branch. A branch may have multiple Branch Admins.
                                     @elseif($isEditingSystemAdmin)
@@ -336,15 +334,15 @@
 
                         <div class="grid gap-5 md:grid-cols-2">
                             <div id="contact_wrap">
-                                <label class="label-section">Contact Number</label>
-                                <input type="text" name="contact_number" value="{{ old('contact_number', $user->contact_number) }}" class="form-input" inputmode="tel" placeholder="+63 9XX XXX XXXX">
+                                <label for="user_edit_contact_number" class="label-section">Contact Number</label>
+                                <input type="text" id="user_edit_contact_number" name="contact_number" value="{{ old('contact_number', $user->contact_number) }}" class="form-input" inputmode="tel" placeholder="+63 9XX XXX XXXX">
                                 @error('contact_number') <div class="form-error">{{ $message }}</div> @enderror
                                 <div class="form-error hidden" data-field-error="contact_number"></div>
                             </div>
 
                             <div id="address_wrap">
-                                <label class="label-section">Address</label>
-                                <input type="text" name="address" value="{{ old('address', $user->address) }}" class="form-input" placeholder="House No., Street, Barangay, City">
+                                <label for="user_edit_address" class="label-section">Address</label>
+                                <input type="text" id="user_edit_address" name="address" value="{{ old('address', $user->address) }}" class="form-input" placeholder="House No., Street, Barangay, City">
                                 @error('address') <div class="form-error">{{ $message }}</div> @enderror
                                 <div class="form-error hidden" data-field-error="address"></div>
                             </div>
@@ -362,42 +360,7 @@
             </div>
         </form>
 
-        <div class="modal-shell-card max-w-5xl mx-auto rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div class="px-6 sm:px-8 py-5 border-b border-slate-200 bg-slate-50">
-                <h2 class="text-2xl font-semibold text-slate-900">Password reset</h2>
-                <p class="text-sm text-slate-500 mt-1">Optional password update for this account.</p>
-            </div>
-
-            <form method="POST" action="{{ route('admin.users.resetPassword', $user) }}">
-                @csrf
-                @method('PATCH')
-
-                <input type="hidden" name="return_to" value="{{ $returnTo }}">
-
-                <div class="p-5 sm:p-6">
-                    <div class="rounded-xl border border-slate-200 p-6">
-                        <div class="grid gap-5 md:grid-cols-2">
-                            <div>
-                                <label class="label-section">New Password</label>
-                                <input type="password" name="password" class="form-input">
-                                @error('password') <div class="form-error">{{ $message }}</div> @enderror
-                            </div>
-
-                            <div>
-                                <label class="label-section">Confirm Password</label>
-                                <input type="password" name="password_confirmation" class="form-input">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="px-6 sm:px-8 py-5 border-t border-slate-200 flex justify-end bg-slate-50">
-                    <button type="submit" class="btn btn-outline px-5">
-                        Reset
-                    </button>
-                </div>
-            </form>
-        </div>
+        @include('admin.users._password_reset')
     </div>
 </div>
 
@@ -439,7 +402,7 @@
         const showFieldError = (field, message) => {
             const input = form?.querySelector(`[name="${field}"]`);
             const error = form?.querySelector(`[data-field-error="${field}"]`);
-            if (input) input.classList.add(...invalidClass);
+            if (input) { input.classList.add(...invalidClass); input.setAttribute('aria-invalid', 'true'); }
             if (error) {
                 error.textContent = message;
                 error.classList.remove('hidden');
@@ -448,7 +411,7 @@
         const clearFieldError = (field) => {
             const input = form?.querySelector(`[name="${field}"]`);
             const error = form?.querySelector(`[data-field-error="${field}"]`);
-            if (input) input.classList.remove(...invalidClass);
+            if (input) { input.classList.remove(...invalidClass); input.removeAttribute('aria-invalid'); }
             if (error) {
                 error.textContent = '';
                 error.classList.add('hidden');
@@ -460,7 +423,7 @@
 
             const isSystemAdmin = roleSelect.value === 'system_admin';
             const isBranchAdmin = ['branch_admin', 'admin'].includes(roleSelect.value);
-            const branchWasLockedByServer = branchSelect.hasAttribute('disabled');
+            const branchWasLockedByServer = @json($shouldLockBranch);
 
             if (isSystemAdmin) {
                 branchSelect.value = '';
@@ -528,7 +491,7 @@
                 showFieldError('contact_number', 'Enter a valid Philippine mobile number.');
             }
 
-            if (!valid) event.preventDefault();
+            if (!valid) { event.preventDefault(); form?.querySelector('[aria-invalid=true]')?.focus(); }
         }
 
         if (roleSelect) {

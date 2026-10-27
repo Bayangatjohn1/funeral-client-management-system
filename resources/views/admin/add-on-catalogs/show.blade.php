@@ -9,11 +9,22 @@
     $returnTo = request('return_to', route('admin.service-management.index', ['tab' => 'addons']));
     $editUrl = route('admin.add-on-catalogs.edit', ['add_on_catalog' => $catalog, 'modal' => 1, 'return_to' => $returnTo]);
     $money = fn ($amount) => 'PHP ' . number_format((float) $amount, 2);
+    $statusActions = [[
+        'label' => $catalog->is_active ? 'Archive add-on' : 'Restore add-on',
+        'title' => $catalog->is_active ? 'Archive this add-on?' : 'Restore this add-on?',
+        'icon' => $catalog->is_active ? 'archive' : 'arrow-counterclockwise',
+        'message' => $catalog->is_active
+            ? 'This add-on will not be available for new intake. Existing cases keep their saved details.'
+            : 'This add-on will be available for new intake again.',
+        'affected' => collect(),
+        'url' => route('admin.add-on-catalogs.toggleActive', $catalog),
+    ]];
 @endphp
 
 @include('admin.service-management.partials.detail-styles')
 
 <section class="svc-detail">
+    @include('admin.service-management.partials.status-feedback')
     <article class="svc-detail-card">
         <header class="svc-detail-head">
             <div>
@@ -21,17 +32,17 @@
                 <h1>{{ $catalog->name }}</h1>
                 <p class="svc-detail-subtitle">{{ $catalog->category ?: 'General' }}</p>
             </div>
+        </header>
+
+        <div class="svc-detail-overview">
             <span class="svc-detail-badge {{ $catalog->is_active ? 'is-active' : 'is-muted' }}">
                 <i class="bi bi-{{ $catalog->is_active ? 'check-circle' : 'archive' }}" aria-hidden="true"></i>
                 {{ $catalog->is_active ? 'Active' : 'Archived' }}
             </span>
-        </header>
+            <div class="svc-detail-overview-price"><span>Standard Price</span><strong>{{ $money($catalog->price) }}</strong></div>
+        </div>
 
         <div class="svc-detail-stat-grid">
-            <div class="svc-detail-stat">
-                <span>Standard Price</span>
-                <strong>{{ $money($catalog->price) }}</strong>
-            </div>
             <div class="svc-detail-stat">
                 <span>Unit</span>
                 <strong>{{ $catalog->unit ?: 'item' }}</strong>
@@ -58,10 +69,12 @@
                     Edit Add-on
                 </a>
             @endif
-            <a class="svc-detail-secondary" href="{{ $returnTo }}" data-parent-modal-close>
+            @include('admin.service-management.partials.status-actions')
+            @if(request()->boolean('modal'))<button type="button" class="svc-detail-secondary" data-parent-modal-close>Close</button>@endif
+            @unless(request()->boolean('modal'))<a class="svc-detail-secondary" href="{{ $returnTo }}" data-parent-modal-close>
                 <i class="bi bi-arrow-left" aria-hidden="true"></i>
                 Back to Service Management
-            </a>
+            </a>@endunless
         </footer>
     </article>
 </section>

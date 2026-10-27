@@ -13,7 +13,9 @@
     $includedCasket = $displaySnapshot['included_casket'];
     $selectedCasket = $displaySnapshot['selected_casket'];
     $discountDisplay = $displaySnapshot['discount'];
-    $pkgCoffin = $includedCasket['name'] ?? $funeral_case->coffin_type;
+    $isCustomPackage = (bool) ($funeral_case->pricing_snapshot['custom_package'] ?? false)
+        || (bool) $funeral_case->custom_package_name;
+    $pkgCoffin = $includedCasket['name'] ?? ($isCustomPackage ? null : $funeral_case->coffin_type);
     $isOtherBranch = ($funeral_case->entry_source ?? 'MAIN') === 'OTHER_BRANCH';
     $balanceDue    = (float) $funeral_case->balance_amount > 0;
     $displayIntermentAt = $funeral_case->interment_at
@@ -151,7 +153,7 @@
   .cv-tarp-form.open { display:block; }
   .cv-tarp-file    { width:100%; border:1px solid var(--border); border-radius:.65rem; background:#E1E7D9; color:var(--ink); padding:.65rem; font-size:.82rem; cursor:pointer; }
   @media(max-width:700px) { .cv-service-grid > .cv-field-tarpaulin, .cv-service-grid > .cv-field-package { grid-column:auto; grid-row:auto; } .cv-field-tarpaulin { min-height:0; } .cv-field-tarpaulin .cv-tarp-grid { grid-template-columns:1fr; } .cv-schedule-fields__grid { grid-template-columns:1fr; } .cv-schedule-fields__grid > .cv-field-full { grid-column:auto; } }
-  .cv-tarp-modal   { position:fixed; inset:0; z-index:70; display:none; align-items:center; justify-content:center; padding:18px; background:rgba(15,23,42,.72); }
+  .cv-tarp-modal   { position:fixed; inset:0; z-index:70; display:none; align-items:center; justify-content:center; padding:18px; background:var(--modal-scrim); }
   .cv-tarp-modal.open { display:flex; }
   .cv-tarp-dialog  { width:min(100%,920px); max-height:92vh; background:#D3DEC9; border:1px solid var(--border); border-radius:.75rem; overflow:hidden; box-shadow:none; }
   .cv-tarp-modal-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border-bottom:1px solid var(--border); }
@@ -224,7 +226,7 @@
 <div class="cv-shell">
 
   {{-- ── Case Header ── --}}
-  <div class="cv-card cv-section-case">
+  <div class="cv-card cv-section-case" id="case-overview">
     <div class="cv-hero-accent"></div>
     <div class="cv-hero-body">
       <div class="cv-hero-top">
@@ -274,7 +276,7 @@
   </div>
 
   {{-- ── Client & Deceased (side by side) ── --}}
-  <div class="cv-two-col cv-section-people">
+  <div class="cv-two-col cv-section-people" id="case-people">
 
     <div class="cv-card">
       <div class="cv-card-head">
@@ -343,7 +345,7 @@
   </div>
 
   {{-- ── Package & Service ── --}}
-  <div class="cv-card cv-section-service">
+  <div class="cv-card cv-section-service" id="case-service">
     <div class="cv-card-head">
       <div class="cv-card-icon"><i class="bi bi-box-seam"></i></div>
       <span class="cv-card-title">Package &amp; Service Schedule</span>
@@ -376,12 +378,6 @@
         <div class="cv-field-value" style="font-variant-numeric:tabular-nums;">₱ {{ number_format((float) $pkgPrice, 2) }}</div>
       </div>
       @endif
-      @if($funeral_case->custom_package_name)
-      <div class="cv-field">
-        <div class="cv-field-label">Custom Name</div>
-        <div class="cv-field-value">{{ $funeral_case->custom_package_name }}</div>
-      </div>
-      @endif
       @if($funeral_case->service_type)
       <div class="cv-field cv-field-package">
         <div class="cv-field-label">Service Type</div>
@@ -406,7 +402,7 @@
           <div class="cv-tarp-side">
             <div class="cv-tarp-actions no-print">
               <button type="button" class="btn-outline" data-tarpaulin-details-toggle aria-expanded="false">
-                <i class="bi bi-info-circle mr-1"></i>Details
+                <i class="bi bi-info-circle mr-1"></i>{{ ($staffCaseVisual ?? false) ? 'Photo Details' : 'Details' }}
               </button>
               @if($tarpaulinAttachment && $tarpaulinUrl)
                 <button type="button" class="btn-outline" data-tarpaulin-open>
@@ -414,7 +410,7 @@
                 </button>
                 @if($canReplaceTarpaulin)
                   <button type="button" class="btn-outline" data-tarpaulin-toggle="replace">
-                    <i class="bi bi-arrow-repeat mr-1"></i>Replace
+                    <i class="bi bi-arrow-repeat mr-1"></i>{{ ($staffCaseVisual ?? false) ? 'Re-upload Photo' : 'Replace' }}
                   </button>
                 @endif
                 @if($canDeleteTarpaulin)
@@ -470,10 +466,10 @@
               <form method="POST" action="{{ route('funeral-cases.tarpaulin.update', $funeral_case) }}" enctype="multipart/form-data" class="cv-tarp-form no-print" data-tarpaulin-form="replace">
                 @csrf
                 @method('PUT')
-                <div class="cv-field-label" style="margin-bottom:6px;">Replace Photo</div>
+                <div class="cv-field-label" style="margin-bottom:6px;">{{ ($staffCaseVisual ?? false) ? 'Re-upload Photo' : 'Replace Photo' }}</div>
                 <input type="file" name="photo" class="cv-tarp-file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required>
                 <div class="cv-tarp-actions" style="margin-top:10px;">
-                  <button type="submit" class="btn-secondary">Replace Photo</button>
+                  <button type="submit" class="btn-secondary">{{ ($staffCaseVisual ?? false) ? 'Save Re-uploaded Photo' : 'Replace Photo' }}</button>
                   <button type="button" class="btn-outline" data-tarpaulin-cancel>Cancel</button>
                 </div>
               </form>
@@ -642,27 +638,37 @@
     @endif
   </div>
 
-  @if($tarpaulinAttachment && $tarpaulinUrl)
-  <div class="cv-tarp-modal no-print" data-tarpaulin-modal aria-hidden="true">
-    <div class="cv-tarp-dialog" role="dialog" aria-modal="true" aria-label="Tarpaulin photo preview">
-      <div class="cv-tarp-modal-head">
+  @if(($tarpaulinAttachment && $tarpaulinUrl) || ($staffCaseVisual ?? false))
+  <div class="cv-tarp-modal {{ ($staffCaseVisual ?? false) ? 'ops-modal-backdrop' : '' }} no-print" data-tarpaulin-modal aria-hidden="true">
+    <div class="cv-tarp-dialog {{ ($staffCaseVisual ?? false) ? 'ops-modal' : '' }}" role="dialog" aria-modal="true" aria-label="Tarpaulin photo">
+      <div class="cv-tarp-modal-head {{ ($staffCaseVisual ?? false) ? 'ops-modal__head' : '' }}">
         <div>
           <div class="cv-card-title">Tarpaulin Photo</div>
-          <div class="cv-field-value" style="font-size:12px;">{{ $tarpaulinAttachment->file_name }}</div>
+          <div class="cv-field-value" style="font-size:12px;">{{ $tarpaulinAttachment?->file_name ?? $funeral_case->case_code }}</div>
         </div>
-        <button type="button" class="btn-outline" data-tarpaulin-close aria-label="Close tarpaulin photo preview">
+        <button type="button" class="btn-outline" data-tarpaulin-close aria-label="Close tarpaulin photo">
           <i class="bi bi-x-lg"></i>
         </button>
       </div>
-      <div class="cv-tarp-modal-body">
-        <img src="{{ $tarpaulinUrl }}" alt="Full tarpaulin photo reference">
+      <div class="cv-tarp-modal-body {{ ($staffCaseVisual ?? false) ? 'ops-modal__body' : '' }}">
+        @if($tarpaulinAttachment && $tarpaulinUrl)
+          <img src="{{ $tarpaulinUrl }}" alt="Full tarpaulin photo reference">
+        @endif
+        @if($staffCaseVisual ?? false)
+          <div data-tarpaulin-details-body></div>
+        @endif
       </div>
+      @if($staffCaseVisual ?? false)
+        <div class="cv-tarp-modal-foot ops-modal__foot">
+          <button type="button" class="btn-outline" data-tarpaulin-close>Close</button>
+        </div>
+      @endif
     </div>
   </div>
   @endif
 
   {{-- Generated Documents --}}
-  <div class="cv-card cv-section-documents">
+  <div class="cv-card cv-section-documents" id="case-documents">
     <div class="cv-card-head">
       <div class="cv-card-icon"><i class="bi bi-file-earmark-pdf"></i></div>
       <span class="cv-card-title">Generated Documents</span>
@@ -703,14 +709,13 @@
             <a href="{{ route('funeral-cases.documents.preview', [$funeral_case, $funeralContract]) }}" target="_blank" rel="noopener" class="btn-outline">
               <i class="bi bi-eye mr-1"></i>Review Funeral Contract
             </a>
-            <a href="{{ route('funeral-cases.documents.download', [$funeral_case, $funeralContract]) }}" class="btn-outline">
-              <i class="bi bi-download mr-1"></i>Download
-            </a>
+            @if(!auth()->user()?->isOwner())
             <a href="{{ route('funeral-cases.documents.print', [$funeral_case, $funeralContract]) }}" target="_blank" rel="noopener" class="btn-outline">
               <i class="bi bi-printer mr-1"></i>Print
             </a>
+            @endif
             @if($canGenerateFuneralContract)
-              <a href="{{ route('funeral-cases.documents.contract.preview', $funeral_case) }}" class="btn-secondary">
+              <a href="{{ route('funeral-cases.documents.contract.preview', ['funeral_case' => $funeral_case, 'return_to' => $returnUrl ?? null]) }}" class="btn-secondary">
                 <i class="bi bi-file-earmark-text mr-1"></i>Review Contract Form
               </a>
             @endif
@@ -728,7 +733,7 @@
 
           @if($canGenerateFuneralContract)
             <div class="cv-doc-actions no-print">
-              <a href="{{ route('funeral-cases.documents.contract.preview', $funeral_case) }}" class="btn-secondary">
+              <a href="{{ route('funeral-cases.documents.contract.preview', ['funeral_case' => $funeral_case, 'return_to' => $returnUrl ?? null]) }}" class="btn-secondary">
                 <i class="bi bi-file-earmark-pdf mr-1"></i>Prepare Contract
               </a>
             </div>
@@ -739,7 +744,7 @@
   </div>
 
   {{-- ── Payment Summary ── --}}
-  <div class="cv-card cv-section-payment">
+  <div class="cv-card cv-section-payment" id="case-payments">
     <div class="cv-card-head">
       <div class="cv-card-icon"><i class="bi bi-cash-stack"></i></div>
       <span class="cv-card-title">Payment Summary</span>
@@ -865,7 +870,7 @@
 
   {{-- ── Record Source (OTHER_BRANCH cases) ── --}}
   @if($isOtherBranch || $funeral_case->reporter_name)
-  <div class="cv-card cv-section-source">
+  <div class="cv-card cv-section-source" id="case-source">
     <div class="cv-card-head">
       <div class="cv-card-icon"><i class="bi bi-diagram-3"></i></div>
       <span class="cv-card-title">Record Source</span>
@@ -902,13 +907,83 @@
 </div>{{-- .cv-shell --}}
 <script>
   (() => {
+    const staffCaseVisual = @json((bool) ($staffCaseVisual ?? false));
+    if (staffCaseVisual) {
+      const tarpaulinSection = document.querySelector('.cv-field-tarpaulin');
+      const packageDetails = document.querySelector('.cv-pkg-pair');
+      const serviceGrid = document.querySelector('.cv-service-grid');
+      const addOns = document.querySelector('.cv-addon-list');
+      const schedule = document.querySelector('#wake-schedule');
+      if (schedule && serviceGrid?.contains(schedule)) {
+        if (packageDetails) schedule.before(packageDetails);
+        if (addOns) schedule.before(addOns);
+      }
+      if (tarpaulinSection && serviceGrid) {
+        serviceGrid.after(tarpaulinSection);
+      }
+    }
     const forms = document.querySelectorAll('[data-tarpaulin-form]');
-    const showForm = (name) => {
+    const modal = document.querySelector('[data-tarpaulin-modal]');
+    const detailsBody = modal?.querySelector('[data-tarpaulin-details-body]');
+    const details = document.querySelector('[data-tarpaulin-details]');
+    const detailsToggle = document.querySelector('[data-tarpaulin-details-toggle]');
+    let returnFocus = null;
+    let modalAnchor = null;
+    const modalFocusable = () => [...(modal?.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    ) || [])].filter(element => !element.hidden && element.getClientRects().length > 0);
+    if (detailsBody) {
+      [details, ...forms, document.querySelector('.cv-tarp-side > .cv-tarp-note')].forEach(node => {
+        if (node) detailsBody.appendChild(node);
+      });
+      details?.classList.add('open');
+    }
+    const showForm = name => {
       forms.forEach(form => form.classList.toggle('open', form.dataset.tarpaulinForm === name));
+    };
+    const closeModal = () => {
+      if (!modal || !modal.classList.contains('open')) return;
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+      modal.removeAttribute('data-mode');
+      if (staffCaseVisual) {
+        document.documentElement.classList.remove('cv-tarp-modal-open');
+        document.body.classList.remove('cv-tarp-modal-open');
+        if (modalAnchor) {
+          modalAnchor.replaceWith(modal);
+          modalAnchor = null;
+        }
+      }
+      detailsToggle?.setAttribute('aria-expanded', 'false');
+      if (detailsBody) showForm(null);
+      if (staffCaseVisual) returnFocus?.focus();
+    };
+    const openModal = (mode, trigger) => {
+      if (!modal) return;
+      returnFocus = trigger;
+      if (staffCaseVisual && modal.parentElement !== document.body) {
+        modalAnchor = document.createComment('tarpaulin-modal-position');
+        modal.before(modalAnchor);
+        document.body.appendChild(modal);
+      }
+      modal.dataset.mode = mode;
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+      if (staffCaseVisual) {
+        document.documentElement.classList.add('cv-tarp-modal-open');
+        document.body.classList.add('cv-tarp-modal-open');
+        document.body.removeAttribute('data-sidebar-hovered');
+        modal.querySelector('.cv-tarp-modal-body')?.scrollTo(0, 0);
+      }
+      detailsToggle?.setAttribute('aria-expanded', String(mode === 'details'));
+      if (staffCaseVisual) requestAnimationFrame(() => modalFocusable()[0]?.focus());
     };
 
     document.querySelectorAll('[data-tarpaulin-toggle]').forEach(button => {
-      button.addEventListener('click', () => showForm(button.dataset.tarpaulinToggle));
+      button.addEventListener('click', () => {
+        showForm(button.dataset.tarpaulinToggle);
+        if (detailsBody) openModal('details', button);
+      });
     });
 
     document.querySelectorAll('[data-tarpaulin-cancel]').forEach(button => {
@@ -919,35 +994,32 @@
       });
     });
 
-    const details = document.querySelector('[data-tarpaulin-details]');
-    const detailsToggle = document.querySelector('[data-tarpaulin-details-toggle]');
     detailsToggle?.addEventListener('click', () => {
+      if (detailsBody) {
+        showForm(null);
+        openModal('details', detailsToggle);
+        return;
+      }
       const isOpen = details?.classList.toggle('open') ?? false;
       detailsToggle.setAttribute('aria-expanded', String(isOpen));
     });
-
-    const modal = document.querySelector('[data-tarpaulin-modal]');
     const openButton = document.querySelector('[data-tarpaulin-open]');
     const closeButtons = document.querySelectorAll('[data-tarpaulin-close]');
-
-    const openModal = () => {
-      if (!modal) return;
-      modal.classList.add('open');
-      modal.setAttribute('aria-hidden', 'false');
-    };
-    const closeModal = () => {
-      if (!modal) return;
-      modal.classList.remove('open');
-      modal.setAttribute('aria-hidden', 'true');
-    };
-
-    openButton?.addEventListener('click', openModal);
+    openButton?.addEventListener('click', () => openModal('photo', openButton));
     closeButtons.forEach(button => button.addEventListener('click', closeModal));
     modal?.addEventListener('click', event => {
       if (event.target === modal) closeModal();
     });
     document.addEventListener('keydown', event => {
-      if (event.key === 'Escape') closeModal();
+      if (!modal?.classList.contains('open')) return;
+      if (event.key === 'Escape') { closeModal(); return; }
+      if (!staffCaseVisual || event.key !== 'Tab') return;
+      const focusable = modalFocusable();
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     });
   })();
 </script>

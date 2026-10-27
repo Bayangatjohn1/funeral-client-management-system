@@ -54,6 +54,7 @@ class FuneralContractSnapshotService
             'deceased' => [
                 'name' => (string) ($case->deceased?->full_name ?: ''),
                 'address' => (string) ($case->deceased?->address ?: ''),
+                'date_of_birth' => $this->dateString($case->deceased?->date_of_birth ?: $case->deceased?->born),
                 'date_of_death' => $this->dateString($case->deceased?->date_of_death ?: $case->deceased?->died),
                 'age' => $case->deceased?->age,
                 'cemetery' => (string) ($case->deceased?->place_of_cemetery ?: $case->serviceDetail?->cemetery_place ?: ''),

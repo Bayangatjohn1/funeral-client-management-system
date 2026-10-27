@@ -10,7 +10,7 @@
         width: 100vw;
         height: 100dvh;
         overflow: hidden;
-        background: #C6D4BE;
+        background: transparent;
         isolation: isolate;
         padding: 0 !important;
     }
@@ -19,7 +19,7 @@
         inset: 0 !important;
         width: 100vw;
         height: 100dvh;
-        background: #C6D4BE !important;
+        background: var(--modal-scrim) !important;
     }
     #paymentFormModal .payment-modal-viewport {
         position: fixed;
@@ -29,7 +29,7 @@
         justify-content: center;
         padding: 40px 18px;
         overflow: hidden;
-        background: #C6D4BE;
+        background: transparent;
     }
     #paymentFormModal .payment-modal-sheet {
         width: min(1120px, 100%);

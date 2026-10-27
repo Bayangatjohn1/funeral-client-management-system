@@ -16,6 +16,7 @@
     $showMoreFilters = $showMoreFilters ?? true;
     $showSort = $showSort ?? false;
     $showBranchField = $showBranchField ?? true;
+    $dateInMoreFilters = $dateInMoreFilters ?? false;
     $useDateDisplayLabel = $useDateDisplayLabel ?? false;
     $sortOptions = $sortOptions ?? [];
     $sort = $sort ?? request('sort', 'newest');
@@ -41,6 +42,7 @@
         $encoderLabel = $selectedEncoder?->name ?? 'Selected Encoder';
     }
     $advancedFilterCount = collect([
+        $dateInMoreFilters && (filled($datePreset) || filled($dateFrom ?? null) || filled($dateTo ?? null)),
         $showCaseStatus && filled(request('case_status')),
         filled(request('payment_status')),
         $showVerificationStatus && filled(request('verification_status')),
@@ -154,9 +156,9 @@
             </div>
         @endif
 
-        @if($activeFilters > 0)
+        @if($activeFilters > 0 && !($showPerPage ?? false))
             <div class="case-compact-actions">
-                <a href="{{ $resetUrl }}" class="case-compact-reset" data-case-clear-filters>
+                <a href="{{ $resetUrl }}" class="case-compact-reset filter-clear-action" data-case-clear-filters>
                     <i class="bi bi-x-circle"></i>
                     <span>Clear</span>
                 </a>
@@ -188,39 +190,9 @@
             </div>
         @endif
 
-        <div class="case-compact-seg case-compact-date-filter" role="group" aria-label="Date encoded preset filter">
-            <i class="bi bi-calendar3 case-compact-date-icon"></i>
-            @if($useDateDisplayLabel)
-                <span class="case-compact-date-label" aria-hidden="true">{{ $dateControlLabel }}</span>
-            @endif
-            <select name="date_preset" class="case-compact-date-select" data-case-date-preset-select aria-label="Date encoded filter">
-                <option value="" @selected(blank($datePreset))>All Dates</option>
-                <option value="TODAY" @selected($datePreset === 'TODAY')>Today</option>
-                <option value="THIS_MONTH" @selected($datePreset === 'THIS_MONTH')>This Month</option>
-                <option value="THIS_YEAR" @selected($datePreset === 'THIS_YEAR')>This Year</option>
-                <option value="CUSTOM" @selected($datePreset === 'CUSTOM')>Custom Range</option>
-            </select>
-            <i class="bi bi-chevron-down case-compact-date-chev"></i>
-
-            <div class="case-compact-custom">
-                <div class="case-compact-popover" data-case-custom-panel @if($datePreset !== 'CUSTOM') hidden @endif>
-                    <div class="case-compact-pop-fields">
-                        <div class="case-compact-pop-field">
-                            <label>From</label>
-                            <input type="date" name="date_from" value="{{ $dateFrom ?? '' }}" class="case-compact-pop-input">
-                        </div>
-                        <div class="case-compact-pop-field">
-                            <label>To</label>
-                            <input type="date" name="date_to" value="{{ $dateTo ?? '' }}" class="case-compact-pop-input">
-                        </div>
-                    </div>
-                    <div class="case-compact-pop-actions">
-                        <button type="submit" name="date_preset" value="CUSTOM" class="case-compact-pop-apply">Apply</button>
-                        <a href="{{ $resetUrl }}" class="case-compact-pop-reset">Reset</a>
-                    </div>
-                </div>
-            </div>
-        </div>
+        @unless($dateInMoreFilters)
+        @include('partials.case_date_filter_control')
+        @endunless
 
         @if($showSort && !empty($sortOptions))
             <div class="case-compact-seg case-compact-sort-filter" role="group" aria-label="Sort case records">
@@ -244,17 +216,32 @@
         @if($showPerPage ?? false)
             <div class="case-rows-per-page">
                 <label for="case-records-per-page">Rows per page</label>
+                <span class="case-page-size-control">
                 <select id="case-records-per-page" name="per_page" class="case-compact-input" data-case-auto-submit>
                     @foreach([10, 25, 50, 100] as $pageSize)
                         <option value="{{ $pageSize }}" @selected($cases->perPage() === $pageSize)>{{ $pageSize }}</option>
                     @endforeach
                 </select>
+                <i class="bi bi-chevron-down case-page-size-chevron" aria-hidden="true"></i>
+                </span>
             </div>
         @endif
 
+        @if(($showPerPage ?? false) && $activeFilters > 0)
+            <div class="case-compact-actions">
+                <a href="{{ $resetUrl }}" class="case-compact-reset filter-clear-action" data-case-clear-filters>
+                    <i class="bi bi-x-circle" aria-hidden="true"></i><span>Clear</span>
+                </a>
+            </div>
+        @endif
     </div>
     @if(($showPerPage ?? false) && $advancedFilterCount > 0)
         <div class="case-applied-filters" aria-label="Applied filters">
+            @if($dateInMoreFilters && $dateLabel)
+                <a href="{{ request()->url() . '?' . http_build_query(request()->except(['page', 'date_preset', 'date_from', 'date_to'])) }}" class="case-compact-chip" aria-label="Remove date encoded filter">
+                    {{ $dateLabel }} <i class="bi bi-x" aria-hidden="true"></i>
+                </a>
+            @endif
             @foreach(['payment_status' => 'Payment', 'package_id' => 'Package', 'encoded_by' => 'Encoded by', 'interment_from' => 'Interment from', 'interment_to' => 'Interment to'] as $filterKey => $filterLabel)
                 @if(request()->filled($filterKey))
                     @php
@@ -288,6 +275,12 @@
                 </div>
 
                 <div class="case-compact-advanced-grid">
+                    @if($dateInMoreFilters)
+                        <div class="case-compact-field case-compact-advanced-date">
+                            <label>Date Encoded</label>
+                            @include('partials.case_date_filter_control')
+                        </div>
+                    @endif
                     @if($showCaseStatus)
                         <div class="case-compact-field">
                             <label>Case Status</label>
@@ -382,9 +375,9 @@
 
                 <div class="case-compact-advanced-actions">
                     @if($showPerPage ?? false)
-                        <button type="button" class="case-compact-advanced-clear" data-case-more-reset>Reset</button>
+                        <button type="button" class="case-compact-advanced-clear filter-clear-action" data-case-more-reset><i class="bi bi-x-circle" aria-hidden="true"></i>Clear</button>
                     @else
-                        <a href="{{ $resetUrl }}" class="case-compact-advanced-clear">Clear</a>
+                        <a href="{{ $resetUrl }}" class="case-compact-advanced-clear filter-clear-action"><i class="bi bi-x-circle" aria-hidden="true"></i>Clear</a>
                     @endif
                     <button type="submit" class="case-compact-pop-apply">
                         <i class="bi bi-funnel"></i>

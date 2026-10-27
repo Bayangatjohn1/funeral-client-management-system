@@ -1,5 +1,9 @@
 # Deployment Guide
 
+For offline branch installations and central synchronization, follow
+[the branch deployment runbook](docs/offline-branch-deployment.md). Sync defaults
+to `standalone` and must be explicitly provisioned after staging validation.
+
 This project is a Laravel application. In production, the domain document root must point to the `public` directory.
 
 ## Server Requirements

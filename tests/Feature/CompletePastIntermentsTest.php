@@ -86,18 +86,13 @@ class CompletePastIntermentsTest extends TestCase
         $this->assertSame('DRAFT', $case->refresh()->case_status);
     }
 
-    public function test_cancelled_case_with_past_interment_datetime_stays_cancelled_when_supported(): void
+    public function test_supported_non_active_case_status_is_not_auto_completed(): void
     {
         $this->travelTo(Carbon::parse('2026-04-30 14:01:00'));
-
-        $case = $this->createCase([
-            'case_status' => 'CANCELLED',
-            'interment_at' => '2026-04-30 13:00:00',
-        ]);
-
+        // CANCELLED is not an approved value in the application's MySQL enum or intake validation.
+        $case = $this->createCase(['case_status' => 'DRAFT', 'interment_at' => '2026-04-30 13:00:00']);
         $this->assertSame(0, FuneralCase::completePastInterments());
-
-        $this->assertSame('CANCELLED', $case->refresh()->case_status);
+        $this->assertSame('DRAFT', $case->refresh()->case_status);
     }
 
     public function test_completed_case_stays_completed(): void

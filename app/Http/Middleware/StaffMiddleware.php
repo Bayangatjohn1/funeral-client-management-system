@@ -15,7 +15,8 @@ class StaffMiddleware
             abort(403, 'Unauthorized');
         }
 
-        $isIntakeStore = $request->routeIs('intake.store', 'intake.main.store', 'intake.other.store') && method_exists($user, 'isAdmin') && $user->isAdmin();
+        // System Admin's existing paid other-branch report is a separate, explicitly authorized workflow.
+        $isIntakeStore = $request->routeIs('intake.other.store') && $user->isMainBranchAdmin();
         $isOtherBranchReport = $request->routeIs('intake.other.create', 'funeral-cases.other-reports') && method_exists($user, 'isMainBranchAdmin') && $user->isMainBranchAdmin();
         $isBranchAdminReminder = $request->routeIs('staff.reminders.index') && method_exists($user, 'isBranchAdmin') && $user->isBranchAdmin();
         $isOwnerPaymentRedirect = $request->routeIs('payments.index') && method_exists($user, 'isOwner') && $user->isOwner();

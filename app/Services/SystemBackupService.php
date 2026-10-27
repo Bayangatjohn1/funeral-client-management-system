@@ -22,27 +22,61 @@ class SystemBackupService
             throw new RuntimeException('A backup is already being created. Please wait for it to finish.');
         }
 
+        $backup = null;
         try {
-            return $this->createBackup($type, $actorId);
+            // With the creation lease acquired, older unfinished attempts cannot be advertised as progressing.
+            // This is an unconfirmed-completion classification, not proof that a process has stopped.
+            SystemBackup::where('status', 'running')->where('created_at', '<=', now()->subMinutes(15))
+                ->update(['status' => 'failed', 'failure_message' => 'Backup completion is unconfirmed after the lock window; inspect worker logs before using this attempt.']);
+            if (config('branch_sync.mode') === 'branch') {
+                $syncLock = Cache::lock('branch-sync-worker', 900);
+                if (! $syncLock->get()) {
+                    throw new RuntimeException('Wait for synchronization to finish before backing up this branch.');
+                }
+                try {
+                    // Commit the attempt record outside the operational snapshot transaction so failure survives rollback.
+                    $backup = $this->startBackup($type, $actorId);
+                    return DB::transaction(function () use ($backup) {
+                        // Match intake/payment/capture locks until the database and files are both archived.
+                        DB::table('branch_sync_state')->where('key', 'installation')->lockForUpdate()->first();
+                        return $this->createBackup($backup);
+                    });
+                } finally {
+                    $syncLock->release();
+                }
+            }
+            $backup = $this->startBackup($type, $actorId);
+            return $this->createBackup($backup);
+        } catch (\Throwable $error) {
+            if ($backup) {
+                $details = $backup->only(['path', 'size_bytes', 'checksum', 'metadata']);
+                $backup->refresh()->update(array_merge($details, [
+                    'status' => 'failed', 'failure_message' => mb_substr($error->getMessage(), 0, 4000),
+                ]));
+            }
+            throw $error;
         } finally {
             $lock->release();
         }
     }
 
-    private function createBackup(string $type, ?int $actorId): SystemBackup
+    private function startBackup(string $type, ?int $actorId): SystemBackup
     {
-        $backup = SystemBackup::create([
+        return SystemBackup::create([
             'created_by' => $actorId,
             'type' => $type,
             'status' => 'running',
             'disk' => config('backup.disk'),
             'expires_at' => now()->addDays(config('backup.retention_days')),
         ]);
+    }
 
+    private function createBackup(SystemBackup $backup): SystemBackup
+    {
         $work = storage_path('app/private/backup-work/'.$backup->id);
-        File::ensureDirectoryExists($work);
 
         try {
+            File::ensureDirectoryExists($work);
             $dump = $work.'/database.sql';
             $this->dumpDatabase($dump);
 
@@ -53,6 +87,10 @@ class SystemBackupService
                 'database' => DB::getDatabaseName(),
                 'migrations' => DB::table('migrations')->count(),
                 'includes_private_files' => true,
+                'includes_public_files' => true,
+                'deployment_mode' => config('branch_sync.mode'),
+                'branch_code' => config('branch_sync.branch_code'),
+                'key_required' => 'Restore requires the original APP_KEY, kept separately from this archive.',
             ];
             File::put($work.'/manifest.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
@@ -61,7 +99,9 @@ class SystemBackupService
 
             $encrypted = Crypt::encryptString(File::get($zipPath));
             $relativePath = trim(config('backup.directory'), '/').'/'.now()->format('Y/m').'/funeral-system-'.$backup->id.'-'.now()->format('Ymd-His').'.backup';
-            Storage::disk(config('backup.disk'))->put($relativePath, $encrypted);
+            if (!Storage::disk(config('backup.disk'))->put($relativePath, $encrypted)) {
+                throw new RuntimeException('Unable to write the encrypted backup to configured storage.');
+            }
             $checksum = hash('sha256', $encrypted);
 
             $backup->update([
@@ -73,9 +113,6 @@ class SystemBackupService
             ]);
 
             return $this->verify($backup);
-        } catch (\Throwable $e) {
-            $backup->update(['status' => 'failed', 'failure_message' => mb_substr($e->getMessage(), 0, 4000)]);
-            throw $e;
         } finally {
             File::deleteDirectory($work);
         }
@@ -83,6 +120,7 @@ class SystemBackupService
 
     public function verify(SystemBackup $backup): SystemBackup
     {
+        try {
         if (!$backup->path || !Storage::disk($backup->disk)->exists($backup->path)) {
             throw new RuntimeException('Backup file is missing.');
         }
@@ -113,6 +151,12 @@ class SystemBackupService
             'failure_message' => null,
         ]);
         return $backup->refresh();
+        } catch (\Throwable $error) {
+            if ($backup->status !== 'expired') {
+                $backup->update(['status' => 'failed', 'failure_message' => mb_substr($error->getMessage(), 0, 4000)]);
+            }
+            throw $error;
+        }
     }
 
     public function deleteExpired(): int
@@ -135,7 +179,11 @@ class SystemBackupService
         $connection = config('database.default');
         $config = config("database.connections.$connection");
         if (($config['driver'] ?? null) === 'sqlite') {
-            File::copy($config['database'], $target);
+            if (DB::transactionLevel() > 0) {
+                throw new RuntimeException('A consistent live branch backup requires MySQL/MariaDB. For SQLite, stop all writers and use the documented cold-backup procedure.');
+            }
+            // SQLite online backup includes committed WAL pages; copying just the main file does not.
+            DB::unprepared('VACUUM INTO '.DB::getPdo()->quote($target));
             return;
         }
         if (!in_array($config['driver'] ?? null, ['mysql', 'mariadb'], true)) {
@@ -154,12 +202,18 @@ class SystemBackupService
         if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) throw new RuntimeException('Unable to create backup archive.');
         $zip->addFile($dump, 'database.sql');
         $zip->addFile($manifest, 'manifest.json');
-        $private = storage_path('app/private');
+        $private = Storage::disk('local')->path('');
         if (File::isDirectory($private)) {
             foreach (File::allFiles($private) as $file) {
                 $real = $file->getRealPath();
                 if (str_contains(str_replace('\\', '/', $real), '/backup-work/') || str_contains(str_replace('\\', '/', $real), '/system-backups/')) continue;
                 $zip->addFile($real, 'private/'.str_replace('\\', '/', $file->getRelativePathname()));
+            }
+        }
+        $public = Storage::disk('public')->path('');
+        if (File::isDirectory($public)) {
+            foreach (File::allFiles($public) as $file) {
+                $zip->addFile($file->getRealPath(), 'public/'.str_replace('\\', '/', $file->getRelativePathname()));
             }
         }
         $zip->close();

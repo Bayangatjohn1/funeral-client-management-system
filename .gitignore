@@ -14,10 +14,17 @@
 /auth.json
 /node_modules
 /public/build
+/public/vendor/offline
 /public/hot
 /public/storage
 /storage/*.key
 /storage/framework/dusk-chrome-profile-*/
+/storage/framework/functional-ux-review-*/
+/storage/framework/backup-acceptance-runtime/
+# Local QA outputs; curated validation reports belong in docs/.
+/storage/framework/*.txt
+/storage/framework/*.xml
+/storage/framework/*.json
 /storage/pail
 /vendor
 Homestead.json

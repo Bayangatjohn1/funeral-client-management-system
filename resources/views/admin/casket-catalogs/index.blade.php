@@ -44,7 +44,7 @@
             </div>
 
             <div class="table-system-toolbar">
-                <form method="GET" class="table-toolbar" data-table-toolbar data-live-search-suggestions data-live-search-commit-only data-search-debounce="500" style="grid-template-columns:minmax(260px, 1.8fr) minmax(170px, .75fr) auto;">
+                <form method="GET" class="table-toolbar" data-table-toolbar data-catalog-filter-toolbar data-live-search-suggestions data-live-search-commit-only data-search-debounce="500">
                     <div class="table-toolbar-field">
                         <label class="table-toolbar-label">Search</label>
                         <div class="table-toolbar-input-wrap">
@@ -61,9 +61,10 @@
                         <div class="table-toolbar-select-wrap">
                             <i class="bi bi-activity table-toolbar-leading-icon" aria-hidden="true"></i>
                             <select name="status" class="table-toolbar-select" data-table-auto-submit>
-                                <option value="">All Status</option>
-                                <option value="active" @selected(request('status') === 'active')>Active</option>
-                                <option value="inactive" @selected(request('status') === 'inactive')>Archived</option>
+                                <option value="available" @selected(request('status', 'available') === 'available')>Available</option>
+                                <option value="unavailable" @selected(request('status') === 'unavailable')>Unavailable</option>
+                                <option value="archived" @selected(request('status') === 'archived')>Archived</option>
+                                <option value="all" @selected(request('status') === 'all')>All statuses</option>
                             </select>
                             <i class="bi bi-chevron-down table-toolbar-select-icon" aria-hidden="true"></i>
                         </div>
@@ -86,7 +87,7 @@
                 <table class="table-base table-system-table w-full">
                     <thead>
                         <tr>
-                            <th>Name</th>
+                            <th>Casket Name</th>
                             <th>Material</th>
                             <th class="table-col-number">Reference Value</th>
                             <th>Status</th>
@@ -99,6 +100,7 @@
                         @forelse($catalogs as $catalog)
                             <tr data-live-search-row data-live-search-title="{{ $catalog->name }}" data-live-search-meta="{{ $catalog->type_or_material ?: 'No material specified' }}" data-live-search-text="{{ $catalog->name }} {{ $catalog->type_or_material }} {{ $catalog->is_active ? 'Active' : 'Archived' }}">
                                 <td class="font-semibold catalog-primary-cell">
+                                    @include('admin.service-management.partials.photo', ['photoRecord' => $catalog, 'photoSize' => 'thumbnail'])
                                     <span data-catalog-cell="name">{{ $catalog->name }}</span>
                                 </td>
                                 <td>{{ $catalog->type_or_material ?: '—' }}</td>

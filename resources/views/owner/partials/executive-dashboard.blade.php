@@ -19,9 +19,9 @@
 @endphp
 <div class="oe" @if($range!=='ALL_TIME') data-comparison-url="{{ route('owner.dashboard',['branch_id'=>$branchId,'range'=>'CUSTOM','date_from'=>$o['previousStart']->toDateString(),'date_to'=>$o['previousEnd']->toDateString()]) }}" @endif data-owner-executive data-history-url="{{ route('owner.history') }}" data-details-url="{{ route('owner.dashboard.details') }}" data-branch="{{ $branchId }}" data-range="{{ $range }}" data-from="{{ $dateFrom }}" data-to="{{ $dateTo }}" data-scope="{{ $scopeLabel }}" data-period="{{ $periodLabel }}">
     <span class="sr-only">Owner Overview</span>
-    <section class="oe-executive-banner oe-card">
+    <section class="oe-executive-banner oe-card panel-title-surface">
     <header class="oe-header eb-greeting eb-greeting--flat">
-        <div><span class="oe-eyebrow oe-suite-label"><i class="bi bi-briefcase" aria-hidden="true"></i>Executive overview</span><h1>Owner Dashboard</h1><p>Good day, {{ \Illuminate\Support\Str::before(auth()->user()->name, ' ') }}. Review performance, compare branches, and identify collection exposure.</p></div>
+        <div><span class="oe-eyebrow oe-suite-label">Executive overview</span><h1>Owner Dashboard</h1><p>Good day, {{ \Illuminate\Support\Str::before(auth()->user()->name, ' ') }}. Review performance, compare branches, and identify collection exposure.</p></div>
         <div class="oe-header-actions">@include('partials.dashboard-header-controls')</div>
     </header>
 

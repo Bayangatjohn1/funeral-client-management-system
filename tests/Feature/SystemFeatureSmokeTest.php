@@ -10,6 +10,9 @@ use App\Models\Package;
 use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class SystemFeatureSmokeTest extends TestCase
@@ -75,6 +78,7 @@ class SystemFeatureSmokeTest extends TestCase
 
     public function test_staff_case_and_payment_features_work(): void
     {
+        Storage::fake('local');
         $mainBranch = $this->createBranch('BR001', 'Main Branch');
         $this->createBranch('BR002', 'Other Branch');
         $staff = $this->createUser('staff', $mainBranch);
@@ -108,17 +112,40 @@ class SystemFeatureSmokeTest extends TestCase
         $case = FuneralCase::query()->first();
         $this->assertNotNull($case);
 
+        $formId = (string) Str::uuid();
+        $proofId = $this->postJson(route('payment-proof.store'), ['form_id' => $formId, 'context' => 'payment'])
+            ->assertOk()->json('id');
+        $this->postJson(route('payment-proof.upload', $proofId), [
+            'proof' => UploadedFile::fake()->createWithContent('receipt.pdf', "%PDF-1.4\n%%EOF"),
+        ])->assertOk();
+
         $this->actingAs($staff)
             ->post('/payments/pay', [
                   'funeral_case_id' => $case->id,
+                  'submission_id' => (string) Str::uuid(),
                   'paid_at' => now()->format('Y-m-d H:i:s'),
                   'amount_paid' => (float) $case->total_amount,
                   'payment_method' => 'cash',
                   'accounting_reference_no' => 'OR-SMOKE-001',
+                  'receipt_or_no' => 'OR-SMOKE-001',
+                  'payment_proof_id' => $proofId,
+                  'payment_proof_form_id' => $formId,
                   'received_by' => 'Accounting Staff',
               ])
             ->assertRedirect(route('payments.index', absolute: false))
-            ->assertSessionHas('payment_summary_id');
+            ->assertSessionHas('payment_summary_id')
+            ->assertSessionHas('payment_success.id')
+            ->assertSessionHas('payment_success.record_no')
+            ->assertSessionHas('payment_success.case_code', $case->case_code);
+
+        $this->actingAs($staff)
+            ->followingRedirects()
+            ->get(route('payments.index', absolute: false))
+            ->assertOk()
+            ->assertSee('id="intakePaymentSuccess"', false)
+            ->assertSee('Payment recorded successfully')
+            ->assertSee('Print payment record')
+            ->assertSee($case->case_code);
 
         $case->refresh();
         $this->assertSame('PAID', $case->payment_status);
@@ -129,7 +156,7 @@ class SystemFeatureSmokeTest extends TestCase
         $this->actingAs($staff)
             ->get(route('payments.summary', $payment, absolute: false))
             ->assertOk()
-            ->assertSee('Payment Summary')
+            ->assertSee('Payment Record')
             ->assertSee('This document is for reference only and is not an Official Receipt.')
             ->assertSee('Fully Paid');
     }

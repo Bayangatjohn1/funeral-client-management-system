@@ -13,9 +13,6 @@
         : 'All Branches';
 
     $resolvedDatePreset = $datePreset ?? ((filled($dateFrom ?? null) || filled($dateTo ?? null)) ? 'CUSTOM' : 'THIS_MONTH');
-    if ($resolvedDatePreset === 'ANY' && (filled($dateFrom ?? null) || filled($dateTo ?? null))) {
-        $resolvedDatePreset = 'CUSTOM';
-    }
 
     $usesCustomCreatedDate = $resolvedDatePreset === 'CUSTOM';
     $createdPresetLabel = match ($resolvedDatePreset) {

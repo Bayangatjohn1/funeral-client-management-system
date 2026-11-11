@@ -1,4 +1,8 @@
 <!DOCTYPE html>
+@php
+    $worklistStylesInHead = request()->routeIs('funeral-cases.index','clients.index','payments.history','admin.payments.index','admin.payment-monitoring','historical-cases.index','historical-cases.show');
+    $useRecordSurfaces = $worklistStylesInHead || request()->routeIs('admin.cases.index','owner.history','admin.branches.index','admin.users.index','admin.service-management.index');
+@endphp
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
@@ -23,6 +27,13 @@
 
                 if (sourceUrl && sourceUrl !== currentUrl && (targetUrl === currentUrl || targetPath === currentPath)) {
                     document.documentElement.setAttribute('data-sidebar-nav-entry', 'true');
+                    if (entry.revealContent) {
+                        const root = document.documentElement;
+                        root.setAttribute('data-staff-sidebar-entry', 'true');
+                        document.addEventListener('DOMContentLoaded', () => {
+                            root.setAttribute('data-staff-sidebar-ready', 'true');
+                        }, { once: true });
+                    }
                     if (entry.label) {
                         document.documentElement.setAttribute('data-sidebar-nav-label', entry.label);
                     }
@@ -41,6 +52,12 @@
         html[data-sidebar-nav-entry='true'] [data-global-page-context-toast] {
             display: flex !important;
         }
+
+        /* Wait for the destination markup, inline styles and deferred setup. */
+        html[data-staff-sidebar-entry='true']:not([data-staff-sidebar-ready]) body[data-sidebar-manual]
+            :is(.page-content, [data-global-page-context-toast]) {
+            visibility: hidden;
+        }
     </style>
 
     <link href="{{ asset('vendor/offline/fonts.css') }}" rel="stylesheet">
@@ -50,8 +67,18 @@
     <title>@yield('page_title', 'Dashboard') - Sabangan Caguioa</title>
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    {{-- Load the final title geometry before first paint. Keeping this at the
+         end of <body> briefly exposed the legacy left-aligned header on reload. --}}
+    @include('partials.page-title-surface')
+    @if($worklistStylesInHead)
+        @stack('worklist-styles')
+        @include('partials.uniform_filter_styles')
+        @include('partials.shared_filter_ui')
+        @include('partials.record_surface_styles')
+        @include('partials.record_action_menu_styles')
+    @endif
 </head>
-<body class="panel-shell-body{{ auth()->user()?->role === 'staff' ? ' staff-ui' : '' }}{{ auth()->user()?->isBranchAdmin() ? ' branch-admin-ui' : '' }}{{ auth()->user()?->isSystemAdmin() ? ' system-admin-ui' : '' }}{{ auth()->user()?->isOwner() ? ' owner-ui' : '' }}" data-sidebar-manual>
+<body class="panel-shell-body{{ $useRecordSurfaces ? ' record-surface-ui' : '' }}{{ auth()->user()?->role === 'staff' ? ' staff-ui' : '' }}{{ auth()->user()?->isBranchAdmin() ? ' branch-admin-ui' : '' }}{{ auth()->user()?->isSystemAdmin() ? ' system-admin-ui' : '' }}{{ auth()->user()?->isOwner() ? ' owner-ui' : '' }}" data-sidebar-manual>
     <script>
         (function () {
             const desktopMedia = window.matchMedia('(min-width: 1024px)');
@@ -67,7 +94,7 @@
             document.body.setAttribute('data-sidebar-collapsed', 'true');
         })();
     </script>
-    
+
     <div id="globalLoadingIndicator" class="hidden">
         <div class="loading-pill">
             <div class="spin"></div>
@@ -178,6 +205,7 @@
                 $pageDesc = trim($__env->yieldContent('page_desc'));
                 $topbarActions = trim($__env->yieldContent('topbar_actions'));
                 $legacyHeaderActions = trim($__env->yieldContent('header_actions'));
+                $headerNavigation = trim($__env->yieldContent('header_navigation'));
                 $filterBar = trim($__env->yieldContent('filter_bar'));
                 $suppressLayoutPageHeader = trim($__env->yieldContent('suppress_layout_page_header')) === '1';
                 $authUser = auth()->user();
@@ -240,124 +268,18 @@
                         @yield('header_actions')
                     @endif
 
-                    @if($showTopbarNotifications)
-                    <div class="topbar-notification-wrap" data-notification>
-                        <button
-                            type="button"
-                            class="topbar-notification {{ $isReminderPage ? 'is-active' : '' }}"
-                            aria-label="Open schedules and reminders"
-                            aria-expanded="false"
-                            data-notification-toggle
-                        >
-                            <i class="bi bi-bell"></i>
-                            @if($notificationTotal > 0)
-                                <span class="topbar-notification__count" aria-hidden="true">{{ min($notificationTotal, 99) }}</span>
-                            @endif
-                        </button>
-
-                        <div class="topbar-notification-menu" data-notification-menu hidden>
-                            <div class="topbar-notification-menu__head">
-                                <div>
-                                    <strong>Reminders & Alerts</strong>
-                                    <small data-notification-summary>{{ $notificationTotal }} active alert{{ $notificationTotal === 1 ? '' : 's' }} need your attention</small>
-                                </div>
-                                @if($notificationHref)
-                                    <a href="{{ $notificationHref }}">View all <i class="bi bi-arrow-up-right"></i></a>
-                                @endif
-                            </div>
-
-                            <div class="topbar-notification-menu__list" data-notification-list>
-                                @forelse($topbarNotifications as $item)
-                                    @php
-                                        $itemClass = match ($item['bucket']) {
-                                            'due' => 'is-due',
-                                            'today' => 'is-today',
-                                            default => 'is-upcoming',
-                                        };
-                                        $itemIcon = match ($item['bucket']) {
-                                            'due' => 'bi-credit-card-2-front',
-                                            'today' => 'bi-calendar-day',
-                                            default => 'bi-calendar-event',
-                                        };
-                                        $itemDate = $item['date']?->format('M d, Y h:i A') ?? 'No date';
-                                        $daysAway = $item['date']
-                                            ? now()->startOfDay()->diffInDays($item['date']->copy()->startOfDay(), false)
-                                            : null;
-                                        $rightTag = match ($item['bucket']) {
-                                            'due' => 'Urgent',
-                                            'today' => 'Today',
-                                            default => ($daysAway === null ? 'Upcoming' : ($daysAway <= 0 ? 'Today' : $daysAway . ' day' . ($daysAway > 1 ? 's' : ''))),
-                                        };
-                                        $pillLabel = $item['bucket'] === 'due' ? 'Payment' : 'Schedule';
-                                        $detail = match ($item['bucket']) {
-                                            'due' => ($item['deceased_name'] ?? 'Client') . ' - ' . ($item['client_name'] ?? 'N/A') . ' has unsettled balance. Immediate follow-up required.',
-                                            'today' => ($item['deceased_name'] ?? 'Client') . ' - ' . ($item['client_name'] ?? 'N/A') . ' schedule is set today.',
-                                            default => ($item['deceased_name'] ?? 'Client') . ' - ' . ($item['client_name'] ?? 'N/A') . ' has upcoming schedule.',
-                                        };
-                                        $title = $item['bucket'] === 'due'
-                                            ? 'Balance Pending - ' . ($item['case_code'] ?? 'N/A')
-                                            : ($item['title'] . ' - ' . ($item['case_code'] ?? 'N/A'));
-                                    @endphp
-
-                                    @if($notificationHref)
-                                        <a
-                                            href="{{ route($notificationRouteName, ['tab' => $item['tab'], 'alert_type' => $item['alert_type']]) }}"
-                                            class="topbar-notification-card {{ $itemClass }}"
-                                            data-notification-item
-                                            data-bucket="{{ $item['bucket'] }}"
-                                        >
-                                            <div class="topbar-notification-card__icon"><i class="bi {{ $itemIcon }}"></i></div>
-                                            <div class="topbar-notification-card__content">
-                                                <div class="topbar-notification-card__head">
-                                                    <div class="topbar-notification-card__title">{{ $title }}</div>
-                                                    <span class="topbar-notification-card__tag">{{ $rightTag }}</span>
-                                                </div>
-                                                <div class="topbar-notification-card__text">{{ $detail }}</div>
-                                                <div class="topbar-notification-card__meta">
-                                                    <span class="topbar-notification-card__pill">{{ $pillLabel }}</span>
-                                                    <span>{{ $itemDate }}</span>
-                                                </div>
-                                            </div>
-                                        </a>
-                                    @else
-                                        <div class="topbar-notification-card {{ $itemClass }}" data-notification-item data-bucket="{{ $item['bucket'] }}">
-                                            <div class="topbar-notification-card__icon"><i class="bi {{ $itemIcon }}"></i></div>
-                                            <div class="topbar-notification-card__content">
-                                                <div class="topbar-notification-card__head">
-                                                    <div class="topbar-notification-card__title">{{ $title }}</div>
-                                                    <span class="topbar-notification-card__tag">{{ $rightTag }}</span>
-                                                </div>
-                                                <div class="topbar-notification-card__text">{{ $detail }}</div>
-                                                <div class="topbar-notification-card__meta">
-                                                    <span class="topbar-notification-card__pill">{{ $pillLabel }}</span>
-                                                    <span>{{ $itemDate }}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @endif
-                                @empty
-                                    <div class="topbar-notification-empty" data-notification-empty>
-                                        No alerts right now.
-                                    </div>
-                                @endforelse
-                                @if($topbarNotifications->isNotEmpty())
-                                    <div class="topbar-notification-empty" data-notification-empty hidden>
-                                        No alerts match this filter.
-                                    </div>
-                                @endif
-                            </div>
-
-                            <div class="topbar-notification-menu__footer">
-                                <button type="button" class="topbar-notification-footer-btn" data-notification-mark-read>Mark all as read</button>
-                                @if($notificationHref)
-                                    <a href="{{ $notificationHref }}" class="topbar-notification-footer-btn is-primary">Open Schedules <i class="bi bi-arrow-up-right"></i></a>
-                                @else
-                                    <button type="button" class="topbar-notification-footer-btn is-primary" disabled>Open Schedules</button>
-                                @endif
-                            </div>
-                        </div>
-                    </div>
-                    @endif
+                    @include('partials.topbar-notifications', [
+                        'authUser' => $authUser,
+                        'authRole' => $authRole,
+                        'showTopbarNotifications' => $showTopbarNotifications,
+                        'notificationRouteName' => $notificationRouteName,
+                        'notificationHref' => $notificationHref,
+                        'isReminderPage' => $isReminderPage,
+                        'topbarNotifications' => $topbarNotifications,
+                        'notificationCounts' => $notificationCounts,
+                        'notificationTotal' => $notificationTotal,
+                        'notificationPayload' => $payload ?? null,
+                    ])
 
                 </div>
             </header>
@@ -382,9 +304,9 @@
                 </button>
             @endif
 
-            <main class="page-content">
+            <main class="page-content{{ request()->routeIs('historical-cases.index') ? ' historical-cases-shell' : '' }}">
                 @if($showInlinePageHeader)
-                    <div class="panel-page-header panel-title-surface">
+                    <div class="panel-page-header panel-title-surface{{ $headerNavigation !== '' ? ' has-header-navigation' : '' }}">
                         <div class="panel-page-header__leading">
                             <button
                                 type="button"
@@ -416,6 +338,12 @@
                                 @endif
                             </div>
                         @endif
+
+                        @if($headerNavigation !== '')
+                            <div class="panel-page-header__navigation">
+                                @yield('header_navigation')
+                            </div>
+                        @endif
                     </div>
                 @endif
                 @if(auth()->user()?->isSystemAdmin() && request('return_to') === url('/admin') && !request()->is('admin'))
@@ -424,11 +352,27 @@
                 @include('partials.branch-sync-status')
                 @yield('content')
                 @include('partials.panel_scroll_top')
-                @include('partials.uniform_filter_styles')
-                @include('partials.shared_filter_ui')
+                @unless($worklistStylesInHead)
+                    @include('partials.uniform_filter_styles')
+                    @include('partials.shared_filter_ui')
+                    @if($useRecordSurfaces)
+                        @include('partials.record_surface_styles')
+                    @endif
+                    @include('partials.record_action_menu_styles')
+                @endunless
+                @if(request()->routeIs('funeral-cases.index','admin.cases.index','owner.history'))
+                    @include('partials.case_summary_drawer')
+                @endif
+                @if($isStaffAdminDashboard || request()->routeIs('owner.dashboard'))
+                    @include('partials.dashboard_surfaces')
+                @endif
             </main>
         </div>
     </div>
+
+    @if(auth()->user()?->isStaff())
+        @include('staff.intake.global-modal')
+    @endif
 
     @if(session('personal_password_set'))
         @include('partials.password_changed_welcome')
@@ -442,6 +386,9 @@
         <div class="flash-warning">{{ session('warning') }}</div>
     @endif
 
+    @if(auth()->user()?->isStaff() || auth()->user()?->isBranchAdmin() || auth()->user()?->isSystemAdmin())
+        <div hidden data-workflow-toast-url="{{ route('payments.corrections.notices') }}"></div>
+    @endif
     <script>
         (function () {
             const meta = {
@@ -452,15 +399,14 @@
             };
 
             const toasts = [...document.querySelectorAll('.flash-success, .flash-error, .flash-info, .flash-warning')];
-            if (!toasts.length) return;
-
-            const stack = document.createElement('div');
-            stack.className = 'flash-toast-stack';
-            stack.setAttribute('aria-live', 'polite');
-            stack.setAttribute('aria-atomic', 'true');
-            document.body.appendChild(stack);
-
-            toasts.forEach((el, idx) => {
+            function showToast(el, href) {
+                let stack = document.querySelector('.flash-toast-stack');
+                if (!stack) {
+                    stack = document.createElement('div');
+                    stack.className = 'flash-toast-stack';
+                    stack.setAttribute('aria-live', 'polite');
+                    document.body.appendChild(stack);
+                }
                 const type = Object.keys(meta).find((k) => el.classList.contains(k)) || 'flash-info';
                 const { icon, colorClass } = meta[type];
                 const customIcon = el.dataset.flashIcon || icon;
@@ -470,7 +416,8 @@
                 const iconEl = document.createElement('i');
                 iconEl.className = `bi ${customIcon} flash-icon ${colorClass}`;
 
-                const body = document.createElement('span');
+                const body = document.createElement(href ? 'a' : 'span');
+                if (href) body.href = href;
                 body.className = 'flash-body';
                 body.textContent = text;
 
@@ -493,12 +440,31 @@
                 };
 
                 closeBtn.addEventListener('click', dismiss);
-                const timer = setTimeout(dismiss, 5000);
+                let timer;
+                const scheduleDismiss = () => {
+                    clearTimeout(timer);
+                    if (!href || !el.matches(':hover, :focus-within')) timer = setTimeout(dismiss, href ? 10000 : 5000);
+                };
+                scheduleDismiss();
+                if (href) {
+                    el.addEventListener('pointerenter', () => clearTimeout(timer));
+                    el.addEventListener('pointerleave', scheduleDismiss);
+                    el.addEventListener('focusin', () => clearTimeout(timer));
+                    el.addEventListener('focusout', () => queueMicrotask(scheduleDismiss));
+                }
                 closeBtn.addEventListener('click', () => clearTimeout(timer));
 
                 // Trigger entrance after a micro-frame so CSS transition fires
                 requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('flash-show')));
-            });
+            }
+            window.showPanelToast = (message, tone = 'info', href) => {
+                const toast = document.createElement('div');
+                toast.className = Object.hasOwn(meta, 'flash-' + tone) ? 'flash-' + tone : 'flash-info';
+                toast.dataset.workflowToast = tone;
+                toast.textContent = message;
+                showToast(toast, href);
+            };
+            toasts.forEach(toast => showToast(toast));
         })();
     </script>
 
@@ -656,12 +622,18 @@
             });
 
             document.addEventListener('keydown', (event) => {
-                if (event.key === 'Escape') closeSidebar();
+                if (event.key === 'Escape' && !document.getElementById('staff-intake-dialog')?.open) closeSidebar();
             });
 
             document.addEventListener('click', (event) => {
                 const sidebarNavLink = event.target.closest('.sidebar a[href]');
-                if (sidebarNavLink) {
+                if (event.defaultPrevented && sidebarNavLink?.hasAttribute('data-intake-trigger')) {
+                    hideRailTooltip();
+                    return;
+                }
+                if (sidebarNavLink && !event.defaultPrevented && event.button === 0 &&
+                    !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey &&
+                    (!sidebarNavLink.target || sidebarNavLink.target === '_self')) {
                     try {
                         const target = new URL(sidebarNavLink.getAttribute('href'), window.location.href);
                         const currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
@@ -685,6 +657,7 @@
                                 targetPath,
                                 targetUrl,
                                 label,
+                                revealContent: true,
                             }));
                         }
                     } catch (_) {}
@@ -701,16 +674,116 @@
         (function () {
             const indicator = document.getElementById('globalLoadingIndicator');
             if (!indicator) return;
+            let finishPageSkeleton;
 
             function hideLoading() {
+                finishPageSkeleton?.(); finishPageSkeleton = null;
                 indicator.classList.add('hidden');
-                document.documentElement.classList.remove('page-nav-transition');
             }
 
-            function startPageTransition() {
+            function startPageTransition(destination) {
                 hideLoading();
-                document.documentElement.classList.add('page-nav-transition');
+                finishPageSkeleton = window.PanelSkeleton?.begin(document.querySelector('.page-content'), {immediate:true, variant:'navigation', destination});
             }
+
+            const historicalPageSelector = '.historical-cases-page, .records-page, .master-records-page';
+            let historicalNavigationPending = false;
+            const applyHistoricalRouteStyle = (style) => {
+                document.head.querySelector('[data-historical-route-style]')?.remove();
+                if (style) document.head.appendChild(style.cloneNode(true));
+            };
+            const executeHistoricalPageScripts = (page) => {
+                page.querySelectorAll('script:not([src])').forEach(oldScript => {
+                    const type = (oldScript.getAttribute('type') || 'text/javascript').toLowerCase();
+                    if (!['text/javascript', 'application/javascript', 'module'].includes(type)) return;
+                    const liveScript = document.createElement('script');
+                    for (const attribute of oldScript.attributes) liveScript.setAttribute(attribute.name, attribute.value);
+                    liveScript.textContent = oldScript.textContent;
+                    oldScript.replaceWith(liveScript);
+                });
+            };
+            const swapHistoricalPage = async (entry, url, { push = false, sourceUrl = null } = {}) => {
+                if (!entry?.page) return false;
+                const commit = () => {
+                    document.querySelector('.page-content')?.replaceWith(entry.page);
+                    document.title = entry.title;
+                    applyHistoricalRouteStyle(entry.style);
+                    if (push) {
+                        const current = sourceUrl || window.location.href;
+                        history.replaceState({ ...(history.state || {}), __historicalCasesPage: true }, '', current);
+                        history.pushState({ __historicalCasesPage: true, from: current }, '', url);
+                    }
+                    executeHistoricalPageScripts(entry.page);
+                    window.scrollTo({ top: 0, behavior: 'auto' });
+                };
+                const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                document.documentElement.classList.add('historical-route-switching');
+                try {
+                    if (!reduceMotion && typeof document.startViewTransition === 'function') {
+                        await document.startViewTransition(commit).finished;
+                    } else {
+                        commit();
+                    }
+                } finally {
+                    document.documentElement.classList.remove('historical-route-switching');
+                }
+                return true;
+            };
+            const fetchHistoricalPageEntry = async (targetUrl) => {
+                const response = await fetch(targetUrl, {
+                    credentials: 'same-origin',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' },
+                });
+                if (!response.ok) throw new Error('Historical navigation failed');
+                const html = await response.text();
+                const destination = new DOMParser().parseFromString(html, 'text/html');
+                const nextPage = destination.querySelector('.page-content');
+                if (!nextPage || !nextPage.querySelector(historicalPageSelector)) throw new Error('Destination page is not supported for partial navigation');
+                return {
+                    page: document.importNode(nextPage, true),
+                    title: destination.title || document.title,
+                    style: destination.head.querySelector('[data-historical-route-style]')?.cloneNode(true) ?? null,
+                };
+            };
+            const navigateHistoricalPage = async (url, { backHref = null } = {}) => {
+                const target = new URL(url, window.location.href);
+                const targetUrl = target.href;
+                const currentUrl = window.location.href;
+                if (targetUrl === currentUrl || historicalNavigationPending) return;
+
+                if (backHref && history.state?.__historicalCasesPage && history.state.from) {
+                    history.back();
+                    return;
+                }
+
+                historicalNavigationPending = true;
+                try {
+                    const entry = await fetchHistoricalPageEntry(targetUrl);
+                    await swapHistoricalPage(entry, targetUrl, { push: true, sourceUrl: currentUrl });
+                } catch (_) {
+                    window.location.assign(targetUrl);
+                } finally {
+                    historicalNavigationPending = false;
+                }
+            };
+
+            document.addEventListener('click', event => {
+                const target = event.target instanceof Element ? event.target : null;
+                const link = target?.closest('a[data-historical-transition][href]');
+                if (!link || !isNormalLeftClick(event) || link.target || link.hasAttribute('download')) return;
+                if (!isSameOriginLink(link)) return;
+                event.preventDefault();
+                navigateHistoricalPage(link.href, { backHref: link.classList.contains('hc-back-link') ? link.href : null });
+            }, true);
+
+            window.addEventListener('popstate', event => {
+                const url = window.location.href;
+                if (!event.state?.__historicalCasesPage) return;
+                event.stopImmediatePropagation();
+                fetchHistoricalPageEntry(url)
+                    .then(entry => swapHistoricalPage(entry, url))
+                    .catch(() => window.location.assign(url));
+            }, true);
 
             function isNormalLeftClick(e) {
                 return e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
@@ -718,9 +791,17 @@
 
             function shouldIgnoreNavigationLink(link, e) {
                 if (e.defaultPrevented || !link || !isNormalLeftClick(e)) return true;
-                if (link.target === '_blank' || link.hasAttribute('download')) return true;
+                // Historical Cases swaps only its page content; it does not use
+                // the generic full-page navigation skeleton.
+                if (link.hasAttribute('data-historical-transition')) return true;
+                if (link.closest('[role="tablist"], [role="tab"], .case-records-tabs, .table-quick-tabs, .table-system-quick-tabs, .service-hub-tabs, .pm-tabs, [data-pm-section-action], .rp-tabs-row, .schedule-section-tabs, .upcoming-view-switch, .reports-module-tabs, .reports-module-subtabs')) return true;
+                if (link.target === '_blank' || link.hasAttribute('download') || link.hasAttribute('data-service-form-cancel')) return true;
 
                 const href = link.getAttribute('href') || '';
+                try {
+                    const url = new URL(link.href, window.location.href);
+                    if (/\/(?:print|export|download)(?:\/|$)|\.(?:pdf|csv|xlsx?|docx?)$/i.test(url.pathname)) return true;
+                } catch (_) { return true; }
                 return !href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:');
             }
 
@@ -736,18 +817,43 @@
                 const targetUrl = new URL(link.href, window.location.href);
                 if (targetUrl.href === window.location.href) return false;
 
-                startPageTransition();
-                window.setTimeout(() => {
+                startPageTransition(targetUrl.href);
+                // Let the browser paint the immediate skeleton before leaving
+                // this document. This is a paint boundary, not a fixed wait.
+                let dispatched = false;
+                const navigate = () => {
+                    if (dispatched) return;
+                    dispatched = true;
                     window.location.href = targetUrl.href;
-                }, 140);
+                };
+                requestAnimationFrame(() => requestAnimationFrame(navigate));
+                // Background tabs can suspend animation frames; never leave
+                // navigation waiting indefinitely for a compositor frame.
+                window.setTimeout(navigate, 100);
 
                 return true;
             }
 
-            document.addEventListener('click', function (e) {
+            // Programmatic navigations (clickable rows and request fallbacks)
+            // use the same skeleton/view-transition owner as ordinary links.
+            window.SabanganNavigate = function (href) {
+                try {
+                    const link = document.createElement('a');
+                    link.href = new URL(href, window.location.href).href;
+                    if (!isSameOriginLink(link)) return false;
+                    return startNavTransition(link);
+                } catch (_) {
+                    return false;
+                }
+            };
+
+            // Page-specific document handlers get first refusal (including
+            // handlers registered later by deferred modules).
+            window.addEventListener('click', function (e) {
                 const link = e.target.closest('a[href]');
                 if (shouldIgnoreNavigationLink(link, e)) return;
                 if (!isSameOriginLink(link)) return;
+                if (link.closest('.sidebar')) return;
 
                 if (startNavTransition(link)) {
                     e.preventDefault();
@@ -755,15 +861,21 @@
             });
 
             document.addEventListener('submit', function (e) {
+                if (!(e.target instanceof HTMLFormElement) || e.target.method.toLowerCase() !== 'get') return;
                 setTimeout(function () {
-                    if (!e.defaultPrevented) startPageTransition();
+                    if (!e.defaultPrevented) startPageTransition(e.target.action);
                 }, 0);
             });
 
             window.addEventListener('pageshow', hideLoading);
             window.addEventListener('load', function () {
-                document.documentElement.classList.remove('page-nav-transition');
                 hideLoading();
+                if (document.documentElement.getAttribute('data-sidebar-nav-entry') !== 'true') return;
+                requestAnimationFrame(function () {
+                    requestAnimationFrame(function () {
+                        document.documentElement.setAttribute('data-sidebar-nav-settled', 'true');
+                    });
+                });
             });
         })();
 
@@ -818,7 +930,11 @@
                 close?.addEventListener('click', dismiss, { once: true });
                 window.clearTimeout(dismissTimer);
                 toast.classList.remove('is-leaving');
-                window.setTimeout(() => toast.classList.add('is-visible'), 60);
+                if (document.documentElement.hasAttribute('data-staff-sidebar-entry')) {
+                    toast.classList.add('is-visible');
+                } else {
+                    window.setTimeout(() => toast.classList.add('is-visible'), 60);
+                }
                 dismissTimer = window.setTimeout(dismiss, 3600);
             };
 
@@ -984,12 +1100,65 @@
             const menu = document.querySelector('[data-notification-menu]');
             if (!wrap || !toggle || !menu) return;
             const filterButtons = [...menu.querySelectorAll('[data-notification-filter]')];
-            const cards = [...menu.querySelectorAll('[data-notification-item]')];
+            const cards = () => [...menu.querySelectorAll('[data-notification-item]')];
             const emptyState = menu.querySelector('[data-notification-empty]') || menu.querySelector('.topbar-notification-empty');
             const markReadBtn = menu.querySelector('[data-notification-mark-read]');
-            const countBadge = toggle.querySelector('.topbar-notification__count');
+            let countBadge = toggle.querySelector('.topbar-notification__count');
             const countEls = [...menu.querySelectorAll('[data-notification-count]')];
             const summary = menu.querySelector('[data-notification-summary]');
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            const stateUrl = wrap.dataset.notificationStateUrl;
+            const readAllUrl = wrap.dataset.notificationReadAllUrl;
+            const notificationTones = ['danger', 'warning', 'info', 'plan', 'success', 'neutral'];
+
+            const setBellTone = (tone = 'neutral') => {
+                notificationTones.forEach((name) => toggle.classList.remove(`tone-${name}`));
+                toggle.classList.add(`tone-${notificationTones.includes(tone) ? tone : 'neutral'}`);
+            };
+
+            const syncBellTone = () => {
+                const unreadEntries = [...menu.querySelectorAll('[data-notification-entry][data-unread="true"]')];
+                const tone = notificationTones.find((name) => unreadEntries.some((entry) => entry.classList.contains(`tone-${name}`))) || 'neutral';
+                setBellTone(tone);
+            };
+
+            const postState = async (url, payload = {}, keepalive = false) => {
+                if (!url) return null;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    keepalive,
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrf,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify(payload),
+                });
+                if (!response.ok) throw new Error('Notification update failed');
+                return response.json();
+            };
+
+            const setUnreadCount = (unread) => {
+                unread = Math.max(0, Number(unread) || 0);
+                toggle.dataset.unreadTotal = String(unread);
+                if (unread > 0) {
+                    if (!countBadge) {
+                        countBadge = document.createElement('span');
+                        countBadge.className = 'topbar-notification__count';
+                        countBadge.setAttribute('aria-hidden', 'true');
+                        toggle.appendChild(countBadge);
+                    }
+                    countBadge.textContent = String(Math.min(unread, 99));
+                } else {
+                    countBadge?.remove();
+                    countBadge = null;
+                    setBellTone('neutral');
+                }
+                toggle.setAttribute('aria-label', unread > 0 ? `Notifications, ${unread} unread` : 'Notifications');
+                if (summary) summary.textContent = unread > 0 ? `${unread} unread update${unread === 1 ? '' : 's'}` : 'All caught up';
+                if (markReadBtn) markReadBtn.disabled = unread === 0;
+            };
 
             const positionNotificationMenu = () => {
                 if (menu.hidden || !window.matchMedia('(max-width: 640px)').matches) return;
@@ -1001,13 +1170,13 @@
             window.addEventListener('scroll', positionNotificationMenu, { passive: true, capture: true });
 
             const updateVisibleState = (bucket = 'all') => {
-                cards.forEach((card) => {
+                cards().forEach((card) => {
                     const cardBuckets = (card.getAttribute('data-buckets') || card.getAttribute('data-bucket') || '').split(/\s+/);
                     const show = bucket === 'all' || cardBuckets.includes(bucket);
                     card.hidden = !show;
                 });
 
-                const visibleCount = cards.filter((card) => !card.hidden).length;
+                const visibleCount = cards().filter((card) => !card.hidden).length;
                 if (emptyState) {
                     emptyState.hidden = visibleCount > 0;
                 }
@@ -1023,33 +1192,65 @@
             });
 
             if (markReadBtn) {
-                markReadBtn.addEventListener('click', () => {
-                    cards.forEach((card) => {
-                        card.hidden = true;
-                    });
-
-                    countEls.forEach((el) => {
-                        el.textContent = '0';
-                    });
-
-                    if (summary) {
-                        summary.textContent = '0 active alerts. All caught up.';
-                    }
-
-                    if (countBadge) {
-                        countBadge.remove();
-                    }
-
-                    filterButtons.forEach((btn) => btn.classList.remove('is-active'));
-                    const allBtn = filterButtons.find((btn) => btn.getAttribute('data-notification-filter') === 'all');
-                    if (allBtn) allBtn.classList.add('is-active');
-
-                    if (emptyState) {
-                        emptyState.textContent = 'All reminders are marked as read.';
-                        emptyState.hidden = false;
+                markReadBtn.addEventListener('click', async () => {
+                    markReadBtn.disabled = true;
+                    try {
+                        const result = await postState(readAllUrl, { branch_id: wrap.dataset.notificationBranchId || null });
+                        menu.querySelectorAll('[data-notification-entry]').forEach((entry) => {
+                            entry.classList.add('is-read');
+                            entry.dataset.unread = 'false';
+                        });
+                        toggle.dataset.reminders = '0';
+                        toggle.dataset.reminderTone = 'neutral';
+                        countEls.forEach((el) => { el.textContent = '0'; });
+                        setUnreadCount(result?.unread ?? 0);
+                        syncBellTone();
+                    } catch (_) {
+                        markReadBtn.disabled = false;
                     }
                 });
             }
+
+            menu.addEventListener('click', async (event) => {
+                const dismiss = event.target.closest('[data-notification-dismiss]');
+                const open = event.target.closest('[data-notification-open]');
+                const entry = event.target.closest('[data-notification-entry]');
+                const key = entry?.dataset.notificationKey;
+                if (!entry || !key || (!dismiss && !open)) return;
+
+                const payload = { key, action: dismiss ? 'dismiss' : 'read', branch_id: wrap.dataset.notificationBranchId || null };
+                if (dismiss) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    dismiss.disabled = true;
+                    const wasUnread = entry.dataset.unread === 'true';
+                    try {
+                        const result = await postState(stateUrl, payload);
+                        if (wasUnread && key.startsWith('reminder:')) {
+                            toggle.dataset.reminders = String(Math.max(0, (Number(toggle.dataset.reminders) || 0) - 1));
+                        }
+                        entry.remove();
+                        setUnreadCount(result?.unread ?? 0);
+                        syncBellTone();
+                        updateVisibleState('all');
+                    } catch (_) {
+                        dismiss.disabled = false;
+                    }
+                    return;
+                }
+
+                if (entry.dataset.unread === 'true') {
+                    entry.classList.add('is-read');
+                    entry.dataset.unread = 'false';
+                    if (key.startsWith('reminder:')) {
+                        toggle.dataset.reminders = String(Math.max(0, (Number(toggle.dataset.reminders) || 0) - 1));
+                    }
+                    const current = Number(toggle.dataset.unreadTotal || countBadge?.textContent || 0);
+                    setUnreadCount(Math.max(0, current - 1));
+                    syncBellTone();
+                    postState(stateUrl, payload, true).catch(() => {});
+                }
+            });
 
             const closeMenu = () => {
                 toggle.setAttribute('aria-expanded', 'false');
@@ -1076,6 +1277,8 @@
                     closeMenu();
                 }
             });
+
+            window.addEventListener('notification:tone-sync', syncBellTone);
 
             document.addEventListener('keydown', (event) => {
                 if (event.key === 'Escape') {
@@ -1157,7 +1360,7 @@
     </script>
 
 @include('partials.idle_session')
-@include('partials.page-title-surface')
+@include('staff.payments._workflow_styles')
 @if(auth()->user()?->isOwner())
 @include('owner.partials.visual-reference')
 @endif

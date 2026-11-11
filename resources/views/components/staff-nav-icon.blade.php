@@ -3,7 +3,7 @@
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         @switch($name)
             @case('dashboard')<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>@break
-            @case('new')<path d="M12 5v14M5 12h14"/>@break
+            @case('new')<path d="M12 5v14M5 12h14" stroke-width="2.5"/>@break
             @case('payments')<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>@break
             @case('reminders')
                 <rect x="3" y="4.5" width="18" height="16.5" rx="2.25" />

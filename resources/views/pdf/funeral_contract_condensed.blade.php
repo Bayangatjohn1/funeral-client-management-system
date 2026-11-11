@@ -110,18 +110,22 @@
         <td width="38%"><span class="vital-label">DIED</span> <span class="vital-value">{{ $date(data_get($deceased, 'date_of_death')) }}</span></td>
         <td width="24%"><span class="vital-label">AGE</span> <span class="vital-value">{{ data_get($deceased, 'age') }}</span></td>
     </tr></table>
+    @if($ceremonyLocation = data_get($schedule, 'funeral_ceremony_location'))
+        <table class="field"><tr><td class="field-label" style="width:36%">FUNERAL CEREMONY LOCATION</td><td class="field-value">{{ $ceremonyLocation }}</td></tr></table>
+    @endif
     <table class="field"><tr><td class="field-label" style="width:27%">INTERMENT DATE</td><td class="field-value">{{ $date(data_get($schedule, 'interment_date')) }}</td></tr></table>
     <table class="field"><tr><td class="field-label" style="width:17%">CEMETERY</td><td class="field-value">{{ data_get($schedule, 'cemetery') }}</td></tr></table>
 
     <p class="promise">And I/We hereby promise to pay all the obligation as stipulated here under:</p>
     <table class="obligations"><tr>
         <td class="services">
+            <strong>Basic Funeral Service Inclusions</strong>
+            <table class="service-row"><tr><td class="bullet">&bull;</td><td class="service-name">BODY RETRIEVAL</td><td class="service-value">{{ $includedValue('Body Retrieval') }}</td></tr></table>
             <table class="service-row"><tr><td class="bullet">&bull;</td><td class="service-name">CASKET/COFFIN</td><td class="service-value">{{ $casket }}</td></tr></table>
             <table class="service-row"><tr><td class="bullet">&bull;</td><td class="service-name">DAYS OF EMBALMING</td><td class="service-value">{{ $includedValue('Embalming') }}</td></tr></table>
             <table class="service-row"><tr><td class="bullet">&bull;</td><td class="service-name">HOME DECOR OR MORTUARY</td><td class="service-value">&nbsp;</td></tr></table>
             <table class="service-row"><tr><td class="bullet">&nbsp;</td><td class="service-name">ARRANGEMENT</td><td class="service-value">{{ $includedValue('Home Viewing Service') }}</td></tr></table>
             <table class="service-row"><tr><td class="bullet">&bull;</td><td class="service-name">FUNERAL HEARSE/COACH</td><td class="service-value">{{ $includedValue('Regular Hearse') }}</td></tr></table>
-            <table class="service-row"><tr><td class="bullet">&bull;</td><td class="service-name">EXTRA SERVICE/OTHERS</td><td class="service-value">&nbsp;</td></tr></table>
         </td>
         <td class="totals">
             <table class="total-row"><tr><td class="total-label">TOTAL AMOUNT</td><td class="total-value">{{ $money(data_get($view, 'totals.contract_total')) }}</td></tr></table>
@@ -132,6 +136,15 @@
             @endif
         </td>
     </tr></table>
+
+    @if(data_get($view, 'other_inclusions', []))
+        <strong>Other Inclusions</strong>
+        <ul>
+            @foreach(data_get($view, 'other_inclusions') as $item)
+                <li>{{ $item }}</li>
+            @endforeach
+        </ul>
+    @endif
 
     <table class="signatures"><tr>
         <td><div class="signature-space">&nbsp;</div><div class="signature-line">Lagda ng Nangako</div><div class="signature-sub">{{ data_get($client, 'name') }}</div></td>

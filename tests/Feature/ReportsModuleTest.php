@@ -737,15 +737,45 @@ class ReportsModuleTest extends TestCase
             ->assertJsonMissing(['action' => 'Other Action']);
     }
 
-    public function test_audit_logs_page_has_pdf_export_entry_point(): void
+    public function test_audit_logs_page_has_print_preview_entry_point(): void
     {
         $admin = $this->user('admin');
 
         $this->actingAs($admin)
             ->get('/admin/audit-logs')
             ->assertOk()
-            ->assertSee('PDF')
+            ->assertSee('Print Preview')
             ->assertSee(route('admin.audit-logs.exportPdf', absolute: false));
+    }
+
+    public function test_audit_search_respects_admin_scope_and_is_applied_to_pdf_export(): void
+    {
+        $branch = $this->branch('BR-SEARCH', 'Search Branch');
+        $other = $this->branch('BR-OTHER', 'Other Branch');
+        $actor = User::factory()->create(['name' => 'Search Fixture Operator', 'role' => 'staff', 'branch_id' => $branch->id]);
+        $system = User::factory()->create(['role' => 'admin', 'admin_scope' => 'system', 'branch_id' => $branch->id, 'is_active' => true]);
+        $local = AuditLog::create(['actor_id' => $actor->id, 'action' => 'payment.created', 'action_type' => 'create', 'branch_id' => $branch->id]);
+        $remote = AuditLog::create(['actor_id' => $actor->id, 'action' => 'payment.created', 'action_type' => 'create', 'branch_id' => $other->id]);
+        $targeted = AuditLog::create(['actor_id' => $actor->id, 'action' => 'case.updated', 'action_type' => 'update', 'branch_id' => $other->id, 'target_branch_id' => $branch->id]);
+
+        $this->actingAs($system)->get(route('admin.audit-logs.index', ['q' => 'Payment recorded']))
+            ->assertOk()->assertSee('aria-label="Search audit logs"', false)
+            ->assertViewHas('logs', fn ($logs) => $logs->getCollection()->modelKeys() === [$local->id, $remote->id] || $logs->getCollection()->modelKeys() === [$remote->id, $local->id]);
+
+        $this->actingAs($this->branchAdmin($branch));
+        $query = ['q' => 'Search Fixture Operator', 'action_type' => 'create'];
+        $this->get(route('admin.audit-logs.index', $query))->assertOk()
+            ->assertSee('aria-label="Search audit logs"', false)
+            ->assertViewHas('logs', fn ($logs) => $logs->getCollection()->modelKeys() === [$local->id]);
+        $this->get(route('admin.audit-logs.index', ['q' => '#'.$remote->id]))->assertOk()
+            ->assertViewHas('logs', fn ($logs) => $logs->isEmpty());
+        $this->get(route('admin.audit-logs.index', ['q' => '#'.$targeted->id]))->assertOk()
+            ->assertViewHas('logs', fn ($logs) => $logs->getCollection()->modelKeys() === [$targeted->id]);
+
+        $this->get(route('admin.audit-logs.exportPdf', $query))
+            ->assertRedirect(route('reports.exportPdf', ['report_type' => 'audit_logs', ...$query]));
+        $this->get(route('reports.exportPdf', ['report_type' => 'audit_logs', 'q' => '#'.$remote->id]))
+            ->assertOk()->assertViewHas('rows', fn ($rows) => $rows->isEmpty());
     }
 
     public function test_audit_logs_pdf_export_reuses_report_filters(): void
@@ -823,8 +853,10 @@ class ReportsModuleTest extends TestCase
         $main = $this->branch('BR001', 'Main Branch');
         $other = $this->branch('BR002', 'Second Branch');
 
-        $this->case($main, ['case_code' => 'MAIN-001', 'payment_status' => 'PAID', 'total_amount' => 10000, 'total_paid' => 10000, 'balance_amount' => 0]);
-        $this->case($other, ['case_code' => 'OTHER-001', 'payment_status' => 'PARTIAL', 'total_amount' => 15000, 'total_paid' => 5000, 'balance_amount' => 10000]);
+        $mainCase = $this->case($main, ['case_code' => 'MAIN-001', 'payment_status' => 'PAID', 'total_amount' => 10000, 'total_paid' => 10000, 'balance_amount' => 0]);
+        $otherCase = $this->case($other, ['case_code' => 'OTHER-001', 'payment_status' => 'PARTIAL', 'total_amount' => 15000, 'total_paid' => 5000, 'balance_amount' => 10000]);
+        Payment::create(['funeral_case_id' => $mainCase->id, 'branch_id' => $main->id, 'payment_record_no' => 'PAY-ANALYTICS-MAIN', 'amount' => 10000, 'paid_at' => now(), 'status' => 'POSTED']);
+        Payment::create(['funeral_case_id' => $otherCase->id, 'branch_id' => $other->id, 'payment_record_no' => 'PAY-ANALYTICS-OTHER', 'amount' => 5000, 'paid_at' => now(), 'status' => 'VALID']);
         $this->case($main, [
             'case_code' => 'PENDING-001',
             'payment_status' => 'PAID',
@@ -929,6 +961,145 @@ class ReportsModuleTest extends TestCase
         $this->assertSame(5000.0, (float) $case->fresh()->discount_amount);
     }
 
+    public function test_analytics_collections_use_only_explicitly_supported_payment_statuses(): void
+    {
+        $branch = $this->branch('BR904', 'Payment Predicate Branch');
+        $case = $this->case($branch, [
+            'case_code' => 'PAYMENT-PREDICATE', 'total_amount' => 10000,
+            'total_paid' => 3000, 'balance_amount' => 7000,
+        ]);
+        foreach ([
+            ['POSTED', 1000], ['VALID', 2000],
+            ['VOIDED', 4000], ['VOID', 5000], ['UNKNOWN', 6000],
+        ] as $index => [$status, $amount]) {
+            Payment::create([
+                'funeral_case_id' => $case->id, 'branch_id' => $branch->id,
+                'payment_record_no' => 'PAY-PRED-'.$index, 'amount' => $amount,
+                'paid_at' => now(), 'status' => $status,
+            ]);
+        }
+
+        $response = $this->actingAs($this->user('owner'))
+            ->getJson('/reports/preview?report_type=owner_branch_analytics');
+
+        $response->assertOk()->assertJsonPath('summary.collected_amount', 3000);
+        $this->assertSame(3000.0, (float) $case->fresh()->total_paid);
+        $this->assertStringContainsString('is null', strtolower(Payment::query()->validForReporting()->toSql()));
+    }
+
+    public function test_case_cohort_and_payment_period_use_independent_legacy_compatible_dates(): void
+    {
+        $branch = $this->branch('BR905', 'Date Basis Branch');
+        $case = $this->case($branch, [
+            'case_code' => 'CROSS-PERIOD', 'service_requested_at' => '2026-09-30',
+            'created_at' => '2026-10-01 08:00:00', 'total_paid' => 2500,
+            'balance_amount' => 7500,
+        ]);
+        Payment::create([
+            'funeral_case_id' => $case->id, 'branch_id' => $branch->id,
+            'payment_record_no' => 'PAY-CROSS-PERIOD', 'amount' => 2500,
+            'paid_at' => null, 'paid_date' => '2026-10-02',
+            'created_at' => '2026-10-03 08:00:00', 'status' => 'POSTED',
+        ]);
+
+        $response = $this->actingAs($this->user('owner'))->getJson('/reports/preview?'.http_build_query([
+            'report_type' => 'owner_branch_analytics',
+            'date_from' => '2026-10-01', 'date_to' => '2026-10-31',
+        ]));
+
+        $response->assertOk()
+            ->assertJsonPath('summary.total_cases', 0)
+            ->assertJsonPath('summary.gross_amount', 0)
+            ->assertJsonPath('summary.collected_amount', 2500);
+    }
+
+    public function test_corrected_payment_counts_only_the_valid_replacement_and_matches_case_total_paid(): void
+    {
+        $branch = $this->branch('BR906', 'Correction Contract Branch');
+        $case = $this->case($branch, [
+            'case_code' => 'CORRECTED-PAYMENT', 'total_amount' => 10000,
+            'total_paid' => 5000, 'balance_amount' => 5000,
+        ]);
+        $original = Payment::create([
+            'funeral_case_id' => $case->id, 'branch_id' => $branch->id,
+            'payment_record_no' => 'PAY-CORRECTED-ORIGINAL', 'amount' => 10000,
+            'paid_at' => now(), 'status' => 'VOIDED',
+        ]);
+        Payment::create([
+            'funeral_case_id' => $case->id, 'branch_id' => $branch->id,
+            'replaces_payment_id' => $original->id,
+            'payment_record_no' => 'PAY-CORRECTED-REPLACEMENT', 'amount' => 5000,
+            'paid_at' => now(), 'status' => 'POSTED',
+        ]);
+
+        $validTransactionTotal = (float) Payment::query()
+            ->where('funeral_case_id', $case->id)
+            ->validForReporting()
+            ->sum('amount');
+
+        $this->assertSame(5000.0, $validTransactionTotal);
+        $this->assertSame($validTransactionTotal, (float) $case->fresh()->total_paid);
+        $this->actingAs($this->user('owner'))
+            ->getJson('/reports/preview?report_type=owner_branch_analytics')
+            ->assertOk()
+            ->assertJsonPath('summary.collected_amount', 5000);
+    }
+
+    public function test_owner_all_time_exposes_the_actual_authorized_data_extent(): void
+    {
+        $branch = $this->branch('BR907', 'All Time Scope Branch');
+        $this->case($branch, [
+            'case_code' => 'ALL-TIME-EARLY',
+            'service_requested_at' => '2026-10-03',
+            'created_at' => '2026-10-03 08:00:00',
+        ]);
+        $lateCase = $this->case($branch, [
+            'case_code' => 'ALL-TIME-LATE',
+            'service_requested_at' => '2026-10-03',
+            'created_at' => '2026-10-03 09:00:00',
+        ]);
+        Payment::create([
+            'funeral_case_id' => $lateCase->id,
+            'branch_id' => $branch->id,
+            'payment_record_no' => 'PAY-ALL-TIME-LATEST',
+            'amount' => 500,
+            'paid_at' => '2026-10-04 09:00:00',
+            'status' => 'POSTED',
+        ]);
+
+        $this->actingAs($this->user('owner'))
+            ->get(route('owner.analytics', ['range' => 'ALL_DATES']))
+            ->assertOk()
+            ->assertViewHas('dateFrom', null)
+            ->assertViewHas('dateTo', null)
+            ->assertViewHas('availableDateFrom', '2026-10-03')
+            ->assertViewHas('availableDateTo', '2026-10-04')
+            ->assertSee('All Time selected · Available data: Oct 03, 2026 – Oct 04, 2026');
+    }
+
+    public function test_payment_sort_orders_case_groups_by_latest_nonvoid_payment_in_both_views(): void
+    {
+        $branch = $this->branch('SORT-CHECK','Sort check');
+        $outside = $this->branch('SORT-OTHER','Other branch');
+        $a = $this->case($branch,['case_code'=>'SORT-CHECK-A','balance_amount'=>300]);
+        $b = $this->case($branch,['case_code'=>'SORT-CHECK-B','balance_amount'=>100]);
+        $c = $this->case($branch,['case_code'=>'SORT-CHECK-C','balance_amount'=>200]);
+        $none = $this->case($branch,['case_code'=>'SORT-CHECK-NONE','balance_amount'=>400]);
+        $this->case($outside,['case_code'=>'SORT-CHECK-OUTSIDE']);
+        foreach ([[$a,'2026-04-01 09:00:00','POSTED'],[$a,'2026-04-30 09:00:00','POSTED'],[$b,'2026-04-15 09:00:00','POSTED'],[$c,'2026-04-30 09:00:00','POSTED'],[$a,'2026-09-30 09:00:00','VOIDED']] as [$case,$date,$status]) {
+            Payment::create(['branch_id'=>$branch->id,'funeral_case_id'=>$case->id,'amount'=>100,'paid_at'=>$date,'payment_method'=>'cash','status'=>$status]);
+        }
+        foreach ([$this->user('staff',$branch),$this->branchAdmin($branch),User::factory()->create(['role'=>'admin','admin_scope'=>'system','branch_id'=>$branch->id,'is_active'=>true])] as $actor) {
+            $route = $actor->isStaff() ? 'payments.history' : 'admin.payments.index';
+            foreach (['summary'=>'paymentCases','transactions'=>'transactionCases'] as $tab=>$key) {
+                foreach (['desc'=>[$c->id,$a->id,$b->id],'asc'=>[$b->id,$a->id,$c->id],'balance_high'=>[$a->id,$c->id,$b->id],'balance_low'=>[$b->id,$c->id,$a->id]] as $sort=>$expected) {
+                    if ($tab==='summary') { if ($sort==='balance_high') array_unshift($expected,$none->id); else $expected[]=$none->id; }
+                    $response = $this->actingAs($actor)->get(route($route,['tab'=>$tab,'q'=>'SORT-CHECK','sort'=>$sort,'per_page'=>10,'branch_id'=>$branch->id]))->assertOk();
+                    $this->assertSame($expected,$response->viewData($key)->pluck('id')->all());
+                }
+            }
+        }
+    }
     private function user(string $role, ?Branch $branch = null): User
     {
         if ($role === 'admin' && ! $branch) {

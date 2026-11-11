@@ -801,45 +801,7 @@ html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) :is(.user-create-pag
     }
 }
 
-/* Keep branch case-record controls and scrolling aligned with the staff worklist. */
-html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-filter {
-    display: grid !important;
-    grid-template-columns: minmax(17rem, 1fr) auto;
-    grid-template-areas: 'search filters' 'applied applied';
-    align-items: center !important;
-    gap: .65rem !important;
-    width: 100%;
-}
-html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-search-row {
-    display: contents !important;
-}
-html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-search-field {
-    grid-area: search;
-    min-width: 0 !important;
-    width: 100% !important;
-}
-html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-filter-bar {
-    grid-area: filters;
-    display: flex !important;
-    flex-wrap: nowrap !important;
-    width: auto !important;
-    min-width: 0 !important;
-    gap: .5rem;
-}
-html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-actions {
-    margin: 0 !important;
-}
-html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-applied-filters {
-    grid-area: applied;
-}
-html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-date-filter {
-    min-width: 9.5rem !important;
-    max-width: 12rem !important;
-}
-html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-sort-filter {
-    min-width: 9rem !important;
-    max-width: 11rem !important;
-}
+/* Master Case Records toolbar structure is owned by the shared records layout. */
 html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-system-list,
 html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-system-wrap,
 html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .table-wrapper {
@@ -855,25 +817,7 @@ html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page
     overflow-x: auto !important;
     overflow-y: visible !important;
 }
-@media (max-width: 1450px) {
-    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-filter {
-        grid-template-columns: minmax(0, 1fr);
-        grid-template-areas: 'search' 'filters' 'applied';
-    }
-    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-filter-bar {
-        justify-content: flex-start;
-        flex-wrap: wrap !important;
-        width: 100% !important;
-    }
-}
 @media (max-width: 700px) {
-    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-filter {
-        grid-template-columns: minmax(0, 1fr);
-        grid-template-areas: 'search' 'filters' 'applied';
-    }
-    html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .admin-table-toolbar .case-compact-actions {
-        justify-content: flex-start;
-    }
     html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .master-records-page .case-records-tabs {
         display: grid !important;
         grid-template-columns: repeat(4, minmax(0, 1fr)) !important;

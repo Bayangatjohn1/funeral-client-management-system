@@ -13,7 +13,7 @@ html[data-theme='dark'] :is(.sa,.sa-dialog,.sa-tooltip) {
 }
 body:has(.sa) .page-content { background:var(--sa-page-canvas,#DCE8E0); }
 html[data-theme='dark'] body:has(.sa) { --sa-page-canvas:#07130E; }
-.sa { width:min(100%,1440px); margin:auto; padding:16px 24px 32px; display:grid; gap:24px; background:var(--sa-canvas); font-size:14px; line-height:1.5; }
+.sa { width:100%; box-sizing:border-box; padding:16px 24px 32px; display:grid; gap:24px; background:var(--sa-canvas); font-size:14px; line-height:1.5; }
 .sa *, .sa-dialog * { box-sizing:border-box; min-width:0; }
 .sa h1 { font-size:clamp(24px,2.4vw,32px); line-height:1.2; margin:0; font-weight:700; }
 .sa h2, .sa-dialog h2 { font-size:18px; line-height:1.35; margin:0; font-weight:700; font-family:var(--font-heading); }

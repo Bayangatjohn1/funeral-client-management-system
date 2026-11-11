@@ -1,5 +1,4 @@
 <div class="dashboard-header-controls">
-    <div class="dashboard-header-date"><i class="bi bi-calendar3" aria-hidden="true"></i><span>{{ $dashboardDateLabel ?? now()->format('l, F j, Y') }}</span></div>
     @if($dashboardShowNotifications ?? false)
         @include('partials.topbar-notifications', [
             'compactNotificationMenu' => $dashboardCompactNotifications ?? false,

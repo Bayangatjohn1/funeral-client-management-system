@@ -530,7 +530,7 @@ html[data-theme='dark'] .ec-banner     { background: #2a0a0a; border-color: #7f1
                 <div class="ec-field">
                     <label class="ec-label" for="ec_client_rel">Relationship to Deceased</label>
                     <input type="text" id="ec_client_rel" name="client_relationship"
-                        value="{{ old('client_relationship', $funeral_case->client?->relationship_to_deceased) }}"
+                        value="{{ old('client_relationship', $funeral_case->clientRelationship()) }}"
                         class="form-input w-full" maxlength="100" placeholder="e.g. Spouse, Parent, Child">
                     @error('client_relationship')<div class="ec-err"><i class="bi bi-exclamation-circle"></i> {{ $message }}</div>@enderror
                 </div>
@@ -715,6 +715,15 @@ html[data-theme='dark'] .ec-banner     { background: #2a0a0a; border-color: #7f1
                         value="{{ old('funeral_service_time', $funeral_case->funeral_service_time ? substr($funeral_case->funeral_service_time, 0, 5) : '') }}"
                         class="form-input w-full">
                     @error('funeral_service_time')<div class="ec-err"><i class="bi bi-exclamation-circle"></i> {{ $message }}</div>@enderror
+                </div>
+
+                <div class="ec-field ec-full">
+                    @include('partials.ceremony-location-fields', [
+                        'ceremonyLocationMode' => old('funeral_ceremony_location_mode', $funeral_case->ceremony_at_wake_location ? 'wake' : 'custom'),
+                        'ceremonyLocationValue' => old('funeral_ceremony_location', $funeral_case->funeral_ceremony_location),
+                        'ceremonyLocationLabelClass' => 'ec-label',
+                        'ceremonyLocationLocked' => $isPricingFinalized ?? false,
+                    ])
                 </div>
 
                 <div class="ec-field ec-full">

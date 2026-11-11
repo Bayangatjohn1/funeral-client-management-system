@@ -10,6 +10,9 @@ class PackageInclusion extends Model
         'package_id',
         'service_type',
         'casket_catalog_id',
+        'hearse_catalog_id',
+        'add_on_catalog_id',
+        'included_quantity',
         'is_custom',
         'inclusion_name',
         'included_kilometers',
@@ -22,9 +25,10 @@ class PackageInclusion extends Model
 
     protected $casts = [
         'is_custom' => 'boolean',
-        'included_kilometers' => 'integer',
+        'included_kilometers' => 'float',
         'price_per_excess_kilometer' => 'decimal:2',
         'included_days' => 'integer',
+        'included_quantity' => 'integer',
         'price_per_extended_day' => 'decimal:2',
         'sort_order' => 'integer',
     ];
@@ -42,6 +46,13 @@ class PackageInclusion extends Model
     public function setServiceTypeAttribute($value): void
     {
         $this->attributes['service_type'] = Package::normalizeServiceType($value);
+    }
+
+    public function hearseCatalog() { return $this->belongsTo(HearseCatalog::class); }
+
+    public function addOnCatalog()
+    {
+        return $this->belongsTo(AddOnCatalog::class);
     }
 
     public function casketCatalog()

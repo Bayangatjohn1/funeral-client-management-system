@@ -255,12 +255,14 @@ class CaseSnapshotSafeEditingTest extends TestCase
         $before = $case->fresh()->getAttributes();
 
         $this->actingAs($staff)
-            ->post(route('payments.store', absolute: false), [
+            ->post(route('payments.store', absolute: false), array_merge([
                 'funeral_case_id' => $case->id,
+                'submission_id' => (string) \Illuminate\Support\Str::uuid(),
                 'paid_at' => '2026-07-23 09:00:00',
                 'amount_paid' => 1000,
                 'payment_method' => 'cash',
-            ])
+                'receipt_or_no' => 'OR-SNAPSHOT-001',
+            ], $this->uploadedPaymentProof($staff)))
             ->assertRedirect();
 
         $case->refresh();

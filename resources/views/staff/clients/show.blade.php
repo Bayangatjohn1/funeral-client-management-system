@@ -4,7 +4,11 @@
 @section('page_desc', 'Review client profile, linked cases, and contact details.')
 
 @section('content')
-@include('staff.clients.partials.show-content')
+@include('partials.worklist_consistency_styles')
+@include('staff.clients.partials.directory-styles')
+<div class="client-profile-surface client-profile-page">
+    @include('staff.clients.partials.show-content')
+</div>
 
 <script>
     (() => {

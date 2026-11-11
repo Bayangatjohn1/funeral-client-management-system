@@ -9,6 +9,7 @@ use App\Models\Package;
 use App\Models\Payment;
 use App\Models\User;
 use App\Services\BranchAnalyticsService;
+use App\Support\ReportingPeriod;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -62,7 +63,7 @@ class ReportController extends Controller
 
         $validated = $request->validate([
             'branch_id' => 'nullable|integer|exists:branches,id',
-            'range' => 'nullable|in:TODAY,THIS_MONTH,THIS_YEAR,CUSTOM',
+            'range' => 'nullable|in:TODAY,THIS_WEEK,THIS_MONTH,LAST_MONTH,THIS_QUARTER,LAST_QUARTER,FIRST_HALF,SECOND_HALF,THIS_YEAR,LAST_YEAR,ALL_DATES,CUSTOM',
             'date_from' => 'nullable|date',
             'date_to' => 'nullable|date|after_or_equal:date_from',
             'analytics_tab' => 'nullable|string|max:80',
@@ -225,6 +226,7 @@ class ReportController extends Controller
             'module' => ['nullable', 'string', 'max:120'],
             'entity_type' => ['nullable', 'string', 'max:120'],
             'audit_log_id' => ['nullable', 'integer', 'min:1'],
+            'q' => ['nullable', 'string', 'max:100'],
         ]);
 
         return array_filter($validated, fn ($value) => $value !== null && $value !== '');
@@ -249,7 +251,7 @@ class ReportController extends Controller
                 'recordedBy:id,name',
                 'encodedBy:id,name',
             ])
-            ->where(fn ($status) => $status->whereNull('status')->orWhereNotIn('status', ['VOID', 'VOIDED']))
+            ->validForReporting()
             ->whereHas('funeralCase')
             ->orderByRaw('COALESCE(paid_at, paid_date, created_at) DESC');
 
@@ -350,8 +352,12 @@ class ReportController extends Controller
 
     private function getAuditLogsReportData(Request $request, array $branchScope): array
     {
-        $request->validate(['audit_log_id' => ['nullable', 'integer', 'min:1']]);
+        $filters = $request->validate([
+            'audit_log_id' => ['nullable', 'integer', 'min:1'],
+            'q' => ['nullable', 'string', 'max:100'],
+        ]);
         $query = AuditLog::with(['actor:id,name,first_name,last_name,role', 'branch:id,branch_code,branch_name'])
+            ->matchingSearch($filters['q'] ?? null)
             ->latest('created_at');
         if ($request->filled('audit_log_id')) {
             $query->whereKey((int) $request->input('audit_log_id'));
@@ -396,10 +402,10 @@ class ReportController extends Controller
             $request->filled('date_to') ? $request->input('date_to') : null,
         );
         if ($startAt) {
-            $query->where('created_at', '>=', $startAt);
+            $query->whereRaw('COALESCE(service_requested_at, created_at) >= ?', [$startAt]);
         }
         if ($endAt) {
-            $query->where('created_at', '<=', $endAt);
+            $query->whereRaw('COALESCE(service_requested_at, created_at) <= ?', [$endAt]);
         }
 
         $rows = $query->get()->map(fn (AuditLog $log) => [
@@ -496,8 +502,8 @@ class ReportController extends Controller
                 'funeralCase.client',
                 'funeralCase.deceased',
             ])
-            ->where(fn ($q) => $q->whereIn('status', ['VALID', 'POSTED'])->orWhereNull('status'))
-            ->latest('paid_at');
+            ->validForReporting()
+            ->orderByRaw('COALESCE(paid_at, paid_date, created_at) DESC');
 
         // Apply branch scope on the payments table
         if ($branchScope['forced_branch_id'] ?? null) {
@@ -506,16 +512,16 @@ class ReportController extends Controller
             $query->where('branch_id', (int) $request->input('branch_id'));
         }
 
-        // Date filter on paid_at
+        // Payment-period filter uses the legacy-compatible received-date priority.
         [$startAt, $endAt] = $this->parseDateBounds(
             $request->filled('date_from') ? $request->input('date_from') : null,
             $request->filled('date_to') ? $request->input('date_to') : null,
         );
         if ($startAt) {
-            $query->where('paid_at', '>=', $startAt);
+            $query->whereRaw('COALESCE(paid_at, paid_date, created_at) >= ?', [$startAt]);
         }
         if ($endAt) {
-            $query->where('paid_at', '<=', $endAt);
+            $query->whereRaw('COALESCE(paid_at, paid_date, created_at) <= ?', [$endAt]);
         }
 
         // Only payments for VERIFIED cases
@@ -543,13 +549,6 @@ class ReportController extends Controller
 
     private function ownerDrilldownCaseColumns(): array
     {
-        if ($reportType === self::REPORT_SALES) {
-            return [
-                'total_records' => $rows->count(),
-                'amount_collected' => (float) $rows->sum('amount_collected'),
-            ];
-        }
-
         return [
             'case_code'         => 'Case Code',
             'branch'            => 'Branch',
@@ -558,8 +557,8 @@ class ReportController extends Controller
             'service'           => 'Service',
             'payment_status'    => 'Payment Status',
             'gross_amount'      => 'Total Service Value',
-            'collected_amount'  => 'Collected Amount',
-            'remaining_balance' => 'Remaining Balance',
+            'collected_amount'  => 'Collected to Date',
+            'remaining_balance' => 'Current Outstanding',
             'last_payment_date' => 'Last Payment Date',
         ];
     }
@@ -604,8 +603,8 @@ class ReportController extends Controller
             'partial_cases'     => 'Partial Cases',
             'unpaid_cases'      => 'Unpaid Cases',
             'gross_amount'      => 'Total Service Value',
-            'collected_amount'  => 'Collected Amount',
-            'remaining_balance' => 'Remaining Balance',
+            'collected_amount'  => 'Collections Received',
+            'remaining_balance' => 'Current Outstanding',
         ][$metric] ?? $metric;
     }
 

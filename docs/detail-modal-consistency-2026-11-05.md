@@ -1,0 +1,11 @@
+# Branch, User and Service View modals
+
+Updated only the View Details presentation using `resources/views/partials/record_detail_modal_styles.blade.php`, included after the existing modal-surface stylesheet. User status feedback and Branch edit/feedback modes are explicitly excluded. Service rules apply to the existing modal iframe and its detail shell, not standalone Service detail pages or catalog forms.
+
+Headers share the current sage surface, 20px padding, 40px soft icon tile and a 1px theme-aware divider. Headings use consistent 20px typography and muted record subtitles. User access summary and Branch overview panels use borderless soft sections; User field rows use thin dividers. Service identity, statistics, sections and table cells use the same surfaces, spacing and divider palette. Outer detail corners are 16px; no shadows or outer outlines are added. Footer actions use 16px/20px padding with a top divider. Close stays neutral; Service Edit uses informational blue. Existing status/confirmation action semantics remain owned by the prior feedback layer.
+
+At narrow widths, User fields and Branch overview panels use one column. Existing modal widths, fields, data formatting, labels, permissions, routes, loaders, close/escape logic and record actions remain. Service's existing floating close control is retained.
+
+Validation: Blade compile/clear and touched-file whitespace checks passed. Existing directory scope/render checks passed (7 tests / 123 assertions), and the existing Service dependency/modal-content check passed (1 test / 19 assertions). Two package-content tests failed independently of this stylesheet: PackageDetailsPresentationTest expects “Needs Review” at line 52; PackageCatalogItemDisplayTest expects no descendant popover/title at line 37. Both failures were reproduced with the new include temporarily removed and immediately restored. No package content/business rules were changed to satisfy them.
+
+Browser visual checks were not run because browser execution permission was previously declined. Light/dark responsive appearance, real modal hit testing and iframe resizing remain unverified for this revision. Assets unchanged; the prior successful asset build remains applicable.

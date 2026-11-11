@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
+use App\Models\AddOnCatalog;
 use App\Models\Branch;
 use App\Models\Client;
 use App\Models\Deceased;
@@ -11,6 +12,8 @@ use App\Models\IntakeDraft;
 use App\Models\Package;
 use App\Models\ServiceDetail;
 use App\Support\CaseSnapshotPricingService;
+use App\Support\CeremonyLocation;
+use App\Support\ChapelSchedule;
 use App\Support\Discount\CaseDiscountResolver;
 use App\Support\AuditLogger;
 use App\Support\WakeDuration;
@@ -18,6 +21,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class FuneralCaseController extends Controller
 {
@@ -36,7 +40,7 @@ class FuneralCaseController extends Controller
             : null;
 
         $request->validate([
-            'per_page' => ['nullable', 'integer', 'in:10,25,50,100'],
+            'per_page' => ['nullable', 'integer', 'between:1,100'],
             'q' => ['nullable', 'string', 'max:100', "regex:/^[A-Za-z0-9\\s.'-]+$/"],
             'tab' => ['nullable', 'in:all,active,draft,completed'],
             'case_status' => ['nullable', 'in:DRAFT,ACTIVE,COMPLETED'],
@@ -322,10 +326,14 @@ class FuneralCaseController extends Controller
     private function caseRecordSortOptions(string $tab): array
     {
         return [
-            'newest' => 'Newest',
-            'oldest' => 'Oldest',
-            'alpha_asc' => 'A-Z',
-            'alpha_desc' => 'Z-A',
+            'newest' => 'Newest first',
+            'oldest' => 'Oldest first',
+            'alpha_asc' => 'Client A-Z',
+
+
+
+
+            'alpha_desc' => 'Client Z-A',
         ];
     }
 
@@ -526,9 +534,55 @@ class FuneralCaseController extends Controller
             return redirect()->route('owner.cases.show', $funeral_case);
         }
 
-        $funeral_case->load(['client', 'deceased', 'branch', 'reportedBranch', 'encodedBy', 'payments.recordedBy', 'payments.encodedBy', 'package.packageInclusions', 'package.packageFreebies', 'caseAddOns', 'serviceDetail', 'tarpaulinAttachment.uploader', 'funeralContract.generator']);
+        $funeral_case->load(['client', 'deceased', 'branch', 'reportedBranch', 'encodedBy', 'payments.recordedBy', 'payments.encodedBy', 'payments.correctionRequests.requester', 'payments.correctionRequests.reviewer', 'payments.correctionRequests.replacementPayment', 'package.packageInclusions', 'package.packageFreebies', 'caseAddOns', 'serviceDetail', 'tarpaulinAttachment.uploader', 'deceasedPhotoAttachment.uploader', 'seniorProofAttachment.uploader', 'funeralContract.generator']);
 
         return view('staff.funeral_cases.show', compact('funeral_case'));
+    }
+
+    public function printRecord(FuneralCase $funeral_case)
+    {
+        $this->authorize('view', $funeral_case);
+        abort_if(auth()->user()?->isOwner() && ($funeral_case->verification_status ?? 'VERIFIED') !== 'VERIFIED', 404);
+        $funeral_case->load(['client', 'deceased', 'branch', 'reportedBranch', 'encodedBy', 'payments.recordedBy', 'payments.encodedBy', 'payments.correctionRequests.requester', 'payments.correctionRequests.reviewer', 'payments.correctionRequests.replacementPayment', 'package.packageInclusions', 'package.packageFreebies', 'caseAddOns', 'serviceDetail', 'tarpaulinAttachment.uploader', 'deceasedPhotoAttachment.uploader', 'seniorProofAttachment.uploader', 'funeralContract.generator']);
+
+        return view('staff.funeral_cases.show', compact('funeral_case'));
+    }
+
+    public function savedAttachment(Request $request, FuneralCase $funeral_case, string $kind)
+    {
+        $this->authorize('view', $funeral_case);
+        $user = $request->user();
+        if ($kind === 'senior-proof') {
+            abort_unless($user->isStaff() || $user->isAdmin(), 403);
+        }
+        abort_if($user->isOwner() && ($funeral_case->verification_status ?? 'VERIFIED') !== 'VERIFIED', 404);
+        $path = match ($kind) {
+            'deceased-photo' => $funeral_case->deceasedPhotoAttachment?->file_path ?: $funeral_case->deceased?->photo_path,
+            'senior-proof' => $funeral_case->seniorProofAttachment?->file_path ?: $funeral_case->deceased?->senior_proof_path,
+            default => null,
+        };
+        $disk = Storage::disk('public');
+        abort_unless($path && $disk->exists($path), 404);
+
+        return $disk->response($path, headers: ['Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);
+    }
+
+    public function seniorProof(Request $request, FuneralCase $funeral_case)
+    {
+        $this->authorize('view', $funeral_case);
+        $user = $request->user();
+        abort_unless($user->isStaff() || $user->isAdmin(), 403);
+        abort_if($user->isOwner() && ($funeral_case->verification_status ?? 'VERIFIED') !== 'VERIFIED', 404);
+
+        $path = $funeral_case->seniorProofAttachment?->file_path
+            ?: $funeral_case->deceased?->senior_proof_path;
+        $disk = Storage::disk('public');
+        abort_unless($path && $disk->exists($path), 404);
+
+        return $disk->response($path, headers: [
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     public function create()
@@ -849,6 +903,7 @@ class FuneralCaseController extends Controller
             'client_id' => 'required|exists:clients,id',
             'deceased_id' => 'required|exists:deceased,id',
             'package_id' => 'nullable|integer|exists:packages,id',
+            'client_relationship' => 'nullable|string|max:100',
             // case_status is system-managed (auto-completed on interment date) — not validated from user input.
             'date_of_death' => 'required|date|before_or_equal:today',
             'service_requested_at' => 'required|date|before_or_equal:today',
@@ -858,6 +913,7 @@ class FuneralCaseController extends Controller
             'wake_end_time' => 'nullable|date_format:H:i',
             'funeral_service_at' => 'required|date',
             'funeral_service_time' => 'nullable|date_format:H:i',
+            ...CeremonyLocation::rules(),
             'interment_at' => 'required|date',
             'interment_time' => 'nullable|date_format:H:i',
             'is_backdated_entry' => 'nullable|boolean',
@@ -954,6 +1010,20 @@ class FuneralCaseController extends Controller
                 DB::rollBack();
                 return back()->withErrors($scheduleError)->withInput();
             }
+
+            $start = $this->combineScheduleDateTime($validated['wake_start_date'], $validated['wake_start_time'])->format('Y-m-d H:i');
+            $end = $this->combineScheduleDateTime($validated['wake_end_date'], $validated['wake_end_time'])->format('Y-m-d H:i');
+            $oldStart = $funeral_case->wake_start_date?->toDateString().' '.$this->normalizeTimeForComparison($funeral_case->wake_start_time);
+            $oldEnd = $funeral_case->wake_end_date?->toDateString().' '.$this->normalizeTimeForComparison($funeral_case->wake_end_time);
+            if ($funeral_case->chapel_catalog_id && in_array($funeral_case->case_status, ['ACTIVE', 'COMPLETED'], true)
+                && ($start !== $oldStart || $end !== $oldEnd)) {
+                $chapel = AddOnCatalog::where('branch_id', $funeral_case->branch_id)->lockForUpdate()->findOrFail($funeral_case->chapel_catalog_id);
+                $conflicts = app(ChapelSchedule::class)->context($chapel, $start, $end, $funeral_case->id, lockForUpdate: true)['events'];
+                if ($conflicts) {
+                    DB::rollBack();
+                    return back()->withErrors(['wake_end_date' => ChapelSchedule::conflictMessage($conflicts[0])])->withInput();
+                }
+            }
         }
         $wakeDays = $scheduleWasEdited
             ? $this->resolveWakeDays($validated['wake_start_date'] ?? null, $validated['wake_end_date'] ?? null)
@@ -987,6 +1057,7 @@ class FuneralCaseController extends Controller
 
         $trackFields = [
             'case_status',
+            'client_relationship',
             'payment_status',
             'total_amount',
             'balance_amount',
@@ -999,6 +1070,8 @@ class FuneralCaseController extends Controller
             'wake_end_time',
             'funeral_service_at',
             'funeral_service_time',
+            'funeral_ceremony_location',
+            'ceremony_at_wake_location',
             'interment_at',
             'interment_time',
         ];
@@ -1009,6 +1082,7 @@ class FuneralCaseController extends Controller
 
         $funeral_case->update([
             'client_id' => $client->id,
+            'client_relationship' => $validated['client_relationship'] ?? $funeral_case->client_relationship,
             'deceased_id' => $deceased->id,
             'branch_id' => $client->branch_id,
             'service_requested_at' => $serviceRequestedAt,
@@ -1019,6 +1093,7 @@ class FuneralCaseController extends Controller
             'wake_end_time' => $scheduleWasEdited ? $this->formatTimeForStorage($validated['wake_end_time'] ?? null) : $funeral_case->wake_end_time,
             'funeral_service_at' => $funeralServiceAt,
             'funeral_service_time' => $scheduleWasEdited ? $this->formatTimeForStorage($validated['funeral_service_time'] ?? null) : $funeral_case->funeral_service_time,
+            ...($isFinalized ? [] : CeremonyLocation::attributes($validated)),
             'interment_at' => $intermentAt,
             'interment_time' => $scheduleWasEdited ? $this->formatTimeForStorage($validated['interment_time'] ?? null) : $funeral_case->interment_time,
             'subtotal_amount' => $pricingAttributes['subtotal_amount'],

@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Branch;
 use App\Models\FuneralCase;
+use App\Models\Payment;
+use App\Support\ReportingPeriod;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -12,19 +14,17 @@ class BranchAnalyticsService
 {
     public function ownerPageData(array $filters, ?array $branchScope = null): array
     {
-        $range = $filters['range'] ?? 'TODAY';
-        [$dateFrom, $dateTo] = $this->resolveRange(
-            $range,
-            $filters['date_from'] ?? null,
-            $filters['date_to'] ?? null
-        );
-
-        [$startAt, $endAt] = $this->dateBounds($dateFrom, $dateTo);
+        $range = $filters['range'] ?? 'THIS_MONTH';
         $branchId = $filters['branch_id'] ?? null;
 
         if ($branchScope['forced_branch_id'] ?? null) {
             $branchId = (int) $branchScope['forced_branch_id'];
         }
+
+        $period = ReportingPeriod::resolve($range, $filters['date_from'] ?? null, $filters['date_to'] ?? null);
+        $range = $period['key'];
+        $dateFrom = $period['date_from'];
+        $dateTo = $period['date_to'];
 
         $branches = Branch::query()
             ->when(
@@ -34,8 +34,10 @@ class BranchAnalyticsService
             ->orderBy('branch_code')
             ->get();
         $branchColors = $this->branchColorMap($branches);
-        $base = $this->verifiedCasesQuery($startAt, $endAt, $branchId);
+        $base = $this->verifiedCasesQuery($period, $branchId);
         $summary = $this->aggregateSummary(clone $base);
+        $collectionsReceived = $this->paymentPeriodTotal($period, $branchId);
+        $cohortCollected = (float) ($summary->collected_amount ?? 0);
 
         $totalCases = (int) ($summary->total_cases ?? 0);
         $statusCounts = [
@@ -49,12 +51,8 @@ class BranchAnalyticsService
         $casesPerBranch = collect();
 
         if (! $branchId) {
-            $branchStats = $this->aggregateRowsByBranch(
-                FuneralCase::query()
-                    ->whereBetween('created_at', [$startAt, $endAt])
-                    ->where('verification_status', 'VERIFIED')
-            );
-            $periodStats = $this->branchFocusedBarData(null, $dateFrom, $dateTo, $range);
+            $branchStats = $this->aggregateRowsByBranch($this->verifiedCasesQuery($period));
+            $periodStats = $this->branchFocusedBarData(null, $period);
 
             $casesPerBranch = $branches->map(function (Branch $branch) use ($branchStats) {
                 $stats = $branchStats->get($branch->id);
@@ -66,6 +64,8 @@ class BranchAnalyticsService
                     'partial' => (int) ($stats->partial_cases ?? 0),
                     'unpaid' => (int) ($stats->unpaid_cases ?? 0),
                     'sales' => (float) ($stats->gross_amount ?? 0),
+                    'collected' => (float) ($stats->collected_amount ?? 0),
+                    'remaining' => (float) ($stats->remaining_balance ?? 0),
                 ];
             });
 
@@ -88,12 +88,14 @@ class BranchAnalyticsService
                     'service_amount' => $periodStats['revenue'],
                     'collected_amount' => $periodStats['collected'],
                     'outstanding_balance' => $periodStats['outstanding'],
+                    'available_from' => $periodStats['available_from'],
+                    'available_to' => $periodStats['available_to'],
                 ],
-                'line' => $this->revenueTrendData(null, $dateFrom, $dateTo, $range),
+                'line' => ['labels' => $periodStats['labels'], 'data' => $periodStats['revenue']],
             ];
         } else {
             $color = $selectedBranch ? ($branchColors[$selectedBranch->id] ?? '#8c4004') : '#8c4004';
-            $branchBar = $this->branchFocusedBarData((int) $branchId, $dateFrom, $dateTo, $range);
+            $branchBar = $this->branchFocusedBarData((int) $branchId, $period);
 
             $chart = [
                 'mode' => 'single',
@@ -114,8 +116,10 @@ class BranchAnalyticsService
                     'service_amount' => $branchBar['revenue'],
                     'collected_amount' => $branchBar['collected'],
                     'outstanding_balance' => $branchBar['outstanding'],
+                    'available_from' => $branchBar['available_from'],
+                    'available_to' => $branchBar['available_to'],
                 ],
-                'line' => $this->revenueTrendData((int) $branchId, $dateFrom, $dateTo, $range),
+                'line' => ['labels' => $branchBar['labels'], 'data' => $branchBar['revenue']],
             ];
         }
 
@@ -126,17 +130,28 @@ class BranchAnalyticsService
             'range' => $range,
             'dateFrom' => $dateFrom,
             'dateTo' => $dateTo,
+            'availableDateFrom' => $chart['period']['available_from'],
+            'availableDateTo' => $chart['period']['available_to'],
             'totalCases' => $totalCases,
             'totalSales' => (float) ($summary->gross_amount ?? 0),
-            'totalCollected' => (float) ($summary->collected_amount ?? 0),
+            'totalCollected' => $collectionsReceived,
+            'cohortCollected' => $cohortCollected,
+            'collectionRate' => (float) ($summary->gross_amount ?? 0) > 0
+                ? ($cohortCollected / (float) $summary->gross_amount) * 100
+                : 0.0,
             'totalOutstanding' => (float) ($summary->remaining_balance ?? 0),
             'statusCounts' => $statusCounts,
             'casesPerBranch' => $casesPerBranch,
             'chart' => $chart,
             'allAnalyticsCases' => $this->analyticsCases(clone $base),
-            'branchComparisonRows' => app(\App\Support\OwnerDashboardOverview::class)->data([
-                'branch_id'=>$branchId, 'range'=>'CUSTOM', 'date_from'=>$dateFrom, 'date_to'=>$dateTo,
-            ])['branchRows']->whereIn('branch.id', $branches->pluck('id'))->values(),
+            'branchComparisonRows' => $casesPerBranch->map(fn ($row) => [
+                'branch' => $row['branch'],
+                'service' => $row['sales'],
+                'cases' => $row['cases'],
+                'cohortCollected' => $row['collected'],
+                'cohortRemaining' => $row['remaining'],
+                'rate' => $row['sales'] > 0 ? ($row['collected'] / $row['sales']) * 100 : null,
+            ])->values(),
         ];
     }
 
@@ -151,29 +166,38 @@ class BranchAnalyticsService
 
         $this->applyAggregateSelects($query);
         $this->applyBranchScope($query, $filters, $branchScope);
-        [$startAt, $endAt] = $this->parseNullableDateBounds($filters['date_from'] ?? null, $filters['date_to'] ?? null);
-        $query->when($startAt, fn ($q) => $q->whereRaw('COALESCE(service_requested_at, created_at) >= ?', [$startAt]))
-            ->when($endAt, fn ($q) => $q->whereRaw('COALESCE(service_requested_at, created_at) <= ?', [$endAt]));
+        $period = ($filters['date_from'] ?? null) || ($filters['date_to'] ?? null)
+            ? ReportingPeriod::resolve('CUSTOM', $filters['date_from'] ?? null, $filters['date_to'] ?? null)
+            : ReportingPeriod::resolve('ALL_DATES');
+        ReportingPeriod::apply($query, 'COALESCE(service_requested_at, created_at)', $period);
         $this->applyDateFilters($query, $filters['interment_from'] ?? null, $filters['interment_to'] ?? null, 'interment_at');
 
-        return $query->get()->map(fn ($row) => [
-            'branch_id' => (int) $row->branch_id,
-            'branch' => $this->branchName($row->branch),
-            'total_cases' => (int) $row->total_cases,
-            'paid_cases' => (int) $row->paid_cases,
-            'partial_cases' => (int) $row->partial_cases,
-            'unpaid_cases' => (int) $row->unpaid_cases,
-            'gross_amount' => (float) $row->gross_amount,
-            'collected_amount' => (float) $row->collected_amount,
-            'remaining_balance' => (float) $row->remaining_balance,
-        ])->values();
+        $collectionTotals = $this->paymentsByBranch($period, $filters, $branchScope);
+
+        $caseRows = $query->get()->keyBy(fn ($row) => (int) $row->branch_id);
+        $branchIds = $caseRows->keys()->merge($collectionTotals->keys()->map(fn ($id) => (int) $id))->unique()->values();
+        $branches = Branch::query()->whereIn('id', $branchIds)->get()->keyBy('id');
+
+        return $branchIds->map(function ($branchId) use ($caseRows, $collectionTotals, $branches) {
+            $row = $caseRows->get((int) $branchId);
+            return [
+                'branch_id' => (int) $branchId,
+                'branch' => $this->branchName($branches->get((int) $branchId)),
+                'total_cases' => (int) ($row->total_cases ?? 0),
+                'paid_cases' => (int) ($row->paid_cases ?? 0),
+                'partial_cases' => (int) ($row->partial_cases ?? 0),
+                'unpaid_cases' => (int) ($row->unpaid_cases ?? 0),
+                'gross_amount' => (float) ($row->gross_amount ?? 0),
+                'collected_amount' => (float) ($collectionTotals[(int) $branchId] ?? 0),
+                'remaining_balance' => (float) ($row->remaining_balance ?? 0),
+            ];
+        })->values();
     }
 
     public function reportChartData(array $filters, array $branchScope): array
     {
-        $dateFrom = $filters['date_from'] ?? now()->toDateString();
-        $dateTo = $filters['date_to'] ?? now()->toDateString();
-        $range = $this->inferRange($dateFrom, $dateTo);
+        $dateFrom = $filters['date_from'] ?? null;
+        $dateTo = $filters['date_to'] ?? null;
         $branchId = null;
 
         if ($branchScope['forced_branch_id'] ?? null) {
@@ -181,6 +205,8 @@ class BranchAnalyticsService
         } elseif (($branchScope['can_select_all'] ?? false) && ! empty($filters['branch_id'])) {
             $branchId = (int) $filters['branch_id'];
         }
+
+        $range = (! $dateFrom && ! $dateTo) ? 'ALL_DATES' : 'CUSTOM';
 
         $data = $this->ownerPageData([
             'range' => $range,
@@ -197,12 +223,27 @@ class BranchAnalyticsService
         return 'COALESCE(total_amount, 0)';
     }
 
-    private function verifiedCasesQuery(Carbon $startAt, Carbon $endAt, mixed $branchId = null): Builder
+    private function verifiedCasesQuery(array $period, mixed $branchId = null): Builder
     {
-        return FuneralCase::query()
-            ->whereBetween('created_at', [$startAt, $endAt])
+        $query = FuneralCase::query()
             ->where('verification_status', 'VERIFIED')
             ->when($branchId, fn ($query) => $query->where('branch_id', (int) $branchId));
+        ReportingPeriod::apply($query, 'COALESCE(service_requested_at, created_at)', $period);
+
+        return $query;
+    }
+
+    private function paymentPeriodTotal(array $period, mixed $branchId = null): float
+    {
+        $query = Payment::query()
+            ->validForReporting()
+            ->whereHas('funeralCase', function (Builder $caseQuery) use ($branchId) {
+                $caseQuery->where('verification_status', 'VERIFIED')
+                    ->when($branchId, fn (Builder $query) => $query->where('branch_id', (int) $branchId));
+            });
+        ReportingPeriod::apply($query, 'COALESCE(paid_at, paid_date, created_at)', $period);
+
+        return (float) $query->sum('amount');
     }
 
     private function aggregateSummary(Builder $query): object
@@ -260,8 +301,8 @@ class BranchAnalyticsService
                     'caseStatus' => $case->case_status ?: '-',
                     'paymentStatus' => $paymentStatus,
                     'collectionStatus' => $balance > 0 ? 'OUTSTANDING' : 'COLLECTED',
-                    'caseDate' => optional($case->created_at)->toDateString(),
-                    'caseDateLabel' => optional($case->created_at)->format('M d, Y') ?: '-',
+                    'caseDate' => optional($case->service_requested_at ?: $case->created_at)->toDateString(),
+                    'caseDateLabel' => optional($case->service_requested_at ?: $case->created_at)->format('M d, Y') ?: '-',
                     'totalAmount' => $serviceAmount,
                     'totalPaid' => $totalPaid,
                     'balanceAmount' => $balance,
@@ -270,34 +311,51 @@ class BranchAnalyticsService
             ->values();
     }
 
-    private function revenueTrendData(?int $branchId, string $dateFrom, string $dateTo, string $range): array
+    private function revenueTrendData(?int $branchId, array $period): array
     {
-        [$start, $end] = $this->dateBounds($dateFrom, $dateTo);
-        $base = $this->verifiedCasesQuery($start, $end, $branchId);
+        [$start, $end, $hasAvailableData] = $this->chartBounds($period, $branchId);
+        $boundedPeriod = ['start' => $start, 'end_exclusive' => $end->copy()->addDay()->startOfDay()];
+        $base = $this->verifiedCasesQuery($boundedPeriod, $branchId);
         $serviceAmountExpr = $this->serviceAmountExpression();
         $labels = [];
         $data = [];
+        $granularity = ReportingPeriod::granularity($boundedPeriod);
 
-        if ($range === 'THIS_YEAR') {
+        if ($granularity === 'year') {
             $rows = (clone $base)
-                ->selectRaw("YEAR(created_at) as yr, MONTH(created_at) as mo, COALESCE(SUM({$serviceAmountExpr}), 0) as total")
-                ->groupByRaw('YEAR(created_at), MONTH(created_at)')
-                ->orderByRaw('YEAR(created_at), MONTH(created_at)')
+                ->selectRaw("YEAR(COALESCE(service_requested_at, created_at)) as yr, COALESCE(SUM({$serviceAmountExpr}), 0) as total")
+                ->groupByRaw('YEAR(COALESCE(service_requested_at, created_at))')
+                ->orderByRaw('YEAR(COALESCE(service_requested_at, created_at))')
+                ->get()
+                ->mapWithKeys(fn ($row) => [(string) $row->yr => (float) $row->total]);
+
+            $cursor = $start->copy()->startOfYear();
+            while ($cursor->lte($end)) {
+                $key = $cursor->format('Y');
+                $labels[] = $key;
+                $data[] = (float) ($rows[$key] ?? 0);
+                $cursor->addYear();
+            }
+        } elseif ($granularity === 'month') {
+            $rows = (clone $base)
+                ->selectRaw("YEAR(COALESCE(service_requested_at, created_at)) as yr, MONTH(COALESCE(service_requested_at, created_at)) as mo, COALESCE(SUM({$serviceAmountExpr}), 0) as total")
+                ->groupByRaw('YEAR(COALESCE(service_requested_at, created_at)), MONTH(COALESCE(service_requested_at, created_at))')
+                ->orderByRaw('YEAR(COALESCE(service_requested_at, created_at)), MONTH(COALESCE(service_requested_at, created_at))')
                 ->get()
                 ->mapWithKeys(fn ($row) => [sprintf('%04d-%02d', (int) $row->yr, (int) $row->mo) => (float) $row->total]);
 
             $cursor = $start->copy()->startOfMonth();
             while ($cursor->lte($end)) {
                 $key = $cursor->format('Y-m');
-                $labels[] = $cursor->format('M');
+                $labels[] = $start->year === $end->year ? $cursor->format('M') : $cursor->format('M Y');
                 $data[] = (float) ($rows[$key] ?? 0);
                 $cursor->addMonth();
             }
         } else {
             $rows = (clone $base)
-                ->selectRaw("DATE(created_at) as bucket, COALESCE(SUM({$serviceAmountExpr}), 0) as total")
-                ->groupByRaw('DATE(created_at)')
-                ->orderByRaw('DATE(created_at)')
+                ->selectRaw("DATE(COALESCE(service_requested_at, created_at)) as bucket, COALESCE(SUM({$serviceAmountExpr}), 0) as total")
+                ->groupByRaw('DATE(COALESCE(service_requested_at, created_at))')
+                ->orderByRaw('DATE(COALESCE(service_requested_at, created_at))')
                 ->get()
                 ->mapWithKeys(fn ($row) => [(string) $row->bucket => (float) $row->total]);
 
@@ -313,26 +371,50 @@ class BranchAnalyticsService
         return ['labels' => $labels, 'data' => $data];
     }
 
-    private function branchFocusedBarData(?int $branchId, string $dateFrom, string $dateTo, string $range): array
+    private function branchFocusedBarData(?int $branchId, array $period): array
     {
-        [$start, $end] = $this->dateBounds($dateFrom, $dateTo);
+        [$start, $end, $hasAvailableData] = $this->chartBounds($period, $branchId);
+        $boundedPeriod = ['start' => $start, 'end_exclusive' => $end->copy()->addDay()->startOfDay()];
         $serviceAmountExpr = $this->serviceAmountExpression();
-        $base = $this->verifiedCasesQuery($start, $end, $branchId);
+        $base = $this->verifiedCasesQuery($boundedPeriod, $branchId);
         $labels = [];
         $revenue = [];
         $volume = [];
         $collected = [];
         $outstanding = [];
+        $granularity = ReportingPeriod::granularity($boundedPeriod);
 
-        if ($range === 'THIS_YEAR') {
+        if ($granularity === 'year') {
             $rows = (clone $base)
-                ->selectRaw('YEAR(created_at) as yr, MONTH(created_at) as mo')
+                ->selectRaw('YEAR(COALESCE(service_requested_at, created_at)) as yr')
                 ->selectRaw("COALESCE(SUM({$serviceAmountExpr}), 0) as revenue")
                 ->selectRaw('COUNT(*) as volume')
                 ->selectRaw('COALESCE(SUM(total_paid), 0) as collected')
                 ->selectRaw('COALESCE(SUM(balance_amount), 0) as outstanding')
-                ->groupByRaw('YEAR(created_at), MONTH(created_at)')
-                ->orderByRaw('YEAR(created_at), MONTH(created_at)')
+                ->groupByRaw('YEAR(COALESCE(service_requested_at, created_at))')
+                ->orderByRaw('YEAR(COALESCE(service_requested_at, created_at))')
+                ->get()
+                ->keyBy('yr');
+
+            $cursor = $start->copy()->startOfYear();
+            while ($cursor->lte($end)) {
+                $row = $rows->get((int) $cursor->year);
+                $labels[] = $cursor->format('Y');
+                $revenue[] = (float) ($row->revenue ?? 0);
+                $volume[] = (int) ($row->volume ?? 0);
+                $collected[] = (float) ($row->collected ?? 0);
+                $outstanding[] = (float) ($row->outstanding ?? 0);
+                $cursor->addYear();
+            }
+        } elseif ($granularity === 'month') {
+            $rows = (clone $base)
+                ->selectRaw('YEAR(COALESCE(service_requested_at, created_at)) as yr, MONTH(COALESCE(service_requested_at, created_at)) as mo')
+                ->selectRaw("COALESCE(SUM({$serviceAmountExpr}), 0) as revenue")
+                ->selectRaw('COUNT(*) as volume')
+                ->selectRaw('COALESCE(SUM(total_paid), 0) as collected')
+                ->selectRaw('COALESCE(SUM(balance_amount), 0) as outstanding')
+                ->groupByRaw('YEAR(COALESCE(service_requested_at, created_at)), MONTH(COALESCE(service_requested_at, created_at))')
+                ->orderByRaw('YEAR(COALESCE(service_requested_at, created_at)), MONTH(COALESCE(service_requested_at, created_at))')
                 ->get()
                 ->mapWithKeys(fn ($row) => [sprintf('%04d-%02d', (int) $row->yr, (int) $row->mo) => [
                     'revenue' => (float) $row->revenue,
@@ -344,22 +426,22 @@ class BranchAnalyticsService
             $cursor = $start->copy()->startOfMonth();
             while ($cursor->lte($end)) {
                 $row = $rows[$cursor->format('Y-m')] ?? null;
-                $labels[] = $cursor->format('M');
+                $labels[] = $start->year === $end->year ? $cursor->format('M') : $cursor->format('M Y');
                 $revenue[] = (float) ($row['revenue'] ?? 0);
                 $volume[] = (int) ($row['volume'] ?? 0);
                 $collected[] = (float) ($row['collected'] ?? 0);
                 $outstanding[] = (float) ($row['outstanding'] ?? 0);
                 $cursor->addMonth();
             }
-        } else {
+        } elseif ($granularity === 'week') {
             $dailyRows = (clone $base)
-                ->selectRaw('DATE(created_at) as bucket')
+                ->selectRaw('DATE(COALESCE(service_requested_at, created_at)) as bucket')
                 ->selectRaw("COALESCE(SUM({$serviceAmountExpr}), 0) as revenue")
                 ->selectRaw('COUNT(*) as volume')
                 ->selectRaw('COALESCE(SUM(total_paid), 0) as collected')
                 ->selectRaw('COALESCE(SUM(balance_amount), 0) as outstanding')
-                ->groupByRaw('DATE(created_at)')
-                ->orderByRaw('DATE(created_at)')
+                ->groupByRaw('DATE(COALESCE(service_requested_at, created_at))')
+                ->orderByRaw('DATE(COALESCE(service_requested_at, created_at))')
                 ->get()
                 ->keyBy('bucket');
 
@@ -399,9 +481,122 @@ class BranchAnalyticsService
                 $cursor->addWeek();
                 $limit++;
             }
+        } else {
+            $dailyRows = (clone $base)
+                ->selectRaw('DATE(COALESCE(service_requested_at, created_at)) as bucket')
+                ->selectRaw("COALESCE(SUM({$serviceAmountExpr}), 0) as revenue")
+                ->selectRaw('COUNT(*) as volume')
+                ->selectRaw('COALESCE(SUM(balance_amount), 0) as outstanding')
+                ->groupByRaw('DATE(COALESCE(service_requested_at, created_at))')
+                ->orderByRaw('DATE(COALESCE(service_requested_at, created_at))')
+                ->get()->keyBy('bucket');
+
+            for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addDay()) {
+                $row = $dailyRows->get($cursor->toDateString());
+                $labels[] = $cursor->format('M d');
+                $revenue[] = (float) ($row->revenue ?? 0);
+                $volume[] = (int) ($row->volume ?? 0);
+                $collected[] = 0.0;
+                $outstanding[] = (float) ($row->outstanding ?? 0);
+            }
         }
 
-        return compact('labels', 'revenue', 'volume', 'collected', 'outstanding');
+        // Collections use transaction received dates, not the case request-date cohort.
+        $collected = $this->paymentSeries($branchId, $start, $end, $granularity, $labels);
+
+        $availableFrom = $hasAvailableData ? $start->toDateString() : null;
+        $availableTo = $hasAvailableData ? $end->toDateString() : null;
+
+        return [
+            'labels' => $labels,
+            'revenue' => $revenue,
+            'volume' => $volume,
+            'collected' => $collected,
+            'outstanding' => $outstanding,
+            'available_from' => $availableFrom,
+            'available_to' => $availableTo,
+        ];
+    }
+
+    private function chartBounds(array $period, ?int $branchId): array
+    {
+        if ($period['start'] && $period['end_exclusive']) {
+            return [$period['start']->copy(), $period['end_exclusive']->copy()->subDay()->endOfDay(), true];
+        }
+
+        $caseQuery = FuneralCase::query()
+            ->where('verification_status', 'VERIFIED')
+            ->when($branchId, fn (Builder $query) => $query->where('branch_id', $branchId));
+        $first = (clone $caseQuery)->min(\DB::raw('COALESCE(service_requested_at, created_at)'));
+        $last = (clone $caseQuery)->max(\DB::raw('COALESCE(service_requested_at, created_at)'));
+        $paymentQuery = Payment::query()
+            ->validForReporting()
+            ->whereHas('funeralCase', function (Builder $query) use ($branchId) {
+                $query->where('verification_status', 'VERIFIED')
+                    ->when($branchId, fn (Builder $scoped) => $scoped->where('branch_id', $branchId));
+            });
+        $firstPayment = (clone $paymentQuery)->min(\DB::raw('COALESCE(paid_at, paid_date, created_at)'));
+        $lastPayment = (clone $paymentQuery)->max(\DB::raw('COALESCE(paid_at, paid_date, created_at)'));
+        $first = collect([$first, $firstPayment])->filter()->min();
+        $last = collect([$last, $lastPayment])->filter()->max();
+
+        return [
+            $first ? Carbon::parse($first)->startOfDay() : now()->startOfDay(),
+            $last ? Carbon::parse($last)->endOfDay() : now()->endOfDay(),
+            (bool) ($first || $last),
+        ];
+    }
+
+    private function paymentsByBranch(array $period, array $filters, array $branchScope): Collection
+    {
+        $query = Payment::query()
+            ->validForReporting()
+            ->join('funeral_cases', 'funeral_cases.id', '=', 'payments.funeral_case_id')
+            ->whereNull('funeral_cases.deleted_at')
+            ->where('funeral_cases.verification_status', 'VERIFIED')
+            ->selectRaw('funeral_cases.branch_id as cohort_branch_id')
+            ->selectRaw('COALESCE(SUM(amount), 0) as total')
+            ->groupBy('funeral_cases.branch_id');
+        if ($branchScope['forced_branch_id'] ?? null) {
+            $query->where('funeral_cases.branch_id', (int) $branchScope['forced_branch_id']);
+        } elseif (($branchScope['can_select_all'] ?? false) && ! empty($filters['branch_id'])) {
+            $query->where('funeral_cases.branch_id', (int) $filters['branch_id']);
+        }
+        ReportingPeriod::apply($query, 'COALESCE(payments.paid_at, payments.paid_date, payments.created_at)', $period);
+
+        return $query->pluck('total', 'cohort_branch_id');
+    }
+
+    private function paymentSeries(?int $branchId, Carbon $start, Carbon $end, string $granularity, array $labels): array
+    {
+        $period = ['start' => $start->copy()->startOfDay(), 'end_exclusive' => $end->copy()->addDay()->startOfDay()];
+        $query = Payment::query()
+            ->validForReporting()
+            ->whereHas('funeralCase', function (Builder $caseQuery) use ($branchId) {
+                $caseQuery->where('verification_status', 'VERIFIED')
+                    ->when($branchId, fn (Builder $query) => $query->where('branch_id', $branchId));
+            });
+        ReportingPeriod::apply($query, 'COALESCE(paid_at, paid_date, created_at)', $period);
+        $daily = $query
+            ->selectRaw('DATE(COALESCE(paid_at, paid_date, created_at)) as bucket, COALESCE(SUM(amount), 0) as total')
+            ->groupByRaw('DATE(COALESCE(paid_at, paid_date, created_at))')
+            ->pluck('total', 'bucket');
+        $series = array_fill(0, count($labels), 0.0);
+
+        foreach ($daily as $date => $amount) {
+            $paidDate = Carbon::parse($date);
+            $index = match ($granularity) {
+                'year' => array_search($paidDate->format('Y'), $labels, true),
+                'month' => array_search($start->year === $end->year ? $paidDate->format('M') : $paidDate->format('M Y'), $labels, true),
+                'week' => intdiv($start->copy()->startOfWeek()->diffInDays($paidDate->copy()->startOfWeek()), 7),
+                default => array_search($paidDate->format('M d'), $labels, true),
+            };
+            if ($index !== false && isset($series[$index])) {
+                $series[$index] += (float) $amount;
+            }
+        }
+
+        return $series;
     }
 
     private function applyBranchScope(Builder $query, array $filters, array $branchScope): void
@@ -433,52 +628,6 @@ class BranchAnalyticsService
             $dateFrom ? Carbon::parse($dateFrom)->startOfDay() : null,
             $dateTo ? Carbon::parse($dateTo)->endOfDay() : null,
         ];
-    }
-
-    private function dateBounds(string $dateFrom, string $dateTo): array
-    {
-        return [
-            Carbon::parse($dateFrom)->startOfDay(),
-            Carbon::parse($dateTo)->endOfDay(),
-        ];
-    }
-
-    private function resolveRange(string $range, ?string $dateFrom, ?string $dateTo): array
-    {
-        if ($range === 'TODAY') {
-            return [now()->toDateString(), now()->toDateString()];
-        }
-        if ($range === 'THIS_MONTH') {
-            return [now()->startOfMonth()->toDateString(), now()->toDateString()];
-        }
-        if ($range === 'THIS_YEAR') {
-            return [now()->startOfYear()->toDateString(), now()->toDateString()];
-        }
-
-        return [
-            $dateFrom ?: now()->startOfMonth()->toDateString(),
-            $dateTo ?: now()->toDateString(),
-        ];
-    }
-
-    private function inferRange(string $dateFrom, string $dateTo): string
-    {
-        $from = Carbon::parse($dateFrom)->toDateString();
-        $to = Carbon::parse($dateTo)->toDateString();
-
-        if ($from === now()->toDateString() && $to === now()->toDateString()) {
-            return 'TODAY';
-        }
-
-        if ($from === now()->startOfMonth()->toDateString()) {
-            return 'THIS_MONTH';
-        }
-
-        if ($from === now()->startOfYear()->toDateString()) {
-            return 'THIS_YEAR';
-        }
-
-        return 'CUSTOM';
     }
 
     private function branchColorMap(Collection $branches): array

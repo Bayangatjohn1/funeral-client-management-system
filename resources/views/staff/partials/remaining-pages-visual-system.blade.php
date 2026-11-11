@@ -247,7 +247,7 @@
 
     html[data-theme] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) :is(.records-page, .pm-page)
     :is(.btn-outline, .btn-filter-reset, .case-compact-reset, .case-compact-more, .case-compact-pop-reset,
-        .case-compact-advanced-clear, .pm-btn, .pm-light-link, .row-action-trigger) {
+        .case-compact-advanced-clear, .pm-btn, .pm-light-link, .row-action-trigger):where(:not(.pm-case-icon-action):not([data-pm-clear-filters])) {
         color: var(--staff-records-ink) !important;
         background: var(--staff-records-surface) !important;
         border: 1px solid var(--staff-records-border) !important;
@@ -257,14 +257,14 @@
 
     html[data-theme] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) :is(.records-page, .pm-page)
     :is(.btn-outline, .btn-filter-reset, .case-compact-reset, .case-compact-more, .case-compact-pop-reset,
-        .case-compact-advanced-clear, .pm-btn, .pm-light-link, .row-action-trigger):hover {
+        .case-compact-advanced-clear, .pm-btn, .pm-light-link, .row-action-trigger):where(:not(.pm-case-icon-action):not([data-pm-clear-filters])):hover {
         color: var(--staff-records-ink) !important;
         background: var(--staff-records-soft) !important;
         border-color: var(--staff-records-border-strong) !important;
         transform: none !important;
     }
 
-    html[data-theme] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) .records-page :is(.table-quick-tabs, .case-records-tabs) {
+    html[data-theme] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) .records-page:not(.staff-case-records-page) :is(.table-quick-tabs, .case-records-tabs) {
         padding: .25rem !important;
         gap: .25rem !important;
         background: var(--staff-records-soft) !important;
@@ -272,7 +272,7 @@
         border-radius: 10px !important;
     }
 
-    html[data-theme] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) .records-page .table-quick-tab {
+    html[data-theme] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) .records-page:not(.staff-case-records-page) .table-quick-tab {
         min-height: 40px !important;
         padding: .55rem .85rem !important;
         color: var(--staff-records-muted) !important;
@@ -281,7 +281,7 @@
         border-radius: 7px !important;
     }
 
-    html[data-theme] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) .records-page .table-quick-tab-active {
+    html[data-theme] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) .records-page:not(.staff-case-records-page) .table-quick-tab-active {
         color: var(--staff-records-ink) !important;
         background: var(--staff-records-surface) !important;
         border-color: var(--staff-records-border) !important;
@@ -989,115 +989,6 @@
             min-height: 44px !important;
             justify-content: center !important;
         }
-    }
-
-    /* Record Payment follows the same night-shift surfaces as the transaction dialog. */
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal {
-        --pf-surface: var(--staff-records-surface);
-        --pf-soft: var(--staff-records-soft);
-        --pf-raised: var(--staff-records-soft-strong);
-        --pf-border: var(--staff-records-border);
-        --pf-ink: var(--staff-records-ink);
-        --pf-muted: var(--staff-records-muted);
-        color: var(--pf-ink);
-    }
-
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal :is(.payment-modal-sheet, .payment-modal-head, .payment-modal-sheet > .p-6) {
-        background: var(--pf-surface) !important;
-        border-color: var(--pf-border) !important;
-        color: var(--pf-ink) !important;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal :is(.payment-modal-title, .pf-accordion-title, .pf-section-title, .pf-guide-title, .pf-guide-step, .pf-review-card h4, .pf-review-row strong, .pf-record-card span:last-child, .pf-snapshot-value, .pf-summary-value) {
-        color: var(--pf-ink) !important;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal :is(.payment-modal-copy, .pf-accordion-copy, .pf-accordion-summary, .pf-section-sub, .pf-label, .pf-help, .pf-guide-copy, .pf-review-row, .pf-record-card span:first-child, .pf-snapshot-label, .pf-summary-label, .pf-progress-meta, .pf-note) {
-        color: var(--pf-muted) !important;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal :is(.pf-section, .pf-accordion-step, .pf-guide, .pf-guide-step, .pf-review-card, .pf-snapshot, .pf-summary-card, .pf-bank-box, .pf-note, .pf-record-card) {
-        background: var(--pf-soft) !important;
-        border-color: var(--pf-border) !important;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal :is(.pf-accordion-trigger, .pf-section-head) {
-        background: var(--pf-raised) !important;
-        border-color: var(--pf-border) !important;
-        color: var(--pf-ink) !important;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal :is(.pf-section-index, .pf-accordion-number, .pf-section-icon, .payment-modal-icon) {
-        background: #1B4332 !important;
-        color: #F8FAFC !important;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal :is(.pf-input, .pf-amount-wrap, .pf-method-option, .pf-method-type, .pf-quick-amount) {
-        background: var(--pf-surface) !important;
-        border-color: var(--pf-border) !important;
-        color: var(--pf-ink) !important;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal :is(.pf-input, .pf-amount-input, .pf-select) {
-        color-scheme: dark;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal .pf-select option {
-        background: var(--pf-surface) !important;
-        color: var(--pf-ink) !important;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal :is(.pf-input, .pf-amount-input)::placeholder {
-        color: var(--pf-muted) !important;
-        opacity: 1;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal :is(.pf-input, .pf-amount-wrap):focus-within {
-        border-color: #8FD7B2 !important;
-        box-shadow: var(--staff-records-focus) !important;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal .pf-input[readonly] {
-        background: var(--pf-raised) !important;
-        color: var(--pf-muted) !important;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal .pf-amount-prefix {
-        background: var(--pf-raised) !important;
-        border-color: var(--pf-border) !important;
-        color: var(--pf-ink) !important;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal .pf-amount-input {
-        background: transparent !important;
-        color: var(--pf-ink) !important;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal :is(.pf-control-icon, .pf-method-option-copy) {
-        color: var(--pf-muted) !important;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal :is(.pf-method-option, .pf-method-type, .pf-quick-amount):hover {
-        background: var(--pf-raised) !important;
-        border-color: var(--staff-records-border-strong) !important;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal :is(.pf-method-option, .pf-method-type).is-active {
-        background: #1B4332 !important;
-        border-color: #8FD7B2 !important;
-        color: #F8FAFC !important;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal .pf-method-option.is-active .pf-method-option-copy {
-        color: #D6F1E0 !important;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal :is(.pf-actions, .payment-modal-close, .pf-btn.secondary) {
-        background: var(--pf-surface) !important;
-        border-color: var(--pf-border) !important;
-        color: var(--pf-ink) !important;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal :is(.payment-modal-close, .pf-btn.secondary):hover {
-        background: var(--pf-raised) !important;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal .pf-btn.primary {
-        background: #1B4332 !important;
-        border-color: #41634F !important;
-        color: #F8FAFC !important;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal .pf-btn.primary:hover {
-        background: #245C42 !important;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal .pf-progress-track {
-        background: #41634F !important;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal .pf-progress-bar {
-        background: #8FD7B2 !important;
-    }
-    html[data-theme='dark'] body.panel-shell-body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui):has(.payment-monitoring-page)) #paymentFormModal #pf_amount_formatted {
-        color: var(--pf-ink) !important;
     }
 
     @media (prefers-reduced-motion: reduce) {

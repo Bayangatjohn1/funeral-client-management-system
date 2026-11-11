@@ -1,0 +1,11 @@
+# Sidebar skeleton visibility correction — 2026-11-02
+
+The user reported that sidebar navigation showed browser loading without a visible skeleton. The navigation handler already created the placeholder, but the global page decoration rule in `resources/css/app.css` set every direct child of `.page-content` to `position:relative; z-index:1`. That selector also matched the navigation overlay and overrode the skeleton's absolute positioning and stacking. The overlay therefore occupied normal flow below the outgoing page rather than covering it.
+
+Correction: exclude `.panel-skeleton` from the page decoration selector. In `resources/css/panel-skeleton.css`, scope the navigation overlay's `position:absolute; z-index:100` to its actual direct-child location. Preserve sidebar/topbar access, existing animation timings, navigation guards, region loading, destinations and request behavior.
+
+The previous sidebar test asserted only that the element existed before navigation. It did not include the application's complete stylesheet. The revised test loads the actual stylesheet named by `public/build/manifest.json` along with shared skeleton CSS and checks computed absolute positioning, z-index, alignment with the main pane, and hit testing inside the visible overlay before dispatch. Only the final location assignment is substituted so the fixture remains isolated.
+
+Evidence: the expanded browser test failed before the correction, reporting expected `absolute`, actual `relative`. After rebuilding, the full isolated skeleton browser suite passed: 4 tests / 40 assertions. All 11 Node lifecycle/profile tests passed. Vite build and Blade cache clearing passed. The full-CSS navigation fixture screenshot was inspected. Native inspection of the user's Edge window timed out, so this is a verified cascade reproduction and correction rather than a claim of successful automation inside the user's existing browser session. Full live-page/all-role visual acceptance remains pending.
+
+Applicability: shared authenticated sidebar/navigation overlay. Existing content-pane boundaries and async table/card rules remain unchanged. The separately identified async Schedules geometry and `/admin/payment-monitoring` destination mapping gaps were not part of this visibility correction.

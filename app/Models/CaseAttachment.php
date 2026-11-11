@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Storage;
 class CaseAttachment extends Model
 {
     public const TYPE_TARPAULIN = 'tarpaulin';
+    public const TYPE_DECEASED_PHOTO = 'deceased_photo';
+    public const TYPE_SENIOR_PROOF = 'senior_proof';
 
     protected $fillable = [
         'case_id',

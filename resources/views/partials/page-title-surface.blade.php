@@ -1,21 +1,49 @@
 <style>
 /* One shared owner for panel title surfaces. Legacy role/page layers use important
    declarations; this explicit component scope replaces their surface treatment. */
+@media screen and (min-width:1024px) {
+    html[data-theme] body.panel-shell-body.staff-ui[data-sidebar-manual] .page-content > .panel-title-surface.panel-page-header {
+        --panel-title-block-padding:12px;
+        --panel-title-radius:16px;
+        --title-border:transparent;
+        margin-top:8px;
+        min-height:52px !important;
+    }
+    html[data-theme] body.panel-shell-body.staff-ui[data-sidebar-manual] .page-content > .staff-dashboard-v2 {
+        padding-top:8px !important;
+    }
+    html[data-theme] body.panel-shell-body.staff-ui[data-sidebar-manual] .staff-header-card .staff-header-main {
+        min-height:44px;
+        align-items:center;
+    }
+    html[data-theme] body.panel-shell-body.staff-ui[data-sidebar-manual] .page-content .panel-title-surface:is(.panel-page-header,.staff-header-card,.intake-top-shell) h1 {
+        font-size:22px !important;
+        line-height:1.15 !important;
+    }
+    html[data-theme] body.panel-shell-body.staff-ui[data-sidebar-manual] .page-content .panel-title-surface.intake-top-shell {
+        padding-block:4px !important;
+    }
+    html[data-theme] body.panel-shell-body.staff-ui[data-sidebar-manual] .page-content .panel-title-surface.staff-header-card {
+        padding-block:12px !important;
+    }
+}
 @media screen {
+    html[data-theme] body.panel-shell-body { --panel-title-background:#F4F8F5; }
+    html[data-theme='dark'] body.panel-shell-body { --panel-title-background:#112218; }
     html[data-theme] body.panel-shell-body .page-content > :is(.sa,.eb-shell,.admin-dashboard-shell,.staff-dashboard-v2,.retention-page,.service-management-hub,.ba-shell,.reports-page) {
         padding-inline: var(--panel-content-inline,20px) !important;
         padding-top: 12px !important;
         box-sizing: border-box;
     }
     html[data-theme] body.panel-shell-body .panel-title-surface {
-        --title-surface: #F4F8F5;
+        --title-surface: var(--panel-title-background);
         --title-border: #AEC7B7;
         --title-ink: #102D21;
         background: var(--title-surface) !important;
         border: 1px solid var(--title-border) !important;
-        border-radius: 16px !important;
+        border-radius: var(--panel-title-radius,16px) !important;
         box-shadow: none !important;
-        padding: 16px 20px !important;
+        padding: var(--panel-title-block-padding,16px) 20px !important;
         color: var(--title-ink);
         box-sizing: border-box;
         min-width: 0;
@@ -47,7 +75,6 @@
     html[data-theme] body.panel-shell-body .panel-title-surface .page-title-icon i { display:inline-flex; align-items:center; justify-content:center; line-height:1; }
     html[data-theme] body.panel-shell-body .panel-title-surface .page-title-icon--inline { font-size:22px; vertical-align:middle; margin-top:0; }
     html[data-theme='dark'] body.panel-shell-body .panel-title-surface {
-        --title-surface: #112218;
         --title-border: #29523D;
         --title-ink: #E5F2E9;
     }
@@ -76,6 +103,18 @@
     html[data-theme] body.panel-shell-body .panel-title-surface.panel-page-header > .panel-page-header__actions {
         grid-column:3;
         justify-self:end;
+    }
+    html[data-theme] body.panel-shell-body .panel-title-surface.panel-page-header.has-header-navigation {
+        padding-bottom: 12px !important;
+    }
+    html[data-theme] body.panel-shell-body .panel-title-surface.panel-page-header > .panel-page-header__navigation {
+        grid-column: 1 / -1;
+        width: 100%;
+        min-width: 0;
+        margin-top: 2px;
+        padding-top: 12px;
+        border-top: 1px solid var(--staff-border, var(--border, #AEC7B7));
+        box-sizing: border-box;
     }
     html[data-theme] body.panel-shell-body .centered-page-header :is(.topbar-leading,.service-reference-heading,.retention-hero-copy,.intake-brand,.reports-module-title-block,.ec-hero__left),
     html[data-theme] body.panel-shell-body .centered-page-header.ops-page-header > :first-child,
@@ -174,12 +213,56 @@
         html[data-theme] body.panel-shell-body .panel-title-surface .panel-page-header__leading > :is(.case-back-icon,.owner-case-back,.owner-records-back) { position:static; grid-column:2; grid-row:1; transform:none; }
         html[data-theme] body.panel-shell-body .panel-title-surface .panel-page-header__copy { grid-column:1 / -1; grid-row:2; max-width:none; }
         html[data-theme] body.panel-shell-body .panel-title-surface .panel-page-header__actions { justify-content:center; justify-self:center; }
+        html[data-theme] body.panel-shell-body .panel-title-surface .panel-page-header__navigation { width:100%; }
         html[data-theme] body.panel-shell-body .reports-reference-heading.centered-page-header { grid-template-columns:minmax(0,1fr) !important; }
         html[data-theme] body.panel-shell-body .reports-reference-heading.centered-page-header > .reports-module-title-block { display:block; grid-column:1; text-align:center; }
         html[data-theme] body.panel-shell-body .reports-reference-heading.centered-page-header .reports-reference-scope { justify-content:center; }
         html[data-theme] body.panel-shell-body .reports-reference-heading.centered-page-header .reports-module-primary-tabs { grid-column:1 !important; justify-self:center !important; max-width:100%; }
         html[data-theme] body.panel-shell-body .ec-hero.panel-title-surface { padding: 0 !important; }
         html[data-theme] body.panel-shell-body .ec-hero.panel-title-surface .ec-hero__top { padding: 16px; }
+    }
+}
+@media screen {
+    html[data-theme] body.panel-shell-body:is(.system-admin-ui,.branch-admin-ui,.owner-ui) .panel-title-surface {
+        --title-border: transparent;
+        --panel-title-block-padding: 12px;
+    }
+    html[data-theme] body.panel-shell-body:is(.system-admin-ui,.branch-admin-ui,.owner-ui) .panel-title-surface :is(h1,.ec-hero__title) {
+        font-size: 22px !important;
+        line-height: 1.15 !important;
+    }
+    html[data-theme] body.panel-shell-body:is(.system-admin-ui,.branch-admin-ui,.owner-ui) .panel-title-surface :is(h1 + p,.panel-page-header__copy > p,.reports-module-subtitle,.branch-dashboard-name,.service-reference-header p) {
+        color: var(--ink-muted, var(--color-text-secondary)) !important;
+        font-size: 13px !important;
+        line-height: 1.5;
+        margin: 4px 0 0 !important;
+    }
+    html[data-theme] body.panel-shell-body:is(.system-admin-ui,.branch-admin-ui,.owner-ui) :is(.sa-header,.admin-dashboard-greeting,.oe-executive-banner > .oe-header) {
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px 20px;
+    }
+    html[data-theme] body.panel-shell-body:is(.system-admin-ui,.branch-admin-ui) .panel-title-surface .service-reference-heading {
+        padding-bottom: 12px;
+    }
+    html[data-theme] body.panel-shell-body:is(.system-admin-ui,.branch-admin-ui,.owner-ui) :is(.sa-header,.admin-dashboard-greeting,.oe-header) :is(.dashboard-header-controls,.oe-header-actions) {
+        margin-inline-start: auto;
+        align-self: center;
+    }
+    html[data-theme] body.panel-shell-body.owner-ui .oe-executive-banner > .oe-header {
+        margin: 0;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border);
+    }
+}
+@media screen and (min-width: 1024px) {
+    html[data-theme] body.panel-shell-body:is(.system-admin-ui,.branch-admin-ui,.owner-ui)[data-sidebar-manual] .page-content > .panel-title-surface.panel-page-header {
+        margin-top: 8px;
+        min-height: 52px !important;
+    }
+    html[data-theme] body.panel-shell-body:is(.system-admin-ui,.branch-admin-ui,.owner-ui)[data-sidebar-manual] :is(.sa-heading,.admin-dashboard-greeting__title,.oe-header) {
+        min-height: 44px;
+        align-items: center;
     }
 }
 </style>

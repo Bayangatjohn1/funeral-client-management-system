@@ -4,6 +4,12 @@
         <script>window.parent?.refreshServiceCatalogHub?.();</script>
     @endif
 @endif
+@if(session('error'))
+    <div class="svc-status-feedback is-error" role="alert">
+        <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
+        <span>{{ session('error') }}</span>
+    </div>
+@endif
 @if($errors->any())
     <div class="svc-status-feedback is-error" role="alert">
         <i class="bi bi-exclamation-circle" aria-hidden="true"></i>

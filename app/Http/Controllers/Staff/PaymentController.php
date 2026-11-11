@@ -6,9 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\FuneralCase;
 use App\Models\Payment;
+use App\Models\PaymentCorrectionRequest;
+use App\Models\User;
+use App\Models\WorkflowNotice;
 use App\Support\AuditLogger;
 use App\Support\Payments\PaymentDetails;
+use App\Support\Payments\PaymentIdentifier;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -17,6 +23,92 @@ use Illuminate\Validation\Rule;
 
 class PaymentController extends Controller
 {
+    public function checkIdentifier(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'branch_id' => ['required', 'integer', 'exists:branches,id'],
+            'payment_method' => ['required', Rule::in(['cash', 'cashless'])],
+            'identifier_type' => ['required', Rule::in(['receipt_or_no', 'reference_number', 'approval_code'])],
+            'identifier' => ['required', 'string', 'max:100'],
+            'cashless_type' => ['nullable', Rule::in(PaymentDetails::CASHLESS_TYPES)],
+            'provider' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $branchId = (int) $validated['branch_id'];
+        if (! in_array($branchId, $request->user()->branchScopeIds(), true)) {
+            abort(403, 'Branch is outside your payment scope.');
+        }
+
+        $identifierType = $validated['identifier_type'];
+        $paymentMethod = $validated['payment_method'];
+        $cashlessType = $validated['cashless_type'] ?? null;
+        $identifier = trim($validated['identifier']);
+
+        if ($identifierType === 'receipt_or_no' && (! preg_match('~^[A-Za-z0-9 /-]{3,50}$~', $identifier))) {
+            return response()->json(['duplicate' => false]);
+        }
+        if ($identifierType === 'reference_number' && ($paymentMethod !== 'cashless' || ! preg_match('/^[A-Za-z0-9 _\/-]{4,60}$/', $identifier))) {
+            return response()->json(['duplicate' => false]);
+        }
+        if ($identifierType === 'approval_code' && ($paymentMethod !== 'cashless' || $cashlessType !== 'card' || ! preg_match('/^[A-Za-z0-9_\/-]{4,40}$/', $identifier))) {
+            return response()->json(['duplicate' => false]);
+        }
+        if ($paymentMethod === 'cashless' && ! $cashlessType) {
+            return response()->json(['duplicate' => false]);
+        }
+
+        $duplicate = PaymentIdentifier::duplicate(
+            branchId: $branchId,
+            identifierType: $identifierType,
+            value: $identifier,
+            cashlessType: $cashlessType,
+            provider: $validated['provider'] ?? null,
+        );
+
+        return response()->json([
+            'duplicate' => (bool) $duplicate,
+            'case_code' => $duplicate?->funeralCase?->case_code,
+            'message' => $duplicate ? PaymentIdentifier::duplicateMessage($identifierType, $duplicate) : null,
+        ]);
+    }
+
+    public function recordableCaseSuggestions(Request $request): JsonResponse
+    {
+        $this->authorize('create', Payment::class);
+        $validated = $request->validate(['q' => ['required', 'string', 'max:100']]);
+        $term = trim($validated['q']);
+
+        if (mb_strlen($term) < 2) {
+            return response()->json([]);
+        }
+
+        $caseId = ctype_digit($term) && strlen($term) <= 18 ? (int) $term : null;
+        $pattern = '%'.strtr(mb_strtolower($term), ['!' => '!!', '%' => '!%', '_' => '!_']).'%';
+        $matches = $this->recordableCases($this->paymentWriteBranchIds($request->user()))
+            ->with(['client:id,full_name', 'deceased:id,full_name'])
+            ->where(function (Builder $query) use ($caseId, $pattern) {
+                $query->whereRaw("LOWER(case_code) LIKE ? ESCAPE '!'", [$pattern])
+                    ->orWhereHas('client', fn (Builder $name) => $name->whereRaw("LOWER(full_name) LIKE ? ESCAPE '!'", [$pattern]))
+                    ->orWhereHas('deceased', fn (Builder $name) => $name->whereRaw("LOWER(full_name) LIKE ? ESCAPE '!'", [$pattern]));
+
+                if ($caseId !== null) {
+                    $query->orWhere('id', $caseId);
+                }
+            })
+            ->orderByRaw('CASE WHEN id = ? OR LOWER(case_code) = ? THEN 0 ELSE 1 END', [$caseId, mb_strtolower($term)])
+            ->latest('id')
+            ->limit(5)
+            ->get(['id', 'case_code', 'client_id', 'deceased_id'])
+            ->map(fn (FuneralCase $case) => [
+                'caseCode' => $case->case_code,
+                'client' => $case->client?->full_name,
+                'deceased' => $case->deceased?->full_name,
+                'url' => route('payments.history', ['case_id' => $case->id, 'record_payment' => 1, 'dashboard_search' => 1]),
+            ]);
+
+        return response()->json($matches);
+    }
+
     public function index(Request $request)
     {
         if ($request->user()?->isOwner()) {
@@ -142,7 +234,7 @@ class PaymentController extends Controller
         $viewBranchScopeIds = $this->paymentViewBranchIds($user);
 
         $validated = $request->validate([
-            'q' => ['nullable', 'string', 'max:100', "regex:/^[A-Za-z0-9\\s.'-]+$/"],
+            'q' => ['nullable', 'string', 'max:100', "regex:/^[\\pL\\pN\\pM\\s.\\/_#'-]+$/u"],
             'date_preset' => ['nullable', 'in:all,today,week,month,year,custom'],
             'paid_from' => ['nullable', 'date'],
             'paid_to' => ['nullable', 'date', 'after_or_equal:paid_from'],
@@ -152,12 +244,23 @@ class PaymentController extends Controller
             'case_status' => ['nullable', 'in:DRAFT,ACTIVE,COMPLETED'],
             'payment_method' => ['nullable', 'in:cash,cashless,bank_transfer'],
             'status_after_payment' => ['nullable', 'in:PAID,PARTIAL,UNPAID'],
-            'sort' => ['nullable', 'in:asc,desc'],
+            'sort' => ['nullable', 'in:asc,desc,balance_high,balance_low'],
             'tab' => ['nullable', 'in:summary,transactions,corrections'],
+            'correction_q' => 'nullable|string|max:100',
+            'correction_status' => 'nullable|in:PENDING,APPROVED,REJECTED,WITHDRAWN',
+            'correction_type' => 'nullable|in:CORRECT,VOID_ONLY',
+            'correction_period' => 'nullable|in:week,month_to_date,last_30_days',
+            'correction_branch_id' => 'nullable|integer',
+            'correction_requester_id' => 'nullable|integer|min:1',
+            'correction_urgency' => 'nullable|in:overdue',
+            'correction_sort' => 'nullable|in:newest,oldest',
+            'correction_per_page' => 'nullable|in:10,20,50',
+            'open_correction' => 'nullable|integer|min:1',
             'record_payment' => ['nullable', 'boolean'],
+            'dashboard_search' => ['nullable', 'boolean'],
             'case_id' => ['nullable', 'integer', 'exists:funeral_cases,id'],
         ], [
-            'q.regex' => 'Search may contain letters, numbers, spaces, apostrophes, periods, and hyphens only.',
+            'q.regex' => 'Search may contain letters, numbers, spaces, apostrophes, periods, slashes, underscores, #, and hyphens only.',
         ]);
 
         $requestedBranchId = $validated['branch_id'] ?? null;
@@ -188,31 +291,39 @@ class PaymentController extends Controller
         $caseStatus = $validated['case_status'] ?? null;
         $paymentMethod = $validated['payment_method'] ?? null;
         $sort = $validated['sort'] ?? 'desc';
+        $applyMonitoringSort = function ($query) use ($sort) {
+            if (in_array($sort, ['balance_high','balance_low'], true)) {
+                $direction = $sort === 'balance_high' ? 'desc' : 'asc';
+                $query->orderBy('balance_amount', $direction)->orderBy('id', $direction);
+            } else {
+                $query->orderByRaw('payments_max_paid_at IS NULL ASC')
+                    ->orderBy('payments_max_paid_at', $sort)->orderBy('id', $sort);
+            }
+        };
         $activeTab = $validated['tab'] ?? 'summary';
         $canRecordPayment = $user?->isStaff() && $user->can('create', Payment::class);
+        $fromDashboardSearch = $canRecordPayment && $request->boolean('dashboard_search');
 
         $openCases = collect();
         $preselectCase = null;
         if ($canRecordPayment) {
-            $openCases = FuneralCase::query()
+            $openCases = $this->recordableCases($viewBranchScopeIds)
                 ->select(['id', 'branch_id', 'client_id', 'deceased_id', 'package_id', 'case_code', 'package_name_snapshot', 'custom_package_name', 'service_package', 'total_amount', 'total_paid', 'balance_amount'])
                 ->with([
                     'client:id,full_name',
                     'deceased:id,full_name',
                     'package:id,name',
                 ])
-                ->whereIn('branch_id', $viewBranchScopeIds)
-                ->where(function ($scopeQuery) {
-                    $scopeQuery->where('entry_source', 'MAIN')->orWhereNull('entry_source');
-                })
-                ->whereIn('payment_status', ['UNPAID', 'PARTIAL'])
-                ->where('balance_amount', '>', 0)
                 ->latest()
                 ->get();
 
             if (!empty($validated['case_id'])) {
                 $preselectCase = $openCases->firstWhere('id', (int) $validated['case_id']);
             }
+        }
+
+        if ($fromDashboardSearch && $preselectCase === null) {
+            return redirect()->route('payments.history')->with('warning', 'This case is no longer available for payment recording.');
         }
 
         if (!$paidFrom && !$paidTo) {
@@ -274,20 +385,66 @@ class PaymentController extends Controller
                 });
         };
 
-        $applyCaseSearch = function ($query) use ($q, $applyValidPayment) {
-            $query->where(function ($sub) use ($q, $applyValidPayment) {
+        $fuzzyNamePatterns = [];
+        $nameTokens = array_slice(preg_split('/\\s+/u', mb_strtolower((string) $q, 'UTF-8'), -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, 2);
+        foreach ($nameTokens as $token) {
+            if (!preg_match('/\\A[a-z]{5,15}\\z/', $token)) {
+                continue;
+            }
+            $length = strlen($token);
+            for ($index = 0; $index < $length; $index++) {
+                $fuzzyNamePatterns[] = '%'.substr($token, 0, $index).substr($token, $index + 1).'%';
+                $fuzzyNamePatterns[] = '%'.substr($token, 0, $index).'_'.substr($token, $index + 1).'%';
+                $fuzzyNamePatterns[] = '%'.substr($token, 0, $index).'_'.substr($token, $index).'%';
+                if ($index + 1 < $length) {
+                    $swapped = $token;
+                    $swapped[$index] = $token[$index + 1];
+                    $swapped[$index + 1] = $token[$index];
+                    $fuzzyNamePatterns[] = '%'.$swapped.'%';
+                }
+            }
+            $fuzzyNamePatterns[] = '%'.$token.'_%';
+        }
+        $fuzzyNamePatterns = array_values(array_unique($fuzzyNamePatterns));
+        $searchName = function ($nameQuery) use ($q, $fuzzyNamePatterns) {
+            $nameQuery->where('full_name', 'like', "%{$q}%");
+            if ($fuzzyNamePatterns) {
+                $nameQuery->orWhere(function ($fuzzyQuery) use ($fuzzyNamePatterns) {
+                    foreach ($fuzzyNamePatterns as $pattern) {
+                        $fuzzyQuery->orWhereRaw('LOWER(full_name) LIKE ?', [$pattern]);
+                    }
+                });
+            }
+        };
+
+        $normalizedSearch = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $q));
+        $normalizedReferenceSearch = strlen($normalizedSearch) >= 5 && preg_match('/\d/', $normalizedSearch)
+            ? "%{$normalizedSearch}%"
+            : null;
+        $applyCaseSearch = function ($query) use ($q, $searchName, $normalizedReferenceSearch) {
+            $query->where(function ($sub) use ($q, $searchName, $normalizedReferenceSearch) {
                 $sub->where('case_code', 'like', "%{$q}%")
-                    ->orWhereHas('client', fn ($c) => $c->where('full_name', 'like', "%{$q}%"))
-                    ->orWhereHas('deceased', fn ($c) => $c->where('full_name', 'like', "%{$q}%"))
-                    ->orWhereHas('payments', function ($paymentQuery) use ($q, $applyValidPayment) {
-                        $applyValidPayment($paymentQuery);
-                        $paymentQuery->where(function ($referenceQuery) use ($q) {
-                            $referenceQuery->where('payment_record_no', 'like', "%{$q}%")
-                                ->orWhere('receipt_number', 'like', "%{$q}%")
-                                ->orWhere('receipt_or_no', 'like', "%{$q}%")
-                                ->orWhere('accounting_reference_no', 'like', "%{$q}%")
-                                ->orWhere('transaction_reference_no', 'like', "%{$q}%")
-                                ->orWhere('reference_number', 'like', "%{$q}%");
+                    ->when($normalizedReferenceSearch, fn ($caseQuery) => $caseQuery->orWhereRaw(
+                        "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(UPPER(case_code), '-', ''), '/', ''), '_', ''), ' ', ''), '.', '') LIKE ?",
+                        [$normalizedReferenceSearch]
+                    ))
+                    ->when(ctype_digit((string) $q), fn ($caseQuery) => $caseQuery->orWhere('id', (int) $q))
+                    ->orWhereHas('client', $searchName)
+                    ->orWhereHas('deceased', $searchName)
+                    // Search historical references too, including voided entries, so staff can
+                    // still locate the case that owns a corrected/replaced payment record.
+                    ->orWhereHas('payments', function ($paymentQuery) use ($q, $normalizedReferenceSearch) {
+                        $paymentQuery->where(function ($referenceQuery) use ($q, $normalizedReferenceSearch) {
+                            foreach (['payment_record_no', 'receipt_number', 'receipt_or_no', 'accounting_reference_no', 'transaction_reference_no', 'reference_number', 'approval_code'] as $index => $column) {
+                                $method = $index === 0 ? 'where' : 'orWhere';
+                                $referenceQuery->{$method}($column, 'like', "%{$q}%");
+                                if ($normalizedReferenceSearch) {
+                                    $referenceQuery->orWhereRaw(
+                                        "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(UPPER({$column}), '-', ''), '/', ''), '_', ''), ' ', ''), '.', '') LIKE ?",
+                                        [$normalizedReferenceSearch]
+                                    );
+                                }
+                            }
                         });
                     });
             });
@@ -367,8 +524,8 @@ class PaymentController extends Controller
                 'branch:id,branch_code,branch_name',
                 'client:id,full_name',
                 'deceased:id,full_name',
-                'payments' => function ($query) use ($applyValidPayment) {
-                    $applyValidPayment($query);
+                'payments' => function ($query) use ($applyValidPayment, $request) {
+                    if ($request->routeIs('payments.monitoring.print')) $applyValidPayment($query);
                     $query->select([
                             'id',
                             'funeral_case_id',
@@ -377,6 +534,10 @@ class PaymentController extends Controller
                             'payment_record_no',
                             'accounting_reference_no',
                             'receipt_or_no',
+                            'proof_path',
+                            'proof_mime',
+                            'proof_upload_id',
+                            'status',
                             'payment_method',
                             'cashless_type',
                             'bank_name',
@@ -407,15 +568,14 @@ class PaymentController extends Controller
                             'recorded_by',
                             'remarks',
                         ])
-                        ->with(['recordedBy:id,name', 'encodedBy:id,name'])
+                        ->with(['recordedBy:id,name', 'encodedBy:id,name', 'proofUpload.user:id,name', 'correctionRequests.requester:id,name', 'correctionRequests.reviewer:id,name', 'correctionRequests.replacementPayment:id,branch_id,payment_record_no,receipt_number'])
                         ->orderBy('paid_at')
                         ->orderBy('id');
                 },
             ])
             ->withCount(['payments' => $applyValidPayment])
             ->withMax(['payments' => $applyValidPayment], 'paid_at')
-            ->orderBy('payments_max_paid_at', $sort)
-            ->orderBy('id', $sort);
+            ->tap($applyMonitoringSort);
 
         if ($request->routeIs('payments.monitoring.print')) {
             return view('staff.payments.monitoring_print', [
@@ -451,6 +611,10 @@ class PaymentController extends Controller
                     'payment_record_no',
                     'accounting_reference_no',
                     'receipt_or_no',
+                    'proof_path',
+                    'proof_mime',
+                    'proof_upload_id',
+                    'status',
                     'payment_method',
                     'cashless_type',
                     'bank_name',
@@ -481,7 +645,7 @@ class PaymentController extends Controller
                     'recorded_by',
                     'remarks',
                 ])
-                ->with(['recordedBy:id,name', 'encodedBy:id,name'])
+                ->with(['recordedBy:id,name', 'encodedBy:id,name', 'proofUpload.user:id,name', 'correctionRequests.requester:id,name', 'correctionRequests.reviewer:id,name'])
                 ->orderByDesc('paid_at')
                 ->orderByDesc('id');
         };
@@ -508,19 +672,78 @@ class PaymentController extends Controller
             ])
             ->withCount(['payments' => $applyPaymentFilters])
             ->withMax(['payments' => $applyPaymentFilters], 'paid_at')
-            ->orderBy('payments_max_paid_at', $sort)
-            ->orderBy('id', $sort)
-            ->paginate(20, ['*'], 'transactions_page')
+            ->tap($applyMonitoringSort)
+            ->paginate($pageSize, ['*'], 'transactions_page')
             ->withQueryString();
 
-        $correctionQuery = $user->isBranchAdmin()
-            ? \App\Models\PaymentCorrectionRequest::where('branch_id', $user->branch_id)
+        $systemAdmin = $user->isSystemAdmin();
+        $correctionQuery = ($systemAdmin || $user->isBranchAdmin() || $user->isStaff())
+            ? PaymentCorrectionRequest::forMonitoring($user)
             : null;
+        $correctionRequesters = $user->isBranchAdmin() && $activeTab === 'corrections'
+            ? User::whereIn('id', (clone $correctionQuery)->select('requested_by'))->orderBy('name')->get(['id', 'name'])
+            : collect();
+        $correctionNow = now();
+        $correctionFrom = match ($validated['correction_period'] ?? null) {
+            'week' => $correctionNow->copy()->subDays(6)->startOfDay(),
+            'last_30_days' => $correctionNow->copy()->subDays(29)->startOfDay(),
+            'month_to_date' => $correctionNow->copy()->startOfMonth(),
+            default => null,
+        };
+        $correctionResults = $correctionQuery ? clone $correctionQuery : null;
+        $correctionResults?->when($request->filled('correction_status'), fn ($q) => $q->where('status', $request->input('correction_status')))
+            ->when($request->filled('correction_type'), fn ($q) => $q->where('correction_type', $validated['correction_type']))
+            ->when($correctionFrom, fn ($q) => $q->whereBetween('created_at', [$correctionFrom, $correctionNow]))
+            ->when($user->isBranchAdmin() && $request->filled('correction_requester_id'), fn ($q) => $q->where('requested_by', $validated['correction_requester_id']))
+            ->when($systemAdmin && $request->filled('correction_branch_id'), fn ($q) => $q->where('branch_id', $validated['correction_branch_id']))
+            ->when($systemAdmin && ($validated['correction_urgency'] ?? null) === 'overdue', fn ($q) => $q->where('status', 'PENDING')
+                ->where('created_at', '<=', $correctionNow->copy()->subHours(WorkflowNotice::CORRECTION_FOLLOW_UP_HOURS)))
+            ->when($request->filled('correction_q'), fn ($q) => $q->where(function ($q) use ($request) {
+                $term = trim($request->input('correction_q'));
+                if (preg_match('/\A#([0-9]+)\z/', $term, $requestNumber)) {
+                    $q->where('id', $requestNumber[1]);
+                    return;
+                }
+                $normalized = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $term));
+                $normalizedPattern = strlen($normalized) >= 5 && preg_match('/\d/', $normalized) ? '%'.$normalized.'%' : null;
+                $isFullPaymentRecord = preg_match('/\APAY-[A-Z0-9]+-\d{4}-\d+\z/i', $term) === 1;
+                $columns = ['payment_record_no', 'receipt_number', 'receipt_or_no', 'accounting_reference_no', 'transaction_reference_no', 'reference_number', 'approval_code'];
+                $matchPaymentReferences = function ($paymentQuery) use ($term, $normalized, $normalizedPattern, $isFullPaymentRecord, $columns) {
+                    $paymentQuery->where(function ($referenceQuery) use ($term, $normalized, $normalizedPattern, $isFullPaymentRecord, $columns) {
+                        foreach ($columns as $index => $column) {
+                            $method = $index === 0 ? 'where' : 'orWhere';
+                            $exactRecordColumn = $isFullPaymentRecord && $column === 'payment_record_no';
+                            $referenceQuery->{$method}($column, $exactRecordColumn ? '=' : 'like', $exactRecordColumn ? $term : '%'.$term.'%');
+                            if ($normalizedPattern) {
+                                $referenceQuery->orWhereRaw(
+                                    "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(UPPER({$column}), '-', ''), '/', ''), '_', ''), ' ', ''), '.', '') LIKE ?",
+                                    [$exactRecordColumn ? $normalized : $normalizedPattern]
+                                );
+                            }
+                        }
+                    });
+                };
+                $q->whereHas('payment', $matchPaymentReferences)
+                    ->orWhereHas('replacementPayment', $matchPaymentReferences)
+                    ->orWhereHas('payment.funeralCase', fn ($caseQuery) => $caseQuery
+                        ->where('case_code', 'like', '%'.$term.'%')
+                        ->when($normalizedPattern, fn ($caseQuery) => $caseQuery->orWhereRaw(
+                            "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(UPPER(case_code), '-', ''), '/', ''), '_', ''), ' ', ''), '.', '') LIKE ?",
+                            [$normalizedPattern]
+                        ))
+                        ->orWhereHas('client', fn ($nameQuery) => $nameQuery->where('full_name', 'like', '%'.$term.'%'))
+                        ->orWhereHas('deceased', fn ($nameQuery) => $nameQuery->where('full_name', 'like', '%'.$term.'%')));
+            }));
 
         return view('staff.payments.history', [
+            'correctionRequesters' => $correctionRequesters,
             'pendingCorrectionCount' => $correctionQuery ? (clone $correctionQuery)->where('status', 'PENDING')->count() : 0,
             'correctionRequests' => $correctionQuery && $activeTab === 'corrections'
-                ? $correctionQuery->with(['payment.funeralCase', 'requester', 'reviewer', 'replacementPayment'])->latest()->paginate(20)->withQueryString() : null,
+                ? $correctionResults->with(['payment.funeralCase', 'requester', 'reviewer', 'replacementPayment', 'branch'])
+                    ->orderBy('id', $request->input('correction_sort') === 'oldest' ? 'asc' : 'desc')
+                    ->paginate((int) $request->input('correction_per_page', 20))
+                    ->appends($request->except('open_correction')) : null,
+            'openCorrectionId' => $systemAdmin && $activeTab === 'corrections' ? ($validated['open_correction'] ?? null) : null,
             'paymentCases' => $paymentCases,
             'transactionCases' => $transactionCases,
             'q' => $q,
@@ -546,20 +769,26 @@ class PaymentController extends Controller
             'canRecordPayment' => $canRecordPayment,
             'openCases' => $openCases,
             'preselectCase' => $preselectCase,
+            'fromDashboardSearch' => $fromDashboardSearch,
             'autoOpenPayment' => $canRecordPayment && ($request->boolean('record_payment') || $preselectCase !== null),
         ]);
     }
 
     public function store(Request $request)
     {
+        if (! $request->filled('receipt_or_no') && $request->filled('accounting_reference_no')) {
+            $request->merge(['receipt_or_no' => $request->input('accounting_reference_no')]);
+        }
         $this->authorize('create', Payment::class);
 
         $validated = $request->validate(array_merge([
             'submission_id' => ['nullable', 'uuid'],
+            'payment_proof_id' => ['required', 'uuid'],
+            'payment_proof_form_id' => ['required', 'uuid'],
             'funeral_case_id' => ['required', 'exists:funeral_cases,id'],
             'paid_at' => PaymentDetails::dateRules(),
             'amount_paid' => PaymentDetails::amountRules(),
-            'receipt_or_no' => ['nullable', 'string', 'min:3', 'max:50', 'regex:/^[A-Za-z0-9 \\/\\-]+$/'],
+            'receipt_or_no' => ['required_if:payment_method,cash', 'nullable', 'string', 'min:3', 'max:50', 'regex:~^[A-Za-z0-9 /-]+$~'],
             'accounting_reference_no' => ['nullable', 'string', 'max:100', 'not_regex:/<[^>]*>|[<>]/'],
             'received_by' => ['nullable', 'string', 'max:120', 'not_regex:/<[^>]*>|[<>]/'],
             'remarks' => ['nullable', 'string', 'max:255', 'not_regex:/<[^>]*>|[<>]/'],
@@ -577,7 +806,7 @@ class PaymentController extends Controller
             'case' => (int) $validated['funeral_case_id'],
             'cents' => (int) round((float) $validated['amount_paid'] * 100),
             'paid_at' => Carbon::parse($validated['paid_at'])->toDateTimeString(),
-            'details' => $paymentDetails, 'receipt' => $receiptOrNo,
+            'details' => $paymentDetails, 'receipt' => $receiptOrNo, 'proof' => $validated['payment_proof_id'],
             'received_by' => $validated['received_by'] ?? null, 'remarks' => $validated['remarks'] ?? null,
         ], JSON_THROW_ON_ERROR));
         $paymentDetailErrors = PaymentDetails::validateNormalized($paymentDetails);
@@ -605,16 +834,27 @@ class PaymentController extends Controller
                 ])->withInput();
             }
 
-            if ($receiptOrNo && Payment::query()
-                ->where('branch_id', $precheckCase->branch_id)
-                ->where('receipt_or_no', $receiptOrNo)
-                ->where(function ($statusQuery) {
-                    $statusQuery->whereNull('status')->orWhereNotIn('status', ['VOID', 'VOIDED']);
-                })
-                ->exists()) {
-                return back()->withErrors([
-                    'receipt_or_no' => 'This Receipt / OR number is already assigned to another payment in this branch.',
-                ])->withInput();
+            $identifierChecks = [];
+            if ($receiptOrNo !== null) {
+                $identifierChecks[] = ['receipt_or_no', $receiptOrNo];
+            }
+            foreach (['reference_number', 'approval_code'] as $identifierType) {
+                $value = trim((string) ($paymentDetails[$identifierType] ?? ''));
+                if ($value !== '') $identifierChecks[] = [$identifierType, $value];
+            }
+            foreach ($identifierChecks as [$identifierType, $value]) {
+                $duplicate = PaymentIdentifier::duplicate(
+                    (int) $precheckCase->branch_id,
+                    $identifierType,
+                    $value,
+                    $paymentDetails['cashless_type'] ?? null,
+                    PaymentIdentifier::providerFor($paymentDetails),
+                );
+                if ($duplicate) {
+                    return back()->withErrors([
+                        $identifierType => PaymentIdentifier::duplicateMessage($identifierType, $duplicate),
+                    ])->withInput();
+                }
             }
         }
 
@@ -630,6 +870,12 @@ class PaymentController extends Controller
                 DB::transaction(function () use ($validated, $paymentDetails, $receiptOrNo, $submissionHash, &$savedPaymentId) {
                 $user = auth()->user();
                 $branchScopeIds = $this->paymentWriteBranchIds($user);
+                $branchId = FuneralCase::query()
+                    ->whereKey($validated['funeral_case_id'])
+                    ->whereIn('branch_id', $branchScopeIds)
+                    ->value('branch_id');
+                if (! $branchId) abort(404);
+                Branch::whereKey((int) $branchId)->lockForUpdate()->firstOrFail();
 
                 $funeralCase = FuneralCase::whereKey($validated['funeral_case_id'])
                     ->whereIn('branch_id', $branchScopeIds)
@@ -643,6 +889,29 @@ class PaymentController extends Controller
                 if ($existing = $this->replayedPayment($validated['submission_id'] ?? null, $submissionHash, $funeralCase)) {
                     $savedPaymentId = $existing->id;
                     return;
+                }
+
+                $identifierChecks = [];
+                if ($receiptOrNo !== null) {
+                    $identifierChecks[] = ['receipt_or_no', $receiptOrNo];
+                }
+                foreach (['reference_number', 'approval_code'] as $identifierType) {
+                    $value = trim((string) ($paymentDetails[$identifierType] ?? ''));
+                    if ($value !== '') $identifierChecks[] = [$identifierType, $value];
+                }
+                foreach ($identifierChecks as [$identifierType, $value]) {
+                    $duplicate = PaymentIdentifier::duplicate(
+                        (int) $funeralCase->branch_id,
+                        $identifierType,
+                        $value,
+                        $paymentDetails['cashless_type'] ?? null,
+                        PaymentIdentifier::providerFor($paymentDetails),
+                    );
+                    if ($duplicate) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            $identifierType => PaymentIdentifier::duplicateMessage($identifierType, $duplicate),
+                        ]);
+                    }
                 }
 
                 if (($funeralCase->entry_source ?? 'MAIN') === 'OTHER_BRANCH') {
@@ -730,6 +999,7 @@ class PaymentController extends Controller
                 ]);
                 $savedPaymentId = $payment->id;
 
+                \App\Support\Payments\PaymentProof::claim(request(), $payment, 'payment');
                 $funeralCase->update($totals);
 
                 AuditLogger::log(
@@ -842,9 +1112,34 @@ class PaymentController extends Controller
                 ->with('success', 'Payment recorded successfully.');
         }
 
+        $savedPayment = Payment::with([
+            'funeralCase.client',
+            'funeralCase.deceased',
+            'funeralCase.package',
+        ])->findOrFail($savedPaymentId);
+        $savedCase = $savedPayment->funeralCase;
+
         return redirect()->route('payments.index')->with([
-            'success' => 'Payment recorded successfully. You can print the Payment Summary for the client’s reference.',
+            'success' => 'Payment recorded successfully. You can print the Payment Record for the client’s reference.',
             'payment_summary_id' => $savedPaymentId,
+            'payment_success' => [
+                'id' => $savedPayment->id,
+                'record_no' => $savedPayment->display_payment_record_no,
+                'case_code' => $savedCase->case_code,
+                'client' => $savedCase->client?->full_name,
+                'deceased' => $savedCase->deceased?->full_name,
+                'amount' => (float) $savedPayment->amount,
+                'balance' => (float) $savedPayment->balance_after_payment,
+                'method' => PaymentDetails::label($savedPayment),
+                'received_at' => $savedPayment->paid_at->format('M d, Y h:i A'),
+                'package' => $savedCase->package_name_snapshot
+                    ?: $savedCase->custom_package_name
+                    ?: $savedCase->service_package
+                    ?: $savedCase->package?->name
+                    ?: '—',
+                'total' => (float) $savedCase->total_amount,
+                'payment_status' => $savedPayment->payment_status_after_payment,
+            ],
         ]);
     }
 
@@ -874,26 +1169,30 @@ class PaymentController extends Controller
         ]);
 
         $receiptOrNo = trim($validated['receipt_or_no']);
-        $duplicate = Payment::query()
-            ->where('branch_id', $payment->branch_id)
-            ->where('receipt_or_no', $receiptOrNo)
-            ->where('id', '!=', $payment->id)
-            ->where(function ($statusQuery) {
-                $statusQuery->whereNull('status')->orWhereNotIn('status', ['VOID', 'VOIDED']);
-            })
-            ->exists();
+        $before = DB::transaction(function () use ($payment, $receiptOrNo) {
+            Branch::whereKey((int) $payment->branch_id)->lockForUpdate()->firstOrFail();
+            $lockedPayment = Payment::query()->whereKey($payment->id)->lockForUpdate()->firstOrFail();
+            $duplicate = PaymentIdentifier::duplicate(
+                (int) $lockedPayment->branch_id,
+                'receipt_or_no',
+                $receiptOrNo,
+                exceptPaymentId: (int) $lockedPayment->id,
+            );
 
-        if ($duplicate) {
-            return back()->withErrors([
-                'receipt_or_no' => 'This Receipt / OR number is already assigned to another payment in this branch.',
+            if ($duplicate) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'receipt_or_no' => PaymentIdentifier::duplicateMessage('receipt_or_no', $duplicate),
+                ]);
+            }
+
+            $previousReceipt = $lockedPayment->receipt_or_no;
+            $lockedPayment->update([
+                'receipt_or_no' => $receiptOrNo,
+                'accounting_reference_no' => $receiptOrNo,
             ]);
-        }
 
-        $before = $payment->receipt_or_no;
-        $payment->update([
-            'receipt_or_no' => $receiptOrNo,
-            'accounting_reference_no' => $receiptOrNo,
-        ]);
+            return $previousReceipt;
+        });
 
         AuditLogger::log(
             'payment.receipt_updated',
@@ -965,6 +1264,15 @@ class PaymentController extends Controller
 
         return str_contains($e->getMessage(), 'payments_payment_record_no_unique')
             || str_contains($e->getMessage(), 'payment_record_no');
+    }
+
+    private function recordableCases(array $branchIds): Builder
+    {
+        return FuneralCase::query()
+            ->whereIn('branch_id', $branchIds)
+            ->where(fn (Builder $query) => $query->where('entry_source', 'MAIN')->orWhereNull('entry_source'))
+            ->whereIn('payment_status', ['UNPAID', 'PARTIAL'])
+            ->where('balance_amount', '>', 0);
     }
 
     private function paymentViewBranchIds($user): array

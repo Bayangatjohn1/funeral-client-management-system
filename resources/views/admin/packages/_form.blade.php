@@ -1,9 +1,19 @@
 @php
     $isEdit = isset($package);
+    $assignedPromotion = $isEdit ? $package->promotion : null;
     $action = $isEdit ? route('admin.packages.update', $package) : route('admin.packages.store');
     $buttonText = $isEdit ? 'Save Changes' : 'Save Package';
-    $returnTo = old('return_to', request('return_to', route('admin.packages.index')));
+    $returnTo = \App\Support\LocalReturnUrl::resolve(
+        old('return_to', request('return_to')),
+        route('admin.service-management.index', ['tab' => 'packages']),
+    );
     $serviceLabels = $serviceTypeOptions ?? \App\Models\Package::serviceTypeOptions();
+    $serviceLabels = array_replace($serviceLabels, [
+        \App\Models\Package::SERVICE_EMBALMING => 'Embalming & Body Preparation',
+        \App\Models\Package::SERVICE_CASKET => 'Included Casket',
+        \App\Models\Package::SERVICE_HOME_VIEWING => 'Home / Chapel Viewing',
+        \App\Models\Package::SERVICE_HEARSE => 'Included Hearse',
+    ]);
     $standardTypes = [
         \App\Models\Package::SERVICE_BODY_RETRIEVAL,
         \App\Models\Package::SERVICE_EMBALMING,
@@ -31,12 +41,15 @@
         foreach ($package->packageInclusions as $inclusion) {
             $type = $inclusion->service_type ?: \App\Models\Package::SERVICE_CUSTOM;
             if ($type === \App\Models\Package::SERVICE_CUSTOM || $inclusion->is_custom) {
-                $existingCustom[] = ['description' => $inclusion->inclusion_name];
+                if (! $inclusion->add_on_catalog_id) {
+                    $existingCustom[] = ['description' => $inclusion->inclusion_name];
+                }
                 continue;
             }
             $existingServices[$type] = [
                 'enabled' => 1,
                 'casket_catalog_id' => $inclusion->casket_catalog_id,
+                'hearse_catalog_id' => $inclusion->hearse_catalog_id,
                 'included_kilometers' => $inclusion->included_kilometers,
                 'price_per_excess_kilometer' => $inclusion->price_per_excess_kilometer,
                 'included_days' => $inclusion->included_days,
@@ -53,6 +66,9 @@
     }
 
     $existingFreebies = old('freebies');
+    $includedAddOnQuantities = old('configure_included_add_ons')
+        ? old('included_add_on_quantities', [])
+        : ($isEdit ? $package->packageInclusions->whereNotNull('add_on_catalog_id')->pluck('included_quantity', 'add_on_catalog_id')->all() : []);
     if (! is_array($existingFreebies)) {
         $existingFreebies = $isEdit
             ? $package->packageFreebies->map(fn ($freebie) => [
@@ -63,6 +79,7 @@
             ])->all()
             : [];
     }
+    $existingFreebies = collect($existingFreebies)->map(fn ($row, $index) => array_merge($row, ['_error_index' => $index]))->all();
     $freebieCatalogIds = $freebieCatalogs->pluck('id')->map(fn ($id) => (int) $id);
     $selectedFreebiesByCatalog = collect($existingFreebies)
         ->filter(fn ($freebie) => ! empty($freebie['freebie_catalog_id']) && $freebieCatalogIds->contains((int) $freebie['freebie_catalog_id']))
@@ -74,8 +91,6 @@
         ->filter(fn ($type) => ! empty($existingServices[$type]['enabled']))
         ->count();
     $selectedFreebieCount = $selectedFreebiesByCatalog->count() + $customFreebies->count();
-    $promoEnabled = (bool) old('promo_is_active', $package->promo_is_active ?? false);
-
 @endphp
 
 <style>
@@ -102,6 +117,9 @@
     .pkg-panel-title .pkg-icon { width:34px; height:34px; border-radius:7px; display:inline-flex; align-items:center; justify-content:center; background:#E6ECE3; color:#3E4A3D; flex:0 0 auto; }
     .pkg-panel-copy { margin-top:5px; color:#5F6B5C; font-size:.86rem; line-height:1.55; font-weight:650; }
     .pkg-panel-body { padding:20px; }
+    .pkg-promotion-assignment-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; margin:12px 0; padding:13px 14px; border:1px solid var(--border); border-radius:9px; background:var(--surface-muted); }
+    .pkg-promotion-assignment-summary dt { color:var(--ink-muted); font-size:.76rem; }
+    .pkg-promotion-assignment-summary dd { margin:3px 0 0; color:var(--ink); font-size:.88rem; font-weight:650; overflow-wrap:anywhere; }
     .pkg-grid { display:grid; gap:16px; }
     .pkg-grid-2 { grid-template-columns:1fr 220px; }
     .pkg-label { display:block; margin-bottom:8px; font-size:.74rem; line-height:1.25; font-weight:950; text-transform:uppercase; letter-spacing:.07em; color:#53604F; }
@@ -171,7 +189,6 @@
     .pkg-row-list:empty::before { content:attr(data-empty); display:block; border:1px dashed #D4CEC2; border-radius:8px; background:#FFFFFF; padding:16px; color:#6F7A6B; font-size:.86rem; line-height:1.45; font-weight:750; text-align:center; }
     .pkg-row-card { position:relative; border:1px solid #E0DAD0; border-radius:8px; background:#FFFFFF; transition:border-color .15s ease, box-shadow .15s ease, background .15s ease; }
     .pkg-row-card:hover, .pkg-row-card:focus-within { border-color:#AEB7A8; box-shadow:0 2px 10px rgba(62,74,61,.08); background:#FFFDF8; }
-    .pkg-custom-row { display:grid; grid-template-columns:36px minmax(0,1fr) 38px; gap:10px; align-items:center; padding:12px; }
     .pkg-freebie-row { display:grid; grid-template-columns:36px minmax(0,1.2fr) 104px 104px 38px; gap:10px; align-items:end; padding:12px; }
     .pkg-freebie-name { grid-column:2 / -1; }
     .pkg-freebie-checklist { display:grid; gap:10px; }
@@ -187,6 +204,24 @@
     .pkg-freebie-choice > span:last-child > span { display:block; margin-top:3px; color:#687466; font-size:.76rem; line-height:1.35; font-weight:700; }
     .pkg-freebie-config-grid { display:grid; grid-template-columns:96px minmax(120px,1fr); gap:12px; padding-left:33px; }
     .pkg-freebie-card:not(.is-selected) .pkg-freebie-config { opacity:.52; }
+    .pkg-included-addon-config {
+        display: grid;
+        grid-column: 1 / -1;
+        grid-template-columns: minmax(0, 1fr);
+        align-items: start;
+        gap: 12px;
+        width: 100%;
+        padding-top: 12px;
+        border-top: 1px solid var(--pkg-line, var(--border));
+    }
+    .pkg-included-addon-config[hidden] { display: none; }
+    .pkg-included-addon-config .form-input { width: 100%; min-width: 0; }
+    .pkg-included-addon-config .pkg-row-label { color: var(--pkg-muted, var(--ink-muted)) !important; }
+    .pkg-included-addon-summary { display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;font-size:13px; }
+    .pkg-included-addon-summary[hidden] { display:none; }
+    .pkg-included-addon-done { justify-self:end; }
+    [data-included-addon-card].is-selected,
+    [data-included-addon-card] .pkg-freebie-choice input:checked + .pkg-freebie-mark { box-shadow: none; }
     .pkg-freebie-legacy { margin-top:14px; display:grid; gap:10px; }
     .pkg-freebie-legacy-title { color:#566653; font-size:.73rem; font-weight:850; text-transform:uppercase; letter-spacing:.06em; }
     .pkg-freebie-actions { display:inline-flex; align-items:center; gap:0; border:1px solid #C9C5BB; border-radius:8px; background:#FFFFFF; overflow:hidden; }
@@ -196,7 +231,6 @@
     .pkg-row-field { display:grid; gap:5px; min-width:0; }
     .pkg-row-label { font-size:.7rem; line-height:1.25; font-weight:950; text-transform:uppercase; letter-spacing:.065em; color:#5F6B5C; }
     .pkg-row-grip { width:36px; height:44px; border-radius:7px; display:inline-flex; align-items:center; justify-content:center; background:#F0EEE8; color:#6B7466; align-self:end; }
-    .pkg-custom-row .pkg-row-grip { align-self:center; }
     .pkg-row-meta { grid-column:2 / -1; color:#6B7466; font-size:.73rem; font-weight:800; margin-top:-2px; }
     .pkg-tool-btn { min-height:42px; display:inline-flex; align-items:center; justify-content:center; gap:7px; border:1px solid #C9C5BB; border-radius:7px; background:#FFFFFF; color:#3E4A3D; padding:9px 12px; font-size:.82rem; line-height:1.25; font-weight:950; cursor:pointer; transition:background .15s ease, border-color .15s ease; }
     .pkg-tool-btn:hover { background:#F3F0E8; border-color:#8C9786; }
@@ -313,7 +347,7 @@
     html[data-theme='dark'] .pkg-switch input:checked + .pkg-slider { background:#3b82f6; }
     @media (max-width: 680px) {
         .pkg-workspace { padding:18px 1rem 28px; }
-        .pkg-grid-2, .pkg-freebie-row, .pkg-custom-row, .pkg-freebie-card, .pkg-freebie-config-grid { grid-template-columns:1fr; }
+        .pkg-grid-2, .pkg-freebie-row, .pkg-freebie-card, .pkg-freebie-config-grid { grid-template-columns:1fr; }
         .pkg-freebie-config-grid { padding-left:0; }
         .pkg-freebie-name, .pkg-row-meta { grid-column:auto; }
         .pkg-row-grip { display:none; }
@@ -459,7 +493,9 @@
     }
 </style>
 
-<form id="packageForm" method="POST" action="{{ $action }}" data-package-wizard class="pkg-workspace {{ $isEdit ? 'is-edit-mode' : '' }} w-full mx-auto px-4 sm:px-6 lg:px-8 grid gap-5">
+@include('admin.packages.partials.page-design')
+
+<form id="packageForm" method="POST" enctype="multipart/form-data" action="{{ $action }}" data-package-page class="pkg-workspace {{ $isEdit ? 'is-edit-mode' : '' }} w-full mx-auto px-4 sm:px-6 lg:px-8 grid gap-5">
     @csrf
     @if($isEdit)
         @method('PUT')
@@ -471,60 +507,96 @@
 
     <header class="pkg-hero">
         <div>
-            <div class="pkg-eyebrow"><i class="bi bi-box-seam"></i> Main Branch Package Setup</div>
-            <h2 class="pkg-title">{{ $isEdit ? 'Edit Service Package' : 'Create Service Package' }}</h2>
-            <p class="pkg-subtitle">Set the base package, service limits, casket, freebies, and promo rules in one clean workflow. Optional add-ons stay outside this form.</p>
+            <span class="pkg-hero-icon" aria-hidden="true"><i class="bi bi-box-seam"></i></span>
+            <h2 class="pkg-title">{{ $isEdit ? 'Edit Funeral Package' : 'Create Funeral Package' }}</h2>
+            <p class="pkg-subtitle">Configure bundled memorial services, catalog inclusions, and complimentary freebies.</p>
         </div>
-        <div class="flex flex-wrap gap-2">
-            <span class="pkg-status-chip"><i class="bi bi-check-circle"></i> New packages active</span>
-            <span class="pkg-status-chip"><i class="bi bi-clock-history"></i> Asia/Manila promo time</span>
-        </div>
+        <div class="pkg-page-actions"><a href="{{ $returnTo }}" class="btn btn-outline" data-service-form-cancel>Cancel</a><button type="submit" class="btn btn-primary-custom" data-package-submit><span data-package-submit-label>{{ $buttonText }}</span></button></div>
     </header>
+
+
+    @if(isset($package) && ($dependencyWarnings = app(\App\Support\ServiceCatalogPolicy::class)->packageBlockers($package, ignoreArchived: true)) !== [])
+    <div class="pkg-configuration-errors" role="status"><ul>
+        @foreach($dependencyWarnings as $warning)
+            @php
+                $shortWarning = str_replace([
+                    'No hearse selected. Edit this package to choose one.',
+                    'Choose an available casket or replace it during intake.',
+                    'Choose an active casket in package settings.',
+                    'Edit this package and choose an available hearse.',
+                    'Edit this package and choose an active hearse.',
+                    'Edit this package to replace or remove it.',
+                ], [
+                    'No hearse selected. Choose one.',
+                    'Choose another casket.',
+                    'Choose another casket.',
+                    'Choose another hearse.',
+                    'Choose another hearse.',
+                    'Replace or remove it.',
+                ], $warning);
+                $shortWarning = str_replace(['Included casket ', 'Included hearse ', 'Included freebie '], ['Casket ', 'Hearse ', 'Freebie '], $shortWarning);
+            @endphp
+            <li>{{ $shortWarning }}</li>
+        @endforeach
+    </ul></div>
+    @endif
+    @if($errors->any())
+        <div class="pkg-configuration-errors" role="alert">
+            <strong>Please correct the following configuration errors:</strong>
+            <ul>@foreach($errors->all() as $message)<li>{{ $message }}</li>@endforeach</ul>
+        </div>
+    @endif
 
     <nav class="package-wizard-nav" aria-label="Package setup steps" hidden>
         @foreach(['Details', 'Services', 'Inclusions', 'Freebies', 'Promo', 'Review'] as $stepLabel)<button type="button" data-wizard-go="{{ $loop->iteration }}"><span>{{ $loop->iteration }}</span>{{ $stepLabel }}</button>@endforeach
     </nav>
     <div class="pkg-layout">
         <div class="pkg-main">
-            <section class="pkg-panel {{ $isEdit ? 'is-collapsible is-collapsed' : '' }}" data-package-panel>
+            <section class="pkg-panel " data-package-panel>
                 <div class="pkg-panel-head" data-panel-head>
                     <div>
                         <div class="pkg-panel-title"><span class="pkg-icon"><i class="bi bi-card-heading"></i></span> Basic Details</div>
-                        <p class="pkg-panel-copy">Name the package and set the base price.</p>
+                        <p class="pkg-panel-copy">Define package name, base commercial price, and customer-facing service summary.</p>
                     </div>
                 </div>
                 <div class="pkg-panel-body">
                     <div class="pkg-grid pkg-grid-2">
                         <div>
                             <label class="pkg-label" for="package-name">Package Name <span class="pkg-required">*</span></label>
-                            <input id="package-name" type="text" name="name" value="{{ old('name', $package->name ?? '') }}" class="form-input" placeholder="e.g. First Class Package" required>
+                            <input id="package-name" type="text" name="name" value="{{ old('name', $package->name ?? '') }}" class="form-input" placeholder="e.g. San Isidro Classic Memorial Package" required maxlength="150" data-text-case="words" autocapitalize="words" autocorrect="off" spellcheck="false">
+                            <p class="pkg-inline-help mt-2">Display title shown across package catalogs and case intake wizard.</p>
                             @error('name') <div class="form-error">{{ $message }}</div> @enderror
                         </div>
                         <div>
-                            <label class="pkg-label" for="package-price">Base Price <span class="pkg-required">*</span></label>
+                            <label class="pkg-label" for="package-price">Base Package Price (PHP) <span class="pkg-required">*</span></label>
                             <div class="pkg-money">
                                 <span>&#8369;</span>
-                                <input id="package-price" type="number" step="0.01" min="0" name="price" value="{{ old('price', $package->price ?? '') }}" class="form-input" placeholder="0.00" required>
+                                <input id="package-price" max="9999999999.99" type="number" step="0.01" min="0" name="price" value="{{ old('price', $package->price ?? '') }}" class="form-input" placeholder="0.00" required>
                             </div>
+                            <p class="pkg-inline-help mt-2">Baseline bundled commercial amount.</p>
                             @error('price') <div class="form-error">{{ $message }}</div> @enderror
                         </div>
                         <div class="md:col-span-2">
-                            <label class="pkg-label" for="package-description">Short Description <span class="normal-case tracking-normal font-bold">(optional)</span></label>
-                            <textarea id="package-description" name="short_description" rows="2" class="form-input" maxlength="500" placeholder="Short internal note shown to admins.">{{ old('short_description', $package->short_description ?? '') }}</textarea>
+                            <label class="pkg-label" for="package-description">Package Description <span class="normal-case tracking-normal font-bold">(optional)</span></label>
+                            <textarea id="package-description" name="short_description" rows="2" class="form-input" maxlength="500" placeholder="e.g. Dignified memorial service with a solid wood casket and ceremonial support." data-text-case="sentences" autocapitalize="sentences" autocorrect="on" spellcheck="true">{{ old('short_description', $package->short_description ?? '') }}</textarea>
                             @error('short_description') <div class="form-error">{{ $message }}</div> @enderror
                         </div>
                     </div>
+                    @include('admin.service-management.partials.photo-field', ['catalog' => $package ?? new \App\Models\Package(), 'photoCaption' => 'This photo appears on the package card and in its printed brochure. Changes apply when you save.'])
                 </div>
             </section>
 
-            <section class="pkg-panel {{ $isEdit ? 'is-collapsible is-collapsed' : '' }}" data-package-panel>
+            <section class="pkg-panel " data-package-panel>
                 <div class="pkg-panel-head" data-panel-head>
                     <div>
                         <div class="pkg-panel-title"><span class="pkg-icon"><i class="bi bi-check2-square"></i></span> Included Services</div>
-                        <p class="pkg-panel-copy">Turn on services included in the base price.</p>
+                        <p class="pkg-panel-copy">Enable supported services intentionally and configure distance allowances, duration caps, and catalog selections.</p>
                     </div>
                     <div class="pkg-panel-head-actions">
-                        <span class="pkg-badge pkg-badge-included">{{ $enabledServiceCount }} service{{ $enabledServiceCount === 1 ? '' : 's' }}</span>
+                        @if($basicDefaults = \App\Models\CustomPackageDefault::find(1))
+                            <button type="button" class="pkg-link-btn" data-apply-basic-defaults>Apply Basic Defaults</button>
+                        @endif
+                        <span class="pkg-badge pkg-badge-included" data-service-count>{{ $enabledServiceCount }} service{{ $enabledServiceCount === 1 ? '' : 's' }}</span>
                         @if($isEdit)
                             <button type="button" class="pkg-panel-toggle" data-panel-toggle aria-expanded="false" aria-label="Expand Included Services">
                                 <i class="bi bi-chevron-down"></i>
@@ -543,69 +615,68 @@
                                     ? filled($row['included_kilometers'] ?? null) || filled($row['price_per_excess_kilometer'] ?? null)
                                     : ($isDayService ? filled($row['included_days'] ?? null) || filled($row['price_per_extended_day'] ?? null) : false);
                             @endphp
-                            <div class="pkg-service-card {{ !empty($row['enabled']) ? 'is-enabled' : '' }} {{ $hasExtraConfig ? 'is-extra-open' : '' }}" data-service-row role="button" tabindex="0">
+                            <div class="pkg-service-card {{ !empty($row['enabled']) ? 'is-enabled' : '' }}" data-service-row>
                                 <div class="pkg-service-top">
-                                    <label class="pkg-service-name" for="package-service-{{ $type }}">
+                                    <div class="pkg-service-name">
                                         <span class="pkg-service-icon"><i class="bi {{ $serviceIcons[$type] ?? 'bi-check2' }}"></i></span>
                                         <span class="pkg-service-copy">
-                                            <span class="pkg-service-label">{{ $serviceLabels[$type] }}</span>
-                                            <span class="pkg-service-note">
-                                                @if($isKmService)
-                                                    Includes kilometers; excess km can have an extra rate.
-                                                @elseif($isDayService)
-                                                    Includes days; extended days can have an extra rate.
-                                                @else
-                                                    Included base casket for this package.
-                                                @endif
+                                            <span class="pkg-service-label">{{ $loop->iteration }}. {{ $serviceLabels[$type] }}</span>
+                                            <span class="pkg-service-note">@if($type === \App\Models\Package::SERVICE_BODY_RETRIEVAL)Hospital or residential pick-up and initial conveyance to preparation facility.@elseif($type === \App\Models\Package::SERVICE_EMBALMING)Hygienic preservation, dressing, cosmetic restoration, and casket placement.@elseif($type === \App\Models\Package::SERVICE_CASKET)Primary casket option bundled into package base price.@elseif($type === \App\Models\Package::SERVICE_HOME_VIEWING)Viewing setup at home or in a chapel, including curtains, candle stands, and viewing equipment.@else Ceremonial funeral coach coverage included in this package.@endif
                                             </span>
                                         </span>
-                                    </label>
-                                    <label class="pkg-switch" title="Enable {{ $serviceLabels[$type] }}">
-                                        <input type="hidden" name="included_services[{{ $type }}][enabled]" value="0">
-                                        <input id="package-service-{{ $type }}" type="checkbox" name="included_services[{{ $type }}][enabled]" value="1" data-service-toggle aria-label="Include {{ $serviceLabels[$type] }}" {{ !empty($row['enabled']) ? 'checked' : '' }}>
-                                        <span class="pkg-slider"></span>
-                                    </label>
+                                    </div>
+                                    <div class="pkg-service-controls"><span class="pkg-service-state" data-service-status>{{ !empty($row['enabled']) ? 'Included' : 'Not included' }}</span><label class="pkg-switch"><input type="hidden" name="included_services[{{ $type }}][enabled]" value="0"><input id="package-service-{{ $type }}" type="checkbox" name="included_services[{{ $type }}][enabled]" value="1" role="switch" data-service-toggle aria-label="Include {{ $serviceLabels[$type] }}" {{ !empty($row['enabled']) ? 'checked' : '' }}><span class="pkg-slider"></span></label><button type="button" class="pkg-service-disclosure" data-service-disclosure aria-expanded="{{ !empty($row['enabled']) ? 'true' : 'false' }}" aria-controls="package-service-fields-{{ $type }}" ><i class="bi bi-chevron-down" aria-hidden="true"></i><span data-service-disclosure-label>{{ $isKmService || $isDayService ? 'Limits & rates' : 'Casket details' }}</span></button></div>
                                 </div>
                                 @if($isKmService || $isDayService)
-                                    <div class="pkg-service-optional" data-service-optional>
-                                        <button type="button" class="pkg-service-extra-toggle" data-service-extra-toggle aria-expanded="{{ $hasExtraConfig ? 'true' : 'false' }}">
-                                            <i class="bi bi-sliders"></i>
-                                            <span>{{ $isKmService ? 'Configure included km / excess rate' : 'Configure included days / extended rate' }}</span>
-                                        </button>
+                                    <div class="pkg-service-fields" id="package-service-fields-{{ $type }}">
                                         <div class="pkg-service-extra" data-service-extra>
                                             @if($isKmService)
                                                 <div class="pkg-grid pkg-grid-2">
                                                     <div>
-                                                        <label class="pkg-label">Included Kilometers</label>
-                                                        <input type="number" min="0" name="included_services[{{ $type }}][included_kilometers]" value="{{ $row['included_kilometers'] ?? '' }}" class="form-input" placeholder="0" data-service-extra-field>
+                                                        <label class="pkg-label pkg-limit-label" for="service-{{ $type }}-included_kilometers">Included Distance (km) <span class="pkg-required">*</span></label>
+                                                        <div class="pkg-unit-input"><input type="number" min="0" max="999999" step="0.01" id="service-{{ $type }}-included_kilometers" name="included_services[{{ $type }}][included_kilometers]" value="{{ $row['included_kilometers'] ?? '' }}" class="form-input" placeholder="0" data-service-extra-field data-service-limit required><span aria-hidden="true">km</span></div><p class="pkg-field-help">{{ $type === \App\Models\Package::SERVICE_HEARSE ? 'Cortège route allowance covered by package base price.' : 'Standard allowance included in package base price.' }}</p>
+                                                        <x-validation-error :field="'included_services.'.$type.'.included_kilometers'" />
                                                     </div>
                                                     <div>
-                                                        <label class="pkg-label">Excess Kilometer Rate</label>
-                                                        <div class="pkg-money"><span>&#8369;</span><input type="number" step="0.01" min="0" name="included_services[{{ $type }}][price_per_excess_kilometer]" value="{{ $row['price_per_excess_kilometer'] ?? '' }}" class="form-input" placeholder="0.00" data-service-extra-field></div>
+                                                        <label class="pkg-label pkg-excess-label" for="service-{{ $type }}-price_per_excess_kilometer">Excess Rate per Additional Kilometer (PHP) <span class="pkg-required">*</span></label>
+                                                        <div class="pkg-money"><span>&#8369;</span><input type="number" step="0.01" min="0" max="9999999999.99" id="service-{{ $type }}-price_per_excess_kilometer" name="included_services[{{ $type }}][price_per_excess_kilometer]" value="{{ $row['price_per_excess_kilometer'] ?? '' }}" class="form-input" placeholder="0.00" data-service-extra-field required></div><p class="pkg-field-help">Enter 0 for no extra distance charge.</p>
+                                                        <x-validation-error :field="'included_services.'.$type.'.price_per_excess_kilometer'" />
                                                     </div>
                                                 </div>
+                                                @if($type === \App\Models\Package::SERVICE_HEARSE)
+                                                    <label class="pkg-label" for="package-hearse">Included Hearse <span class="pkg-required">*</span></label>
+                                                    <select id="package-hearse" name="included_services[hearse][hearse_catalog_id]" class="form-select" data-service-extra-field required>
+                                                        <option value="">Choose an available hearse</option>
+                                                        @foreach($hearseCatalogs as $hearse)<option value="{{ $hearse->id }}" @selected((int)($row['hearse_catalog_id'] ?? 0) === $hearse->id)>{{ $hearse->name }}{{ $hearse->reference_value !== null ? ' - PHP ' . number_format((float) $hearse->reference_value, 2) : ' - Value not configured' }}</option>@endforeach
+                                                    </select>
+                                                    <p class="pkg-field-help">Included in the package base price. Regular intake can select an available upgrade and charge only the positive reference-value difference. If unavailable, update this package before new intake.</p>
+                                                    @error('included_services.hearse.hearse_catalog_id')<p class="form-error">{{ $message }}</p>@enderror
+                                                @endif
+
                                             @else
                                                 <div class="pkg-grid pkg-grid-2">
                                                     <div>
-                                                        <label class="pkg-label">Included Days</label>
-                                                        <input type="number" min="0" max="365" name="included_services[{{ $type }}][included_days]" value="{{ $row['included_days'] ?? '' }}" class="form-input" placeholder="0" data-service-extra-field>
+                                                        <label class="pkg-label pkg-limit-label" for="service-{{ $type }}-included_days">{{ $type === \App\Models\Package::SERVICE_HOME_VIEWING ? 'Included Viewing Days' : 'Included Duration (days)' }} <span class="pkg-required">*</span></label>
+                                                        <div class="pkg-unit-input"><input type="number" min="1" max="365" id="service-{{ $type }}-included_days" name="included_services[{{ $type }}][included_days]" value="{{ $row['included_days'] ?? '' }}" class="form-input" placeholder="0" data-service-extra-field data-service-limit required><span aria-hidden="true">days</span></div><p class="pkg-field-help">{{ $type === \App\Models\Package::SERVICE_EMBALMING ? 'Preservation duration covered by baseline fee.' : 'Number of viewing days covered by the package price.' }}</p>
+                                                        <x-validation-error :field="'included_services.'.$type.'.included_days'" />
                                                     </div>
                                                     <div>
-                                                        <label class="pkg-label">Extended-Day Rate</label>
-                                                        <div class="pkg-money"><span>&#8369;</span><input type="number" step="0.01" min="0" name="included_services[{{ $type }}][price_per_extended_day]" value="{{ $row['price_per_extended_day'] ?? '' }}" class="form-input" placeholder="0.00" data-service-extra-field></div>
+                                                        <label class="pkg-label pkg-excess-label" for="service-{{ $type }}-price_per_extended_day">{{ $type === \App\Models\Package::SERVICE_EMBALMING ? 'Additional-Day Preservation Rate (PHP)' : 'Extra Viewing Day Rate (PHP)' }} <span class="pkg-required">*</span></label>
+                                                        <div class="pkg-money"><span>&#8369;</span><input type="number" step="0.01" min="0" max="9999999999.99" id="service-{{ $type }}-price_per_extended_day" name="included_services[{{ $type }}][price_per_extended_day]" value="{{ $row['price_per_extended_day'] ?? '' }}" class="form-input" placeholder="0.00" data-service-extra-field required></div><p class="pkg-field-help">Enter 0 for no extra-day charge.</p>
+                                                        <x-validation-error :field="'included_services.'.$type.'.price_per_extended_day'" />
                                                     </div>
                                                 </div>
                                             @endif
                                         </div>
                                     </div>
                                 @else
-                                    <div class="pkg-service-fields">
+                                    <div class="pkg-service-fields" id="package-service-fields-{{ $type }}">
                                         <div class="flex flex-wrap items-end justify-between gap-3">
                                             <div class="min-w-[220px] flex-1">
-                                                <label class="pkg-label">Casket</label>
-                                                <input type="search" class="form-input mb-2" data-casket-search placeholder="Search casket catalog">
-                                                <select name="included_services[{{ $type }}][casket_catalog_id]" class="form-select" data-casket-select data-casket-required>
-                                                    <option value="">Select casket</option>
+                                                <label class="pkg-label" for="package-casket">Select Included Casket <span class="pkg-required">*</span></label>
+                                                <details class="pkg-casket-search-tools"><summary>Search catalog</summary><input type="search" aria-label="Search casket catalog" class="form-input mb-2" data-casket-search placeholder="Search casket catalog"></details>
+                                                <select id="package-casket" name="included_services[{{ $type }}][casket_catalog_id]" class="form-select" data-casket-select data-casket-required>
+                                                    <option value="">— Choose eligible casket from catalog —</option>
                                                     @foreach($casketCatalogs as $catalog)
                                                         <option
                                                             value="{{ $catalog->id }}"
@@ -616,8 +687,9 @@
                                                             data-available="{{ $catalog->is_active && $catalog->is_available ? '1' : '0' }}"
                                                             data-update-url="{{ route('admin.casket-catalogs.update', $catalog, absolute: false) }}"
                                                             @selected((int)($row['casket_catalog_id'] ?? 0) === $catalog->id)
+                                                            @disabled(!$catalog->is_available || !$catalog->is_active)
                                                         >
-                                                            {{ $catalog->display_name }}
+                                                            {{ $catalog->display_name }}{{ $catalog->is_available ? '' : ' — Unavailable' }}
                                                         </option>
                                                     @endforeach
                                                 </select>
@@ -630,57 +702,82 @@
                                             <strong>No casket selected</strong>
                                             <span>Select a catalog casket for this package.</span>
                                         </div>
+                                        <p class="pkg-service-help">The included casket is covered by the package price. Its reference value is used for applicable replacement or upgrade calculations and is not added separately to the base price.</p>
                                     </div>
                                 @endif
                             </div>
                         @endforeach
                     </div>
 
-                    <div class="pkg-muted-box mt-4">
-                        <div class="pkg-list-head">
-                            <div>
-                                <div class="pkg-subhead-title">Other Package Inclusions</div>
-                                <p class="pkg-panel-copy">Items included in the base package price.</p>
-                            </div>
-                            <div class="pkg-list-actions">
-                                <button type="button" class="pkg-tool-btn pkg-remove-all-btn" data-clear-custom><i class="bi bi-trash3"></i> Remove All</button>
-                                <button type="button" class="pkg-tool-btn" data-add-custom><i class="bi bi-plus-circle"></i> Add Other Inclusion</button>
-                            </div>
-                        </div>
-                        <div class="pkg-row-list" data-custom-list data-empty="No other inclusions yet. Use Add Other Inclusion for items outside the standard services.">
-                            @foreach($existingCustom as $i => $custom)
-                                <div class="pkg-row-card pkg-custom-row" data-custom-row>
-                                    <span class="pkg-row-grip"><i class="bi bi-list"></i></span>
-                                    <input type="text" name="custom_inclusions[{{ $i }}][description]" value="{{ $custom['description'] ?? '' }}" class="form-input" placeholder="e.g. Memorial folder setup">
-                                    <button type="button" class="pkg-tool-btn pkg-remove-btn" data-remove-row aria-label="Remove other inclusion"><i class="bi bi-x-lg"></i></button>
+                    @foreach($existingCustom as $i => $custom)
+                        <input type="hidden" name="custom_inclusions[{{ $i }}][description]" value="{{ $custom['description'] ?? '' }}">
+                        <x-validation-error :field="'custom_inclusions.'.$i.'.description'" />
+                    @endforeach
+                    @error('included_services') <div class="form-error">{{ $message }}</div> @enderror
+                    <div class="mt-5 border-t border-current/10 pt-4">
+                        <h3 class="pkg-panel-title">Other Inclusions</h3>
+                        <p class="pkg-panel-copy">Select the add-ons covered by this package and set how much is included. Billing units and extra rates come from the Add-ons catalog.</p>
+                        <input type="hidden" name="configure_included_add_ons" value="1">
+                        <div class="mt-3 grid max-h-72 items-start gap-3 overflow-y-auto overscroll-contain sm:grid-cols-2">
+                            @forelse(($includedAddOnCatalogs ?? collect()) as $catalog)
+                                @php
+                                    $quantity = $includedAddOnQuantities[$catalog->id] ?? null;
+                                    $selected = $quantity !== null && $quantity !== '';
+                                    $unit = $catalog->unit ?: 'item';
+                                    $includedUnitLabel = match ($unit) {
+                                        'day' => 'Included Days',
+                                        'set' => 'Included Sets',
+                                        'trip' => 'Included Trips',
+                                        'service' => 'Included Services',
+                                        default => 'Included Items',
+                                    };
+                                @endphp
+                                <div class="pkg-freebie-card {{ $selected ? 'is-selected' : '' }}" data-included-addon-card>
+                                    <label class="pkg-freebie-choice">
+                                        <input type="checkbox" aria-label="Include {{ $catalog->name }}" aria-controls="included-addon-config-{{ $catalog->id }}" data-included-addon-check @checked($selected)>
+                                        <span class="pkg-freebie-mark" aria-hidden="true"><i class="bi bi-check2"></i></span>
+                                        <span>
+                                            <strong>{{ $catalog->name }}@if($catalog->category === \App\Models\AddOnCatalog::CHAPEL_VIEWING) · {{ $catalog->branch?->branch_name ?: 'Needs Setup' }}@endif</strong>
+                                            <span>{{ $catalog->category }} · {{ (float) $catalog->price > 0 ? '₱'.number_format((float) $catalog->price, 2).' per extra '.$unit : ($catalog->category === \App\Models\AddOnCatalog::CHAPEL_VIEWING ? 'No extra charge' : 'Extra rate unavailable') }}{{ $catalog->is_active && $catalog->is_available ? '' : ' · Unavailable' }}</span>
+                                        </span>
+                                    </label>
+                                    <div class="pkg-included-addon-summary" data-included-addon-summary hidden>
+                                        <span data-included-addon-coverage></span>
+                                        <button type="button" class="service-field-adjust" data-included-addon-adjust aria-controls="included-addon-config-{{ $catalog->id }}">Adjust</button>
+                                    </div>
+                                    <div class="pkg-included-addon-config" id="included-addon-config-{{ $catalog->id }}" @if(!$selected) hidden @endif>
+                                        <div class="pkg-row-field">
+                                            <label class="pkg-row-label" for="included-addon-{{ $catalog->id }}">{{ $includedUnitLabel }}</label>
+                                            <div class="pkg-unit-input">
+                                                <input id="included-addon-{{ $catalog->id }}" class="form-input" type="number" min="1" max="999" step="1"
+                                                    name="included_add_on_quantities[{{ $catalog->id }}]" data-included-add-on-name="{{ $catalog->name }}" data-included-add-on-unit="{{ $unit }}"
+                                                    value="{{ $quantity ?? 1 }}" @disabled(!$selected) @required($selected)>
+                                                <span aria-hidden="true">{{ $unit }}</span>
+                                            </div>
+                                            <x-validation-error :field="'included_add_on_quantities.'.$catalog->id" />
+                                        </div>
+                                        <button type="button" class="service-field-chip service-popover-done pkg-included-addon-done" data-included-addon-done>Done</button>
+                                    </div>
                                 </div>
-                            @endforeach
+                            @empty
+                                <p class="pkg-panel-copy">No add-ons are available in the catalog.</p>
+                            @endforelse
                         </div>
                     </div>
-                    @error('included_services') <div class="form-error">{{ $message }}</div> @enderror
                 </div>
             </section>
 
-            <section class="pkg-panel {{ $isEdit ? 'is-collapsible is-collapsed' : '' }}" data-package-panel>
+            <section class="pkg-panel " data-package-panel>
                 <div class="pkg-panel-head" data-panel-head>
                     <div>
-                        <div class="pkg-panel-title"><span class="pkg-icon"><i class="bi bi-gift"></i></span> Freebies</div>
-                        <p class="pkg-panel-copy">Free items. They never change the package price.</p>
+                        <div class="pkg-panel-title"><span class="pkg-icon"><i class="bi bi-gift"></i></span> Included Freebies</div>
+                        <p class="pkg-panel-copy">Select included items, then set their quantity and unit.</p>
                     </div>
                     <div class="pkg-panel-head-actions">
                         <span class="pkg-badge pkg-badge-free" data-freebie-count>{{ $selectedFreebieCount }} selected</span>
-                        <div class="pkg-freebie-actions" aria-label="Freebie selection actions">
-                            <button type="button" class="pkg-freebie-action" data-select-all-freebies title="Select all freebies" aria-label="Select all freebies">
-                                <i class="bi bi-check2-square" aria-hidden="true"></i>
-                                <span>Select all</span>
-                            </button>
-                            <button type="button" class="pkg-freebie-action" data-unselect-all-freebies title="Unselect all freebies" aria-label="Unselect all freebies">
-                                <i class="bi bi-square" aria-hidden="true"></i>
-                                <span>Unselect all</span>
-                            </button>
-                        </div>
+
                         @if($isEdit)
-                            <button type="button" class="pkg-panel-toggle" data-panel-toggle aria-expanded="false" aria-label="Expand Freebies">
+                            <button type="button" class="pkg-panel-toggle" data-panel-toggle aria-expanded="false" aria-label="Expand Included Freebies">
                                 <i class="bi bi-chevron-down"></i>
                             </button>
                         @endif
@@ -688,6 +785,7 @@
                 </div>
                 <div class="pkg-panel-body">
                     @if($freebieCatalogs->isNotEmpty())
+                        <div class="pkg-freebie-actions" aria-label="Freebie selection actions"><button type="button" class="pkg-freebie-action" data-select-all-freebies>Select all</button><button type="button" class="pkg-freebie-action" data-unselect-all-freebies>Unselect all</button></div>
                         <div class="pkg-freebie-checklist" data-freebie-list>
                             @foreach($freebieCatalogs as $i => $catalog)
                                 @php
@@ -696,31 +794,35 @@
                                     $freebieUnit = $selectedFreebie['unit'] ?? $catalog->default_unit ?? 'item';
                                 @endphp
                                 <div class="pkg-freebie-card {{ $isSelectedFreebie ? 'is-selected' : '' }}" data-freebie-card data-catalog-active="{{ $catalog->is_active ? '1' : '0' }}" role="button" tabindex="0">
-                                    <label class="pkg-freebie-choice">
-                                        <input type="checkbox" data-freebie-check {{ $isSelectedFreebie ? 'checked' : '' }}>
+                                    <div class="pkg-freebie-choice">
+                                        <input type="checkbox" aria-label="Include {{ $catalog->name }}" data-freebie-check {{ $isSelectedFreebie ? 'checked' : '' }}>
                                         <span class="pkg-freebie-mark" aria-hidden="true"><i class="bi bi-check2"></i></span>
                                         <span>
                                             <strong>{{ $catalog->name }}</strong>
-                                            <span>Default unit: {{ $catalog->default_unit ?: 'item' }}{{ $catalog->is_active ? '' : ' · archived' }}</span>
+                                            <span>Unit: {{ $catalog->default_unit ?: 'item' }}</span>
                                         </span>
-                                    </label>
+                                    </div>
+                                    <x-validation-error :field="'freebies.'.($selectedFreebie['_error_index'] ?? $i).'.freebie_catalog_id'" />
+                                    <x-validation-error :field="'freebies.'.($selectedFreebie['_error_index'] ?? $i).'.freebie_name'" />
                                     <input type="hidden" name="freebies[{{ $i }}][freebie_catalog_id]" value="{{ $catalog->id }}" data-freebie-field @disabled(! $isSelectedFreebie)>
                                     <input type="hidden" name="freebies[{{ $i }}][freebie_name]" value="{{ $catalog->name }}" data-freebie-field @disabled(! $isSelectedFreebie)>
                                     <div class="pkg-freebie-config-grid">
                                         <div class="pkg-row-field pkg-freebie-config">
-                                            <span class="pkg-row-label">Qty</span>
-                                            <input type="number" min="1" name="freebies[{{ $i }}][quantity]" value="{{ $selectedFreebie['quantity'] ?? 1 }}" class="form-input" placeholder="1" data-freebie-field @disabled(! $isSelectedFreebie)>
+                                            <label class="pkg-row-label" for="freebie-{{ $i }}-quantity">Qty</label>
+                                            <input id="freebie-{{ $i }}-quantity" type="number" min="1" max="999" step="1" name="freebies[{{ $i }}][quantity]" value="{{ $selectedFreebie['quantity'] ?? 1 }}" class="form-input" placeholder="1" data-freebie-field @disabled(! $isSelectedFreebie)>
+                                            <x-validation-error :field="'freebies.'.($selectedFreebie['_error_index'] ?? $i).'.quantity'" />
                                         </div>
-                                        <div class="pkg-row-field pkg-freebie-config">
-                                            <span class="pkg-row-label">Unit</span>
-                                            <input type="text" name="freebies[{{ $i }}][unit]" value="{{ $freebieUnit }}" class="form-input" placeholder="item" data-freebie-field @disabled(! $isSelectedFreebie)>
+                                        <div class="pkg-row-field pkg-freebie-config pkg-unit-options">
+                                            <label class="pkg-row-label" for="freebie-{{ $i }}-unit">Unit</label>
+                                            <input id="freebie-{{ $i }}-unit" type="text" name="freebies[{{ $i }}][unit]" value="{{ $freebieUnit }}" class="form-input" placeholder="item" data-freebie-field @disabled(! $isSelectedFreebie) maxlength="40">
+                                            <x-validation-error :field="'freebies.'.($selectedFreebie['_error_index'] ?? $i).'.unit'" />
                                         </div>
                                     </div>
                                 </div>
                             @endforeach
                         </div>
                     @else
-                        <div class="pkg-row-list" data-empty="No configured freebies yet. Add freebies in Service Management first."></div>
+                        <div class="pkg-freebies-empty"><i class="bi bi-gift" aria-hidden="true"></i><div><p>No freebies added yet.</p><span>You can add complimentary items in Service Management whenever needed.</span></div></div>
                     @endif
 
                     @if($customFreebies->isNotEmpty())
@@ -730,18 +832,25 @@
                                 @foreach($customFreebies as $customIndex => $freebie)
                                     @php $rowIndex = $freebieCatalogs->count() + $customIndex; @endphp
                                     <div class="pkg-row-card pkg-freebie-row" data-custom-freebie-row>
+                                        @if(!empty($freebie['freebie_catalog_id']))
+                                            <input type="hidden" name="freebies[{{ $rowIndex }}][freebie_catalog_id]" value="{{ $freebie['freebie_catalog_id'] }}">
+                                        @endif
+                                        <x-validation-error :field="'freebies.'.($freebie['_error_index'] ?? $rowIndex).'.freebie_catalog_id'" />
                                         <span class="pkg-row-grip"><i class="bi bi-gift"></i></span>
                                         <div class="pkg-row-field pkg-freebie-name">
                                             <span class="pkg-row-label">Name</span>
-                                            <input type="text" name="freebies[{{ $rowIndex }}][freebie_name]" value="{{ $freebie['freebie_name'] ?? '' }}" class="form-input" placeholder="e.g. Prayer cards">
+                                            <input type="text" name="freebies[{{ $rowIndex }}][freebie_name]" value="{{ $freebie['freebie_name'] ?? '' }}" class="form-input" placeholder="e.g. Prayer cards" maxlength="255" data-text-case="words" autocapitalize="words" autocorrect="off" spellcheck="false">
+                                            <x-validation-error :field="'freebies.'.($freebie['_error_index'] ?? $rowIndex).'.freebie_name'" />
                                         </div>
                                         <div class="pkg-row-field">
                                             <span class="pkg-row-label">Qty</span>
-                                            <input type="number" min="1" name="freebies[{{ $rowIndex }}][quantity]" value="{{ $freebie['quantity'] ?? 1 }}" class="form-input" placeholder="1">
+                                            <input type="number" min="1" max="999" step="1" name="freebies[{{ $rowIndex }}][quantity]" value="{{ $freebie['quantity'] ?? 1 }}" class="form-input" placeholder="1">
+                                            <x-validation-error :field="'freebies.'.($freebie['_error_index'] ?? $rowIndex).'.quantity'" />
                                         </div>
                                         <div class="pkg-row-field">
                                             <span class="pkg-row-label">Unit</span>
-                                            <input type="text" name="freebies[{{ $rowIndex }}][unit]" value="{{ $freebie['unit'] ?? 'item' }}" class="form-input" placeholder="item">
+                                            <input type="text" name="freebies[{{ $rowIndex }}][unit]" value="{{ $freebie['unit'] ?? 'item' }}" class="form-input" placeholder="item" maxlength="40">
+                                            <x-validation-error :field="'freebies.'.($freebie['_error_index'] ?? $rowIndex).'.unit'" />
                                         </div>
                                         <button type="button" class="pkg-tool-btn pkg-remove-btn" data-remove-row aria-label="Remove custom freebie"><i class="bi bi-x-lg"></i></button>
                                     </div>
@@ -749,92 +858,293 @@
                             </div>
                         </div>
                     @endif
-                    <div class="mt-3"><span class="pkg-badge pkg-badge-free">Free</span></div>
+                    @if($freebieCatalogs->isNotEmpty() || $customFreebies->isNotEmpty())<p class="pkg-complimentary-note">All freebies are complimentary.</p>@endif
                     @error('freebies') <div class="form-error">{{ $message }}</div> @enderror
-                    @foreach($errors->get('freebies.*.freebie_catalog_id') as $message)
-                        <div class="form-error">{{ $message }}</div>
-                    @endforeach
                 </div>
             </section>
 
-            <section class="pkg-panel">
-                <div class="pkg-panel-head">
+            <section class="pkg-panel pkg-promo-panel" data-package-panel>
+                <div class="pkg-panel-head" data-panel-head>
                     <div>
-                        <div class="pkg-panel-title"><span class="pkg-icon"><i class="bi bi-tag"></i></span> Promo Settings</div>
-                        <p class="pkg-panel-copy">Optional discount with automatic status.</p>
+                        <div class="pkg-panel-title"><span class="pkg-icon"><i class="bi bi-tag"></i></span> Promo <span class="pkg-optional">(Optional)</span></div>
+                        <p class="pkg-panel-copy">Set an optional package discount and its validity dates.</p>
                     </div>
-                    <div class="pkg-panel-head-actions">
-                        <span class="pkg-badge {{ $promoEnabled ? 'pkg-badge-included' : 'pkg-badge-charge' }}">{{ $promoEnabled ? 'Promo active' : 'No promo' }}</span>
-                        @if($isEdit)
-                            <button type="button" class="pkg-panel-toggle" data-panel-toggle aria-expanded="false" aria-label="Expand Promo Settings">
-                                <i class="bi bi-chevron-down"></i>
-                            </button>
-                        @endif
-                    </div>
+                    @if(isset($package) && $package->promotion)
+                        <span class="pkg-badge" data-promotion-assignment-status>{{ $package->promotion->statusAt(now('Asia/Manila'), $package) }}</span>
+                    @else
+                        <span class="pkg-badge" data-promotion-assignment-status>No Promotion</span>
+                    @endif
                 </div>
                 <div class="pkg-panel-body">
-                    <label class="pkg-promo-toggle cursor-pointer">
-                        <span>
-                            <span class="pkg-inline-title block">Enable promo</span>
-                            <span class="pkg-inline-help">The end date remains valid until 11:59:59 PM.</span>
-                        </span>
-                        <span class="pkg-switch">
-                            <input type="hidden" name="promo_is_active" value="0">
-                            <input type="checkbox" name="promo_is_active" value="1" data-promo-toggle {{ old('promo_is_active', $package->promo_is_active ?? false) ? 'checked' : '' }}>
-                            <span class="pkg-slider"></span>
-                        </span>
-                    </label>
-                    <div class="pkg-grid md:grid-cols-2 pkg-promo-fields" data-promo-fields>
-                        <div>
-                            <label class="pkg-label">Promo Label</label>
-                            <input type="text" name="promo_label" value="{{ old('promo_label', $package->promo_label ?? '') }}" class="form-input" placeholder="e.g. Senior Discount">
-                        </div>
-                        <div>
-                            <label class="pkg-label">Discount Type</label>
-                            <select name="promo_value_type" class="form-select">
-                                <option value="">Select type</option>
-                                <option value="PERCENT" {{ old('promo_value_type', $package->promo_value_type ?? '') === 'PERCENT' ? 'selected' : '' }}>Percentage</option>
-                                <option value="AMOUNT" {{ old('promo_value_type', $package->promo_value_type ?? '') === 'AMOUNT' ? 'selected' : '' }}>Fixed Amount</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="pkg-label">Value</label>
-                            <input type="number" step="0.01" min="0" name="promo_value" value="{{ old('promo_value', $package->promo_value ?? '') }}" class="form-input" placeholder="0.00">
-                        </div>
-                        <div class="pkg-grid md:grid-cols-2">
-                            <div>
-                                <label class="pkg-label">Start Date</label>
-                                <input type="date" name="promo_starts_at" value="{{ old('promo_starts_at', isset($package) ? $package->promo_starts_at?->format('Y-m-d') : '') }}" class="form-input">
-                            </div>
-                            <div>
-                                <label class="pkg-label">End Date</label>
-                                <input type="date" name="promo_ends_at" value="{{ old('promo_ends_at', isset($package) ? $package->promo_ends_at?->format('Y-m-d') : '') }}" class="form-input">
-                            </div>
-                        </div>
-                    </div>
+                    <label class="pkg-label" for="package-promotion_id">Assigned Promotion</label>
+                    <select id="package-promotion_id" name="promotion_id" class="form-select">
+                        <option value="">No Promotion</option>
+                        @foreach(($promotions ?? collect()) as $promotion)
+                            @php($promotionStatus = $promotion->statusAt(now('Asia/Manila'), $package ?? null))
+                            <option value="{{ $promotion->id }}" data-promotion-status="{{ $promotionStatus }}" data-promotion-name="{{ $promotion->name ?: 'Unnamed promotion' }}" data-discount="{{ strtoupper((string) $promotion->discount_type) === 'PERCENT' ? number_format((float) $promotion->discount_value, 2).'%' : ($promotion->discount_value !== null ? '₱'.number_format((float) $promotion->discount_value, 2) : 'Not configured') }}" data-start-date="{{ $promotion->starts_at?->format('M d, Y') ?? 'No start date' }}" data-end-date="{{ $promotion->ends_at?->format('M d, Y') ?? 'No end date' }}" data-review-details="{{ implode(' ', array_values($promotion->reviewFields($package ?? null))) }}" @selected((string) old('promotion_id', optional($package ?? null)->promotion?->id ?? '') === (string) $promotion->id)>
+                                {{ $promotion->name ?: 'Unnamed promotion' }} · {{ $promotionStatus }}
+                                · {{ strtoupper((string) $promotion->discount_type) === 'PERCENT' ? number_format((float) $promotion->discount_value, 2).'%' : '₱'.number_format((float) $promotion->discount_value, 2) }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <x-validation-error field="promotion_id" />
+                    <dl class="pkg-promotion-assignment-summary" data-promotion-assignment-summary aria-live="polite">
+                        <div><dt>Promotion Name</dt><dd data-promotion-summary-name>{{ $assignedPromotion?->name ?? 'No promotion assigned' }}</dd></div>
+                        <div><dt>Discount</dt><dd data-promotion-summary-discount>{{ $assignedPromotion ? (strtoupper((string) $assignedPromotion->discount_type) === 'PERCENT' ? number_format((float) $assignedPromotion->discount_value, 2).'%' : '₱'.number_format((float) $assignedPromotion->discount_value, 2)) : '—' }}</dd></div>
+                        <div><dt>Start Date</dt><dd data-promotion-summary-start>{{ $assignedPromotion?->starts_at?->format('M d, Y') ?? '—' }}</dd></div>
+                        <div><dt>End Date</dt><dd data-promotion-summary-end>{{ $assignedPromotion?->ends_at?->format('M d, Y') ?? '—' }}</dd></div>
+                        <div><dt>Status</dt><dd data-promotion-summary-status>{{ $assignedPromotion?->statusAt(now('Asia/Manila'), $package ?? null) ?? 'No Promotion' }}</dd></div>
+                    </dl>
+                    @if(isset($package) && $package->promotion && $package->promotion->statusAt(now('Asia/Manila'), $package) === 'Incomplete Setup')
+                        <p class="pkg-field-help" role="status" data-promotion-assignment-help>This assigned legacy promotion is retained but cannot be newly assigned elsewhere. {{ implode(' ', array_values($package->promotion->reviewFields($package))) }} Correct it in Promotions Management before it can be used.</p>
+                    @else
+                        <p class="pkg-field-help" data-promotion-assignment-help>Only Active promotions apply to new cases. Changing this assignment affects future cases; saved case prices remain unchanged.</p>
+                    @endif
                 </div>
             </section>
         </div>
 
-        <aside class="pkg-review">
-            <div class="pkg-review-head">
-                <div class="pkg-review-title"><i class="bi bi-clipboard-check"></i> Review and Save</div>
-                <p class="pkg-panel-copy">Check the saved package setup.</p>
-            </div>
-            <div class="pkg-review-list" data-review-list></div>
-            <div class="pkg-review-actions">
-                <button class="btn pkg-primary" type="submit" data-package-submit><i class="bi bi-check2-circle"></i> <span data-package-submit-label>{{ $buttonText }}</span></button>
-                <a href="{{ $returnTo }}" class="pkg-link-btn" data-service-form-cancel><i class="bi bi-x-circle"></i> Cancel</a>
-            </div>
-        </aside>
+
     </div>
     <footer class="package-wizard-footer" hidden><span data-wizard-progress role="status">Step 1 of 6</span><div><button type="button" class="btn btn-outline" data-wizard-back>Back</button><a href="{{ $returnTo }}" class="btn btn-outline" data-service-form-cancel>Cancel</a><button type="button" class="btn btn-primary-custom" data-wizard-next>Next <i class="bi bi-arrow-right" aria-hidden="true"></i></button></div></footer>
 </form>
 
+<style>
+    #packageForm:is(.is-package-discard-hidden,.is-discard-confirming),
+    body:has(dialog.service-discard-dialog[open]) #packageForm {
+        opacity:0 !important;
+        visibility:hidden !important;
+    }
+    #packageForm:is(.is-package-discard-hidden,.is-discard-confirming) .pkg-service-controls,
+    body:has(dialog.service-discard-dialog[open]) #packageForm .pkg-service-controls {
+        display:none !important;
+    }
+    body:has(#packageForm) dialog.service-discard-dialog {
+        --package-keep-bg:#dcebe2;
+        --package-keep-hover:#c9e0d2;
+        --package-keep-ink:#234a36;
+        --package-discard-bg:#b42318;
+        --package-discard-hover:#912018;
+        --package-discard-ink:#fff;
+        box-shadow:none !important;
+    }
+    html[data-theme='dark'] body:has(#packageForm) dialog.service-discard-dialog {
+        --package-keep-bg:#2e5240;
+        --package-keep-hover:#3a6650;
+        --package-keep-ink:#e1f4e8;
+        --package-discard-bg:#fda29b;
+        --package-discard-hover:#ffb8b1;
+        --package-discard-ink:#3d100d;
+    }
+    body:has(#packageForm) dialog.service-discard-dialog [data-keep] {
+        border-color:transparent !important;
+        background:var(--package-keep-bg) !important;
+        color:var(--package-keep-ink) !important;
+        transition:background-color 150ms ease;
+    }
+    body:has(#packageForm) dialog.service-discard-dialog [data-keep]:hover {
+        background:var(--package-keep-hover) !important;
+    }
+    body:has(#packageForm) dialog.service-discard-dialog [data-discard] {
+        border-color:transparent !important;
+        background:var(--package-discard-bg) !important;
+        color:var(--package-discard-ink) !important;
+        transition:background-color 150ms ease;
+    }
+    body:has(#packageForm) dialog.service-discard-dialog [data-discard]:hover {
+        background:var(--package-discard-hover) !important;
+    }
+    @media (prefers-reduced-motion: reduce) {
+        body:has(#packageForm) dialog.service-discard-dialog :is([data-keep],[data-discard]) { transition:none; }
+    }
+</style>
+<dialog id="packageDiscardDialog" class="service-discard-dialog service-feedback-dialog" aria-labelledby="packageDiscardTitle" aria-describedby="packageDiscardCopy">
+    <span class="service-discard-dialog__icon" aria-hidden="true"><i class="bi bi-exclamation-triangle"></i></span>
+    <h2 id="packageDiscardTitle">Discard unsaved changes?</h2>
+    <p id="packageDiscardCopy">Your changes have not been saved.</p>
+    <form method="dialog">
+        <footer>
+            <button type="submit" value="keep" data-keep autofocus>Keep Editing</button>
+            <button type="submit" value="discard" data-discard>Discard Changes</button>
+        </footer>
+    </form>
+</dialog>
+
+@include('partials.service-field-popover')
+<style>
+    html[data-theme] body:is(.panel-shell-body,.service-catalog-modal-frame) #packageForm[data-package-page] .pkg-service-fields.service-field-popover[popover]:popover-open {
+        display:block !important;
+        margin:0;
+        padding:16px;
+        border:0;
+        background:var(--card,#f4f8f5) !important;
+        box-shadow:var(--service-popover-shadow) !important;
+    }
+    html[data-theme] body:is(.panel-shell-body,.service-catalog-modal-frame) #packageForm[data-package-page] .pkg-service-disclosure.service-field-adjust {
+        width:auto; padding:4px 0; border:0; background:transparent;
+    }
+    #packageForm .pkg-service-top > .service-field-chip { grid-column:2/-1; grid-row:2; justify-self:start; max-width:100%; overflow-wrap:anywhere; }
+    #packageForm .pkg-service-top [data-service-tooltip]::after { top:calc(100% + 5px); bottom:auto; }
+    html[data-theme] body #packageForm[data-package-page] .pkg-service-card:has([data-service-tooltip]:is(:hover,:focus-visible)) { overflow:visible; }
+    html[data-theme] body #packageForm .pkg-service-fields.service-field-popover .pkg-grid-2 { gap:12px; align-items:start; }
+    #packageForm .pkg-service-fields.service-field-popover .pkg-grid-2 > div { min-width:0; }
+    #packageForm .pkg-service-fields.service-field-popover .pkg-grid-2 label { display:flex; flex-wrap:wrap; align-content:end; gap:0 4px; min-height:2.8em; margin:0 0 6px; }
+    #packageForm .pkg-service-fields.service-field-popover .pkg-field-help { margin-top:6px; }
+    html[data-theme] body:is(.panel-shell-body,.service-catalog-modal-frame) #packageForm[data-package-page] .pkg-service-fields.service-field-popover :is(.pkg-money,.pkg-unit-input):focus-within {
+        background:var(--service-field-focus-bg) !important;
+        outline:1px solid var(--service-field-focus-ring) !important;
+        outline-offset:0;
+        box-shadow:none !important;
+    }
+    html[data-theme] body:is(.panel-shell-body,.service-catalog-modal-frame) #packageForm[data-package-page] .pkg-service-fields.service-field-popover :is(.pkg-money,.pkg-unit-input) input:focus {
+        background:transparent !important;
+        outline:none !important;
+        box-shadow:none !important;
+    }
+    @media(max-width:600px) {
+        #packageForm .pkg-service-fields.service-field-popover .pkg-grid-2 label { min-height:0; }
+    }
+</style>
 <script>
 (function () {
     const form = document.getElementById('packageForm');
     if (!form) return;
+
+    // Keep text normalization available in this form even when the shared Vite
+    // bundle is unavailable in a local/offline session. Only normalize fields
+    // the user has edited; existing package values stay untouched on open.
+    const normalizeEditedText = (field) => {
+        const mode = field.dataset.textCase;
+        const wordPattern = /[\p{L}][\p{L}\p{M}\p{N}]*/gu;
+        const capitalizeWord = (word) => {
+            const letters = [...word].filter(character => /\p{L}/u.test(character));
+            const mixedCase = letters.slice(1).some(character => character !== character.toLowerCase())
+                && letters.some(character => character !== character.toUpperCase());
+            if (mixedCase) return word;
+            const [first, ...rest] = [...word];
+            return first.toUpperCase() + rest.join('');
+        };
+
+        if (mode === 'words') return field.value.replace(wordPattern, capitalizeWord);
+        if (mode === 'sentences') {
+            return field.value.replace(/(^\s*|[.!?]+["'”’)]*\s+)([\p{L}][\p{L}\p{M}\p{N}]*)/gu,
+                (match, prefix, word) => prefix + capitalizeWord(word));
+        }
+        return field.value;
+    };
+    form.querySelectorAll('[data-text-case]').forEach(field => {
+        let initialValue = field.value;
+        let edited = false;
+        field.addEventListener('input', () => { edited = true; });
+        field.addEventListener('blur', () => {
+            if (!edited || field.value === initialValue) return;
+            field.value = normalizeEditedText(field);
+            initialValue = field.value;
+            edited = false;
+        });
+        form.addEventListener('submit', () => {
+            if (!edited || field.value === initialValue) return;
+            field.value = normalizeEditedText(field);
+            initialValue = field.value;
+            edited = false;
+        }, true);
+    });
+
+    // Guard package Cancel links at the form itself so full-page navigation
+    // cannot bypass the shared discard confirmation.
+    const packageFormSnapshot = () => JSON.stringify(Array.from(form.elements)
+        .filter(control => control.name && !['_token', '_service_modal'].includes(control.name))
+        .map(control => {
+            let value = control.value;
+            if (control.type === 'checkbox' || control.type === 'radio') value = [control.checked, control.value];
+            else if (control.tagName === 'SELECT' && control.multiple) value = Array.from(control.selectedOptions, option => option.value);
+            else if (control.type === 'file') value = Array.from(control.files || [], file => [file.name, file.size, file.lastModified]);
+            return [control.name, control.type || control.tagName, control.disabled, value];
+        }).sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right))));
+    let packageFormBaseline = '';
+    let packageFormHasInitialErrors = false;
+    let pendingDiscard;
+    const animatePackageDiscard = async (element, keyframes, duration, easing, complete) => {
+        if (matchMedia('(prefers-reduced-motion: reduce)').matches || typeof element.animate !== 'function') {
+            complete?.();
+            return;
+        }
+        const animation = element.animate(keyframes, { duration, easing, fill: 'both' });
+        await animation.finished.catch(() => {});
+        complete?.();
+        animation.cancel();
+    };
+    const confirmPackageDiscard = () => {
+        if (pendingDiscard) return pendingDiscard;
+        if (typeof window.confirmFormDiscard === 'function') return window.confirmFormDiscard(form);
+        const dialog = document.getElementById('packageDiscardDialog');
+        const trigger = document.activeElement;
+        const formHidden = 'is-package-discard-hidden';
+        const dialogFrames = [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'translateY(0)' }];
+        const dialogForm = dialog.querySelector('form');
+        pendingDiscard = new Promise(resolve => {
+            let closing = false;
+            const finish = async choice => {
+                if (closing) return;
+                closing = true;
+                await animatePackageDiscard(dialog, [...dialogFrames].reverse(), 140, 'ease-in', () => dialog.close(choice));
+            };
+            const submit = event => {
+                event.preventDefault();
+                finish(event.submitter?.value || 'keep');
+            };
+            const cancel = event => {
+                event.preventDefault();
+                finish('keep');
+            };
+            dialogForm.addEventListener('submit', submit);
+            dialog.addEventListener('cancel', cancel);
+            dialog.addEventListener('close', async () => {
+                dialogForm.removeEventListener('submit', submit);
+                dialog.removeEventListener('cancel', cancel);
+                const discarded = dialog.returnValue === 'discard';
+                if (discarded) {
+                    window.addEventListener('pageshow', () => form.classList.remove(formHidden), { once: true });
+                } else {
+                    form.classList.remove(formHidden);
+                    trigger?.focus({ preventScroll: true });
+                    await animatePackageDiscard(form, [{ opacity: 0 }, { opacity: 1 }], 180, 'ease-out');
+                }
+                pendingDiscard = null;
+                resolve(discarded);
+            }, { once: true });
+            dialog.returnValue = '';
+            animatePackageDiscard(form, [{ opacity: 1 }, { opacity: 0 }], 150, 'ease-in', () => {
+                form.classList.add(formHidden);
+                dialog.showModal();
+                animatePackageDiscard(dialog, dialogFrames, 180, 'ease-out');
+            });
+        });
+        return pendingDiscard;
+    };
+    window.requestServiceFormClose = async () => {
+        const changed = packageFormSnapshot() !== packageFormBaseline || packageFormHasInitialErrors;
+        if (changed && !await confirmPackageDiscard()) return false;
+        if (changed) form.reset();
+        return true;
+    };
+    form.querySelectorAll('[data-service-form-cancel]').forEach(cancel => {
+        cancel.dataset.discardGuardBound = 'true';
+        cancel.addEventListener('click', async event => {
+            if (event.defaultPrevented) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            // In a service-management iframe, guard locally first. The parent
+            // calls requestServiceFormClose before closing; that guard is also
+            // defined here so it remains available if shared modules fail.
+            if (window.parent !== window && window.parent.cancelServiceCatalogModal) {
+                await window.parent.cancelServiceCatalogModal();
+                return;
+            }
+            if (!await window.requestServiceFormClose()) return;
+            window.location.assign(cancel.href);
+        }, true);
+    });
 
     function showToast(message, type = 'flash-success') {
         const meta = {
@@ -875,14 +1185,26 @@
     function syncServices() {
         form.querySelectorAll('[data-service-row]').forEach(row => {
             const enabled = !!row.querySelector('[data-service-toggle]')?.checked;
-            const extraOpen = row.classList.contains('is-extra-open') || document.body.classList.contains('service-catalog-form-frame');
             row.classList.toggle('is-enabled', enabled);
-            row.querySelectorAll('[data-service-extra-field]').forEach(field => {
-                field.disabled = !enabled || !extraOpen;
-            });
-            const extraToggle = row.querySelector('[data-service-extra-toggle]');
-            if (extraToggle) extraToggle.setAttribute('aria-expanded', enabled && extraOpen ? 'true' : 'false');
+            row.querySelectorAll('[data-service-extra-field], [data-casket-select], [data-casket-snapshot], [data-casket-search]').forEach(field => { field.disabled = !enabled; });
+            const status = row.querySelector('[data-service-status]');
+            if (status) status.textContent = enabled ? 'Included' : 'Not included';
+            const disclosure = row.querySelector('[data-service-disclosure]');
+            if (disclosure) {
+                if (disclosure.classList.contains('service-field-adjust')) {
+                    disclosure.disabled = !enabled;
+                    if (!enabled) row.querySelector('.pkg-service-fields[popover]:popover-open')?.hidePopover();
+                    return;
+                }
+                disclosure.disabled = false;
+                disclosure.setAttribute('aria-expanded', row.classList.contains('is-expanded') ? 'true' : 'false');
+                const text = disclosure.querySelector('[data-service-disclosure-label]');
+                if (text) text.textContent = row.classList.contains('is-expanded') ? 'Hide details' : (row.querySelector('[data-service-extra]') ? 'Limits & rates' : 'Casket details');
+            }
         });
+        const count = form.querySelectorAll('[data-service-toggle]:checked').length;
+        const countBadge = form.querySelector('[data-service-count]');
+        if (countBadge) countBadge.textContent = count + (count === 1 ? ' service' : ' services');
     }
 
     function syncPackagePanels() {
@@ -905,23 +1227,16 @@
         syncPackagePanels();
     }
 
-    function toggleServiceRow(row) {
-        const checkbox = row?.querySelector('[data-service-toggle]');
-        if (!checkbox) return;
-        checkbox.checked = !checkbox.checked;
-        syncServices();
-    }
-
-    function toggleServiceExtra(row) {
-        if (!row || !row.querySelector('[data-service-toggle]')?.checked) return;
-        row.classList.toggle('is-extra-open');
+    function toggleServiceDisclosure(row) {
+        if (!row) return;
+        row.classList.toggle('is-expanded');
         syncServices();
     }
 
     function syncPromo() {
         const enabled = form.querySelector('[data-promo-toggle]')?.checked;
         const fields = form.querySelector('[data-promo-fields]');
-        if (fields) fields.style.display = enabled ? 'grid' : 'none';
+        if (fields) { fields.style.display = enabled ? 'grid' : 'none'; fields.closest('.pkg-panel-body').hidden = !enabled; }
     }
 
     function casketText(option) {
@@ -974,10 +1289,18 @@
 
         if (error) error.classList.toggle('hidden', valid);
         casketSelect?.classList.toggle('border-red-500', !valid);
+        casketSelect?.setAttribute('aria-invalid', valid ? 'false' : 'true');
 
         if (!valid) {
+            row.classList.add('is-expanded');
+            syncServices();
             openPackagePanel(row.closest('[data-package-panel]'));
-            casketSelect.focus();
+            if (row.openServiceConfiguration) {
+                row.openServiceConfiguration();
+                row.querySelector('.service-field-chip')?.focus();
+            } else {
+                casketSelect.focus();
+            }
         }
 
         return valid;
@@ -1005,13 +1328,6 @@
                 input.name = input.name.replace(new RegExp(prefix + '\\[\\d+\\]'), prefix + '[' + index + ']');
             });
         });
-    }
-
-    function addCustom() {
-        const list = form.querySelector('[data-custom-list]');
-        const index = list.querySelectorAll('[data-custom-row]').length;
-        list.insertAdjacentHTML('beforeend', '<div class="pkg-row-card pkg-custom-row" data-custom-row><span class="pkg-row-grip"><i class="bi bi-list"></i></span><input type="text" name="custom_inclusions[' + index + '][description]" class="form-input" placeholder="e.g. Memorial folder setup"><button type="button" class="pkg-tool-btn pkg-remove-btn" data-remove-row aria-label="Remove other inclusion"><i class="bi bi-x-lg"></i></button></div>');
-        list.querySelector('[data-custom-row]:last-child input')?.focus();
     }
 
     function syncFreebieCard(card) {
@@ -1042,10 +1358,10 @@
     }
 
     function toggleFreebieCard(card) {
-        const checkbox = card?.querySelector('[data-freebie-check]');
-        if (!checkbox) return;
-        checkbox.checked = !checkbox.checked;
-        syncFreebieCard(card);
+        if (!card) return;
+        card.classList.toggle('is-expanded');
+        const options = card.querySelector('.pkg-unit-options');
+        if (options) options.open = card.classList.contains('is-expanded');
     }
 
     function reviewLines(items, icon, emptyText) {
@@ -1056,6 +1372,38 @@
         return '<ul class="pkg-review-lines">' + items.map(item => (
             '<li><i class="bi ' + icon + '"></i><span>' + escapeHtml(item) + '</span></li>'
         )).join('') + '</ul>';
+    }
+
+    function syncPromotionAssignment() {
+        const select = form.querySelector('[name="promotion_id"]');
+        const status = form.querySelector('[data-promotion-assignment-status]');
+        const help = form.querySelector('[data-promotion-assignment-help]');
+        const summary = form.querySelector('[data-promotion-assignment-summary]');
+        if (!select || !status) return;
+        const option = select.selectedOptions[0];
+        const value = option?.value ? (option.dataset.promotionStatus || 'Incomplete Setup') : 'No Promotion';
+        status.textContent = value;
+        if (summary) {
+            summary.querySelector('[data-promotion-summary-name]').textContent = option?.value ? option.dataset.promotionName : 'No promotion assigned';
+            summary.querySelector('[data-promotion-summary-discount]').textContent = option?.value ? option.dataset.discount : '—';
+            summary.querySelector('[data-promotion-summary-start]').textContent = option?.value ? option.dataset.startDate : '—';
+            summary.querySelector('[data-promotion-summary-end]').textContent = option?.value ? option.dataset.endDate : '—';
+            summary.querySelector('[data-promotion-summary-status]').textContent = value;
+        }
+        if (help) {
+            const copy = {
+                'No Promotion': 'No promotion is assigned. Only Active promotions can apply to new cases.',
+                'Active': 'This promotion applies to new cases. Changing the assignment does not alter saved case prices.',
+                'Scheduled': 'This promotion is scheduled for a future date. Assignment changes affect future cases only.',
+                'Expired': 'This is the package’s existing expired promotion. It cannot be newly assigned; update its schedule in Promotions Management first.',
+                'Turned Off': 'This promotion is manually turned off and will not apply to new cases. Existing case prices remain unchanged.',
+                'Incomplete Setup': option?.dataset.reviewDetails
+                    ? `This assigned promotion cannot be used. ${option.dataset.reviewDetails} Correct it in Promotions Management.`
+                    : 'This promotion cannot be used or assigned until a System Admin corrects its configuration.'
+            };
+            help.textContent = copy[value] || 'Only Active promotions apply to new cases. Saved case prices remain unchanged.';
+            help.setAttribute('role', value === 'Incomplete Setup' ? 'alert' : 'status');
+        }
     }
 
     function review() {
@@ -1071,7 +1419,7 @@
             const casket = casketText(casketSelect?.selectedOptions[0]) || row?.querySelector('[name$="[casket_type]"]')?.value.trim();
             return casket ? label + ': ' + casket : label;
         }).filter(Boolean);
-        const custom = Array.from(form.querySelectorAll('[data-custom-row] [name$="[description]"]')).map(input => input.value.trim()).filter(Boolean);
+        const custom = Array.from(form.querySelectorAll('input[type=hidden][name^="custom_inclusions["]')).map(input => input.value.trim()).filter(Boolean);
         const configuredFreebies = Array.from(form.querySelectorAll('[data-freebie-card].is-selected')).map(row => {
             const qty = row.querySelector('[name$="[quantity]"]')?.value || 1;
             const unit = row.querySelector('[name$="[unit]"]')?.value || 'item';
@@ -1085,47 +1433,82 @@
             return freebie.trim() ? qty + ' ' + unit + ' ' + freebie.trim() : '';
         }).filter(Boolean);
         const freebies = [...configuredFreebies, ...customFreebies];
-        const promo = form.querySelector('[data-promo-toggle]')?.checked
-            ? (form.querySelector('[name="promo_label"]')?.value || 'Promo enabled')
-            : 'Inactive';
-        const includedItems = [...services, ...custom];
+        const promoSelect = form.querySelector('[name="promotion_id"]');
+        const promo = promoSelect?.selectedOptions?.[0]?.textContent?.trim() || 'No Promotion';
+        const catalogInclusions = Array.from(form.querySelectorAll('[data-included-add-on-name]'))
+            .filter(input => !input.disabled && Number(input.value) > 0)
+            .map(input => `${input.dataset.includedAddOnName} × ${input.value} ${input.dataset.includedAddOnUnit}`);
+        const includedItems = [...services, ...custom, ...catalogInclusions];
 
         const casketToggle = form.querySelector('input[name="included_services[casket][enabled]"]');
         const selectedCasket = form.querySelector('[data-casket-select]')?.selectedOptions[0];
         const unavailableCasket = casketToggle?.checked && selectedCasket?.value && selectedCasket.dataset.available === '0';
         const archivedFreebies = Array.from(form.querySelectorAll('[data-freebie-card].is-selected[data-catalog-active="0"]'));
         const blockers = [
-            ...(unavailableCasket ? ['Choose an available casket.'] : []),
+            ...(unavailableCasket ? ['Included casket "' + selectedCasket.textContent.trim().replace(/ — Unavailable$/, '') + '" is unavailable. Choose another casket.'] : []),
             ...archivedFreebies.map(row => 'Remove or replace archived freebie: ' + (row.querySelector('.pkg-freebie-choice strong')?.textContent.trim() || 'Unknown freebie') + '.')
         ];
 
         list.innerHTML = [
-            '<div class="pkg-review-item" role="status"><span class="pkg-review-kicker">New intake</span><span class="pkg-review-value">' + (blockers.length ? 'Needs attention: ' + blockers.map(escapeHtml).join(' ') : 'Ready for new intake when saved.') + '</span></div>',
+            '<div class="pkg-review-item" role="status"><span class="pkg-review-kicker">New intake</span><span class="pkg-review-value">' + (blockers.length ? blockers.map(escapeHtml).join(' ') : 'Ready for new intake when saved.') + '</span></div>',
             '<div class="pkg-review-item"><span class="pkg-review-kicker">Package</span><span class="pkg-review-value">' + escapeHtml(name) + '<br>&#8369;' + money(price) + '</span></div>',
             '<div class="pkg-review-item"><span class="pkg-review-kicker">Included</span>' + reviewLines(includedItems, 'bi-check2-circle', 'No services selected yet') + '</div>',
-            '<div class="pkg-review-item"><span class="pkg-review-kicker">Freebies</span>' + reviewLines(freebies, 'bi-gift', 'No freebies') + '</div>',
+            '<div class="pkg-review-item"><span class="pkg-review-kicker">Freebies</span>' + reviewLines(freebies, 'bi-gift', 'No freebies added yet.') + '</div>',
             '<div class="pkg-review-item"><span class="pkg-review-kicker">Promo</span><span class="pkg-review-value">' + escapeHtml(promo) + '</span></div>',
             '<div class="pkg-review-item"><span class="pkg-badge pkg-badge-charge">Additional Charge</span><span class="pkg-review-value">Optional add-ons are handled outside this package form. The selected casket is part of this package.</span></div>'
         ].join('');
     }
 
+    const setIncludedAddOnExpanded = (card, expanded) => {
+        const selected = card.querySelector('[data-included-addon-check]').checked;
+        const quantity = card.querySelector('[data-included-add-on-name]');
+        const summary = card.querySelector('[data-included-addon-summary]');
+        const unit = quantity.dataset.includedAddOnUnit;
+        card.querySelector('.pkg-included-addon-config').hidden = !selected || !expanded;
+        summary.hidden = !selected || expanded;
+        summary.querySelector('[data-included-addon-coverage]').textContent =
+            `${quantity.value} ${unit}${Number(quantity.value) === 1 ? '' : 's'} included`;
+    };
     form.addEventListener('change', event => {
         if (event.target.matches('[data-service-toggle]')) {
+            event.target.closest('[data-service-row]')?.classList.toggle('is-expanded', event.target.checked);
             syncServices();
             validateRequiredCasket();
         }
-        if (event.target.matches('[data-promo-toggle]')) syncPromo();
+        if (event.target.name?.startsWith('promo_')) syncPromo();
         if (event.target.matches('[data-freebie-check]')) syncFreebieCard(event.target.closest('[data-freebie-card]'));
+        if (event.target.matches('[data-included-addon-check]')) {
+            const card = event.target.closest('[data-included-addon-card]');
+            const quantity = card.querySelector('[data-included-add-on-name]');
+            const selected = event.target.checked;
+            card.classList.toggle('is-selected', selected);
+            quantity.disabled = !selected;
+            quantity.required = selected;
+            setIncludedAddOnExpanded(card, selected);
+        }
         if (event.target.matches('[data-casket-select]')) {
             syncCasketSelect(event.target);
             validateRequiredCasket();
         }
+        if (event.target.matches('[name="promotion_id"]')) syncPromotionAssignment();
         review();
     });
     form.addEventListener('input', event => {
+        if (event.target.name?.startsWith('promo_')) syncPromo();
         if (event.target.matches('[data-casket-search]')) filterCasketOptions(event.target);
         review();
     });
+    syncPromotionAssignment();
+    form.addEventListener('invalid', event => {
+        const addOnCard = event.target.closest('[data-included-addon-card]');
+        if (addOnCard) setIncludedAddOnExpanded(addOnCard, true);
+        const row = event.target.closest('[data-service-row]');
+        if (row) {
+            row.classList.add('is-expanded');
+            syncServices();
+            requestAnimationFrame(() => row.openServiceConfiguration?.());
+        }
+    }, true);
     form.addEventListener('submit', event => {
         if (form.classList.contains('package-wizard') && form.querySelector('[data-wizard-go][aria-current="step"]')?.dataset.wizardGo !== '6') {
             return;
@@ -1134,15 +1517,25 @@
             event.preventDefault();
             return;
         }
-        const submit = form.querySelector('[data-package-submit]');
-        const label = form.querySelector('[data-package-submit-label]');
-        if (submit) {
+        if (form.getAttribute('aria-busy') === 'true') { event.preventDefault(); return; }
+        form.setAttribute('aria-busy', 'true');
+        form.querySelectorAll('[data-package-submit]').forEach(submit => {
             submit.disabled = true;
             submit.classList.add('opacity-70');
-        }
-        if (label) label.textContent = 'Saving...';
+        });
+        form.querySelectorAll('[data-package-submit-label]').forEach(label => { label.textContent = 'Saving...'; });
     });
     form.addEventListener('click', event => {
+        const addOnAction = event.target.closest('[data-included-addon-done],[data-included-addon-adjust]');
+        if (addOnAction) {
+            const card = addOnAction.closest('[data-included-addon-card]');
+            const quantity = card.querySelector('[data-included-add-on-name]');
+            const editing = addOnAction.hasAttribute('data-included-addon-adjust');
+            if (!editing && !quantity.reportValidity()) return;
+            setIncludedAddOnExpanded(card, editing);
+            (editing ? quantity : card.querySelector('[data-included-addon-adjust]')).focus({ preventScroll:true });
+            return;
+        }
         const panelToggle = event.target.closest('[data-panel-toggle]');
         if (panelToggle) {
             event.preventDefault();
@@ -1159,33 +1552,25 @@
         }
 
         const freebieCard = event.target.closest('[data-freebie-card]');
-        if (freebieCard && !event.target.closest('input, textarea, select, button')) {
+        if (freebieCard && !event.target.closest('input, textarea, select, button, label[for], summary')) {
             event.preventDefault();
             toggleFreebieCard(freebieCard);
             review();
             return;
         }
 
+        const serviceDisclosure = event.target.closest('[data-service-disclosure]');
+        if (serviceDisclosure) {
+            if (!serviceDisclosure.classList.contains('service-field-adjust')) toggleServiceDisclosure(serviceDisclosure.closest('[data-service-row]'));
+            return;
+        }
+
         const serviceCard = event.target.closest('[data-service-row]');
-        if (serviceCard && !event.target.closest('input, textarea, select, button, label')) {
-            event.preventDefault();
-            toggleServiceRow(serviceCard);
-            review();
+        if (serviceCard && !serviceCard.querySelector('[popover].is-configuration') && !event.target.closest('input, select, textarea, button, a, label, summary')) {
+            toggleServiceDisclosure(serviceCard);
             return;
         }
 
-        const serviceExtraTrigger = event.target.closest('[data-service-extra-toggle]');
-        if (serviceExtraTrigger) {
-            toggleServiceExtra(serviceExtraTrigger.closest('[data-service-row]'));
-            review();
-            return;
-        }
-
-        if (event.target.closest('[data-add-custom]')) { addCustom(); review(); }
-        if (event.target.closest('[data-clear-custom]')) {
-            form.querySelector('[data-custom-list]')?.replaceChildren();
-            review();
-        }
         if (event.target.closest('[data-select-all-freebies]')) {
             setAllConfiguredFreebies(true);
             review();
@@ -1195,9 +1580,8 @@
             review();
         }
         if (event.target.closest('[data-remove-row]')) {
-            const row = event.target.closest('[data-custom-row], [data-custom-freebie-row]');
+            const row = event.target.closest('[data-custom-freebie-row]');
             row?.remove();
-            reindexRows('[data-custom-row]', 'custom_inclusions');
             syncFreebieCount();
             review();
         }
@@ -1205,19 +1589,10 @@
 
     form.querySelectorAll('[data-freebie-card]').forEach(card => {
         card.addEventListener('keydown', event => {
-            if (event.target.closest('input, textarea, select, button')) return;
+            if (event.target.closest('input, textarea, select, button, summary')) return;
             if (event.key !== 'Enter' && event.key !== ' ') return;
             event.preventDefault();
             toggleFreebieCard(card);
-            review();
-        });
-    });
-    form.querySelectorAll('[data-service-row]').forEach(row => {
-        row.addEventListener('keydown', event => {
-            if (event.target.closest('input, textarea, select, button, label')) return;
-            if (event.key !== 'Enter' && event.key !== ' ') return;
-            event.preventDefault();
-            toggleServiceRow(row);
             review();
         });
     });
@@ -1232,6 +1607,45 @@
     });
 
     normalizeCasketOptionLabels();
+    if (typeof HTMLElement.prototype.showPopover === 'function') {
+        form.querySelectorAll('[data-service-row]').forEach(row => {
+            const trigger = row.querySelector('[data-service-disclosure]');
+            const fields = row.querySelector('.pkg-service-fields');
+            if (!trigger || !fields) return;
+            trigger.classList.add('service-field-adjust');
+            trigger.dataset.serviceTooltip = 'Adjust';
+            trigger.textContent = 'Adjust';
+            fields.classList.add('service-field-popover', 'is-configuration');
+            fields.setAttribute('popover', 'auto');
+            fields.setAttribute('aria-label', row.querySelector('.pkg-service-title')?.textContent.trim() || 'Included service configuration');
+            row.openServiceConfiguration = window.bindServiceFieldPopover(trigger, fields);
+        });
+        for (const [id, label] of [['package-casket', 'Choose casket'], ['package-hearse', 'Choose hearse']]) {
+            const select = document.getElementById(id);
+            const picker = window.bindServiceFieldSelection(select, label);
+            if (!picker) continue;
+            const row = select.closest('[data-service-row]');
+            row.querySelector('.pkg-service-top').append(picker.trigger, picker.panel);
+        }
+        form.querySelector('.pkg-casket-search-tools')?.remove();
+    }
+    form.querySelector('[data-apply-basic-defaults]')?.addEventListener('click', () => {
+        const coverage = @json($basicDefaults?->coverage() ?? []);
+        const rates = @json($basicDefaults?->rates() ?? []);
+        Object.entries(coverage).forEach(([type, amount]) => {
+            if (amount === null) return;
+            const days = ['embalming', 'home_viewing'].includes(type);
+            const limit = document.getElementById(`service-${type}-${days ? 'included_days' : 'included_kilometers'}`);
+            const rate = document.getElementById(`service-${type}-${days ? 'price_per_extended_day' : 'price_per_excess_kilometer'}`);
+            const toggle = document.getElementById(`package-service-${type}`);
+            if (!limit || !rate || !toggle) return;
+            limit.value = amount;
+            rate.value = rates[type] ?? '';
+            toggle.checked = true;
+        });
+        syncServices();
+        review();
+    });
     syncServices();
     syncPackagePanels();
     syncPromo();
@@ -1239,5 +1653,9 @@
     form.querySelectorAll('[data-freebie-card]').forEach(syncFreebieCard);
     syncFreebieCount();
     review();
+    // Capture after package controls have reached their initial enabled/disabled
+    // state, so untouched optional-service fields are not treated as edits.
+    packageFormBaseline = packageFormSnapshot();
+    packageFormHasInitialErrors = !!form.querySelector('[aria-invalid="true"], .form-error:not(:empty), [data-field-error]:not(.hidden)');
 })();
 </script>

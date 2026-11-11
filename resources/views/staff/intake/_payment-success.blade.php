@@ -1,12 +1,21 @@
 @php
-    $intakePayment = session('intake_payment');
-    $paymentStatusLabel = session('summary.payment_status') === 'PAID' ? 'Fully paid' : 'Partially paid';
+    $intakePayment = $paymentSuccess ?? session('intake_payment');
+    $paymentSuccessContext = $paymentSuccessContext ?? 'intake';
+    $isIntakeSuccess = $paymentSuccessContext === 'intake';
+    $paymentStatus = $intakePayment['payment_status'] ?? session('summary.payment_status');
+    $paymentStatusLabel = $paymentStatus === 'PAID' ? 'Fully paid' : 'Partially paid';
+    $packageName = $intakePayment['package'] ?? session('summary.package') ?? '—';
+    $packageTotal = (float) ($intakePayment['total'] ?? session('summary.total') ?? 0);
+    $successTitle = $isIntakeSuccess ? 'Case saved successfully' : 'Payment recorded successfully';
+    $successDescription = $isIntakeSuccess
+        ? 'Your case and initial payment have been recorded.'
+        : 'The payment has been added to the case.';
 @endphp
 <dialog id="intakePaymentSuccess" aria-labelledby="intakePaymentSuccessTitle" aria-describedby="intakePaymentSuccessDescription">
     <header class="ips-header">
         <span class="ips-icon"><i class="bi bi-check-lg" aria-hidden="true"></i></span>
-        <div><h2 id="intakePaymentSuccessTitle">Case saved successfully</h2><p id="intakePaymentSuccessDescription">Your case and initial payment have been recorded.</p></div>
-        <button type="button" class="ips-close" aria-label="Close payment summary"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        <div><h2 id="intakePaymentSuccessTitle">{{ $successTitle }}</h2><p id="intakePaymentSuccessDescription">{{ $successDescription }}</p></div>
+        <button type="button" class="ips-close" aria-label="Close payment confirmation"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
     </header>
     <div class="ips-content">
         <div class="ips-heading"><h3>Payment summary</h3><span class="ips-status">{{ $paymentStatusLabel }}</span></div>
@@ -18,15 +27,15 @@
         <dl class="ips-details">
             <div><dt>Client</dt><dd>{{ $intakePayment['client'] }}</dd></div>
             <div><dt>Deceased</dt><dd>{{ $intakePayment['deceased'] }}</dd></div>
-            <div><dt>Package</dt><dd>{{ session('summary.package') }}</dd></div>
-            <div><dt>Package total</dt><dd>PHP {{ number_format(session('summary.total'), 2) }}</dd></div>
+            <div><dt>Package</dt><dd>{{ $packageName }}</dd></div>
+            <div><dt>Package total</dt><dd>PHP {{ number_format($packageTotal, 2) }}</dd></div>
             <div><dt>Payment method</dt><dd>{{ $intakePayment['method'] }}</dd></div>
             <div><dt>Received at</dt><dd>{{ $intakePayment['received_at'] }}</dd></div>
         </dl>
-        <p class="ips-note"><i class="bi bi-info-circle" aria-hidden="true"></i> Payment summary is a reference copy, not an Official Receipt.</p>
+        <p class="ips-note"><i class="bi bi-info-circle" aria-hidden="true"></i> This payment record is a reference copy, not an Official Receipt.</p>
     </div>
     <footer class="ips-footer">
-        <a id="intakePrintPaymentCopy" href="{{ route('payments.summary', $intakePayment['id']) }}" target="_blank" rel="noopener" class="ips-print"><i class="bi bi-printer" aria-hidden="true"></i> Print Payment Summary <span class="sr-only">(opens in a new tab)</span></a>
+        <a id="intakePrintPaymentCopy" href="{{ route('payments.summary', $intakePayment['id']) }}" target="_blank" rel="noopener" class="ips-print"><i class="bi bi-printer" aria-hidden="true"></i> Print payment record <span class="sr-only">(opens in a new tab)</span></a>
         <button type="button" id="intakePaymentDone" autofocus>Done</button>
     </footer>
 </dialog>
@@ -60,28 +69,70 @@ body:has(#intakePaymentSuccess[open]){overflow:hidden}
 #intakePaymentSuccess .ips-print{flex:1;background:#31553a;color:#fff}
 #intakePaymentSuccess :is(a,button):focus-visible{outline:2px solid var(--staff-action,#31553a);outline-offset:3px}
 @media(max-width:480px){#intakePaymentSuccess .ips-header,#intakePaymentSuccess .ips-content,#intakePaymentSuccess .ips-footer{padding:18px}#intakePaymentSuccess .ips-amounts{grid-template-columns:1fr}#intakePaymentSuccess .ips-details>div{grid-template-columns:100px 1fr;gap:10px}#intakePaymentSuccess .ips-footer{flex-wrap:wrap}}
+/* Green marks completion; printing is a secondary utility. */
+#intakePaymentSuccess #intakePaymentDone { background:var(--staff-action,#31553a); color:#fff !important; border-color:transparent; }
+#intakePaymentSuccess .ips-print { background:var(--staff-soft,#edf5ec); color:var(--staff-ink,#203329) !important; }
+#intakePaymentSuccess #intakePaymentDone:hover { filter:brightness(1.08); }
+@if(request()->boolean('intake_modal'))
+#intakePaymentSuccess::backdrop,#intakeSavedConfirmation::backdrop { background:transparent !important; }
+html[data-theme], html[data-theme] body.panel-shell-body.staff-ui.intake-frame, html[data-theme] body.panel-shell-body.staff-ui.intake-frame .page-content { background:transparent !important; }
+body.intake-frame::before,body.intake-frame::after { display:none !important; }
+@endif
 </style>
 <script>
-(() => {
+(async () => {
     const modal = document.getElementById('intakePaymentSuccess');
     const previousFocus = document.activeElement;
     const confirmation = document.getElementById('intakeSavedConfirmation');
     const confirmationKey = 'intake-confirmation-{{ $intakePayment['id'] }}';
-    modal.querySelector('.ips-close').addEventListener('click', () => modal.close());
-    document.getElementById('intakePaymentDone').addEventListener('click', () => modal.close());
-    modal.addEventListener('close', () => {
-        modal.remove();
+    const embedded = window.parent !== window && window.frameElement?.hasAttribute('data-intake-frame');
+    let switching = false;
+    const motion = async (element, entering) => {
+        if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        const animation = element.animate(entering
+            ? [{opacity:0, transform:'translateY(10px) scale(.985)'}, {opacity:1, transform:'none'}]
+            : [{opacity:1, transform:'none'}, {opacity:0, transform:'translateY(6px) scale(.99)'}],
+            {duration:entering ? 220 : 160, easing:'ease-out', fill:'both'});
+        await Promise.race([animation.finished.catch(() => {}), new Promise(resolve => setTimeout(resolve, 260))]);
+        animation.cancel();
+    };
+    async function finish() {
+        if (switching || !modal.open) return;
+        switching = true;
+        await motion(modal, false);
         if (confirmation) {
-            sessionStorage.setItem(confirmationKey, '1');
+            try { sessionStorage.setItem(confirmationKey, '1'); } catch {}
             confirmation.showModal();
-            return;
+            modal.close();
+            modal.remove();
+            await motion(confirmation, true);
+        } else {
+            modal.close();
+            previousFocus?.focus();
         }
-        if (previousFocus && previousFocus !== document.body) previousFocus.focus();
-        else document.querySelector('#intakeSavedDone, .records-page a, .records-page button')?.focus();
-    });
-    if (confirmation && sessionStorage.getItem(confirmationKey) === '1') {
+    }
+    modal.querySelector('.ips-close').addEventListener('click', finish);
+    document.getElementById('intakePaymentDone').addEventListener('click', finish);
+    modal.addEventListener('cancel', event => { event.preventDefault(); void finish(); });
+    confirmation?.querySelectorAll('a').forEach(link => link.addEventListener('click', async event => {
+        if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        if (link.dataset.leaving) return;
+        link.dataset.leaving = '1';
+        await motion(confirmation, false);
+        if (embedded) window.parent.location.assign(link.href);
+        else window.location.assign(link.href);
+    }));
+    if (embedded) await window.parent.prepareStaffIntakeSuccess?.(window);
+    let alreadyConfirmed = false;
+    try { alreadyConfirmed = sessionStorage.getItem(confirmationKey) === '1'; } catch {}
+    if (confirmation && alreadyConfirmed) {
         modal.remove();
         confirmation.showModal();
-    } else modal.showModal();
+        await motion(confirmation, true);
+    } else {
+        modal.showModal();
+        await motion(modal, true);
+    }
 })();
 </script>

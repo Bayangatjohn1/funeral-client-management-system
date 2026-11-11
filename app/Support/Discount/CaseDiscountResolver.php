@@ -139,20 +139,20 @@ class CaseDiscountResolver
 
     private function resolvePromo(Package $package, float $subtotal, Carbon $referenceAt): array
     {
-        if (!$package->promo_is_active || !$package->promo_value_type || $package->promo_value === null) {
+        $promotion = $package->relationLoaded('promotion') ? $package->getRelation('promotion') : $package->promotion()->first();
+        if ($promotion) {
+            if (! $promotion->isEffectiveAt($referenceAt, $package)) return $this->emptyPromo();
+            $valueType = strtoupper((string) $promotion->discount_type);
+            $value = round((float) $promotion->discount_value, 2);
+            $label = trim((string) $promotion->name);
+        } elseif ($package->isPromoEffectiveAt($referenceAt)) {
+            // Transitional fallback for installations before the coordinated migration.
+            $valueType = strtoupper((string) $package->promo_value_type);
+            $value = round((float) $package->promo_value, 2);
+            $label = trim((string) ($package->promo_label ?: 'Package Promo'));
+        } else {
             return $this->emptyPromo();
         }
-
-        if ($package->promo_starts_at && $referenceAt->lt($package->promo_starts_at)) {
-            return $this->emptyPromo();
-        }
-
-        if ($package->promo_ends_at && $referenceAt->gt($package->promo_ends_at)) {
-            return $this->emptyPromo();
-        }
-
-        $valueType = strtoupper((string) $package->promo_value_type);
-        $value = round((float) $package->promo_value, 2);
         if ($value <= 0) {
             return $this->emptyPromo();
         }
@@ -169,8 +169,6 @@ class CaseDiscountResolver
         if ($amount <= 0) {
             return $this->emptyPromo();
         }
-
-        $label = trim((string) ($package->promo_label ?: 'Package Promo'));
 
         return [
             'value_type' => $valueType,

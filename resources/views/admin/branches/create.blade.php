@@ -4,7 +4,8 @@
 @section('page_desc', 'Register a new branch and configure branch information.')
 
 @section('content')
-@php($returnTo = old('return_to', request('return_to', route('admin.branches.index'))))
+@include('partials.directory_form_consistency')
+@php($returnTo = \App\Support\LocalReturnUrl::resolve(old('return_to', request('return_to')), route('admin.branches.index')))
 <form id="branchCreateStandaloneForm" method="POST" action="{{ route('admin.branches.store') }}" class="max-w-3xl w-full mx-auto font-ui-body">
 @csrf
 <input type="hidden" name="return_to" value="{{ $returnTo }}">
@@ -32,14 +33,14 @@
         <div class="grid gap-4 md:grid-cols-2">
             <div>
                 <label class="label-section">Branch Name <span class="text-rose-500">*</span></label>
-                <input id="branch_name" type="text" name="branch_name" value="{{ old('branch_name') }}" class="form-input" placeholder="Caguioa Sabangan Funeral Home" autocomplete="off" inputmode="text" required>
+                <input data-text-case="title-words" id="branch_name" type="text" name="branch_name" value="{{ old('branch_name') }}" class="form-input" placeholder="Caguioa Sabangan Funeral Home" autocomplete="off" inputmode="text" required maxlength="255">
                 @error('branch_name') <div class="form-error">{{ $message }}</div> @enderror
                 <div class="form-error hidden" data-field-error="branch_name"></div>
             </div>
 
             <div>
                 <label class="label-section">Address <span class="text-rose-500">*</span></label>
-                <input type="text" name="address" value="{{ old('address') }}" class="form-input" placeholder="Street, City, Province" required>
+                <input data-text-case="title-words" type="text" name="address" value="{{ old('address') }}" class="form-input" placeholder="Street, City, Province" required maxlength="255">
                 @error('address') <div class="form-error">{{ $message }}</div> @enderror
                 <div class="form-error hidden" data-field-error="address"></div>
             </div>
@@ -84,7 +85,7 @@
         const invalidClass = ['border-rose-300', 'bg-rose-50', 'focus:border-rose-500', 'focus:ring-rose-500'];
         const pattern = /^[\p{L}\p{M}][\p{L}\p{M}\s'.&-]*$/u;
 
-        const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+        const normalize = (value) => String(value || '').replace(/\s+/g, ' ');
         const showFieldError = (field, message) => {
             const target = form?.querySelector(`[name="${field}"]`);
             const error = form?.querySelector(`[data-field-error="${field}"]`);
@@ -112,7 +113,7 @@
                 return;
             }
             if (!pattern.test(finalValue)) {
-                input.setCustomValidity('Branch name must contain letters only (no numbers).');
+                input.setCustomValidity('Start Branch Name with a letter. Use letters, spaces, apostrophes, periods, & or hyphens.');
                 return;
             }
             input.setCustomValidity('');
@@ -129,7 +130,7 @@
                 showFieldError('branch_name', 'Branch name is required.');
             } else if (/\d/.test(input.value) || !pattern.test(input.value)) {
                 valid = false;
-                showFieldError('branch_name', 'Branch name must contain letters only.');
+                showFieldError('branch_name', 'Start Branch Name with a letter. Use letters, spaces, apostrophes, periods, & or hyphens.');
             }
             if (!address?.value || !/[\p{L}\p{M}]/u.test(address.value) || /^\d+$/.test(address.value)) {
                 valid = false;
@@ -137,7 +138,8 @@
             }
             if (!valid) event.preventDefault();
         });
-        input.addEventListener('input', () => clearFieldError('branch_name'));
+        input.addEventListener('input', () => { clearFieldError('branch_name'); sync(); });
+        input.addEventListener('blur', sync);
         address?.addEventListener('input', () => clearFieldError('address'));
         sync();
 

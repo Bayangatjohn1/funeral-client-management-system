@@ -33,6 +33,8 @@
     html[data-theme='dark'] body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .ec-wrap :is(.ec-hint-warn, .ec-fin-card.is-discount .ec-fin-value) { color: #FBBF24; }
     html[data-theme='dark'] body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .ec-wrap :is(.ec-err, .ec-req) { color: #FCA5A5; }
     body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell :is(.cv-subsection-head, .cv-schedule-fields__head, .cv-schedule-fields, .cv-fin-item, .cv-addon-row, .cv-txn, .cv-doc-row, .cv-tarp-preview) { background: var(--staff-soft) !important; border-color: var(--staff-border) !important; color: var(--staff-ink); }
+    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell :is(.cv-schedule-fields, .cv-schedule-fields__head) { background: transparent !important; }
+    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell :is(.cv-pkg-box, .cv-addon-row, .cv-fin-item) { background: transparent !important; }
     body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell :is(.cv-fin-label, .cv-txn-lbl, .cv-tarp-note) { color: var(--staff-muted) !important; }
     body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell :is(.cv-fin-value, .cv-txn-val) { color: var(--staff-ink) !important; }
     body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .panel-page-header { background: var(--staff-card) !important; border: 1px solid var(--staff-border) !important; box-shadow: none !important; }
@@ -168,12 +170,21 @@
     body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-section-people { grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
     body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-service-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); align-items: start; }
     body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-service-grid > .cv-field-package { grid-column: auto; grid-row: auto; }
-    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-service-grid > .cv-field-tarpaulin { grid-column: 1 / -1; grid-row: auto; align-self: start; }
+    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-schedule-fields__body { grid-template-columns: minmax(0, 2fr) minmax(220px, .85fr); gap: 22px; padding: 16px 18px 18px; }
+    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-schedule-fields__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 20px; }
+    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-schedule-fields__grid > .cv-field-package:not([id^="schedule-event-"]) { grid-column: auto; grid-row: 4; }
+    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell #schedule-event-viewing-type { grid-column: 1; grid-row: 1; }
+    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell #schedule-event-wake-location { grid-column: 2; grid-row: 1; }
+    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell #schedule-event-wake-duration { grid-column: 3; grid-row: 1; }
+    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell #schedule-event-wake-start { grid-column: 1; grid-row: 2; }
+    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell #schedule-event-wake-end { grid-column: 2; grid-row: 2; }
+    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell #schedule-event-funeral-ceremony { grid-column: 1; grid-row: 3; }
+    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell #schedule-event-interment { grid-column: 2; grid-row: 3; }
     body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-hero-kicker { display: none; }
     body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-hero-body { padding: 16px 20px; }
     body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-hero-top { margin-bottom: 12px; }
     body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-hero-meta {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         padding-top: 10px;
         gap: 8px 20px;
     }
@@ -181,50 +192,37 @@
     body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-stat-row { gap: 10px; padding: 12px 16px; }
     body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-stat { padding: 12px 14px; }
     body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-stat-val { font-size: 16px; line-height: 1.35; overflow-wrap: anywhere; }
-    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-fin-grid { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 0 16px 12px; }
-    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-fin-item { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; padding: 10px 0; border: 0; border-bottom: 1px solid var(--staff-border); border-radius: 0; background: transparent; }
-    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-fin-item:nth-child(odd) { padding-right: 0; border-right: 0; }
-    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-fin-item:nth-child(even) { padding-left: 0; }
-    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-fin-item:last-child { border-bottom: 1px solid var(--staff-border); }
-    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-tarp-grid { padding: 12px 16px; gap: 12px; }
-    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-schedule-fields__grid { gap: 4px 20px; padding: 12px 16px; }
-    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-tarp-preview { min-height: 100px; max-height: 120px; }
+    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-fin-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 12px 16px 16px; }
+    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-fin-item { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; min-width: 0; padding: 12px 14px; border: 0; border-radius: 12px; background: var(--staff-soft) !important; }
+    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-fin-item:nth-child(odd) { padding-right: 14px; border-right: 0; }
+    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-fin-item:nth-child(even) { padding-left: 14px; }
+    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-pkg-box,
+    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-addon-row,
+    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-fin-item { background: transparent !important; }
+    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-tarp-grid { padding: 0; }
+    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-schedule-fields__grid { gap: 16px 20px; padding: 0; }
+    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-tarp-preview { height: 148px; min-height: 148px; max-height: 148px; }
     body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-field-tarpaulin {
         min-height: 0;
-        margin: 0 16px 16px;
-        border: 1px solid var(--staff-border) !important;
-        border-radius: 10px;
-        background: var(--staff-card) !important;
+        margin: 0;
+        border: 0 !important;
+        border-radius: 0;
+        background: transparent !important;
     }
     html.cv-tarp-modal-open, body.cv-tarp-modal-open { overflow: hidden !important; }
-    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .cv-tarp-modal { z-index: 1100; }
-    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .cv-tarp-modal[data-mode='details'] .cv-tarp-dialog { width: min(100%, 560px); max-height: min(80vh, 680px); }
-    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .cv-tarp-modal[data-mode='details'] .cv-tarp-modal-body { display: grid; gap: 16px; padding: 16px; }
-    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .cv-tarp-modal[data-mode='details'] [data-tarpaulin-details-body] { display: grid; gap: 16px; }
-    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .cv-tarp-modal[data-mode='details'] .cv-tarp-modal-body > img { display: none; }
-    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .cv-tarp-modal[data-mode='photo'] [data-tarpaulin-details-body] { display: none; }
-    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .cv-tarp-modal[data-mode='details'] .cv-tarp-meta { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .cv-tarp-modal :is(.cv-tarp-meta, .cv-tarp-form, .cv-tarp-file) {
-        background: var(--staff-soft) !important;
-        border-color: var(--staff-border) !important;
-        color: var(--staff-ink);
-    }
-    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .cv-tarp-modal :is(.cv-tarp-dialog, .cv-tarp-modal-head, .cv-tarp-modal-foot) {
-        background: var(--staff-card) !important;
-        border-color: var(--staff-border) !important;
-        color: var(--staff-ink);
-    }
-    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .cv-tarp-modal .cv-tarp-modal-body { background: var(--staff-soft) !important; overflow-y: auto; }
-    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-section-people > .cv-card:first-child .cv-fields,
+    body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-section-people > .cv-card:first-child .cv-fields { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-section-people > .cv-card:nth-child(2) .cv-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-section-people > .cv-card:first-child .cv-field:last-child,
     body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-section-people > .cv-card:nth-child(2) .cv-field-full { grid-column: auto; }
     @media (min-width: 1000px) {
-        body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-schedule-fields__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-        body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-schedule-fields__grid > .cv-field-full { grid-column: auto; }
+        body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-schedule-fields__body { grid-template-columns: minmax(0, 2fr) minmax(220px, .85fr); }
     }
     @media (max-width: 760px) {
         body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-section-nav { justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; }
+        body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-schedule-fields__body { grid-template-columns: 1fr; }
+        body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-schedule-fields__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-schedule-fields__grid > .cv-field-package,
+        body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-schedule-fields__grid > .cv-field-full { grid-column: auto; grid-row: auto; }
         body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-hero-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-section-people > .cv-card:first-child .cv-fields,
         body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-section-people > .cv-card:nth-child(2) .cv-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -233,7 +231,6 @@
         body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-interment-badge { white-space: normal; flex-wrap: wrap; }
     }
     @media (max-width: 520px) {
-        body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .cv-tarp-modal[data-mode='details'] .cv-tarp-meta { grid-template-columns: 1fr; }
         body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-section-people > .cv-card:first-child .cv-fields,
         body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-section-people > .cv-card:nth-child(2) .cv-fields { grid-template-columns: 1fr; }
         body:is(.staff-ui, :is(.branch-admin-ui,.system-admin-ui,.owner-ui):has(.case-detail-shell), .system-admin-ui:has(.ec-wrap)) .case-detail-shell .cv-hero-meta,

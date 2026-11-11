@@ -71,7 +71,7 @@ class CasketCatalogController extends Controller
             ])->withInput();
         }
 
-        $catalog = CasketCatalog::create($validated);
+        $catalog = \App\Support\CatalogPhotos::save($request, new CasketCatalog(), $validated);
 
         AuditLogger::log(
             'casket_catalog.created',
@@ -93,8 +93,7 @@ class CasketCatalogController extends Controller
             ], 201);
         }
 
-        return redirect($request->input('return_to') ?: route('admin.casket-catalogs.index'))
-            ->with('success', 'Casket saved successfully.');
+        return \App\Support\CatalogFormResponse::saved($request, 'Casket saved successfully.', route('admin.casket-catalogs.index'));
     }
 
     public function show(Request $request, CasketCatalog $casket_catalog)
@@ -102,6 +101,7 @@ class CasketCatalogController extends Controller
         $this->ensureCanView();
 
         $casket_catalog->loadCount('packageInclusions');
+        $casket_catalog->load('packageInclusions.package');
         $affectedPackages = app(ServiceCatalogPolicy::class)->activePackagesUsingCasket($casket_catalog);
 
         return view('admin.casket-catalogs.show', [
@@ -144,7 +144,7 @@ class CasketCatalogController extends Controller
             ])->withInput();
         }
 
-        $casket_catalog->update($validated);
+        \App\Support\CatalogPhotos::save($request, $casket_catalog, $validated);
 
         AuditLogger::log(
             'casket_catalog.updated',
@@ -166,20 +166,16 @@ class CasketCatalogController extends Controller
             ]);
         }
 
-        return redirect($request->input('return_to') ?: route('admin.casket-catalogs.index'))
-            ->with('success', 'Casket updated successfully.');
+        return \App\Support\CatalogFormResponse::saved($request, 'Casket updated successfully.', route('admin.casket-catalogs.index'));
     }
 
     public function toggleActive(CasketCatalog $casket_catalog)
     {
         $this->ensureCanManage();
-
-        if ($casket_catalog->is_active) {
-            $affected = app(ServiceCatalogPolicy::class)->activePackagesUsingCasket($casket_catalog);
-            if ($affected->isNotEmpty()) {
-                return back()->withErrors(['casket' => 'This casket cannot be archived yet. Update or archive the packages using it first: '.$affected->pluck('name')->join(', ').'.']);
-            }
+        if ($message = app(\App\Support\ServiceCatalogPolicy::class)->archiveBlockMessage($casket_catalog)) {
+            return back()->withErrors(['catalog' => $message]);
         }
+
 
         $casket_catalog->update(['is_active' => ! $casket_catalog->is_active]);
 
@@ -217,7 +213,7 @@ class CasketCatalogController extends Controller
         return [
             'name' => ['required', 'string', 'max:150', $this->mustContainLetterRule('Casket name must include letters.'), $this->allowedNameTextRule('Casket name has unnecessary special characters.')],
             'type_or_material' => ['nullable', 'string', 'max:100', $this->mustContainLetterRule('Material must include letters.'), $this->allowedNameTextRule('Material has unnecessary special characters.')],
-            'standard_price' => ['required', 'numeric', 'min:0.01'],
+            'standard_price' => ['required', 'numeric', 'min:0.01', 'max:9999999999.99', 'decimal:0,2'],
             'description' => ['nullable', 'string', 'max:500'],
             'is_available' => ['nullable', 'boolean'],
             'return_to' => ['nullable', 'string', 'max:1000'],

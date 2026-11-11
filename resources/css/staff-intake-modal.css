@@ -1,0 +1,170 @@
+html[data-theme] body.panel-shell-body .sidebar .nav-link.staff-intake-trigger {
+    --intake-trigger-icon:#16734D;
+    --intake-trigger-hover:#2E6F50;
+}
+html[data-theme='dark'] body.panel-shell-body .sidebar .nav-link.staff-intake-trigger {
+    --intake-trigger-icon:#83D8A8;
+}
+html[data-theme] body.panel-shell-body .sidebar .nav-link.staff-intake-trigger[data-intake-trigger]:is(:hover,:focus-visible) {
+    background:transparent !important;
+}
+html[data-theme] body.panel-shell-body .sidebar .nav-link.staff-intake-trigger > .staff-nav-icon svg {
+    color:var(--intake-trigger-icon) !important;
+}
+html[data-theme] body.panel-shell-body .sidebar .nav-link.staff-intake-trigger:is(:hover,:focus-visible) {
+    --intake-trigger-icon:#fff;
+}
+html[data-theme] body.panel-shell-body .sidebar .nav-link.staff-intake-trigger:is(:hover,:focus-visible) > .staff-nav-icon {
+    background:var(--intake-trigger-hover) !important;
+}
+@media (prefers-reduced-motion:no-preference) {
+    html[data-theme] body.panel-shell-body .sidebar .nav-link.staff-intake-trigger > .staff-nav-icon {
+        transition:background-color 160ms ease;
+    }
+    html[data-theme] body.panel-shell-body .sidebar .nav-link.staff-intake-trigger > .staff-nav-icon svg {
+        transition:color 160ms ease;
+    }
+}
+
+#staff-intake-dialog {
+    width:min(1120px,calc(100% - 32px));
+    height:85dvh;
+    max-width:none;
+    max-height:85dvh;
+    padding:0;
+    margin:auto;
+    overflow:visible;
+    border:0;
+    border-radius:16px;
+    background:transparent;
+    box-shadow:none;
+    color:var(--ink,#102D21);
+}
+#staff-intake-dialog[open] {
+    display:flex;
+    flex-direction:column;
+    animation:staff-intake-enter 220ms ease-out both;
+}
+#staff-intake-dialog::backdrop { background:var(--modal-scrim,rgba(15,23,42,.72)); }
+#staff-intake-dialog.is-confirming { visibility: hidden; }
+#staff-intake-dialog.is-confirming::backdrop { visibility: hidden; }
+html[data-theme] dialog#staff-intake-confirmation {
+    --intake-feedback-surface: #F7FAF8;
+    --intake-feedback-control: #EAF2ED;
+    --intake-feedback-text: #123524;
+    --intake-feedback-muted: #617568;
+    background: var(--intake-feedback-surface);
+    color: var(--intake-feedback-text);
+    border-color: transparent;
+    box-shadow: none;
+}
+html[data-theme='dark'] dialog#staff-intake-confirmation {
+    --intake-feedback-surface: #15251C;
+    --intake-feedback-control: #22392C;
+    --intake-feedback-text: #E7F0E9;
+    --intake-feedback-muted: #A7BCAE;
+}
+html[data-theme] #staff-intake-confirmation p { color: var(--intake-feedback-muted); }
+html[data-theme] #staff-intake-confirmation [data-intake-decision='keep'] {
+    background: var(--intake-feedback-control);
+    color: var(--intake-feedback-text);
+    border-color: transparent;
+}
+html[data-theme] #staff-intake-confirmation [data-intake-decision='discard'] {
+    background-color: #f8e5e4 !important;
+    color: #8a3537 !important;
+    border-color: transparent !important;
+    outline: none !important;
+}
+html[data-theme] #staff-intake-confirmation [data-intake-decision='discard']:focus-visible {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+html[data-theme] #staff-intake-confirmation [data-intake-decision='discard']:hover {
+    background-color: #f1d3d1 !important;
+}
+html[data-theme='dark'] #staff-intake-confirmation [data-intake-decision='discard'] {
+    background-color: #42282d !important;
+    color: #fecaca !important;
+}
+html[data-theme='dark'] #staff-intake-confirmation [data-intake-decision='discard']:hover {
+    background-color: #563138 !important;
+}
+html[data-theme] #staff-intake-confirmation .staff-intake-confirmation-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+html[data-theme] #staff-intake-confirmation .staff-intake-confirmation-actions button {
+    min-width: 0;
+    min-height: 44px;
+}
+#staff-intake-confirmation [data-intake-decision='draft'] { grid-column: 1 / -1; }
+#staff-intake-confirmation .staff-intake-confirmation-actions button:hover { filter: brightness(.96); }
+#staff-intake-dialog[open]::backdrop { animation:staff-intake-fade 220ms ease-out both; }
+#staff-intake-dialog.is-closing { animation:staff-intake-enter 180ms ease-in reverse both; }
+#staff-intake-dialog.is-closing::backdrop { animation:staff-intake-fade 180ms ease-in reverse both; }
+@keyframes staff-intake-enter {
+    from { opacity:0; transform:translateY(16px); }
+    to { opacity:1; transform:translateY(0); }
+}
+@keyframes staff-intake-fade { from { opacity:0; } to { opacity:1; } }
+html:has(#staff-intake-dialog[open]),
+body:has(#staff-intake-dialog[open]) .page-content { overflow:hidden !important; }
+.staff-intake-dialog-head {
+    display:flex;
+    flex:none;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:8px 16px;
+    border-bottom:1px solid var(--border,#B8CEC0);
+}
+.staff-intake-dialog-head h2 { margin:0; font-size:1rem; font-weight:600; }
+.staff-intake-dialog-head button {
+    display:grid;
+    place-items:center;
+    width:40px;
+    height:40px;
+    border-radius:8px;
+}
+.staff-intake-dialog-head button:hover { background:var(--surface-muted,#E2ECE9); }
+.staff-intake-dialog-head button:focus-visible { outline:2px solid var(--brand,#16734D); outline-offset:2px; }
+.staff-intake-dialog-body {
+    position:relative;
+    flex:1;
+    min-height:0;
+    margin-inline-end:40px;
+    border-radius:16px;
+    overflow:hidden;
+    box-shadow:none;
+}
+#staff-intake-dialog > .intake-steps-close {
+    position:absolute;
+    inset-block-start:12px;
+    inset-inline-end:2px;
+    display:grid;
+    place-items:center;
+    width:32px;
+    height:32px;
+    padding:0;
+    border:0;
+    border-radius:50%;
+    background:rgb(12 23 18 / .65);
+    color:#fff;
+}
+#staff-intake-dialog > .intake-steps-close:hover { background:rgb(12 23 18 / .8); }
+#staff-intake-dialog > .intake-steps-close:focus-visible { outline:2px solid #fff; outline-offset:-3px; }
+.staff-intake-dialog-body iframe { display:block; width:100%; height:100%; border:0; background:transparent; }
+@media (max-width:1023px) {
+    #staff-intake-dialog { width:100%; height:100dvh; max-height:100dvh; border-radius:0; }
+    .staff-intake-dialog-head { padding-top:max(8px,env(safe-area-inset-top)); }
+}
+@media (prefers-reduced-motion:reduce) {
+    #staff-intake-dialog[open], #staff-intake-dialog[open]::backdrop { animation:none; }
+}
+
+/* Keep the originating page behind post-save dialogs in the existing frame. */
+#staff-intake-dialog.is-saved { width:100vw; height:100dvh; max-height:100dvh; border-radius:0; background:transparent; box-shadow:none; }
+#staff-intake-dialog.is-saved .staff-intake-dialog-head { display:none; }
+#staff-intake-dialog.is-saved .staff-intake-dialog-body { background:transparent; margin:0; box-shadow:none; }
+#staff-intake-dialog.is-saved > .intake-steps-close { display:none; }

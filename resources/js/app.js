@@ -1,4 +1,18 @@
+import './package-promotion';
+import './payment-proof';
+import './catalog-photos';
+import '../css/service-print-actions.css';
+import './payment-proof-viewer';
+import { installPaymentWorkflow } from './payment-workflow';
+import './record-form-validation';
+import './form-discard';
+import './promotion-form';
+import { installRecordDialogMotion } from './record-dialog-motion';
+import { installRecordDrawers } from './record-drawers';
+import { filterOptionIcon, installSharedRecordControls } from './shared-record-controls';
 import './case-record-filters';
+import './panel-skeleton';
+import './record-results-navigation';
 import './chart-hover-tooltip';
 import './system-admin-reference';
 import './bootstrap';
@@ -9,6 +23,16 @@ import './password-reset';
 import './password-welcome';
 import './package-wizard';
 import './service-confirm';
+import './service-form-feedback';
+import './catalog-text-assistance';
+import './catalog-filter-sort';
+import './catalog-record-search';
+import './worklist-controls';
+import { installDashboardPaymentSearch } from './dashboard-payment-search';
+import { installStaffIntakeModal } from './staff-intake-modal';
+import '../css/staff-intake-modal.css';
+import './report-filter-controls';
+import './addon-price-preview';
 import '../css/branch-sync.css';
 
 import Alpine from 'alpinejs';
@@ -99,6 +123,8 @@ function initTheme() {
 }
 
 function initRowActionMenus() {
+    if (document.documentElement.dataset.rowActionMenusReady === '1') return;
+    document.documentElement.dataset.rowActionMenusReady = '1';
     const menuSelector = '[data-row-menu]';
     const triggerSelector = '[data-row-menu-trigger]';
     const itemSelector = '[data-row-menu-item]';
@@ -108,19 +134,34 @@ function initRowActionMenus() {
         const dropdown = menu.querySelector('.row-action-dropdown');
         if (!trigger || !dropdown) return;
         const rect = trigger.getBoundingClientRect();
-        dropdown.style.position = 'fixed';
-        dropdown.style.top = (rect.bottom + 6) + 'px';
-        dropdown.style.right = (window.innerWidth - rect.right) + 'px';
-        dropdown.style.left = 'auto';
+        const gap = 6;
+        // Keep forms in their record context while escaping table clipping and
+        // transformed ancestors. A portal would break Service's submit owner.
+        if (typeof dropdown.showPopover === 'function') dropdown.setAttribute('popover', 'manual');
+        dropdown.style.setProperty('position', 'fixed', 'important');
+        dropdown.style.setProperty('inset', 'auto', 'important');
+        dropdown.style.setProperty('margin', '0', 'important');
+        dropdown.style.setProperty('display', 'block', 'important');
+        dropdown.style.setProperty('z-index', '10050', 'important');
+        dropdown.style.setProperty('pointer-events', 'auto', 'important');
+        dropdown.style.setProperty('top', (rect.bottom + gap) + 'px', 'important');
+        dropdown.style.setProperty('right', Math.max(12, window.innerWidth - rect.right) + 'px', 'important');
+        if (typeof dropdown.showPopover === 'function' && !dropdown.matches(':popover-open')) dropdown.showPopover();
+        const { height: dropdownHeight, width: dropdownWidth } = dropdown.getBoundingClientRect();
+        const right = Math.min(Math.max(12, window.innerWidth - dropdownWidth - 12), Math.max(12, window.innerWidth - rect.right));
+        dropdown.style.setProperty('right', right + 'px', 'important');
+        let top = rect.bottom + gap;
+        if (rect.bottom + gap + dropdownHeight > window.innerHeight - 12 && rect.top - gap - dropdownHeight >= 12) {
+            top = rect.top - gap - dropdownHeight;
+        }
+        dropdown.style.setProperty('top', Math.max(12, Math.min(top, window.innerHeight - dropdownHeight - 12)) + 'px', 'important');
     };
 
     const clearDropdownPosition = (menu) => {
         const dropdown = menu.querySelector('.row-action-dropdown');
         if (!dropdown) return;
-        dropdown.style.position = '';
-        dropdown.style.top = '';
-        dropdown.style.right = '';
-        dropdown.style.left = '';
+        if (typeof dropdown.hidePopover === 'function' && dropdown.matches(':popover-open')) dropdown.hidePopover();
+        ['position','inset','margin','display','z-index','pointer-events','top','right','bottom','left'].forEach(property => dropdown.style.removeProperty(property));
     };
 
     const closeMenu = (menu) => {
@@ -161,7 +202,9 @@ function initRowActionMenus() {
 
         const item = event.target.closest(itemSelector);
         if (item) {
-            closeAllMenus();
+            // Let a submit button finish its default activation before hiding
+            // its form. Edit/modal click handlers also finish in this event.
+            window.setTimeout(() => closeAllMenus(), 0);
             return;
         }
 
@@ -179,6 +222,11 @@ function initRowActionMenus() {
     document.addEventListener('panel-ui:reset', () => {
         closeAllMenus();
     });
+    document.addEventListener('scroll', event => {
+        if (event.target.closest?.('.row-action-dropdown')) return;
+        closeAllMenus();
+    }, true);
+    window.addEventListener('resize', () => closeAllMenus());
 }
 
 function initTableToolbarBehavior() {
@@ -188,6 +236,8 @@ function initTableToolbarBehavior() {
     if (!forms.length) return;
 
     forms.forEach((form) => {
+        if (form.dataset.tableToolbarReady === '1') return;
+        form.dataset.tableToolbarReady = '1';
         const debounceMs = Number(form.dataset.searchDebounce || 400);
         const usesLocalSearch = form.hasAttribute('data-live-search-suggestions');
         const searchInputs = usesLocalSearch ? [] : form.querySelectorAll('[data-table-search]');
@@ -303,6 +353,7 @@ function initFilterSelectAffordances() {
     }
 
     const selector = [
+        'form[method="GET" i] select:not([multiple]):not([data-native-select])',
         '.table-system-toolbar select.table-toolbar-select',
         '.table-system-toolbar select.table-toolbar-sort',
         'form[data-table-toolbar] select.table-toolbar-select',
@@ -323,17 +374,18 @@ function initFilterSelectAffordances() {
         '.owner-sales-field-control select.owner-sales-control',
         '.topbar-filter-bar select.filter-select',
         '.payments-filter-control.has-dropdown select',
-        '.case-compact-date-filter select',
+        '.case-compact-date-filter select:not([data-native-select])',
         '.case-compact-sort-filter select',
         '.case-compact-branch select',
         '.pm-field.has-icon select.pm-control',
+        '.intake-package-select select#regular_package_choice',
     ].join(',');
 
     document.querySelectorAll(selector).forEach((select) => {
         if (!(select instanceof HTMLSelectElement) || select.dataset.filterSelectReady === '1') return;
         select.dataset.filterSelectReady = '1';
 
-        let wrap = select.closest('.table-toolbar-select-wrap, .audit-filter-control.is-select, .admin-filter-control, .sales-filter-control, .owner-sales-field-control, .rp-field, .aoc-select-wrap, .pf-control-wrap, .ba-period-select-wrap, .ba-branch-select-wrap, .eb-period-select-wrap, .eb-branch-select-wrap, .reports-module-control-wrap, .reports-field-control, .reports-analytics-branch, .payments-filter-control.has-dropdown, .case-compact-select-wrap, .case-compact-date-filter, .case-compact-sort-filter, .case-compact-branch, .pm-field.has-icon, .global-filter-select-wrap');
+        let wrap = select.closest('.table-toolbar-select-wrap, .audit-filter-control.is-select, .admin-filter-control, .sales-filter-control, .owner-sales-field-control, .rp-field, .aoc-select-wrap, .pf-control-wrap, .ba-period-select-wrap, .ba-branch-select-wrap, .eb-period-select-wrap, .eb-branch-select-wrap, .reports-module-control-wrap, .reports-field-control, .reports-analytics-branch, .payments-filter-control.has-dropdown, .case-compact-select-wrap, .case-compact-date-filter, .case-compact-sort-filter, .case-compact-branch, .pm-field.has-icon, .global-filter-select-wrap, .case-page-size-control');
 
         if (!wrap && select.parentElement) {
             const isTableToolbarSelect = select.classList.contains('table-toolbar-select') || select.classList.contains('table-toolbar-sort');
@@ -346,7 +398,7 @@ function initFilterSelectAffordances() {
         if (!wrap) return;
         wrap.setAttribute('data-filter-select-wrap', '');
 
-        let icon = wrap.querySelector('.table-toolbar-select-icon, .payments-filter-dropdown-icon, .admin-filter-chevron, .reports-module-chevron, .ba-branch-select-chev, .eb-branch-select-chev, .eb-chev, .case-compact-date-chev, .case-compact-sort-chev, .case-compact-select-chev, .pm-sel-chev, .pf-control-icon, .aoc-select-icon, .reports-analytics-select-chev, [data-filter-select-icon]');
+        let icon = wrap.querySelector('.table-toolbar-select-icon, .payments-filter-dropdown-icon, .admin-filter-chevron, .reports-module-chevron, .ba-branch-select-chev, .eb-branch-select-chev, .eb-chev, .case-compact-date-chev, .case-compact-sort-chev, .case-compact-select-chev, .pm-sel-chev, .pf-control-icon, .aoc-select-icon, .reports-analytics-select-chev, .case-page-size-chevron, [data-filter-select-icon]');
         if (!icon && (wrap.classList.contains('table-toolbar-select-wrap') || wrap.classList.contains('global-filter-select-wrap'))) {
             icon = document.createElement('i');
             icon.className = 'bi bi-chevron-down table-toolbar-select-icon';
@@ -360,10 +412,62 @@ function initFilterSelectAffordances() {
         menu.setAttribute('role', 'listbox');
         menu.hidden = true;
         wrap.appendChild(menu);
+        // Case filters live in a scrolling popover. A child dropdown needs its
+        // own top-layer surface to escape that scroller's clipping and fields.
+        const intakePackageDropdown = wrap.classList.contains('intake-package-select');
+        const caseDropdown = !!wrap.closest('.case-record-filters [data-case-more-panel], .pm-more-panel, .worklist-filter-panel');
+        const floatingDropdown = caseDropdown || intakePackageDropdown;
+        if (floatingDropdown) menu.setAttribute('popover', 'manual');
+        const positionFloatingDropdown = () => {
+            const rect = select.getBoundingClientRect();
+            if (intakePackageDropdown) {
+                const gutter = 8;
+                const gap = 6;
+                const below = Math.max(0, window.innerHeight - rect.bottom - gutter - gap);
+                const above = Math.max(0, rect.top - gutter - gap);
+                const openAbove = below < Math.min(menu.scrollHeight, 240) && above > below;
+                const height = Math.max(1, Math.min(240, openAbove ? above : below));
+                const width = Math.min(rect.width, window.innerWidth - 2 * gutter);
+                const left = Math.max(gutter, Math.min(rect.left, window.innerWidth - width - gutter));
+                const top = openAbove ? rect.top - gap - Math.min(menu.scrollHeight, height) : rect.bottom + gap;
+                Object.assign(menu.style, { position: 'fixed', inset: 'auto', margin: '0', top: `${top}px`, left: `${left}px`, width: `${width}px`, minWidth: '0', maxHeight: `${height}px` });
+                return;
+            }
+            const panelRect = wrap.closest('.case-compact-drawer, .pm-more-panel, .worklist-filter-panel').getBoundingClientRect();
+            const gutter = 12;
+            const gap = 8;
+            const width = Math.min(240, window.innerWidth - gutter * 2);
+            const height = Math.max(1, Math.min(320, window.innerHeight - gutter * 2));
+            // Anchor to the outside edge of the entire Filter panel, beside
+            // the selected field. Flip left only when the right cannot fit.
+            const right = panelRect.right + gap;
+            const leftSide = panelRect.left - gap - width;
+            const left = right + width <= window.innerWidth - gutter
+                ? right
+                : leftSide >= gutter ? leftSide
+                : Math.max(gutter, window.innerWidth - width - gutter);
+            const top = Math.max(gutter, Math.min(rect.top, window.innerHeight - Math.min(menu.scrollHeight, height) - gutter));
+            Object.entries({position:'fixed', inset:'auto', margin:'0', top:`${top}px`, left:`${left}px`, width:`${width}px`, minWidth:'0', maxHeight:`${height}px`}).forEach(([key, value]) => {
+                menu.style.setProperty(key.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`), value, 'important');
+            });
+        };
+        if (floatingDropdown) {
+            document.addEventListener('scroll', event => {
+                if (!menu.hidden && !menu.contains(event.target)) setOpen(false);
+            }, true);
+            window.addEventListener('resize', () => { if (!menu.hidden) setOpen(false); });
+        }
 
-        const optionLabel = (option) => option.textContent?.trim() || option.value || 'Option';
+        const optionLabel = (option) => option.dataset.menuLabel || option.textContent?.trim() || option.value || 'Option';
         const syncMenu = () => {
             menu.innerHTML = '';
+
+            if (wrap.matches('.case-compact-sort-filter, .pm-sort-control, .worklist-sort-control')) {
+                const heading = document.createElement('div');
+                heading.className = 'filter-select-menu-heading';
+                heading.textContent = 'Sort by';
+                menu.appendChild(heading);
+            }
 
             Array.from(select.options).forEach((option) => {
                 if (option.disabled) return;
@@ -379,15 +483,55 @@ function initFilterSelectAffordances() {
                 const check = document.createElement('i');
                 check.className = 'bi bi-check2 filter-select-menu__check';
                 check.setAttribute('aria-hidden', 'true');
+                const menuIcon = select.hasAttribute('data-plain-options') ? '' : filterOptionIcon(select, option);
+                if (/^[a-z0-9-]+$/.test(menuIcon)) {
+                    const optionIcon = document.createElement('i');
+                    optionIcon.className = 'bi bi-' + menuIcon;
+                    optionIcon.setAttribute('aria-hidden', 'true');
+                    item.append(optionIcon);
+                }
                 item.append(label, check);
 
                 if (option.selected) item.classList.add('is-selected');
 
-                item.addEventListener('click', () => {
+                item.addEventListener('click', (event) => {
+                    // A top-layer option can sit outside the visual Filter
+                    // panel's DOM hit area. Contain the pointer activation so
+                    // page-level outside-click handlers do not close the main
+                    // manual-Apply Filter after a pending choice is made.
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const detailsFilter = wrap.closest('.pm-more-filters, [data-worklist-filter]');
+                    const caseFilterPanel = wrap.closest('.case-record-filters [data-case-more-panel]');
+                    const keepDetailsOpen = detailsFilter instanceof HTMLDetailsElement && detailsFilter.open;
+                    const keepCaseFilterOpen = caseFilterPanel instanceof HTMLElement
+                        && !caseFilterPanel.hidden
+                        && caseFilterPanel.matches(':popover-open');
                     select.value = option.value;
                     select.dispatchEvent(new Event('input', { bubbles: true }));
                     select.dispatchEvent(new Event('change', { bubbles: true }));
                     setOpen(false);
+
+                    // Manual-Apply filters are multi-selection workspaces. A
+                    // field choice may run legacy/native change handlers, but
+                    // it must never dismiss the parent Filter before Apply.
+                    // Restore only the parent that was already open; async
+                    // Apply/navigation may replace it and is intentionally not
+                    // reopened.
+                    window.queueMicrotask(() => {
+                        if (keepDetailsOpen && detailsFilter?.isConnected) {
+                            detailsFilter.open = true;
+                            detailsFilter.querySelector('summary')?.setAttribute('aria-expanded', 'true');
+                        }
+                        if (keepCaseFilterOpen && caseFilterPanel?.isConnected) {
+                            caseFilterPanel.hidden = false;
+                            if (!caseFilterPanel.matches(':popover-open')) caseFilterPanel.showPopover();
+                            const form = caseFilterPanel.closest('[data-case-filter]');
+                            const toggle = form?.querySelector('[data-case-more-toggle]');
+                            toggle?.setAttribute('aria-expanded', 'true');
+                            toggle?.classList.add('active');
+                        }
+                    });
                 });
 
                 menu.appendChild(item);
@@ -400,7 +544,9 @@ function initFilterSelectAffordances() {
                     if (openWrap !== wrap) {
                         openWrap.classList.remove('is-open');
                         openWrap.querySelector('select')?.setAttribute('aria-expanded', 'false');
-                        openWrap.querySelector('.filter-select-menu')?.setAttribute('hidden', '');
+                        const openMenu = openWrap.querySelector('.filter-select-menu');
+                        if (openMenu?.matches(':popover-open')) openMenu.hidePopover();
+                        openMenu?.setAttribute('hidden', '');
                     }
                 });
                 syncMenu();
@@ -409,37 +555,49 @@ function initFilterSelectAffordances() {
             wrap.classList.toggle('is-open', isOpen);
             select.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
             menu.hidden = !isOpen;
+            if (floatingDropdown) {
+                if (isOpen) {
+                    if (!menu.matches(':popover-open')) menu.showPopover();
+                    positionFloatingDropdown();
+                } else if (menu.matches(':popover-open')) menu.hidePopover();
+            }
         };
 
         select.setAttribute('aria-haspopup', 'listbox');
         select.setAttribute('aria-expanded', 'false');
 
-        let lastToggleAt = 0;
-        const toggleMenu = (event) => {
+        select.addEventListener('pointerdown', (event) => {
             if (select.disabled) return;
             event.preventDefault();
-            select.focus({ preventScroll: true });
-            lastToggleAt = Date.now();
-            setOpen(!wrap.classList.contains('is-open'));
-        };
-
-        select.addEventListener('pointerdown', (event) => {
-            toggleMenu(event);
+            if (caseDropdown) event.stopPropagation();
+            select.focus({ preventScroll:true });
         });
         select.addEventListener('click', (event) => {
-            if (Date.now() - lastToggleAt < 240) {
-                event.preventDefault();
-                return;
-            }
-
-            toggleMenu(event);
+            if (select.disabled) return;
+            event.preventDefault();
+            if (caseDropdown) event.stopPropagation();
+            setOpen(!wrap.classList.contains('is-open'));
         });
         select.addEventListener('keydown', (event) => {
             if (['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(event.key)) {
                 event.preventDefault();
                 setOpen(true);
+                menu.querySelector('[aria-selected="true"], button')?.focus({preventScroll:true});
             }
             if (event.key === 'Escape') setOpen(false);
+        });
+        menu.addEventListener('keydown', event => {
+            const items = [...menu.querySelectorAll('button')];
+            const index = items.indexOf(document.activeElement);
+            if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+                event.preventDefault();
+                const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1
+                    : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+                items[next]?.focus({preventScroll:true});
+            } else if (event.key === 'Escape') {
+                event.preventDefault(); event.stopPropagation();
+                setOpen(false); select.focus({preventScroll:true});
+            } else if (event.key === 'Tab') setOpen(false);
         });
         select.addEventListener('change', () => setOpen(false));
         select.addEventListener('blur', () => window.setTimeout(() => {
@@ -569,6 +727,48 @@ function initLiveSearchSuggestions() {
 const caseDateDialogs = new Map();
 window.setCaseCustomDateOpen = (form, open) => {
     if (!form) return;
+    if (form.matches('.case-record-filters')) {
+        const panel = form.querySelector('[data-case-custom-panel]');
+        const select = form.querySelector('[data-case-date-preset-select]');
+        if (!panel || !select) return;
+        if (!panel.dataset.sidePanelReady) {
+            panel.dataset.sidePanelReady = '1';
+            panel.classList.add('case-custom-date-side-panel');
+            panel.setAttribute('popover', 'manual');
+            const apply = panel.querySelector('button[type="submit"]');
+            apply.type = 'button'; apply.removeAttribute('name'); apply.textContent = 'Use date range';
+            apply.addEventListener('click', () => {
+                const dates = [...panel.querySelectorAll('input[type="date"]')];
+                dates.forEach(input => input.required = true);
+                if (dates.every(input => input.reportValidity())) window.setCaseCustomDateOpen(form, false);
+            });
+            const reset = panel.querySelector('.case-compact-pop-reset');
+            reset?.addEventListener('click', event => { event.preventDefault(); window.setCaseCustomDateOpen(form, false); });
+            if (reset) reset.textContent = 'Close';
+            const dates = panel.querySelectorAll('input[type="date"]');
+            dates[0].addEventListener('change', () => dates[1].min = dates[0].value);
+            dates[1].min = dates[0].value;
+            document.addEventListener('click', event => {
+                if (panel.matches(':popover-open') && !panel.contains(event.target) && !event.target.closest('.filter-select-menu') && event.target !== select) window.setCaseCustomDateOpen(form, false);
+            });
+        }
+        if (!open) {
+            if (panel.matches(':popover-open')) panel.hidePopover();
+            panel.hidden = true;
+            panel.querySelectorAll('input').forEach(input => input.required = false);
+            return;
+        }
+        panel.hidden = false;
+        if (!panel.matches(':popover-open')) panel.showPopover();
+        const bounds = form.querySelector('.case-compact-drawer').getBoundingClientRect();
+        const rect = select.getBoundingClientRect();
+        const width = Math.min(320, window.innerWidth - 24);
+        const left = bounds.right + 8 + width <= window.innerWidth - 12 ? bounds.right + 8 : Math.max(12, bounds.left - width - 8);
+        const top = Math.max(12, Math.min(rect.top, window.innerHeight - panel.offsetHeight - 12));
+        Object.entries({position:'fixed', inset:'auto', margin:'0', top:`${top}px`, left:`${left}px`, width:`${width}px`}).forEach(([key,value]) => panel.style.setProperty(key,value,'important'));
+        panel.querySelector('input')?.focus({preventScroll:true});
+        return;
+    }
     for (const [owner, state] of caseDateDialogs) {
         if (!owner.isConnected) { state.dialog.remove(); caseDateDialogs.delete(owner); }
     }
@@ -592,7 +792,16 @@ window.setCaseCustomDateOpen = (form, open) => {
             input.id = `${form.id}-custom-date-${index}`;
             input.parentElement.querySelector('label')?.setAttribute('for', input.id);
         });
-        const apply = panel.querySelector('button[type="submit"]'); if (apply) { apply.textContent = 'Apply Date Range'; apply.removeAttribute('name'); }
+        const apply = panel.querySelector('button[type="submit"]'); if (apply) {
+            apply.textContent = 'Apply Date Range'; apply.removeAttribute('name');
+            if (select.closest('.case-record-filters [data-case-more-panel]')) {
+                apply.type = 'button';
+                apply.addEventListener('click', () => {
+                    const dates = [...panel.querySelectorAll('input[type="date"]')];
+                    if (dates.every(input => input.reportValidity())) dialog.close();
+                });
+            }
+        }
         const reset = panel.querySelector('.case-compact-pop-reset');
         const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'case-date-cancel'; cancel.textContent = 'Cancel';
         if (reset) reset.replaceWith(cancel); else panel.querySelector('.case-compact-pop-actions')?.prepend(cancel);
@@ -611,31 +820,6 @@ window.setCaseCustomDateOpen = (form, open) => {
 };
 
 function initCaseCompactFilters() {
-    if (document.body.dataset.caseFilterDismissReady !== '1') {
-        document.body.dataset.caseFilterDismissReady = '1';
-        document.addEventListener('click', (event) => {
-            const target = event.target instanceof Element ? event.target.closest('[data-case-more-dismiss]') : null;
-            if (!target) return;
-
-            const form = target.closest('[data-case-filter]');
-            const panel = form?.querySelector('[data-case-more-panel]');
-            const toggle = form?.querySelector('[data-case-more-toggle]');
-            const icon = form?.querySelector('[data-case-more-icon]');
-            const text = form?.querySelector('[data-case-more-text]');
-            if (!form || !panel || !toggle) return;
-
-            event.preventDefault();
-            panel.hidden = true;
-            toggle.setAttribute('aria-expanded', 'false');
-            toggle.classList.toggle('active', toggle.dataset.hasActiveFilters === '1');
-            if (text) text.textContent = 'More Filters';
-            if (icon) {
-                icon.classList.add('bi-chevron-down');
-                icon.classList.remove('bi-chevron-up');
-            }
-        });
-    }
-
     document.querySelectorAll('[data-case-filter]').forEach((form) => {
         if (form.dataset.caseFilterReady === '1') return;
         form.dataset.caseFilterReady = '1';
@@ -643,51 +827,11 @@ function initCaseCompactFilters() {
         const customToggle = form.querySelector('[data-case-custom-toggle]');
         const customPanel = form.querySelector('[data-case-custom-panel]');
         const datePreset = form.querySelector('[data-case-date-preset-select]');
-        const moreToggle = form.querySelector('[data-case-more-toggle]');
-        const morePanel = form.querySelector('[data-case-more-panel]');
-        const moreIcon = form.querySelector('[data-case-more-icon]');
-        const moreText = form.querySelector('[data-case-more-text]');
         const searchInput = form.querySelector('[data-case-search-input]');
         const searchClear = form.querySelector('[data-case-search-clear]');
         const searchPanel = form.querySelector('[data-case-search-suggestions]');
-        const hasAdvancedFilters = moreToggle?.classList.contains('active') || false;
-        if (moreToggle) {
-            moreToggle.dataset.hasActiveFilters = hasAdvancedFilters ? '1' : '0';
-        }
         const page = form.closest('.records-page, .master-records-page, .owner-page-shell, .admin-table-page') || document;
         const isStaffRecordsPage = !!form.closest('.records-page');
-
-        const rowSelector = [
-            '.table-system-table tbody tr[data-clickable-row]',
-            '.table-system-table tbody tr',
-            '.records-worklist-table tbody tr',
-        ].join(',');
-
-        const normalize = (value) => String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
-
-        const getRows = () => Array.from(page.querySelectorAll(rowSelector)).filter((row) => {
-            const cells = row.querySelectorAll('td');
-            return cells.length > 1 && !row.querySelector('[colspan]');
-        });
-
-        const getRowTitle = (row) => {
-            const firstPrimary = row.querySelector('.table-primary');
-            const code = firstPrimary?.textContent?.trim() || row.cells?.[0]?.textContent?.trim() || '';
-            const person = row.cells?.[2]?.querySelector('.table-primary')?.textContent?.trim()
-                || row.cells?.[1]?.querySelector('.table-primary')?.textContent?.trim()
-                || '';
-            return [code, person].filter(Boolean).join(' - ') || row.textContent.trim();
-        };
-
-        const getRowMeta = (row) => {
-            const metaParts = [];
-            const branch = row.cells?.[1]?.textContent?.trim();
-            const service = row.cells?.[3]?.querySelector('.table-primary')?.textContent?.trim()
-                || row.cells?.[2]?.querySelector('.table-secondary')?.textContent?.trim();
-            if (branch) metaParts.push(branch.replace(/\s+/g, ' '));
-            if (service) metaParts.push(service);
-            return metaParts.join(' • ');
-        };
 
         const setUpdating = (isUpdating) => {
             if (!(page instanceof Element)) return;
@@ -766,7 +910,7 @@ function initCaseCompactFilters() {
                 initCaseCompactFilters();
                 initClickableRecordRows();
             } catch (error) {
-                window.location.href = url.toString();
+                if (!window.SabanganNavigate?.(url.toString())) window.location.href = url.toString();
             } finally {
                 requestAnimationFrame(() => setUpdating(false));
             }
@@ -774,20 +918,6 @@ function initCaseCompactFilters() {
 
         const setCustomOpen = (open) => {
             window.setCaseCustomDateOpen(form, open);
-        };
-
-        const setMoreOpen = (open) => {
-            if (!moreToggle || !morePanel) return;
-            morePanel.hidden = !open;
-            moreToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-            moreToggle.classList.toggle('active', open || hasAdvancedFilters);
-            if (moreText) {
-                moreText.textContent = open ? 'Hide Filters' : 'More Filters';
-            }
-            if (moreIcon) {
-                moreIcon.classList.add('bi-chevron-down');
-                moreIcon.classList.remove('bi-chevron-up');
-            }
         };
 
         customToggle?.addEventListener('click', () => {
@@ -819,12 +949,16 @@ function initCaseCompactFilters() {
                 return;
             }
             setCustomOpen(false);
+            if (datePreset.closest('.case-record-filters [data-case-more-panel]')) return;
+            // Preset choices (including All Dates) must reach the server;
+            // otherwise the select changes visually while the results stay stale.
             submitFilter();
         });
 
         form.querySelectorAll('[data-case-auto-submit]').forEach((field) => {
             field.addEventListener('change', () => {
                 if (isStaffRecordsPage) return;
+                if (!field.reportValidity()) return;
                 submitFilter();
             });
         });
@@ -836,7 +970,39 @@ function initCaseCompactFilters() {
             submitFilter(event.submitter || null);
         });
 
-        form.querySelectorAll('[data-case-clear-filters], .case-compact-pop-reset, .case-compact-advanced-clear').forEach((link) => {
+        form.querySelectorAll('[data-case-remove-filter]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const keys = String(button.dataset.removeKeys || '').split(',').map((key) => key.trim()).filter(Boolean);
+                keys.forEach((key) => {
+                    form.querySelectorAll(`[name="${CSS.escape(key)}"]`).forEach((field) => {
+                        if (field instanceof HTMLInputElement && field.type === 'hidden') return;
+                        if (field instanceof HTMLSelectElement) field.selectedIndex = 0;
+                        else if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) field.value = '';
+                    });
+                });
+                if (keys.includes('date_preset')) {
+                    const preset = form.querySelector('[data-case-date-preset-select]');
+                    if (preset) preset.value = '';
+                }
+                submitFilter();
+            });
+        });
+
+        form.querySelectorAll('[data-case-clear-filters]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const filterNames = ['branch_id', 'date_preset', 'date_from', 'date_to', 'payment_status', 'verification_status', 'service_type', 'package_id', 'encoded_by', 'interment_from', 'interment_to'];
+                filterNames.forEach((name) => {
+                    form.querySelectorAll(`[name="${CSS.escape(name)}"]`).forEach((field) => {
+                        if (field instanceof HTMLInputElement && field.type === 'hidden') return;
+                        if (field instanceof HTMLSelectElement) field.selectedIndex = 0;
+                        else if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) field.value = '';
+                    });
+                });
+                submitFilter();
+            });
+        });
+
+        form.querySelectorAll('.case-compact-pop-reset, .case-compact-advanced-clear').forEach((link) => {
             link.addEventListener('click', async (event) => {
                 if (!(link instanceof HTMLAnchorElement)) return;
                 if (isStaffRecordsPage) return;
@@ -859,93 +1025,108 @@ function initCaseCompactFilters() {
                     initCaseCompactFilters();
                     initClickableRecordRows();
                 } catch (error) {
-                    window.location.href = link.href;
+                    if (!window.SabanganNavigate?.(link.href)) window.location.href = link.href;
                 } finally {
                     requestAnimationFrame(() => setUpdating(false));
                 }
             });
         });
 
+        const searchEvents = new AbortController();
+        const searchSignal = searchEvents.signal;
+        const appliedSearchFields = new Map(new FormData(form).entries());
+        const pendingSearchKeys = ['branch_id','date_preset','date_from','date_to','payment_status','verification_status','service_type','package_id','encoded_by','interment_from','interment_to'];
+        let suggestionTimer, suggestionRequest, suggestionVersion = 0;
         const hideSuggestions = () => {
-            if (searchPanel) searchPanel.hidden = true;
+            clearTimeout(suggestionTimer); suggestionRequest?.abort(); suggestionVersion++;
+            if (searchPanel) { searchPanel.hidden=true; searchPanel.replaceChildren(); }
+            searchInput?.setAttribute('aria-expanded','false');
         };
-
-        const renderSuggestions = () => {
-            if (!(searchInput instanceof HTMLInputElement) || !searchPanel) return;
-            const query = normalize(searchInput.value);
-            if (searchClear) searchClear.hidden = query.length === 0;
-
-            searchPanel.innerHTML = '';
-            if (!query) {
-                searchPanel.hidden = true;
-                return;
-            }
-
-            const seen = new Set();
-            const matches = getRows().filter((row) => normalize(row.textContent).includes(query)).filter((row) => {
-                const title = getRowTitle(row);
-                if (seen.has(title)) return false;
-                seen.add(title);
-                return true;
-            }).slice(0, 5);
-
-            if (!matches.length) {
-                const empty = document.createElement('div');
-                empty.className = 'case-compact-search-empty';
-                empty.textContent = 'No quick matches. Press Enter to search all records.';
-                searchPanel.appendChild(empty);
-                searchPanel.hidden = false;
-                return;
-            }
-
-            matches.forEach((row) => {
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'case-compact-search-option';
-                button.innerHTML = `
-                    <span class="case-compact-search-title"></span>
-                    <span class="case-compact-search-meta"></span>
-                `;
-                button.querySelector('.case-compact-search-title').textContent = getRowTitle(row);
-                button.querySelector('.case-compact-search-meta').textContent = getRowMeta(row) || 'Click to apply search';
-                button.addEventListener('click', () => {
-                    searchInput.value = getRowTitle(row).split(' - ')[0] || searchInput.value;
-                    hideSuggestions();
-                    submitFilter();
-                });
-                searchPanel.appendChild(button);
+        const searchUrl = query => {
+            const url=buildUrl();
+            pendingSearchKeys.forEach(key=>{
+                const value=appliedSearchFields.get(key);
+                if(value!==undefined && String(value).trim()!=='') url.searchParams.set(key,value); else url.searchParams.delete(key);
             });
-            searchPanel.hidden = false;
+            if(query) url.searchParams.set('q',query); else url.searchParams.delete('q');
+            url.searchParams.delete('page');
+            return url;
         };
-
-        searchInput?.addEventListener('input', renderSuggestions);
-        searchInput?.addEventListener('focus', renderSuggestions);
-        searchInput?.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                hideSuggestions();
-                submitFilter();
+        const commitSearch = () => {
+            if(!searchInput) return;
+            hideSuggestions(); searchInput.value=searchInput.value.trim();
+            if(searchClear) searchClear.hidden=!searchInput.value;
+            const url=searchUrl(searchInput.value);
+            if(isStaffRecordsPage && window.loadCaseRecordSearch) window.loadCaseRecordSearch(url);
+            else if(window.loadMasterCaseSearch) window.loadMasterCaseSearch(url);
+            else submitFilter();
+        };
+        const matchesFrom = root => [...root.querySelectorAll('[data-record-search-case]')].map(row=>({code:row.dataset.recordSearchCase,client:row.dataset.recordSearchClient,deceased:row.dataset.recordSearchDeceased}));
+        const underlineMatch = (element,text) => {
+            const value=String(text||''),query=searchInput.value.trim().toLowerCase();
+            if(!query) {element.textContent=value;return;}
+            let cursor=0,index;
+            while((index=value.toLowerCase().indexOf(query,cursor))!==-1){
+                element.append(document.createTextNode(value.slice(cursor,index)));
+                const mark=document.createElement('mark');mark.textContent=value.slice(index,index+query.length);element.append(mark);
+                cursor=index+query.length;
             }
-            if (event.key === 'Escape') {
-                hideSuggestions();
-            }
-        });
-
-        searchClear?.addEventListener('click', () => {
-            if (!(searchInput instanceof HTMLInputElement)) return;
-            searchInput.value = '';
-            hideSuggestions();
-            submitFilter();
-        });
-
-        moreToggle?.addEventListener('click', () => {
-            setMoreOpen(moreToggle.getAttribute('aria-expanded') !== 'true');
-        });
-
-        form.querySelectorAll('[data-case-more-dismiss]').forEach((dismiss) => {
-            dismiss.addEventListener('click', () => setMoreOpen(false));
-        });
-
+            element.append(document.createTextNode(value.slice(cursor)));
+        };
+        const drawMatches = rows => {
+            if(!searchPanel) return;
+            searchPanel.replaceChildren(); const seen=new Set();
+            rows.filter(row=>row.code&&!seen.has(row.code)&&seen.add(row.code)).slice(0,5).forEach(row=>{
+                const option=document.createElement('button'); option.type='button';option.className='case-search-match';option.dataset.caseMatchValue=row.code;
+                option.setAttribute('aria-label',row.code+', Client: '+row.client+', Deceased: '+row.deceased);
+                option.title=row.code+' · '+row.client+' · '+row.deceased;
+                for(const [value,kind] of [[row.code,'case-match-code'],[row.client,'case-match-name'],[row.deceased,'case-match-name']]){
+                    const span=document.createElement('span');span.className=kind;
+                    if(kind==='case-match-name'){const text=document.createElement('span');underlineMatch(text,value);span.append(text);}else underlineMatch(span,value);
+                    option.append(span);
+                }
+                searchPanel.append(option);
+            });
+            searchPanel.hidden=!searchPanel.children.length;
+            searchInput?.setAttribute('aria-expanded',String(!searchPanel.hidden));
+        };
+        const renderSuggestions = () => {
+            hideSuggestions();const query=searchInput?.value.trim();
+            if(searchClear) searchClear.hidden=!query;
+            if(!query||query.length<2) return;
+            drawMatches(matchesFrom(page).filter(row=>[row.code,row.client,row.deceased].some(value=>value.toLowerCase().includes(query.toLowerCase()))));
+            const version=suggestionVersion;
+            suggestionTimer=setTimeout(async()=>{
+                suggestionRequest=new AbortController();
+                try {
+                    const response=await fetch(searchUrl(query).toString(),{signal:suggestionRequest.signal,credentials:'same-origin',headers:{'X-Requested-With':'XMLHttpRequest',Accept:'text/html'}});
+                    if(!response.ok) return;
+                    const doc=new DOMParser().parseFromString(await response.text(),'text/html');
+                    if(version!==suggestionVersion||!form.isConnected||!doc.querySelector('[data-case-filter]')) return;
+                    drawMatches(matchesFrom(doc));
+                } catch(error) { /* Keep cached matches when suggestions are unavailable. */ }
+            },300);
+        };
+        searchInput?.addEventListener('input',renderSuggestions,{signal:searchSignal});
+        searchInput?.addEventListener('keydown',event=>{
+            if(event.key==='Enter'){event.preventDefault();commitSearch();}
+            if(event.key==='Escape') hideSuggestions();
+            if(event.key==='ArrowDown'&&!searchPanel?.hidden){event.preventDefault();searchPanel.querySelector('button')?.focus();}
+        },{signal:searchSignal});
+        searchPanel?.addEventListener('click',event=>{
+            const option=event.target.closest('[data-case-match-value]');if(!option)return;
+            searchInput.value=option.dataset.caseMatchValue;commitSearch();
+        },{signal:searchSignal});
+        searchPanel?.addEventListener('keydown',event=>{
+            if(event.key==='Escape'){hideSuggestions();searchInput?.focus();return;}
+            if(!['ArrowDown','ArrowUp'].includes(event.key))return;
+            event.preventDefault();const options=[...searchPanel.querySelectorAll('button')],index=options.indexOf(document.activeElement)+(event.key==='ArrowDown'?1:-1);
+            if(index<0)searchInput?.focus();else options[Math.min(index,options.length-1)]?.focus();
+        },{signal:searchSignal});
+        searchClear?.addEventListener('click',()=>{searchInput.value='';commitSearch();},{signal:searchSignal});
+        form.querySelector('[data-case-search-submit]')?.addEventListener('click',commitSearch,{signal:searchSignal});
+        form.addEventListener('submit',hideSuggestions,{signal:searchSignal});
+        document.addEventListener('panel-ui:reset',()=>{hideSuggestions();if(!form.isConnected)searchEvents.abort();},{signal:searchSignal});
         document.addEventListener('click', (event) => {
             if (!(event.target instanceof Element)) return;
             if (searchPanel && searchInput && !searchPanel.contains(event.target) && !searchInput.contains(event.target)) {
@@ -972,6 +1153,8 @@ function initCaseCompactFilters() {
 }
 
 function initClickableRecordRows() {
+    if (document.documentElement.dataset.clickableRecordRowsReady === '1') return;
+    document.documentElement.dataset.clickableRecordRowsReady = '1';
     const interactiveSelector = [
         'a',
         'button',
@@ -988,6 +1171,8 @@ function initClickableRecordRows() {
 
     document.addEventListener('click', (event) => {
         if (!(event.target instanceof Element)) return;
+        if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+        if (window.getSelection()?.toString()) return;
         if (event.target.closest(interactiveSelector)) return;
 
         const row = event.target.closest('[data-clickable-row]');
@@ -1001,7 +1186,7 @@ function initClickableRecordRows() {
 
         const href = row.getAttribute('data-row-href');
         if (href) {
-            window.location.href = href;
+            if (!window.SabanganNavigate?.(href)) window.location.href = href;
         }
     });
 
@@ -1011,6 +1196,7 @@ function initClickableRecordRows() {
 
         const row = event.target.closest('[data-clickable-row]');
         if (!row || event.target !== row) return;
+        event.preventDefault();
 
         const trigger = row.querySelector('[data-row-view-trigger]');
         if (trigger instanceof HTMLElement) {
@@ -1020,18 +1206,12 @@ function initClickableRecordRows() {
 
         const href = row.getAttribute('data-row-href');
         if (href) {
-            window.location.href = href;
+            if (!window.SabanganNavigate?.(href)) window.location.href = href;
         }
     });
 }
 
 function initCaseRecordTabTransitions() {
-    window.addEventListener('popstate', () => {
-        if (document.querySelector('.records-page .case-records-tabs')) {
-            window.location.reload();
-        }
-    });
-
     document.addEventListener('click', async (event) => {
         const link = event.target instanceof Element ? event.target.closest('.case-records-tabs a[href]') : null;
         if (!link) return;
@@ -1063,20 +1243,18 @@ function initCaseRecordTabTransitions() {
             const nextCard = nextDocument.querySelector('.records-page .table-system-card');
             if (!nextCard) throw new Error('Case records card not found in response.');
 
-            await new Promise((resolve) => window.setTimeout(resolve, 140));
             currentCard.replaceWith(nextCard);
             window.history.pushState({}, '', targetUrl.href);
             initTableToolbarBehavior();
             initLiveSearchSuggestions();
             initCaseCompactFilters();
 
-            const nextTableSection = nextCard.querySelector('.table-system-list');
-            nextTableSection?.classList.add('case-records-tab-enter');
-            requestAnimationFrame(() => {
-                nextTableSection?.classList.remove('case-records-tab-enter');
-            });
         } catch (error) {
-            window.location.href = targetUrl.href;
+            currentTableSection.classList.remove('case-records-tab-loading');
+            const message = document.createElement('p');
+            message.className = 'flash-error'; message.setAttribute('role', 'alert');
+            message.textContent = 'Unable to load case records. Please try the tab again.';
+            currentTableSection.prepend(message);
         }
     });
 }
@@ -1227,8 +1405,9 @@ function initServiceManagementHub() {
     modalFrame?.addEventListener('load', () => {
         try {
             const frameUrl = new URL(modalFrame.contentWindow.location.href);
-            if (frameUrl.pathname === window.location.pathname && frameUrl.searchParams.has('tab')) {
-                window.location.href = frameUrl.toString();
+            if (frameUrl.origin === window.location.origin && frameUrl.pathname === window.location.pathname) {
+                if (!window.SabanganNavigate?.(frameUrl.toString())) window.location.href = frameUrl.toString();
+                return;
             }
         } catch (_) {
             // Ignore inaccessible or initial iframe states.
@@ -1260,6 +1439,12 @@ function initServiceManagementHub() {
 }
 
 initTheme();
+installRecordDialogMotion();
+installRecordDrawers();
+installPaymentWorkflow();
+installSharedRecordControls();
+installDashboardPaymentSearch();
+installStaffIntakeModal();
 initRowActionMenus();
 initFilterSelectAffordances();
 initTableToolbarBehavior();
@@ -1270,6 +1455,7 @@ initCaseRecordTabTransitions();
 initServiceManagementHub();
 
 document.addEventListener('panel-ui:reset', initFilterSelectAffordances);
+document.addEventListener('panel-ui:reset', initCaseCompactFilters);
 document.addEventListener('master-case-records:updated', () => {
     initTableToolbarBehavior();
     initLiveSearchSuggestions();

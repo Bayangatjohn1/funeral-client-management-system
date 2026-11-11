@@ -13,7 +13,10 @@
         $structured = $package->packageInclusions ?? collect();
         $casketRow = $structured->firstWhere('service_type', \App\Models\Package::SERVICE_CASKET);
         $includedCasket = $casketRow?->casket_type ?: $package->coffin_type;
-        $inclusionItems = $package->inclusionNames();
+        $inclusionItems = array_values(array_filter(
+            $package->inclusionNames(),
+            fn ($item) => ! \App\Models\Package::isLegacyPackageDescription($item)
+        ));
 
         if ($includedCasket) {
             $needle = mb_strtolower(trim((string) $includedCasket));
@@ -689,6 +692,19 @@ html[data-theme='dark'] .table-row-action-link:hover {
     padding-top: .75rem !important;
     padding-bottom: .75rem !important;
 }
+.package-management-page .pkg-card-summary-text {
+    margin: 0;
+    color: var(--ink);
+    font-size: .74rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+.package-management-page .pkg-card-summary-more {
+    display: block;
+    margin-top: .2rem;
+    color: var(--muted);
+    font-size: .7rem;
+}
 .package-management-page .pkg-card-footer {
     min-height: 2.75rem !important;
     padding-top: .55rem !important;
@@ -822,29 +838,6 @@ html[data-theme='dark'] .table-row-action-link:hover {
                 </p>
             </div>
             <div class="admin-table-head-actions">
-                {{-- View toggle --}}
-                <div class="inline-flex items-center rounded-lg border border-slate-200 overflow-hidden bg-white">
-                    <button
-                        type="button"
-                        @click="setView('card')"
-                        :class="view === 'card' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'"
-                        class="px-3 py-2 transition-colors flex items-center gap-1.5 font-medium"
-                        title="Grid view"
-                    >
-                        <i class="bi bi-grid-3x3-gap-fill text-xs"></i>
-                        <span class="hidden sm:inline text-xs">Grid</span>
-                    </button>
-                    <button
-                        type="button"
-                        @click="setView('table')"
-                        :class="view === 'table' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'"
-                        class="px-3 py-2 transition-colors flex items-center gap-1.5 font-medium border-l border-slate-200"
-                        title="Table view"
-                    >
-                        <i class="bi bi-table text-xs"></i>
-                        <span class="hidden sm:inline text-xs">Table</span>
-                    </button>
-                </div>
                 @if($isMainAdmin)
                     <a
                         href="{{ route('admin.packages.create') }}"
@@ -918,6 +911,10 @@ html[data-theme='dark'] .table-row-action-link:hover {
             <div class="table-toolbar-reset-wrap">
             </div>
         </form>
+        <div class="catalog-view-switch" role="group" aria-label="Package view">
+            <button type="button" @click="setView('card')" :aria-pressed="view === 'card'" :class="view === 'card' ? 'is-active' : ''" aria-label="Grid view" title="Grid view"><i class="bi bi-grid" aria-hidden="true"></i><span>Grid</span></button>
+            <button type="button" @click="setView('table')" :aria-pressed="view === 'table'" :class="view === 'table' ? 'is-active' : ''" aria-label="Table view" title="Table view"><i class="bi bi-table" aria-hidden="true"></i><span>Table</span></button>
+        </div>
     </div>
 
     {{-- ═══════════════════════════════════════════
@@ -966,11 +963,12 @@ html[data-theme='dark'] .table-row-action-link:hover {
                     data-live-search-text="{{ $package->name }} {{ $includedCasket }} {{ implode(' ', $inclusionItems) }} {{ implode(' ', $freebieItems) }}"
                 >
                     {{-- Card header --}}
+                    @include('admin.service-management.partials.card-media', ['mediaRecord' => $package])
                     <div class="pkg-card-head">
                         <div class="flex-1 min-w-0">
                             <h3 class="pkg-card-title">{{ $package->name }}</h3>
                             @if($includedCasket)
-                                <p class="pkg-card-casket"><i class="bi bi-box2-heart"></i> {{ $includedCasket }}</p>
+                                <p class="pkg-card-casket"><i class="bi bi-box2-heart" aria-hidden="true"></i> Included casket: {{ $includedCasket }}</p>
                             @endif
                         </div>
                     </div>
@@ -985,50 +983,7 @@ html[data-theme='dark'] .table-row-action-link:hover {
 
                     {{-- Promo --}}
                     <div class="pkg-card-promo">
-                        @if($package->promo_is_active && $package->promo_value_type && $package->promo_value)
-                            @if($package->is_promo_expired)
-                                {{-- Toggle is on but end date has passed --}}
-                                <span class="inline-flex items-center gap-1.5 bg-slate-100 text-slate-500 border border-slate-200 rounded-full px-2.5 py-1 text-xs font-semibold">
-                                    <i class="bi bi-tag text-[10px]"></i>
-                                    {{ $package->promo_label ?: 'Promo' }} — Expired
-                                </span>
-                                <p class="text-[11px] text-red-400 mt-1.5 ml-0.5">
-                                    <i class="bi bi-clock-history"></i>
-                                    Ended {{ $package->promo_ends_at->format('M d, Y') }}
-                                </p>
-                            @elseif($package->is_promo_scheduled)
-                                {{-- Toggle is on but start date hasn't arrived yet --}}
-                                <span class="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-full px-2.5 py-1 text-xs font-semibold">
-                                    <i class="bi bi-tag text-[10px]"></i>
-                                    {{ $package->promo_label ?: 'Promo' }} — Scheduled
-                                </span>
-                                <p class="text-[11px] text-slate-400 mt-1.5 ml-0.5">
-                                    <i class="bi bi-calendar-event"></i>
-                                    Starts {{ $package->promo_starts_at->format('M d, Y') }}
-                                </p>
-                            @else
-                                {{-- Promo is live --}}
-                                <span class="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-2.5 py-1 text-xs font-semibold">
-                                    <i class="bi bi-tag-fill text-[10px]"></i>
-                                    {{ $package->promo_label ?: 'Promo Active' }}
-                                    &mdash;
-                                    @if($package->promo_value_type === 'PERCENT')
-                                        {{ number_format((float) $package->promo_value, 2) }}% off
-                                    @else
-                                        &#8369;{{ number_format((float) $package->promo_value, 2) }} off
-                                    @endif
-                                </span>
-                                @if($package->promo_starts_at || $package->promo_ends_at)
-                                    <p class="text-[11px] text-slate-400 mt-1.5 ml-0.5">
-                                        {{ $package->promo_starts_at?->format('M d, Y') ?? '—' }}
-                                        &ndash;
-                                        {{ $package->promo_ends_at?->format('M d, Y') ?? 'Ongoing' }}
-                                    </p>
-                                @endif
-                            @endif
-                        @else
-                            <span class="pkg-muted-text">No active promo</span>
-                        @endif
+                        @include('admin.packages._promotion_summary')
                     </div>
 
                     {{-- Inclusions & Freebies --}}
@@ -1038,13 +993,9 @@ html[data-theme='dark'] .table-row-action-link:hover {
                                 <i class="bi bi-check2-all"></i> Inclusions
                             </p>
                             @if($inclusionItems)
-                                <ul class="space-y-1 text-xs text-slate-600 leading-relaxed">
-                                    @foreach($visibleInclusions as $item)
-                                        <li class="flex gap-1.5"><span class="text-emerald-600">&bull;</span><span>{{ $item }}</span></li>
-                                    @endforeach
-                                </ul>
+                                <p class="pkg-card-summary-text">{{ implode(' · ', $visibleInclusions) }}</p>
                                 @if(count($inclusionItems) > 3)
-                                    <p class="mt-1 text-[11px] font-semibold text-slate-400">+{{ count($inclusionItems) - 3 }} more</p>
+                                    <span class="pkg-card-summary-more">+{{ count($inclusionItems) - 3 }} more</span>
                                 @endif
                             @else
                                 <p class="text-xs text-slate-400 italic">None listed</p>
@@ -1055,13 +1006,9 @@ html[data-theme='dark'] .table-row-action-link:hover {
                                 <i class="bi bi-gift"></i> Freebies
                             </p>
                             @if($freebieItems)
-                                <ul class="space-y-1 text-xs text-slate-600 leading-relaxed">
-                                    @foreach($visibleFreebies as $item)
-                                        <li class="flex gap-1.5"><span class="text-amber-600">&bull;</span><span>{{ $item }}</span></li>
-                                    @endforeach
-                                </ul>
+                                <p class="pkg-card-summary-text">{{ implode(' · ', $visibleFreebies) }}</p>
                                 @if(count($freebieItems) > 3)
-                                    <p class="mt-1 text-[11px] font-semibold text-slate-400">+{{ count($freebieItems) - 3 }} more</p>
+                                    <span class="pkg-card-summary-more">+{{ count($freebieItems) - 3 }} more</span>
                                 @endif
                             @else
                                 <p class="text-xs text-slate-400 italic">None listed</p>
@@ -1134,7 +1081,10 @@ html[data-theme='dark'] .table-row-action-link:hover {
                             data-live-search-meta="{{ ($includedCasket ?? 'No casket') . ' / ₱' . number_format((float) $package->price, 2) }}"
                             data-live-search-text="{{ $package->name }} {{ $includedCasket }} {{ implode(' ', $inclusionItems) }} {{ implode(' ', $freebieItems) }}"
                         >
-                            <td class="table-primary">{{ $package->name }}</td>
+                            <td class="table-primary"><div class="catalog-primary-cell">
+                                @include('admin.service-management.partials.photo', ['photoRecord' => $package])
+                                <span>{{ $package->name }}</span>
+                            </div></td>
                             <td>{{ $includedCasket ?? '—' }}</td>
                             <td>
                                 <span class="font-semibold text-slate-900">&#8369;{{ number_format((float) $package->price, 2) }}</span>
@@ -1168,41 +1118,7 @@ html[data-theme='dark'] .table-row-action-link:hover {
                                 @endif
                             </td>
                             <td>
-                                @if($package->promo_is_active && $package->promo_value_type && $package->promo_value)
-                                    @if($package->is_promo_expired)
-                                        <div class="text-xs font-semibold text-slate-400">
-                                            {{ $package->promo_label ?: 'Promo' }}
-                                            <span class="text-red-400 ml-1">— Expired</span>
-                                        </div>
-                                        <div class="text-[11px] text-red-400 mt-0.5">
-                                            <i class="bi bi-clock-history"></i>
-                                            Ended {{ $package->promo_ends_at->format('M d, Y') }}
-                                        </div>
-                                    @elseif($package->is_promo_scheduled)
-                                        <div class="text-xs font-semibold text-blue-600">
-                                            {{ $package->promo_label ?: 'Promo' }}
-                                            <span class="ml-1">— Scheduled</span>
-                                        </div>
-                                        <div class="text-[11px] text-slate-500 mt-0.5">
-                                            <i class="bi bi-calendar-event"></i>
-                                            Starts {{ $package->promo_starts_at->format('M d, Y') }}
-                                        </div>
-                                    @else
-                                        <div class="text-xs font-semibold text-emerald-700">{{ $package->promo_label ?: 'Promo' }}</div>
-                                        <div class="table-secondary">
-                                            {{ $package->promo_value_type === 'PERCENT'
-                                                ? number_format((float) $package->promo_value, 2) . '%'
-                                                : number_format((float) $package->promo_value, 2) }}
-                                        </div>
-                                        <div class="text-[11px] text-slate-500">
-                                            {{ $package->promo_starts_at?->format('M d, Y') ?? 'No start' }}
-                                            &ndash;
-                                            {{ $package->promo_ends_at?->format('M d, Y') ?? 'Ongoing' }}
-                                        </div>
-                                    @endif
-                                @else
-                                    <span class="table-secondary">No active promo</span>
-                                @endif
+                                @include('admin.packages._promotion_summary')
                             </td>
                             @if($isMainAdmin)
                                 <td class="table-col-actions">
@@ -1243,7 +1159,8 @@ html[data-theme='dark'] .table-row-action-link:hover {
     @php
         $display = $packageDisplay($package);
         $casketRow = $package->packageInclusions->firstWhere('service_type', \App\Models\Package::SERVICE_CASKET);
-        $customRows = $package->packageInclusions->filter(fn ($item) => $item->is_custom || $item->service_type === \App\Models\Package::SERVICE_CUSTOM);
+        $customRows = $package->packageInclusions->filter(fn ($item) => ($item->is_custom || $item->service_type === \App\Models\Package::SERVICE_CUSTOM)
+            && ! \App\Models\Package::isLegacyPackageDescription($item->inclusion_name));
         $serviceRows = $package->packageInclusions->reject(fn ($item) => $item->is_custom || $item->service_type === \App\Models\Package::SERVICE_CUSTOM || $item->service_type === \App\Models\Package::SERVICE_CASKET);
     @endphp
     <template id="packageDetailTemplate{{ $package->id }}">
@@ -1255,11 +1172,7 @@ html[data-theme='dark'] .table-row-action-link:hover {
                     <div class="pkg-detail-badges">
                         <span class="pkg-detail-badge"><i class="bi bi-box2-heart"></i>{{ $display['casket'] ?: 'No casket selected' }}</span>
                         <span class="pkg-detail-badge"><i class="bi bi-gift"></i>{{ $package->packageFreebies->count() }} freebies</span>
-                        @if($package->promo_is_active && $package->promo_value_type && $package->promo_value)
-                            <span class="pkg-detail-badge"><i class="bi bi-tag"></i>{{ $package->promo_status }}</span>
-                        @else
-                            <span class="pkg-detail-badge"><i class="bi bi-tag"></i>No active promo</span>
-                        @endif
+                        @include('admin.packages._promotion_summary')
                     </div>
                     @if($package->short_description)
                         <p>{{ $package->short_description }}</p>
@@ -1278,15 +1191,7 @@ html[data-theme='dark'] .table-row-action-link:hover {
                 </section>
                 <section>
                     <h3><i class="bi bi-tag"></i> Promo</h3>
-                    @if($package->promo_is_active && $package->promo_value_type && $package->promo_value)
-                        <p>{{ $package->promo_label ?: 'Promo' }} - {{ $package->promo_status }}</p>
-                        <small>
-                            {{ $package->promo_value_type === 'PERCENT' ? number_format((float) $package->promo_value, 2) . '% off' : 'PHP ' . number_format((float) $package->promo_value, 2) . ' off' }}
-                            · {{ $package->promo_starts_at?->format('M d, Y') ?? 'No start' }} to {{ $package->promo_ends_at?->format('M d, Y') ?? 'Ongoing' }}
-                        </small>
-                    @else
-                        <p>No active promo for this package.</p>
-                    @endif
+                    @include('admin.packages._promotion_summary')
                 </section>
                 <section>
                     <h3><i class="bi bi-check2-square"></i> Included Services</h3>
@@ -1307,18 +1212,16 @@ html[data-theme='dark'] .table-row-action-link:hover {
                         <p>No structured service limits listed.</p>
                     @endif
                 </section>
-                <section>
-                    <h3><i class="bi bi-list-check"></i> Other Package Inclusions</h3>
-                    @if($customRows->isNotEmpty())
+                @if($customRows->isNotEmpty())
+                    <section>
+                        <h3><i class="bi bi-list-check"></i> Other Package Inclusions</h3>
                         <ul>
                             @foreach($customRows as $row)
                                 <li>{{ $row->inclusion_name }}</li>
                             @endforeach
                         </ul>
-                    @else
-                        <p>No other inclusions listed.</p>
-                    @endif
-                </section>
+                    </section>
+                @endif
                 <section>
                     <h3><i class="bi bi-gift"></i> Freebies</h3>
                     @if($package->packageFreebies->isNotEmpty())

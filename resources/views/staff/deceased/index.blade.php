@@ -4,7 +4,7 @@
 @section('page_desc', 'Browse deceased records linked to funeral cases.')
 
 @section('content')
-<div class="records-page">
+<div class="records-page" data-deceased-records>
 @if(session('success'))
     <div class="flash-success">
         {{ session('success') }}
@@ -243,7 +243,6 @@
         const sheet = document.getElementById('deceasedModalSheet');
         const content = document.getElementById('deceasedModalContent');
         const closeBtn = document.getElementById('deceasedModalClose');
-        const links = [...document.querySelectorAll('.open-deceased-modal')];
         const transitionMs = 180;
         let hideTimer = null;
         let activeRequestId = 0;
@@ -337,6 +336,7 @@
             if (!content) return;
             const requestId = ++activeRequestId;
             resetContent();
+            const finishSkeleton = window.PanelSkeleton?.begin(content, {variant:'form'});
             try {
                 const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                 const html = await res.text();
@@ -361,16 +361,16 @@
             } catch (e) {
                 if (requestId !== activeRequestId || overlay.classList.contains('hidden')) return;
                 content.innerHTML = `<div class="p-4 text-sm text-rose-600">Unable to load content.</div>`;
-            }
+            } finally { finishSkeleton?.(); }
         };
 
-        links.forEach((link) => {
-            link.addEventListener('click', (e) => {
+        document.addEventListener('click', (e) => {
+                const link = e.target.closest('[data-deceased-records] .open-deceased-modal');
+                if (!link || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
                 e.preventDefault();
                 const url = link.dataset.url || link.href;
                 show();
                 load(url);
-            });
         });
 
         if (closeBtn) closeBtn.addEventListener('click', hide);
@@ -383,4 +383,5 @@
     })();
 </script>
 </div>
+@include('partials.deceased_tab_navigation')
 @endsection

@@ -38,7 +38,7 @@
             </div>
 
             <div class="table-system-toolbar">
-                <form method="GET" class="table-toolbar" data-table-toolbar data-live-search-suggestions data-live-search-commit-only data-search-debounce="500" style="grid-template-columns:minmax(240px, 1.6fr) minmax(170px, .85fr) minmax(170px, .75fr) auto;">
+                <form method="GET" class="table-toolbar" data-table-toolbar data-catalog-filter-toolbar data-live-search-suggestions data-live-search-commit-only data-search-debounce="500">
                     <div class="table-toolbar-field">
                         <label class="table-toolbar-label">Search</label>
                         <div class="table-toolbar-input-wrap">
@@ -55,7 +55,7 @@
                         <div class="table-toolbar-select-wrap">
                             <i class="bi bi-tags table-toolbar-leading-icon" aria-hidden="true"></i>
                             <select name="category" class="table-toolbar-select" data-table-auto-submit>
-                                <option value="">All Types</option>
+                                <option value="">All categories</option>
                                 @foreach($categoryOptions as $category)
                                     <option value="{{ $category }}" @selected(request('category') === $category)>{{ $category }}</option>
                                 @endforeach
@@ -68,9 +68,9 @@
                         <div class="table-toolbar-select-wrap">
                             <i class="bi bi-activity table-toolbar-leading-icon" aria-hidden="true"></i>
                             <select name="status" class="table-toolbar-select" data-table-auto-submit>
-                                <option value="">All Status</option>
-                                <option value="active" @selected(request('status') === 'active')>Active</option>
-                                <option value="inactive" @selected(request('status') === 'inactive')>Archived</option>
+                                <option value="active" @selected(request('status', 'active') === 'active')>Active</option>
+                                <option value="inactive" @selected(in_array(request('status'), ['inactive', 'archived'], true))>Archived</option>
+                                <option value="all" @selected(request('status') === 'all')>All statuses</option>
                             </select>
                             <i class="bi bi-chevron-down table-toolbar-select-icon" aria-hidden="true"></i>
                         </div>
@@ -93,10 +93,10 @@
                 <table class="table-base table-system-table w-full">
                     <thead>
                         <tr>
-                            <th>Name</th>
+                            <th>Add-on Name</th>
                             <th>Type</th>
-                            <th class="table-col-number">Standard Price</th>
-                            <th>Unit</th>
+                            <th class="table-col-number">Unit Price (PHP)</th>
+                            <th>Billing Unit</th>
                             <th>Status</th>
                             <th>Legacy Mapping</th>
                             @if($canManage)
@@ -109,6 +109,7 @@
                             <tr data-live-search-row data-live-search-title="{{ $catalog->name }}" data-live-search-meta="{{ ($catalog->category ?: 'General') . ' / ' . $catalog->unit }}" data-live-search-text="{{ $catalog->name }} {{ $catalog->category }} {{ $catalog->unit }} {{ $catalog->description }} {{ $catalog->is_active ? 'Active' : 'Archived' }}">
                                 <td>
                                     <div class="font-semibold catalog-primary-cell">
+                                        @include('admin.service-management.partials.photo', ['photoRecord' => $catalog, 'photoSize' => 'thumbnail'])
                                         <span data-catalog-cell="name">{{ $catalog->name }}</span>
                                     </div>
                                     @if($catalog->description)
@@ -160,4 +161,21 @@
         </section>
     </div>
 </div>
+<style>
+    .add-on-catalog-page .row-hover-actions .row-hover-action:hover,
+    .add-on-catalog-page .row-hover-actions .row-hover-action:focus-visible {
+        background: color-mix(in srgb, var(--surface-muted) 82%, var(--accent));
+        border-color: transparent;
+    }
+    .add-on-catalog-page .row-hover-actions .row-hover-action.is-danger:is(:hover, :focus-visible) {
+        background: color-mix(in srgb, var(--surface-muted) 82%, currentColor);
+    }
+    @media (hover: none) {
+        .add-on-catalog-page .row-hover-actions {
+            opacity: 1;
+            pointer-events: auto;
+            transform: none;
+        }
+    }
+</style>
 @endsection

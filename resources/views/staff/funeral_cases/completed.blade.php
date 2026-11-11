@@ -5,7 +5,9 @@
 
 @section('content')
 <div class="records-page">
-@if(session('success'))
+@if(session('intake_case_saved_toast'))
+    @include('partials.centered-success-toast', ['toastId' => 'intake-case-saved-toast', 'title' => 'Case saved successfully', 'message' => 'The new case has been added to Case Records.'])
+@elseif(session('success'))
     <div class="flash-success">
         {{ session('success') }}
     </div>

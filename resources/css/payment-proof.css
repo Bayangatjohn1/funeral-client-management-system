@@ -1,0 +1,23 @@
+.payment-proof-widget { --proof-fill:#e5efe8; --proof-hover:#d2e5d8; --proof-ink:#214633; --proof-muted:#536f5e; --proof-error:#8d2925; --proof-error-fill:#fbe8e6; display:grid; gap:10px; min-width:0; padding-block:16px; border-block:1px solid var(--border,#c5d7cb); color:var(--proof-ink); }
+html[data-theme=dark] .payment-proof-widget { --proof-fill:#253d30; --proof-hover:#34513f; --proof-ink:#e0efe5; --proof-muted:#b4cabb; --proof-error:#ffc2bc; --proof-error-fill:#412725; }
+.payment-proof-widget [hidden] { display:none!important; }
+.payment-proof-widget .proof-label { font-weight:600; font-size:14px; }
+.payment-proof-widget .proof-label > span { color:var(--proof-error); }
+.payment-proof-widget :is(p,button,a) { font-size:13px; line-height:1.5; }
+.payment-proof-widget p { margin:0; overflow-wrap:anywhere; }
+.payment-proof-widget .proof-instruction { color:var(--proof-muted); }
+.payment-proof-widget .proof-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.payment-proof-widget button,.payment-proof-widget a { display:inline-flex; align-items:center; justify-content:center; gap:7px; width:auto; min-height:40px; padding:8px 12px; border:0; border-radius:8px; background:var(--proof-fill); color:var(--proof-ink); cursor:pointer; text-decoration:none; }
+.payment-proof-widget :is(button,a):hover { background:var(--proof-hover); }
+.payment-proof-widget :is(button,a):focus-visible { outline:2px solid var(--proof-ink); outline-offset:3px; }
+.payment-proof-widget button:disabled { opacity:.55; cursor:wait; }
+.payment-proof-widget [data-proof-qr] { padding:14px; background:var(--proof-fill); border-radius:10px; display:grid; justify-items:center; gap:10px; text-align:center; }
+.payment-proof-widget [data-proof-qr-image] { width:min(224px,100%); height:auto; background:white; padding:8px; border-radius:8px; }
+.payment-proof-widget [data-proof-received] { display:flex; align-items:center; flex-wrap:wrap; gap:10px; padding:12px; border-radius:8px; background:var(--proof-fill); }
+.payment-proof-widget [data-proof-image] { width:100px; height:80px; object-fit:contain; }
+.payment-proof-widget [data-proof-name] { flex:1 1 120px; }
+.payment-proof-widget .proof-state { color:var(--proof-muted); }
+.payment-proof-widget .proof-error { padding:10px 12px; border-radius:8px; background:var(--proof-error-fill); color:var(--proof-error); font-weight:600; }
+.payment-proof-widget .proof-error::before { content:'⚠ '; }
+.payment-proof-widget progress { width:100%; height:8px; accent-color:#438561; }
+@media(prefers-reduced-motion:no-preference) { .payment-proof-widget :is(button,a) { transition:background 160ms ease-out; } }

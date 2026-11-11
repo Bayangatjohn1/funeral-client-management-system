@@ -56,7 +56,7 @@ class BranchController extends Controller
         };
         $query->orderBy($sortCol, $sortDir);
 
-        $branches = $query->paginate(20)->withQueryString();
+        $branches = $query->paginate(25)->withQueryString();
         $nextCode = $this->nextBranchCode();
 
         $stats      = Branch::selectRaw('COUNT(*) as total, SUM(is_active) as active_count')->first();
@@ -95,7 +95,7 @@ class BranchController extends Controller
         $branch = Branch::create([
             'branch_code' => $this->nextBranchCode(),
             'branch_name' => $request->input('branch_name'),
-            'address' => $validated['address'],
+            'address' => \App\Support\UiTextCase::words($validated['address']),
             'is_active' => $request->boolean('is_active'),
         ]);
 
@@ -115,10 +115,10 @@ class BranchController extends Controller
 
         $returnTo = $request->input('return_to');
         if ($returnTo) {
-            return redirect()->to($returnTo)->with('success', 'Branch created successfully.');
+            return redirect()->to(\App\Support\LocalReturnUrl::resolve($returnTo, route('admin.branches.index')))->with('success', $branch->branch_code.' · '.$branch->branch_name.' was created successfully.');
         }
 
-        return redirect()->route('admin.branches.index')->with('success', 'Branch created successfully.');
+        return redirect()->route('admin.branches.index')->with('success', $branch->branch_code.' · '.$branch->branch_name.' was created successfully.');
     }
 
     public function edit(Branch $branch)
@@ -158,13 +158,13 @@ class BranchController extends Controller
 
         if ($this->isProtectedMainBranch($branch) && !$request->boolean('is_active')) {
             return back()->withErrors([
-                'is_active' => 'Main branch (BR001) must remain active.',
+                'is_active' => $branch->branch_code.' · '.$branch->branch_name.' is the main branch and must remain active.',
             ])->withInput();
         }
 
         if ($branch->is_active && !$request->boolean('is_active') && $this->hasDisableBlockers($branch)) {
             return back()->withErrors([
-                'is_active' => 'This branch cannot be disabled while it has unfinished cases or completed cases with a remaining balance.',
+                'is_active' => $branch->branch_code.' · '.$branch->branch_name.' cannot be disabled while it has unfinished cases or completed cases with a remaining balance.',
             ])->withInput();
         }
 
@@ -176,7 +176,7 @@ class BranchController extends Controller
 
         $branch->update([
             'branch_name' => $request->input('branch_name'),
-            'address' => $validated['address'],
+            'address' => \App\Support\UiTextCase::words($validated['address']),
             'is_active' => $request->boolean('is_active'),
         ]);
 
@@ -199,22 +199,22 @@ class BranchController extends Controller
 
         $returnTo = $request->input('return_to');
         if ($returnTo) {
-            return redirect()->to($returnTo)->with('success', 'Branch updated successfully.');
+            return redirect()->to(\App\Support\LocalReturnUrl::resolve($returnTo, route('admin.branches.index')))->with('success', $branch->branch_code.' · '.$branch->branch_name.' was updated successfully.');
         }
 
-        return redirect()->route('admin.branches.index')->with('success', 'Branch updated successfully.');
+        return redirect()->route('admin.branches.index')->with('success', $branch->branch_code.' · '.$branch->branch_name.' was updated successfully.');
     }
 
     public function toggleStatus(Branch $branch)
     {
         if ($this->isProtectedMainBranch($branch) && $branch->is_active) {
             return redirect()->route('admin.branches.index')
-                ->withErrors(['is_active' => 'Main branch (BR001) must remain active.']);
+                ->withErrors(['is_active' => $branch->branch_code.' · '.$branch->branch_name.' is the main branch and must remain active.']);
         }
 
         if ($branch->is_active && $this->hasDisableBlockers($branch)) {
             return redirect()->route('admin.branches.index')
-                ->withErrors(['is_active' => 'This branch cannot be disabled while it has unfinished cases or completed cases with a remaining balance.']);
+                ->withErrors(['is_active' => $branch->branch_code.' · '.$branch->branch_name.' cannot be disabled while it has unfinished cases or completed cases with a remaining balance.']);
         }
 
         $previousStatus = $branch->is_active;
@@ -421,7 +421,7 @@ class BranchController extends Controller
     {
         $name = preg_replace('/\d+/', '', $name);
         $name = preg_replace('/\s+/', ' ', (string) $name);
-        return trim((string) $name);
+        return \App\Support\UiTextCase::words((string) $name);
     }
 
     private function branchValidationRules(): array
@@ -437,8 +437,13 @@ class BranchController extends Controller
     {
         return [
             'branch_name.required' => 'Branch name is required.',
-            'branch_name.regex' => 'Branch name must contain letters only.',
+            'branch_name.regex' => 'Start Branch Name with a letter. Use letters, spaces, apostrophes, periods, & or hyphens.',
             'address.required' => 'Address is required.',
+            'branch_name.max' => 'Branch Name must be 255 characters or fewer.',
+            'address.max' => 'Branch Address must be 255 characters or fewer.',
+            'branch_name.string' => 'Enter Branch Name as text.',
+            'address.string' => 'Enter Branch Address as text.',
+            'is_active.boolean' => 'Choose Active or Inactive for the branch status.',
         ];
     }
 

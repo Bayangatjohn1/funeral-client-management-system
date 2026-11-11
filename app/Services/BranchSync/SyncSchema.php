@@ -25,34 +25,48 @@ class SyncSchema
     private array $columnCache = [];
 
     public const FILES = [
+        'branches' => ['photo_path' => 'local'],
+        'packages' => ['photo_path' => 'local'],
+        'casket_catalogs' => ['photo_path' => 'local'],
+        'hearse_catalogs' => ['photo_path' => 'local'],
+        'add_on_catalogs' => ['photo_path' => 'local'],
+        'freebie_catalogs' => ['photo_path' => 'local'],
+        'payments' => ['proof_path' => 'local'],
+        'payment_correction_requests' => ['evidence_path' => 'local'],
         'deceased' => ['photo_path' => 'public', 'senior_proof_path' => 'public'],
         'case_attachments' => ['file_path' => 'public'],
         'case_documents' => ['file_path' => 'local'],
         'case_document_revisions' => ['file_path' => 'local'],
+        'historical_case_submissions' => [],
     ];
     // Order is a dependency order. No arbitrary remote table/column selection.
     public const REFERENCE = [
-        'branches', 'users', 'packages', 'add_on_catalogs', 'casket_catalogs',
-        'freebie_catalogs', 'package_inclusions', 'package_freebies', 'package_add_ons', 'add_on_catalog_package_add_on',
+        'branches', 'users', 'packages', 'promotions', 'add_on_catalogs', 'casket_catalogs',
+        'freebie_catalogs', 'hearse_catalogs', 'package_inclusions', 'package_freebies', 'package_add_ons', 'add_on_catalog_package_add_on',
     ];
 
     public const OPERATIONAL = [
         'clients', 'deceased', 'funeral_cases', 'payments', 'service_details',
         'case_add_ons', 'case_notes', 'intake_drafts', 'payment_correction_requests',
-        'case_attachments', 'case_documents', 'case_document_revisions', 'audit_logs',
+        'case_attachments', 'case_documents', 'case_document_revisions',
+        'historical_case_submissions', 'historical_case_submission_reviews', 'audit_logs',
     ];
 
     public const RELATIONS = [
+        'chapel_catalog_id' => 'add_on_catalogs',
         'branch_id' => 'branches', 'target_branch_id' => 'branches', 'reported_branch_id' => 'branches',
         'client_id' => 'clients', 'deceased_id' => 'deceased', 'package_id' => 'packages',
         'funeral_case_id' => 'funeral_cases', 'case_id' => 'funeral_cases', 'submitted_case_id' => 'funeral_cases',
+        'official_case_id' => 'funeral_cases', 'parent_submission_id' => 'historical_case_submissions',
+        'historical_case_submission_id' => 'historical_case_submissions',
         'payment_id' => 'payments', 'replaces_payment_id' => 'payments', 'replacement_payment_id' => 'payments',
         'case_document_id' => 'case_documents', 'casket_catalog_id' => 'casket_catalogs',
         'freebie_catalog_id' => 'freebie_catalogs', 'add_on_catalog_id' => 'add_on_catalogs',
+        'hearse_catalog_id' => 'hearse_catalogs',
         'package_add_on_id' => 'package_add_ons', 'actor_id' => 'users', 'author_id' => 'users',
         'created_by' => 'users', 'encoded_by' => 'users', 'recorded_by' => 'users',
-        'generated_by' => 'users', 'uploaded_by' => 'users',
-        'requested_by' => 'users', 'reviewed_by' => 'users', 'verified_by' => 'users',
+        'generated_by' => 'users', 'uploaded_by' => 'users', 'manually_stopped_by' => 'users', 'updated_by' => 'users',
+        'requested_by' => 'users', 'reviewed_by' => 'users', 'verified_by' => 'users', 'authorized_by' => 'users',
         'privileged_for_user_id' => 'users',
         'superseded_by' => 'users', 'legal_hold_by' => 'users', 'legal_hold_released_by' => 'users',
     ];
@@ -63,13 +77,15 @@ class SyncSchema
         'case_attachments' => ['case_id', 'funeral_cases'],
         'case_documents' => ['case_id', 'funeral_cases'],
         'case_document_revisions' => ['case_document_id', 'case_documents'],
+        'historical_case_submission_reviews' => ['historical_case_submission_id', 'historical_case_submissions'],
     ];
 
     public const SUBJECTS = [
         'client' => 'clients', 'deceased' => 'deceased', 'funeral_case' => 'funeral_cases',
         'payment' => 'payments', 'case_document' => 'case_documents', 'case_attachment' => 'case_attachments',
-        'intake_draft' => 'intake_drafts', 'user' => 'users', 'package' => 'packages',
+        'intake_draft' => 'intake_drafts', 'user' => 'users', 'package' => 'packages', 'promotion' => 'promotions',
         'payment_correction_request' => 'payment_correction_requests',
+        'historical_case_submission' => 'historical_case_submissions',
     ];
 
     public const HOLD_FIELDS = ['legal_hold_at', 'legal_hold_by', 'legal_hold_reason', 'legal_hold_released_at', 'legal_hold_released_by'];
@@ -88,6 +104,7 @@ class SyncSchema
         $columns = array_values(array_map(fn ($column) => $column['name'], array_filter(
             Schema::getColumns($table),
             fn ($column) => $column['name'] !== 'id' && empty($column['generation'])
+                && ! ($table === 'payments' && $column['name'] === 'proof_upload_id')
         )));
         sort($columns);
         return $this->columnCache[$cacheKey] = $columns;

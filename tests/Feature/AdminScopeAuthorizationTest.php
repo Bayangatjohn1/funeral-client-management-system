@@ -316,6 +316,22 @@ class AdminScopeAuthorizationTest extends TestCase
             ->assertOk()->assertViewHas('packages', fn ($packages) => $packages->pluck('name')->all() === ['Sorting Fixture Zeta', 'Sorting Fixture Alpha']);
     }
 
+    public function test_service_catalog_filters_category_and_availability_before_pagination(): void
+    {
+        $actor = $this->createMainAdmin($this->createBranch('BR021', 'Catalog Filters'));
+        AddOnCatalog::create(['name' => 'Floral Fixture', 'category' => 'Flowers', 'price' => 500, 'unit' => 'piece', 'is_active' => true]);
+        AddOnCatalog::create(['name' => 'Tent Fixture', 'category' => 'Supplies', 'price' => 1000, 'unit' => 'day', 'is_active' => true]);
+        $this->actingAs($actor)->get('/admin/service-management?tab=addons&category=Flowers')
+            ->assertOk()->assertViewHas('addOns', fn ($items) => $items->pluck('name')->all() === ['Floral Fixture']);
+
+        CasketCatalog::create(['name' => 'Unavailable Fixture', 'standard_price' => 1000, 'is_active' => true, 'is_available' => false]);
+        CasketCatalog::create(['name' => 'Archived Fixture', 'standard_price' => 1000, 'is_active' => false, 'is_available' => false]);
+        $this->actingAs($actor)->get('/admin/service-management?tab=caskets&status=active&availability=unavailable')
+            ->assertOk()->assertViewHas('caskets', fn ($items) => $items->pluck('name')->all() === ['Unavailable Fixture']);
+        $this->actingAs($actor)->get('/admin/service-management?tab=caskets&availability=invalid')
+            ->assertSessionHasErrors('availability');
+    }
+
     public function test_staff_main_intake_uses_assigned_branch_instead_of_br001(): void
     {
         $mainBranch = $this->createBranch('BR001', 'Main Branch');
@@ -996,7 +1012,7 @@ class AdminScopeAuthorizationTest extends TestCase
                 'branch_id' => $otherBranch->id,
             ])
             ->assertRedirect(route('admin.users.index', absolute: false))
-            ->assertSessionHas('success', 'User created successfully.');
+            ->assertSessionHas('success', 'Branch Administrator was created successfully.');
 
         $createdAdmin = User::where('email', 'branch.two.admin@gmail.com')->firstOrFail();
 

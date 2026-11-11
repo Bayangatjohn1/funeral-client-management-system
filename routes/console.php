@@ -5,6 +5,27 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
 
+Artisan::command('payment-corrections:remind', function () {
+    \App\Models\User::where('role', 'admin')->where('is_active', true)
+        ->eachById(function (\App\Models\User $user) {
+            if ($user->isBranchAdmin()) {
+                \App\Models\WorkflowNotice::recordOverdueCorrectionsFor($user);
+            }
+        });
+})->purpose('Remind branch admins of overdue payment corrections');
+
+Artisan::command('payment-proofs:cleanup', function () {
+    \App\Models\PaymentProofUpload::whereNull('claimed_at')->where('retain_until', '<=', now())
+        ->eachById(function ($upload) {
+            DB::transaction(function () use ($upload) {
+                $locked = \App\Models\PaymentProofUpload::whereKey($upload->id)->lockForUpdate()->first();
+                if (! $locked || $locked->claimed_at || $locked->retain_until->isFuture()) return;
+                if ($locked->path && ! \Illuminate\Support\Facades\Storage::disk($locked->disk)->delete($locked->path)) return;
+                $locked->delete();
+            });
+        });
+})->purpose('Delete expired, unclaimed payment proof uploads');
+
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');

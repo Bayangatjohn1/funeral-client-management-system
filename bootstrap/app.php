@@ -21,10 +21,12 @@ return Application::configure(basePath: dirname(__DIR__))
         \App\Console\Commands\BranchSync::class,
     ])
     ->withSchedule(function (Schedule $schedule): void {
+        $schedule->command('payment-proofs:cleanup')->hourly()->withoutOverlapping();
+        $schedule->command('payment-corrections:remind')->everyMinute()->withoutOverlapping(15);
         if (config('branch_sync.mode') === 'branch') {
             $schedule->command('branch:sync run')->everyMinute()->withoutOverlapping(15);
         }
-        $schedule->command('cases:complete-past-interments')->everyMinute();
+        $schedule->command('cases:complete-past-interments')->everyMinute()->withoutOverlapping(15);
         $backup = $schedule->command('system:backup --type=scheduled')->withoutOverlapping(15);
         if (config('branch_sync.mode') === 'branch') {
             $backup->hourly();
@@ -47,6 +49,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'active' => \App\Http\Middleware\EnsureUserIsActive::class,
             'no_cache' => \App\Http\Middleware\NoCache::class,
             'branch.scope' => \App\Http\Middleware\BranchScopeMiddleware::class,
+            'historical_cases.enabled' => \App\Http\Middleware\EnsureHistoricalCasesEnabled::class,
             'log.request' => \App\Http\Middleware\LogRequestTime::class,
         ]);
     })
@@ -57,5 +60,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
 
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpException $error, \Illuminate\Http\Request $request) {
+            if (! $request->expectsJson() && $request->routeIs('payment-proof.phone')
+                && in_array($error->getStatusCode(), [403, 404, 410], true)) {
+                return response()->view('payment-proof.unavailable', [], $error->getStatusCode())->header('Cache-Control', 'no-store');
+            }
+        });
         $exceptions->dontFlash(['token', 'code', 'current_password', 'password', 'password_confirmation']);
     })->create();

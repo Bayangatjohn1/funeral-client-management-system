@@ -77,7 +77,7 @@ class FreebieCatalogController extends Controller
             ])->withInput();
         }
 
-        $catalog = FreebieCatalog::create($validated);
+        $catalog = \App\Support\CatalogPhotos::save($request, new FreebieCatalog(), $validated);
 
         AuditLogger::log(
             'freebie_catalog.created',
@@ -92,8 +92,7 @@ class FreebieCatalogController extends Controller
             'Freebie catalog item created'
         );
 
-        return redirect($request->input('return_to') ?: route('admin.freebie-catalogs.index'))
-            ->with('success', 'Freebie saved successfully.');
+        return \App\Support\CatalogFormResponse::saved($request, 'Freebie saved successfully.', route('admin.freebie-catalogs.index'));
     }
 
     public function show(Request $request, FreebieCatalog $freebie_catalog)
@@ -101,6 +100,7 @@ class FreebieCatalogController extends Controller
         $this->ensureCanView();
 
         $freebie_catalog->loadCount('packageFreebies');
+        $freebie_catalog->load('packageFreebies.package');
         $affectedPackages = app(ServiceCatalogPolicy::class)->activePackagesUsingFreebie($freebie_catalog);
 
         return view('admin.freebie-catalogs.show', [
@@ -137,7 +137,7 @@ class FreebieCatalogController extends Controller
             'default_unit' => $freebie_catalog->default_unit,
         ];
 
-        $freebie_catalog->update($validated);
+        \App\Support\CatalogPhotos::save($request, $freebie_catalog, $validated);
 
         AuditLogger::log(
             'freebie_catalog.updated',
@@ -158,20 +158,26 @@ class FreebieCatalogController extends Controller
             'Freebie catalog item updated'
         );
 
-        return redirect($request->input('return_to') ?: route('admin.freebie-catalogs.index'))
-            ->with('success', 'Freebie updated successfully.');
+        return \App\Support\CatalogFormResponse::saved($request, 'Freebie updated successfully.', route('admin.freebie-catalogs.index'));
+    }
+
+    public function toggleAvailability(FreebieCatalog $freebie_catalog)
+    {
+        $this->ensureCanManage();
+        if (! $freebie_catalog->is_active) return back()->withErrors(['catalog' => 'Restore the archived item before changing its availability.']);
+
+        $freebie_catalog->update(['is_available' => ! $freebie_catalog->is_available]);
+        AuditLogger::log('freebie_catalog.availability_changed', 'status_change', 'freebie_catalog', $freebie_catalog->id, ['is_available' => $freebie_catalog->is_available]);
+        return back()->with('success', $freebie_catalog->name.' marked '.($freebie_catalog->is_available ? 'available.' : 'unavailable.').' Package status is unchanged; intake eligibility is recalculated.');
     }
 
     public function toggleActive(FreebieCatalog $freebie_catalog)
     {
         $this->ensureCanManage();
-
-        if ($freebie_catalog->is_active) {
-            $affected = app(ServiceCatalogPolicy::class)->activePackagesUsingFreebie($freebie_catalog);
-            if ($affected->isNotEmpty()) {
-                return back()->withErrors(['freebie' => 'This freebie cannot be archived yet. Update or archive the packages using it first: '.$affected->pluck('name')->join(', ').'.']);
-            }
+        if ($message = app(\App\Support\ServiceCatalogPolicy::class)->archiveBlockMessage($freebie_catalog)) {
+            return back()->withErrors(['catalog' => $message]);
         }
+
 
         $freebie_catalog->update([
             'is_active' => ! $freebie_catalog->is_active,

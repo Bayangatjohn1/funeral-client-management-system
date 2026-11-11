@@ -320,11 +320,13 @@ class DashboardController extends Controller
 
     public function show(FuneralCase $funeral_case)
     {
+        abort_if($funeral_case->case_status === 'DRAFT', 403, 'Draft cases are for staff only.');
+
         if (($funeral_case->verification_status ?? 'VERIFIED') !== 'VERIFIED') {
             abort(404);
         }
 
-        $funeral_case->load(['branch', 'client', 'deceased', 'reportedBranch', 'encodedBy', 'payments.recordedBy', 'package.packageInclusions', 'package.packageFreebies', 'caseAddOns', 'serviceDetail', 'tarpaulinAttachment.uploader', 'funeralContract.generator']);
+        $funeral_case->load(['branch', 'client', 'deceased', 'reportedBranch', 'encodedBy', 'payments.recordedBy', 'payments.encodedBy', 'payments.correctionRequests.replacementPayment', 'package.packageInclusions', 'package.packageFreebies', 'caseAddOns', 'serviceDetail', 'tarpaulinAttachment.uploader', 'funeralContract.generator']);
 
         return view('owner.cases.show', compact('funeral_case'));
     }
@@ -334,15 +336,20 @@ class DashboardController extends Controller
         $validated = $request->validate([
             'dashboard_branch'=>'nullable|integer|exists:branches,id', 'dashboard_range'=>'nullable|in:TODAY,THIS_WEEK,LAST_30_DAYS,THIS_MONTH,LAST_MONTH,THIS_QUARTER,THIS_YEAR,ALL_TIME,CUSTOM', 'dashboard_from'=>'nullable|date', 'dashboard_to'=>'nullable|date|after_or_equal:dashboard_from',
             'branch_id' => 'nullable|integer|exists:branches,id',
-            'range' => 'nullable|in:TODAY,THIS_MONTH,THIS_YEAR,CUSTOM',
+            'range' => 'nullable|in:TODAY,THIS_WEEK,THIS_MONTH,LAST_MONTH,THIS_QUARTER,LAST_QUARTER,FIRST_HALF,SECOND_HALF,THIS_YEAR,LAST_YEAR,ALL_DATES,CUSTOM',
             'date_from' => 'nullable|date',
             'date_to' => 'nullable|date|after_or_equal:date_from',
         ]);
 
         $data = app(BranchAnalyticsService::class)->ownerPageData($validated);
-        $data['packageBreakdown'] = app(\App\Support\OwnerDashboardOverview::class)
-            ->cases(isset($validated['branch_id']) ? (int) $validated['branch_id'] : null)
-            ->whereBetween('created_at', [Carbon::parse($data['dateFrom'])->startOfDay(), Carbon::parse($data['dateTo'])->endOfDay()])
+        $packageQuery = app(\App\Support\OwnerDashboardOverview::class)
+            ->cases(isset($validated['branch_id']) ? (int) $validated['branch_id'] : null);
+        \App\Support\ReportingPeriod::apply(
+            $packageQuery,
+            'COALESCE(service_requested_at, created_at)',
+            \App\Support\ReportingPeriod::resolve($data['range'], $data['dateFrom'], $data['dateTo'])
+        );
+        $data['packageBreakdown'] = $packageQuery
             ->whereNotNull('service_package')
             ->selectRaw('service_package, COUNT(*) as total_cases, SUM(total_amount) as service_value')
             ->groupBy('service_package')->orderByDesc('total_cases')->limit(10)->get();
@@ -366,7 +373,7 @@ class DashboardController extends Controller
             'date_to' => 'nullable|date|after_or_equal:date_from',
             'sort' => 'nullable|in:newest,oldest',
             'per_page' => 'nullable|integer|in:10,25,50,100',
-            'case_status' => 'nullable|in:DRAFT,ACTIVE,COMPLETED',
+            'case_status' => 'nullable|in:ACTIVE,COMPLETED',
             'payment_status' => 'nullable|in:PAID,PARTIAL,UNPAID,WITH_BALANCE',
             'collection_state' => 'nullable|in:WITH_PAYMENTS,WITH_BALANCE,AFTER_INTERMENT',
             'dashboard_range' => 'nullable|in:TODAY,THIS_WEEK,LAST_30_DAYS,THIS_MONTH,LAST_MONTH,THIS_QUARTER,THIS_YEAR,ALL_TIME,CUSTOM',
@@ -396,7 +403,8 @@ class DashboardController extends Controller
         [$startAt, $endAt] = $this->parseDateBounds($dateFrom, $dateTo);
 
         $historyBase = ($validated['collection_state'] ?? null) === 'AFTER_INTERMENT' ? app(\App\Support\OwnerDashboardOverview::class)->risks(null) : FuneralCase::query();
-        $cases = $historyBase->with(['branch', 'client', 'deceased', 'package', 'encodedBy'])
+        $cases = $historyBase->whereIn('case_status', ['ACTIVE', 'COMPLETED'])
+            ->with(['branch', 'client', 'deceased', 'package', 'encodedBy'])
             ->where('verification_status', 'VERIFIED')
             ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
             ->when($startAt && $endAt, fn ($query) => $query->whereBetween('created_at', [$startAt, $endAt]))

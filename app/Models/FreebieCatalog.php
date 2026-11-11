@@ -6,13 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 
 class FreebieCatalog extends Model
 {
-    protected $fillable = [
+    protected $fillable = ['is_available',
         'name',
         'default_unit',
         'is_active',
     ];
 
-    protected $casts = [
+    protected $casts = ['is_available' => 'boolean',
         'is_active' => 'boolean',
     ];
 

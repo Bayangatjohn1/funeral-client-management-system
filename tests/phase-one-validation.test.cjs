@@ -1,0 +1,40 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+for(const mode of ['create','edit']) test(`Branch ${mode} clears stale validity after correcting input`,()=>{
+ const listeners={};const input={value:'',classList:{add(){},remove(){}},addEventListener(k,f){listeners[k]=f},setCustomValidity(s){this.error=s}};
+ const address={value:'Manila',classList:{add(){},remove(){}},addEventListener(){}};
+ const form={querySelector(s){return s==='[name="address"]'?address:null},addEventListener(){}};
+ const document={getElementById(id){return id==='branch_name'?input: /Form$/.test(id)?form:null}};
+ const source=fs.readFileSync(`resources/views/admin/branches/${mode}.blade.php`,'utf8').match(/<script>([\s\S]*?)<\/script>/)[1];
+ vm.runInNewContext(source,{document});
+ assert.equal(input.error,'Branch name is required.');
+ input.value='North Branch';listeners.input();assert.equal(input.error,'');
+ input.value='123';listeners.input();assert.match(input.error,/Start Branch Name/);
+ input.value='South Branch';listeners.input();assert.equal(input.error,'');
+});
+test('Service native errors remain separate when inputs share a container',()=>{
+ const source=fs.readFileSync('resources/js/service-form-feedback.js','utf8');
+ const body=source.match(/form\.addEventListener\('invalid', event => \{([\s\S]*?)\n        \}, true\);/)[1];
+ const errors=[];
+ const host={querySelectorAll(){return errors},append(error){errors.push(error)}};
+ const form={querySelectorAll(){return []},querySelector(selector){return {textContent:selector.includes('distance')?'Included Distance':'Included Hearse'}}};
+ const document={createElement(){return {dataset:{},setAttribute(){}}}};
+ const handler=vm.runInNewContext('(event)=>{'+body+'}',{form,document,errorHost:()=>host,Set});
+ for(const name of ['distance','hearse']) handler({preventDefault(){},target:{name,id:name,validity:{valueMissing:true},setAttribute(){},getAttribute(){return ''}}});
+ assert.equal(errors.length,2);
+ assert.equal(errors[0].dataset.serviceFieldError,'distance');
+ assert.equal(errors[0].textContent,'Included Distance is required.');
+ assert.equal(errors[1].textContent,'Included Hearse is required.');
+});
+test('User native password error uses the actual approved minimum and clears on correction',()=>{
+ const handlers={};const error={dataset:{fieldError:'password'},classList:{remove(){},add(){}},textContent:'',id:''};
+ const form={id:'userCreateForm',querySelectorAll(){return [error]}};
+ const input={name:'password',type:'password',minLength:12,validity:{tooShort:true,valid:false},closest(){return form},setAttribute(){},removeAttribute(){}};
+ const document={addEventListener(name,handler){handlers[name]=handler}};
+ vm.runInNewContext(fs.readFileSync('resources/js/record-form-validation.js','utf8'),{document});
+ handlers.invalid({target:input,preventDefault(){}});
+ assert.equal(error.textContent,'Password must be at least 12 characters.');
+ input.validity={valid:true};handlers.input({target:input});assert.equal(error.textContent,'');
+});

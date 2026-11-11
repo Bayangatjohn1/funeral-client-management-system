@@ -20,6 +20,12 @@ class FuneralContractMapper
 
         $serviceCharges = $this->canonicalServiceCharges($snapshot);
         $fixedRows = $this->fixedAdditionalRows($snapshot, $serviceCharges);
+        if ($hearseUpgrade = $this->chargeForType($serviceCharges, 'hearse_upgrade')) {
+            $fixedRows[] = $this->fixedRow('hearse_upgrade', 'Hearse upgrade', [
+                'amount' => $hearseUpgrade['amount'],
+                'quantity_detail' => (string) Arr::get($hearseUpgrade, 'selected_hearse.name', 'Selected hearse') . ' - reference value difference',
+            ], 55);
+        }
         $automaticRows = collect($fixedRows)->filter(fn ($row) => (float) ($row['amount'] ?? 0) > 0)->values()->all();
 
         $addOns = collect(Arr::get($snapshot, 'add_ons', []))
@@ -32,6 +38,15 @@ class FuneralContractMapper
         $itemized = collect(Arr::get($snapshot, 'additional_items', []))
             ->filter(fn ($row) => is_array($row) && trim((string) ($row['description'] ?? '')) !== '')
             ->map(fn (array $row): array => $this->itemizedLine($row))
+            ->concat(collect(Arr::get($snapshot, 'service_charges', []))
+                ->where('type', 'included_add_on_extra')
+                ->map(fn (array $row): array => $this->itemizedLine([
+                    'description' => $row['label'],
+                    'quantity' => $row['excess'],
+                    'unit' => $row['unit'],
+                    'rate' => $row['rate'],
+                    'amount' => $row['amount'],
+                ])))
             ->values()
             ->all();
 
@@ -40,15 +55,21 @@ class FuneralContractMapper
             ->values()
             ->all();
 
-        $basicOther = collect(Arr::get($snapshot, 'basic_inclusions', []))
+        $legacyOther = collect(Arr::get($snapshot, 'basic_inclusions', []))
+            ->reject(fn ($item) => Package::isLegacyBasicInclusion((string) $item));
+        $structuredOther = collect(Arr::get($snapshot, 'structured_inclusions', []))
+            ->filter(fn ($row) => is_array($row) && ! Package::isBasicServiceType($row['service_type'] ?? null))
+            ->pluck('name');
+        $otherInclusions = collect(Arr::get($snapshot, 'other_inclusions', $legacyOther->merge($structuredOther)))
             ->filter()
-            ->reject(fn ($item) => preg_match('/body retrieval|embalming|casket|coffin|home viewing|hearse/i', (string) $item))
             ->reject(fn ($item) => $this->isVaguePackageDescription((string) $item))
+            ->unique()
             ->values()
             ->all();
 
         $includedCasket = Arr::get($snapshot, 'included_casket') ?: [];
         $selectedCasket = Arr::get($snapshot, 'selected_casket') ?: [];
+        $selectedHearse = Arr::get($snapshot, 'selected_hearse') ?: [];
         $discount = Arr::get($snapshot, 'discount');
         $discount = is_array($discount) ? $discount : [];
         $promo = Arr::get($snapshot, 'promo');
@@ -92,10 +113,13 @@ class FuneralContractMapper
                 ],
                 [
                     'label' => 'Regular Hearse',
-                    'value' => $this->kmCoverage($inclusions->get(Package::SERVICE_HEARSE), $isLegacy),
+                    'value' => trim(implode(' — ', array_filter([
+                        Arr::get($selectedHearse, 'name'),
+                        $this->kmCoverage($inclusions->get(Package::SERVICE_HEARSE), $isLegacy),
+                    ]))),
                 ],
             ],
-            'other_inclusions' => $basicOther,
+            'other_inclusions' => $otherInclusions,
             'freebies' => $freebies,
             'automatic_charges' => $automaticRows,
             'physical_additional_rows' => $fixedRows,

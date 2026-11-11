@@ -100,8 +100,9 @@ class ClientDirectoryWorkflowTest extends TestCase
             'funeral_service_at' => '2026-09-03',
             'service_package' => 'First Class',
             'total_amount' => 50000,
+            'balance_amount' => 30000,
             'case_status' => 'ACTIVE',
-            'payment_status' => 'UNPAID',
+            'payment_status' => 'PARTIAL',
             'entry_source' => 'MAIN',
         ]);
         FuneralCase::create([
@@ -128,6 +129,16 @@ class ClientDirectoryWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('Representative: Maria Santos')
             ->assertSee('FC-001')
+            ->assertDontSee('FC-002');
+
+        $this->get(route('clients.show', ['client' => $selectedClient, 'fragment' => 'modal']))
+            ->assertOk()
+            ->assertSee('Linked Cases')
+            ->assertSee('Partially paid')
+            ->assertSee('PHP 30,000.00')
+            ->assertSee('View case FC-001')
+            ->assertSee('Print Client Summary')
+            ->assertDontSee('Payment History')
             ->assertDontSee('FC-002');
     }
 

@@ -10,15 +10,12 @@
 @php
     use Illuminate\Support\Str;
 
-    $actionLabels = [
-        'case.created' => 'Case created',
-        'case.updated' => 'Case updated',
-        'case.status_changed' => 'Case status changed',
-        'payment.created' => 'Payment recorded',
-        'payment.voided' => 'Payment voided',
-        'package.created' => 'Package created',
-        'package.updated' => 'Package updated',
-        'package.price_changed' => 'Package price updated',
+    $actionLabels = \App\Models\AuditLog::FALLBACK_ACTION_LABELS;
+    $correctionStatuses = [
+        'PENDING' => ['Pending', 'status-badge-warning'],
+        'APPROVED' => ['Approved', 'status-badge-success'],
+        'REJECTED' => ['Rejected', 'status-badge-danger'],
+        'WITHDRAWN' => ['Withdrawn', 'status-badge-neutral'],
     ];
 
     $typeColors = [
@@ -372,7 +369,8 @@
     }
 </style>
 
-<div class="admin-table-page audit-ref-page">
+@include('partials.worklist_consistency_styles')
+<div class="admin-table-page audit-ref-page" data-record-results-page="audit" data-worklist-consistent>
     <div class="audit-toast no-print" role="status" aria-live="polite" data-page-context-toast>
         <i class="bi bi-activity"></i>
         <span>You are viewing audit logs.</span>
@@ -380,113 +378,10 @@
 
     <section class="table-system-card admin-table-card">
         <div class="table-system-toolbar admin-table-toolbar">
-            @if($isBranchAdminView ?? false)
-                @include('partials.audit_log_filters')
-            @else
-            @php
-                $hasAuditFilters = !empty($filters['audit_log_id'])
-                    || !empty($filters['user_id'])
-                    || !empty($filters['branch_id'])
-                    || !empty($filters['action_type'])
-                    || !empty($filters['date_from'])
-                    || !empty($filters['date_to']);
-            @endphp
-            <form method="GET" action="{{ route('admin.audit-logs.index') }}" class="audit-toolbar audit-system-toolbar uniform-record-filters">
-                @if(!empty($filters['audit_log_id']))
-                    <input type="hidden" name="audit_log_id" value="{{ $filters['audit_log_id'] }}">
-                    <span class="audit-filter-control">Viewing audit event #{{ $filters['audit_log_id'] }}</span>
-                @endif
-                <span class="audit-filter-control is-select">
-                    <i class="bi bi-person"></i>
-                    <select name="user_id" class="audit-select" aria-label="Filter by user">
-                        <option value="">All Users</option>
-                        @foreach($users as $user)
-                            <option value="{{ $user->id }}" {{ (string)($filters['user_id'] ?? '') === (string)$user->id ? 'selected' : '' }}>{{ $user->name }}</option>
-                        @endforeach
-                    </select>
-                </span>
-
-                @if($isBranchAdminView ?? false)
-                    {{-- Branch admins are locked to their assigned branch --}}
-                    @php $lockedBranch = $branches->first(); @endphp
-                    <div class="audit-scope-chip" title="Your audit log view is restricted to your assigned branch only.">
-                        <i class="bi bi-lock"></i>
-                        <span>
-                            {{ $lockedBranch?->branch_code ?? 'Assigned Branch' }}
-                            @if($lockedBranch?->branch_name)
-                                - {{ $lockedBranch->branch_name }}
-                            @endif
-                        </span>
-                    </div>
-                @else
-                    <span class="audit-filter-control is-select">
-                        <i class="bi bi-building"></i>
-                        <select name="branch_id" class="audit-select" aria-label="Filter by branch">
-                            <option value="">All Branches</option>
-                            @foreach($branches as $branch)
-                                <option value="{{ $branch->id }}" {{ (string)($filters['branch_id'] ?? '') === (string)$branch->id ? 'selected' : '' }}>{{ $branch->branch_code }}</option>
-                            @endforeach
-                        </select>
-                    </span>
-                @endif
-
-                <span class="audit-filter-control is-select">
-                    <i class="bi bi-lightning-charge"></i>
-                    <select name="action_type" class="audit-select" aria-label="Filter by action type">
-                        <option value="">Any Action</option>
-                        @foreach($actionTypes as $type)
-                            <option value="{{ $type }}" {{ ($filters['action_type'] ?? '') === $type ? 'selected' : '' }}>{{ ucfirst($type) }}</option>
-                        @endforeach
-                    </select>
-                </span>
-
-                <details class="audit-filter-menu audit-system-more">
-                    <summary><i class="bi bi-sliders" aria-hidden="true"></i>More Filters @if(!empty($filters['date_from']) || !empty($filters['date_to']))<span class="audit-more-active">Active</span>@endif<i class="bi bi-chevron-down" aria-hidden="true"></i></summary>
-                    <div class="audit-filter-popover audit-system-secondary">
-                        <strong>Event date range</strong>                <span class="audit-filter-control">
-                    <i class="bi bi-calendar-event"></i>
-                    <span class="audit-date-label">From</span><input aria-label="Date from" type="date" name="date_from" value="{{ $filters['date_from'] ?? '' }}" class="audit-select" title="Date from">
-                </span>
-
-                <span class="audit-filter-control">
-                    <i class="bi bi-calendar-check"></i>
-                    <span class="audit-date-label">To</span><input aria-label="Date to" type="date" name="date_to" value="{{ $filters['date_to'] ?? '' }}" class="audit-select" title="Date to">
-                </span>
-
-                <span class="audit-filter-control is-select">
-                    <i class="bi bi-list-ol"></i>
-                    <select aria-label="Records per page" name="per_page" class="audit-select" title="Records per page">
-                        @foreach(($perPageOptions ?? [25, 50, 100, 200]) as $size)
-                            <option value="{{ $size }}" {{ (int)($filters['per_page'] ?? 25) === (int)$size ? 'selected' : '' }}>
-                                {{ $size }} / page
-                            </option>
-                        @endforeach
-                    </select>
-                </span>
-
-                    </div>
-                </details>
-                <div class="audit-system-actions">
-                @if($hasAuditFilters)
-                <a href="{{ route('admin.audit-logs.index') }}" class="audit-action filter-clear-action">
-                    <i class="bi bi-x-circle" aria-hidden="true"></i>
-                    <span>Clear</span>
-                </a>
-                @endif
-                <a href="{{ route('admin.audit-logs.exportPdf', request()->query()) }}" target="_blank" rel="noopener" class="audit-action">
-                    <i class="bi bi-filetype-pdf"></i>
-                    <span>PDF</span>
-                </a>
-                <button type="submit" class="audit-action audit-action-primary">
-                    <i class="bi bi-funnel"></i>
-                    <span>Apply</span>
-                </button>
-                </div>
-            </form>
-            @endif
+            @include('partials.worklist_audit_toolbar')
         </div>
 
-        <div class="table-system-list">
+        <div class="table-system-list" data-record-results="list">
             <div class="table-wrapper table-system-wrap">
                 <table class="table-base table-system-table">
                     <thead>
@@ -501,7 +396,22 @@
                     </thead>
                     <tbody>
                         @forelse($logs as $log)
-                            <tr class="group">
+                            @php
+                                $eventLabel = $log->action_label ?? ($actionLabels[$log->action] ?? Str::headline(str_replace(['.', '_'], ' ', $log->action)));
+                                $eventReference = '#'.$log->getKey();
+                                $auditResult = strtolower($log->status ?? 'success');
+                                $requestStatus = $log->metadata['request_status'] ?? ($log->action === 'PAYMENT_CORRECTION_REQUESTED' ? 'PENDING' : '');
+                                $correctionStatus = $log->entity_type === 'payment_correction_request' && $auditResult === 'success'
+                                    ? ($correctionStatuses[$requestStatus] ?? null)
+                                    : null;
+                                $actorRole = $log->actor_role === 'admin' && in_array($log->action, ['PAYMENT_CORRECTION_APPROVED', 'PAYMENT_CORRECTION_REJECTED'], true)
+                                    ? 'Branch Admin'
+                                    : ($log->actor_role === 'staff' && $correctionStatus ? 'Staff' : ($log->actor_role ?? 'Process'));
+                                if ($log->actor_role === 'admin' && $log->action === 'PAYMENT_CORRECTION_REMINDER_SENT') {
+                                    $actorRole = 'System Admin';
+                                }
+                            @endphp
+                            <tr class="group" data-worklist-search-id="{{ $log->getKey() }}" data-worklist-name="{{ $eventReference }}" data-worklist-detail="{{ $eventLabel }}" data-worklist-fields="{{ json_encode([$eventReference, $eventLabel, $log->action, $log->actor?->name]) }}">
                                 <td>
                                     @php
                                         $eventAt = $log->created_at?->copy()->setTimezone(config('app.audit_timezone', 'Asia/Manila'));
@@ -511,7 +421,7 @@
                                 </td>
                                 <td>
                                     <div class="audit-primary">{{ $log->actor?->name ?? 'System' }}</div>
-                                    <div class="audit-secondary">{{ $log->actor_role ?? 'Process' }}</div>
+                                    <div class="audit-secondary">{{ $actorRole }}</div>
                                 </td>
                                 <td>
                                     <span class="status-badge status-badge-neutral">
@@ -522,17 +432,13 @@
                                     <div class="audit-action-cell">
                                         @php
                                             $color = $typeColors[$log->action_type] ?? 'bg-slate-400';
-                                            $label = $log->action_label
-                                                ?? ($actionLabels[$log->action] ?? Str::headline(str_replace(['.', '_'], ' ', $log->action)));
-                                            $statusPill = strtolower($log->status ?? 'success') === 'failed'
-                                                ? 'status-badge status-badge-danger'
-                                                : 'status-badge status-badge-success';
+                                            $statusPill = $correctionStatus[1] ?? ($auditResult === 'failed' ? 'status-badge-danger' : 'status-badge-success');
                                         @endphp
                                         <span class="audit-dot {{ $color }}"></span>
                                         <span class="audit-action-text">
-                                            <span class="audit-primary">{{ $label }}</span>
-                                            <span class="{{ $statusPill }}">
-                                                {{ ucfirst($log->status ?? 'success') }}
+                                            <span class="audit-primary">{{ $eventLabel }}</span>
+                                            <span class="status-badge {{ $statusPill }}">
+                                                {{ $correctionStatus[0] ?? ucfirst($log->status ?? 'success') }}
                                             </span>
                                         </span>
                                     </div>
@@ -544,10 +450,10 @@
                                 </td>
                                 <td class="audit-col-data relative">
                                     <details>
-                                        <summary class="audit-details-button" aria-label="View log details">
+                                        <summary data-action-tooltip="View log details" class="audit-details-button shared-record-action" aria-label="View log details">
                                             @if(($isBranchAdminView ?? false) || auth()->user()?->isSystemAdmin())
                                             <i class="bi bi-eye" aria-hidden="true"></i>
-                                            <span class="audit-eye-tooltip" aria-hidden="true">View log details</span>
+
                                             @else
                                             <span>Details</span><i class="bi bi-chevron-down"></i>
                                             @endif
@@ -583,6 +489,7 @@
 
                                             @php
                                                 $snapshot = collect($log->metadata ?? [])
+                                                    ->when($correctionStatus, fn ($metadata) => $metadata->put('request_status', $requestStatus))
                                                     ->except(['changes'])
                                                     ->mapWithKeys(function ($value, $key) {
                                                         $labelMap = [
@@ -594,6 +501,8 @@
                                                             'amount' => 'Amount',
                                                             'receipt_number' => 'Payment Record No.',
                                                             'payment_record_no' => 'Payment Record No.',
+                                                            'void_payment_record_no' => 'Payment to Void',
+                                                            'retained_payment_record_no' => 'Payment to Keep',
                                                             'reference_no' => 'Receipt / OR No.',
                                                             'accounting_reference_no' => 'Receipt / OR No.',
                                                             'receipt_or_no' => 'Receipt / OR No.',
@@ -601,7 +510,7 @@
                                                         ];
                                                         $label = $labelMap[$key] ?? Str::headline(str_replace('_', ' ', $key));
 
-                                                        if (is_string($value)) {
+                                                        if (is_string($value) && !in_array($key, ['payment_record_no', 'void_payment_record_no', 'retained_payment_record_no', 'replacement_payment_record_no'], true)) {
                                                             $value = Str::headline($value);
                                                         }
                                                         return [$label => $value];
@@ -649,11 +558,12 @@
                 </table>
             </div>
 
-            <div class="table-system-pagination">
+
+        </div>
+                <div class="table-system-pagination worklist-footer" data-record-results="footer">
                 @include('partials.case_records_pagination', ['cases' => $logs])
             </div>
-        </div>
-    </section>
+</section>
 </div>
 <script>
 (() => {
@@ -669,8 +579,10 @@
         }
     });
 })();
-document.addEventListener('DOMContentLoaded', () => {
+const bindAuditResultDetails = () => {
     document.querySelectorAll('.audit-details-button').forEach(trigger => {
+        if (trigger.dataset.resultDetailsBound) return;
+        trigger.dataset.resultDetailsBound = 'true';
         let modal;
         trigger.setAttribute('role', 'button');
         trigger.setAttribute('aria-haspopup', 'dialog');
@@ -703,11 +615,14 @@ document.addEventListener('DOMContentLoaded', () => {
         trigger.addEventListener('keydown', event => { if (event.key === ' ') { event.preventDefault(); trigger.click(); } });
     });
     document.querySelectorAll('.load-audit-details').forEach(btn => {
+        if (btn.dataset.resultDetailsBound) return;
+        btn.dataset.resultDetailsBound = 'true';
         btn.addEventListener('click', async (e) => {
             e.preventDefault();
             const id = btn.getAttribute('data-log-id');
             const container = btn.parentElement;
             btn.textContent = 'Loading...';
+            const finishSkeleton = window.PanelSkeleton?.begin(container, {variant:'form'});
             try {
                 const res = await fetch(`{{ route('admin.audit-logs.index') }}/${id}`, { headers: { 'Accept': 'application/json' }});
                 if (!res.ok) throw new Error('Failed to load');
@@ -722,9 +637,11 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (err) {
                 btn.textContent = 'Retry';
                 alert('Could not load details.');
-            }
+            } finally { finishSkeleton?.(); }
         });
     });
-});
+};
+document.addEventListener('DOMContentLoaded', bindAuditResultDetails);
+document.addEventListener('record-results:updated', bindAuditResultDetails);
 </script>
 @endsection

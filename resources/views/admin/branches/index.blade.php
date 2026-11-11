@@ -3,14 +3,16 @@
 @section('page_title', 'Branch Management')
 @section('page_desc', 'Manage branch details and status.')
 @section('hide_layout_topbar', '1')
-@section('topbar_actions')
-    <button id="openBranchCreateModal" type="button" class="btn btn-primary-custom btn-sm">
+@section('record_toolbar_action')
+    <button id="openBranchCreateModal" type="button" class="reference-page-action btn btn-primary-custom btn-sm">
         <i class="bi bi-plus-circle" aria-hidden="true"></i>
         <span>Add Branch</span>
     </button>
 @endsection
 
 @section('content')
+@include('partials.directory_form_consistency')
+@include('partials.directory_empty_states')
 <style>[x-cloak] { display: none !important; }
 .admin-table-page.branch-management-page {
     min-height:calc(100vh - 1rem);
@@ -571,7 +573,7 @@
     color:var(--ink-muted) !important;
     font-weight:600;
 }
-.branch-management-page .row-action-trigger {
+.branch-management-page .row-action-trigger:not(.compact-action-trigger):not(.primary-view-action) {
     width:2.75rem !important;
     min-width:2.75rem;
     min-height:2.75rem;
@@ -587,8 +589,8 @@
     font-weight:700;
     padding:0;
 }
-.branch-management-page .row-action-trigger:hover,
-.branch-management-page .row-action-item:hover {
+.branch-management-page .row-action-trigger:not(.compact-action-trigger):not(.primary-view-action):hover,
+.branch-management-page .row-action-item:not(.compact-action-item):hover {
     background:#C7D5BE !important;
     color:var(--ink) !important;
 }
@@ -797,11 +799,35 @@
 .branch-detail-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:1rem; padding:1rem 1.25rem; border-top:1px solid var(--border); background:var(--card); }
 .branch-detail-actions-group { display:flex; flex-wrap:wrap; align-items:center; gap:.65rem; }
 .branch-detail-actions :is(button,a) { min-height:2.65rem; display:inline-flex; align-items:center; justify-content:center; gap:.4rem; padding:.55rem .9rem; border:1px solid var(--border); border-radius:.6rem; color:var(--ink); background:var(--surface-muted); text-decoration:none; }
-.branch-detail-actions .branch-detail-danger { color:var(--danger,#a43f3f); border-color:currentColor; }
-.branch-detail-actions .branch-detail-primary { background:var(--brand-mid,#284d3d); color:#fff; }
+.branch-detail-actions .branch-detail-danger { border-color:#A15C00 !important; background:#A15C00 !important; color:#fff !important; }
+.branch-detail-actions .branch-detail-danger:is(:hover,:focus-visible) { border-color:#854C00 !important; background:#854C00 !important; }
+.branch-detail-actions .branch-detail-primary { border-color:#167044 !important; background:#167044 !important; color:#fff !important; }
+.branch-detail-actions .branch-detail-primary:is(:hover,:focus-visible) { border-color:#105A36 !important; background:#105A36 !important; }
+html[data-theme='dark'] .branch-detail-actions .branch-detail-danger { border-color:#FDC76A !important; background:#FDC76A !important; color:#2B1B00 !important; }
+html[data-theme='dark'] .branch-detail-actions .branch-detail-danger:is(:hover,:focus-visible) { border-color:#E7AD45 !important; background:#E7AD45 !important; }
+html[data-theme='dark'] .branch-detail-actions .branch-detail-primary { border-color:#52E6B0 !important; background:#52E6B0 !important; color:#071B12 !important; }
+html[data-theme='dark'] .branch-detail-actions .branch-detail-primary:is(:hover,:focus-visible) { border-color:#38C996 !important; background:#38C996 !important; }
 .branch-detail-actions :is(button,a):focus-visible, .branch-detail-header [data-branch-close]:focus-visible { outline:2px solid var(--brand-mid,#284d3d); outline-offset:3px; }
 .branch-detail-notice { border-left:3px solid var(--danger,#a43f3f); padding:.75rem 1rem; background:var(--surface-muted); color:var(--ink); }
 .branch-detail-notice p { margin:.3rem 0 0; }
+#branchModalSheet.branch-feedback-mode { width:min(440px,calc(100vw - 32px)); max-width:440px; border-radius:12px; box-shadow:0 20px 60px rgb(15 23 42 / 24%); }
+#branchModalSheet.branch-feedback-mode .branch-detail-header { display:block; padding:24px 24px 0; border:0; background:var(--card); text-align:center; }
+#branchModalSheet.branch-feedback-mode .branch-detail-header__heading { display:block; }
+#branchModalSheet.branch-feedback-mode .branch-detail-header__icon { width:40px; height:40px; margin:0 auto 12px; border-radius:11px; font-size:17px; }
+#branchModalSheet.branch-feedback-mode[data-confirm-tone='neutral'] .branch-detail-header__icon { background:var(--surface-muted); color:var(--ink); }
+#branchModalSheet.branch-feedback-mode[data-confirm-tone='warning'] .branch-detail-header__icon { background:var(--feedback-warning-bg); color:var(--feedback-warning-fg); }
+#branchModalSheet.branch-feedback-mode[data-confirm-tone='success'] .branch-detail-header__icon { background:var(--feedback-success-bg); color:var(--feedback-success-fg); }
+#branchModalSheet.branch-feedback-mode[data-confirm-tone='error'] .branch-detail-header__icon { background:var(--feedback-error-bg); color:var(--feedback-error-fg); }
+#branchModalSheet.branch-feedback-mode .branch-detail-header h2 { font-size:18px; line-height:1.35; }
+#branchModalSheet.branch-feedback-mode .branch-detail-header p { margin-top:6px; font-size:13px; line-height:1.45; }
+#branchModalSheet.branch-feedback-mode .branch-detail-header [data-branch-close] { display:none; }
+#branchModalSheet.branch-feedback-mode .branch-detail-body { padding:14px 24px 4px; text-align:center; font-size:13px; line-height:1.6; }
+#branchModalSheet.branch-feedback-mode .branch-detail-body > p { max-width:38ch; margin:0 auto; }
+#branchModalSheet.branch-feedback-mode .branch-detail-notice { padding:12px; border:1px solid color-mix(in srgb,var(--feedback-error-fg) 28%,transparent); border-left-width:3px; border-radius:8px; text-align:left; }
+#branchModalSheet.branch-feedback-mode .branch-detail-actions { justify-content:center; gap:10px; padding:20px 24px 24px; border:0; }
+#branchModalSheet.branch-feedback-mode .branch-detail-actions-group { gap:10px; }
+#branchModalSheet.branch-feedback-mode .branch-detail-actions :is(button,a) { min-width:112px; min-height:40px; padding:9px 16px; border-radius:8px; font-size:13px; font-weight:600; }
+#branchModalSheet.branch-feedback-mode [data-branch-status-form] button:disabled { cursor:wait; opacity:.72; }
 .branch-overview-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
 .branch-overview-panel { min-width:0; padding:1rem; border:1px solid var(--border); border-radius:.75rem; background:var(--surface-muted); }
 .branch-overview-panel h3, .branch-overview-cases h3 { margin:0 0 .75rem; color:var(--ink); font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
@@ -816,6 +842,7 @@
 .branch-overview-metrics span { color:var(--ink-muted); font-size:.75rem; text-transform:uppercase; }
 .branch-overview-metrics strong { color:var(--ink); font-size:1.2rem; font-family:'JetBrains Mono',Consolas,monospace; }
 @media(max-width:600px) { .branch-detail-fields { grid-template-columns:1fr; } .branch-detail-actions { align-items:stretch; } .branch-detail-actions-group { width:100%; } .branch-detail-actions-group :is(button,a) { flex:1; } }
+@media(max-width:480px) { #branchModalSheet.branch-feedback-mode .branch-detail-header { padding:20px 18px 0; } #branchModalSheet.branch-feedback-mode .branch-detail-body { padding:12px 18px 4px; } #branchModalSheet.branch-feedback-mode .branch-detail-actions { gap:8px; padding:16px 18px 20px; } }
 @media(max-width:600px) { .branch-overview-grid { grid-template-columns:minmax(0,1fr); } .branch-overview-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 
 /* Branch directory adopts the staff page foundation; semantic status colors stay intact. */
@@ -980,11 +1007,11 @@ html[data-theme] body.system-admin-ui .branch-management-page :is(.branch-card-a
 html[data-theme] body.system-admin-ui .branch-management-page .branch-code-pill { font-family:'JetBrains Mono',Consolas,monospace; font-size:.76rem; letter-spacing:.02em; }
 html[data-theme] body.system-admin-ui .branch-management-page .branch-card-name { font-weight:650; }
 html[data-theme] body.system-admin-ui .branch-management-page .branch-card-metric-value { font-size:1.55rem; font-weight:650; }
-html[data-theme] body.system-admin-ui .branch-management-page .row-action-trigger {
+html[data-theme] body.system-admin-ui .branch-management-page .row-action-trigger:not(.compact-action-trigger):not(.primary-view-action) {
     background:var(--bm-soft) !important; border-color:var(--bm-border) !important; color:var(--bm-action) !important;
     border-radius:.55rem !important;
 }
-html[data-theme] body.system-admin-ui .branch-management-page .row-action-trigger:hover { background:var(--bm-hover) !important; }
+html[data-theme] body.system-admin-ui .branch-management-page .row-action-trigger:not(.compact-action-trigger):not(.primary-view-action):hover { background:var(--bm-hover) !important; }
 html[data-theme] body.system-admin-ui .branch-management-page .row-action-trigger:focus-visible,
 html[data-theme] body.system-admin-ui .branch-management-page .branch-kpi-card:focus-visible {
     outline:2px solid var(--bm-action); outline-offset:3px;
@@ -1015,6 +1042,7 @@ html[data-theme] body.system-admin-ui .branch-management-page .branch-table-acti
     padding:0; border:0 !important; border-radius:.45rem !important; background:transparent !important;
     box-shadow:none !important; font-size:1rem;
 }
+html[data-theme] body.system-admin-ui .branch-management-page .branch-table-actions .open-branch-view { display:inline-flex; width:auto !important; min-width:0; padding:0 .4rem; gap:.4rem; color:var(--record-view-ink,var(--ink)) !important; font-size:.8125rem; font-weight:600; }
 html[data-theme] body.system-admin-ui .branch-management-page .branch-table-actions :is(.row-action-trigger,.branch-reference-icon):hover {
     background:transparent !important; color:var(--bm-action) !important;
 }
@@ -1045,7 +1073,7 @@ html[data-theme] body.system-admin-ui:has(.branch-management-page) .panel-page-h
 html[data-theme] body.system-admin-ui:has(.branch-management-page) .branch-header-icon { display:grid; place-items:center; flex:none; width:3rem; height:3rem; border-radius:.8rem; background:transparent; color:var(--ink-muted); font-size:1.35rem; }
 html[data-theme] body.system-admin-ui:has(.branch-management-page) .panel-page-header__copy h1 { font-size:1.9rem; line-height:1.2; }
 html[data-theme] body.system-admin-ui:has(.branch-management-page) .panel-page-header__copy p { font-size:.8rem; }
-html[data-theme] body.system-admin-ui:has(.branch-management-page) .panel-page-header__actions .btn-primary-custom { min-height:2.65rem; padding:.55rem 1.15rem; border-radius:.7rem; background:#1b4332 !important; border-color:#1b4332 !important; color:#fff !important; }
+html[data-theme] body.system-admin-ui:has(.branch-management-page) .panel-page-header__actions .btn-primary-custom { min-height:2.65rem; padding:.55rem 1.15rem; border-radius:.7rem; background:var(--reference-action-bg) !important; border-color:var(--reference-action-bg) !important; color:var(--reference-action-text) !important; }
 html[data-theme] body.system-admin-ui .branch-management-page { padding-inline:var(--panel-content-inline); }
 html[data-theme] body.system-admin-ui .branch-management-page > .mx-auto { max-width:none; }
 html[data-theme] body.system-admin-ui .branch-management-page .branch-kpi-strip { grid-template-columns:repeat(2,minmax(0,1fr)); gap:1.1rem; margin-bottom:1.5rem; }
@@ -1085,8 +1113,8 @@ html[data-theme] body.system-admin-ui .branch-management-page .branch-card-metri
 html[data-theme] body.system-admin-ui .branch-management-page .branch-card-metric > div { background:#f7f9fb; padding:.6rem; }
 html[data-theme] body.system-admin-ui .branch-management-page .branch-card-metric-label { color:var(--ink-muted) !important; font-size:.65rem; }
 html[data-theme] body.system-admin-ui .branch-management-page .branch-card-metric-value { color:var(--ink) !important; font-size:1.05rem; font-weight:700; }
-html[data-theme] body.system-admin-ui .branch-management-page .branch-reference-actions { display:flex; align-items:center; gap:.55rem; margin:0 1.25rem; padding:.85rem 0; border-top:1px solid var(--bm-border); }
-html[data-theme] body.system-admin-ui .branch-management-page .branch-reference-actions .branch-card-view-button { position:static; display:inline-flex; flex:1; width:auto !important; min-width:0; height:2.3rem; gap:.45rem; background:#f1f4f8 !important; color:var(--ink) !important; font-size:.76rem; font-weight:700; }
+html[data-theme] body.system-admin-ui .branch-management-page .branch-reference-actions { display:flex; align-items:center; gap:.55rem; margin:auto 1.25rem 0; padding:.85rem 0; border-top:1px solid var(--bm-border); }
+html[data-theme] body.system-admin-ui .branch-management-page .branch-reference-actions .branch-card-view-button { position:static; display:inline-flex; flex:0 0 auto; width:auto !important; min-width:0; height:2.3rem; gap:.45rem; background:transparent !important; color:var(--ink) !important; font-size:.76rem; font-weight:700; }
 html[data-theme] body.system-admin-ui .branch-management-page .branch-reference-icon { display:grid; place-items:center; flex:none; width:2.2rem; height:2.2rem; border-radius:.55rem; color:var(--ink-muted); }
 html[data-theme] body.system-admin-ui .branch-management-page .branch-reference-icon:hover { background:var(--surface-muted); }
 html[data-theme] body.system-admin-ui .branch-management-page .branch-reference-icon.is-danger { color:#be123c; }
@@ -1099,12 +1127,21 @@ html[data-theme='dark'] body.system-admin-ui .branch-management-page .directory-
 html[data-theme='dark'] body.panel-shell-body.system-admin-ui .branch-management-page .branch-kpi-card,
 html[data-theme='dark'] body.panel-shell-body.system-admin-ui .branch-management-page .table-system-toolbar { background:#112218 !important; }
 html[data-theme='dark'] body.panel-shell-body.system-admin-ui .branch-management-page .directory-item-card { background:#112218 !important; }
-html[data-theme='dark'] body.system-admin-ui .branch-management-page .branch-card-metric > div,
-html[data-theme='dark'] body.system-admin-ui .branch-management-page .branch-reference-actions .branch-card-view-button { background:var(--surface-muted) !important; }
+html[data-theme='dark'] body.system-admin-ui .branch-management-page .branch-card-metric > div { background:var(--surface-muted) !important; }
 @media(max-width:1200px) { html[data-theme] body.system-admin-ui .branch-management-page .branch-directory-card-view > .grid { grid-template-columns:repeat(2,minmax(0,1fr)) !important; } }
 @media(max-width:750px) { html[data-theme] body.system-admin-ui .branch-management-page .branch-directory-card-view > .grid { grid-template-columns:minmax(0,1fr) !important; } }
 @media(max-width:1100px) { html[data-theme] body.system-admin-ui .branch-management-page .table-system-toolbar .table-toolbar { flex-wrap:wrap; } html[data-theme] body.system-admin-ui .branch-management-page .table-toolbar-field:first-of-type { max-width:none; } }
 @media(max-width:700px) { html[data-theme] body.system-admin-ui:has(.branch-management-page) .panel-page-header:not(.panel-title-surface) { margin:0; padding:.75rem var(--panel-content-inline) 0; } html[data-theme] body.system-admin-ui .branch-management-page .table-toolbar-field:first-of-type, html[data-theme] body.system-admin-ui .branch-management-page .table-toolbar-field:not(:first-of-type) { flex:1 1 100%; max-width:none; } html[data-theme] body.system-admin-ui .branch-management-page .branch-status-segments { width:100%; } html[data-theme] body.system-admin-ui .branch-management-page .branch-status-segments button { flex:1; } }
+/* Branch photo covers use the same media frame as the service catalog. */
+.branch-card-media { margin:1rem 1rem 0; }
+.branch-card-media .service-card-media { margin-bottom:0; }
+[data-branch-photo-record].is-photo-drop-target { outline:2px dashed var(--brand,#448063); outline-offset:-2px; }
+#branchModalSheet.branch-photo-mode { max-width:480px; background:var(--card); }
+#branchModalSheet.branch-photo-mode .branch-detail-body { padding:0; background:var(--card); }
+.branch-photo-loading { padding:20px; color:var(--ink-muted); }
+.catalog-quick-photo__error:not([hidden]) { margin:0 20px 12px; padding:10px 12px; border-radius:8px; color:var(--feedback-error-fg); background:var(--feedback-error-bg); font-size:13px; }
+.catalog-quick-photo__error[hidden] { display:none; }
+
 /* Compact Add Branch form, scoped so the existing branch-details modal is unchanged. */
 #branchCreateModalSheet { width:min(640px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); border-radius:1rem !important; }
 #branchCreateModalSheet .branch-create-scroll { max-height:calc(100dvh - 34px); overflow-y:auto; }
@@ -1161,13 +1198,15 @@ html[data-theme='dark'] #branchCreateModalSheet .branch-create-status-pill.is-in
     max-width:none !important;
 }
 </style>
-<div class="admin-table-page directory-page admin-catalog-page branch-management-page" x-data="branchCatalog()">
+@include('partials.worklist_consistency_styles')
+<div class="admin-table-page directory-page admin-catalog-page branch-management-page" x-data="branchCatalog()" data-record-results-page="branches" data-worklist-consistent>
 <div class="mx-auto w-full px-4 sm:px-6 lg:px-8 py-4">
 <div class="space-y-4">
 
 @if(session('success'))
     <div class="flash-success">{{ session('success') }}</div>
 @endif
+<p class="hidden" data-branch-photo-status role="status"></p>
 
 @if($errors->any())
     <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -1186,21 +1225,24 @@ html[data-theme='dark'] #branchCreateModalSheet .branch-create-status-pill.is-in
 
 {{-- KPI insights --}}
 <div class="branch-kpi-strip">
-    @foreach(['activeCoverage', 'monthlyActivity'] as $kpiKey)
+    @foreach(['activeCoverage', 'inactiveCoverage'] as $kpiKey)
         @php
-            $kpi = $branchKpis[$kpiKey];
+            $kpi = $kpiKey === 'activeCoverage' ? $branchKpis['activeCoverage'] : [
+                'label' => 'Inactive Branches',
+                'value' => number_format($totalBranches - $activeBranches),
+                'href' => route('admin.branches.index', array_merge(request()->except(['page','q','highlight_branch','branch_id']), ['status' => 'inactive'])),
+            ];
         @endphp
-        <a href="{{ $kpi['href'] }}" class="branch-kpi-card" title="{{ $kpi['label'] }}: {{ $kpi['value'] }}">
+        <a href="{{ $kpi['href'] }}" class="branch-kpi-card" data-kpi-tone="{{ $kpiKey === 'activeCoverage' ? 'success' : 'warning' }}" title="{{ $kpi['label'] }}: {{ $kpi['value'] }}">
             <div class="branch-kpi-card__inner">
                 <div class="branch-kpi-card__body">
                     <span class="branch-kpi-card__label">{{ $kpi['label'] }} @if($kpiKey === 'activeCoverage')<span class="branch-kpi-dot" aria-hidden="true"></span>@endif</span>
                     <span class="branch-kpi-card__value">{{ $kpiKey === 'activeCoverage' ? number_format($activeBranches) : $kpi['value'] }}
                         @if($kpiKey === 'activeCoverage')<small>/ {{ number_format($totalBranches) }} total</small>@endif
                     </span>
-                    <span class="branch-kpi-card__desc">{{ $kpiKey === 'activeCoverage' ? ($activeBranches === $totalBranches ? 'All branches are active' : number_format($totalBranches - $activeBranches).' inactive branches') : 'Cases recorded this month' }}</span>
-                    @if($kpiKey === 'monthlyActivity')<span class="branch-kpi-card__action">View cases <i class="bi bi-arrow-right-short" aria-hidden="true"></i></span>@endif
+                    <span class="branch-kpi-card__desc">{{ $kpiKey === 'activeCoverage' ? 'Available for new case intake and user assignments' : 'Disabled for new case intake and user assignments' }}</span>
                 </div>
-                <span class="branch-kpi-card__icon"><i class="bi {{ $kpiKey === 'monthlyActivity' ? 'bi-file-earmark-text' : 'bi-building' }}" aria-hidden="true"></i></span>
+                <span class="branch-kpi-card__icon"><i class="bi {{ $kpiKey === 'inactiveCoverage' ? 'bi-building-slash' : 'bi-building' }}" aria-hidden="true"></i></span>
             </div>
         </a>
     @endforeach
@@ -1211,71 +1253,7 @@ html[data-theme='dark'] #branchCreateModalSheet .branch-create-status-pill.is-in
 
     {{-- Toolbar --}}
     <div class="table-system-toolbar">
-        <form
-            method="GET"
-            action="{{ route('admin.branches.index') }}"
-            class="table-toolbar uniform-record-filters"
-            data-table-toolbar
-            data-live-search-suggestions
-            data-live-search-commit-only
-            data-search-debounce="400"
-            style="grid-template-columns: minmax(260px, 2.2fr) repeat(2, minmax(150px, 1fr)) auto;"
-        >
-            @if($highlightBranchId)
-                <input type="hidden" name="highlight_branch" value="{{ $highlightBranchId }}">
-            @endif
-            <input type="hidden" name="status" value="{{ request('status', '') }}">
-            <div class="table-toolbar-field">
-                <label class="table-toolbar-label">Search</label>
-                <div class="table-toolbar-input-wrap">
-                    <i class="bi bi-search table-toolbar-leading-icon" aria-hidden="true"></i>
-                    <input
-                        type="text"
-                        name="q"
-                        value="{{ request('q') }}"
-                        placeholder="Search by code, name, or address..."
-                        class="form-input table-toolbar-search has-clear-action"
-                        data-table-search
-                        data-live-search-input
-                        autocomplete="off"
-                    >
-                    <button type="button" class="live-search-clear" data-live-search-clear aria-label="Clear search" @if(!filled(request('q'))) hidden @endif>
-                        <i class="bi bi-x"></i>
-                    </button>
-                    <div class="live-search-results" data-live-search-results hidden></div>
-                </div>
-            </div>
-            <div class="branch-status-segments" role="group" aria-label="Filter branches by status">
-                <button type="button" data-branch-status-filter="" class="{{ !in_array(request('status'), ['active', 'inactive'], true) ? 'is-selected' : '' }}" aria-pressed="{{ !in_array(request('status'), ['active', 'inactive'], true) ? 'true' : 'false' }}">All</button>
-                <button type="button" data-branch-status-filter="active" class="{{ request('status') === 'active' ? 'is-selected' : '' }}" aria-pressed="{{ request('status') === 'active' ? 'true' : 'false' }}">Active</button>
-                <button type="button" data-branch-status-filter="inactive" class="{{ request('status') === 'inactive' ? 'is-selected' : '' }}" aria-pressed="{{ request('status') === 'inactive' ? 'true' : 'false' }}">Inactive</button>
-            </div>
-            <div class="table-toolbar-field">
-                <label class="table-toolbar-label">Sort</label>
-                <div class="table-toolbar-select-wrap">
-                    <i class="bi bi-sort-alpha-down table-toolbar-leading-icon" aria-hidden="true"></i>
-                    <select name="sort" class="form-select table-toolbar-sort" data-table-sort>
-                        <option value="code_asc"     {{ request('sort', 'code_asc') === 'code_asc'    ? 'selected' : '' }}>Branch ID</option>
-                        <option value="name_asc"     {{ request('sort') === 'name_asc'                 ? 'selected' : '' }}>Branch Name</option>
-                        <option value="records_desc" {{ request('sort') === 'records_desc'             ? 'selected' : '' }}>Total Records</option>
-                        <option value="records_asc"  {{ request('sort') === 'records_asc'              ? 'selected' : '' }}>Lowest Records</option>
-                        <option value="revenue_desc" {{ request('sort') === 'revenue_desc'             ? 'selected' : '' }}>Highest Sales</option>
-                        <option value="revenue_asc"  {{ request('sort') === 'revenue_asc'              ? 'selected' : '' }}>Lowest Sales</option>
-                    </select>
-                    <i class="bi bi-chevron-down table-toolbar-select-icon" aria-hidden="true"></i>
-                </div>
-            </div>
-            <div class="table-toolbar-reset-wrap">
-            </div>
-        </form>
-        <div class="branch-view-toggle inline-flex items-center rounded-lg border border-slate-200 bg-white" role="group" aria-label="Branch display mode">
-            <button type="button" @click="setView('card')" :class="view === 'card' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'" :aria-pressed="view === 'card'" class="px-3 py-2 transition-colors flex items-center gap-1.5 font-medium rounded-l-lg" aria-label="Grid view">
-                <i class="bi bi-grid-3x3-gap-fill" aria-hidden="true"></i>
-            </button>
-            <button type="button" @click="setView('table')" :class="view === 'table' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'" :aria-pressed="view === 'table'" class="px-3 py-2 transition-colors flex items-center gap-1.5 font-medium border-l border-slate-200 rounded-r-lg" aria-label="Table view">
-                <i class="bi bi-table" aria-hidden="true"></i>
-            </button>
-        </div>
+        @include('partials.directory_toolbar', ['directoryKind' => 'branches'])
     </div>
 
     {{-- ═══════════════════════════════════════════
@@ -1284,16 +1262,13 @@ html[data-theme='dark'] #branchCreateModalSheet .branch-create-status-pill.is-in
     <div
         x-show="view === 'card'"
         x-cloak
-        x-transition:enter="transition ease-out duration-200"
-        x-transition:enter-start="opacity-0 translate-y-2"
-        x-transition:enter-end="opacity-100 translate-y-0"
-        class="branch-directory-card-view"
+        class="branch-directory-card-view" data-record-results="cards"
     >
 
         @if($branches->isEmpty())
             {{-- Empty state --}}
-            <div class="flex flex-col items-center justify-center py-16 gap-3 text-center">
-                <div class="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center">
+            <div class="directory-empty-state" data-skeleton-empty>
+                <div class="directory-empty-icon" aria-hidden="true">
                     <i class="bi bi-building text-2xl text-slate-400"></i>
                 </div>
                 <div>
@@ -1318,13 +1293,17 @@ html[data-theme='dark'] #branchCreateModalSheet .branch-create-status-pill.is-in
                     $isHighlightedBranch = (string) $highlightBranchId === (string) $branch->id;
                 @endphp
                 <div
-                    class="directory-item-card bg-white border border-slate-200 rounded-2xl transition-colors duration-200 flex flex-col"
+                    style="background:var(--directory-card,var(--card)) !important" class="directory-item-card bg-white border border-slate-200 rounded-2xl transition-colors duration-200 flex flex-col"
                     data-highlighted="{{ $isHighlightedBranch ? 'true' : 'false' }}"
-                    data-live-search-row
+                    data-branch-photo-record data-live-search-row @include('partials.directory_search_metadata', ['directoryKind'=>'branches', 'searchRecord'=>$branch])
                     data-live-search-title="{{ $branch->branch_name }}"
                     data-live-search-meta="{{ $branch->branch_code }} / {{ $branch->address ?: 'No address' }}"
                     data-live-search-text="{{ $branch->branch_code }} {{ $branch->branch_name }} {{ $branch->address }} {{ $branch->is_active ? 'Active' : 'Inactive' }}"
                 >
+
+                    <div class="branch-card-media">
+                        @include('admin.service-management.partials.card-media', ['mediaRecord' => $branch, 'mediaName' => $branch->branch_name, 'allowPhotoUpload' => true, 'branchPhoto' => true])
+                    </div>
 
                     {{-- Branch identity and status --}}
                     <div class="branch-card-identity p-5">
@@ -1336,7 +1315,7 @@ html[data-theme='dark'] #branchCreateModalSheet .branch-create-status-pill.is-in
                                         <span class="branch-main-pill">Main Branch</span>
                                     @endif
                                 </div>
-                                <span class="branch-card-status {{ $branch->is_active ? 'is-active' : 'is-inactive' }}">{{ $branch->is_active ? 'Active' : 'Inactive' }}</span>
+                                <span class="directory-plain-status {{ $branch->is_active ? 'is-active' : 'is-inactive' }}">{{ $branch->is_active ? 'Active' : 'Inactive' }}</span>
                             </div>
                             <h3 class="branch-card-name">{{ $branch->branch_name }}</h3>
                             <p class="branch-card-address flex items-start gap-1">
@@ -1352,7 +1331,7 @@ html[data-theme='dark'] #branchCreateModalSheet .branch-create-status-pill.is-in
                     </div>
 
                     <div class="branch-reference-actions">
-                        <button type="button" class="row-action-trigger open-branch-view branch-card-view-button" aria-label="View branch details for {{ $branch->branch_name }}" title="View branch details"
+                        <button type="button" class="row-action-trigger open-branch-view branch-card-view-button primary-view-action primary-view-action--card record-action-control" data-action-tooltip="View branch" aria-label="View branch details for {{ $branch->branch_name }}"
                             data-code="{{ $branch->branch_code }}" data-name="{{ $branch->branch_name }}" data-address="{{ $branch->address }}"
                             data-status="{{ $branch->is_active ? 'Active' : 'Inactive' }}" data-records="{{ $branch->funeral_cases_count }}" data-month-cases="{{ $branch->current_month_cases_count }}"
                             data-draft-cases="{{ $branch->draft_cases_count }}" data-active-cases="{{ $branch->active_cases_count }}" data-completed-cases="{{ $branch->completed_cases_count }}" data-outstanding="{{ $branch->outstanding_balance_sum ?? 0 }}"
@@ -1360,21 +1339,28 @@ html[data-theme='dark'] #branchCreateModalSheet .branch-create-status-pill.is-in
                             data-edit-url="{{ route('admin.branches.edit', ['branch' => $branch, 'return_to' => request()->fullUrl()]) }}"
                             data-check-url="{{ route('admin.branches.disableCheck', $branch) }}"
                             data-toggle-url="{{ route('admin.branches.toggleStatus', $branch) }}">
-                            <i class="bi bi-eye" aria-hidden="true"></i><span>View Details</span>
+                            <i class="bi bi-eye" aria-hidden="true"></i><span>View</span>
                         </button>
-                        <button type="button" class="branch-reference-icon" data-branch-card-action="edit" aria-label="Edit {{ $branch->branch_name }}" title="Edit branch"><i class="bi bi-pencil-square" aria-hidden="true"></i></button>
-                        <button type="button" class="branch-reference-icon {{ $branch->isMain() ? 'is-protected' : ($branch->is_active ? 'is-danger' : 'is-enable') }}" data-branch-card-action="status" @disabled($branch->isMain()) aria-label="{{ $branch->is_active ? 'Disable' : 'Enable' }} {{ $branch->branch_name }}" title="{{ $branch->isMain() ? 'Main branch cannot be disabled' : ($branch->is_active ? 'Disable branch' : 'Enable branch') }}"><i class="bi {{ $branch->is_active ? 'bi-slash-circle' : 'bi-check-circle' }}" aria-hidden="true"></i></button>
+                        <div class="row-action-menu compact-action-menu" data-row-menu>
+                            <button type="button" class="row-action-trigger compact-action-trigger record-action-control" data-row-menu-trigger data-action-tooltip="More actions" aria-label="More branch actions for {{ $branch->branch_name }}" aria-haspopup="menu" aria-expanded="false"><i class="bi bi-three-dots-vertical" aria-hidden="true"></i></button>
+                            <div class="row-action-dropdown" role="menu">
+                                <button type="button" class="row-action-item compact-action-item is-edit" data-row-menu-item data-branch-card-action="edit"><i class="bi bi-pencil" aria-hidden="true"></i><span>Edit</span></button>
+                                <button type="button" class="row-action-item compact-action-item is-edit" data-row-menu-item data-branch-photo-upload
+                                    data-service-modal-url="{{ route('admin.catalog-photo.edit', ['type' => 'branches', 'id' => $branch->getKey()]) }}"
+                                    data-service-modal-title="{{ $branch->photo_path ? 'Change Photo' : 'Upload Photo' }}">
+                                    <i class="bi bi-image" aria-hidden="true"></i><span>{{ $branch->photo_path ? 'Change Photo' : 'Upload Photo' }}</span>
+                                </button>
+                                <button type="button" class="row-action-item compact-action-item {{ $branch->isMain() ? 'is-disabled' : ($branch->is_active ? 'is-caution' : 'is-positive') }}" data-row-menu-item data-branch-card-action="status" @disabled($branch->isMain())><i class="bi {{ $branch->is_active ? 'bi-slash-circle' : 'bi-check-circle' }}" aria-hidden="true"></i><span>{{ $branch->isMain() ? 'Protected' : ($branch->is_active ? 'Disable' : 'Enable') }}</span></button>
+                            </div>
+                        </div>
                     </div>
 
                 </div>
                 @endforeach
             </div>
 
-            {{-- Card view pagination --}}
-            <div class="table-system-pagination branch-card-pagination">
-                @if($branches->hasPages()){{ $branches->links() }}@endif
-            </div>
         @endif
+            {{-- Keep the footer present for empty and populated results. --}}
     </div>
 
     {{-- ═══════════════════════════════════════════
@@ -1383,10 +1369,7 @@ html[data-theme='dark'] #branchCreateModalSheet .branch-create-status-pill.is-in
     <div
         x-show="view === 'table'"
         x-cloak
-    x-transition:enter="transition ease-out duration-200"
-    x-transition:enter-start="opacity-0 translate-y-2"
-    x-transition:enter-end="opacity-100 translate-y-0"
-    class="branch-directory-table-view"
+    class="branch-directory-table-view" data-record-results="table"
 >
         <div class="table-system-list">
             <div class="table-wrapper table-system-wrap">
@@ -1410,7 +1393,7 @@ html[data-theme='dark'] #branchCreateModalSheet .branch-create-status-pill.is-in
                             <tr
                                 class="{{ $isHighlightedBranch ? 'bg-amber-50' : '' }}"
                                 data-highlighted="{{ $isHighlightedBranch ? 'true' : 'false' }}"
-                                data-live-search-row
+                                data-branch-photo-record data-live-search-row @include('partials.directory_search_metadata', ['directoryKind'=>'branches', 'searchRecord'=>$branch])
                                 data-live-search-title="{{ $branch->branch_name }}"
                                 data-live-search-meta="{{ $branch->branch_code }} / {{ $branch->address ?: 'No address' }}"
                                 data-live-search-text="{{ $branch->branch_code }} {{ $branch->branch_name }} {{ $branch->address }} {{ $branch->is_active ? 'Active' : 'Inactive' }}"
@@ -1421,7 +1404,10 @@ html[data-theme='dark'] #branchCreateModalSheet .branch-create-status-pill.is-in
                                         <span class="ml-1 inline-flex items-center rounded bg-amber-100 text-amber-700 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5">Main</span>
                                     @endif
                                 </td>
-                                <td>{{ $branch->branch_name }}</td>
+                                <td><div class="catalog-name-with-photo">
+                                    @include('admin.service-management.partials.photo', ['photoRecord' => $branch, 'photoName' => $branch->branch_name])
+                                    <div>{{ $branch->branch_name }}</div>
+                                </div></td>
                                 <td class="table-secondary">{{ $branch->address ?? '—' }}</td>
                                 <td class="table-col-number">{{ number_format($branch->funeral_cases_count) }}</td>
                                 <td class="table-col-number">{{ number_format($branch->current_month_cases_count) }}</td>
@@ -1434,7 +1420,7 @@ html[data-theme='dark'] #branchCreateModalSheet .branch-create-status-pill.is-in
                                 </td>
                                 <td class="table-col-actions">
                                     <div class="branch-table-actions">
-                                    <button type="button" class="row-action-trigger open-branch-view" aria-label="View branch details for {{ $branch->branch_name }}" title="View branch details"
+                                    <button type="button" class="row-action-trigger open-branch-view primary-view-action record-action-control" data-action-tooltip="View branch" aria-label="View branch details for {{ $branch->branch_name }}"
                                         data-code="{{ $branch->branch_code }}" data-name="{{ $branch->branch_name }}" data-address="{{ $branch->address }}"
                                         data-status="{{ $branch->is_active ? 'Active' : 'Inactive' }}" data-records="{{ $branch->funeral_cases_count }}" data-month-cases="{{ $branch->current_month_cases_count }}"
                                         data-draft-cases="{{ $branch->draft_cases_count }}" data-active-cases="{{ $branch->active_cases_count }}" data-completed-cases="{{ $branch->completed_cases_count }}" data-outstanding="{{ $branch->outstanding_balance_sum ?? 0 }}"
@@ -1444,25 +1430,33 @@ html[data-theme='dark'] #branchCreateModalSheet .branch-create-status-pill.is-in
                                         data-toggle-url="{{ route('admin.branches.toggleStatus', $branch) }}">
                                         <i class="bi bi-eye" aria-hidden="true"></i>
                                     </button>
-                                    <button type="button" class="branch-reference-icon" data-branch-card-action="edit" aria-label="Edit {{ $branch->branch_name }}" title="Edit branch"><i class="bi bi-pencil-square" aria-hidden="true"></i></button>
-                                    <button type="button" class="branch-reference-icon {{ $branch->isMain() ? 'is-protected' : ($branch->is_active ? 'is-danger' : 'is-enable') }}" data-branch-card-action="status" @disabled($branch->isMain()) aria-label="{{ $branch->is_active ? 'Disable' : 'Enable' }} {{ $branch->branch_name }}" title="{{ $branch->isMain() ? 'Main branch cannot be disabled' : ($branch->is_active ? 'Disable branch' : 'Enable branch') }}"><i class="bi {{ $branch->is_active ? 'bi-slash-circle' : 'bi-check-circle' }}" aria-hidden="true"></i></button>
+                                    <div class="row-action-menu compact-action-menu" data-row-menu>
+                                        <button type="button" class="row-action-trigger compact-action-trigger record-action-control" data-row-menu-trigger data-action-tooltip="More actions" aria-label="More branch actions for {{ $branch->branch_name }}" aria-haspopup="menu" aria-expanded="false"><i class="bi bi-three-dots-vertical" aria-hidden="true"></i></button>
+                                        <div class="row-action-dropdown" role="menu">
+                                            <button type="button" class="row-action-item compact-action-item is-edit" data-row-menu-item data-branch-card-action="edit"><i class="bi bi-pencil" aria-hidden="true"></i><span>Edit</span></button>
+                                            <button type="button" class="row-action-item compact-action-item is-edit" data-row-menu-item data-branch-photo-upload
+                                                data-service-modal-url="{{ route('admin.catalog-photo.edit', ['type' => 'branches', 'id' => $branch->getKey()]) }}"
+                                                data-service-modal-title="{{ $branch->photo_path ? 'Change Photo' : 'Upload Photo' }}">
+                                                <i class="bi bi-image" aria-hidden="true"></i><span>{{ $branch->photo_path ? 'Change Photo' : 'Upload Photo' }}</span>
+                                            </button>
+                                            <button type="button" class="row-action-item compact-action-item {{ $branch->isMain() ? 'is-disabled' : ($branch->is_active ? 'is-caution' : 'is-positive') }}" data-row-menu-item data-branch-card-action="status" @disabled($branch->isMain())><i class="bi {{ $branch->is_active ? 'bi-slash-circle' : 'bi-check-circle' }}" aria-hidden="true"></i><span>{{ $branch->isMain() ? 'Protected' : ($branch->is_active ? 'Disable' : 'Enable') }}</span></button>
+                                        </div>
+                                    </div>
                                     </div>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="table-system-empty">No branches found.</td>
+                                <td colspan="7" class="table-system-empty"><div class="directory-table-empty">No branches found.</div></td>
                             </tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
-            <div class="table-system-pagination">
-                @if($branches->hasPages()){{ $branches->links() }}@endif
-            </div>
         </div>
     </div>
 
+<div class="table-system-pagination worklist-footer {{ $branches->hasPages() ? '' : 'is-pagination-hidden' }}" data-record-results="footer" @if(!$branches->hasPages()) aria-hidden="true" @endif>{{ $branches->links('components.pagination.table') }}</div>
 </section>
 </div>{{-- end space-y-6 --}}
 </div>{{-- end centered container --}}
@@ -1474,7 +1468,7 @@ html[data-theme='dark'] #branchCreateModalSheet .branch-create-status-pill.is-in
         <div class="branch-create-scroll overflow-y-auto max-h-[84vh] bg-slate-50">
             <form id="branchCreateForm" method="POST" action="{{ route('admin.branches.store') }}" class="max-w-3xl w-full mx-auto">
                 @csrf
-                <input type="hidden" name="return_to" value="{{ old('return_to', request()->fullUrl()) }}">
+                <input type="hidden" name="return_to" value="{{ \App\Support\LocalReturnUrl::resolve(old('return_to', request()->fullUrl()), route('admin.branches.index')) }}">
                 <input type="hidden" name="form_context" value="branch_create_modal">
 
                 <div class="branch-create-panel rounded-2xl border border-slate-200 bg-white overflow-hidden">
@@ -1502,7 +1496,7 @@ html[data-theme='dark'] #branchCreateModalSheet .branch-create-status-pill.is-in
                             </div>
                             <div class="branch-create-field">
                                 <label for="branch_create_name" class="label-section">Branch Name <span class="text-rose-500">*</span></label>
-                                <input
+                                <input data-text-case="title-words"
                                     type="text"
                                     id="branch_create_name"
                                     name="branch_name"
@@ -1513,14 +1507,14 @@ html[data-theme='dark'] #branchCreateModalSheet .branch-create-status-pill.is-in
                                     inputmode="text"
                                     aria-describedby="branch-create-name-error"
                                     required
-                                >
+                                 maxlength="255">
                                 @error('branch_name') <div class="form-error">{{ $message }}</div> @enderror
                                 <div class="form-error hidden" id="branch-create-name-error" data-field-error="branch_name"></div>
                             </div>
 
                             <div class="branch-create-field branch-create-field--wide">
                                 <label for="branch_create_address" class="label-section">Address <span class="text-rose-500">*</span></label>
-                                <input type="text" id="branch_create_address" name="address" value="{{ old('address') }}" class="form-input" placeholder="Street, City, Province" aria-describedby="branch-create-address-error" required>
+                                <input data-text-case="title-words" type="text" id="branch_create_address" name="address" value="{{ old('address') }}" class="form-input" placeholder="Street, City, Province" aria-describedby="branch-create-address-error" required maxlength="255">
                                 @error('address') <div class="form-error">{{ $message }}</div> @enderror
                                 <div class="form-error hidden" id="branch-create-address-error" data-field-error="address"></div>
                             </div>
@@ -1593,14 +1587,11 @@ function branchCatalog() {
     const editOverlay  = document.getElementById('branchModalOverlay');
     const editSheet    = document.getElementById('branchModalSheet');
     const editContent  = document.getElementById('branchModalContent');
-    const editLinks    = [...document.querySelectorAll('.open-branch-modal')];
-    const viewLinks    = [...document.querySelectorAll('.open-branch-view')];
     let activeBranchView = null;
     let editOpenedFromDetails = false;
 
     const createOverlay   = document.getElementById('branchCreateModalOverlay');
     const createSheet     = document.getElementById('branchCreateModalSheet');
-    const createOpenBtns  = [...document.querySelectorAll('#openBranchCreateModal, #openBranchCreateModalEmpty')];
     const createCloseBtn  = document.getElementById('branchCreateModalClose');
     const createCancelBtn = document.getElementById('branchCreateModalCancel');
     const createStatusToggle = document.getElementById('branch_create_is_active');
@@ -1621,8 +1612,7 @@ function branchCatalog() {
     }));
 
     const normalizeBranchNameInput = (value) => String(value || '')
-        .replace(/\s+/g, ' ')
-        .trim();
+        .replace(/\s+/g, ' ');
 
     const showFieldError = (form, field, message) => {
         const input = form?.querySelector(`[name="${field}"]`);
@@ -1652,7 +1642,7 @@ function branchCatalog() {
             input.value = normalized;
             const finalValue = input.value.trim();
             if (!finalValue) { input.setCustomValidity('Branch name is required.'); return; }
-            if (/\d/.test(finalValue) || !branchNamePattern.test(finalValue)) { input.setCustomValidity('Branch name must contain letters only.'); return; }
+            if (/\d/.test(finalValue) || !branchNamePattern.test(finalValue)) { input.setCustomValidity('Start Branch Name with a letter. Use letters, spaces, apostrophes, periods, & or hyphens.'); return; }
             input.setCustomValidity('');
         };
         input.addEventListener('input', () => {
@@ -1682,7 +1672,7 @@ function branchCatalog() {
                 showFieldError(form, 'branch_name', 'Branch name is required.');
             } else if (/\d/.test(input.value) || !branchNamePattern.test(input.value)) {
                 valid = false;
-                showFieldError(form, 'branch_name', 'Branch name must contain letters only.');
+                showFieldError(form, 'branch_name', 'Start Branch Name with a letter. Use letters, spaces, apostrophes, periods, & or hyphens.');
             }
             if (!address?.value || !/[\p{L}\p{M}]/u.test(address.value) || /^\d+$/.test(address.value)) {
                 valid = false;
@@ -1705,6 +1695,11 @@ function branchCatalog() {
         overlay.classList.remove('hidden');
         if (!overlay.open) overlay.showModal();
         syncPageScrollLock();
+        if (overlay.classList.contains('is-record-drawer')) {
+            sheet.classList.remove('scale-95', 'opacity-0');
+            sheet.classList.add('scale-100', 'opacity-100');
+            window.recordDialogMotion.open(overlay);
+        }
         requestAnimationFrame(() => {
             sheet.classList.remove('scale-95', 'opacity-0');
             sheet.classList.add('scale-100', 'opacity-100');
@@ -1712,8 +1707,19 @@ function branchCatalog() {
         });
     };
 
-    const hideModal = (overlay, sheet, content = null) => {
+    const hideModal = async (overlay, sheet, content = null) => {
+        const form = overlay?.querySelector('form');
+        if (form?.matches('[data-quick-catalog-photo][aria-busy="true"]')) return;
+        if (!await window.canDiscardForm(form)) return;
         if (!overlay || !sheet) return;
+        if (overlay.classList.contains('is-record-drawer')) {
+            if (!await window.recordDialogMotion.close(overlay)) return;
+            overlay.classList.add('hidden');
+            overlay.classList.remove('opacity-100');
+            syncPageScrollLock();
+            activeBranchView?.isConnected && activeBranchView.focus({preventScroll:true});
+            return;
+        }
         sheet.classList.add('scale-95', 'opacity-0');
         sheet.classList.remove('scale-100', 'opacity-100');
         overlay.classList.remove('opacity-100');
@@ -1736,7 +1742,8 @@ function branchCatalog() {
 
     const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
     const viewShell = (title, subtitle, body, actions) => {
-        const icon = title.startsWith('Disable') || title.includes('cannot be disabled') ? 'bi-slash-circle'
+        const icon = title.endsWith('Photo') ? 'bi-image'
+            : title.startsWith('Disable') || title.includes('cannot be disabled') ? 'bi-slash-circle'
             : title.startsWith('Enable') ? 'bi-check-circle'
             : title.startsWith('Checking') ? 'bi-hourglass-split'
             : title.startsWith('Unable') ? 'bi-exclamation-triangle'
@@ -1744,11 +1751,15 @@ function branchCatalog() {
         return `
         <div class="branch-detail-header"><div class="branch-detail-header__heading"><span class="branch-detail-header__icon" aria-hidden="true"><i class="bi ${icon}"></i></span><div class="branch-detail-header__copy"><h2>${title}</h2><p>${subtitle}</p></div></div>
             <button type="button" data-branch-close aria-label="Close branch details" class="btn btn-outline"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
-        <div class="branch-detail-body">${body}</div><div class="branch-detail-actions">${actions}</div>`;
+        <div class="branch-detail-body">${body}</div>${actions ? `<div class="branch-detail-actions">${actions}</div>` : ''}`;
     };
     const renderBranchOverview = () => {
         if (!activeBranchView) return;
-        editSheet.classList.remove('branch-edit-mode');
+        editOverlay.setAttribute('aria-label', 'Branch details');
+        editOverlay.classList.add('is-record-drawer');
+        editSheet.classList.remove('branch-edit-mode', 'branch-photo-mode');
+        editSheet.classList.remove('branch-feedback-mode');
+        delete editSheet.dataset.confirmTone;
         const item = activeBranchView.dataset;
         const mainBranch = item.code.toUpperCase() === 'BR001';
         editContent.innerHTML = viewShell('Branch details', `${escapeHtml(item.code)} · ${escapeHtml(item.name)}`,
@@ -1759,19 +1770,20 @@ function branchCatalog() {
             <section class="branch-overview-cases"><h3>Case records overview · ${Number(item.records || 0).toLocaleString()} total</h3>
                 <p class="branch-overview-outstanding">Outstanding balance: <strong>PHP ${Number(item.outstanding || 0).toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2})}</strong></p>
                 <div class="branch-overview-metrics">
-                    <div><span>Draft</span><strong>${Number(item.draftCases || 0).toLocaleString()}</strong></div>
                     <div><span>Active</span><strong>${Number(item.activeCases || 0).toLocaleString()}</strong></div>
                     <div><span>Completed</span><strong>${Number(item.completedCases || 0).toLocaleString()}</strong></div>
                     <div><span>This month</span><strong>${Number(item.monthCases || 0).toLocaleString()}</strong></div>
                 </div>
             </section>`,
-            `<div class="branch-detail-actions-group"><a href="${escapeHtml(item.casesUrl)}">View branch cases</a></div>
-             <div class="branch-detail-actions-group"><button type="button" data-branch-edit><i class="bi bi-pencil-square" aria-hidden="true"></i>Edit branch</button>
-             ${mainBranch ? '' : `<button type="button" data-branch-status class="${item.status === 'Active' ? 'branch-detail-danger' : ''}">${item.status === 'Active' ? 'Disable branch' : 'Enable branch'}</button>`}</div>`);
+            '' );
     };
     const renderBranchStatus = async () => {
         if (!activeBranchView) return;
-        editSheet.classList.remove('branch-edit-mode');
+        editOverlay.setAttribute('aria-label', 'Branch status confirmation');
+        editOverlay.classList.remove('is-record-drawer');
+        editSheet.classList.remove('branch-edit-mode', 'branch-photo-mode');
+        editSheet.classList.add('branch-feedback-mode');
+        editSheet.dataset.confirmTone = 'neutral';
         const item = activeBranchView.dataset;
         editContent.innerHTML = viewShell('Checking branch status', 'Please wait a moment.', '<p>Checking cases and outstanding balances…</p>', '');
         try {
@@ -1779,6 +1791,7 @@ function branchCatalog() {
                 ? await fetch(item.checkUrl, { headers: { 'Accept': 'application/json' } }).then((response) => { if (!response.ok) throw new Error('Unable to check branch status.'); return response.json(); })
                 : { can_disable: true };
             if (!result.can_disable) {
+                editSheet.dataset.confirmTone = 'error';
                 const explanation = result.is_main_branch
                     ? 'The main branch must remain active.'
                     : 'Please resolve these cases before disabling this branch.';
@@ -1786,30 +1799,41 @@ function branchCatalog() {
                     `<div class="branch-detail-notice"><strong>${explanation}</strong>
                         ${result.is_main_branch ? '' : `<p>${Number(result.unfinished_cases)} unfinished ${Number(result.unfinished_cases) === 1 ? 'case' : 'cases'} (Draft or Active)</p>
                         <p>${Number(result.completed_with_balance)} completed ${Number(result.completed_with_balance) === 1 ? 'case' : 'cases'} with a remaining balance</p>`}</div>`,
-                    `<div class="branch-detail-actions-group"><a href="${escapeHtml(item.casesUrl)}">View branch cases</a></div><div class="branch-detail-actions-group"><button type="button" data-branch-back>Back to branch details</button></div>`);
+                    `<div class="branch-detail-actions-group"><a href="${escapeHtml(item.casesUrl)}">View branch cases</a></div><div class="branch-detail-actions-group"><button type="button" data-branch-close>Close</button></div>`);
+                editContent.querySelector('[data-branch-close]')?.focus({ preventScroll:true });
                 return;
             }
             const disabling = item.status === 'Active';
+            editSheet.dataset.confirmTone = disabling ? 'warning' : 'success';
             editContent.innerHTML = viewShell(disabling ? 'Disable this branch?' : 'Enable this branch?', `${escapeHtml(item.code)} · ${escapeHtml(item.name)}`,
                 `<p>${disabling
                     ? 'This branch will no longer be available for new case intake or new user assignments. Existing records will not be deleted.'
                     : 'This branch will be available for new case intake and user assignments again.'}</p>`,
-                `<div class="branch-detail-actions-group"><button type="button" data-branch-back>Cancel</button></div>
-                 <div class="branch-detail-actions-group"><form method="POST" action="${escapeHtml(item.toggleUrl)}"><input type="hidden" name="_token" value="{{ csrf_token() }}"><input type="hidden" name="_method" value="PATCH">
-                    <button type="submit" class="${disabling ? 'branch-detail-danger' : 'branch-detail-primary'}">Confirm ${disabling ? 'Disable' : 'Enable'}</button></form></div>`);
+                `<div class="branch-detail-actions-group"><button type="button" data-branch-close>Cancel</button></div>
+                 <div class="branch-detail-actions-group"><form method="POST" action="${escapeHtml(item.toggleUrl)}" data-branch-status-form><input type="hidden" name="_token" value="{{ csrf_token() }}"><input type="hidden" name="_method" value="PATCH">
+                    <button type="submit" class="${disabling ? 'branch-detail-danger' : 'branch-detail-primary'}" data-pending-label="${disabling ? 'Disabling…' : 'Enabling…'}"><span>Confirm ${disabling ? 'Disable' : 'Enable'}</span></button></form></div>`);
+            editContent.querySelector('[data-branch-close]')?.focus({ preventScroll:true });
         } catch (error) {
+            editSheet.dataset.confirmTone = 'error';
             editContent.innerHTML = viewShell('Unable to check branch status', `${escapeHtml(item.code)} · ${escapeHtml(item.name)}`,
-                '<p>Please try again. No branch status was changed.</p>', '<button type="button" data-branch-back>Back to branch details</button>');
+                '<p>Please try again. No branch status was changed.</p>', '<button type="button" data-branch-close>Close</button>');
+            editContent.querySelector('[data-branch-close]')?.focus({ preventScroll:true });
         }
     };
 
     const loadEditForm = async (url) => {
+        editOverlay.setAttribute('aria-label', 'Edit branch');
+        editOverlay.classList.remove('is-record-drawer');
+        editSheet.classList.remove('branch-photo-mode');
         editSheet.classList.add('branch-edit-mode');
+        editSheet.classList.remove('branch-feedback-mode');
+        delete editSheet.dataset.confirmTone;
         editContent.innerHTML = `
             <div class="flex flex-col items-center justify-center py-16 gap-3">
                 <div class="w-7 h-7 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin"></div>
                 <span class="text-sm text-slate-400">Loading...</span>
             </div>`;
+        const finishSkeleton = window.PanelSkeleton?.begin(editContent, {variant:'form'});
         try {
             const res  = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
             const html = await res.text();
@@ -1819,6 +1843,7 @@ function branchCatalog() {
                 editContent.innerHTML = form.outerHTML;
                 bindBranchNameValidation(editContent.querySelector('input[name="branch_name"]'));
                 bindBranchFormValidation(editContent.querySelector('form'));
+                window.registerDiscardForm(editContent.querySelector('form'));
                 editContent.querySelector('input[name=branch_name]')?.focus();
                 const cancelLink = editContent.querySelector('.branch-modal-cancel');
                 if (cancelLink) {
@@ -1835,21 +1860,123 @@ function branchCatalog() {
                         hideModal(editOverlay, editSheet, editContent);
                     });
                 }
-                [...doc.querySelectorAll('script')].forEach((old) => {
-                    const s = document.createElement('script');
-                    if (old.src) s.src = old.src; else s.textContent = old.textContent;
-                    editContent.appendChild(s);
-                });
+                // The parent already binds validation and discard handling above.
+                // Replaying the fetched page's shell scripts duplicates global menus.
             } else {
                 editContent.innerHTML = html;
             }
         } catch (e) {
             editContent.innerHTML = `<div class="p-4 text-sm text-rose-600">Unable to load content.</div>`;
+        } finally { finishSkeleton?.(); }
+    };
+
+    const branchRoot = document.querySelector('[data-record-results-page="branches"]');
+    branchRoot?.querySelector('[data-branch-photo-status]')?.addEventListener('animationend', event => {
+        if (event.animationName !== 'managementToastOut') return;
+        event.currentTarget.classList.remove('management-toast');
+        event.currentTarget.classList.add('hidden');
+    });
+    let photoDropTarget = null;
+    const clearPhotoDropTarget = () => {
+        photoDropTarget?.classList.remove('is-photo-drop-target');
+        photoDropTarget = null;
+    };
+    const openBranchPhoto = async (action, files = []) => {
+        const record = action.closest('[data-branch-photo-record]');
+        activeBranchView = record.querySelector('.open-branch-view');
+        const title = action.dataset.serviceModalTitle;
+        editOverlay.setAttribute('aria-label', title);
+        editOverlay.classList.remove('is-record-drawer');
+        editSheet.classList.remove('branch-edit-mode', 'branch-feedback-mode');
+        editSheet.classList.add('branch-photo-mode');
+        editContent.innerHTML = viewShell(title, 'Attach a branch photo or upload one from your phone.',
+            '<div data-branch-photo-form-host><p class="branch-photo-loading" role="status">Loading photo form…</p></div>', '');
+        const host = editContent.querySelector('[data-branch-photo-form-host]');
+        showModal(editOverlay, editSheet);
+        try {
+            const response = await fetch(action.dataset.serviceModalUrl, {headers:{'X-Requested-With':'XMLHttpRequest'}});
+            if (!response.ok) throw new Error('Unable to open photo upload.');
+            const form = new DOMParser().parseFromString(await response.text(), 'text/html').querySelector('[data-quick-catalog-photo]');
+            if (!form) throw new Error('Unable to open photo upload.');
+            if (!host.isConnected || !editOverlay.open) return;
+            host.replaceChildren(form);
+            window.registerDiscardForm(form);
+            requestAnimationFrame(() => {
+                if (!host.isConnected || !editOverlay.open) return;
+                form.querySelector('[data-proof-choose]')?.focus({preventScroll:true});
+                if (!files.length) return;
+                const transfer = new DataTransfer();
+                files.forEach(file => transfer.items.add(file));
+                form.querySelector('[data-proof-drop]')?.dispatchEvent(new DragEvent('drop', {dataTransfer:transfer, cancelable:true}));
+            });
+        } catch {
+            if (host.isConnected) host.querySelector('[role="status"]').textContent = 'Unable to open photo upload. Close and try again.';
         }
     };
 
-    createOpenBtns.forEach((btn) => {
-        if (btn) btn.addEventListener('click', () => showModal(createOverlay, createSheet));
+    branchRoot?.addEventListener('click', event => {
+        const action = event.target.closest('[data-branch-photo-upload]');
+        if (action) openBranchPhoto(action);
+    });
+    branchRoot?.addEventListener('dragover', event => {
+        if (!event.dataTransfer.types.includes('Files')) return;
+        const record = event.target.closest('[data-branch-photo-record]');
+        if (!record) { clearPhotoDropTarget(); return; }
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'copy';
+        if (photoDropTarget !== record) {
+            clearPhotoDropTarget();
+            photoDropTarget = record;
+            record.classList.add('is-photo-drop-target');
+        }
+    });
+    branchRoot?.addEventListener('dragleave', event => {
+        if (photoDropTarget && !photoDropTarget.contains(event.relatedTarget)) clearPhotoDropTarget();
+    });
+    branchRoot?.addEventListener('drop', event => {
+        clearPhotoDropTarget();
+        const action = event.target.closest('[data-branch-photo-record]')?.querySelector('[data-branch-photo-upload]');
+        if (!action || !event.dataTransfer.files.length) return;
+        event.preventDefault();
+        openBranchPhoto(action, Array.from(event.dataTransfer.files));
+    });
+
+    editContent.addEventListener('submit', async event => {
+        const form = event.target.closest('[data-quick-catalog-photo]');
+        if (!form || event.defaultPrevented) return;
+        event.preventDefault();
+        if (form.getAttribute('aria-busy') === 'true') return;
+        const error = form.querySelector('[data-quick-photo-error]');
+        const save = form.querySelector('[data-catalog-photo-save]');
+        form.setAttribute('aria-busy', 'true');
+        save.disabled = true;
+        error.hidden = true;
+        try {
+            const response = await fetch(form.action, {
+                method:'POST', body:new FormData(form),
+                headers:{Accept:'application/json', 'X-Requested-With':'XMLHttpRequest'},
+            });
+            const data = await response.json().catch(() => null);
+            if (!data) throw new Error('Unable to confirm the save. Check the branch photo and try again.');
+            if (!response.ok) throw new Error(data.errors?.catalog_photo?.[0] || data.message || 'Unable to save the branch photo.');
+            form.remove();
+            await hideModal(editOverlay, editSheet, editContent);
+            const status = branchRoot.querySelector('[data-branch-photo-status]');
+            status.textContent = data.message;
+            status.classList.remove('hidden');
+            status.classList.add('management-toast');
+            await window.loadRecordResults(branchRoot, location.href, false);
+        } catch (e) {
+            error.textContent = e.message;
+            error.hidden = false;
+            save.disabled = false;
+        } finally {
+            form.removeAttribute('aria-busy');
+        }
+    });
+
+    document.addEventListener('click', event => {
+        if (event.target.closest('#openBranchCreateModal, #openBranchCreateModalEmpty')) showModal(createOverlay, createSheet);
     });
 
     document.querySelectorAll('[data-branch-status-filter]').forEach((button) => {
@@ -1887,27 +2014,28 @@ function branchCatalog() {
         });
     });
 
-    editLinks.forEach((link) => {
-        link.addEventListener('click', (e) => {
+    document.addEventListener('click', (e) => {
+            const link = e.target.closest('.open-branch-modal');
+            if (!link) return;
             e.preventDefault();
             editOpenedFromDetails = false;
             showModal(editOverlay, editSheet);
             loadEditForm(link.dataset.url);
-        });
     });
 
-    viewLinks.forEach((link) => {
-        link.addEventListener('click', (event) => {
+    document.addEventListener('click', (event) => {
+            const link = event.target.closest('.open-branch-view');
+            if (!link) return;
             event.preventDefault();
             activeBranchView = link;
             renderBranchOverview();
             showModal(editOverlay, editSheet);
             editContent.querySelector('[data-branch-close]')?.focus();
-        });
     });
 
-    document.querySelectorAll('[data-branch-card-action]').forEach((button) => {
-        button.addEventListener('click', () => {
+    document.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-branch-card-action]');
+            if (!button) return;
             const viewButton = button.closest('.directory-item-card, tr')?.querySelector('.open-branch-view');
             if (!viewButton || button.disabled) return;
             activeBranchView = viewButton;
@@ -1916,11 +2044,11 @@ function branchCatalog() {
             showModal(editOverlay, editSheet);
             if (button.dataset.branchCardAction === 'edit') loadEditForm(viewButton.dataset.editUrl);
             else renderBranchStatus();
-        });
     });
 
     editContent.addEventListener('click', (event) => {
-        if (event.target.closest('[data-branch-close]')) {
+        if (event.target.closest('[data-branch-close], [data-quick-catalog-photo] [data-service-form-cancel]')) {
+            event.preventDefault();
             hideModal(editOverlay, editSheet, editContent);
         } else if (event.target.closest('[data-branch-back]')) {
             renderBranchOverview();
@@ -1930,6 +2058,18 @@ function branchCatalog() {
         } else if (event.target.closest('[data-branch-status]')) {
             renderBranchStatus();
         }
+    });
+
+    editContent.addEventListener('submit', (event) => {
+        const form = event.target.closest('[data-branch-status-form]');
+        if (!form) return;
+        const button = form.querySelector('button[type="submit"]');
+        if (!button || button.disabled) return;
+        form.setAttribute('aria-busy', 'true');
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        const label = button.querySelector('span');
+        if (label) label.textContent = button.dataset.pendingLabel || 'Updating…';
     });
 
     if (editOverlay)  editOverlay.addEventListener('click',  (e) => { if (e.target === editOverlay) hideModal(editOverlay, editSheet, editContent); });

@@ -67,6 +67,10 @@ class SyncSnapshot
                 if ($table === 'intake_drafts') {
                     $data['payload'] = $this->translateDraft($data['payload'], true);
                 }
+                $historicalFiles = [];
+                if ($table === 'historical_case_submissions') {
+                    [$data['submission_data'], $historicalFiles] = $this->prepareHistoricalSubmissionData($data['submission_data'], true, $branchCode);
+                }
                 $record = ['uuid' => $this->schema->uuid($table, $row->id), 'data' => $data];
                 if ($table === 'audit_logs' && $row->entity_id && isset(SyncSchema::SUBJECTS[$row->entity_type])) {
                     $subject = SyncSchema::SUBJECTS[$row->entity_type];
@@ -82,6 +86,9 @@ class SyncSnapshot
                         $record['files'][$column] = $available ? $this->freezeFile($disk, $row->$column, $branchCode) : null;
                         unset($record['data'][$column]);
                     }
+                }
+                if ($table === 'historical_case_submissions') {
+                    $record['files'] = array_merge($record['files'] ?? [], $historicalFiles);
                 }
                 $entities[$table][] = $record;
             }
@@ -195,7 +202,12 @@ class SyncSnapshot
                         $data['entity_id'] = $this->schema->localId($subject['entity'], $subject['uuid']);
                     }
                     if (isset(SyncSchema::FILES[$table])) {
-                        if (array_keys($record['files'] ?? []) !== array_keys(SyncSchema::FILES[$table])) {
+                        $fileKeys = array_keys($record['files'] ?? []);
+                        $expectedFileKeys = array_keys(SyncSchema::FILES[$table]);
+                        if ($table === 'historical_case_submissions') {
+                            $expectedFileKeys = array_merge($expectedFileKeys, array_keys($this->historicalSubmissionFilePointers($data['submission_data'] ?? [])));
+                        }
+                        if ($fileKeys !== $expectedFileKeys) {
                             throw new RuntimeException('Missing file manifest.');
                         }
                         foreach (SyncSchema::FILES[$table] as $column => $disk) {
@@ -205,6 +217,9 @@ class SyncSnapshot
                             $data[$column] = $record['files'][$column] === null ? null
                                 : $this->receiveFile($disk, $record['files'][$column], $branchCode);
                         }
+                    }
+                    if ($table === 'historical_case_submissions') {
+                        $data['submission_data'] = $this->prepareHistoricalSubmissionData($data['submission_data'], false, $branchCode, $record['files'] ?? []);
                     }
                     if ($existing) {
                         if ($table === 'audit_logs') {
@@ -275,7 +290,7 @@ class SyncSnapshot
                     foreach ($this->schema->rows($table, (int) $branchId) as $row) {
                         $uuid = $this->schema->uuid($table, $row->id);
                         if (! in_array($uuid, $present, true)) {
-                            if (in_array($table, ['clients', 'deceased', 'funeral_cases', 'payments', 'audit_logs'], true)) {
+                            if (in_array($table, ['clients', 'deceased', 'funeral_cases', 'payments', 'historical_case_submissions', 'historical_case_submission_reviews', 'audit_logs'], true)) {
                                 throw new RuntimeException('Snapshot omits protected records; reconcile the source backup.');
                             }
                             DB::table($table)->where('id', $row->id)->delete();
@@ -339,6 +354,116 @@ class SyncSnapshot
         }
     }
 
+    private function prepareHistoricalSubmissionData(mixed $source, bool $export, string $branchCode, array $fileManifests = []): array|string
+    {
+        $payload = is_array($source) ? $source : json_decode((string) $source, true, 512, JSON_THROW_ON_ERROR);
+        if (!is_array($payload)) {
+            throw new RuntimeException('Historical submission snapshot is invalid.');
+        }
+
+        $references = [
+            'existing_client_id' => 'clients',
+            'selected_package_id' => 'packages',
+            'hearse_id' => 'hearse_catalogs',
+            'validated.package_id' => 'packages',
+            'validated.chapel_add_on_id' => 'add_on_catalogs',
+            'validated.chapel_catalog_id' => 'add_on_catalogs',
+            'validated.replacement_casket_catalog_id' => 'casket_catalogs',
+        ];
+        foreach ($references as $path => $entity) {
+            $value = $this->arrayPath($payload, $path);
+            $hasReference = $export ? is_numeric($value) && (int) $value > 0 : is_string($value) && Str::isUuid($value);
+            if ($hasReference) {
+                $translated = $export
+                    ? $this->schema->uuid($entity, (int) $value)
+                    : $this->schema->localId($entity, (string) $value);
+                $this->setArrayPath($payload, $path, $translated);
+            }
+        }
+
+        foreach (['selected_add_ons', 'validated.selected_add_ons'] as $path) {
+            $rows = $this->arrayPath($payload, $path);
+            if (!is_array($rows)) continue;
+            foreach ($rows as $index => $row) {
+                if (($export && is_numeric($row) && (int) $row > 0) || (!$export && is_string($row) && Str::isUuid($row))) {
+                    $rows[$index] = $export ? $this->schema->uuid('add_on_catalogs', (int) $row) : $this->schema->localId('add_on_catalogs', (string) $row);
+                } elseif (is_array($row)) {
+                    foreach (['add_on_catalog_id' => 'add_on_catalogs', 'package_add_on_id' => 'package_add_ons'] as $column => $entity) {
+                        $value = $row[$column] ?? null;
+                        $hasReference = $export ? is_numeric($value) && (int) $value > 0 : is_string($value) && Str::isUuid($value);
+                        if ($hasReference) $rows[$index][$column] = $export
+                                ? $this->schema->uuid($entity, (int) $value)
+                                : $this->schema->localId($entity, (string) $value);
+                    }
+                }
+            }
+            $this->setArrayPath($payload, $path, $rows);
+        }
+
+        $filePointers = $this->historicalSubmissionFilePointers($payload);
+        $submissionFiles = [];
+        foreach ($filePointers as $pointer) {
+            if ($export) {
+                $path = $this->arrayPath($payload, $pointer);
+                $this->setArrayPath($payload, $pointer, null);
+                $disk = str_starts_with($pointer, 'historical_payments.') ? 'local' : 'public';
+                $submissionFiles['submission_data.'.$pointer] = $path
+                    ? $this->freezeFile($disk, (string) $path, $branchCode)
+                    : null;
+            } else {
+                $key = 'submission_data.'.$pointer;
+                if (!array_key_exists($key, $fileManifests)) {
+                    throw new RuntimeException('Historical submission file manifest is incomplete.');
+                }
+                $manifest = $fileManifests[$key];
+                $disk = str_starts_with($pointer, 'historical_payments.') ? 'local' : 'public';
+                $path = $manifest === null ? null : $this->receiveFile($disk, $manifest, $branchCode);
+                $this->setArrayPath($payload, $pointer, $path);
+                unset($fileManifests[$key]);
+            }
+        }
+        if (!$export && collect(array_keys($fileManifests))->contains(fn ($key) => str_starts_with($key, 'submission_data.'))) {
+            throw new RuntimeException('Unexpected historical submission file manifest.');
+        }
+
+        $json = json_encode($payload, JSON_THROW_ON_ERROR);
+        return $export ? [$json, $submissionFiles] : $json;
+    }
+
+    private function historicalSubmissionFilePointers(array $payload): array
+    {
+        $pointers = [];
+        foreach (['photo_path', 'senior_proof_path'] as $field) {
+            if (array_key_exists($field, $payload)) $pointers[] = $field;
+        }
+        foreach (($payload['historical_payments'] ?? []) as $index => $payment) {
+            if (is_array($payment) && is_array($payment['proof'] ?? null) && array_key_exists('path', $payment['proof'])) {
+                $pointers[] = "historical_payments.{$index}.proof.path";
+            }
+        }
+        return $pointers;
+    }
+
+    private function arrayPath(array $data, string $path): mixed
+    {
+        foreach (explode('.', $path) as $segment) {
+            if (!is_array($data) || !array_key_exists($segment, $data)) return null;
+            $data = $data[$segment];
+        }
+        return $data;
+    }
+
+    private function setArrayPath(array &$data, string $path, mixed $value): void
+    {
+        $segments = explode('.', $path);
+        $cursor =& $data;
+        foreach (array_slice($segments, 0, -1) as $segment) {
+            if (!isset($cursor[$segment]) || !is_array($cursor[$segment])) $cursor[$segment] = [];
+            $cursor =& $cursor[$segment];
+        }
+        $cursor[end($segments)] = $value;
+    }
+
     private function translateDraft(?string $json, bool $export): ?string
     {
         if ($json === null) {
@@ -346,15 +471,23 @@ class SyncSnapshot
         }
         $walk = function (array $values) use (&$walk, $export) {
             foreach ($values as $key => $value) {
-                if (is_array($value) && in_array($key, ['selected_add_ons', 'selectedAddOns', 'custom_freebie_catalog_ids'], true)) {
+                if (is_array($value) && $key === 'included_add_on_requested') {
+                    $translated = [];
+                    foreach ($value as $id => $quantity) {
+                        $translated[$export ? $this->schema->uuid('add_on_catalogs', (int) $id)
+                            : $this->schema->localId('add_on_catalogs', $id)] = $quantity;
+                    }
+                    $values[$key] = $translated;
+                } elseif (is_array($value) && in_array($key, ['selected_add_ons', 'selectedAddOns', 'custom_freebie_catalog_ids'], true)) {
                     $target = $key === 'custom_freebie_catalog_ids' ? 'freebie_catalogs' : 'add_on_catalogs';
                     $values[$key] = array_map(fn ($id) => $export ? $this->schema->uuid($target, (int) $id)
                         : (string) $this->schema->localId($target, $id), $value);
                 } elseif (is_array($value)) {
                     $values[$key] = $walk($value);
-                } elseif ($value !== null && $value !== '' && in_array($key, ['custom_casket_catalog_id', 'replacement_casket_catalog_id'], true)) {
-                    $values[$key] = $export ? $this->schema->uuid('casket_catalogs', (int) $value)
-                        : $this->schema->localId('casket_catalogs', $value);
+                } elseif ($value !== null && $value !== '' && in_array($key, ['custom_casket_catalog_id', 'replacement_casket_catalog_id', 'hearse_catalog_id'], true)) {
+                    $target = $key === 'hearse_catalog_id' ? 'hearse_catalogs' : 'casket_catalogs';
+                    $values[$key] = $export ? $this->schema->uuid($target, (int) $value)
+                        : $this->schema->localId($target, $value);
                 } elseif ($value !== null && $value !== '' && isset(SyncSchema::RELATIONS[$key])) {
                     $values[$key] = $export ? $this->schema->uuid(SyncSchema::RELATIONS[$key], (int) $value)
                         : $this->schema->localId(SyncSchema::RELATIONS[$key], $value);

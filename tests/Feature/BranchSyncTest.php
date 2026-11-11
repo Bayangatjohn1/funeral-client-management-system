@@ -9,6 +9,7 @@ use App\Models\IntakeDraft;
 use App\Models\AddOnCatalog;
 use App\Models\Deceased;
 use App\Models\FuneralCase;
+use App\Models\HearseCatalog;
 use App\Models\Package;
 use App\Models\Payment;
 use App\Models\User;
@@ -695,6 +696,11 @@ class BranchSyncTest extends TestCase
     {
         [$branch, $cases] = $this->fixtures();
         $payment = Payment::firstOrFail();
+        Storage::disk('local')->put('payment-proofs/offline-correction.pdf', "%PDF-1.4\n%%EOF");
+        $payment->update([
+            'proof_path' => 'payment-proofs/offline-correction.pdf',
+            'proof_mime' => 'application/pdf',
+        ]);
         $identity = (string) Str::uuid();
         $payment->update(['submission_id' => $identity, 'submission_hash' => str_repeat('a', 64)]);
         $staff = User::factory()->create(['role' => 'staff', 'branch_id' => $branch->id, 'is_active' => true]);
@@ -704,16 +710,22 @@ class BranchSyncTest extends TestCase
         SyncState::put('references_at', now()->toIso8601String());
         config(['branch_sync.central_url' => 'https://central.test', 'branch_sync.token' => $this->token]);
         Http::fake(fn () => Http::failedConnection());
+        $payment->update(['recorded_by' => $staff->id]);
         $this->actingAs($staff)->post(route('payments.corrections.store', $payment), [
-            'correction_type' => 'CORRECT', 'amount' => 600, 'reason' => 'Correct the locally recorded receipt amount.',
+            'correction_type' => 'CORRECT', 'changes' => ['amount'], 'reason_category' => 'Incorrect amount', 'evidence_reference' => 'Local receipt and collection log', 'amount' => 600, 'reason' => 'Correct the locally recorded receipt amount.',
         ])->assertSessionHasNoErrors();
         $correction = \App\Models\PaymentCorrectionRequest::firstOrFail();
-        $this->actingAs($admin)->post(route('admin.payment-corrections.approve', $correction))->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post(route('admin.payment-corrections.approve', $correction), ['review_reason' => 'Verified the local receipt.', 'preview_token' => $correction->approvalPreviewToken($correction->payment->funeralCase()->firstOrFail(), $correction->payment->funeralCase()->firstOrFail())])->assertSessionHasNoErrors();
         $this->assertTrue(SyncState::get('dirty'));
         $this->assertFalse(app(BranchSyncService::class)->run());
         $this->assertNotNull(DB::table('branch_sync_outbox')->first());
         $references = app(SyncSnapshot::class)->export('BR001', 'reference');
         $snapshot = app(SyncSnapshot::class)->export('BR001', 'operational');
+        $proofBytes = Storage::disk('local')->get('payment-proofs/offline-correction.pdf');
+        Storage::disk('local')->put(
+            'branch-sync/incoming/BR001/'.hash('sha256', $proofBytes),
+            $proofBytes,
+        );
         $source = DB::getDefaultConnection();
         config(['database.connections.sync_receiver' => DB::getDriverName() === 'mysql'
             ? array_replace(config('database.connections.mysql'), ['database' => 'offline_receiver_20261021'])
@@ -805,8 +817,10 @@ class BranchSyncTest extends TestCase
     public function test_catalog_pull_preserves_case_price_snapshots_and_disables_removed_accounts(): void
     {
         [$branch, $cases] = $this->fixtures();
+        $hearse = HearseCatalog::create(['name' => 'Reference Coach', 'description' => 'Global reference', 'is_active' => true]);
         $staff = User::factory()->create(['role' => 'staff', 'branch_id' => $branch->id, 'is_active' => true]);
         $snapshot = app(SyncSnapshot::class)->export('BR001', 'reference');
+        $this->assertSame('Reference Coach', $snapshot['entities']['hearse_catalogs'][0]['data']['name']);
         foreach ($snapshot['entities']['packages'] as &$package) {
             $package['data']['price'] = 99999;
         }
@@ -815,6 +829,7 @@ class BranchSyncTest extends TestCase
         app(SyncSnapshot::class)->apply($snapshot, 'BR001', 'reference');
         $this->assertFalse($staff->fresh()->is_active);
         $this->assertSame('1000.00', $cases[0]->fresh()->total_amount);
+        $this->assertSame($hearse->id, HearseCatalog::where('name', 'Reference Coach')->value('id'));
     }
 
     public function test_standalone_mode_does_not_expose_sync_api(): void

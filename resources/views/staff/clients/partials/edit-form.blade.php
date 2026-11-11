@@ -8,7 +8,7 @@
             <h2 class="text-lg font-bold text-slate-900">Edit Client</h2>
             <p class="text-sm text-slate-500">Update contact details for {{ $client->full_name }}.</p>
         </div>
-        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Client ID: {{ $client->client_code ?? ('CL-' . str_pad($client->id,3,'0',STR_PAD_LEFT)) }}</span>
+        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Client ID: {{ $client->directoryCode() }}</span>
     </div>
 
     @php $nameParts = $client->splitName(); @endphp

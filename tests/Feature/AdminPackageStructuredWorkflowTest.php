@@ -8,6 +8,7 @@ use App\Models\CasketCatalog;
 use App\Models\FreebieCatalog;
 use App\Models\Package;
 use App\Models\PackageAddOn;
+use App\Models\Promotion;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -15,6 +16,30 @@ use Tests\TestCase;
 class AdminPackageStructuredWorkflowTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_main_admin_can_configure_and_remove_catalog_add_on_allowances(): void
+    {
+        $admin = $this->mainAdmin();
+        $catalog = AddOnCatalog::create(['name' => 'Flower Stand', 'unit' => 'item', 'price' => 800, 'is_active' => true, 'is_available' => true]);
+        $casket = CasketCatalog::create(['name' => 'Standard Casket', 'standard_price' => 20000, 'is_active' => true]);
+        $payload = [
+            'name' => 'Flower Package',
+            'price' => 40000,
+            'included_services' => [Package::SERVICE_CASKET => ['enabled' => 1, 'casket_catalog_id' => $casket->id]],
+            'configure_included_add_ons' => 1,
+        ];
+
+        $this->actingAs($admin)->post(route('admin.packages.store'), $payload + [
+            'included_add_on_quantities' => [$catalog->id => 2],
+        ])->assertSessionHasNoErrors();
+        $package = Package::where('name', 'Flower Package')->firstOrFail();
+        $this->assertSame(2, $package->packageInclusions()->where('add_on_catalog_id', $catalog->id)->firstOrFail()->included_quantity);
+        $this->get(route('admin.packages.edit', $package))->assertOk()
+            ->assertSee('name="included_add_on_quantities['.$catalog->id.']"', false);
+
+        $this->put(route('admin.packages.update', $package), $payload)->assertSessionHasNoErrors();
+        $this->assertFalse($package->packageInclusions()->whereNotNull('add_on_catalog_id')->exists());
+    }
 
     public function test_main_admin_can_save_and_reload_structured_first_and_second_class_packages(): void
     {
@@ -24,6 +49,10 @@ class AdminPackageStructuredWorkflowTest extends TestCase
         $metalCasket = CasketCatalog::create(['name' => 'Metal Casket', 'standard_price' => 45000, 'is_active' => true]);
         $premiumCasket = CasketCatalog::create(['name' => 'Premium Hardwood Casket', 'standard_price' => 65000, 'is_active' => true]);
         $standardCasket = CasketCatalog::create(['name' => 'Standard Wood Casket', 'standard_price' => 30000, 'is_active' => true]);
+        $promotion = Promotion::create([
+            'name' => 'Launch Promo', 'discount_type' => 'PERCENT', 'discount_value' => 10,
+            'starts_at' => '2026-11-01', 'ends_at' => '2026-11-20', 'is_enabled' => true,
+        ]);
 
         $this->actingAs($admin)
             ->post(route('admin.packages.store', absolute: false), [
@@ -51,6 +80,7 @@ class AdminPackageStructuredWorkflowTest extends TestCase
                         'price_per_extended_day' => 2000,
                     ],
                     Package::SERVICE_HEARSE => [
+                        'hearse_catalog_id' => \App\Models\HearseCatalog::firstOrCreate(['name' => 'Configured Coach'], ['is_active' => true])->id,
                         'enabled' => 1,
                         'included_kilometers' => 20,
                         'price_per_excess_kilometer' => 100,
@@ -64,12 +94,7 @@ class AdminPackageStructuredWorkflowTest extends TestCase
                     ['freebie_catalog_id' => $flowers->id, 'quantity' => 1, 'unit' => 'piece'],
                     ['freebie_name' => 'Thank-you cards', 'quantity' => 50, 'unit' => 'pcs'],
                 ],
-                'promo_is_active' => 1,
-                'promo_label' => 'Launch Promo',
-                'promo_value_type' => 'PERCENT',
-                'promo_value' => 10,
-                'promo_starts_at' => '2026-07-19',
-                'promo_ends_at' => '2026-07-20',
+                'promotion_id' => $promotion->id,
             ])
             ->assertRedirect(route('admin.packages.index', absolute: false));
 
@@ -78,7 +103,7 @@ class AdminPackageStructuredWorkflowTest extends TestCase
         $this->assertSame('Metal Casket', $firstClass->coffin_type);
         $this->assertStringContainsString('Casket: Metal Casket', $firstClass->inclusions);
         $this->assertStringContainsString('Memorial candle setup', $firstClass->inclusions);
-        $this->assertSame('2026-07-20 23:59:59', $firstClass->promo_ends_at->setTimezone('Asia/Manila')->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-11-20', $firstClass->promotion->ends_at->format('Y-m-d'));
 
         $this->assertDatabaseHas('package_inclusions', [
             'package_id' => $firstClass->id,
@@ -100,6 +125,7 @@ class AdminPackageStructuredWorkflowTest extends TestCase
             'unit' => 'sets',
         ]);
 
+        $promotion->update(['name' => 'Launch Promo Updated', 'discount_type' => 'AMOUNT', 'discount_value' => 5000, 'ends_at' => '2026-11-21']);
         $this->actingAs($admin)
             ->get(route('admin.packages.edit', $firstClass, absolute: false))
             ->assertOk()
@@ -107,7 +133,7 @@ class AdminPackageStructuredWorkflowTest extends TestCase
             ->assertSee('Metal Casket')
             ->assertSee('Memorial candle setup')
             ->assertSee('Launch Promo')
-            ->assertSee('Review and Save');
+            ->assertSee('pkg-page-actions', false);
 
         $this->actingAs($admin)
             ->put(route('admin.packages.update', $firstClass, absolute: false), [
@@ -128,19 +154,14 @@ class AdminPackageStructuredWorkflowTest extends TestCase
                 'freebies' => [
                     ['freebie_catalog_id' => $flowers->id, 'quantity' => 2, 'unit' => 'pieces'],
                 ],
-                'promo_is_active' => 1,
-                'promo_label' => 'Launch Promo Updated',
-                'promo_value_type' => 'AMOUNT',
-                'promo_value' => 5000,
-                'promo_starts_at' => '2026-07-19',
-                'promo_ends_at' => '2026-07-21',
+                'promotion_id' => $promotion->id,
             ])
             ->assertRedirect(route('admin.packages.index', absolute: false));
 
         $firstClass->refresh();
         $this->assertSame('Premium Hardwood Casket', $firstClass->coffin_type);
         $this->assertEquals('255000.00', $firstClass->price);
-        $this->assertSame('Launch Promo Updated', $firstClass->promo_label);
+        $this->assertSame('Launch Promo Updated', $firstClass->promotion->name);
         $this->assertDatabaseMissing('package_inclusions', [
             'package_id' => $firstClass->id,
             'service_type' => Package::SERVICE_HOME_VIEWING,
@@ -174,6 +195,7 @@ class AdminPackageStructuredWorkflowTest extends TestCase
                         'casket_catalog_id' => $standardCasket->id,
                     ],
                     Package::SERVICE_HEARSE => [
+                        'hearse_catalog_id' => \App\Models\HearseCatalog::firstOrCreate(['name' => 'Configured Coach'], ['is_active' => true])->id,
                         'enabled' => 1,
                         'included_kilometers' => 10,
                         'price_per_excess_kilometer' => 90,
@@ -191,16 +213,14 @@ class AdminPackageStructuredWorkflowTest extends TestCase
 
         $secondClass = Package::where('name', 'Second Class Verification')->firstOrFail();
         $this->assertSame('Standard Wood Casket', $secondClass->coffin_type);
-        $this->assertFalse($secondClass->promo_is_active);
-        $this->assertNull($secondClass->promo_label);
-        $this->assertSame('Inactive', $secondClass->promo_status);
+        $this->assertSame('No Promotion', $secondClass->promo_status);
 
         $this->actingAs($admin)
             ->get(route('admin.packages.edit', $secondClass, absolute: false))
             ->assertOk()
             ->assertSee('Second Class Verification')
             ->assertSee('Standard Wood Casket')
-            ->assertSee('Review and Save');
+            ->assertSee('pkg-page-actions', false);
     }
 
     public function test_legacy_packages_still_display_and_package_updates_do_not_touch_legacy_add_ons(): void
@@ -607,7 +627,7 @@ class AdminPackageStructuredWorkflowTest extends TestCase
         ]);
     }
 
-    public function test_package_form_renders_in_page_casket_modal_without_new_tab_catalog_flow(): void
+    public function test_package_form_uses_searchable_casket_dropdown_without_modal_or_new_tab_catalog_flow(): void
     {
         $admin = $this->mainAdmin();
         CasketCatalog::create([
@@ -633,7 +653,7 @@ class AdminPackageStructuredWorkflowTest extends TestCase
             ->assertSee('name="included_services[casket][enabled]"', false)
             ->assertSee('name="included_services[home_viewing][enabled]"', false)
             ->assertSee('name="included_services[hearse][enabled]"', false)
-            ->assertSee('Select casket')
+            ->assertSee('Choose eligible casket from catalog')
             ->assertSee('data-package-submit', false)
             ->assertSee('data-update-url', false)
             ->assertDontSee('data-casket-modal', false)
@@ -642,7 +662,7 @@ class AdminPackageStructuredWorkflowTest extends TestCase
             ->assertDontSee('data-casket-modal-cancel', false)
             ->assertDontSee('Edit Casket')
             ->assertDontSee('Configure Casket')
-            ->assertDontSee('target="_blank"', false)
+
             ->assertDontSee('Open Casket Catalog');
 
         $dom = new \DOMDocument;
@@ -676,8 +696,10 @@ class AdminPackageStructuredWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('is-edit-mode', false)
             ->assertSee('aria-label="Expand Included Services"', false)
-            ->assertSee('aria-label="Expand Freebies"', false)
-            ->assertSee('aria-label="Expand Promo Settings"', false);
+            ->assertSee('aria-label="Expand Included Freebies"', false)
+            ->assertSee('Assigned Promotion')
+            ->assertSee('Regular intake can select an available upgrade')
+            ->assertSee('The included casket is covered by the package price.');
     }
 
     public function test_main_admin_can_manage_freebie_catalog_with_duplicate_prevention(): void
@@ -778,7 +800,7 @@ class AdminPackageStructuredWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee(route('admin.add-on-catalogs.create', absolute: false), false)
             ->assertSee(route('admin.add-on-catalogs.edit', $catalog, absolute: false), false)
-            ->assertSee('All Types')
+            ->assertSee('All categories')
             ->assertSee('row-hover-actions', false)
             ->assertSee('Archive')
             ->assertDontSee('data-service-catalog-modal', false)
@@ -789,9 +811,9 @@ class AdminPackageStructuredWorkflowTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.add-on-catalogs.create', absolute: false))
             ->assertOk()
-            ->assertSee('Add-on Type')
+            ->assertSee('Category')
             ->assertSee('id="addon-category" name="category"', false)
-            ->assertSee('id="addon-unit" name="unit"', false)
+            ->assertSee('id="addon-unit" data-addon-billing-unit name="unit"', false)
             ->assertSee('form-select', false)
             ->assertDontSee('name="category" value=', false);
 
@@ -905,12 +927,8 @@ class AdminPackageStructuredWorkflowTest extends TestCase
                 'freebies' => [
                     ['freebie_name' => '$$$', 'quantity' => 1, 'unit' => 'item'],
                 ],
-                'promo_label' => '<script>',
-                'promo_is_active' => 1,
-                'promo_value_type' => 'AMOUNT',
-                'promo_value' => 1000,
             ])
-            ->assertSessionHasErrors(['name', 'custom_inclusions.0.description', 'freebies.0.freebie_name', 'promo_label']);
+            ->assertSessionHasErrors(['name', 'custom_inclusions.0.description', 'freebies.0.freebie_name']);
     }
 
     private function mainAdmin(): User
@@ -930,5 +948,42 @@ class AdminPackageStructuredWorkflowTest extends TestCase
             'is_active' => true,
             'can_encode_any_branch' => true,
         ]);
+    }
+
+    public function test_enabled_service_limits_and_rates_are_required_and_details_show_days_and_nights(): void
+    {
+        $admin = $this->mainAdmin();
+        $casket = CasketCatalog::create(['name' => 'Limit Test Casket', 'standard_price' => 20000, 'is_active' => true]);
+        $payload = ['name' => 'Limits Verification', 'price' => 50000, 'promo_is_active' => false,
+            'included_services' => [
+                Package::SERVICE_CASKET => ['enabled' => 1, 'casket_catalog_id' => $casket->id],
+                Package::SERVICE_BODY_RETRIEVAL => ['enabled' => 1],
+                Package::SERVICE_HEARSE => ['enabled' => 1],
+                Package::SERVICE_EMBALMING => ['enabled' => 1],
+                Package::SERVICE_HOME_VIEWING => ['enabled' => 1],
+            ]];
+        $this->actingAs($admin)->post(route('admin.packages.store', absolute: false), $payload)
+            ->assertSessionHasErrors(['included_services.body_retrieval.included_kilometers', 'included_services.hearse.included_kilometers', 'included_services.embalming.included_days', 'included_services.home_viewing.included_days']);
+        $payload['included_services'][Package::SERVICE_BODY_RETRIEVAL]['included_kilometers'] = 25;
+        $payload['included_services'][Package::SERVICE_HEARSE]['included_kilometers'] = 30;
+        $payload['included_services'][Package::SERVICE_HEARSE]['hearse_catalog_id'] = \App\Models\HearseCatalog::create(['name' => 'Limit Coach', 'is_active' => true])->id;
+        $payload['included_services'][Package::SERVICE_EMBALMING]['included_days'] = 4;
+        $payload['included_services'][Package::SERVICE_HOME_VIEWING]['included_days'] = 5;
+        $this->post(route('admin.packages.store', absolute: false), $payload)->assertSessionHasErrors([
+            'included_services.body_retrieval.price_per_excess_kilometer', 'included_services.hearse.price_per_excess_kilometer',
+            'included_services.embalming.price_per_extended_day', 'included_services.home_viewing.price_per_extended_day',
+        ]);
+        $payload['included_services'][Package::SERVICE_BODY_RETRIEVAL]['price_per_excess_kilometer'] = 50;
+        $payload['included_services'][Package::SERVICE_HEARSE]['price_per_excess_kilometer'] = 75;
+        $payload['included_services'][Package::SERVICE_EMBALMING]['price_per_extended_day'] = 500;
+        $payload['included_services'][Package::SERVICE_HOME_VIEWING]['price_per_extended_day'] = 0;
+        $this->post(route('admin.packages.store', absolute: false), $payload)->assertSessionHasNoErrors();
+        $package = Package::where('name', 'Limits Verification')->firstOrFail();
+        $this->assertDatabaseHas('package_inclusions', ['package_id' => $package->id, 'service_type' => Package::SERVICE_HOME_VIEWING, 'included_days' => 5, 'price_per_extended_day' => 0]);
+        $this->get(route('admin.packages.show', ['package' => $package, 'modal' => 1], absolute: false))->assertOk()
+            ->assertSee('4D/3N')->assertSee('5D/4N')->assertSee('25 km')->assertSee('30 km')
+            ->assertDontSee('No extra-day charge.')->assertDontSee('included@else');
+        $package->packageInclusions()->where('service_type', Package::SERVICE_HOME_VIEWING)->update(['included_days' => null]);
+        $this->get(route('admin.packages.show', ['package' => $package, 'modal' => 1], absolute: false))->assertOk()->assertSee('Not configured');
     }
 }

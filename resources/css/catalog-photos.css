@@ -1,0 +1,118 @@
+.catalog-photo-editor { padding:18px 20px; border-top:1px solid var(--border,#bdd0c3); min-width:0; }
+.catalog-photo-editor [hidden] { display:none!important; }
+.catalog-photo-heading { margin-bottom:12px; font-size:14px; font-weight:600; color:var(--ink,#183c2a); }
+.catalog-photo-heading small { font-weight:400; font-size:12px; }
+.catalog-photo-editor .proof-label { display:none; }
+.catalog-photo-editor .payment-proof-widget { padding:0; margin:0; border:0; background:transparent; }
+.catalog-photo-current { display:flex; align-items:center; gap:16px; margin-bottom:16px; }
+.catalog-photo-current img { display:block; width:120px; height:90px; object-fit:contain; background:var(--surface-muted,#e4eee7); border-radius:8px; }
+.catalog-photo-current > div { display:grid; gap:8px; }
+.catalog-photo-current span { font-size:12px; color:var(--ink-muted,#63786b); }
+.catalog-photo-editor button.catalog-photo-remove { background:var(--danger-soft,#fbe8e6); color:var(--danger,#a53c33); border:0; border-radius:7px; padding:8px 10px; font:inherit; font-size:13px; cursor:pointer; }
+.catalog-photo-editor .catalog-photo-pending { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:10px; background:var(--surface-muted,#e4eee7); border-radius:8px; font-size:13px; }
+.catalog-photo-pending button { color:var(--ink,#183c2a); background:transparent; border:0; text-decoration:underline; text-underline-offset:3px; cursor:pointer; font:inherit; }
+.catalog-photo-caption { margin:10px 0 0; font-size:12px; line-height:1.6; color:var(--ink-muted,#63786b); }
+.catalog-photo { display:inline-flex; flex:none; align-items:center; justify-content:center; background:var(--surface-muted,#e4eee7); border-radius:8px; overflow:hidden; vertical-align:middle; }
+.catalog-photo img { display:block; width:100%; height:100%; object-fit:contain; }
+.catalog-photo--thumbnail { width:56px; height:44px; background:transparent; border-radius:0; }
+.catalog-photo--thumbnail img { background:transparent; border-radius:3px; }
+.catalog-photo.catalog-photo--thumbnail:is(:hover,:focus-visible) { background:transparent; }
+.catalog-name-with-photo { display:flex; align-items:center; gap:10px; min-width:0; }
+.catalog-name-with-photo > div { min-width:0; overflow-wrap:anywhere; }
+div.catalog-primary-cell:has(> .catalog-photo) { display:flex; align-items:center; gap:10px; }
+/* One cover frame for every package and catalog grid card. */
+.service-card-media {
+    display:grid;
+    grid-template:minmax(0,1fr) / minmax(0,1fr);
+    place-items:center;
+    width:100%;
+    aspect-ratio:16 / 9;
+    flex:none;
+    margin:0 0 4px;
+    border-radius:10px;
+    overflow:hidden;
+    background:#f9fbfa;
+}
+.catalog-photo--card {
+    width:100%;
+    height:100%;
+    border-radius:inherit;
+    background:transparent;
+}
+.catalog-photo--card img { object-fit:cover; object-position:center; }
+.catalog-photo.catalog-photo--card:is(:hover,:focus-visible) { background:transparent; }
+.catalog-photo.catalog-photo--card:focus-visible { outline-offset:-3px; }
+.service-card-media__empty { display:grid; justify-items:center; gap:10px; padding:16px; color:var(--ink-muted,#63786b); font-size:12px; }
+.service-card-media__empty > i { font-size:28px; opacity:.45; }
+.service-card-media__upload {
+    display:grid;
+    align-content:center;
+    justify-items:center;
+    gap:6px;
+    width:100%;
+    height:100%;
+    padding:12px;
+    border:0;
+    border-radius:inherit;
+    background:transparent;
+    color:var(--ink,#183c2a);
+    font:inherit;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+}
+.service-card-media__upload i { font-size:24px; }
+.service-card-media__upload small { font-size:12px; font-weight:400; color:var(--ink-muted,#63786b); }
+.service-card-media__upload:hover { background:var(--control-hover,var(--surface-muted,#e4eee7)); }
+.service-card-media__upload:focus-visible { outline:2px solid var(--brand,#448063); outline-offset:-3px; }
+html[data-theme=dark] .service-card-media { background:#13251b; }
+.catalog-photo--detail { display:flex; width:100%; height:220px; margin:18px 0; }
+.catalog-photo:is(:hover,:focus-visible) { background:var(--control-focus,#d3e5d9); }
+.catalog-photo:focus-visible { outline:2px solid var(--brand,#448063); outline-offset:3px; }
+.service-catalog-identity:has(.catalog-photo) > i { display:none; }
+html[data-theme=dark] .catalog-photo-editor button.catalog-photo-remove { background:#422b2b; color:#f3b0a8; }
+@media(prefers-reduced-motion:reduce) { .catalog-photo { transition:none; } }
+
+/* The quick photo form opens above the existing card or table. */
+.catalog-quick-photo__record { padding:16px 20px; }
+.catalog-quick-photo__record h2 { font-size:16px; font-weight:600; overflow-wrap:anywhere; }
+.catalog-quick-photo__record p { margin:4px 0 0; font-size:13px; color:var(--ink-muted,#63786b); }
+.catalog-quick-photo .catalog-photo-heading { display:none; }
+.catalog-quick-photo__actions {
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+    gap:8px;
+    padding:12px 20px;
+    border-top:1px solid var(--border,#bdd0c3);
+}
+.catalog-photo-dropzone {
+    display:grid;
+    justify-items:center;
+    gap:6px;
+    padding:16px;
+    border:1px dashed var(--border,#bdd0c3);
+    border-radius:8px;
+    background:var(--surface-muted,#e4eee7);
+    color:var(--ink,#183c2a);
+    font-size:13px;
+}
+.catalog-photo-dropzone i { font-size:20px; }
+.catalog-photo-dropzone:has([data-proof-received]:not([hidden])) {
+    padding:10px;
+    border-style:solid;
+}
+.catalog-photo-dropzone:has([data-proof-received]:not([hidden])) > :is(i,span) { display:none; }
+.payment-proof-widget .catalog-photo-dropzone [data-proof-received] {
+    width:100%;
+    min-width:0;
+    padding:0;
+    background:transparent;
+}
+.payment-proof-widget .catalog-photo-dropzone [data-proof-image] {
+    width:100%;
+    height:clamp(120px,24vh,200px);
+    border-radius:6px;
+}
+.catalog-photo-dropzone.is-drop-target { background:var(--control-focus,#d3e5d9); border-color:var(--brand,#448063); }
+[data-service-row].is-photo-drop-target { outline:2px dashed var(--brand,#448063); outline-offset:-2px; }

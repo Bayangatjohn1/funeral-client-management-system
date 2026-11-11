@@ -8,6 +8,26 @@ use Tests\DuskTestCase;
 
 class UserManagementVisualTest extends DuskTestCase
 {
+    public function test_user_status_dialog_opens_with_the_current_directory_action(): void
+    {
+        $admin = User::where('email', 'admin@funeral.test')->firstOrFail();
+        $staff = User::where('email', 'staff@funeral.test')->firstOrFail();
+        $staff->update(['is_active' => true]);
+
+        $this->browse(function (Browser $browser) use ($admin, $staff) {
+            $dialogId = 'user-status-'.$staff->id;
+            $browser->loginAs($admin)->visit('/admin/users')
+                ->waitFor('[data-record-results-page="users"]')
+                ->assertPresent('#'.$dialogId)
+                ->click('.directory-card-view [data-user-status-dialog="'.$dialogId.'"]')
+                ->waitFor('#'.$dialogId.'[open]')
+                ->assertSeeIn('#'.$dialogId.' h2', 'Deactivate user?')
+                ->assertPresent('#'.$dialogId.' form[data-user-status-form]')
+                ->assertAttribute('#'.$dialogId.' form', 'method', 'post')
+                ->assertPresent('#'.$dialogId.' input[name="_method"][value="PATCH"]');
+        });
+    }
+
     public function test_system_admin_filters_and_information_modal_work_in_both_themes(): void
     {
         $admin = User::where('email', 'admin@funeral.test')->firstOrFail();

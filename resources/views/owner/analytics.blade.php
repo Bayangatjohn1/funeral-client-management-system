@@ -20,21 +20,25 @@
     unset($baseQuery['range'], $baseQuery['date_from'], $baseQuery['date_to']);
 
     $dateRangeLinks = [
-        'TODAY' => route($analyticsRouteName, array_merge($baseQuery, ['range' => 'TODAY'])),
         'THIS_MONTH' => route($analyticsRouteName, array_merge($baseQuery, ['range' => 'THIS_MONTH'])),
+        'LAST_MONTH' => route($analyticsRouteName, array_merge($baseQuery, ['range' => 'LAST_MONTH'])),
+        'THIS_QUARTER' => route($analyticsRouteName, array_merge($baseQuery, ['range' => 'THIS_QUARTER'])),
+        'LAST_QUARTER' => route($analyticsRouteName, array_merge($baseQuery, ['range' => 'LAST_QUARTER'])),
         'THIS_YEAR' => route($analyticsRouteName, array_merge($baseQuery, ['range' => 'THIS_YEAR'])),
+        'LAST_YEAR' => route($analyticsRouteName, array_merge($baseQuery, ['range' => 'LAST_YEAR'])),
+        'ALL_DATES' => route($analyticsRouteName, array_merge($baseQuery, ['range' => 'ALL_DATES'])),
     ];
 
-    $clearCustomUrl = route($analyticsRouteName, array_merge($baseQuery, ['range' => 'THIS_YEAR']));
+    $clearCustomUrl = route($analyticsRouteName, array_merge($baseQuery, ['range' => 'THIS_MONTH']));
     $isCustomRange = $range === 'CUSTOM';
     $filterScopeLabel = $selectedBranch
         ? ($selectedBranch->branch_code . ' - ' . $selectedBranch->branch_name)
         : 'All Branches';
     $periodChipLabel = $isCustomRange ? 'CUSTOM RANGE' : str_replace('_', ' ', strtoupper($range));
-    $periodContextLabel = $isCustomRange
+    $periodContextLabel = $range === 'ALL_DATES' ? 'All Time' : ($isCustomRange
         ? (\Carbon\Carbon::parse($dateFrom)->format('M d, Y') . ' - ' . \Carbon\Carbon::parse($dateTo)->format('M d, Y'))
-        : ucwords(strtolower(str_replace('_', ' ', $range)));
-    $hasPageFilters = $branchId || $range !== 'TODAY' || $isCustomRange;
+        : ucwords(strtolower(str_replace('_', ' ', $range))));
+    $hasPageFilters = $branchId || $range !== 'THIS_MONTH' || $isCustomRange;
 
     $comparisonLabels = $chart['bar']['labels'] ?? [];
     $comparisonRevenue = $chart['bar']['revenue'] ?? [];
@@ -42,6 +46,8 @@
     $summaryPayload = [
         'totalSales' => (float) $totalSales,
         'totalCollected' => (float) $totalCollected,
+        'cohortCollected' => (float) $cohortCollected,
+        'collectionRate' => (float) $collectionRate,
         'totalOutstanding' => (float) $totalOutstanding,
         'status' => [
             'paid' => (int) $statusCounts['paid'],
@@ -55,9 +61,7 @@
         'code' => (string) $branch->branch_code,
         'name' => (string) $branch->branch_name,
     ])->all();
-    $overallCollectionRate = $totalSales > 0
-        ? (($totalCollected / $totalSales) * 100)
-        : 0;
+    $overallCollectionRate = (float) $collectionRate;
     $overallAvgRevenuePerCase = $totalCases > 0 ? ($totalSales / $totalCases) : 0;
     $periodLabels = $chart['period']['labels'] ?? [];
     $periodCases = $chart['period']['cases'] ?? [];
@@ -166,10 +170,10 @@
                 </div>
             </article>
             <article class="ra-kpi-card">
-                <div class="ra-kpi-content"><div class="ra-kpi-heading"><span>Collected</span><i class="bi bi-check-circle"></i></div>
+                <div class="ra-kpi-content"><div class="ra-kpi-heading"><span>Collections Received</span><i class="bi bi-check-circle"></i></div>
                     <strong>{{ $formatExactPeso($totalCollected) }}</strong>
                     <div class="ra-kpi-footer" aria-label="Collected amount actions">
-                        <small>{{ number_format($overallCollectionRate, 1) }}% collection rate</small>
+                        <small>Valid payments received in this period</small>
                         <button type="button" class="ra-kpi-action ba-kpi-jump" data-target="ba-panel-collection" aria-label="View collections analytics">
                             View Collections
                             <i class="bi bi-arrow-down-short" aria-hidden="true"></i>
@@ -178,10 +182,10 @@
                 </div>
             </article>
             <article class="ra-kpi-card ra-kpi-warning">
-                <div class="ra-kpi-content"><div class="ra-kpi-heading"><span>Remaining Balance</span><i class="bi bi-exclamation-circle"></i></div>
+                <div class="ra-kpi-content"><div class="ra-kpi-heading"><span>Current Outstanding</span><i class="bi bi-exclamation-circle"></i></div>
                     <strong>{{ $formatExactPeso($totalOutstanding) }}</strong>
                     <div class="ra-kpi-footer" aria-label="Remaining balance actions">
-                        <small>{{ number_format(max(0, 100 - $overallCollectionRate), 1) }}% remaining</small>
+                        <small>Present balance of the selected case cohort</small>
                         <button type="button" class="ra-kpi-action ba-kpi-jump" data-target="ba-panel-payment" aria-label="View payment status analytics">
                             View Status
                             <i class="bi bi-arrow-down-short" aria-hidden="true"></i>
@@ -351,7 +355,7 @@
                         @endforeach
                     </div>
                 </div>
-<details class="ba-compare-card ra-period-breakdown ba-summary-breakdown"><summary><span><i class="bi bi-table" aria-hidden="true"></i><strong>Payment Status Breakdown</strong><small>All payment statuses in the selected branch and date range.</small></span><i class="bi bi-chevron-down ra-period-chevron" aria-hidden="true"></i></summary><div class="ba-compare-table-wrap"><table class="ba-compare-table ra-period-table"><thead><tr><th>Payment Status</th><th>Cases</th><th>Total Service Value</th><th>Collected</th><th>Remaining Balance</th></tr></thead><tbody id="baPaymentBreakdown"></tbody></table></div></details>
+<details class="ba-compare-card ra-period-breakdown ba-summary-breakdown"><summary><span><i class="bi bi-table" aria-hidden="true"></i><strong>Payment Status Breakdown</strong><small>Current payment status for the selected request-date case cohort.</small></span><i class="bi bi-chevron-down ra-period-chevron" aria-hidden="true"></i></summary><div class="ba-compare-table-wrap"><table class="ba-compare-table ra-period-table"><thead><tr><th>Payment Status</th><th>Cases</th><th>Total Service Value</th><th>Collected to Date</th><th>Current Outstanding</th></tr></thead><tbody id="baPaymentBreakdown"></tbody></table></div></details>
             </article>
 
             <article class="ba-panel {{ $activeAnalyticsPanel === 'ba-panel-trend' ? 'active' : '' }}" id="ba-panel-trend" role="tabpanel" @if($activeAnalyticsPanel !== 'ba-panel-trend') hidden @endif>
@@ -404,7 +408,7 @@
                     <canvas id="collectionChart"></canvas>
                 </div>
 
-<details class="ba-compare-card ra-period-breakdown ba-summary-breakdown"><summary><span><i class="bi bi-table" aria-hidden="true"></i><strong>Collections Breakdown</strong><small>All periods in the selected branch and date range.</small></span><i class="bi bi-chevron-down ra-period-chevron" aria-hidden="true"></i></summary><p class="ba-breakdown-note">Collected and remaining balances, grouped by case recording date.</p><div class="ba-compare-table-wrap"><table class="ba-compare-table ra-period-table"><thead><tr><th>Case Recording Period</th><th>Cases</th><th>Collected</th><th>Remaining Balance</th><th>Collection Rate</th></tr></thead><tbody id="baCollectionInsightsBreakdown"></tbody></table></div></details>
+<details class="ba-compare-card ra-period-breakdown ba-summary-breakdown"><summary><span><i class="bi bi-table" aria-hidden="true"></i><strong>Collections Breakdown</strong><small>Period collections and present-day cohort balances.</small></span><i class="bi bi-chevron-down ra-period-chevron" aria-hidden="true"></i></summary><p class="ba-breakdown-note">Collections Received uses payment-received dates. Current Outstanding follows the request-date case cohort.</p><div class="ba-compare-table-wrap"><table class="ba-compare-table ra-period-table"><thead><tr><th>Reporting Period</th><th>Cases</th><th>Collections Received</th><th>Current Outstanding</th><th>Collection Rate</th></tr></thead><tbody id="baCollectionInsightsBreakdown"></tbody></table></div></details>
             </article>
         </div>
 
@@ -5384,12 +5388,7 @@ html[data-theme='dark'] body .ba-shell .ba-breakdown-summary small {
     }
 }
 
-html.ba-soft-loading .ba-shell {
-    cursor: progress;
-    opacity: 0.68;
-    pointer-events: none;
-    transition: opacity 0.16s ease;
-}
+html.ba-soft-loading .ba-shell { cursor: progress; }
 
 html body .ba-shell .ba-panels > .ba-panel[hidden],
 html body .ba-shell .ba-panels > .ba-panel:not(.active) {
@@ -5775,6 +5774,10 @@ window.SabanganAnalyticsSoftNav = window.SabanganAnalyticsSoftNav || (() => {
 
             event.preventDefault();
             event.stopImmediatePropagation();
+            if(select.id==='analyticsHeaderRange'&&select.value==='CUSTOM') {
+                window.openReportDatePicker(document.getElementById('analyticsCustomDateDialog'),select);
+                return;
+            }
             load(formUrl(form));
         }, true);
 
@@ -6311,7 +6314,7 @@ window.SabanganAnalyticsSoftNav.init();
         const collectionRows = buildCollectionInsightRows();
         renderInsightCards('baCollectionInsights', [
             {
-                label: 'Collected',
+                label: 'Collections Received',
                 value: money.format(collectionRows.collected),
                 note: `${collectionRows.collectionRate.toFixed(1)}% collection rate`,
                 tone: 'green',
@@ -6319,7 +6322,7 @@ window.SabanganAnalyticsSoftNav.init();
                 hint: 'Open records',
             },
             {
-                label: 'Remaining Balance',
+                label: 'Current Outstanding',
                 value: money.format(collectionRows.outstanding),
                 note: `${number.format(collectionRows.outstandingCases)} cases open`,
                 tone: collectionRows.outstanding > 0 ? 'amber' : 'green',
@@ -6581,7 +6584,7 @@ window.SabanganAnalyticsSoftNav.init();
         };
     const updateMasterRecordsLink = () => {
         const button=document.getElementById('baMasterRecordsBtn');
-        if(button) button.onclick=()=>{window.location.href=filteredReportUrl();};
+        if(button) button.onclick=()=>{const href=filteredReportUrl();if(!window.SabanganNavigate?.(href))window.location.href=href;};
     };
 
     const updateChartHighlights = () => {
@@ -7063,7 +7066,7 @@ const branchSummary = document.getElementById('baBranchSummary');
     };
 
     const billedTotal = summary.totalSales;
-    const collectionRate = billedTotal > 0 ? ((summary.totalCollected / billedTotal) * 100) : 0;
+    const collectionRate = Number(summary.collectionRate || 0);
     const doughnutPercentLabels = {
         id: 'doughnutPercentLabels',
         afterDatasetsDraw(chart) {
@@ -7279,14 +7282,14 @@ const branchSummary = document.getElementById('baBranchSummary');
             };
             const periodDatasets = [
                 {
-                    label: 'Collected',
+                    label: 'Collections Received',
                     data: periodCollectedAmounts,
                     backgroundColor: (ctx) => collectionPeriodColor(ctx, chartTheme.success, analyticsFilters.collectionStatus === 'OUTSTANDING'),
                     borderColor: (ctx) => collectionPeriodColor(ctx, chartTheme.success, analyticsFilters.collectionStatus === 'OUTSTANDING'),
                     borderRadius: 6,
                 },
                 {
-                    label: 'Remaining Balance',
+                    label: 'Current Outstanding',
                     data: periodOutstandingBalances,
                     backgroundColor: (ctx) => collectionPeriodColor(ctx, chartTheme.warning, analyticsFilters.collectionStatus === 'COLLECTED'),
                     borderColor: (ctx) => collectionPeriodColor(ctx, chartTheme.warning, analyticsFilters.collectionStatus === 'COLLECTED'),
@@ -7302,7 +7305,7 @@ const branchSummary = document.getElementById('baBranchSummary');
                         datasets: periodDatasets,
                     }
                     : {
-                        labels: ['Collected', 'Remaining Balance', 'Total Service Value'],
+                        labels: ['Collections Received', 'Current Outstanding', 'Total Service Value'],
                         datasets: [
                             {
                                 label: 'Amount',

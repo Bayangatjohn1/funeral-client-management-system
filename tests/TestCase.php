@@ -6,6 +6,38 @@ use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase
 {
+    /**
+     * Create a real, claimable proof upload for payment/intake feature tests.
+     *
+     * Tests that exercise a later payment rule must satisfy the same proof
+     * workflow as the browser instead of bypassing the production guard.
+     */
+    protected function uploadedPaymentProof(
+        \App\Models\User $user,
+        string $context = 'payment'
+    ): array {
+        $formId = (string) \Illuminate\Support\Str::uuid();
+        $proofId = $this->actingAs($user)
+            ->postJson(route('payment-proof.store'), [
+                'form_id' => $formId,
+                'context' => $context,
+            ])
+            ->assertOk()
+            ->json('id');
+
+        $this->postJson(route('payment-proof.upload', $proofId), [
+            'proof' => \Illuminate\Http\UploadedFile::fake()->createWithContent(
+                'receipt.pdf',
+                "%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF"
+            ),
+        ])->assertOk();
+
+        return [
+            'payment_proof_id' => $proofId,
+            'payment_proof_form_id' => $formId,
+        ];
+    }
+
     public function be(\Illuminate\Contracts\Auth\Authenticatable $user, $guard = null)
     {
         $this->withSession(['idle_last_activity' => now()->timestamp, 'idle_session_key' => 'test-session']);

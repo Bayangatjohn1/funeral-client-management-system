@@ -1,3 +1,4 @@
+@include('partials.directory_form_consistency')
 @php
     $returnTo = old('return_to', request('return_to', route('admin.users.index')));
     $hasSplitUserNames = \Illuminate\Support\Facades\Schema::hasColumn('users', 'first_name')
@@ -260,7 +261,7 @@
                 @if($hasSplitUserNames)
                 <div>
                     <label for="user_create_first_name" class="label-section">First Name <span class="text-rose-500">*</span></label>
-                    <input type="text" name="first_name" value="{{ old('first_name') }}" class="form-input" placeholder="Juan" autocomplete="off" autocapitalize="words" data-name-case required id="user_create_first_name">
+                    <input data-text-case="title-words" type="text" name="first_name" value="{{ old('first_name') }}" class="form-input" placeholder="Juan" autocomplete="off" autocapitalize="words" data-name-case required id="user_create_first_name" maxlength="100">
                     @error('first_name') <div class="form-error">{{ $message }}</div> @enderror
                     <div class="form-error hidden" data-field-error="first_name"></div>
                 </div>
@@ -268,7 +269,7 @@
                 @if($hasMiddleName)
                 <div>
                     <label for="user_create_middle_name" class="label-section">Middle Name (optional)</label>
-                    <input type="text" name="middle_name" value="{{ old('middle_name') }}" class="form-input" placeholder="Santos" autocomplete="off" autocapitalize="words" data-name-case id="user_create_middle_name">
+                    <input data-text-case="title-words" type="text" name="middle_name" value="{{ old('middle_name') }}" class="form-input" placeholder="Santos" autocomplete="off" autocapitalize="words" data-name-case id="user_create_middle_name" maxlength="100">
                     @error('middle_name') <div class="form-error">{{ $message }}</div> @enderror
                     <div class="form-error hidden" data-field-error="middle_name"></div>
                 </div>
@@ -276,7 +277,7 @@
 
                 <div>
                     <label for="user_create_last_name" class="label-section">Last Name <span class="text-rose-500">*</span></label>
-                    <input type="text" name="last_name" value="{{ old('last_name') }}" class="form-input" placeholder="Dela Cruz" autocomplete="off" autocapitalize="words" data-name-case required id="user_create_last_name">
+                    <input data-text-case="title-words" type="text" name="last_name" value="{{ old('last_name') }}" class="form-input" placeholder="Dela Cruz" autocomplete="off" autocapitalize="words" data-name-case required id="user_create_last_name" maxlength="100">
                     @error('last_name') <div class="form-error">{{ $message }}</div> @enderror
                     <div class="form-error hidden" data-field-error="last_name"></div>
                 </div>
@@ -296,7 +297,7 @@
                 @else
                 <div>
                     <label for="user_create_name" class="label-section">Name <span class="text-rose-500">*</span></label>
-                    <input type="text" name="name" value="{{ old('name') }}" class="form-input" placeholder="Juan Dela Cruz" autocapitalize="words" data-name-case required id="user_create_name">
+                    <input data-text-case="title-words" type="text" name="name" value="{{ old('name') }}" class="form-input" placeholder="Juan Dela Cruz" autocapitalize="words" data-name-case required id="user_create_name" maxlength="255">
                     @error('name') <div class="form-error">{{ $message }}</div> @enderror
                     <div class="form-error hidden" data-field-error="name"></div>
                 </div>
@@ -304,7 +305,7 @@
 
                 <div>
                     <label for="user_create_email" class="label-section">Email <span class="text-rose-500">*</span></label>
-                    <input type="email" name="email" value="{{ old('email') }}" class="form-input" placeholder="user@example.com" required autocomplete="off" id="user_create_email">
+                    <input type="email" name="email" value="{{ old('email') }}" class="form-input" placeholder="user@example.com" required autocomplete="off" id="user_create_email" maxlength="255">
                     @error('email') <div class="form-error">{{ $message }}</div> @enderror
                     <div class="form-error hidden" data-field-error="email"></div>
                 </div>
@@ -359,9 +360,9 @@
                 <input type="hidden" name="role" value="system_admin">
                 <p class="form-hint">Create a separate personal account with a different email. The account cannot access administration until its owner changes the temporary password and enables authenticator MFA.</p>
                 <details @if(old('privileged_for_user_id') || $errors->has('privileged_for_user_id')) open @endif><summary class="cursor-pointer font-semibold">Link existing account (optional)</summary><p class="form-hint mt-2">If this person already has a Staff or Branch Admin account, link it for reference. Both logins keep their own permissions.</p><div class="mt-3"><label for="regular_account" class="label-section">Existing account (optional)</label><select id="regular_account" name="privileged_for_user_id" class="form-select"><option value="">No linked account</option>@foreach($regularAccounts as $regularAccount)<option value="{{ $regularAccount->id }}" @selected((int) old('privileged_for_user_id') === $regularAccount->id)>{{ $regularAccount->name }} — {{ $regularAccount->email }}</option>@endforeach</select>@error('privileged_for_user_id')<div class="form-error">{{ $message }}</div>@enderror</div></details>
-                <div><label for="admin_reason" class="label-section">Reason for System Admin access *</label><textarea id="admin_reason" name="reason" class="form-input" required minlength="10" maxlength="500">{{ old('reason') }}</textarea></div>
-                <div><label for="admin_current_password" class="label-section">Your current password *</label><input type="password" id="admin_current_password" name="current_password" class="form-input" autocomplete="current-password" required></div>
-                <label class="flex items-start gap-2"><input type="checkbox" name="confirmed" value="1" required><span>I confirm this person requires system-wide administrative access.</span></label>
+                <div><label for="admin_reason" class="label-section">Reason for System Admin access *</label><textarea id="admin_reason" name="reason" class="form-input" required minlength="10" maxlength="500">{{ old('reason') }}</textarea><x-validation-error field="reason" /></div>
+                <div><label for="admin_current_password" class="label-section">Your current password *</label><input type="password" id="admin_current_password" name="current_password" class="form-input" autocomplete="current-password" required><x-validation-error field="current_password" /></div>
+                <label class="flex items-start gap-2"><input type="checkbox" name="confirmed" value="1" required><span>I confirm this person requires system-wide administrative access.</span></label><x-validation-error field="confirmed" />
             @elseif($isBranchAdmin)
                 <div class="grid gap-4 sm:grid-cols-2" aria-label="Assigned account access">
                     <div class="rounded-xl border border-[#B5C4AD] bg-[#F7FAF3] px-4 py-3">
@@ -436,13 +437,13 @@
 
                 <div>
                     <label for="user_create_contact_number" class="label-section">Contact Number (optional)</label>
-                    <input type="text" name="contact_number" value="{{ old('contact_number') }}" class="form-input" placeholder="+63 9XX XXX XXXX" id="user_create_contact_number">
+                    <input type="text" name="contact_number" value="{{ old('contact_number') }}" class="form-input" placeholder="+63 9XX XXX XXXX" id="user_create_contact_number" maxlength="50">
                     @error('contact_number') <div class="form-error">{{ $message }}</div> @enderror
                 </div>
 
                 <div>
                     <label for="user_create_address" class="label-section">Address (optional)</label>
-                    <input type="text" name="address" value="{{ old('address') }}" class="form-input" placeholder="House No., Street, Barangay, City" id="user_create_address">
+                    <input data-text-case="title-words" type="text" name="address" value="{{ old('address') }}" class="form-input" placeholder="House No., Street, Barangay, City" id="user_create_address" maxlength="255">
                     @error('address') <div class="form-error">{{ $message }}</div> @enderror
                 </div>
 
@@ -453,7 +454,7 @@
 
     <!-- FOOTER -->
     <div class="user-create-footer px-5 sm:px-8 py-5 border-t flex justify-end gap-3">
-        @if($inUserCreateModal ?? false)<button type="button" class="btn btn-outline" data-user-dialog-close>Cancel</button>@else<a href="{{ $cancelUrl }}" class="btn btn-outline">Cancel</a>@endif
+        @if($inUserCreateModal ?? false)<button type="button" class="btn btn-outline" data-user-dialog-close>Cancel</button>@else<a href="{{ $cancelUrl }}" class="btn btn-outline" data-record-form-cancel>Cancel</a>@endif
         <button class="btn btn-primary-custom text-white px-6">
             <i class="bi bi-save2"></i>
             {{ $selectedRole === 'system_admin' ? 'Create System Admin Account' : ($selectedRole === 'branch_admin' ? 'Create Branch Admin Account' : 'Create Staff Account') }}
@@ -671,9 +672,15 @@
                 if (input.required && !value) {
                     valid = false;
                     showFieldError(field, `${input.closest('div')?.querySelector('label')?.textContent.replace('*', '').trim() || 'Name'} is required.`);
-                } else if (value && (!hasLetter(value) || !isValidName(value))) {
+                } else if (value && /\d/.test(value)) {
                     valid = false;
-                    showFieldError(field, 'Name fields may only contain letters, spaces, hyphen, apostrophe, period, ñ, Ñ, and accented letters.');
+                    showFieldError(field, `${field === 'name' ? 'Name' : field.replace('_', ' ').replace(/^./, c => c.toUpperCase())} must not contain numbers.`);
+                } else if (value && !hasLetter(value)) {
+                    valid = false;
+                    showFieldError(field, `${field === 'name' ? 'Name' : field.replace('_', ' ').replace(/^./, c => c.toUpperCase())} must contain at least one letter.`);
+                } else if (value && !isValidName(value)) {
+                    valid = false;
+                    showFieldError(field, `${field === 'name' ? 'Name' : field.replace('_', ' ').replace(/^./, c => c.toUpperCase())} may only contain letters, spaces, hyphen, apostrophe, period, ñ, Ñ, and accented letters.`);
                 }
             });
 
@@ -692,9 +699,9 @@
             }
 
             const password = form.querySelector('[name="password"]');
-            if (password && password.value.length < 6) {
+            if (password && password.value.length < Number(password.minLength)) {
                 valid = false;
-                showFieldError('password', 'Password must be at least 6 characters.');
+                showFieldError('password', `Password must be at least ${password.minLength} characters.`);
             }
 
             if (branchSelect && roleSelect?.value !== 'system_admin' && !branchSelect.value) {

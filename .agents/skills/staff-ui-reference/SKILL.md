@@ -5,6 +5,10 @@ description: Adopt the existing staff visual and interaction patterns across Bra
 
 # Staff UI reference
 
+## Current UI decisions and maintenance
+
+For consistency with Service Management and the latest case-worklist revisions, read [funeral-system-ui-consistency](../funeral-system-ui-consistency/SKILL.md) and its [current decision ledger](../funeral-system-ui-consistency/references/current-ui-decisions.md). The latest explicit user request takes precedence over older patterns. Update the ledger and affected references in the same UI task whenever the user changes an established choice; replace obsolete guidance rather than accumulating contradictory rules. Record implementation and verification separately. Final visual states still awaiting QA must not become authoritative reuse standards merely because builds passed. This maintenance requirement does not authorize editing unrelated application pages or changing their features.
+
 ## Scope and preservation contract
 
 Treat the current staff pages as the visual and interaction reference, not the sample values in screenshots. Default to presentation-only adoption. A request to review or update this skill does not authorize application-page changes.

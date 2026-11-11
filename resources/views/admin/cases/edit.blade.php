@@ -288,7 +288,7 @@ html[data-theme='dark'] .ace-banner     { background: #2a0a0a; border-color: #7f
                 <div class="ace-field">
                     <label class="ace-label" for="ace_rel">Relationship to Deceased</label>
                     <input type="text" id="ace_rel" name="client_relationship"
-                        value="{{ old('client_relationship', $funeral_case->client?->relationship_to_deceased) }}"
+                        value="{{ old('client_relationship', $funeral_case->clientRelationship()) }}"
                         class="form-input w-full" maxlength="100" placeholder="e.g. Spouse, Parent, Child">
                     @error('client_relationship')<div class="ace-err"><i class="bi bi-exclamation-circle"></i> {{ $message }}</div>@enderror
                 </div>
@@ -477,6 +477,15 @@ html[data-theme='dark'] .ace-banner     { background: #2a0a0a; border-color: #7f
                         value="{{ old('interment_time', $funeral_case->interment_time ? substr($funeral_case->interment_time, 0, 5) : '') }}"
                         class="form-input w-full" @readonly($isPricingFinalized ?? false)>
                     @error('interment_time')<div class="ace-err"><i class="bi bi-exclamation-circle"></i> {{ $message }}</div>@enderror
+                </div>
+
+                <div class="ace-field ace-full">
+                    @include('partials.ceremony-location-fields', [
+                        'ceremonyLocationMode' => old('funeral_ceremony_location_mode', $funeral_case->ceremony_at_wake_location ? 'wake' : 'custom'),
+                        'ceremonyLocationValue' => old('funeral_ceremony_location', $funeral_case->funeral_ceremony_location),
+                        'ceremonyLocationLabelClass' => 'ace-label',
+                        'ceremonyLocationLocked' => $isPricingFinalized ?? false,
+                    ])
                 </div>
 
                 <div class="ace-field ace-full">

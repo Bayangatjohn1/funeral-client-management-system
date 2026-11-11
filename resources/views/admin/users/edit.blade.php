@@ -4,6 +4,7 @@
 @section('page_desc', 'Update this user account.')
 @section('hide_layout_topbar', '1')
 @section('content')
+@include('partials.directory_form_consistency')
 @include('partials.user_management_visual_styles')
 @if(session('success'))<div class="flash-success" role="status">{{ session('success') }}</div>@endif
 @php
@@ -206,7 +207,7 @@
                             @if($hasSplitUserNames)
                                 <div>
                                     <label for="user_edit_first_name" class="label-section">First Name <span class="text-rose-500">*</span></label>
-                                    <input type="text" id="user_edit_first_name" name="first_name" value="{{ old('first_name', $user->first_name ?: $fallbackFirstName) }}" class="form-input" placeholder="Juan" autocapitalize="words" data-name-case required>
+                                    <input data-text-case="title-words" type="text" id="user_edit_first_name" name="first_name" value="{{ old('first_name', $user->first_name ?: $fallbackFirstName) }}" class="form-input" placeholder="Juan" autocapitalize="words" data-name-case required maxlength="100">
                                     @error('first_name') <div class="form-error">{{ $message }}</div> @enderror
                                     <div class="form-error hidden" data-field-error="first_name"></div>
                                 </div>
@@ -214,7 +215,7 @@
                                 @if($hasMiddleName)
                                     <div>
                                         <label for="user_edit_middle_name" class="label-section">Middle Name</label>
-                                        <input type="text" id="user_edit_middle_name" name="middle_name" value="{{ old('middle_name', $user->middle_name) }}" class="form-input" placeholder="Santos" autocapitalize="words" data-name-case>
+                                        <input data-text-case="title-words" type="text" id="user_edit_middle_name" name="middle_name" value="{{ old('middle_name', $user->middle_name) }}" class="form-input" placeholder="Santos" autocapitalize="words" data-name-case maxlength="100">
                                         @error('middle_name') <div class="form-error">{{ $message }}</div> @enderror
                                         <div class="form-error hidden" data-field-error="middle_name"></div>
                                     </div>
@@ -222,7 +223,7 @@
 
                                 <div>
                                     <label for="user_edit_last_name" class="label-section">Last Name <span class="text-rose-500">*</span></label>
-                                    <input type="text" id="user_edit_last_name" name="last_name" value="{{ old('last_name', $user->last_name ?: $fallbackLastName) }}" class="form-input" placeholder="Dela Cruz" autocapitalize="words" data-name-case required>
+                                    <input data-text-case="title-words" type="text" id="user_edit_last_name" name="last_name" value="{{ old('last_name', $user->last_name ?: $fallbackLastName) }}" class="form-input" placeholder="Dela Cruz" autocapitalize="words" data-name-case required maxlength="100">
                                     @error('last_name') <div class="form-error">{{ $message }}</div> @enderror
                                     <div class="form-error hidden" data-field-error="last_name"></div>
                                 </div>
@@ -242,7 +243,7 @@
                             @else
                                 <div>
                                     <label for="user_edit_name" class="label-section">Name <span class="text-rose-500">*</span></label>
-                                    <input type="text" id="user_edit_name" name="name" value="{{ old('name', $user->name) }}" class="form-input" placeholder="Juan Dela Cruz" autocapitalize="words" data-name-case required>
+                                    <input data-text-case="title-words" type="text" id="user_edit_name" name="name" value="{{ old('name', $user->name) }}" class="form-input" placeholder="Juan Dela Cruz" autocapitalize="words" data-name-case required maxlength="255">
                                     @error('name') <div class="form-error">{{ $message }}</div> @enderror
                                     <div class="form-error hidden" data-field-error="name"></div>
                                 </div>
@@ -250,7 +251,7 @@
 
                             <div>
                                 <label for="user_edit_email" class="label-section">Email <span class="text-rose-500">*</span></label>
-                                <input type="email" id="user_edit_email" name="email" value="{{ old('email', $user->email) }}" class="form-input" placeholder="user@example.com" required>
+                                <input type="email" id="user_edit_email" name="email" value="{{ old('email', $user->email) }}" class="form-input" placeholder="user@example.com" required maxlength="255">
                                 @error('email') <div class="form-error">{{ $message }}</div> @enderror
                                 <div class="form-error hidden" data-field-error="email"></div>
                                 @if($isEditingSystemAdmin)<label for="edit_current_password" class="label-section mt-3">Your current password (required to change this email)</label><input id="edit_current_password" name="current_password" type="password" class="form-input" autocomplete="current-password">@error('current_password')<div class="form-error">{{ $message }}</div>@enderror @endif
@@ -335,14 +336,14 @@
                         <div class="grid gap-5 md:grid-cols-2">
                             <div id="contact_wrap">
                                 <label for="user_edit_contact_number" class="label-section">Contact Number</label>
-                                <input type="text" id="user_edit_contact_number" name="contact_number" value="{{ old('contact_number', $user->contact_number) }}" class="form-input" inputmode="tel" placeholder="+63 9XX XXX XXXX">
+                                <input type="text" id="user_edit_contact_number" name="contact_number" value="{{ old('contact_number', $user->contact_number) }}" class="form-input" inputmode="tel" placeholder="+63 9XX XXX XXXX" maxlength="50">
                                 @error('contact_number') <div class="form-error">{{ $message }}</div> @enderror
                                 <div class="form-error hidden" data-field-error="contact_number"></div>
                             </div>
 
                             <div id="address_wrap">
                                 <label for="user_edit_address" class="label-section">Address</label>
-                                <input type="text" id="user_edit_address" name="address" value="{{ old('address', $user->address) }}" class="form-input" placeholder="House No., Street, Barangay, City">
+                                <input data-text-case="title-words" type="text" id="user_edit_address" name="address" value="{{ old('address', $user->address) }}" class="form-input" placeholder="House No., Street, Barangay, City" maxlength="255">
                                 @error('address') <div class="form-error">{{ $message }}</div> @enderror
                                 <div class="form-error hidden" data-field-error="address"></div>
                             </div>
@@ -351,7 +352,7 @@
                 </div>
 
                 <div class="px-6 sm:px-8 py-5 border-t border-slate-200 flex justify-end gap-3 bg-slate-50">
-                    <a href="{{ $returnTo }}" class="btn btn-outline">Cancel</a>
+                    <a href="{{ $returnTo }}" class="btn btn-outline" data-record-form-cancel>Cancel</a>
                     <button type="submit" class="btn btn-primary-custom bg-[var(--brand-mid)] border-[var(--brand-mid)] hover:bg-[var(--brand-hover)] text-white px-6">
                         <i class="bi bi-save2"></i>
                         Save Changes
@@ -460,9 +461,15 @@
                 if (input.required && !value) {
                     valid = false;
                     showFieldError(field, `${input.closest('div')?.querySelector('label')?.textContent.replace('*', '').trim() || 'Name'} is required.`);
-                } else if (value && (!hasLetter(value) || !isValidName(value))) {
+                } else if (value && /\d/.test(value)) {
                     valid = false;
-                    showFieldError(field, 'Name fields may only contain letters, spaces, hyphen, apostrophe, period, enye, and accented letters.');
+                    showFieldError(field, `${field === 'name' ? 'Name' : field.replace('_', ' ').replace(/^./, c => c.toUpperCase())} must not contain numbers.`);
+                } else if (value && !hasLetter(value)) {
+                    valid = false;
+                    showFieldError(field, `${field === 'name' ? 'Name' : field.replace('_', ' ').replace(/^./, c => c.toUpperCase())} must contain at least one letter.`);
+                } else if (value && !isValidName(value)) {
+                    valid = false;
+                    showFieldError(field, `${field === 'name' ? 'Name' : field.replace('_', ' ').replace(/^./, c => c.toUpperCase())} may only contain letters, spaces, hyphen, apostrophe, period, ñ, Ñ, and accented letters.`);
                 }
             });
 

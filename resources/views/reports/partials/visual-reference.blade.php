@@ -129,28 +129,19 @@ html body :is(.ba-shell,.reports-page) .reports-reference-scope { display:flex; 
 html body :is(.ba-shell,.reports-page) :is(.reports-reference-branch,.reports-reference-lock) { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; font-size:12px; line-height:1.4; }
 html body :is(.ba-shell,.reports-page) .reports-reference-branch { background:#1B4332; color:white; border-radius:20px; font-weight:700; }
 html body :is(.ba-shell,.reports-page) .reports-reference-lock { background:var(--ra-muted); color:var(--ra-text); border:1px solid var(--ra-border); border-radius:6px; }
-html body .ba-shell .reports-reference-period { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-html body .ba-shell .reports-reference-date-label { display:inline-flex; align-items:center; gap:8px; font-size:14px; font-weight:700; color:var(--ra-text); }
 html body .ba-shell .reports-reference-native-period { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); pointer-events:none; }
 html body .ba-shell .reports-reference-date-pills { display:flex; gap:4px; padding:4px; border:1px solid var(--ra-border); border-radius:10px; background:var(--ra-muted); }
 html body .ba-shell .reports-reference-date-pills button { min-height:36px; padding:6px 12px; border:0; border-radius:7px; background:transparent !important; font:inherit; font-size:14px; font-weight:700; color:var(--ra-text) !important; cursor:pointer; }
 html body .ba-shell .reports-reference-date-pills button.is-active { background:#1B4332 !important; color:white !important; }
 html body .ba-shell .reports-module-controls { justify-content:space-between !important; }
-html body .ba-shell .reports-analytics-scope { display:grid; grid-template-columns:minmax(0,1fr) minmax(220px,300px); align-items:center; gap:10px 20px; }
-html body .ba-shell .reports-analytics-scope > .reports-reference-period { grid-column:1; grid-row:1; min-width:0; }
-html body .ba-shell .reports-analytics-scope > .reports-module-control-wrap { grid-column:2; grid-row:1; width:100%; }
-html body .ba-shell .reports-analytics-scope .is-branch { width:100%; min-width:0; max-width:none; }
-html body .ba-shell .reports-analytics-scope > .reports-reference-applied-dates { grid-column:1 / -1; }
-@media(max-width:767px) {
- html body .ba-shell .reports-analytics-scope { grid-template-columns:minmax(0,1fr); }
- html body .ba-shell .reports-analytics-scope > .reports-module-control-wrap { grid-column:1; grid-row:2; }
-}
 
 html body .reports-page .reports-filter-card > .reports-module-controls { padding:0 !important; border:0 !important; background:transparent !important; }
-html body .reports-page .reports-reference-config-actions { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:12px; padding-top:16px; border-top:1px solid var(--ra-border); }
+html body .reports-page .reports-reference-config-actions { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; column-gap:clamp(24px,3vw,48px); row-gap:12px; padding-top:16px; border-top:1px solid var(--ra-border); }
+html body .reports-page .reports-reference-config-actions > .reports-module-controls { flex:1 1 720px; min-width:0; }
+html body .reports-page .reports-reference-action-group { display:flex; align-items:center; justify-content:flex-end; flex:0 0 auto; gap:10px; margin-left:auto; }
 html body .reports-page .reports-filter-card > .reports-card-copy { margin:0; }
 html body .reports-page .reports-reference-config-actions .reports-btn { min-height:44px; }
-html body .reports-page .reports-filter-card > .reports-module-subtabs button { justify-content:flex-start !important; padding:16px !important; min-height:72px !important; }
+html body .reports-page .reports-filter-card > .reports-module-subtabs button { justify-content:center !important; padding:16px !important; min-height:72px !important; text-align:center !important; }
 html body .ba-shell .ba-workspace > .reports-module-subtabs { gap:0 !important; padding-bottom:0 !important; }
 html body .ba-shell .ba-workspace > .reports-module-subtabs .ba-tab-btn { flex:1; justify-content:flex-start; padding:14px 16px !important; }
 html body .ba-shell .ba-drilldown { margin-top:24px !important; }
@@ -161,13 +152,20 @@ html body :is(.ba-shell,.reports-page) button:focus-visible { outline:2px solid 
     html body :is(.ba-shell,.reports-page) .reports-reference-heading { align-items:flex-start; flex-direction:column; padding:20px; }
     html body :is(.ba-shell,.reports-page) .reports-reference-heading .reports-module-primary-tabs { align-self:flex-start; }
     html body .ba-shell .reports-reference-date-pills button { padding:6px 10px; }
-    html body .ba-shell .reports-reference-period { width:100%; }
     html body .ba-shell .ba-workspace > .reports-module-subtabs .ba-tab-btn { flex:0 0 auto; }
+    html body .reports-page .reports-reference-config-actions { align-items:stretch; }
+    html body .reports-page .reports-reference-config-actions > .reports-module-controls { flex-basis:100%; }
+    html body .reports-page .reports-reference-action-group { width:100%; padding-top:4px; }
+}
+@media(max-width:480px) {
+    html body .reports-page .reports-reference-action-group { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+    html body .reports-page .reports-reference-action-group > :is(.reports-btn,.reports-export-menu) { width:100%; min-width:0; }
+    html body .reports-page .reports-reference-action-group .reports-btn { width:100%; justify-content:center; }
 }
 html body .ba-shell .ba-workspace > .reports-module-subtabs .ba-tab-btn { min-height:44px !important; font-size:13px !important; padding:10px 14px !important; color:var(--ra-secondary) !important; }
 html body .ba-shell .ba-workspace > .reports-module-subtabs .ba-tab-btn.active { color:var(--ra-text) !important; font-weight:700 !important; }
 html body .ba-shell .ba-workspace > .reports-module-subtabs .ba-tab-btn.active::after { background:#24866D !important; height:3px !important; }
-html body .ba-shell .reports-reference-applied-dates { font-size:12px; color:var(--ra-secondary); }
+html body .ba-shell .reports-reference-applied-dates { min-width:0; padding:7px 10px; border-radius:8px; background:var(--ra-muted); font-size:13px; line-height:1.4; color:var(--ra-secondary); overflow-wrap:anywhere; }
 html body .ba-shell .reports-custom-date-dialog { width:min(460px,calc(100vw - 32px)); padding:0; color:var(--ra-text); background:var(--ra-surface); border:1px solid var(--ra-border); border-radius:16px; }
 html body .ba-shell .reports-custom-date-dialog::backdrop { background:rgba(15,23,42,.72); }
 html body .ba-shell .reports-custom-date-dialog :is(header,footer) { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 20px; }

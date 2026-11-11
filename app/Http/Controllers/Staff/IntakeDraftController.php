@@ -91,9 +91,18 @@ class IntakeDraftController extends Controller
             $editRouteParameters['return_to'] = $returnTo;
         }
 
-        return redirect()
-            ->route('intake.drafts.edit', $editRouteParameters)
-            ->with('success', 'Draft saved. You can resume it anytime from Intake Drafts.');
+        $response = $entryMode === 'main'
+            ? redirect()->route('funeral-cases.index', ['tab' => 'draft', 'record_scope' => 'main'])
+            : redirect()->route('intake.drafts.edit', $editRouteParameters);
+        $response->with('success', $entryMode === 'main'
+            ? 'Draft saved. You can resume it from the Draft tab.'
+            : 'Draft saved. You can resume it anytime from Intake Drafts.');
+
+        if ($entryMode === 'main' && $request->boolean('intake_modal')) {
+            return response()->view('staff.intake.modal-saved', ['destination' => $response->getTargetUrl()]);
+        }
+
+        return $response;
     }
 
     public function edit(Request $request, IntakeDraft $draft)

@@ -34,7 +34,7 @@
 
                 const documentFromResponse = new DOMParser().parseFromString(await response.text(), 'text/html');
                 const nextCard = documentFromResponse.querySelector(`${pageSelector} .table-system-card`);
-                if (!nextCard) throw new Error('Master Case Records was not found in the response.');
+                if (!nextCard) throw new Error('Case records were not found in the response.');
                 if (request.signal.aborted) return;
 
                 currentCard.replaceWith(nextCard);

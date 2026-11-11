@@ -1,10 +1,10 @@
 @php
     $analyticsTab = request('analytics_tab', 'ba-panel-performance');
     $analyticsViews = $analyticsViews ?? [
-        ['label' => '1. Overview (Performance & Branch Bar Chart)', 'icon' => 'bi-bar-chart-line', 'target' => 'ba-panel-performance'],
-        ['label' => '2. Payments (Payment Doughnut Chart)', 'icon' => 'bi-pie-chart', 'target' => 'ba-panel-payment'],
-        ['label' => '3. Collections (Snapshot & Period Bar Chart)', 'icon' => 'bi-credit-card', 'target' => 'ba-panel-collection'],
-        ['label' => '4. Service Value Trend (Line Chart & Pacing)', 'icon' => 'bi-graph-up-arrow', 'target' => 'ba-panel-trend'],
+        ['label' => 'Overview', 'icon' => 'bi-grid', 'target' => 'ba-panel-performance'],
+        ['label' => 'Payment Status', 'icon' => 'bi-pie-chart', 'target' => 'ba-panel-payment'],
+        ['label' => 'Payments', 'icon' => 'bi-wallet2', 'target' => 'ba-panel-collection'],
+        ['label' => 'Service Value', 'icon' => 'bi-graph-up-arrow', 'target' => 'ba-panel-trend'],
     ];
 @endphp
     <nav

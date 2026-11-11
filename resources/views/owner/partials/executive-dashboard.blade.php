@@ -11,9 +11,9 @@
         return route('reports.index', $params);
     };
     $cards = [
-        ['key'=>'cases','label'=>'Cases Recorded','icon'=>'file-earmark-text','basis'=>'Verified cases · recording date','money'=>false],
-        ['key'=>'service','label'=>'Total Service Value','icon'=>'cash-stack','basis'=>'Agreed value of these cases','money'=>true],
-        ['key'=>'collections','label'=>'Collections Received','icon'=>'wallet2','basis'=>'Valid receipts · payment date','money'=>true],
+        ['key'=>'cases','label'=>'Cases Recorded','icon'=>'file-earmark-text','basis'=>'Recorded in the selected period','money'=>false],
+        ['key'=>'service','label'=>'Total Service Value','icon'=>'cash-stack','basis'=>'Value of cases in the selected period','money'=>true],
+        ['key'=>'collections','label'=>'Payments Received','icon'=>'wallet2','basis'=>'Payments received in the selected period','money'=>true],
         ['key'=>'outstanding','label'=>'Current Outstanding','icon'=>'hourglass-split','basis'=>'Current balances · all dates','money'=>true],
     ];
 @endphp
@@ -42,16 +42,16 @@
             <div class="oe-kpi-top"><i class="bi bi-{{ $card['icon'] }}" aria-hidden="true"></i><div><span class="oe-kpi-label">{{ $card['label'] }}</span></div></div>
             <div class="oe-kpi-measure"><strong class="oe-kpi-value {{ $card['money'] ? 'oe-amount' : '' }}">{{ $card['money'] ? '₱' : '' }}{{ number_format($o['current'][$card['key']], $card['money'] ? 2 : 0) }}</strong>
             @if($card['key'] !== 'outstanding')
-                @if($range !== 'ALL_TIME' && $o['comparison'][$card['key']] !== null)<span class="oe-comparison {{ $o['comparison'][$card['key']] < 0 ? 'is-down' : 'is-up' }}"><i class="bi bi-{{ $o['comparison'][$card['key']] < 0 ? 'arrow-down-right' : 'arrow-up-right' }}" aria-hidden="true"></i> {{ $o['comparison'][$card['key']] > 0 ? '+' : '' }}{{ $o['comparison'][$card['key']] }}% vs previous comparable period</span>@endif
+                <span class="oe-comparison">{{ $card['basis'] }}</span>
             @else<span class="oe-comparison">{{ number_format($o['balanceCount']) }} cases with balance</span>@endif
             </div>
-            <a class="oe-kpi-action" href="{{ $reportUrl($card['key']) }}" aria-label="View {{ $card['label'] }} report"><span class="sr-only">{{ $card['key'] === 'collections' ? 'View Collection Report' : 'View Case Monitoring Report' }}</span></a>
+            <a class="oe-kpi-action" href="{{ $reportUrl($card['key']) }}" aria-label="View {{ $card['label'] }} report"><span class="sr-only">{{ $card['key'] === 'collections' ? 'View Payment Report' : 'View Case Monitoring Report' }}</span></a>
         </article>
         @endforeach
     </div>
     <section class="oe-card" aria-labelledby="owner-trend-title">
-        <div class="oe-section-head"><div><h2 id="owner-trend-title"><i class="bi bi-bar-chart-line oe-title-icon" aria-hidden="true"></i>Collections &amp; Case Volume Trends</h2><p>Collections by payment date. Case volume by recording date. Select a bar for a summary, then view its records.</p></div><div class="oe-segment" role="group" aria-label="Trend measure"><button type="button" data-trend="collections" aria-pressed="true">Collections Trend (₱)</button><button type="button" data-trend="cases" aria-pressed="false">Case Volume Trend</button></div></div>
-        @foreach(['collections'=>'Collections Received','cases'=>'Cases Recorded'] as $measure=>$title)
+        <div class="oe-section-head"><div><h2 id="owner-trend-title"><i class="bi bi-bar-chart-line oe-title-icon" aria-hidden="true"></i>Payments and Cases</h2><p>See payments received and cases recorded during the selected period. Select a bar to view its records.</p></div><div class="oe-segment" role="group" aria-label="Choose chart data"><button type="button" data-trend="collections" aria-pressed="true">Payments Received</button><button type="button" data-trend="cases" aria-pressed="false">Cases Recorded</button></div></div>
+        @foreach(['collections'=>'Payments Received','cases'=>'Cases Recorded'] as $measure=>$title)
         @php
             $points = collect($o['points']); $peak = max((float)$points->max($measure), 1);
             $stepBase = pow(10, floor(log10($peak / 4))); $rawStep = $peak / 4 / $stepBase;
@@ -63,11 +63,10 @@
             <div class="oe-trend-comparison">
                 <div><small>Current Period</small><strong class="{{ $measure==='collections'?'oe-amount':'' }}">{{ $measure==='collections'?'₱':'' }}{{ number_format($o['current'][$measure],$measure==='collections'?2:0) }}</strong><span>{{ $periodLabel }}</span></div>
                 <div><small>Previous Period</small><strong class="{{ $measure==='collections'?'oe-amount':'' }}">{{ $range==='ALL_TIME'?'Unavailable':($measure==='collections'?'₱':'').number_format($o['previous'][$measure],$measure==='collections'?2:0) }}</strong><span>{{ $range==='ALL_TIME'?'All-time view':$o['previousStart']->format('M d').' – '.$o['previousEnd']->format('M d, Y') }}</span></div>
-                <div><small>Change vs Previous Period</small><strong>{{ $range==='ALL_TIME' || $o['previous'][$measure]<=0?'Not available':($o['comparison'][$measure]>0?'+':'').$o['comparison'][$measure].'%' }}</strong><span>{{ $range==='ALL_TIME'?'Choose a reporting period to compare.':($o['previous'][$measure]<=0?($measure==='collections'?'No collections in previous period.':'No cases in previous period.'):'Compared with the previous period.') }}</span></div>
             </div>
-            <div class="oe-chart-legend"><span><i class="oe-legend-current" aria-hidden="true"></i>Current period</span>@if($range!=='ALL_TIME')<span><i class="oe-legend-previous" aria-hidden="true"></i>Previous comparable period</span><span data-comparison-status role="status">Loading comparison…</span>@endif</div>
+            <div class="oe-chart-legend"><span><i class="oe-legend-current" aria-hidden="true"></i>Current period</span>@if($range!=='ALL_TIME')<span><i class="oe-legend-previous" aria-hidden="true"></i>Previous period</span><span data-comparison-status role="status">Loading comparison…</span>@endif</div>
             @if($points->sum($measure)>0 || ($range!=='ALL_TIME' && $o['previous'][$measure]>0))
-            <div class="oe-chart-frame"><div class="oe-axis-title">{{ $measure==='collections'?'Collections Received (PHP)':'Number of Cases' }}</div><div class="oe-y-axis" aria-label="Y-axis scale">@for($tick=4;$tick>=0;$tick--)<span style="top:{{ (4-$tick)*25 }}%" class="{{ $measure==='collections'?'oe-amount':'' }}">{{ $measure==='collections'?'₱':'' }}{{ number_format($step*$tick,$measure==='collections' && $step<1?2:0) }}</span>@endfor</div>
+            <div class="oe-chart-frame"><div class="oe-axis-title">{{ $measure==='collections'?'Payments Received (PHP)':'Number of Cases' }}</div><div class="oe-y-axis" aria-label="Y-axis scale">@for($tick=4;$tick>=0;$tick--)<span style="top:{{ (4-$tick)*25 }}%" class="{{ $measure==='collections'?'oe-amount':'' }}">{{ $measure==='collections'?'₱':'' }}{{ number_format($step*$tick,$measure==='collections' && $step<1?2:0) }}</span>@endfor</div>
             <div class="oe-bar-scroll" tabindex="0" aria-label="{{ $title }} chart; scroll horizontally for more dates">
                 <div class="oe-bars" style="--bar-count:{{ $points->count() }}" role="group" aria-label="{{ $title }} by period">
                 @foreach($points as $point)

@@ -202,7 +202,8 @@ class ReminderService
                 foreach ($active as $earlier) {
                     $overlapEnd = $earlier['end']->lt($window['end']) ? $earlier['end'] : $window['end'];
                     $conflicts->push([
-                        'label' => 'Chapel double-booking',
+                        'label' => 'Chapel schedule conflict',
+                        'resource_kind' => 'chapel',
                         'resource' => $window['case']->wake_location ?: 'Chapel #'.$window['case']->chapel_catalog_id,
                         'cases' => [$earlier['case']->case_code => 'Wake', $window['case']->case_code => 'Wake'],
                         'date' => $window['start']->lt($now) ? $now : $window['start'],
@@ -226,7 +227,8 @@ class ReminderService
 
             $first = $casesAtStart->first();
             $conflicts->push([
-                'label' => 'Hearse double-booking',
+                'label' => 'Hearse schedule conflict',
+                'resource_kind' => 'hearse',
                 'resource' => $first['case']->hearse_name_snapshot ?: 'Hearse #'.$first['case']->hearse_catalog_id,
                 'cases' => $events->groupBy('case_code')->map(fn (Collection $caseEvents) => $caseEvents->pluck('label')->unique()->implode(' / '))->all(),
                 'date' => $first['date'],

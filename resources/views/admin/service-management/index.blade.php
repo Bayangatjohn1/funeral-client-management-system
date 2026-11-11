@@ -269,7 +269,7 @@
                     </div>
                 </form>
                 <div class="service-viewbar">
-                    @if($canManage)
+                    @if($canPrint)
                         <a class="service-print-action" href="{{ route('admin.service-management.print', array_merge(request()->only(['q','status','availability','package_status','promotion_status','sort']), ['tab'=>$activeTab,'scope'=>$hasServiceFilters ? 'filtered' : 'all'])) }}" target="_blank" rel="noopener"><i class="bi bi-printer" aria-hidden="true"></i> Print Preview</a>
                     @endif
                     <div class="service-view-toggle catalog-view-switch is-visible" data-service-view-toggle role="group" aria-label="{{ $activeTab === 'promotions' ? 'Promotion view' : 'Catalog view' }}">

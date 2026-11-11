@@ -58,7 +58,7 @@ html[data-theme] body.panel-shell-body.owner-ui .oe .oe-shared-select > i { colo
 .oe-clear-branch { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:50%; color:var(--ink); text-decoration:none; }
 .oe-clear-branch:hover { background:var(--owner-hover); }
 .oe-clear-branch:focus-visible { outline:2px solid var(--brand); outline-offset:2px; }
-.oe-trend-comparison { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0; margin:20px 20px 0; padding:18px 0; background:var(--surface); border:1px solid var(--border); border-radius:12px; }
+.oe-trend-comparison { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0; margin:20px 20px 0; padding:18px 0; background:var(--surface); border:1px solid var(--border); border-radius:12px; }
 .oe-trend-comparison > div { display:grid; grid-template-rows:auto 28px auto; align-content:start; gap:8px; padding:0 20px; }
 .oe-trend-comparison > div + div { border-left:1px solid var(--border); }
 .oe-trend-comparison :is(small,span) { font-size:12px; color:var(--ink-muted); }

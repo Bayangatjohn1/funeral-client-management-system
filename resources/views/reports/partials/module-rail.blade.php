@@ -3,9 +3,9 @@
     $quickStats = $quickStats ?? [];
     $analyticsViews = $analyticsViews ?? [
         ['label' => 'Overview', 'icon' => 'bi-bar-chart-line', 'target' => 'ba-panel-performance'],
-        ['label' => 'Payments', 'icon' => 'bi-wallet2', 'target' => 'ba-panel-payment'],
-        ['label' => 'Collections', 'icon' => 'bi-cash-stack', 'target' => 'ba-panel-collection'],
-        ['label' => 'Service Value Trend', 'icon' => 'bi-graph-up-arrow', 'target' => 'ba-panel-trend'],
+        ['label' => 'Payment Status', 'icon' => 'bi-pie-chart', 'target' => 'ba-panel-payment'],
+        ['label' => 'Payments', 'icon' => 'bi-wallet2', 'target' => 'ba-panel-collection'],
+        ['label' => 'Service Value', 'icon' => 'bi-graph-up-arrow', 'target' => 'ba-panel-trend'],
     ];
     $reportTypes = $reportTypes ?? [];
     $currentReportType = $currentReportType ?? request('report_type');

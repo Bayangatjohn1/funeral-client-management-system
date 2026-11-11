@@ -70,6 +70,9 @@
     {{-- Load the final title geometry before first paint. Keeping this at the
          end of <body> briefly exposed the legacy left-aligned header on reload. --}}
     @include('partials.page-title-surface')
+    {{-- Page-owned styles must be available before body paint. This prevents
+         destination pages from briefly exposing superseded inline layouts. --}}
+    @stack('page-styles')
     @if($worklistStylesInHead)
         @stack('worklist-styles')
         @include('partials.uniform_filter_styles')

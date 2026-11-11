@@ -45,7 +45,7 @@
     <section class="brochure-page">
         <header class="brochure-page-header">
             <div class="menu-brand"><img src="{{ asset('images/login-logo.png') }}" alt="Sabangan Caguioa logo" width="48" height="48"><div><strong>Sabangan Caguioa</strong><span>FUNERAL HOME</span></div></div>
-            <div class="menu-contact">@if($branch?->address)<span>{{ $branch->address }}</span>@endif<span>Prepared {{ $preparedAt->format('M d, Y') }}</span></div>
+            <div class="menu-contact">@if($branch)<strong>{{ $branch->branch_code }} · {{ $branch->branch_name }}</strong>@endif @if($branch?->address)<span>{{ $branch->address }}</span>@endif<span>Prepared {{ $preparedAt->format('M d, Y') }}</span></div>
             <div class="menu-document-heading"><div><span class="menu-eyebrow">A guide for you and your family</span><h2>{{ $title }}</h2><p>{{ $tab==='packages' ? 'Thoughtfully arranged services, with clear inclusions and choices.' : ($tab==='promotions' ? 'Current package offers and their terms.' : 'Explore the available choices for your selected service.') }}</p></div><svg class="menu-botanical" aria-hidden="true" viewBox="0 0 120 80"><path d="M10 75Q75 50 100 8M42 62Q10 40 20 15Q55 25 42 62M65 44Q40 15 54 5Q82 15 65 44M75 34Q110 40 116 20Q90 14 75 34M54 54Q95 70 103 47Q76 35 54 54"/></svg></div>
         </header>
         <div class="brochure-page-content {{ $tab==='packages' ? 'is-packages' : 'is-catalog' }}{{ $items->count()===1 ? ' is-single' : '' }}" data-page-content></div>

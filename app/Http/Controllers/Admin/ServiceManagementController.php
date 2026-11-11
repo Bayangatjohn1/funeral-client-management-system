@@ -47,7 +47,7 @@ class ServiceManagementController extends Controller
     public function index(Request $request, bool $printing = false)
     {
         $user = $request->user();
-        if ($printing) abort_unless($user?->isMainAdmin(), 403);
+        if ($printing) abort_unless($user?->isMainAdmin() || $user?->isBranchAdmin(), 403);
         $printOptions = $printing ? $request->validate([
             'scope' => ['nullable', 'in:all,filtered,selected'],
             'ids' => ['nullable', 'array', 'max:500'],
@@ -78,6 +78,7 @@ class ServiceManagementController extends Controller
         ]);
 
         $canManage = $user->isMainAdmin();
+        $canPrint = $canManage || $user->isBranchAdmin();
         $activeTab = $validated['tab'] ?? 'packages';
         $search = trim((string) ($validated['q'] ?? ''));
         $statusCatalogTab = in_array($activeTab, ['caskets', 'hearses', 'freebies', 'addons'], true);
@@ -279,6 +280,7 @@ class ServiceManagementController extends Controller
             'freebies' => $freebies,
             'hearses' => $hearses,
             'canManage' => $canManage,
+            'canPrint' => $canPrint,
             'activeTab' => $activeTab,
             'search' => $search,
             'status' => $status,

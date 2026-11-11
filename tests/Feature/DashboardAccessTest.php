@@ -83,6 +83,14 @@ class DashboardAccessTest extends TestCase
         $response->assertDontSee('Recent Cases');
         $response->assertDontSee('Reminders &amp; Alerts', false);
         $response->assertDontSee('bi-bell', false);
+        $response->assertSee('Payments and Cases');
+        $response->assertSee('Payments Received');
+        $response->assertSee('Cases Recorded');
+        $response->assertDontSee('Collections &amp; Case Volume Trends', false);
+        $response->assertDontSee('Collections Trend');
+        $response->assertDontSee('Case Volume Trend');
+        $response->assertDontSee('vs previous comparable period');
+        $response->assertDontSee('Change vs Previous Period');
     }
 
     public function test_system_admin_uses_administration_dashboard_and_branch_filter_cannot_change_role(): void

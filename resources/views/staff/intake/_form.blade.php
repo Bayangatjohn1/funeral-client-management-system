@@ -3870,10 +3870,18 @@
                                     @if($customDefaultCoverage === [])
                                         <p class="custom-defaults-notice" role="status">Ask the System Administrator to configure custom package included days and retrieval coverage.</p>
                                     @endif
+                                    @php
+                                        // A fresh custom arrangement must be an explicit selection. Preselecting every
+                                        // service silently made Casket, Hearse and coverage fields required before the
+                                        // user chose them. Old input and saved drafts still restore their selections.
+                                        $selectedCustomTypes = array_values(array_filter(
+                                            (array) $intakeValue('custom_service_types', []),
+                                            fn ($type) => is_string($type) && isset(\App\Models\Package::serviceTypeOptions()[$type])
+                                        ));
+                                    @endphp
                                     <div class="custom-package-service-grid" id="custom_service_choices" role="group" aria-label="Included services">
                                         @foreach([\App\Models\Package::SERVICE_BODY_RETRIEVAL, \App\Models\Package::SERVICE_EMBALMING, \App\Models\Package::SERVICE_CASKET, \App\Models\Package::SERVICE_HOME_VIEWING, \App\Models\Package::SERVICE_HEARSE] as $serviceType)
                                             @php
-                                                $selectedCustomTypes = (array) $intakeValue('custom_service_types', array_keys(\App\Models\Package::serviceTypeOptions()));
                                                 $coverageUnit = in_array($serviceType, [\App\Models\Package::SERVICE_BODY_RETRIEVAL, \App\Models\Package::SERVICE_HEARSE], true) ? 'km' : 'days';
                                             @endphp
                                             <div class="custom-package-service-card rounded-lg">

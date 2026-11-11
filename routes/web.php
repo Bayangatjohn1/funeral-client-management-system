@@ -665,7 +665,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->pref
 
 Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->prefix('admin')->group(function () {
     Route::get('/service-management', [ServiceManagementController::class, 'index'])->name('admin.service-management.index');
-    Route::get('/service-management/print', [ServiceManagementController::class, 'printPreview'])->middleware('main_admin')->name('admin.service-management.print');
+    Route::get('/service-management/print', [ServiceManagementController::class, 'printPreview'])->name('admin.service-management.print');
     Route::get('/service-management/photos/{type}/{id}', [\App\Http\Controllers\Admin\CatalogPhotoController::class, 'show'])->whereIn('type', array_keys(\App\Support\CatalogPhotos::TYPES))->whereNumber('id')->name('admin.catalog-photo');
     Route::get('/service-management/photos/{type}/{id}/edit', [\App\Http\Controllers\Admin\CatalogPhotoController::class, 'edit'])
         ->whereIn('type', array_keys(\App\Support\CatalogPhotos::TYPES))->whereNumber('id')->middleware('main_admin')->name('admin.catalog-photo.edit');

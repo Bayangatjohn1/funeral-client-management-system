@@ -123,7 +123,7 @@ class DailyOperationsQaTest extends DuskTestCase
 
         $owner = User::where('email', 'owner@funeral.test')->firstOrFail();
         foreach ([
-            ['/owner/branch-analytics', ['Branch Analytics', 'Overall Branch Analytics Summary']],
+            ['/owner/branch-analytics', ['Analytics overview', 'Understand performance at a glance']],
             ['/owner/case-history', ['Master Case Records', 'CASE-DEMO-001']],
             ['/reports?report_type=owner_branch_analytics', ['Reports & Analytics', 'Summary Metrics', 'Report Preview']],
         ] as [$path, $expectedText]) {

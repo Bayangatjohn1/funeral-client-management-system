@@ -1,7 +1,8 @@
 <x-guest-layout :security="true">
     @php($titles = ['setup' => 'Set up your authenticator', 'password' => 'Choose your personal password', 'recovery' => 'Save your recovery codes', 'challenge' => 'Verify your sign-in'])
+    @php($securityDashboardUrl = auth()->user()->isOwner() ? route('owner.dashboard') : url(auth()->user()->isStaff() ? '/staff' : '/admin'))
     <header class="account-security-header">
-        <span class="account-security-kicker"><i class="bi bi-shield-lock" aria-hidden="true"></i> {{ auth()->user()->isStaff() ? 'Staff' : (auth()->user()->isBranchAdmin() ? 'Branch Admin' : 'System Admin') }} account security</span>
+        <span class="account-security-kicker"><i class="bi bi-shield-lock" aria-hidden="true"></i> {{ auth()->user()->roleLabel() }} account security</span>
         <h1>{{ $titles[$mode] }}</h1>
         <p>{{ $mode === 'setup' ? 'Connect your authenticator, then enter a code to secure your account.' : ($mode === 'password' ? 'Replace your temporary password before continuing.' : ($mode === 'recovery' ? 'Keep these codes somewhere safe so you can recover access.' : 'Enter the code from your authenticator to continue.')) }}</p>
         <div class="account-security-account"><i class="bi bi-person" aria-hidden="true"></i><span>{{ auth()->user()->email }}</span></div>
@@ -13,7 +14,7 @@
         @else
             <p class="account-security-notice">Your recovery codes have already been displayed.</p>
         @endif
-        <a href="{{ auth()->user()->must_change_password ? route('security.password') : url(auth()->user()->isStaff() ? '/staff' : '/admin') }}" class="ui-button ui-button-primary account-security-submit">{{ auth()->user()->must_change_password ? 'Continue to password change' : 'Continue to dashboard' }} <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+        <a href="{{ auth()->user()->must_change_password ? route('security.password') : $securityDashboardUrl }}" class="ui-button ui-button-primary account-security-submit">{{ auth()->user()->must_change_password ? 'Continue to password change' : 'Continue to dashboard' }} <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
     @else
         <div class="account-security-content {{ $mode === 'setup' ? 'account-security-content--setup' : '' }}">
             @if($mode === 'setup')

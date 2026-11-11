@@ -14,7 +14,7 @@
     @if($detailTitle === 'Package Details')
     <div id="package-pricing-info" class="pkg-pricing-popover" popover><strong>How pricing works</strong><p>The base package price includes the configured package inclusions and included casket. The included casket reference value is not added separately. Applicable casket upgrades and excess charges follow the configured package pricing rules.</p></div>
     @endif
-    @if(auth()->user()?->isMainAdmin())
+    @if(auth()->user()?->isMainAdmin() || auth()->user()?->isBranchAdmin())
         @php
             $printRecord = match($detailTitle) { 'Package Details' => $package ?? null, 'Promotion Details' => $promotion ?? null, default => $catalog ?? null };
             $printTab = $detailTitle === 'Package Details' ? 'packages' : ($detailTitle === 'Promotion Details' ? 'promotions' : (isset($catalog) ? array_search($catalog::class, \App\Support\CatalogPhotos::TYPES, true) : null));

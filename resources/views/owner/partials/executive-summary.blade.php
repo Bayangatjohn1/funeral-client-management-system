@@ -2,7 +2,7 @@
     <p class="oe-summary-label">{{ match($kind) {
         'cases' => 'Cases Recorded',
         'service' => 'Total Service Value',
-        'collections' => 'Collections Received',
+        'collections' => 'Payments Received',
         default => 'Current Balance',
     } }}</p>
     <strong class="oe-summary-total {{ $kind === 'cases' ? '' : 'oe-amount' }}">{{ $kind === 'cases' ? number_format($recordCount) : '₱'.number_format($scopeAmount, 2) }}</strong>

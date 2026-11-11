@@ -396,7 +396,7 @@ class SystemRegressionGuardsTest extends TestCase
         $mainAdmin = $this->createUser('admin', $mainBranch);
         $package = $this->createPackage();
 
-        $response = $this->actingAs($mainAdmin)->post('/intake/other', $this->baseIntakePayload($otherBranch, $package, [
+        $response = $this->actingAs($mainAdmin)->post('/intake/other', array_merge($this->baseIntakePayload($otherBranch, $package, [
             'branch_id' => $otherBranch->id,
             'client_name' => 'External Client',
             'client_contact_number' => '09175550000',
@@ -412,7 +412,7 @@ class SystemRegressionGuardsTest extends TestCase
             'payment_type' => 'FULL',
             'paid_at' => now()->format('Y-m-d H:i:s'),
             'amount_paid' => 20000,
-        ]));
+        ]), $this->uploadedPaymentProof($mainAdmin, 'intake')));
 
         $response->assertRedirect(route('intake.saved', absolute: false));
         $this->assertDatabaseHas('funeral_cases', [
@@ -744,7 +744,7 @@ class SystemRegressionGuardsTest extends TestCase
         $this->actingAs($owner)->get('/owner/case-history?case_status=ACTIVE&sort=oldest&per_page=10&dashboard_range=THIS_MONTH')
             ->assertOk()->assertSeeInOrder(['OLD001', 'NEW001'])->assertDontSee('HIDDEN001')
             ->assertViewHas('cases', fn($cases) => $cases->perPage() === 10 && $cases->total() === 2)
-            ->assertSee('View Full Information for OLD001')->assertSee('dashboard_range=THIS_MONTH', false);
+            ->assertSee('aria-label="View case OLD001"', false)->assertSee('dashboard_range=THIS_MONTH', false);
         $this->actingAs($owner)->get('/owner/case-history?per_page=999')->assertSessionHasErrors('per_page');
     }
 
@@ -798,7 +798,7 @@ class SystemRegressionGuardsTest extends TestCase
         $staff = $this->createUser('staff', $mainBranch, true);
         $package = $this->createPackage();
 
-        $response = $this->actingAs($staff)->post('/intake/main', $this->baseIntakePayload($mainBranch, $package, [
+        $response = $this->actingAs($staff)->post('/intake/main', array_merge($this->baseIntakePayload($mainBranch, $package, [
             'client_name' => 'Partial Client',
             'submission_id' => '167266b7-3a41-4ca1-8616-3b88d933668d',
             'client_contact_number' => '09170002000',
@@ -810,7 +810,7 @@ class SystemRegressionGuardsTest extends TestCase
             'payment_type' => 'PARTIAL',
             'paid_at' => now()->format('Y-m-d H:i:s'),
             'amount_paid' => 5000,
-        ]));
+        ]), $this->uploadedPaymentProof($staff, 'intake')));
 
         $response->assertRedirect(route('intake.saved', absolute: false));
 
@@ -836,10 +836,10 @@ class SystemRegressionGuardsTest extends TestCase
         $branch = $this->createBranch('BR001', 'Main');
         $staff = $this->createUser('staff', $branch);
         $package = $this->createPackage();
-        $payload = $this->baseIntakePayload($branch, $package, [
+        $payload = array_merge($this->baseIntakePayload($branch, $package, [
             'submission_id' => (string) \Illuminate\Support\Str::uuid(), 'mark_as_paid' => 1,
             'payment_type' => 'PARTIAL', 'paid_at' => now()->format('Y-m-d H:i:s'), 'amount_paid' => 5000,
-        ]);
+        ]), $this->uploadedPaymentProof($staff, 'intake'));
         // Commit, then discard the response and all success-page session state.
         $this->actingAs($staff)->post('/intake/main', $payload)->assertSessionHasNoErrors();
         $case = FuneralCase::firstOrFail();
@@ -862,7 +862,7 @@ class SystemRegressionGuardsTest extends TestCase
         $staff = $this->createUser('staff', $mainBranch, true);
         $package = $this->createPackage();
 
-        $response = $this->actingAs($staff)->post('/intake/main', $this->baseIntakePayload($mainBranch, $package, [
+        $response = $this->actingAs($staff)->post('/intake/main', array_merge($this->baseIntakePayload($mainBranch, $package, [
             'client_name' => 'Spec Client',
             'client_relationship' => 'Spouse',
             'client_email' => 'spec@example.com',
@@ -878,7 +878,7 @@ class SystemRegressionGuardsTest extends TestCase
             'payment_type' => 'FULL',
             'paid_at' => now()->format('Y-m-d H:i:s'),
             'amount_paid' => 19000,
-        ]));
+        ]), $this->uploadedPaymentProof($staff, 'intake')));
 
         $response->assertRedirect(route('intake.saved', absolute: false));
 
@@ -935,7 +935,7 @@ class SystemRegressionGuardsTest extends TestCase
         $staff = $this->createUser('staff', $mainBranch, true);
         $package = $this->createPackage();
 
-        $response = $this->actingAs($staff)->post('/intake/main', $this->baseIntakePayload($mainBranch, $package, [
+        $response = $this->actingAs($staff)->post('/intake/main', array_merge($this->baseIntakePayload($mainBranch, $package, [
             'senior_citizen_status' => 0,
             'senior_citizen_id_number' => null,
             'pwd_status' => 1,
@@ -945,7 +945,7 @@ class SystemRegressionGuardsTest extends TestCase
             'payment_type' => 'FULL',
             'paid_at' => now()->format('Y-m-d H:i:s'),
             'amount_paid' => 21000,
-        ]));
+        ]), $this->uploadedPaymentProof($staff, 'intake')));
 
         $response->assertRedirect(route('intake.saved', absolute: false));
 
@@ -984,13 +984,15 @@ class SystemRegressionGuardsTest extends TestCase
             ->assertViewHas('autoOpenPayment', true);
 
         $this->actingAs($staff)
-            ->post('/payments/pay', [
+            ->post('/payments/pay', array_merge([
                 'funeral_case_id' => $case->id,
+                'submission_id' => (string) \Illuminate\Support\Str::uuid(),
                 'paid_at' => now()->format('Y-m-d H:i:s'),
                 'amount_paid' => 10000,
                 'payment_method' => 'cash',
+                'receipt_or_no' => 'OR-CASE-001',
                 'return_to_case' => 1,
-            ])
+            ], $this->uploadedPaymentProof($staff)))
             ->assertRedirect(route('funeral-cases.show', $case, absolute: false));
 
         $case->refresh();
@@ -1003,8 +1005,8 @@ class SystemRegressionGuardsTest extends TestCase
         $this->assertSame($case->id, $payment->funeral_case_id);
         $this->assertNotNull($payment->payment_record_no);
         $this->assertNotNull($payment->receipt_number);
-        $this->assertNull($payment->accounting_reference_no);
-        $this->assertNull($payment->receipt_or_no);
+        $this->assertSame('OR-CASE-001', $payment->accounting_reference_no);
+        $this->assertSame('OR-CASE-001', $payment->receipt_or_no);
         $this->assertNull($payment->received_by);
         $this->assertSame('PARTIAL', $payment->payment_status_after_payment);
         $this->assertEquals(5000.0, (float) $payment->balance_after_payment);
@@ -1024,14 +1026,19 @@ class SystemRegressionGuardsTest extends TestCase
             'total_amount' => 1000, 'total_paid' => 0, 'balance_amount' => 1000,
             'payment_status' => 'UNPAID', 'case_status' => 'ACTIVE',
         ]);
-        $request = ['submission_id' => (string) \Illuminate\Support\Str::uuid(), 'funeral_case_id' => $case->id,
-            'paid_at' => now()->format('Y-m-d H:i:s'), 'amount_paid' => 500, 'payment_method' => 'cash'];
+        $request = array_merge(['submission_id' => (string) \Illuminate\Support\Str::uuid(), 'funeral_case_id' => $case->id,
+            'paid_at' => now()->format('Y-m-d H:i:s'), 'amount_paid' => 500, 'payment_method' => 'cash'],
+            $this->uploadedPaymentProof($staff));
+        $this->actingAs($staff)->post('/payments/pay', $request)->assertSessionHasErrors('receipt_or_no');
+        $request['receipt_or_no'] = 'OR-RETRY-001';
         $this->actingAs($staff)->post('/payments/pay', $request)->assertSessionMissing('errors');
         $this->post('/payments/pay', $request)->assertSessionMissing('errors');
         $this->assertDatabaseCount('payments', 1);
         $this->assertSame(500.0, (float) $case->fresh()->balance_amount);
         $this->post('/payments/pay', array_replace($request, ['amount_paid' => 501]))->assertSessionHasErrors('submission_id');
         $request['submission_id'] = (string) \Illuminate\Support\Str::uuid();
+        $request['receipt_or_no'] = 'OR-RETRY-002';
+        $request = array_replace($request, $this->uploadedPaymentProof($staff));
         $this->post('/payments/pay', $request)->assertSessionMissing('errors');
         $this->post('/payments/pay', $request)->assertSessionMissing('errors');
         $this->assertDatabaseCount('payments', 2);
@@ -1039,6 +1046,7 @@ class SystemRegressionGuardsTest extends TestCase
         $this->assertSame(1000.0, (float) $case->fresh()->total_paid);
         $this->assertSame(0.0, (float) $case->fresh()->balance_amount);
         $request['submission_id'] = (string) \Illuminate\Support\Str::uuid();
+        $request = array_replace($request, $this->uploadedPaymentProof($staff));
         $this->post('/payments/pay', $request)->assertSessionHasErrors('payment');
         $this->assertDatabaseCount('payments', 2);
     }
@@ -1101,8 +1109,9 @@ class SystemRegressionGuardsTest extends TestCase
             'case_status' => 'ACTIVE',
         ]);
 
-        $this->actingAs($staff)->post('/payments/pay', [
+        $this->actingAs($staff)->post('/payments/pay', array_merge([
             'funeral_case_id' => $case->id,
+            'submission_id' => (string) \Illuminate\Support\Str::uuid(),
             'paid_at' => now()->format('Y-m-d H:i:s'),
             'amount_paid' => 5000,
             'payment_method' => 'cashless',
@@ -1111,7 +1120,7 @@ class SystemRegressionGuardsTest extends TestCase
             'reference_number' => 'TXN-001',
             'receipt_or_no' => 'OR-CASHLESS-001',
             'received_by' => 'Accounting Staff',
-        ])->assertRedirect('/payments');
+        ], $this->uploadedPaymentProof($staff)))->assertRedirect('/payments');
 
         $this->assertDatabaseHas('payments', [
             'funeral_case_id' => $case->id,
@@ -1141,8 +1150,9 @@ class SystemRegressionGuardsTest extends TestCase
             'payment_status' => 'UNPAID',
             'case_status' => 'ACTIVE',
         ]);
+        $proof = $this->uploadedPaymentProof($staff);
 
-        $this->actingAs($staff)->from('/payments')->post('/payments/pay', [
+        $this->actingAs($staff)->from('/payments')->post('/payments/pay', array_merge([
             'funeral_case_id' => $case->id,
             'paid_at' => now()->format('Y-m-d H:i:s'),
             'amount_paid' => 2500,
@@ -1150,10 +1160,10 @@ class SystemRegressionGuardsTest extends TestCase
             'cashless_type' => 'gcash',
             'accounting_reference_no' => 'OR-GCASH-001',
             'received_by' => 'Accounting Staff',
-        ])->assertRedirect('/payments')
+        ], $proof))->assertRedirect('/payments')
             ->assertSessionHasErrors('reference_number');
 
-        $this->actingAs($staff)->post('/payments/pay', [
+        $this->actingAs($staff)->post('/payments/pay', array_merge([
             'funeral_case_id' => $case->id,
             'paid_at' => now()->format('Y-m-d H:i:s'),
             'amount_paid' => 2500,
@@ -1162,7 +1172,7 @@ class SystemRegressionGuardsTest extends TestCase
             'reference_number' => '1234567890123',
             'accounting_reference_no' => 'OR-GCASH-002',
             'received_by' => 'Accounting Staff',
-        ])->assertRedirect('/payments');
+        ], $proof))->assertRedirect('/payments');
 
         $this->assertDatabaseHas('payments', [
             'funeral_case_id' => $case->id,
@@ -1189,7 +1199,7 @@ class SystemRegressionGuardsTest extends TestCase
             'case_status' => 'ACTIVE',
         ]);
 
-        $this->actingAs($staff)->from('/payments')->post('/payments/pay', [
+        $this->actingAs($staff)->from('/payments')->post('/payments/pay', array_merge([
             'funeral_case_id' => $case->id,
             'paid_at' => now()->format('Y-m-d H:i:s'),
             'amount_paid' => 5000,
@@ -1199,7 +1209,7 @@ class SystemRegressionGuardsTest extends TestCase
             'reference_number' => 'TXN-OTHER-001',
             'accounting_reference_no' => 'OR-OTHERBANK-001',
             'received_by' => 'Accounting Staff',
-        ])->assertRedirect('/payments')
+        ], $this->uploadedPaymentProof($staff)))->assertRedirect('/payments')
             ->assertSessionHasErrors('other_bank_name');
     }
 
@@ -1219,14 +1229,14 @@ class SystemRegressionGuardsTest extends TestCase
             'case_status' => 'ACTIVE',
         ]);
 
-        $basePayload = [
+        $basePayload = array_merge([
             'funeral_case_id' => $case->id,
             'paid_at' => now()->format('Y-m-d H:i:s'),
             'amount_paid' => 1000,
             'payment_method' => 'cashless',
             'accounting_reference_no' => 'OR-CARD-001',
             'received_by' => 'Accounting Staff',
-        ];
+        ], $this->uploadedPaymentProof($staff));
 
         $this->actingAs($staff)->from('/payments')->post('/payments/pay', array_merge($basePayload, [
             'cashless_type' => 'card',
@@ -1257,14 +1267,14 @@ class SystemRegressionGuardsTest extends TestCase
             'created_at' => now()->subDay(),
         ]);
 
-        $basePayload = [
+        $basePayload = array_merge([
             'funeral_case_id' => $case->id,
             'paid_at' => now()->format('Y-m-d H:i:s'),
             'amount_paid' => '1000.00',
             'payment_method' => 'cash',
             'accounting_reference_no' => 'OR-STRICT-001',
             'received_by' => 'Accounting Staff',
-        ];
+        ], $this->uploadedPaymentProof($staff));
 
         foreach ([
             ['amount_paid' => 'abc', 'error' => 'amount_paid'],
@@ -1324,8 +1334,9 @@ class SystemRegressionGuardsTest extends TestCase
             'case_status' => 'ACTIVE',
         ]);
 
-        $this->actingAs($staff)->post('/payments/pay', [
+        $this->actingAs($staff)->post('/payments/pay', array_merge([
             'funeral_case_id' => $case->id,
+            'submission_id' => (string) \Illuminate\Support\Str::uuid(),
             'paid_at' => now()->format('Y-m-d H:i:s'),
             'amount_paid' => '1000.50',
             'payment_method' => 'cashless',
@@ -1335,7 +1346,7 @@ class SystemRegressionGuardsTest extends TestCase
             'mobile_number' => '+639171234567',
             'accounting_reference_no' => 'OR-VALID-001',
             'received_by' => 'Accounting Staff',
-        ])->assertRedirect('/payments');
+        ], $this->uploadedPaymentProof($staff)))->assertRedirect('/payments');
 
         $this->assertDatabaseHas('payments', [
             'funeral_case_id' => $case->id,
@@ -1345,8 +1356,9 @@ class SystemRegressionGuardsTest extends TestCase
             'amount' => 1000.50,
         ]);
 
-        $this->actingAs($staff)->post('/payments/pay', [
+        $this->actingAs($staff)->post('/payments/pay', array_merge([
             'funeral_case_id' => $case->id,
+            'submission_id' => (string) \Illuminate\Support\Str::uuid(),
             'paid_at' => now()->format('Y-m-d H:i:s'),
             'amount_paid' => '500.00',
             'payment_method' => 'cashless',
@@ -1356,7 +1368,7 @@ class SystemRegressionGuardsTest extends TestCase
             'terminal_provider' => 'Terminal 1',
             'accounting_reference_no' => 'OR-VALID-002',
             'received_by' => 'Accounting Staff',
-        ])->assertRedirect('/payments');
+        ], $this->uploadedPaymentProof($staff)))->assertRedirect('/payments');
 
         $this->assertDatabaseHas('payments', [
             'funeral_case_id' => $case->id,
@@ -1367,7 +1379,7 @@ class SystemRegressionGuardsTest extends TestCase
         ]);
     }
 
-    public function test_receipt_number_can_be_added_later_and_cannot_duplicate_within_branch(): void
+    public function test_cash_receipt_number_is_required_and_cannot_duplicate_within_branch(): void
     {
         $mainBranch = $this->createBranch('BR001', 'Main Branch');
         $staff = $this->createUser('staff', $mainBranch, true);
@@ -1392,35 +1404,22 @@ class SystemRegressionGuardsTest extends TestCase
 
         $this->actingAs($staff)->post('/payments/pay', array_merge($basePayload, [
             'receipt_or_no' => 'OR-2026-1001',
-        ]))->assertRedirect('/payments');
+        ], $this->uploadedPaymentProof($staff)))->assertRedirect('/payments');
+
+        $basePayload = array_merge($basePayload, $this->uploadedPaymentProof($staff));
 
         $this->actingAs($staff)->from('/payments/history')->post('/payments/pay', array_merge($basePayload, [
             'receipt_or_no' => 'OR-2026-1001',
         ]))->assertRedirect('/payments/history')
             ->assertSessionHasErrors('receipt_or_no');
 
-        $this->actingAs($staff)->post('/payments/pay', $basePayload)->assertRedirect('/payments');
-        $paymentWithoutReceipt = Payment::query()->latest('id')->firstOrFail();
-
         $this->actingAs($staff)
             ->from('/payments/history')
-            ->patch(route('payments.receipt.update', $paymentWithoutReceipt, absolute: false), [
-                'receipt_or_no' => 'OR-2026-1001',
-            ])
+            ->post('/payments/pay', $basePayload)
             ->assertRedirect('/payments/history')
             ->assertSessionHasErrors('receipt_or_no');
 
-        $this->actingAs($staff)
-            ->patch(route('payments.receipt.update', $paymentWithoutReceipt, absolute: false), [
-                'receipt_or_no' => 'OR-2026-1002',
-            ])
-            ->assertSessionHasNoErrors();
-
-        $this->assertDatabaseHas('payments', [
-            'id' => $paymentWithoutReceipt->id,
-            'receipt_or_no' => 'OR-2026-1002',
-            'accounting_reference_no' => 'OR-2026-1002',
-        ]);
+        $this->assertDatabaseCount('payments', 1);
     }
 
     public function test_other_branch_case_details_do_not_offer_add_payment_action(): void
@@ -1627,6 +1626,7 @@ class SystemRegressionGuardsTest extends TestCase
             'pwd_status' => 0,
             'pwd_id_number' => null,
             'payment_method' => !empty($overrides['mark_as_paid']) ? 'cash' : 'none',
+            'receipt_or_no' => !empty($overrides['mark_as_paid']) ? 'OR-INTAKE-TEST' : null,
         ], $overrides);
     }
 }

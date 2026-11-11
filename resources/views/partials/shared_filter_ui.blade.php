@@ -23,10 +23,15 @@ body.case-date-open .panel-scroll-top { display:none !important; }
 .filter-select-menu__item:not([aria-selected='true']) .filter-select-menu__check { visibility:hidden; }
 /* Presentation only: existing filter controls keep their original events and values. */
 body.panel-shell-body {
+    --reference-action-bg:#A9C9B5; --reference-action-hover:#92B89F; --reference-action-text:#123524;
+    --record-row-hover:#E1EEE6;
+    --record-status-active:#166534; --record-status-completed:#667085; --record-status-draft:#92400E;
     --filter-ui-surface:#D0E2D6; --filter-ui-menu:#F4F8F5; --filter-ui-border:#AEC7B7;
     --filter-ui-text:#081D13; --filter-ui-muted:#1B3E2E; --filter-ui-focus:#1B4332;
 }
 html[data-theme='dark'] body.panel-shell-body {
+    --record-row-hover:#2D4838;
+    --record-status-active:#4ADE80; --record-status-completed:#98A2B3; --record-status-draft:#FBBF24;
     --filter-ui-surface:#14261D; --filter-ui-menu:#112218; --filter-ui-border:#29523D;
     --filter-ui-text:#F8FAFC; --filter-ui-muted:#94A3B8; --filter-ui-focus:#34D399;
 }
@@ -50,23 +55,34 @@ html[data-theme='dark'] body.panel-shell-body .page-content .filter-clear-action
 html[data-theme='dark'] body.panel-shell-body .page-content .filter-clear-action:hover {
     border-color:#C79B55 !important; background:#493923 !important; color:#FFF0CF !important;
 }
-/* These two modules have highly specific legacy button rules; keep the shared
-   filter-clear semantics at the component boundary without altering other buttons. */
-html[data-theme] body.panel-shell-body .page-content .payment-monitoring-page .pm-actions > .pm-btn.filter-clear-action[data-pm-clear-filters],
-html[data-theme] body.panel-shell-body .page-content .service-reference .service-filter-actions .table-toolbar-reset-wrap > .btn.filter-clear-action[data-service-reset] {
+/* Preserve the remaining legacy Payment variant without affecting the current
+   consistent Payment page or the current Service catalog reset. */
+html[data-theme] body.panel-shell-body .page-content .payment-monitoring-page:not(.pm-consistent-ui) .pm-actions > .pm-btn.filter-clear-action[data-pm-clear-filters] {
     border-color:#C79B55 !important; background:#F6E8CC !important; color:#704514 !important;
 }
-html[data-theme] body.panel-shell-body .page-content .payment-monitoring-page .pm-actions > .pm-btn.filter-clear-action[data-pm-clear-filters]:hover,
-html[data-theme] body.panel-shell-body .page-content .service-reference .service-filter-actions .table-toolbar-reset-wrap > .btn.filter-clear-action[data-service-reset]:hover {
+html[data-theme] body.panel-shell-body .page-content .payment-monitoring-page:not(.pm-consistent-ui) .pm-actions > .pm-btn.filter-clear-action[data-pm-clear-filters]:hover {
     border-color:#A9762E !important; background:#EFDDBB !important; color:#56330C !important;
 }
-html[data-theme='dark'] body.panel-shell-body .page-content .payment-monitoring-page .pm-actions > .pm-btn.filter-clear-action[data-pm-clear-filters],
-html[data-theme='dark'] body.panel-shell-body .page-content .service-reference .service-filter-actions .table-toolbar-reset-wrap > .btn.filter-clear-action[data-service-reset] {
+html[data-theme='dark'] body.panel-shell-body .page-content .payment-monitoring-page:not(.pm-consistent-ui) .pm-actions > .pm-btn.filter-clear-action[data-pm-clear-filters] {
     border-color:#9B7844 !important; background:#382C1D !important; color:#F4D9A4 !important;
 }
-html[data-theme='dark'] body.panel-shell-body .page-content .payment-monitoring-page .pm-actions > .pm-btn.filter-clear-action[data-pm-clear-filters]:hover,
-html[data-theme='dark'] body.panel-shell-body .page-content .service-reference .service-filter-actions .table-toolbar-reset-wrap > .btn.filter-clear-action[data-service-reset]:hover {
+html[data-theme='dark'] body.panel-shell-body .page-content .payment-monitoring-page:not(.pm-consistent-ui) .pm-actions > .pm-btn.filter-clear-action[data-pm-clear-filters]:hover {
     border-color:#C79B55 !important; background:#493923 !important; color:#FFF0CF !important;
+}
+/* Service's no-script reset follows the current catalog Clear filters action.
+   The enhanced toolbar hides it and renders the same presentation in the chip row. */
+html[data-theme] body.panel-shell-body .page-content .service-reference .service-filter-actions .table-toolbar-reset-wrap > .btn.filter-clear-action[data-service-reset] {
+    min-height:36px; padding:0 10px; border:1px solid transparent !important; border-radius:6px;
+    background:transparent !important; color:#B42318 !important; font-size:14px; font-weight:400;
+    box-shadow:none !important; transform:none !important;
+}
+html[data-theme] body.panel-shell-body .page-content .service-reference .service-filter-actions .table-toolbar-reset-wrap > .btn.filter-clear-action[data-service-reset]:is(:hover,:focus-visible) {
+    border-color:color-mix(in srgb,#B42318 35%,transparent) !important;
+    background:transparent !important; color:#B42318 !important; outline:none !important;
+}
+html[data-theme='dark'] body.panel-shell-body .page-content .service-reference .service-filter-actions .table-toolbar-reset-wrap > .btn.filter-clear-action[data-service-reset] { color:#FDA29B !important; }
+html[data-theme='dark'] body.panel-shell-body .page-content .service-reference .service-filter-actions .table-toolbar-reset-wrap > .btn.filter-clear-action[data-service-reset]:is(:hover,:focus-visible) {
+    border-color:color-mix(in srgb,#FDA29B 35%,transparent) !important; color:#FDA29B !important;
 }
 html[data-theme] body.panel-shell-body .page-content .filter-clear-action[hidden] { display:none !important; }
 html[data-theme] body.panel-shell-body .page-content :is(form[method='get' i],[data-table-toolbar],.case-record-filters,.reports-module-controls,.reports-filter-card,.ba-workspace-filters,.owner-history-filter-panel,.rp-header-filters) {
@@ -106,4 +122,81 @@ html[data-theme] body.panel-shell-body .page-content :is(form[method='get' i],[d
 html[data-theme] body.panel-shell-body .page-content :is(.table-toolbar-select-wrap,.pm-field,.case-compact-branch) :is(.table-toolbar-select-icon,.pm-sel-chev,.case-compact-select-chev) { transition:rotate .18s ease; }
 html[data-theme] body.panel-shell-body .page-content :is(.table-toolbar-select-wrap,.pm-field,.case-compact-branch):has(> select:open) :is(.table-toolbar-select-icon,.pm-sel-chev,.case-compact-select-chev) { rotate:180deg; }
 @media(prefers-reduced-motion:reduce) { html[data-theme] body.panel-shell-body .page-content :is(.table-toolbar-select-icon,.pm-sel-chev,.case-compact-select-chev) { transition:none; } }
+</style>
+
+<style>
+/* Service Management page-action palette, shared without relocating controls. */
+html[data-theme] body.panel-shell-body :is(.panel-page-header, .page-content, .topbar) .reference-page-action {
+    background:var(--reference-action-bg) !important; color:var(--reference-action-text) !important; border-color:var(--reference-action-bg) !important;
+    box-shadow:none !important; transform:none !important; transition:none !important;
+}
+html[data-theme] body.panel-shell-body :is(.panel-page-header, .page-content, .topbar) .reference-page-action:is(:hover,:active,:focus-visible),
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .service-management-hub .service-section-intro .reference-page-action:is(:hover,:active,:focus-visible) {
+    background:var(--reference-action-hover) !important; color:var(--reference-action-text) !important; border-color:var(--reference-action-hover) !important;
+    box-shadow:none !important; transform:none !important;
+}
+html[data-theme] body.panel-shell-body :is(.records-page, .master-records-page, .service-management-hub) :is(.case-records-tabs, .service-hub-tabs) > a > i {
+    display:inline-flex; align-items:center; justify-content:center; flex:none;
+    width:16px; font-size:16px; line-height:1; color:inherit !important;
+}
+</style>
+
+<style>
+/* Shared semantic interaction colors: Search is a positive discovery action;
+   Filter/Sort hover stays softer and never changes control geometry. */
+html[data-theme] body.panel-shell-body {
+    --record-search-action:#D0E2D6;
+    --record-search-action-hover:#BDD5C6;
+    --record-search-action-active:#A9C9B5;
+    --record-search-action-text:#123524;
+    --record-search-frame-hover:#7FA98E;
+    --record-control-hover:#E5EFE8;
+}
+html[data-theme='dark'] body.panel-shell-body {
+    --record-search-action:#1F3D2D;
+    --record-search-action-hover:#294C39;
+    --record-search-action-active:#315B44;
+    --record-search-action-text:#D7EADF;
+    --record-search-frame-hover:#527461;
+    --record-control-hover:#1A3023;
+}
+html[data-theme] body.panel-shell-body :is(.case-compact-search-control,.pm-field.search.shared-record-search,.service-record-search,.worklist-search-control) {
+    transition:border-color .16s ease,background-color .16s ease !important;
+}
+html[data-theme] body.panel-shell-body :is(.case-compact-search-control,.pm-field.search.shared-record-search,.service-record-search,.worklist-search-control):hover {
+    border-color:var(--record-search-frame-hover) !important;
+}
+html[data-theme] body.panel-shell-body :is(.case-compact-search-control,.pm-field.search.shared-record-search,.service-record-search,.worklist-search-control):focus-within {
+    border-color:var(--filter-ui-focus,var(--brand)) !important;
+}
+html[data-theme] body.panel-shell-body :is(.case-compact-search-button,.pm-search-button,.service-search-submit,.worklist-search-submit) {
+    background:var(--record-search-action) !important;
+    color:var(--record-search-action-text) !important;
+    transition:background-color .16s ease,color .16s ease !important;
+}
+html[data-theme] body.panel-shell-body :is(.case-compact-search-button,.pm-search-button,.service-search-submit,.worklist-search-submit):hover {
+    background:var(--record-search-action-hover) !important;
+}
+html[data-theme] body.panel-shell-body :is(.case-compact-search-button,.pm-search-button,.service-search-submit,.worklist-search-submit):active {
+    background:var(--record-search-action-active) !important;
+}
+</style>
+
+<style>
+/* Suppress page-specific click rings for every authenticated role. */
+html[data-theme][data-filter-input='pointer'] body.panel-shell-body .page-content :is(form[method='get' i],[data-table-toolbar],.uniform-record-filters,.case-record-filters,.reports-module-controls,.reports-filter-card,.ba-workspace-filters,.owner-history-filter-panel) :is(input,select,button,summary,[data-filter-select-wrap],.table-toolbar-input-wrap,.case-compact-search-control):is(:focus,:focus-visible,:focus-within,.is-open) { outline:none !important; box-shadow:none !important; }
+</style>
+
+<style>
+html[data-theme] body.panel-shell-body :is(.case-compact-search-button,.pm-search-button,.service-search-submit,.worklist-search-submit) { transition:none !important; transform:none !important; box-shadow:none !important; }
+/* Medium sage is the shared main action palette, including Case/Master searches. */
+html[data-theme] body.panel-shell-body :is(.staff-case-records-page,.master-records-page,.directory-page,.service-management-hub,.payment-monitoring-page) {
+    --record-search-action:var(--reference-action-bg); --record-search-action-hover:var(--reference-action-hover);
+    --record-search-action-active:var(--reference-action-hover); --record-search-action-text:var(--reference-action-text);
+}
+</style>
+
+<style>
+html[data-theme] body.panel-shell-body { --reference-tab-muted:#1B3E2E; }
+html[data-theme='dark'] body.panel-shell-body { --reference-tab-muted:#B5C7BC; }
 </style>

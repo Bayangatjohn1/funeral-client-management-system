@@ -13,7 +13,6 @@
     $isMainAdmin = $isMainAdmin ?? ($adminUser?->isMainBranchAdmin() ?? false);
     $isBranchAdmin = $isBranchAdmin ?? ($adminUser?->isBranchAdmin() ?? false);
     $adminFirstName = \Illuminate\Support\Str::of($adminUser->name ?? 'Admin')->trim()->explode(' ')->first();
-    $adminTodayLabel = now()->format('l, F j, Y');
     $adminBranch = ($selectedBranchId ?? null) ? ($dashboardBranch ?? null) : ($isBranchAdmin ? $adminUser?->branch : null);
     $adminBranchLabel = $adminBranch
         ? trim($adminBranch->branch_code . ' - ' . $adminBranch->branch_name)
@@ -57,14 +56,9 @@
     $balancePaymentMonitoringUrl = route('admin.payment-monitoring', array_merge($branchLinkParams, $paymentSummaryScopeParams, ['payment_status' => 'WITH_BALANCE', 'tab' => 'summary']));
     $paymentProgressUrl = route('admin.payment-monitoring', array_merge($branchLinkParams, $paymentSummaryScopeParams, ['tab' => 'summary']));
     $allRemindersUrl = route('admin.reminders.index', $branchLinkParams);
-    $balanceCases = collect($balanceReminders ?? [])
-        ->unique('case_id')
-        ->sortBy(function ($item) {
-            $paymentStatus = strtoupper((string) data_get($item, 'case.payment_status', 'UNPAID'));
-
-            return ($paymentStatus === 'PARTIAL' ? '0-' : '1-').(string) ($item['case_code'] ?? '');
-        })
-        ->values();
+    $balanceCases = $balanceReminders;
+    $balancesAfterInterment = $attentionReminders->whereIn('type', ['interment_completed', 'interment_date_completed'])->pluck('case_id')->flip();
+    $branchScheduleLimit = 5;
     $upcomingScheduleItems = collect($upcomingSchedule ?? [])->values();
     $upcomingCaseGroups = $upcomingScheduleItems
         ->groupBy(fn ($item) => ($item['branch_id'] ?? 'branch').'-'.($item['case_id'] ?? 'case'))
@@ -81,8 +75,15 @@
         })
         ->sortBy('next_at')
         ->values();
+    $upcomingPreviewCases = $upcomingCaseGroups->take($branchScheduleLimit);
     $todayScheduleItems = collect($todaySchedule ?? [])->values();
     $currentlyInWakeItems = collect($currentlyInWake ?? [])->values();
+    $branchTimelineLabels = ['wake_start' => 'Wake Start', 'wake_end' => 'Wake End', 'service' => 'Funeral Ceremony', 'interment' => 'Interment'];
+    $branchTimelineFocus = ['wake_start' => 'wake-start', 'wake_end' => 'wake-end', 'service' => 'funeral-ceremony', 'interment' => 'interment'];
+    $branchScheduleUrl = route('admin.reminders.index', $branchLinkParams);
+    $branchEventScheduleUrl = fn ($date) => route('admin.reminders.index', $branchLinkParams + ($date->isToday()
+        ? ['schedule_section' => 'today']
+        : ['schedule_section' => 'upcoming', 'calendar_date' => $date->toDateString(), 'calendar_view' => 'day', 'upcoming_view' => 'calendar']));
     $showBranchComparison = false;
     $showItemBranch = $isMainAdmin && !($selectedBranchId ?? null);
     $collectionRate = (float) ($totalServiceValue ?? 0) > 0
@@ -1444,16 +1445,63 @@
     }
 
     .branch-board {
-        display: grid;
-        grid-template-columns: minmax(0, 1.48fr) minmax(330px, 1fr);
+        display: flex;
+        flex-wrap: wrap;
         gap: 1rem;
-        align-items: start;
+        align-items: stretch;
     }
 
-    .branch-board__column {
+    .branch-board > .branch-panel { flex: 3 1 38rem; min-width: 0; }
+
+    .branch-schedule-panel {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .branch-schedule-panels {
         display: grid;
+        flex: 1 0 auto;
+        min-block-size: 22rem;
+    }
+
+    .branch-schedule-panels > [role="tabpanel"] {
+        grid-area: 1 / 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    /* Let the longest tab size the card without exposing inactive tab content. */
+    .branch-schedule-panels > [role="tabpanel"][hidden] {
+        display: flex !important;
+        visibility: hidden;
+    }
+
+    .branch-schedule-panels .branch-record-list:has(> .branch-record-empty) {
+        flex: 1;
+        align-content: center;
+    }
+
+    .branch-schedule-footer { margin-top: auto; }
+
+    .branch-board__column {
+        display: flex;
+        flex: 2 1 24rem;
+        flex-direction: column;
+        min-width: 0;
         gap: 1rem;
     }
+
+    .branch-balance-panel,
+    .branch-payment-panel {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .branch-balance-footer { margin-top: auto; }
+
+    .branch-payment-panel { flex: 1 0 auto; }
+    .branch-payment-panel > .branch-payment-summary { flex: 1 0 auto; align-content: center; }
 
     .branch-panel {
         overflow: hidden;
@@ -1473,6 +1521,7 @@
 
     .branch-panel__head {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
         justify-content: space-between;
         gap: 1rem;
@@ -1481,6 +1530,8 @@
 
     .branch-panel__title {
         display: flex;
+        flex: 1 1 12rem;
+        min-width: 0;
         align-items: center;
         gap: .75rem;
     }
@@ -1970,12 +2021,8 @@
         border-color: var(--color-border);
     }
 
-    @media (max-width: 1023px) {
-        .branch-board { grid-template-columns: 1fr; }
-    }
-
     @media (max-width: 639px) {
-        .branch-panel__head { align-items: flex-start; flex-direction: column; }
+        .branch-panel__head { align-items: flex-start; }
         .branch-panel__tools { width: 100%; justify-content: space-between; }
         .branch-payment-summary { grid-template-columns: 1fr; justify-items: center; }
         .branch-payment-lines { width: 100%; }
@@ -2693,16 +2740,15 @@
             </button>
             <div>
                 @if($isBranchAdmin)
-                    <div class="branch-dashboard-title-row"><h1><x-page-title-icon icon="grid" inline />Dashboard</h1><span class="branch-dashboard-context-badge">Daily Operations</span></div>
+                    <div class="branch-dashboard-title-row"><h1>Dashboard</h1><span class="branch-dashboard-context-badge">Daily Operations</span></div>
                     <p class="branch-dashboard-name">@if($adminBranch){{ $adminBranch->branch_code }} &mdash; {{ $adminBranch->branch_name }}@else{{ $adminBranchLabel }}@endif</p>
                 @else
-                    <h1><x-page-title-icon icon="grid" inline />Good day, {{ $adminFirstName }}</h1>
+                    <h1>Good day, {{ $adminFirstName }}</h1>
                     <p>{{ $adminSubtitle }}</p>
                 @endif
             </div>
         </div>
         @include('partials.dashboard-header-controls', [
-            'dashboardDateLabel' => $adminTodayLabel,
             'dashboardShowNotifications' => true,
             'dashboardNotificationBranchId' => (int) ($selectedBranchId ?? $adminBranch?->id ?? 0),
         ])
@@ -3135,18 +3181,67 @@
         @endif
     </div>
     @else
+    @php
+        $pendingCount = (int) ($pendingCorrections->pending_count ?? 0);
+        $scheduleConflicts = $scheduleConflicts ?? collect();
+        $afterInterment = collect($attentionReminders ?? [])->whereIn('type', ['interment_completed', 'interment_date_completed'])->count();
+    @endphp
+    @if($pendingCount || $scheduleConflicts->isNotEmpty() || $afterInterment)
+        <section class="branch-panel is-warm branch-attention" aria-labelledby="branch-attention-title">
+            <div class="branch-panel__head">
+                <div class="branch-panel__title"><span class="branch-panel__icon"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i></span><div><h3 id="branch-attention-title">Needs Attention</h3><p>Review schedule conflicts, payment corrections, and outstanding balances.</p></div></div>
+            </div>
+            <ul class="branch-attention-list">
+                @if($pendingCount)
+                    <li>
+                        <strong>Payment Corrections Awaiting Review</strong>
+                        <p>{{ $pendingCount }} {{ \Illuminate\Support\Str::plural('request', $pendingCount) }} need a decision.@if($pendingCorrections->oldest_at) Oldest request submitted {{ \Illuminate\Support\Carbon::parse($pendingCorrections->oldest_at)->diffForHumans() }}.@endif</p>
+                        <a href="{{ route('admin.payment-monitoring', $branchLinkParams + ['tab' => 'corrections']) }}">Review Requests <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                    </li>
+                @endif
+                @foreach($scheduleConflicts as $conflict)
+                    <li>
+                        <strong>{{ $conflict['label'] }}</strong>
+                        <p>
+                            @if($conflict['ends_at'])
+                                {{ $conflict['resource'] }} is assigned to overlapping wakes from {{ $conflict['starts_at']->format('M j, Y · g:i A') }} to {{ $conflict['ends_at']->format('M j, Y · g:i A') }}.
+                            @else
+                                {{ $conflict['resource'] }} is assigned to multiple cases on {{ $conflict['starts_at']->format('M j, Y') }} at {{ $conflict['starts_at']->format('g:i A') }}.
+                            @endif
+                        </p>
+                        <ul class="branch-attention-cases">
+                            @foreach($conflict['cases'] as $caseCode => $eventLabel)
+                                <li><strong>{{ $caseCode }}</strong> <span>{{ $eventLabel }}</span></li>
+                            @endforeach
+                        </ul>
+                        <a href="{{ $branchEventScheduleUrl($conflict['date']) }}">View in Schedule <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                    </li>
+                @endforeach
+                @if($afterInterment)
+                    <li>
+                        <strong>Balances to Follow Up</strong>
+                        <p>{{ $afterInterment }} {{ \Illuminate\Support\Str::plural('case', $afterInterment) }} still {{ $afterInterment === 1 ? 'has' : 'have' }} a remaining balance after the scheduled interment.</p>
+                        <a href="{{ route('admin.reminders.index', $branchLinkParams + ['tab' => 'warnings']) }}">Review Balances <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                    </li>
+                @endif
+            </ul>
+        </section>
+    @endif
     <div class="branch-board" aria-label="{{ $adminBranchLabel }} operations dashboard">
-        <div class="branch-board__column">
-            <section class="branch-panel" aria-labelledby="branch-wake-title">
-                <div class="branch-panel__head">
-                    <div class="branch-panel__title">
-                        <span class="branch-panel__icon"><i class="bi bi-moon-stars" aria-hidden="true"></i></span>
-                        <div><h3 id="branch-wake-title">Currently in Wake</h3><p>Cases whose wake period is active right now</p></div>
-                    </div>
-                    <div class="branch-panel__tools"><span class="branch-panel__count">{{ $currentlyInWakeItems->count() }} {{ \Illuminate\Support\Str::plural('case', $currentlyInWakeItems->count()) }}</span><a href="{{ route('admin.reminders.index', array_merge($branchLinkParams, ['tab' => 'current_wake'])) }}" class="branch-panel__link" aria-label="View Currently in Wake" data-tooltip="View Currently in Wake">View &rarr;</a></div>
-                </div>
+        <section class="branch-panel branch-schedule-panel" aria-labelledby="branch-schedule-title">
+            <div class="branch-panel__head">
+                <div class="branch-panel__title"><span class="branch-panel__icon"><i class="bi bi-calendar2-check" aria-hidden="true"></i></span><div><h3 id="branch-schedule-title">Branch Schedule</h3><p>Today's schedule, active wakes, and events in the next seven days</p></div></div>
+                <a href="{{ $branchScheduleUrl }}" class="branch-panel__link">Open Schedule &rarr;</a>
+            </div>
+            <div class="branch-schedule-tabs" role="tablist" aria-label="Branch schedule views">
+                @foreach(['today' => ['Today', $todayScheduleItems->count()], 'wake' => ['In Wake', $currentlyInWakeItems->count()], 'upcoming' => ['Upcoming', $upcomingScheduleItems->count()]] as $key => [$label, $count])
+                    <button type="button" role="tab" id="branch-tab-{{ $key }}" aria-controls="branch-tabpanel-{{ $key }}" aria-selected="{{ $key === 'today' ? 'true' : 'false' }}" tabindex="{{ $key === 'today' ? 0 : -1 }}">{{ $label }} <span>{{ $count }}</span></button>
+                @endforeach
+            </div>
+            <div class="branch-schedule-panels">
+            <div id="branch-tabpanel-wake" role="tabpanel" aria-labelledby="branch-tab-wake" hidden>
                 <div class="branch-record-list">
-                    @forelse($currentlyInWakeItems->take(2) as $item)
+                    @forelse($currentlyInWakeItems->take($branchScheduleLimit) as $item)
                         @php
                             $caseDetailsUrl = route('funeral-cases.show', [
                                 'funeral_case' => $item['case_id'],
@@ -3162,24 +3257,22 @@
                                     <div class="branch-record-card__field"><strong>{{ $item['ends_at']?->format('M d, Y · g:i A') ?? 'Not set' }}</strong><small>Expected End</small></div>
                                 </div>
                             </div>
-                            <a data-branch-case-summary class="branch-row-destination" href="{{ $caseDetailsUrl }}" aria-label="View Case Details for {{ $item['case_code'] }}"><i class="bi bi-eye" aria-hidden="true"></i><span class="branch-row-destination__label" aria-hidden="true">View Case Details</span></a>
+                            <a data-branch-case-summary data-schedule-case="{{ $item['case_id'] }}" data-schedule-event="wake_start" data-schedule-url="{{ route('admin.reminders.index', $branchLinkParams + ['schedule_section' => 'ongoing']) }}" data-wake-date="{{ now()->toDateString() }}" data-wake-progress="Day {{ $item['current_day'] }} of {{ $item['total_days'] }}" class="branch-row-destination" href="{{ $caseDetailsUrl }}" aria-label="View Case Details for {{ $item['case_code'] }}"><i class="bi bi-eye" aria-hidden="true"></i><span class="branch-row-destination__label" aria-hidden="true">View Case Details</span></a>
                         </article>
                     @empty
                         <div class="branch-record-empty">No cases are currently in wake.</div>
                     @endforelse
                 </div>
-                @if($currentlyInWakeItems->count() > 2)
-                    <a href="{{ route('admin.reminders.index', array_merge($branchLinkParams, ['tab' => 'current_wake'])) }}" class="branch-panel__overflow"><span>Showing 2 of {{ $currentlyInWakeItems->count() }} cases</span><strong>+{{ $currentlyInWakeItems->count() - 2 }} more</strong></a>
+                @if($currentlyInWakeItems->count() > $branchScheduleLimit)
+                    <footer class="branch-schedule-footer">
+                        <a href="{{ route('admin.reminders.index', array_merge($branchLinkParams, ['tab' => 'current_wake'])) }}" class="branch-panel__overflow"><span>Showing {{ $branchScheduleLimit }} of {{ $currentlyInWakeItems->count() }} cases</span><strong>+{{ $currentlyInWakeItems->count() - $branchScheduleLimit }} more</strong></a>
+                    </footer>
                 @endif
-            </section>
+            </div>
 
-            <section class="branch-panel is-neutral" aria-labelledby="branch-today-title">
-                <div class="branch-panel__head">
-                    <div class="branch-panel__title"><span class="branch-panel__icon"><i class="bi bi-calendar2-check" aria-hidden="true"></i></span><div><h3 id="branch-today-title">Scheduled Today</h3><p>Wake, ceremony, and interment events occurring today</p></div></div>
-                    <div class="branch-panel__tools"><span class="branch-panel__count">{{ $todayScheduleItems->count() }} {{ \Illuminate\Support\Str::plural('event', $todayScheduleItems->count()) }}</span><a href="{{ $todaySchedulesUrl }}" class="branch-panel__link" aria-label="View Today's Schedule" data-tooltip="View Today's Schedule">View &rarr;</a></div>
-                </div>
+            <div id="branch-tabpanel-today" role="tabpanel" aria-labelledby="branch-tab-today">
                 <div class="branch-record-list">
-                    @forelse($todayScheduleItems->take(3) as $item)
+                    @forelse($todayScheduleItems->take($branchScheduleLimit) as $item)
                             @php
                                 $eventType = (string) ($item['type'] ?? '');
                                 $eventClass = str_contains($eventType, 'wake_start') ? 'is-wake-start' : (str_contains($eventType, 'wake_end') ? 'is-wake-end' : (str_contains($eventType, 'interment') ? 'is-interment' : ''));
@@ -3195,37 +3288,35 @@
                                 <div class="branch-record-card__identity"><strong>{{ $item['case_code'] ?? 'N/A' }}</strong><span>{{ $item['deceased_name'] ?? 'N/A' }}</span></div>
                                 <div class="branch-record-card__event">
                                     <div class="branch-record-card__event-copy"><span class="branch-event-badge {{ $eventClass }}">{{ $item['label'] ?? 'Scheduled Event' }}</span><span class="branch-record-card__event-support">Today · {{ $item['date']?->format('g:i A') ?? 'Time not set' }}</span></div>
-                                    <span class="branch-record-card__event-meta"><i class="bi bi-geo-alt" aria-hidden="true"></i> {{ $item['location'] ?: 'Location not set' }}</span>
+                                    @if($item['event_kind'] !== 'service' || $item['location'])
+                                        <span class="branch-record-card__event-meta"><i class="bi bi-geo-alt" aria-hidden="true"></i> {{ $item['location'] ?: 'Location not set' }}</span>
+                                    @endif
                                 </div>
                             </div>
-                            <a data-branch-case-summary class="branch-row-destination" href="{{ $caseDetailsUrl }}" aria-label="View Case Details for {{ $item['case_code'] ?? 'case' }}"><i class="bi bi-eye" aria-hidden="true"></i><span class="branch-row-destination__label" aria-hidden="true">View Case Details</span></a>
+                            <a data-branch-case-summary data-schedule-case="{{ $item['case_id'] }}" data-schedule-event="{{ $item['event_kind'] }}" data-schedule-url="{{ $todaySchedulesUrl }}" class="branch-row-destination" href="{{ $caseDetailsUrl }}" aria-label="View Case Details for {{ $item['case_code'] ?? 'case' }}"><i class="bi bi-eye" aria-hidden="true"></i><span class="branch-row-destination__label" aria-hidden="true">View Case Details</span></a>
                         </article>
                     @empty
                         <div class="branch-record-empty">No scheduled events today.</div>
                     @endforelse
                 </div>
-                @if($todayScheduleItems->count() > 3)
-                    <a href="{{ $todaySchedulesUrl }}" class="branch-panel__overflow"><span>Showing 3 of {{ $todayScheduleItems->count() }} events</span><strong>+{{ $todayScheduleItems->count() - 3 }} more</strong></a>
+                @if($todayScheduleItems->count() > $branchScheduleLimit)
+                    <footer class="branch-schedule-footer">
+                        <a href="{{ $todaySchedulesUrl }}" class="branch-panel__overflow"><span>Showing {{ $branchScheduleLimit }} of {{ $todayScheduleItems->count() }} events</span><strong>+{{ $todayScheduleItems->count() - $branchScheduleLimit }} more</strong></a>
+                    </footer>
                 @endif
-            </section>
+            </div>
 
-            <section class="branch-panel" aria-labelledby="branch-upcoming-title">
-                <div class="branch-panel__head">
-                    <div class="branch-panel__title"><span class="branch-panel__icon"><i class="bi bi-clock-history" aria-hidden="true"></i></span><div><h3 id="branch-upcoming-title">Upcoming Events</h3><p>Next valid branch events within seven days</p></div></div>
-                    <div class="branch-panel__tools"><span class="branch-panel__count">{{ $upcomingScheduleItems->count() }} {{ \Illuminate\Support\Str::plural('event', $upcomingScheduleItems->count()) }}</span><a href="{{ route('admin.reminders.index', array_merge($branchLinkParams, ['tab' => 'upcoming'])) }}" class="branch-panel__link" aria-label="View Upcoming Schedule" data-tooltip="View Upcoming Schedule">View &rarr;</a></div>
-                </div>
+            <div id="branch-tabpanel-upcoming" role="tabpanel" aria-labelledby="branch-tab-upcoming" hidden>
                 <div class="branch-record-list">
-                    @forelse($upcomingCaseGroups->take(3) as $caseGroup)
+                    @forelse($upcomingPreviewCases as $caseGroup)
                             @php
-                                $focusEvents = $caseGroup['events']->map(function ($event) {
-                                    $eventType = (string) ($event['type'] ?? '');
-                                    return str_contains($eventType, 'wake_start') ? 'wake-start' : (str_contains($eventType, 'wake_end') ? 'wake-end' : (str_contains($eventType, 'interment') ? 'interment' : 'funeral-ceremony'));
-                                })->unique()->implode(',');
-                                $caseDetailsUrl = route('funeral-cases.show', [
+                                $nextEvent = $caseGroup['events']->first()['event_kind'];
+                                $caseDetailsParams = [
                                     'funeral_case' => $caseGroup['case_id'],
                                     'return_to' => request()->fullUrl(),
-                                    'focus_events' => $focusEvents,
-                                ]);
+                                ];
+                                $focusEvents = $caseGroup['events']->pluck('event_kind')->unique()->map(fn ($kind) => $branchTimelineFocus[$kind])->implode(',');
+                                $caseDetailsUrl = route('funeral-cases.show', $caseDetailsParams + ['focus_events' => $focusEvents]);
                             @endphp
                         <article class="branch-record-card branch-record-card--upcoming" data-case-entry>
                             <div class="branch-record-card__identity"><strong>{{ $caseGroup['case_code'] }}</strong><span>{{ $caseGroup['deceased_name'] }} · {{ $caseGroup['events']->count() }} {{ \Illuminate\Support\Str::plural('schedule', $caseGroup['events']->count()) }}</span></div>
@@ -3235,44 +3326,85 @@
                                                 $eventType = (string) ($event['type'] ?? '');
                                                 $eventClass = str_contains($eventType, 'wake_start') ? 'is-wake-start' : (str_contains($eventType, 'wake_end') ? 'is-wake-end' : (str_contains($eventType, 'interment') ? 'is-interment' : ''));
                                             @endphp
-                                            <div class="branch-schedule-item">
+                                            <a class="branch-schedule-item branch-schedule-link" data-branch-case-summary data-schedule-case="{{ $caseGroup['case_id'] }}" data-schedule-event="{{ $event['event_kind'] }}" data-schedule-url="{{ $branchEventScheduleUrl($event['date']) }}" href="{{ route('funeral-cases.show', $caseDetailsParams + ['focus_event' => $branchTimelineFocus[$event['event_kind']]]) }}" aria-label="View {{ $event['label'] }} for {{ $caseGroup['case_code'] }}">
                                                 <span class="branch-schedule-item__detail"><span class="branch-event-badge {{ $eventClass }}">{{ $event['label'] ?? 'Upcoming Schedule' }}</span></span>
-                                                <span class="branch-schedule-item__when">{{ $event['date']?->format('M d · g:i A') ?? 'Date not set' }} · {{ $event['location'] ?: 'Location not set' }}</span>
-                                            </div>
+                                                <span class="branch-schedule-item__when">{{ $event['date']?->format('M d · g:i A') ?? 'Date not set' }}@if($event['event_kind'] !== 'service' || $event['location']) · {{ $event['location'] ?: 'Location not set' }}@endif</span>
+                                            </a>
                                         @endforeach
                             </div>
-                            <a data-branch-case-summary class="branch-row-destination" href="{{ $caseDetailsUrl }}" aria-label="View Case Details for {{ $caseGroup['case_code'] }}"><i class="bi bi-eye" aria-hidden="true"></i><span class="branch-row-destination__label" aria-hidden="true">View Case Details</span></a>
+                            <a data-branch-case-summary data-schedule-case="{{ $caseGroup['case_id'] }}" data-schedule-event="{{ $nextEvent }}" data-schedule-url="{{ $branchEventScheduleUrl($caseGroup['next_at']) }}" class="branch-row-destination" href="{{ $caseDetailsUrl }}" aria-label="View Case Details for {{ $caseGroup['case_code'] }}"><i class="bi bi-eye" aria-hidden="true"></i><span class="branch-row-destination__label" aria-hidden="true">View Case Details</span></a>
                         </article>
                     @empty
                         <div class="branch-record-empty">No upcoming schedules in the next seven days.</div>
                     @endforelse
                 </div>
-                @if($upcomingCaseGroups->count() > 3)
-                    <a href="{{ route('admin.reminders.index', array_merge($branchLinkParams, ['tab' => 'upcoming'])) }}" class="branch-panel__overflow"><span>Showing 3 of {{ $upcomingCaseGroups->count() }} cases · {{ $upcomingScheduleItems->count() }} schedules</span><strong>+{{ $upcomingCaseGroups->count() - 3 }} more cases</strong></a>
+                @if($upcomingCaseGroups->count() > $branchScheduleLimit)
+                    <footer class="branch-schedule-footer">
+                        <a href="{{ route('admin.reminders.index', array_merge($branchLinkParams, ['tab' => 'upcoming'])) }}" class="branch-panel__overflow"><span>Showing {{ $upcomingPreviewCases->count() }} of {{ $upcomingCaseGroups->count() }} cases</span><strong>+{{ $upcomingCaseGroups->count() - $upcomingPreviewCases->count() }} more cases</strong></a>
+                    </footer>
                 @endif
-            </section>
-        </div>
+            </div>
+            </div>
+        </section>
 
         <aside class="branch-board__column" aria-label="Branch financial overview">
-            <section class="branch-panel is-warm" aria-labelledby="branch-balance-title">
+            <section class="branch-panel branch-balance-panel is-warm" aria-labelledby="branch-balance-title">
                 <div class="branch-panel__head">
                     <div class="branch-panel__title"><span class="branch-panel__icon"><i class="bi bi-file-earmark-medical" aria-hidden="true"></i></span><div><h3 id="branch-balance-title">Cases With Balance</h3><p>Active and completed cases with outstanding amounts</p></div></div>
                     <a href="{{ $balancePaymentMonitoringUrl }}" class="branch-panel__link" aria-label="View Cases With Balance" data-tooltip="View Cases With Balance">View &rarr;</a>
                 </div>
                 <div class="branch-balance-list">
-                    @forelse($balanceCases->take(3) as $item)
-                        @php $itemPaymentUrl = route('admin.payment-monitoring', array_merge($branchLinkParams, ['payment_status' => 'WITH_BALANCE', 'q' => $item['case_code'] ?? '', 'tab' => 'summary'])); @endphp
+                    @forelse($balanceCases->take($balancePreviewLimit) as $item)
+                        @php
+                            $balanceCase = $item['case'];
+                            $lastPayment = $lastBalancePayments->get($balanceCase->id);
+                            $lastPaidDate = $lastPayment?->paid_at ?? $lastPayment?->paid_date ?? $lastPayment?->created_at;
+                            $isPartial = $balanceCase->payment_status === 'PARTIAL';
+                            $itemPaymentUrl = route('admin.payment-monitoring', array_merge($branchLinkParams, ['payment_status' => 'WITH_BALANCE', 'q' => $item['case_code'] ?? '', 'tab' => 'summary']));
+                        @endphp
                         <a href="{{ $itemPaymentUrl }}" data-branch-case-summary class="branch-balance-item">
                             <span><strong>{{ $item['case_code'] ?? 'Service record' }}</strong><small>{{ $item['deceased_name'] ?? 'Deceased' }} · {{ $item['case']->client?->full_name ?? 'Client not set' }}</small></span>
                             <template data-branch-summary-content>
-                                <dl class="branch-summary-fields">
-                                    <div><dt>Case</dt><dd>{{ $item['case_code'] }}</dd></div>
-                                    <div><dt>Deceased</dt><dd>{{ $item['deceased_name'] }}</dd></div>
-                                    <div><dt>Client</dt><dd>{{ $item['case']->client?->full_name ?? 'Not provided' }}</dd></div>
-                                    <div><dt>Total Service Value</dt><dd>PHP {{ number_format((float) data_get($item, 'case.total_amount', 0), 2) }}</dd></div>
-                                    <div><dt>Paid to date</dt><dd>PHP {{ number_format((float) data_get($item, 'case.total_paid', 0), 2) }}</dd></div>
-                                    <div><dt>Remaining balance</dt><dd>PHP {{ number_format((float) data_get($item, 'case.balance_amount', 0), 2) }}</dd></div>
+                                <div class="branch-timeline-identity">
+                                    <span>Case {{ $item['case_code'] }}</span>
+                                    <strong>{{ $item['deceased_name'] }}</strong>
+                                    <span>Client · {{ $balanceCase->client?->full_name ?? 'Not provided' }}</span>
+                                </div>
+                                <dl class="branch-balance-summary__highlight">
+                                    <div><dt>Remaining Balance</dt><dd>PHP {{ number_format((float) $balanceCase->balance_amount, 2) }}</dd></div>
+                                    <div>
+                                        <dt>Payment Status</dt>
+                                        <dd class="branch-balance-summary__status" data-status="{{ $isPartial ? 'partial' : 'unpaid' }}">{{ $isPartial ? 'Partially Paid' : 'Unpaid' }}</dd>
+                                    </div>
                                 </dl>
+                                <dl class="branch-balance-summary">
+                                    <div class="branch-balance-summary__row"><dt>Total Service Value</dt><dd>PHP {{ number_format((float) $balanceCase->total_amount, 2) }}</dd></div>
+                                    <div class="branch-balance-summary__row"><dt>Paid to Date</dt><dd>PHP {{ number_format((float) $balanceCase->total_paid, 2) }}</dd></div>
+                                    <div class="branch-balance-summary__row">
+                                        <dt>Last Payment</dt>
+                                        <dd>
+                                            @if($lastPayment)
+                                                PHP {{ number_format((float) $lastPayment->amount, 2) }}
+                                                @if($lastPaidDate)<time datetime="{{ $lastPaidDate->toDateString() }}">{{ $lastPaidDate->format('M j, Y') }}</time>@endif
+                                            @else
+                                                <span class="branch-balance-summary__muted">No payments recorded</span>
+                                            @endif
+                                        </dd>
+                                    </div>
+                                    <div class="branch-balance-summary__row">
+                                        <dt>Scheduled Interment</dt>
+                                        <dd>
+                                            @if($balanceCase->interment_at)
+                                                {{ $balanceCase->interment_at->format('M j, Y') }}
+                                            @else
+                                                <span class="branch-balance-summary__muted">Date not set</span>
+                                            @endif
+                                        </dd>
+                                    </div>
+                                </dl>
+                                @if($balancesAfterInterment->has($balanceCase->id))
+                                    <p class="branch-balance-summary__notice"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Balance after scheduled interment</p>
+                                @endif
                             </template>
                             <span class="branch-balance-item__amount">PHP {{ number_format((float) data_get($item, 'case.balance_amount', 0), 2) }}</span>
                             <i class="bi bi-chevron-right" aria-hidden="true"></i>
@@ -3281,12 +3413,14 @@
                         <div class="branch-command__empty"><i class="bi bi-check2-circle" aria-hidden="true"></i> No cases with remaining balance.</div>
                     @endforelse
                 </div>
-                @if($balanceCases->count() > 3)
-                    <a href="{{ $balancePaymentMonitoringUrl }}" class="branch-panel__overflow"><span>Showing 3 of {{ $balanceCases->count() }} cases</span><strong>+{{ $balanceCases->count() - 3 }} more</strong></a>
+                @if($balanceCases->count() > $balancePreviewLimit)
+                    <footer class="branch-balance-footer">
+                        <a href="{{ $balancePaymentMonitoringUrl }}" class="branch-panel__overflow"><span>Showing {{ $balancePreviewLimit }} of {{ $balanceCases->count() }} cases</span><strong>+{{ $balanceCases->count() - $balancePreviewLimit }} more</strong></a>
+                    </footer>
                 @endif
             </section>
 
-            <section class="branch-panel is-neutral" aria-labelledby="branch-payment-title">
+            <section class="branch-panel branch-payment-panel is-neutral" aria-labelledby="branch-payment-title">
                 <div class="branch-panel__head">
                     <div class="branch-panel__title"><span class="branch-panel__icon"><i class="bi bi-pie-chart-fill" aria-hidden="true"></i></span><div><h3 id="branch-payment-title">Payment Summary</h3><p>Current financial position of active and completed cases</p></div></div>
                     <a href="{{ $paymentProgressUrl }}" class="branch-panel__link" aria-label="Open Payment Monitoring" data-tooltip="Open Payment Monitoring">View &rarr;</a>
@@ -3295,7 +3429,7 @@
                     <div class="branch-payment-ring" style="--collection-rate: {{ min(max($collectionRate, 0), 100) }}%" role="img" aria-label="{{ $collectionRate }} percent collected"><div class="branch-payment-ring__inside"><span><strong>{{ $collectionRate }}%</strong><span>Collected</span></span></div></div>
                     <div class="branch-payment-lines">
                         <div class="branch-payment-line"><span>Collected to date</span><strong>PHP {{ number_format((float) ($summaryCollectedTotal ?? 0), 2) }}</strong></div>
-                        <div class="branch-payment-line"><span>Outstanding</span><strong>PHP {{ number_format((float) ($totalOutstanding ?? 0), 2) }}</strong></div>
+                        <div class="branch-payment-line is-outstanding"><span>Outstanding</span><strong>PHP {{ number_format((float) ($totalOutstanding ?? 0), 2) }}</strong></div>
                         <div class="branch-payment-line is-total"><span>Total service amount</span><strong>PHP {{ number_format((float) ($totalServiceValue ?? 0), 2) }}</strong></div>
                     </div>
                 </div>
@@ -3308,6 +3442,11 @@
 </div>
 </div>
 @if($isBranchAdmin)
-@include('dashboards.partials.branch-case-summary')
+@php
+    $drawerScheduleCases = $currentlyInWakeItems->take($branchScheduleLimit)->merge($todayScheduleItems->take($branchScheduleLimit))
+        ->merge($upcomingPreviewCases->map(fn ($group) => $group['events']->first()))
+        ->pluck('case')->unique('id');
+@endphp
+@include('dashboards.partials.branch-case-summary', ['scheduleCases' => $drawerScheduleCases])
 @endif
 @endsection

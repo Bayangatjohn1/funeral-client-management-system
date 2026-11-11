@@ -5,6 +5,7 @@
 @section('hide_layout_topbar', '1')
 
 @section('content')
+@include('partials.historical_cases_transition')
 @php
     $activeTab = $currentTab ?? 'all';
     $isAllTab = $activeTab === 'all';
@@ -56,7 +57,6 @@
         'per_page' => request('per_page'),
         'record_scope' => $recordScope,
         'q' => request('q'),
-        'case_status' => request('case_status'),
         'payment_status' => request('payment_status'),
         'service_type' => request('service_type'),
         'package_id' => request('package_id'),
@@ -97,7 +97,8 @@
     </div>
 @endif
 
-<style>
+@push('worklist-styles')
+<style data-historical-route-style="staff-case-records">
     .records-page {
         --records-card: #D3DEC9;
         --records-card-alt: #DCE6D6;
@@ -1086,6 +1087,8 @@
     .records-page > .case-records-tabs-row {
         display: flex !important;
         align-items: center;
+        justify-content: space-between !important;
+        width: 100% !important;
         margin: 0 0 .65rem !important;
         padding: 0 !important;
         background: transparent !important;
@@ -1265,9 +1268,44 @@
         }
     }
 </style>
+@include('staff.partials.remaining-pages-visual-system')
+@include('partials.case_records_layout_styles')
+<style>
+    .records-page :is(.case-records-top-wrapper, .table-system-pagination)[hidden] { display:none !important; }
+    .records-page .intake-drafts-heading { padding:14px 16px; }
+    .records-page .intake-draft-action {
+        display:inline-flex; align-items:center; justify-content:center; gap:7px;
+        min-height:36px; padding:6px 11px; border:0; border-radius:8px;
+        background:var(--records-card-alt); color:var(--records-text);
+        font-size:13px; font-weight:650; white-space:nowrap;
+    }
+    .records-page a.intake-draft-action {
+        background:#dceee3; color:#214b35;
+    }
+    .records-page a.intake-draft-action:hover {
+        background:#cce4d5; color:#214b35;
+    }
+    html[data-theme="dark"] .records-page a.intake-draft-action {
+        background:#294638; color:#d2efdd;
+    }
+    html[data-theme="dark"] .records-page a.intake-draft-action:hover {
+        background:#355846; color:#d2efdd;
+    }
+    .records-page .intake-draft-discard {
+        background:#f8e5e4; color:#842d27;
+    }
+    .records-page .intake-draft-discard:hover { background:#efd2d0; }
+    html[data-theme="dark"] .records-page .intake-draft-discard {
+        background:#42282d; color:#fecaca;
+    }
+    html[data-theme="dark"] .records-page .intake-draft-discard:hover { background:#563138; }
+</style>
+@endpush
 
 <div class="records-page staff-case-records-page">
-    @if(session('success'))
+    @if(session('intake_case_saved_toast'))
+        @include('partials.centered-success-toast', ['toastId' => 'intake-case-saved-toast', 'title' => 'Case saved successfully', 'message' => 'The new case has been added to Case Records.'])
+    @elseif(session('success'))
         <div class="flash-success">
             {{ session('success') }}
         </div>
@@ -1312,7 +1350,7 @@
                         aria-selected="{{ $isAllTab ? 'true' : 'false' }}"
                         class="table-quick-tab {{ $isAllTab ? 'table-quick-tab-active' : '' }}"
                     >
-                        All
+                        <i class="bi bi-collection" aria-hidden="true"></i><span>All</span>
                     </a>
                     <a
                         href="{{ $draftTabUrl }}"
@@ -1320,7 +1358,7 @@
                         aria-selected="{{ $isDraftTab ? 'true' : 'false' }}"
                         class="table-quick-tab {{ $isDraftTab ? 'table-quick-tab-active' : '' }}"
                     >
-                        Draft
+                        <i class="bi bi-pencil-square" aria-hidden="true"></i><span>Draft</span>
                     </a>
                     <a
                         href="{{ $activeTabUrl }}"
@@ -1328,7 +1366,7 @@
                         aria-selected="{{ $isActiveTab ? 'true' : 'false' }}"
                         class="table-quick-tab {{ $isActiveTab ? 'table-quick-tab-active' : '' }}"
                     >
-                        Active
+                        <i class="bi bi-clock" aria-hidden="true"></i><span>Active</span>
                     </a>
                     <a
                         href="{{ $completedTabUrl }}"
@@ -1336,16 +1374,22 @@
                         aria-selected="{{ $isCompletedTab ? 'true' : 'false' }}"
                         class="table-quick-tab {{ $isCompletedTab ? 'table-quick-tab-active' : '' }}"
                     >
-                        Completed
+                        <i class="bi bi-check2-all" aria-hidden="true"></i><span>Completed</span>
                     </a>
                 </div>
+                @if(config('funeral.historical_cases_enabled', false))
+                    <a href="{{ route('historical-cases.index') }}" class="historical-cases-entry-link inline-flex shrink-0 items-center gap-2 rounded-xl bg-amber-100 px-4 py-2.5 text-sm font-semibold text-amber-950 hover:bg-amber-200 historical-cases-nav-link" data-historical-transition>
+                        <i class="bi bi-clock-history" aria-hidden="true"></i><span>Historical Cases</span>
+                    </a>
+                @endif
             </div>
 
-<div class="case-records-top-wrapper">
+<div class="case-records-top-wrapper" @if($isDraftTab) hidden @endif>
+            @unless($isDraftTab)
             <div class="table-system-toolbar case-records-controls">
                 @include('partials.case_filter_toolbar', [
                     'showPerPage' => true,
-                    'showCaseStatus' => false,
+                    'showCaseStatus' => true,
                     'showServiceType' => false,
                     'action' => route('funeral-cases.index'),
                     'resetUrl' => $resetUrl,
@@ -1468,11 +1512,13 @@
                 </form>
 
             </div>
+            @endunless
             </div>{{-- /.case-records-top-wrapper --}}
 
 
 
             <div class="table-system-list">
+                @unless($isDraftTab)
                 <div class="table-system-list-header">
                     <div>
                         <div class="table-system-list-title">
@@ -1493,18 +1539,12 @@
                         </div>
                     </div>
                 </div>
+                @endunless
 
                 @if($isDraftTab)
-                    <div class="border-t border-[var(--records-border)] bg-[var(--records-card-alt)] px-3 py-3">
-                        <div class="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <div class="text-sm font-semibold text-[var(--records-text)]">Incomplete Intake Drafts</div>
-                                <div class="text-xs font-semibold text-[var(--records-muted)]">Saved intake work that has not created official client, deceased, case, or payment records yet.</div>
-                            </div>
-                            <a href="{{ route('intake.main.create') }}" class="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--records-border)] bg-white px-3 py-2 text-xs font-bold text-[var(--records-text)] hover:bg-[var(--records-hover)]">
-                                <i class="bi bi-plus-lg" aria-hidden="true"></i>
-                                New Intake
-                            </a>
+                        <div class="intake-drafts-heading">
+                            <div class="text-sm font-semibold text-[var(--records-text)]">Incomplete Intake Drafts</div>
+                            <div class="text-xs text-[var(--records-muted)]">Resume a saved draft to finish recording the case.</div>
                         </div>
 
                         <div class="table-wrapper table-system-wrap">
@@ -1523,6 +1563,7 @@
                                     @forelse(($intakeDrafts ?? collect()) as $draft)
                                         @php
                                             $fields = $draft->payload['fields'] ?? [];
+                                            $resumeParams = ['draft' => $draft, 'return_to' => $resetUrl];
                                             $clientDraftName = trim(implode(' ', array_filter([
                                                 $fields['client_first_name'] ?? null,
                                                 $fields['client_middle_name'] ?? null,
@@ -1553,14 +1594,14 @@
                                             <td>{{ optional($draft->last_saved_at ?? $draft->updated_at)->format('M d, Y h:i A') }}</td>
                                             <td>
                                                 <div class="flex items-center justify-end gap-2">
-                                                    <a href="{{ route('intake.drafts.edit', ['draft' => $draft, 'return_to' => request()->fullUrl()]) }}" class="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--records-border)] bg-white px-3 py-2 text-xs font-bold text-[var(--records-text)] hover:bg-[var(--records-hover)]">
+                                                    <a href="{{ route('intake.drafts.edit', $resumeParams) }}" @if(auth()->user()?->isStaff() && $draft->entry_mode === 'main') data-intake-trigger="{{ route('intake.drafts.edit', $resumeParams + ['intake_modal' => 1]) }}" @endif class="intake-draft-action">
                                                         <i class="bi bi-pencil-square" aria-hidden="true"></i>
                                                         Resume
                                                     </a>
                                                     <form method="POST" action="{{ route('intake.drafts.destroy', $draft) }}" onsubmit="return confirm('Discard this intake draft?');">
                                                         @csrf
                                                         @method('DELETE')
-                                                        <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-lg border border-[#CFA9A2] bg-white px-3 py-2 text-xs font-bold text-[#7F3A32] hover:bg-[#F8E7E3]">
+                                                        <button type="submit" class="intake-draft-action intake-draft-discard">
                                                             <i class="bi bi-trash3" aria-hidden="true"></i>
                                                             Discard
                                                         </button>
@@ -1570,41 +1611,18 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="6" class="table-system-empty">
+                                            <td colspan="6" class="table-system-empty"><div class="records-empty-state">
                                                 No incomplete intake drafts.
-                                            </td>
+                                            </div></td>
                                         </tr>
                                     @endforelse
                                 </tbody>
                             </table>
                         </div>
-                    </div>
-                @endif
-
+                @else
                 <div class="table-wrapper table-system-wrap">
                     <table class="table-base table-system-table case-records-table records-worklist-table">
-                        <colgroup>
-                            <col class="records-col-case">
-                            <col class="records-col-family">
-                            <col class="records-col-service">
-                            <col class="records-col-schedule">
-                            <col class="records-col-financials">
-                            <col class="records-col-case-status">
-                            <col class="records-col-payment-status">
-                            <col class="records-col-actions">
-                        </colgroup>
-                        <thead>
-                            <tr>
-                                <th class="text-left">Case</th>
-                                <th class="text-left">Deceased / Client</th>
-                                <th class="text-left">Service</th>
-                                <th class="text-left">Schedule</th>
-                                <th class="table-col-number">Package Availed</th>
-                                <th class="table-status-col">Case Status</th>
-                                <th class="table-status-col table-payment-status-col">Payment Status</th>
-                                <th class="table-col-actions">Actions</th>
-                            </tr>
-                        </thead>
+                        @include('partials.case_worklist_head', ['showBranch' => false])
                         <tbody>
                             @forelse($cases as $case)
                                 @php
@@ -1617,56 +1635,30 @@
                                         || (float) $case->balance_amount > 0;
                                 @endphp
                                 <tr
+@include('partials.case_search_metadata')
+
                                     class="{{ $needsAttention ? 'row-needs-attention' : '' }}"
                                 >
-                                    <td data-label="Case">
-                                        <div class="table-primary whitespace-nowrap records-case-code">{{ $case->case_code }}</div>
-                                        <div class="table-secondary">Recorded by: {{ $case->encodedBy?->name ?: 'Not recorded' }}</div>
-                                        <div class="table-secondary">{{ $case->created_at?->format('M d, Y h:i A') ?? 'Not recorded' }}</div>
-                                    </td>
-                                    <td data-label="Deceased / Client">
-                                        <div class="table-primary records-person-names">Deceased: {{ $case->deceased?->full_name ?? '-' }}</div>
-                                        <div class="table-secondary records-person-names">Client: {{ $case->client?->full_name ?? '-' }}</div>
-                                    </td>
-                                    <td data-label="Service">
-                                        <div class="table-primary">{{ $case->service_type ?? '-' }}</div>
-                                        <div class="table-secondary">{{ $case->package?->name ?? $case->service_package ?? '-' }}</div>
-                                    </td>
-                                    <td data-label="Schedule">
-                                        <div class="table-primary whitespace-nowrap">{{ $intermentAt ? $intermentAt->format('M d, Y') : '-' }}</div>
-                                        <div class="table-secondary">{{ $intermentAt ? $intermentAt->format('h:i A') : 'Interment time' }}</div>
-                                    </td>
-                                    <td class="table-col-number" data-label="Package Availed">
-                                        <div class="table-primary table-financial-total whitespace-nowrap">{{ number_format((float) $case->total_amount, 2) }}</div>
-                                        <div class="table-secondary table-financial-breakdown whitespace-nowrap">Paid {{ number_format((float) $case->total_paid, 2) }} &middot; Bal {{ number_format((float) $case->balance_amount, 2) }}</div>
-                                    </td>
-                                    <td class="table-status-cell" data-label="Case Status">
-                                        <x-status-badge :status="$case->case_status" :label="\Illuminate\Support\Str::headline(strtolower((string) $case->case_status))" />
-                                    </td>
-                                    <td class="table-status-cell table-payment-status-cell" data-label="Payment Status">
-                                        <x-status-badge :status="$case->payment_status" :label="\Illuminate\Support\Str::headline(strtolower((string) $case->payment_status))" class="table-payment-status-badge" />
-                                    </td>
-                                    <td class="table-col-actions" data-label="Actions">
-                                        <a class="records-view-case" href="{{ route('funeral-cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}" aria-label="View Full Information for {{ $case->case_code }}" title="View Full Information">
-                                            <i class="bi bi-eye" aria-hidden="true"></i>
-                                        </a>
-                                    </td>
+                                    @include('partials.case_worklist_cells', ['case' => $case, 'worklistInterment' => $intermentAt, 'showBranch' => false])
 
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="8" class="table-system-empty">
-                                        {{ $isDraftTab ? 'No official draft case records found.' : 'No case records found.' }}
-                                    </td>
+                                    <td colspan="7" class="table-system-empty"><div class="records-empty-state">
+                                        No case records found.
+                                    </div></td>
                                 </tr>
                             @endforelse
                         </tbody>
                     </table>
                 </div>
+                @endif
             </div>
 
-            <div class="table-system-pagination">
-                @include('partials.case_records_pagination', ['cases' => $cases])
+            <div class="table-system-pagination" @if($isDraftTab) hidden @endif>
+                @unless($isDraftTab)
+                    @include('partials.case_records_pagination', ['cases' => $cases])
+                @endunless
             </div>
         @endif
 
@@ -1779,6 +1771,7 @@
             if (!content) return;
             const requestId = ++activeRequestId;
             resetContent();
+            const finishSkeleton = window.PanelSkeleton?.begin(content, {variant:'form'});
             try {
                 const res = await fetch(url, {
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
@@ -1808,7 +1801,7 @@
             } catch (err) {
                 if (requestId !== activeRequestId || overlay.classList.contains('hidden')) return;
                 content.innerHTML = `<div class="p-6 text-sm text-rose-600">Unable to load. Please try again.</div>`;
-            }
+            } finally { finishSkeleton?.(); }
         };
 
         const openModal = (url) => {
@@ -1902,10 +1895,8 @@
 
         const loadRecords = async (url, pushState = true) => {
             const page = getRecordsPage();
-            if (!page) {
-                window.location.href = url.toString();
-                return;
-            }
+            if (!page) return;
+            page.querySelector('[data-case-records-load-error]')?.remove();
 
             recordsRequest?.abort();
             const request = new AbortController();
@@ -1938,11 +1929,17 @@
                 document.dispatchEvent(new CustomEvent('panel-ui:reset'));
             } catch (error) {
                 if (error.name === 'AbortError' || request.signal.aborted) return;
-                window.location.href = url.toString();
+                const message = document.createElement('p');
+                message.dataset.caseRecordsLoadError = '';
+                message.className = 'flash-error'; message.setAttribute('role', 'alert');
+                message.textContent = 'Unable to load case records. Please try again.';
+                page.prepend(message);
             } finally {
                 if (recordsRequest === request) setUpdating(false);
             }
         };
+
+        window.loadCaseRecordSearch = url => loadRecords(new URL(url,window.location.href),true);
 
         const submitFilterForm = (form, submitter = null) => {
             const url = new URL(form.action, window.location.origin);
@@ -2040,12 +2037,14 @@
             }
 
             setCustomOpen(form, false);
+            if (select.closest('[data-case-more-panel]')) return;
             submitFilterForm(form);
         }, true);
 
         document.addEventListener('change', (event) => {
             const select = event.target instanceof Element ? event.target.closest(`${recordsSelector} [data-case-auto-submit]`) : null;
             if (!select) return;
+            if (!select.reportValidity()) return;
 
             const form = select.closest('[data-case-filter]');
             if (!form) return;
@@ -2073,6 +2072,4 @@
         });
     })();
 </script>
-@include('staff.partials.remaining-pages-visual-system')
-@include('partials.case_records_layout_styles')
 @endsection

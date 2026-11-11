@@ -55,13 +55,13 @@ html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier .cv-addon
 html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier .cv-service-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
 html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier .cv-stat-row { padding:0 0 16px; gap:12px; }
 html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier .cv-stat { background:var(--card) !important; border-radius:12px; }
-html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier .cv-fin-grid { padding:12px 16px; background:var(--card); border:1px solid var(--border); border-radius:12px; }
+html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier .cv-fin-grid { display:grid; gap:10px; padding:12px 16px 16px; background:transparent; border:0; border-radius:0; }
 .od-settlement { margin-left:auto; font-size:12px; color:var(--ink-muted); text-transform:none; }
 .od-paid-track { height:8px; margin:0 0 16px; background:var(--surface-muted); border-radius:8px; overflow:hidden; }
 .od-paid-fill { height:100%; background:#1B4332; border-radius:8px; }
 html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier .od-paid-fill { background:#1B4332 !important; }
 html[data-theme='dark'] body.owner-ui .owner-case-details-shell.owner-dossier .od-paid-fill { background:#34D399 !important; }
-html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier .cv-fin-item { background:transparent !important; border:0 !important; border-bottom:1px solid var(--border) !important; padding:8px 0; }
+html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier .cv-fin-item { display:flex; align-items:center; justify-content:space-between; gap:16px; min-width:0; background:color-mix(in srgb,var(--surface-muted) 62%,var(--card)) !important; border:0 !important; border-radius:12px !important; padding:12px 14px !important; }
 html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier .cv-fin-grid .cv-field-label { text-transform:none; letter-spacing:normal; font-size:12px; font-weight:400; }
 html[data-theme='dark'] .owner-dossier .od-paid-fill { background:#34D399; }
 html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier :is(.cv-fin-item .cv-field-value,.cv-stat-val) { font-family:'JetBrains Mono',monospace; font-variant-numeric:tabular-nums; }
@@ -102,6 +102,24 @@ html[data-theme] body.owner-ui .owner-dossier .od-contract-preview-head p { colo
 .od-contract-empty { padding:20px; color:var(--ink); font-size:14px; }
 @media(max-width:1000px) { html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier .cv-hero-body { grid-template-columns:repeat(3,minmax(0,1fr)); } .od-contract-preview iframe { height:640px; } }
 @media(max-width:520px) { html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier .cv-hero-body { grid-template-columns:minmax(0,1fr); } html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier :is(.cv-hero-titleblock,.cv-hero-badges) { grid-column:auto; } .od-contract-preview iframe { height:480px; } }
+html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier .cv-schedule-fields__grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px 20px; }
+html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier #wake-schedule.cv-card { background:transparent !important; }
+html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier #wake-schedule .cv-schedule-fields__head { background:transparent !important; }
+html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier :is(.cv-pkg-box,.cv-addon-row,.cv-fin-item) { background:transparent !important; }
+html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier .cv-schedule-fields__grid > .cv-field-package:not([id^="schedule-event-"]) { grid-column:auto; grid-row:4; }
+html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier #schedule-event-viewing-type { grid-column:1; grid-row:1; }
+html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier #schedule-event-wake-location { grid-column:2; grid-row:1; }
+html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier #schedule-event-wake-duration { grid-column:3; grid-row:1; }
+html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier #schedule-event-wake-start { grid-column:1; grid-row:2; }
+html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier #schedule-event-wake-end { grid-column:2; grid-row:2; }
+html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier #schedule-event-funeral-ceremony { grid-column:1; grid-row:3; }
+html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier #schedule-event-interment { grid-column:2; grid-row:3; }
+@media(max-width:760px) {
+    html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier .cv-schedule-fields__grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier .cv-schedule-fields__grid > .cv-field-package,
+    html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier .cv-schedule-fields__grid > .cv-field-full { grid-column:auto; grid-row:auto; }
+}
+@media(max-width:520px) { html[data-theme] body.owner-ui .owner-case-details-shell.owner-dossier .cv-schedule-fields__grid { grid-template-columns:minmax(0,1fr); } }
 </style>
 <style>
 body.owner-ui .owner-case-back { position:relative; width:44px; height:44px; padding:0 !important; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }

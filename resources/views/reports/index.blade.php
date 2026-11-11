@@ -30,14 +30,20 @@
             'weekStart' => now()->startOfWeek()->toDateString(),
             'weekEnd' => now()->endOfWeek()->toDateString(),
             'monthStart' => now()->startOfMonth()->toDateString(),
+            'lastMonthStart' => now()->subMonthNoOverflow()->startOfMonth()->toDateString(),
+            'lastMonthEnd' => now()->subMonthNoOverflow()->endOfMonth()->toDateString(),
             'quarterStart' => now()->firstOfQuarter()->toDateString(),
             'quarterEnd' => now()->lastOfQuarter()->toDateString(),
+            'lastQuarterStart' => now()->subQuarter()->firstOfQuarter()->toDateString(),
+            'lastQuarterEnd' => now()->subQuarter()->lastOfQuarter()->toDateString(),
             'firstHalfStart' => now()->startOfYear()->toDateString(),
             'firstHalfEnd' => now()->startOfYear()->addMonths(5)->endOfMonth()->toDateString(),
             'secondHalfStart' => now()->startOfYear()->addMonths(6)->toDateString(),
             'secondHalfEnd' => now()->endOfYear()->toDateString(),
             'yearStart' => now()->startOfYear()->toDateString(),
             'yearEnd' => now()->endOfYear()->toDateString(),
+            'lastYearStart' => now()->subYear()->startOfYear()->toDateString(),
+            'lastYearEnd' => now()->subYear()->endOfYear()->toDateString(),
         ]),
     })"
     x-init="init()"
@@ -1910,44 +1916,46 @@
         </form>
         <div class="reports-reference-config-actions">
             @include('reports.partials.report-scope-controls')
-<button type="submit" form="reportsConfigForm" class="reports-btn reports-btn-primary" :disabled="loading">
+            <div class="reports-reference-action-group" aria-label="Report actions">
+                <button type="submit" form="reportsConfigForm" class="reports-btn reports-btn-primary" :disabled="loading">
                     <span class="reports-spin" x-show="loading" aria-hidden="true"></span>
                     <i class="bi bi-eye" x-show="!loading"></i>
                     <span x-text="loading ? 'Generating...' : 'Preview Report'"></span>
                 </button>
-<details
-                x-ref="headerExportMenu"
-                class="reports-export-menu reports-module-export"
-                :aria-disabled="loading || rows.length === 0 ? 'true' : 'false'"
-                @toggle="if (exportDisabled()) closeExportMenu()"
-            >
-                <summary class="reports-btn reports-btn-secondary" @click="if (exportDisabled()) { $event.preventDefault(); closeExportMenu(); }">
-                    <i class="bi bi-download" aria-hidden="true"></i>
-                    <span>Export</span>
-                    <i class="bi bi-chevron-down" aria-hidden="true"></i>
-                </summary>
-                <div class="reports-export-options">
-                    <button type="button" @click="openPrint">
-                        <i class="bi bi-printer" aria-hidden="true"></i>
-                        <span>Print Preview</span>
-                    </button>
-                    <button type="button" @click="openCsv">
-                        <i class="bi bi-filetype-csv" aria-hidden="true"></i>
-                        <span>Export CSV</span>
-                    </button>
-                </div>
-            </details>
+                <details
+                    x-ref="headerExportMenu"
+                    class="reports-export-menu reports-module-export"
+                    :aria-disabled="loading || rows.length === 0 ? 'true' : 'false'"
+                    @toggle="if (exportDisabled()) closeExportMenu()"
+                >
+                    <summary class="reports-btn reports-btn-secondary" @click="if (exportDisabled()) { $event.preventDefault(); closeExportMenu(); }">
+                        <i class="bi bi-download" aria-hidden="true"></i>
+                        <span>Export</span>
+                        <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                    </summary>
+                    <div class="reports-export-options">
+                        <button type="button" @click="openPrint">
+                            <i class="bi bi-printer" aria-hidden="true"></i>
+                            <span>Print Preview</span>
+                        </button>
+                        <button type="button" @click="openCsv">
+                            <i class="bi bi-filetype-csv" aria-hidden="true"></i>
+                            <span>Export CSV</span>
+                        </button>
+                    </div>
+                </details>
+            </div>
         </div>
     </section>
 
-    <dialog x-ref="reportCustomDateDialog" class="reports-date-dialog" aria-labelledby="reportCustomDateTitle" @click="if ($event.target === $refs.reportCustomDateDialog) { const r = $refs.reportCustomDateDialog.getBoundingClientRect(); if ($event.clientX < r.left || $event.clientX > r.right || $event.clientY < r.top || $event.clientY > r.bottom) $refs.reportCustomDateDialog.close(); }">
+    <dialog popover="manual" data-report-date-panel x-ref="reportCustomDateDialog" class="reports-date-dialog" aria-labelledby="reportCustomDateTitle" @click="if ($event.target === $refs.reportCustomDateDialog) { const r = $refs.reportCustomDateDialog.getBoundingClientRect(); if ($event.clientX < r.left || $event.clientX > r.right || $event.clientY < r.top || $event.clientY > r.bottom) $refs.reportCustomDateDialog.hidePopover(); }">
         <form @submit.prevent="applyReportCustomDates()">
-            <header><h2 id="reportCustomDateTitle">Custom Date Range</h2><button type="button" aria-label="Close custom date range" @click="$refs.reportCustomDateDialog.close()"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+            <header><h2 id="reportCustomDateTitle">Custom Date Range</h2><button type="button" aria-label="Close custom date range" @click="$refs.reportCustomDateDialog.hidePopover()"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
             <div class="reports-date-dialog-fields">
                 <label for="reportCustomDateFrom">Date From<input id="reportCustomDateFrom" type="date" x-model="reportDateDraftFrom" :max="reportDateDraftTo || null" required autofocus></label>
                 <label for="reportCustomDateTo">Date To<input id="reportCustomDateTo" type="date" x-model="reportDateDraftTo" :min="reportDateDraftFrom || null" required></label>
             </div>
-            <footer><button type="button" @click="$refs.reportCustomDateDialog.close()">Cancel</button><button type="submit">Apply Range</button></footer>
+            <footer><button type="button" @click="$refs.reportCustomDateDialog.hidePopover()">Cancel</button><button type="submit">Apply Range</button></footer>
         </form>
     </dialog>
     <section class="reports-card">
@@ -2070,7 +2078,7 @@
 
         {{-- Drilldown fetch in progress --}}
         <template x-if="drilldownLoading && selectedMetric">
-            <div class="reports-state">
+            <div class="reports-state" aria-busy="true">
                 <div>
                     <div class="reports-loading-dot"></div>
                     <div class="reports-state-title" x-text="'Loading ' + metricDrillLabel() + ' records...'"></div>
@@ -2463,12 +2471,13 @@ window.reportsModule = function reportsModule(config) {
             this.previewLoaded = Boolean(options.preservePreviewLoaded);
         },
         changeReportDatePreset(preset) {
+            this.datePreset = preset;
             if (preset === 'CUSTOM') {
                 if (this.isOwnerAnalytics()) this.syncAnalyticsPresetFromDates();
                 else this.syncReportPresetFromDates();
                 this.reportDateDraftFrom = this.filters.date_from || '';
                 this.reportDateDraftTo = this.filters.date_to || '';
-                this.$refs.reportCustomDateDialog.showModal();
+                window.openReportDatePicker(this.$refs.reportCustomDateDialog,document.getElementById('reportsHeaderDatePreset'));
                 return;
             }
             this.selectReportDatePreset(preset);
@@ -2480,12 +2489,19 @@ window.reportsModule = function reportsModule(config) {
             this.filters.date_to = this.reportDateDraftTo;
             this.datePreset = 'CUSTOM';
             this.reportAppliedDatePreset = 'CUSTOM';
-            this.$refs.reportCustomDateDialog.close();
+            this.$refs.reportCustomDateDialog.hidePopover();
             this.loadPreview();
         },
         selectReportDatePreset(preset) {
             if (this.isOwnerAnalytics()) {
-                this.selectDatePreset(preset || 'TODAY');
+                if (!preset) {
+                    this.datePreset = '';
+                    this.customRangeOpen = false;
+                    this.filters.date_from = '';
+                    this.filters.date_to = '';
+                    return;
+                }
+                this.selectDatePreset(preset);
                 return;
             }
             if (!preset) {
@@ -2499,12 +2515,18 @@ window.reportsModule = function reportsModule(config) {
             } else if (preset === 'THIS_MONTH') {
                 this.filters.date_from = config.analyticsDates.monthStart;
                 this.filters.date_to = config.analyticsDates.today;
+            } else if (preset === 'LAST_MONTH') {
+                this.filters.date_from = config.analyticsDates.lastMonthStart;
+                this.filters.date_to = config.analyticsDates.lastMonthEnd;
             } else if (preset === 'THIS_WEEK') {
                 this.filters.date_from = config.analyticsDates.weekStart;
                 this.filters.date_to = config.analyticsDates.weekEnd;
             } else if (preset === 'THIS_QUARTER') {
                 this.filters.date_from = config.analyticsDates.quarterStart;
                 this.filters.date_to = config.analyticsDates.quarterEnd;
+            } else if (preset === 'LAST_QUARTER') {
+                this.filters.date_from = config.analyticsDates.lastQuarterStart;
+                this.filters.date_to = config.analyticsDates.lastQuarterEnd;
             } else if (preset === 'FIRST_HALF') {
                 this.filters.date_from = config.analyticsDates.firstHalfStart;
                 this.filters.date_to = config.analyticsDates.firstHalfEnd;
@@ -2514,6 +2536,9 @@ window.reportsModule = function reportsModule(config) {
             } else if (preset === 'THIS_YEAR') {
                 this.filters.date_from = config.analyticsDates.yearStart;
                 this.filters.date_to = config.analyticsDates.yearEnd;
+            } else if (preset === 'LAST_YEAR') {
+                this.filters.date_from = config.analyticsDates.lastYearStart;
+                this.filters.date_to = config.analyticsDates.lastYearEnd;
             } else if (preset === 'CUSTOM') {
                 this.advancedFiltersOpen = true;
             }
@@ -2540,9 +2565,7 @@ window.reportsModule = function reportsModule(config) {
             const from = this.filters.date_from;
             const to = this.filters.date_to;
             if (!from && !to) {
-                this.datePreset = 'TODAY';
-                this.filters.date_from = config.analyticsDates.today;
-                this.filters.date_to = config.analyticsDates.today;
+                this.datePreset = '';
                 return;
             }
             if (from === config.analyticsDates.today && to === config.analyticsDates.today) {
@@ -2587,9 +2610,21 @@ window.reportsModule = function reportsModule(config) {
                 this.datePreset = 'THIS_MONTH';
                 return;
             }
+            if (from === config.analyticsDates.lastMonthStart && to === config.analyticsDates.lastMonthEnd) {
+                this.datePreset = 'LAST_MONTH'; return;
+            }
+            if (from === config.analyticsDates.quarterStart && to === config.analyticsDates.quarterEnd) {
+                this.datePreset = 'THIS_QUARTER'; return;
+            }
+            if (from === config.analyticsDates.lastQuarterStart && to === config.analyticsDates.lastQuarterEnd) {
+                this.datePreset = 'LAST_QUARTER'; return;
+            }
             if (from === config.analyticsDates.yearStart && to === config.analyticsDates.today) {
                 this.datePreset = 'THIS_YEAR';
                 return;
+            }
+            if (from === config.analyticsDates.lastYearStart && to === config.analyticsDates.lastYearEnd) {
+                this.datePreset = 'LAST_YEAR'; return;
             }
             this.datePreset = 'CUSTOM';
             this.advancedFiltersOpen = true;
@@ -2605,10 +2640,14 @@ window.reportsModule = function reportsModule(config) {
                 TODAY: 'Today',
                 THIS_WEEK: 'This Week',
                 THIS_MONTH: 'This Month',
+                LAST_MONTH: 'Last Month',
                 THIS_QUARTER: 'This Quarter',
+                LAST_QUARTER: 'Last Quarter',
                 FIRST_HALF: 'Semi-Annual — First Half',
                 SECOND_HALF: 'Semi-Annual — Second Half',
                 THIS_YEAR: 'This Year',
+                LAST_YEAR: 'Last Year',
+                ALL_DATES: 'All Time',
                 CUSTOM: 'Custom Range',
             };
             return labels[this.datePreset] || 'No Date Filter';
@@ -2671,7 +2710,7 @@ window.reportsModule = function reportsModule(config) {
                 ],
                 owner_branch_analytics: [
                     ['branch', 'Branch'], ['total_cases', 'Cases in Period'], ['gross_amount', 'Total Service Value'],
-                    ['collected_amount', 'Collected'], ['remaining_balance', 'Remaining Balance'],
+                    ['collected_amount', 'Collections Received'], ['remaining_balance', 'Current Outstanding'],
                     ['paid_cases', 'Paid Cases'], ['partial_cases', 'Partially Paid Cases'], ['unpaid_cases', 'Unpaid Cases'],
                 ],
             };
@@ -2692,8 +2731,8 @@ window.reportsModule = function reportsModule(config) {
                 return [
                     { label: 'Cases in Period',      value: this.number(this.summary.total_cases || 0),       icon: 'bi-folder2-open',      key: 'total_cases' },
                     { label: 'Total Service Value', value: money(this.summary.gross_amount),                 icon: 'bi-cash-stack',         key: 'gross_amount' },
-                    { label: 'Collected', value: money(this.summary.collected_amount),     icon: 'bi-wallet2',            key: 'collected_amount' },
-                    { label: 'Remaining Balance', value: money(this.summary.remaining_balance),            icon: 'bi-receipt',            key: 'remaining_balance' },
+                    { label: 'Collections Received', value: money(this.summary.collected_amount), icon: 'bi-wallet2', key: 'collected_amount' },
+                    { label: 'Current Outstanding', value: money(this.summary.remaining_balance), icon: 'bi-receipt', key: 'remaining_balance' },
                 ];
             }
             return [
@@ -2716,8 +2755,8 @@ window.reportsModule = function reportsModule(config) {
                 total_cases: 'Cases requested within the selected period.',
                 total_records: 'Cases requested within the selected period.',
                 gross_amount: 'Final case amount after discounts.',
-                collected_amount: 'All payments for these cases, across all dates.',
-                remaining_balance: 'Unpaid amount remaining for these cases.',
+                collected_amount: 'Valid payments received within the selected payment period.',
+                remaining_balance: 'Present-day unpaid amount for the selected case cohort.',
             }[card.key] || '';
         },
         summaryScopeDescription() {
@@ -2725,7 +2764,7 @@ window.reportsModule = function reportsModule(config) {
                 return 'Valid payments received within the selected payment period.';
             }
             if (this.reportType === 'owner_branch_analytics') {
-                return 'Cases are included by service request date. Collected includes every valid payment recorded for these cases, including payments outside the selected period.';
+                return 'Cases and service value use request date. Collections Received uses payment-received date. Current Outstanding is the present balance of the selected case cohort.';
             }
             if (this.reportType === 'master_cases') {
                 return (this.filters.date_basis === 'recording' ? 'Cases are included by recording date.' : 'Cases are included by service request date.') + ' Collected includes every valid payment recorded for the cases shown.';
@@ -2878,8 +2917,8 @@ window.reportsModule = function reportsModule(config) {
                 { key: 'deceased',          label: 'Deceased' },
                 { key: 'payment_status',    label: 'Payment Status' },
                 { key: 'gross_amount',      label: 'Total Service Value' },
-                { key: 'collected_amount',  label: 'Collected Amount' },
-                { key: 'remaining_balance', label: 'Remaining Balance' },
+                { key: 'collected_amount',  label: 'Collections Received' },
+                { key: 'remaining_balance', label: 'Current Outstanding' },
                 { key: 'last_payment_date', label: 'Last Payment Date' },
             ];
         },
@@ -2891,8 +2930,8 @@ window.reportsModule = function reportsModule(config) {
                 partial_cases:     'Partial Cases',
                 unpaid_cases:      'Unpaid Cases',
                 gross_amount:      'Total Service Value',
-                collected_amount:  'Collected Amount',
-                remaining_balance: 'Remaining Balance',
+                collected_amount:  'Collections Received',
+                remaining_balance: 'Current Outstanding',
             };
             return map[this.selectedMetric] || '';
         },

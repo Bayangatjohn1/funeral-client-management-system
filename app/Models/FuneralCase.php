@@ -17,8 +17,11 @@ class FuneralCase extends Model
     protected $fillable = [
         'branch_id',
         'client_id',
+        'client_relationship',
         'deceased_id',
         'package_id',
+        'hearse_catalog_id',
+        'hearse_name_snapshot',
         'package_name_snapshot',
         'package_price_snapshot',
         'package_description_snapshot',
@@ -38,12 +41,19 @@ class FuneralCase extends Model
         'custom_package_inclusions',
         'custom_package_freebies',
         'wake_location',
+        'viewing_type',
+        'chapel_address',
+        'chapel_catalog_id',
+        'chapel_schedule_acknowledgment',
+        'viewing_type',
         'wake_start_date',
         'wake_start_time',
         'wake_end_date',
         'wake_end_time',
         'funeral_service_at',
         'funeral_service_time',
+        'funeral_ceremony_location',
+        'ceremony_at_wake_location',
         'interment_at',
         'interment_time',
         'transport_option',
@@ -95,11 +105,13 @@ class FuneralCase extends Model
     protected $casts = [
         'service_requested_at' => 'date',
         'wake_start_date' => 'date',
+        'chapel_schedule_acknowledgment' => 'array',
         'wake_end_date' => 'date',
         'funeral_service_at' => 'date',
         'interment_at' => 'datetime',
         'coffin_length_cm' => 'decimal:2',
         'embalming_required' => 'boolean',
+        'ceremony_at_wake_location' => 'boolean',
         'embalming_at' => 'datetime',
         'deleted_at' => 'datetime',
         'additional_service_amount' => 'decimal:2',
@@ -171,6 +183,22 @@ class FuneralCase extends Model
         });
     }
 
+    public function ceremonyLocation(): ?string
+    {
+        if (! $this->ceremony_at_wake_location) {
+            return $this->funeral_ceremony_location;
+        }
+
+        $wakeLocation = trim((string) $this->wake_location);
+
+        return $wakeLocation !== '' && strcasecmp($wakeLocation, 'Not specified') !== 0 ? $wakeLocation : null;
+    }
+
+    public function clientRelationship(): ?string
+    {
+        return $this->client_relationship ?: ($this->client?->relationship ?: $this->client?->relationship_to_deceased);
+    }
+
     public function client()
     {
         return $this->belongsTo(\App\Models\Client::class);
@@ -189,6 +217,11 @@ class FuneralCase extends Model
     public function package()
     {
         return $this->belongsTo(\App\Models\Package::class);
+    }
+
+    public function hearseCatalog()
+    {
+        return $this->belongsTo(\App\Models\HearseCatalog::class);
     }
 
     public function payments()
@@ -210,6 +243,18 @@ class FuneralCase extends Model
     {
         return $this->hasOne(\App\Models\CaseAttachment::class, 'case_id')
             ->where('attachment_type', \App\Models\CaseAttachment::TYPE_TARPAULIN);
+    }
+
+    public function deceasedPhotoAttachment()
+    {
+        return $this->hasOne(\App\Models\CaseAttachment::class, 'case_id')
+            ->where('attachment_type', \App\Models\CaseAttachment::TYPE_DECEASED_PHOTO);
+    }
+
+    public function seniorProofAttachment()
+    {
+        return $this->hasOne(\App\Models\CaseAttachment::class, 'case_id')
+            ->where('attachment_type', \App\Models\CaseAttachment::TYPE_SENIOR_PROOF);
     }
 
     public function documents()

@@ -1,3 +1,4 @@
+@include('partials.worklist_consistency_styles')
 @php
     $activeModule = $activeModule ?? 'analytics';
     $currentReportType = $currentReportType ?? request('report_type');
@@ -231,30 +232,6 @@
         [data-reports-module-shell] {
             position: relative;
         }
-        html.reports-module-soft-loading [data-reports-module-shell] {
-            cursor: progress;
-            opacity: 0.76;
-            pointer-events: none;
-            transition: opacity 0.16s ease;
-        }
-        html.reports-module-soft-loading body::after {
-            content: 'Loading module...';
-            position: fixed;
-            top: 1rem;
-            right: 1rem;
-            z-index: 80;
-            min-height: 34px;
-            display: inline-flex;
-            align-items: center;
-            padding: 0 12px;
-            border: 1px solid var(--records-border, var(--border));
-            border-radius: 999px;
-            background: var(--records-card-alt, #fff);
-            color: var(--ink, #263126);
-            font-size: 12px;
-            font-weight: 800;
-            box-shadow: none;
-        }
         [data-reports-module-shell].is-module-entering {
             opacity: 0.01;
             pointer-events: none;
@@ -386,44 +363,8 @@
     @endif
 
     @if($activeModule === 'analytics')
-        <div class="reports-module-controls reports-analytics-scope" aria-label="Analytics scope controls">
-            <form method="GET" action="{{ route($analyticsRouteName) }}" class="reports-reference-period">
-                <span class="reports-reference-date-label"><i class="bi bi-calendar3" aria-hidden="true"></i> Date Range:</span>
-                @if($branchId)
-                    <input type="hidden" name="branch_id" value="{{ $branchId }}">
-                @endif
-                <input type="hidden" name="analytics_tab" value="{{ $analyticsTab }}">
-                <select
-                    id="analyticsHeaderRange"
-                    name="range"
-                    class="reports-module-control reports-reference-native-period"
-                    aria-label="Date range"
-                    tabindex="-1"
-                    aria-hidden="true"
-                    onchange="this.form.submit()"
-                >
-                    @foreach (['TODAY', 'THIS_MONTH', 'THIS_YEAR'] as $rangeKey)
-                        <option value="{{ $rangeKey }}" @selected($range === $rangeKey)>
-                            {{ ucwords(strtolower(str_replace('_', ' ', $rangeKey))) }}
-                        </option>
-                    @endforeach
-                    <option value="CUSTOM" @selected($range === 'CUSTOM')>Custom Range</option>
-                </select>
-                <div id="analyticsDatePresets" class="reports-reference-date-pills" role="group" aria-label="Date range presets">
-                    @foreach (['TODAY' => 'Today', 'THIS_MONTH' => 'This Month', 'THIS_YEAR' => 'This Year'] as $preset => $label)
-                        <button type="button" class="{{ $range === $preset ? 'is-active' : '' }}" aria-pressed="{{ $range === $preset ? 'true' : 'false' }}" onclick="this.form.querySelector('#analyticsHeaderRange').value='{{ $preset }}'; this.form.requestSubmit()">@if($range === $preset)<i class="bi bi-check2" aria-hidden="true"></i> @endif{{ $label }}</button>
-                    @endforeach
-                    <button type="button" class="{{ $range === 'CUSTOM' ? 'is-active' : '' }}" aria-pressed="{{ $range === 'CUSTOM' ? 'true' : 'false' }}" onclick="document.getElementById('analyticsCustomDateDialog').showModal()">
-                        @if($range === 'CUSTOM')
-                            <i class="bi bi-check2" aria-hidden="true"></i>
-                        @endif
-                        Custom Range
-                    </button>
-                </div>
-            </form>
-
-            @if(!$canSelectAllBranches)
-            @else
+        <div class="reports-module-controls reports-analytics-scope" aria-label="Analytics scope controls" data-report-filter-controls>
+            @if($canSelectAllBranches)
             <form method="GET" action="{{ route($analyticsRouteName) }}" class="reports-module-control-wrap">
                 <i class="bi bi-building" aria-hidden="true"></i>
                 <input type="hidden" name="range" value="{{ $range }}">
@@ -437,7 +378,7 @@
                     name="branch_id"
                     class="reports-module-control is-branch"
                     aria-label="Branch"
-                    onchange="this.form.submit()"
+                    onchange="this.form.requestSubmit()"
                 >
                     @if($canSelectAllBranches)
                         <option value="">All Branches</option>
@@ -450,11 +391,47 @@
                 </select>
             </form>
             @endif
-            <span class="reports-reference-applied-dates">{{ \Carbon\Carbon::parse($dateFrom)->format('M d, Y') }} – {{ \Carbon\Carbon::parse($dateTo)->format('M d, Y') }}</span>
+            <form method="GET" action="{{ route($analyticsRouteName) }}" class="reports-module-control-wrap">
+                <i class="bi bi-calendar3" aria-hidden="true"></i>
+                @if($branchId)
+                    <input type="hidden" name="branch_id" value="{{ $branchId }}">
+                @endif
+                <input type="hidden" name="analytics_tab" value="{{ $analyticsTab }}">
+                <select
+                    id="analyticsHeaderRange"
+                    name="range"
+                    data-applied-range="{{ $range }}"
+                    class="reports-module-control"
+                    aria-label="Date range"
+                    onchange="if(this.value==='CUSTOM'){window.openReportDatePicker(document.getElementById('analyticsCustomDateDialog'),this)}else{this.form.requestSubmit()}"
+                >
+                    @if(in_array($range,['TODAY','THIS_WEEK','FIRST_HALF','SECOND_HALF'],true))<option value="{{ $range }}" selected>{{ ucwords(strtolower(str_replace('_',' ',$range))) }}</option>@endif
+                    @foreach (['THIS_MONTH', 'LAST_MONTH', 'THIS_QUARTER', 'LAST_QUARTER', 'THIS_YEAR', 'LAST_YEAR', 'ALL_DATES'] as $rangeKey)
+                        <option value="{{ $rangeKey }}" @selected($range === $rangeKey)>
+                            {{ $rangeKey === 'ALL_DATES' ? 'All Time' : ucwords(strtolower(str_replace('_', ' ', $rangeKey))) }}
+                        </option>
+                    @endforeach
+                    <option value="CUSTOM" @selected($range === 'CUSTOM')>Custom Range</option>
+                </select>
+
+            </form>
+
+            <span class="reports-reference-applied-dates">
+                <span class="sr-only">Applied date range</span>
+                @if($range === 'ALL_DATES')
+                    @if($availableDateFrom && $availableDateTo)
+                        All Time selected · Available data: {{ \Carbon\Carbon::parse($availableDateFrom)->format('M d, Y') }} – {{ \Carbon\Carbon::parse($availableDateTo)->format('M d, Y') }}
+                    @else
+                        All Time selected · No available data
+                    @endif
+                @else
+                    {{ \Carbon\Carbon::parse($dateFrom)->format('M d, Y') }} – {{ \Carbon\Carbon::parse($dateTo)->format('M d, Y') }}
+                @endif
+            </span>
         </div>
-        <dialog id="analyticsCustomDateDialog" class="reports-custom-date-dialog" aria-labelledby="analyticsCustomDateTitle" onclick="if(event.target===this){const r=this.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)this.close()}">
-            <form method="GET" action="{{ route($analyticsRouteName) }}" onsubmit="if(!this.checkValidity()) return false; this.closest('dialog').close()">
-                <header><h2 id="analyticsCustomDateTitle">Custom Date Range</h2><button type="button" aria-label="Close custom date range" onclick="this.closest('dialog').close()"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
+        <dialog popover="manual" data-report-date-panel id="analyticsCustomDateDialog" class="reports-custom-date-dialog" aria-labelledby="analyticsCustomDateTitle" onclick="if(event.target===this){const r=this.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)this.hidePopover()}">
+            <form method="GET" action="{{ route($analyticsRouteName) }}" onsubmit="if(!this.checkValidity()) return false; this.closest('dialog').hidePopover()">
+                <header><h2 id="analyticsCustomDateTitle">Custom Date Range</h2><button type="button" aria-label="Close custom date range" onclick="this.closest('dialog').hidePopover()"><i class="bi bi-x-lg" aria-hidden="true"></i></button></header>
                 <input type="hidden" name="range" value="CUSTOM">
                 <input type="hidden" name="analytics_tab" value="{{ $analyticsTab }}">
                 @if($branchId)<input type="hidden" name="branch_id" value="{{ $branchId }}">@endif
@@ -462,7 +439,7 @@
                     <label>Date From<input autofocus type="date" name="date_from" required value="{{ $dateFrom }}" onchange="this.form.elements.date_to.min=this.value"></label>
                     <label>Date To<input type="date" name="date_to" required min="{{ $dateFrom }}" value="{{ $dateTo }}"></label>
                 </div>
-                <footer><button type="button" onclick="this.closest('dialog').close()">Cancel</button><button type="submit">Apply Range</button></footer>
+                <footer><button type="button" onclick="this.closest('dialog').hidePopover()">Cancel</button><button type="submit">Apply Range</button></footer>
             </form>
         </dialog>
     @endif
@@ -472,6 +449,7 @@
 window.SabanganReportsModuleNavigation = window.SabanganReportsModuleNavigation || (() => {
     const shellSelector = '[data-reports-module-shell]';
     let isLoading = false;
+    let queuedNavigation = null;
 
     const styleFingerprint = (style) => {
         const text = style.textContent || '';
@@ -555,41 +533,12 @@ window.SabanganReportsModuleNavigation = window.SabanganReportsModuleNavigation 
     });
 
     const showLoadingOverlay = () => {
-        const overlay = document.createElement('div');
-        overlay.dataset.reportsModuleLoadingOverlay = 'true';
-        overlay.innerHTML = '<span>Loading module...</span>';
-        Object.assign(overlay.style, {
-            position: 'fixed',
-            inset: '0',
-            zIndex: '9999',
-            display: 'grid',
-            placeItems: 'start end',
-            padding: '16px',
-            background: 'rgba(234, 241, 226, 0.38)',
-            pointerEvents: 'none',
-        });
-
-        const pill = overlay.firstElementChild;
-        Object.assign(pill.style, {
-            minHeight: '34px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            padding: '0 12px',
-            border: '1px solid var(--records-border, var(--border))',
-            borderRadius: '999px',
-            background: 'var(--records-card-alt, #fff)',
-            color: 'var(--ink, #263126)',
-            fontSize: '12px',
-            fontWeight: '800',
-            boxShadow: 'none',
-        });
-
-        document.body.appendChild(overlay);
-        return overlay;
+        const finish = window.PanelSkeleton?.begin(window.PanelSkeleton.contentTarget(document.querySelector(shellSelector)));
+        return { remove: () => finish?.() };
     };
 
     const load = async (href, mode = 'push') => {
-        if (isLoading) return;
+        if (isLoading) { queuedNavigation = {href, mode}; return; }
 
         const url = new URL(href, window.location.origin);
         const currentShell = document.querySelector(shellSelector);
@@ -627,10 +576,6 @@ window.SabanganReportsModuleNavigation = window.SabanganReportsModuleNavigation 
             }
 
             syncPageStyles(doc);
-            nextShell.classList.add('is-module-entering');
-            nextShell.style.opacity = '0';
-            nextShell.style.visibility = 'hidden';
-            nextShell.style.pointerEvents = 'none';
             currentShell.replaceWith(nextShell);
             document.title = doc.title || document.title;
             executePageScripts(doc);
@@ -638,18 +583,6 @@ window.SabanganReportsModuleNavigation = window.SabanganReportsModuleNavigation 
             document.dispatchEvent(new CustomEvent('panel-ui:reset'));
             window.history[mode === 'replace' ? 'replaceState' : 'pushState']({ reportsModule: true }, '', url.toString());
             await waitForModuleReady(nextShell);
-            await waitForPaint();
-            await new Promise((resolve) => setTimeout(resolve, 80));
-            nextShell.classList.remove('is-module-entering');
-            nextShell.style.visibility = '';
-            nextShell.style.pointerEvents = '';
-            nextShell.style.transition = 'opacity 0.18s ease-out';
-            nextShell.style.opacity = '1';
-            nextShell.classList.add('is-module-ready');
-            setTimeout(() => {
-                nextShell.classList.remove('is-module-ready');
-                nextShell.style.transition = '';
-            }, 220);
         } catch (error) {
             console.error('Reports module soft navigation failed.', error);
         } finally {
@@ -657,6 +590,10 @@ window.SabanganReportsModuleNavigation = window.SabanganReportsModuleNavigation 
             isLoading = false;
             document.documentElement.classList.remove('reports-module-soft-loading');
             document.documentElement.classList.remove('ba-soft-loading');
+            if (queuedNavigation) {
+                const next = queuedNavigation; queuedNavigation = null;
+                void load(next.href, next.mode);
+            }
         }
     };
 

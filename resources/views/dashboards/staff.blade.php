@@ -21,19 +21,14 @@ html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 [data-activi
 html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .dashboard-activity-pagination{margin-top:auto}
 </style>
 @php
-    $branchLabel = trim(($dashboardBranch->branch_code ?? 'BR001') . ' - ' . ($dashboardBranch->branch_name ?? 'Main Branch'));
-    $todayLabel = now()->format('l, F j, Y');
+    $branchName = $dashboardBranch->branch_name ?? 'Main Branch';
+    $branchLabel = trim(($dashboardBranch->branch_code ?? 'BR001') . ' - ' . $branchName);
     $sameTimeCounts = $scheduleGroups->flatMap(fn ($group) => $group['events'])->filter(fn ($event) => $event['has_time'] && $event['date'])->groupBy(fn ($event) => $event['date']->format('Y-m-d H:i'))->map->count();
 
 
-    $attentionItems = collect($attentionReminders ?? [])->take(3)->values();
+    $attentionItems = $attentionReminders;
     $todayItems = collect($todaySchedule ?? [])->take(5)->values();
     $upcomingItems = collect($upcomingSchedule ?? [])->take(5)->values();
-
-    $outstandingCases = collect($unpaidCases ?? [])
-        ->filter(fn ($case) => (float) ($case->balance_amount ?? 0) > 0)
-        ->take(3)
-        ->values();
 
 @endphp
 
@@ -54,51 +49,43 @@ html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .dashboard-a
                     <i class="bi bi-list"></i>
                 </button>
                 <div class="staff-identity">
-                    <div class="staff-page-title-row"><h1 class="staff-title"><x-page-title-icon icon="grid" inline />Dashboard</h1><span class="staff-context-badge">Daily Operations</span></div>
+                    <div class="staff-page-title-row">
+                        <h1 class="staff-title">Dashboard</h1>
+                        <span class="staff-context-badge">Daily Operations</span>
+                        <span class="staff-branch-chip">{{ $branchName }}</span>
+                    </div>
                     <p class="staff-dashboard-description">Overview of cases, scheduled services, and recorded payments.</p>
-                    <span class="staff-branch-chip">{{ $branchLabel }}</span>
                 </div>
             </div>
-            @include('partials.dashboard-header-controls', ['dashboardDateLabel' => $todayLabel, 'dashboardShowNotifications' => true, 'dashboardCompactNotifications' => true])
+            <div class="staff-payment-search-region">
+                <form class="staff-payment-search" role="search" action="{{ route('payments.history') }}"
+                      data-payment-case-search="{{ route('payments.recordable-cases') }}">
+                    <label for="staff-payment-case-query">Find a case for payment</label>
+                    <input type="hidden" name="payment_status" value="WITH_BALANCE">
+                    <div class="staff-payment-search-field">
+                        <div class="staff-payment-search-input">
+                            <i class="bi bi-search" aria-hidden="true"></i>
+                            <input id="staff-payment-case-query" name="q" type="search" maxlength="100" autocomplete="off"
+                                   role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="staff-payment-case-results"
+                                   placeholder="Case ID, client or deceased name">
+                        </div>
+                        <button type="submit">Search</button>
+                    </div>
+                    <div class="staff-payment-search-popup" hidden>
+                        <div id="staff-payment-case-results" role="listbox" aria-label="Cases with balances"></div>
+                        <p role="status" aria-live="polite"></p>
+                    </div>
+                </form>
+            </div>
+            @include('partials.dashboard-header-controls', ['dashboardShowNotifications' => true, 'dashboardCompactNotifications' => true])
         </div>
     </section>
 
     <section class="staff-summary-grid" aria-label="Daily operations summary">
-        <article class="staff-summary-card"><div class="staff-summary-label">Ongoing Cases <i class="bi bi-clipboard" aria-hidden="true"></i></div><strong>{{ $ongoingCount }}</strong><p>Draft and active branch cases</p></article>
-        <article class="staff-summary-card"><div class="staff-summary-label">Today's Schedule <i class="bi bi-calendar3" aria-hidden="true"></i></div><strong>{{ collect($todaySchedule)->count() }}</strong><p>Events in today's schedule</p></article>
-        <article class="staff-summary-card"><div class="staff-summary-label">Today's Collections <i class="bi bi-credit-card" aria-hidden="true"></i></div><strong class="staff-summary-money">&#8369; {{ number_format((float) $todayPaidTotal, 2) }}</strong><p>Current daily collection total</p></article>
-        <article class="staff-summary-card"><div class="staff-summary-label">Needs Attention <i class="bi bi-exclamation-triangle" aria-hidden="true"></i></div><strong>{{ collect($attentionReminders)->count() }}</strong><p>Existing case follow-up reminders</p></article>
-    </section>
-
-    <section aria-label="Quick actions">
-        <div class="staff-action-grid">
-            <a href="{{ route('intake.main.create') }}" class="staff-action-card is-light">
-                <div class="icon"><i class="bi bi-plus-lg"></i></div>
-                <div>
-                    <p class="title">Record New Case</p>
-                    <p class="desc">Create a funeral record</p>
-                </div>
-                <span class="staff-action-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span>
-            </a>
-
-            <a href="{{ route('funeral-cases.index') }}" class="staff-action-card is-light">
-                <div class="icon"><i class="bi bi-clipboard-data"></i></div>
-                <div>
-                    <p class="title">Case Records</p>
-                    <p class="desc">View all branch cases</p>
-                </div>
-                <span class="staff-action-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span>
-            </a>
-
-            <a href="{{ route('payments.history') }}" class="staff-action-card is-light">
-                <div class="icon"><i class="bi bi-clock-history"></i></div>
-                <div>
-                    <p class="title">Payment Monitoring</p>
-                    <p class="desc">Browse all payments</p>
-                </div>
-                <span class="staff-action-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span>
-            </a>
-        </div>
+        <article class="staff-summary-card"><div class="staff-summary-label">Ongoing Cases <i class="bi bi-clipboard" aria-hidden="true"></i></div><strong data-dashboard-kpi-tone="info">{{ $ongoingCount }}</strong><p>Draft and active branch cases</p></article>
+        <article class="staff-summary-card"><div class="staff-summary-label">Today's Schedule <i class="bi bi-calendar3" aria-hidden="true"></i></div><strong data-dashboard-kpi-tone="plan">{{ collect($todaySchedule)->count() }}</strong><p>Events in today's schedule</p></article>
+        <article class="staff-summary-card"><div class="staff-summary-label">Today's Collections <i class="bi bi-credit-card" aria-hidden="true"></i></div><strong class="staff-summary-money" data-dashboard-kpi-tone="positive">&#8369; {{ number_format((float) $todayPaidTotal, 2) }}</strong><p>Current daily collection total</p></article>
+        <article class="staff-summary-card"><div class="staff-summary-label">Needs Attention <i class="bi bi-exclamation-triangle" aria-hidden="true"></i></div><strong data-dashboard-kpi-tone="{{ $attentionItems->isEmpty() ? 'neutral' : 'warning' }}">{{ $attentionItems->count() }}</strong><p>Balances after scheduled interment</p></article>
     </section>
 
     <section class="staff-grid">
@@ -179,12 +166,37 @@ html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .dashboard-a
         </div>
     </section>
             <div class="staff-subgrid-two">
+                <article id="outstanding-balances" class="staff-card staff-card--hover-action" data-outstanding-card>
+                    <div class="staff-card-head">
+                        <div class="staff-card-head-main">
+                            <div>
+                                <div class="ref-panel-title staff-balances-heading">
+                                    <h3><i class="bi bi-wallet2" aria-hidden="true"></i> Outstanding Balances</h3>
+                                </div>
+                                <p>Cases with remaining balances</p>
+                            </div>
+                            <div class="staff-card-head-controls staff-card-head-controls--summary">
+                                <div class="staff-head-actions">
+                                    <a href="{{ route('payments.history', ['payment_status' => 'WITH_BALANCE']) }}" class="staff-link">Go to Payment Monitoring <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div data-balances-results tabindex="-1">
+                        @include('staff.partials.dashboard-outstanding-balances')
+                    </div>
+                </article>
+
                 <article class="staff-card staff-card--hover-action" data-attention-card>
                     <div class="staff-card-head">
                         <div class="staff-card-head-main">
                             <div>
-                                <div class="ref-panel-title"><h3>Needs Attention</h3><span class="ref-attention-count">{{ collect($attentionReminders)->count() }} pending</span></div>
-                                <p>Cases requiring follow-up</p>
+                                <div class="ref-panel-title staff-urgent-heading">
+                                    <h3 id="staff-urgent-cases"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Needs Attention</h3>
+                                    <span class="staff-urgent-count">{{ $attentionItems->count() }} {{ Str::plural('Case', $attentionItems->count()) }}</span>
+                                </div>
+                                <p>Balances after scheduled interment</p>
                             </div>
                             <div class="staff-card-head-controls staff-card-head-controls--summary">
                                 <div class="staff-head-actions">
@@ -194,118 +206,38 @@ html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .dashboard-a
                         </div>
                     </div>
 
-                    <div class="staff-list">
+                    <ul class="staff-list staff-urgent-list" aria-labelledby="staff-urgent-cases" tabindex="0">
                         @forelse($attentionItems as $item)
-                            @php
-                                $pillClass = match($item['severity'] ?? 'info') {
-                                    'danger' => 'danger',
-                                    'warning' => 'warning',
-                                    default => 'info',
-                                };
-                                $scheduleLabel = match($item['type'] ?? '') {
-                                    'interment_completed', 'interment_date_completed', 'interment_approaching', 'interment_date_today_balance' => 'Interment',
-                                    'same_day_interment_schedule' => 'Interment',
-                                    'same_day_service_schedule' => 'Service',
-                                    default => 'Schedule',
-                                };
-                            @endphp
-                            <div class="ref-attention-card">
+                            @php $daysSince = (int) $item['date']->copy()->startOfDay()->diffInDays($dashboardNow->copy()->startOfDay()); @endphp
+                            <li class="staff-urgent-case">
                                 <div>
-                                    <div class="ref-attention-top"><strong>{{ $item['case_code'] }}</strong><span>{{ $item['deceased_name'] }}</span></div>
-                                    <small class="ref-attention-message"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i><span>
-                                        {{ $item['message'] ?? $item['label'] }}
-                                    </span></small>
-                                    @if(!empty($item['date']))
-                                        <span class="staff-attention-date">
-                                            {{ $scheduleLabel }}: {{ $item['date']->format('M d, Y') }}{{ !empty($item['has_time']) ? ' · '.$item['date']->format('h:i A') : ' · Time not recorded' }}
-                                        </span>
-                                    @endif
-                                </div>
-                                <div class="dashboard-attention-actions"><span class="staff-attention-pill {{ $pillClass }}">{{ $item['label'] }}</span><button type="button" class="dashboard-view-icon" data-attention-dialog="attention-case-{{ $item['case_id'] }}" aria-label="View Payment Summary" data-tip="View Payment Summary"><i class="bi bi-wallet2" aria-hidden="true"></i></button></div>
-                            </div>
-                        @empty
-                            <div class="staff-empty">
-                                <i class="bi bi-check2-circle"></i>
-                                No case updates requiring follow-up.
-                            </div>
-                        @endforelse
-                    </div>
-                </article>
-
-                <article class="staff-card staff-card--hover-action" data-outstanding-card>
-                    <div class="staff-card-head">
-                        <div class="staff-card-head-main">
-                            <div>
-                                <h3>Outstanding Balances</h3>
-                                <p>Cases with remaining balances</p>
-                            </div>
-                            <div class="staff-card-head-controls staff-card-head-controls--summary">
-                                <div class="staff-head-actions">
-                                    <a href="{{ route('payments.history') }}" class="staff-link">Go to Payment Monitoring <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="staff-list">
-                        @forelse($outstandingCases as $case)
-                            <div class="ref-balance-card">
-                                <a class="ref-balance-case" href="{{ route('funeral-cases.show', ['funeral_case' => $case->id, 'return_to' => request()->fullUrl()]) }}">
-                                    <strong><span class="ref-mono">{{ $case->case_code }}</span> · {{ $case->client?->full_name ?? 'No client record' }}</strong>
-                                    <small>For: {{ $case->deceased?->full_name ?? 'Unknown' }}</small>
-                                </a>
-                                <div class="ref-balance-actions"><div class="text-right">
-                                    <div class="ref-balance-amount">&#8369; {{ number_format((float) $case->balance_amount, 2) }}</div>
-                                    <span class="status-pill staff-payment-state {{ $case->payment_status === 'PARTIAL' ? 'draft' : 'unpaid' }}">
-                                        {{ $case->payment_status === 'PARTIAL' ? 'Partially Paid' : 'No Payment Yet' }}
+                                    <div class="staff-urgent-case-name">
+                                        <i class="bi bi-circle-fill" aria-hidden="true"></i>
+                                        <strong>{{ $item['deceased_name'] }}</strong>
+                                        <span class="ref-mono">{{ $item['case_code'] }}</span>
+                                    </div>
+                                    <span class="staff-attention-date">
+                                        Interment: <time datetime="{{ $item['date']->toDateString() }}">{{ $item['date']->format('M d, Y') }}</time>
+                                        · {{ $daysSince === 0 ? 'Earlier today' : $daysSince.' '.Str::plural('day', $daysSince).' ago' }}
                                     </span>
-                                </div><a href="{{ route('payments.history', ['case_id' => $case->id, 'record_payment' => 1]) }}" class="ref-collect"><i class="bi bi-credit-card" aria-hidden="true"></i> Collect</a></div>
-                            </div>
+                                </div>
+                                <div class="staff-urgent-case-actions">
+                                    <span class="ref-balance-amount">&#8369; {{ number_format((float) $item['case']->balance_amount, 2) }}</span>
+                                    <button type="button" class="staff-link" data-attention-dialog="attention-case-{{ $item['case_id'] }}" aria-label="View Summary for {{ $item['case_code'] }}">View Summary</button>
+                                </div>
+                            </li>
                         @empty
-                            <div class="staff-empty">
-                                <i class="bi bi-patch-check"></i>
-                                No cases with remaining balances.
-                            </div>
+                            <li class="staff-empty">
+                                <i class="bi bi-check2-circle"></i>
+                                No balances after scheduled interment.
+                            </li>
                         @endforelse
-                    </div>
+                    </ul>
                 </article>
             </div>
 </div>
 
 <script>
-    (function () {
-        const desktopQuery = window.matchMedia('(min-width: 1180px)');
-        const activityCard = document.querySelector('[data-activity-card]');
-        const schedulesCard = document.querySelector('[data-schedules-card]');
-        const attentionCard = document.querySelector('[data-attention-card]');
-        const outstandingCard = document.querySelector('[data-outstanding-card]');
-
-        const syncHeights = () => {
-            if (activityCard) activityCard.style.minHeight = '';
-            if (schedulesCard) schedulesCard.style.minHeight = '';
-            if (attentionCard) attentionCard.style.minHeight = '';
-            if (outstandingCard) outstandingCard.style.minHeight = '';
-
-            if (!desktopQuery.matches) return;
-
-            const lowerCards = [attentionCard, outstandingCard].filter(Boolean);
-            if (lowerCards.length > 1) {
-                const lowerRowHeight = Math.max(...lowerCards.map((card) => card.offsetHeight));
-                lowerCards.forEach((card) => {
-                    card.style.minHeight = lowerRowHeight + 'px';
-                });
-            }
-        };
-
-        const syncNextFrame = () => requestAnimationFrame(syncHeights);
-
-        window.addEventListener('resize', syncNextFrame);
-        window.addEventListener('load', syncNextFrame);
-        window.addEventListener('staff-dashboard-reflow', syncNextFrame);
-
-        syncNextFrame();
-    })();
-
     (function () {
         const tabRoot = document.querySelector('[data-activity-tabs]');
         if (!tabRoot) return;
@@ -344,7 +276,6 @@ html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .dashboard-a
                     : 'Payments recorded today in your branch';
             }
 
-            window.dispatchEvent(new Event('staff-dashboard-reflow'));
         };
 
         tabs.forEach((tab) => {
@@ -392,7 +323,6 @@ html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .dashboard-a
                     : 'Upcoming events';
             }
 
-            window.dispatchEvent(new Event('staff-dashboard-reflow'));
         };
 
         tabs.forEach((tab) => {

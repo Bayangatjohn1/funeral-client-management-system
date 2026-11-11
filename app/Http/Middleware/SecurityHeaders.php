@@ -14,8 +14,9 @@ class SecurityHeaders
 
         $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
         $response->headers->set('X-Content-Type-Options', 'nosniff');
-        $response->headers->set('Referrer-Policy', $request->routeIs('password.reset', 'password.store') ? 'no-referrer' : 'strict-origin-when-cross-origin');
-        $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+        $phoneProof = $request->routeIs('payment-proof.phone', 'payment-proof.phone-upload');
+        $response->headers->set('Referrer-Policy', $phoneProof || $request->routeIs('password.reset', 'password.store') ? 'no-referrer' : 'strict-origin-when-cross-origin');
+        $response->headers->set('Permissions-Policy', $phoneProof ? 'camera=(self), microphone=(), geolocation=()' : 'camera=(), microphone=(), geolocation=()');
 
         return $response;
     }

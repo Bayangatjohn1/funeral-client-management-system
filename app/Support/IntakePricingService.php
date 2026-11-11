@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\AddOnCatalog;
 use App\Models\CasketCatalog;
+use App\Models\HearseCatalog;
 use App\Models\Package;
 use App\Support\Discount\CaseDiscountResolver;
 use Carbon\Carbon;
@@ -26,30 +27,48 @@ class IntakePricingService
         $additionalTotal = round(collect($additionalItems)->sum('amount'), 2);
 
         if ($isCustomPackage) {
-            [$selectedAddOns, $addOnsTotal] = $this->selectedAddOns($validated['selected_add_ons'] ?? []);
+            [$selectedAddOns, $addOnsTotal] = $this->selectedAddOns($validated['selected_add_ons'] ?? [], (array) ($validated['add_on_quantities'] ?? []));
             $discount = $this->automaticDiscount($validated, $basePrice, null, $referenceAt);
-            $result = $this->buildResult(null, $basePrice, [], $selectedAddOns, $addOnsTotal, $additionalItems, $additionalTotal, round($basePrice + $addOnsTotal + $additionalTotal, 2), $discount, (float) ($validated['tax_rate'] ?? 0), $wakeDays, $wakeNights, true, null);
             $configuration = $validated['custom_package_configuration'] ?? null;
+            $charges = $configuration['charges'] ?? [];
+            $subtotal = round($basePrice + $addOnsTotal + $additionalTotal + collect($charges)->sum('amount'), 2);
+            $result = $this->buildResult(null, $basePrice, $charges, $selectedAddOns, $addOnsTotal, $additionalItems, $additionalTotal, $subtotal, $discount, (float) ($validated['tax_rate'] ?? 0), $wakeDays, $wakeNights, true, null, referenceAt: $referenceAt);
             $result['snapshot']['inclusions'] = $configuration['inclusions'] ?? $this->customItems($validated['custom_package_inclusions'] ?? null, true);
             $result['snapshot']['freebies'] = $configuration['freebies'] ?? $this->customItems($validated['custom_package_freebies'] ?? null, false);
             $result['included_casket'] = $configuration['included_casket'] ?? null;
             $result['snapshot']['included_casket'] = $configuration['included_casket'] ?? null;
+            $result['snapshot']['selected_hearse'] = $validated['selected_hearse'] ?? null;
             return $result;
         }
 
-        $package?->loadMissing(['packageInclusions.casketCatalog', 'packageFreebies']);
+        $package?->loadMissing(['packageInclusions.casketCatalog', 'packageInclusions.hearseCatalog', 'packageInclusions.addOnCatalog', 'packageFreebies', 'promotion']);
         $serviceCharges = $this->serviceCharges($package, $validated, $wakeDays);
         if ($casketCharge = $this->casketUpgradeCharge($package, $validated)) {
             $serviceCharges[] = $casketCharge;
         }
+        if ($hearseCharge = $this->hearseUpgradeCharge($package, $validated)) {
+            $serviceCharges[] = $hearseCharge;
+        }
         $adjustments = $this->adjustmentSnapshot($package, $validated, $serviceCharges, $casketCharge);
 
-        [$selectedAddOns, $addOnsTotal] = $this->selectedAddOns($validated['selected_add_ons'] ?? []);
+        [$selectedAddOns, $addOnsTotal] = $this->selectedAddOns($validated['selected_add_ons'] ?? [], (array) ($validated['add_on_quantities'] ?? []));
         $serviceChargesTotal = round(collect($serviceCharges)->sum('amount'), 2);
         $subtotal = round($basePrice + $serviceChargesTotal + $addOnsTotal + $additionalTotal, 2);
         $discount = $this->automaticDiscount($validated, $basePrice, $package, $referenceAt);
 
-        return $this->buildResult($package, $basePrice, $serviceCharges, $selectedAddOns, $addOnsTotal, $additionalItems, $additionalTotal, $subtotal, $discount, (float) ($validated['tax_rate'] ?? 0), $wakeDays, $wakeNights, false, $casketCharge['selected_casket'] ?? null, $adjustments);
+        $result = $this->buildResult($package, $basePrice, $serviceCharges, $selectedAddOns, $addOnsTotal, $additionalItems, $additionalTotal, $subtotal, $discount, (float) ($validated['tax_rate'] ?? 0), $wakeDays, $wakeNights, false, $casketCharge['selected_casket'] ?? null, $adjustments, $referenceAt);
+        $result['snapshot']['selected_hearse'] = $validated['selected_hearse'] ?? null;
+        $result['snapshot']['included_hearse'] = $this->includedHearse($package);
+        $result['snapshot']['included_add_ons'] = $package?->packageInclusions
+            ->whereNotNull('add_on_catalog_id')
+            ->map(fn ($row) => [
+                'id' => $row->add_on_catalog_id,
+                'name' => $row->inclusion_name,
+                'included_quantity' => $row->included_quantity,
+                'requested_quantity' => (int) ($validated['included_add_on_requested'][$row->add_on_catalog_id] ?? $row->included_quantity),
+                'unit' => $row->addOnCatalog?->unit ?: 'item',
+            ])->values()->all() ?? [];
+        return $result;
     }
 
     public function validateSelections(?Package $package, array $validated, bool $isCustomPackage): array
@@ -59,8 +78,48 @@ class IntakePricingService
             return ['selected_add_ons' => 'Duplicate add-ons are not allowed.'];
         }
 
-        if ($ids->isNotEmpty() && AddOnCatalog::whereIn('id', $ids)->where('is_active', true)->count() !== $ids->count()) {
+        foreach ((array) ($validated['add_on_quantities'] ?? []) as $id => $quantity) {
+            if (! $ids->contains((int) $id)) {
+                continue;
+            }
+            if (filter_var($quantity, FILTER_VALIDATE_INT) === false || (int) $quantity < 1) {
+                return ["add_on_quantities.{$id}" => 'Quantity must be a positive whole number.'];
+            }
+        }
+
+        if ($ids->isNotEmpty() && AddOnCatalog::whereIn('id', $ids)->where('is_active', true)->where('is_available', true)->count() !== $ids->count()) {
             return ['selected_add_ons' => 'Selected add-on is no longer available.'];
+        }
+
+        if (! $isCustomPackage && $package) {
+            $package->loadMissing(['packageInclusions.casketCatalog', 'packageInclusions.addOnCatalog']);
+            $allowances = $package->packageInclusions->whereNotNull('add_on_catalog_id')->keyBy('add_on_catalog_id');
+            if ($ids->intersect($allowances->keys())->isNotEmpty()) {
+                return ['selected_add_ons' => 'Use Other Inclusions in the selected package to request extra units.'];
+            }
+            foreach ($validated['included_add_on_requested'] ?? [] as $id => $requested) {
+                if ($requested === null) {
+                    continue;
+                }
+                $allowance = $allowances->get($id);
+                if (! $allowance) {
+                    return ['included_add_on_requested' => 'The package inclusions changed. Review the selected package and enter the quantities again.'];
+                }
+                $catalog = $allowance->addOnCatalog;
+                if ($requested > $allowance->included_quantity && (! $catalog?->is_active || ! $catalog->is_available
+                    || ((float) $catalog->price <= 0 && $catalog->category !== AddOnCatalog::CHAPEL_VIEWING))) {
+                    return ["included_add_on_requested.$id" => 'Extra units require an available add-on with a configured rate.'];
+                }
+            }
+            $row = ($package->fresh(['packageInclusions.casketCatalog']) ?? $package)
+                ->packageInclusions->firstWhere('service_type', Package::SERVICE_CASKET);
+            if ($row?->casket_catalog_id && ! $row->casketCatalog?->is_active) {
+                return ['package_id' => 'Included casket is archived. Choose an active casket in package settings.'];
+            }
+            if ($row?->casket_catalog_id && (! $row->casketCatalog?->is_active || ! $row->casketCatalog?->is_available)
+                && empty($validated['replacement_casket_catalog_id'])) {
+                return ['replacement_casket_catalog_id' => 'The included casket is unavailable. Select an available replacement before saving this case.'];
+            }
         }
 
         if (! $isCustomPackage && ! empty($validated['replacement_casket_catalog_id'])) {
@@ -78,6 +137,15 @@ class IntakePricingService
             }
             if ((float) $replacement->standard_price <= 0) {
                 return ['replacement_casket_catalog_id' => 'Selected casket reference value is not configured.'];
+            }
+        }
+
+        if (! $isCustomPackage && $package && ! empty($validated['hearse_catalog_id'])) {
+            $included = $this->includedHearse($package);
+            $selected = HearseCatalog::whereKey((int) $validated['hearse_catalog_id'])->where('is_active', true)->where('is_available', true)->first();
+            if (! $included || ! $selected) return ['hearse_catalog_id' => 'Choose an available hearse included in this service.'];
+            if ((int) $included['id'] !== $selected->id && ($included['reference_value'] === null || $selected->reference_value === null)) {
+                return ['hearse_catalog_id' => 'Configure reference values for both hearses before selecting an upgrade.'];
             }
         }
 
@@ -111,6 +179,7 @@ class IntakePricingService
         }
 
         foreach ([Package::SERVICE_EMBALMING, Package::SERVICE_HOME_VIEWING] as $type) {
+            if ($type === Package::SERVICE_HOME_VIEWING && ($validated['viewing_type'] ?? null) === 'chapel') continue;
             $row = $rows->get($type);
             $included = (int) ($row?->included_days ?? 0);
             $rate = (float) ($row?->price_per_extended_day ?? 0);
@@ -118,6 +187,26 @@ class IntakePricingService
             $amount = round($extended * $rate, 2);
             if ($row && $amount > 0) {
                 $charges[] = ['type' => $type, 'label' => Package::serviceTypeOptions()[$type] ?? $type, 'actual' => $wakeDays, 'included' => $included, 'rate' => $rate, 'excess' => $extended, 'amount' => $amount];
+            }
+        }
+
+        foreach ($package->packageInclusions->whereNotNull('add_on_catalog_id') as $row) {
+            $catalog = $row->addOnCatalog;
+            $included = (int) $row->included_quantity;
+            $requested = (int) ($validated['included_add_on_requested'][$row->add_on_catalog_id] ?? $included);
+            $extra = max(0, $requested - $included);
+            if ($extra > 0 && $catalog?->is_active && $catalog->is_available && (float) $catalog->price > 0) {
+                $charges[] = [
+                    'type' => 'included_add_on_extra',
+                    'label' => 'Extra ' . $catalog->name,
+                    'add_on_catalog_id' => $catalog->id,
+                    'unit' => $catalog->unit ?: 'item',
+                    'actual' => $requested,
+                    'included' => $included,
+                    'rate' => (float) $catalog->price,
+                    'excess' => $extra,
+                    'amount' => round($extra * (float) $catalog->price, 2),
+                ];
             }
         }
 
@@ -148,17 +237,47 @@ class IntakePricingService
         ];
     }
 
-    private function selectedAddOns(array $ids): array
+    private function includedHearse(?Package $package): ?array
+    {
+        $catalog = $package?->packageInclusions->firstWhere('service_type', Package::SERVICE_HEARSE)?->hearseCatalog;
+        return $catalog ? ['id' => $catalog->id, 'name' => $catalog->name, 'reference_value' => $catalog->reference_value !== null ? (float) $catalog->reference_value : null] : null;
+    }
+
+    private function hearseUpgradeCharge(?Package $package, array $validated): ?array
+    {
+        $included = $this->includedHearse($package);
+        if (! $included || empty($validated['hearse_catalog_id']) || (int) $validated['hearse_catalog_id'] === (int) $included['id']) return null;
+        $selected = HearseCatalog::find((int) $validated['hearse_catalog_id']);
+        if (! $selected || $included['reference_value'] === null || $selected->reference_value === null) return null;
+        return ['type' => 'hearse_upgrade', 'label' => 'Hearse upgrade', 'included' => $included['reference_value'], 'selected' => (float) $selected->reference_value,
+            'amount' => round(max(0, (float) $selected->reference_value - $included['reference_value']), 2),
+            'included_hearse' => $included,
+            'selected_hearse' => ['id' => $selected->id, 'name' => $selected->name, 'reference_value' => (float) $selected->reference_value]];
+    }
+
+    private function selectedAddOns(array $ids, array $quantities = []): array
     {
         $ids = collect($ids)->filter()->map(fn ($id) => (int) $id)->unique()->values();
         if ($ids->isEmpty()) {
             return [collect(), 0.00];
         }
 
-        $catalogs = AddOnCatalog::whereIn('id', $ids)->where('is_active', true)->get()->keyBy('id');
-        $ordered = $ids->map(fn ($id) => $catalogs->get($id))->filter()->values();
+        $catalogs = AddOnCatalog::whereIn('id', $ids)->where('is_active', true)->where('is_available', true)->get()->keyBy('id');
+        $ordered = $ids->map(function ($id) use ($catalogs, $quantities) {
+            $addOn = $catalogs->get($id);
+            if (! $addOn) {
+                return null;
+            }
 
-        return [$ordered, round($ordered->sum(fn ($addOn) => (float) $addOn->price), 2)];
+            $quantity = (int) ($quantities[$id] ?? 1);
+            $lineTotal = round((float) $addOn->price * $quantity, 2);
+            $addOn->setAttribute('quantity', $quantity);
+            $addOn->setAttribute('line_total', $lineTotal);
+
+            return $addOn;
+        })->filter()->values();
+
+        return [$ordered, round($ordered->sum(fn ($addOn) => (float) $addOn->line_total), 2)];
     }
 
     private function additionalItems(array $validated): array
@@ -194,7 +313,7 @@ class IntakePricingService
         return ['discount_type' => 'NONE', 'discount_value_type' => 'AMOUNT', 'discount_value' => 0, 'discount_amount' => 0, 'discount_note' => null, 'source' => 'None'];
     }
 
-    private function buildResult(?Package $package, float $basePrice, array $serviceCharges, Collection $selectedAddOns, float $addOnsTotal, array $additionalItems, float $additionalTotal, float $subtotal, array $discountPayload, float $taxRate, int $wakeDays, int $wakeNights, bool $isCustomPackage, ?array $selectedCasket, array $adjustments = []): array
+    private function buildResult(?Package $package, float $basePrice, array $serviceCharges, Collection $selectedAddOns, float $addOnsTotal, array $additionalItems, float $additionalTotal, float $subtotal, array $discountPayload, float $taxRate, int $wakeDays, int $wakeNights, bool $isCustomPackage, ?array $selectedCasket, array $adjustments = [], ?Carbon $referenceAt = null): array
     {
         $discountAmount = round((float) ($discountPayload['discount_amount'] ?? 0), 2);
         $net = round(max($subtotal - $discountAmount, 0), 2);
@@ -234,13 +353,13 @@ class IntakePricingService
                 'freebies' => $package ? $package->packageFreebies->map(fn ($row) => ['name' => $row->freebie_name, 'quantity' => $row->quantity, 'unit' => $row->unit])->values()->all() : [],
                 'included_casket' => $includedCasket,
                 'selected_casket' => $selectedCasket,
-                'promo' => $this->promoSnapshot($package),
+                'promo' => $this->promoSnapshot($package, $referenceAt),
                 'adjustments' => $adjustments,
                 'wake_days' => $wakeDays,
                 'wake_nights' => $wakeNights,
                 'wake_duration' => WakeDuration::labelFromDays($wakeDays),
                 'service_charges' => $serviceCharges,
-                'add_ons' => $selectedAddOns->map(fn ($addOn) => ['id' => $addOn->id, 'name' => $addOn->name, 'category' => $addOn->category, 'description' => $addOn->description, 'price' => (float) $addOn->price, 'unit' => $addOn->unit])->values()->all(),
+                'add_ons' => $selectedAddOns->map(fn ($addOn) => ['id' => $addOn->id, 'name' => $addOn->name, 'category' => $addOn->category, 'description' => $addOn->description, 'price' => (float) $addOn->price, 'unit' => $addOn->unit, 'quantity' => (int) $addOn->quantity, 'line_total' => (float) $addOn->line_total])->values()->all(),
                 'additional_items' => $additionalItems,
                 'discount' => $discountPayload,
                 'totals' => ['subtotal' => $subtotal, 'discount' => $discountAmount, 'tax' => $taxAmount, 'total' => $total],
@@ -260,18 +379,24 @@ class IntakePricingService
         return ['id' => $catalog?->id, 'name' => $catalog?->name ?: $row->casket_type, 'material' => $catalog?->type_or_material, 'reference_value' => (float) ($catalog?->standard_price ?? 0), 'legacy_text' => $row->casket_type];
     }
 
-    private function promoSnapshot(?Package $package): ?array
+    private function promoSnapshot(?Package $package, ?Carbon $referenceAt): ?array
     {
-        if (! $package || ! $package->is_promo_effective) {
+        if (! $package || ! $package->isPromoEffectiveAt($referenceAt)) {
             return null;
         }
 
+        $promotion = $package->relationLoaded('promotion') ? $package->promotion : $package->promotion()->first();
+        $label = $promotion?->name ?? $package->promo_label ?: 'Package Promo';
+        $valueType = $promotion?->discount_type ?? $package->promo_value_type;
+        $value = $promotion?->discount_value ?? $package->promo_value;
+
         return [
-            'label' => $package->promo_label ?: 'Package Promo',
-            'value_type' => $package->promo_value_type,
-            'value' => (float) $package->promo_value,
-            'starts_at' => $package->promo_starts_at?->copy()->timezone('Asia/Manila')->toDateTimeString(),
-            'ends_at' => $package->promo_ends_at?->copy()->timezone('Asia/Manila')->toDateTimeString(),
+            'promotion_id' => $promotion?->id,
+            'label' => $label,
+            'value_type' => $valueType,
+            'value' => (float) $value,
+            'starts_at' => $promotion?->starts_at?->format('Y-m-d') ?? $package->promo_starts_at?->copy()->timezone('Asia/Manila')->toDateTimeString(),
+            'ends_at' => $promotion?->ends_at?->format('Y-m-d') ?? $package->promo_ends_at?->copy()->timezone('Asia/Manila')->toDateTimeString(),
             'status' => 'Applied at intake',
         ];
     }

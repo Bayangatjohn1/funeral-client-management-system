@@ -28,8 +28,8 @@
 <section class="table-system-card admin-table-card">
 <div class="case-records-tabs-row">
     <nav class="table-quick-tabs case-records-tabs" aria-label="Master case record statuses">
-        @foreach(['' => 'All', 'DRAFT' => 'Draft', 'ACTIVE' => 'Active', 'COMPLETED' => 'Completed'] as $statusKey => $statusLabel)
-            <a class="table-quick-tab {{ ($caseStatus ?? '') === $statusKey ? 'table-quick-tab-active' : '' }}" href="{{ route('owner.history', array_filter(array_merge(request()->except(['case_status','page']), ['case_status' => $statusKey]), fn($value) => filled($value))) }}" @if(($caseStatus ?? '') === $statusKey) aria-current="page" @endif>{{ $statusLabel }}</a>
+        @foreach(['' => 'All', 'ACTIVE' => 'Active', 'COMPLETED' => 'Completed'] as $statusKey => $statusLabel)
+            <a class="table-quick-tab {{ ($caseStatus ?? '') === $statusKey ? 'table-quick-tab-active' : '' }}" href="{{ route('owner.history', array_filter(array_merge(request()->except(['case_status','page']), ['case_status' => $statusKey]), fn($value) => filled($value))) }}" @if(($caseStatus ?? '') === $statusKey) aria-current="page" @endif><i class="bi {{ $statusKey === 'ACTIVE' ? 'bi-clock' : ($statusKey === 'COMPLETED' ? 'bi-check2-all' : 'bi-collection') }}" aria-hidden="true"></i><span>{{ $statusLabel }}</span></a>
         @endforeach
     </nav>
 </div>
@@ -77,64 +77,20 @@
 <div class="table-system-list">
     <div class="table-wrapper table-system-wrap" tabindex="0" role="region" aria-label="Case records table, scroll horizontally to view all columns">
         <table class="table-base table-system-table admin-master-table records-worklist-table">
-            <colgroup><col style="width:14%"><col style="width:9%"><col style="width:17%"><col style="width:9%"><col style="width:11%"><col style="width:16%"><col style="width:8%"><col style="width:10%"><col style="width:6%"></colgroup>
-            <thead>
-                <tr>
-                    <th class="text-left">Case</th>
-                    <th class="text-left">Branch</th>
-                    <th class="text-left">Deceased / Client</th>
-                    <th class="text-left">Service</th>
-                    <th class="text-left">Schedule</th>
-                    <th class="table-col-number">Package Availed</th>
-                    <th class="table-status-col text-left">Case Status</th>
-                    <th class="table-status-col table-payment-status-col text-left">Payment Status</th>
-                    <th class="table-col-actions"><span class="sr-only">Actions</span></th>
-                </tr>
-            </thead>
+            @include('partials.case_worklist_head', ['showBranch' => true])
             <tbody>
             @forelse($cases as $case)
                 @php
                     $intermentDate = $case->deceased?->interment_at ?? $case->interment_at ?? $case->deceased?->interment;
                 @endphp
-                <tr class="{{ (float) $case->balance_amount > 0 ? 'row-needs-attention' : '' }}">
-                    <td>
-                        <div class="table-primary whitespace-nowrap records-case-code">{{ $case->case_code }}</div>
-                        <div class="table-secondary">Recorded by: {{ $case->encodedBy?->name ?: 'Not recorded' }}</div>
-                        <div class="table-secondary">@if($case->created_at)<span class="whitespace-nowrap">{{ $case->created_at->format('M d, Y') }}</span> <span class="whitespace-nowrap">{{ $case->created_at->format('h:i A') }}</span>@else Not recorded @endif</div>
-                    </td>
-                    <td>
-                        <div class="table-primary whitespace-nowrap">{{ $case->branch?->branch_code ?? '-' }}</div>
-                        <div class="table-secondary">{{ $case->branch?->branch_name ?? '-' }}</div>
-                    </td>
-                    <td>
-                        <div class="table-primary records-person-names">Deceased: {{ $case->deceased?->full_name ?? '-' }}</div>
-                        <div class="table-secondary records-person-names">Client: {{ $case->client?->full_name ?? '-' }}</div>
-                    </td>
-                    <td>
-                        <div class="table-primary">{{ $case->service_type ?? '-' }}</div>
-                        <div class="table-secondary">{{ $case->package?->name ?? $case->service_package ?? '-' }}</div>
-                    </td>
-                    <td>
-                        <div class="table-primary whitespace-nowrap">{{ $intermentDate ? $intermentDate->format('M d, Y') : '-' }}</div>
-                        <div class="table-secondary">{{ $intermentDate && $intermentDate->format('H:i') !== '00:00' ? $intermentDate->format('h:i A') : 'Service date' }}</div>
-                    </td>
-                    <td class="table-col-number">
-                        <div class="table-primary table-financial-total whitespace-nowrap">{{ number_format((float) $case->total_amount, 2) }}</div>
-                        <div class="table-secondary table-financial-breakdown whitespace-nowrap">Paid {{ number_format((float) $case->total_paid, 2) }} &middot; Bal {{ number_format((float) $case->balance_amount, 2) }}</div>
-                    </td>
-                    <td class="table-status-cell">
-                        <x-status-badge :status="$case->case_status" :label="\Illuminate\Support\Str::headline(strtolower((string) $case->case_status))" />
-                    </td>
-                    <td class="table-status-cell table-payment-status-cell">
-                        <x-status-badge class="table-payment-status-badge" :status="$case->payment_status" :label="\Illuminate\Support\Str::headline(strtolower((string) $case->payment_status))" />
-                    </td>
-                    <td class="table-col-actions">
-                        <a class="records-view-case" href="{{ route('owner.cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}" aria-label="View Full Information for {{ $case->case_code }}" title="View Full Information"><i class="bi bi-eye" aria-hidden="true"></i></a>
-                    </td>
+                <tr
+@include('partials.case_search_metadata')
+ class="{{ (float) $case->balance_amount > 0 ? 'row-needs-attention' : '' }}">
+                    @include('partials.case_worklist_cells', ['case' => $case, 'worklistInterment' => $intermentDate, 'showBranch' => true])
                 </tr>
             @empty
                 <tr>
-                    <td colspan="9" class="table-system-empty">No records found.</td>
+                    <td colspan="8" class="table-system-empty"><div class="records-empty-state">No records found.</div></td>
                 </tr>
             @endforelse
             </tbody>
@@ -150,6 +106,7 @@
 </div>
 @include('partials.master_records_visual_styles')
 @include('partials.case_records_layout_styles')
+@include('partials.master_case_tab_navigation')
 <style>
 html[data-theme] body.panel-shell-body.owner-ui:has(.owner-master-records-page) .panel-page-header { overflow:visible !important; position:relative; z-index:40; }
 html[data-theme] body.panel-shell-body.owner-ui:has(.owner-master-records-page) .owner-records-back { background:var(--surface-muted) !important; color:var(--ink) !important; border:1px solid var(--border) !important; position:relative; width:44px; height:44px; padding:0 !important; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }

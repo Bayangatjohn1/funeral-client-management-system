@@ -10,6 +10,15 @@ class FuneralCasePolicy
 {
     use HandlesAuthorization;
 
+    public function before(User $user, string $ability, mixed $case = null): ?bool
+    {
+        if ($case instanceof FuneralCase && $case->case_status === 'DRAFT' && $user->role !== 'staff') {
+            return false;
+        }
+
+        return null;
+    }
+
     public function viewAny(User $user): bool
     {
         return in_array($user->role, ['staff', 'admin', 'owner'], true);
@@ -88,6 +97,12 @@ class FuneralCasePolicy
     public function deleteTarpaulin(User $user, FuneralCase $case): bool
     {
         return $user->role === 'admin' && $this->ownOperationalBranchMatch($user, $case);
+    }
+
+    public function manageCaseMedia(User $user, FuneralCase $case): bool
+    {
+        return in_array($user->role, ['staff', 'admin'], true)
+            && $this->ownOperationalBranchMatch($user, $case);
     }
 
     public function generateFuneralContract(User $user, FuneralCase $case): bool

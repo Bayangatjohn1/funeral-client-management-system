@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Branch;
 use App\Models\User;
+use App\Models\UserNotificationState;
 use App\Services\ReminderService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -31,7 +32,7 @@ class TopbarNotificationBuilder
         $scopeVersion = TopbarNotificationCache::scopeVersion($scopeBranchIds);
         $cacheKey = 'topbar:notifications:v6:user:'.$user->id.':role:'.($role ?? 'guest').':scope:'.$scopeKey.':v:'.$scopeVersion;
 
-        return Cache::remember($cacheKey, $this->reminderService->nextNotificationTransitionAt($scopeBranchIds, now()), function () use ($scopeBranchIds) {
+        $payload = Cache::remember($cacheKey, $this->reminderService->nextNotificationTransitionAt($scopeBranchIds, now()), function () use ($scopeBranchIds) {
             $today = now()->startOfDay();
             $upcomingEnd = $today->copy()->addDays(7)->endOfDay();
             $reminders = collect($scopeBranchIds)->flatMap(fn (int $branchId) => $this->reminderService
@@ -74,6 +75,13 @@ class TopbarNotificationBuilder
                     ->first(fn ($candidate) => $candidate !== null) ?? $group['items']->first();
 
                 return [
+                    'key' => 'reminder:'.sha1(implode('|', [
+                        $item['case_id'],
+                        $bucket,
+                        $item['type'],
+                        $item['date']?->toISOString() ?? 'no-date',
+                        $item['case']->updated_at?->toISOString() ?? 'no-version',
+                    ])),
                     'bucket' => $bucket,
                     'buckets' => $group['buckets']->all(),
                     'title' => $item['label'],
@@ -91,18 +99,63 @@ class TopbarNotificationBuilder
                     'sort_rank' => array_search($bucket, $bucketPriority, true),
                     'sort_at' => $item['sort_date']?->timestamp ?? PHP_INT_MAX,
                 ];
-            })->sortBy([['sort_rank', 'asc'], ['sort_at', 'asc']])->take(8)->values()->map(function (array $item) {
+            })->sortBy([['sort_rank', 'asc'], ['sort_at', 'asc']])->values()->map(function (array $item) {
                 unset($item['sort_rank'], $item['sort_at']);
                 return $item;
             });
 
             return ['items' => $items->all(), 'counts' => $counts];
         });
+
+        return $this->applyUserState($user, $payload);
+    }
+
+    public function activeKeysForUser(User $user, ?string $role, ?int $requestedBranchId = null): array
+    {
+        $payload = $this->forUser($user, $role, $requestedBranchId);
+
+        return collect($payload['active_keys'] ?? [])->values()->all();
     }
 
     private function emptyPayload(): array
     {
-        return ['items' => [], 'counts' => ['all' => 0, 'needs_attention' => 0, 'today' => 0, 'upcoming' => 0, 'with_balance' => 0]];
+        return [
+            'items' => [],
+            'active_keys' => [],
+            'unread' => 0,
+            'counts' => ['all' => 0, 'needs_attention' => 0, 'today' => 0, 'upcoming' => 0, 'with_balance' => 0],
+        ];
+    }
+
+    private function applyUserState(User $user, array $payload): array
+    {
+        $items = collect($payload['items'] ?? []);
+        $keys = $items->pluck('key')->filter()->values();
+        $states = UserNotificationState::query()
+            ->where('user_id', $user->id)
+            ->whereIn('notification_key', $keys)
+            ->get()
+            ->keyBy('notification_key');
+
+        $activeItems = $items
+            ->reject(fn (array $item) => $states->get($item['key'])?->dismissed_at !== null)
+            ->map(function (array $item) use ($states) {
+                $item['read'] = $states->get($item['key'])?->read_at !== null;
+                return $item;
+            })
+            ->values();
+
+        $counts = ['all' => $activeItems->count()];
+        foreach (['needs_attention', 'today', 'upcoming', 'with_balance'] as $bucket) {
+            $counts[$bucket] = $activeItems->filter(fn (array $item) => in_array($bucket, $item['buckets'] ?? [], true))->count();
+        }
+
+        return [
+            'items' => $activeItems->take(8)->all(),
+            'active_keys' => $activeItems->pluck('key')->all(),
+            'unread' => $activeItems->where('read', false)->count(),
+            'counts' => $counts,
+        ];
     }
 
     private function resolveScopeBranchIds(User $user, ?string $role): array

@@ -195,15 +195,19 @@
                         @foreach(data_get($contractView, 'basic_rows', []) as $row)
                             <li><i class="bi bi-check2-circle"></i><span>{{ data_get($row, 'label') }}: {{ data_get($row, 'value') }}</span></li>
                         @endforeach
-                        @forelse(data_get($contractView, 'other_inclusions', []) as $item)
-                            <li><i class="bi bi-check2-circle"></i><span>Other inclusion: {{ $item }}</span></li>
-                        @empty
-                            @if(count(data_get($contractView, 'basic_rows', [])) === 0)
-                                <li><i class="bi bi-info-circle"></i><span>No saved inclusion details available.</span></li>
-                            @endif
-                        @endforelse
                     </ul>
                 </div>
+
+                @if(data_get($contractView, 'other_inclusions', []))
+                    <div class="contract-section">
+                        <div class="contract-section-title">Other Inclusions</div>
+                        <ul class="contract-list">
+                            @foreach(data_get($contractView, 'other_inclusions') as $item)
+                                <li><i class="bi bi-check2-circle"></i><span>{{ $item }}</span></li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
 
                 <div class="contract-section">
                     <div class="contract-section-title">Casket Mapping</div>
@@ -266,6 +270,9 @@
                         <div class="contract-field"><div class="contract-label">Interment Time</div><div class="contract-value">{{ $fmtTime(data_get($schedule, 'interment_time')) ?: 'Optional' }}</div></div>
                         <div class="contract-field"><div class="contract-label">Cemetery</div><div class="contract-value">{{ data_get($schedule, 'cemetery') ?: 'Not set' }}</div></div>
                         <div class="contract-field"><div class="contract-label">Wake Duration</div><div class="contract-value">{{ data_get($schedule, 'wake_duration') ?: 'Not set' }}</div></div>
+                        @if($ceremonyLocation = data_get($schedule, 'funeral_ceremony_location'))
+                            <div class="contract-field"><div class="contract-label">Funeral Ceremony Location</div><div class="contract-value">{{ $ceremonyLocation }}</div></div>
+                        @endif
                     </div>
                 </div>
 

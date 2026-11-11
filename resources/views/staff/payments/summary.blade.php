@@ -6,13 +6,16 @@
         ?: $case?->service_package
         ?: 'Not specified';
     $paidAt = $payment->paid_at ?? $payment->paid_date;
-    $balanceAfter = (float) ($payment->balance_after_payment ?? $case?->balance_amount ?? 0);
     $paymentAmount = (float) $payment->amount;
-    $previousBalance = $balanceAfter + $paymentAmount;
     $totalPackage = (float) ($case?->total_amount ?? 0);
-    $totalPaidAfter = max($totalPackage - $balanceAfter, 0);
-    $totalPaidBefore = max($totalPaidAfter - $paymentAmount, 0);
-    $status = strtoupper((string) ($payment->payment_status_after_payment ?: ($balanceAfter <= 0 ? 'PAID' : 'PARTIAL')));
+    $totalPaid = (float) ($case?->total_paid ?? 0);
+    $remainingBalance = (float) ($case?->balance_amount ?? 0);
+    $accountStatus = match ($case?->payment_status) {
+        'PAID' => 'Fully Paid',
+        'PARTIAL' => 'Partially Paid',
+        default => 'Unpaid',
+    };
+    $isVoided = $payment->isVoided();
     $methodLabel = \App\Support\Payments\PaymentDetails::label($payment);
     $reference = $payment->approval_code ?: $payment->reference_number ?: $payment->transaction_reference_no;
     $recordedBy = $payment->recordedBy?->name ?: $payment->encodedBy?->name ?: 'Not provided';
@@ -22,7 +25,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Payment Summary - {{ $payment->display_payment_record_no }}</title>
+    <title>Payment Record - {{ $payment->display_payment_record_no }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
         :root { color-scheme: light; }
@@ -56,20 +59,20 @@
         .ps-row { display:flex; justify-content:space-between; gap:8px; padding:1.5px 0; font-size:9px; line-height:1.3; }
         .ps-row span { flex:0 0 46%; color:#5c675e; }
         .ps-row strong { flex:1; color:#111811; text-align:right; overflow-wrap:anywhere; }
-        .ps-account-flow { display:grid; grid-template-columns:1fr 18px 1fr 18px 1fr; align-items:center; margin-top:1px; }
+        .ps-account-flow { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; align-items:center; margin-top:1px; }
         .ps-flow-item { padding:4px 7px; border-radius:0; background:transparent; border:0; border-bottom:2px solid #aeb9ab; }
         .ps-flow-item span { display:block; color:#687269; font-size:7.5px; line-height:1.2; }
         .ps-flow-item strong { display:block; margin-top:2px; color:#19251b; font-size:11px; white-space:nowrap; }
         .ps-flow-item.balance { background:transparent; border-color:#8c261f; }
         .ps-flow-item.balance strong { color:#8c261f; }
-        .ps-flow-op { color:#7a867b; text-align:center; font-size:13px; font-weight:800; }
-        .ps-account-meta { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-top:5px; padding-top:5px; border-top:1px dashed #b7c2b4; }
+        .ps-account-meta { margin-top:5px; padding-top:5px; }
         .ps-balance { color:#8c261f !important; }
         .ps-status { display:inline-flex; padding:2px 6px; border-radius:999px; font-size:9px; font-weight:800; }
         .ps-status.paid { color:#176332; background:#dcefe0; }
         .ps-status.partial { color:#895313; background:#f8e9c9; }
+        .ps-status.unpaid { color:#8c261f; background:#f8e5e3; }
         .ps-foot { padding:1px 14px 9px; color:#687269; font-size:7.8px; line-height:1.3; text-align:center; }
-        @media screen and (max-width:560px){ .ps-page{width:calc(100% - 12px);margin:6px auto}.ps-actions{flex-direction:column}.ps-head{align-items:flex-start}.ps-payment{grid-template-columns:1fr}.ps-payment-details,.ps-case-grid{grid-template-columns:1fr}.ps-account-flow{grid-template-columns:1fr}.ps-flow-op{padding:2px;transform:rotate(90deg)}.ps-account-meta{grid-template-columns:1fr} }
+        @media screen and (max-width:560px){ .ps-page{width:calc(100% - 12px);margin:6px auto}.ps-actions{flex-direction:column}.ps-head{align-items:flex-start}.ps-payment{grid-template-columns:1fr}.ps-payment-details,.ps-case-grid{grid-template-columns:1fr}.ps-account-flow{grid-template-columns:1fr;gap:4px} }
         @page { size:148mm 105mm; margin:0; }
         @media print {
             html,body{width:148mm;height:105mm;min-height:0;margin:0;background:#fff;color:#000}
@@ -100,12 +103,10 @@
             .ps-row span{color:#222}
             .ps-row strong{color:#000}
             .ps-status{padding:1px 5px;font-size:8px}
-            .ps-account-flow{grid-template-columns:1fr 16px 1fr 16px 1fr}
             .ps-flow-item{padding:4px 6px}
             .ps-flow-item span{font-size:8px}
             .ps-flow-item strong{font-size:10.5px}
-            .ps-flow-op{font-size:11px}
-            .ps-account-meta{gap:10px;margin-top:4px;padding-top:4px}
+            .ps-account-meta{margin-top:4px;padding-top:4px}
             .ps-foot{padding:1mm 6mm 0;font-size:7.5px;line-height:1.2;break-inside:avoid-page;page-break-inside:avoid}
         }
     </style>
@@ -114,25 +115,25 @@
 <main class="ps-page">
     <div class="ps-actions">
         <a class="ps-btn" href="{{ route('payments.history') }}"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Payment Monitoring</a>
-        <button class="ps-btn primary" type="button" onclick="window.print()"><i class="bi bi-printer" aria-hidden="true"></i> Print Payment Summary</button>
+        <button class="ps-btn primary" type="button" onclick="window.print()"><i class="bi bi-printer" aria-hidden="true"></i> {{ $isVoided ? 'Print Void Record' : 'Print Payment Record' }}</button>
     </div>
     <article class="ps-sheet">
         <header class="ps-head">
             <div class="ps-brand">
                 <img src="{{ asset('images/login-logo.png') }}" alt="">
-                <div><h1>Payment Summary</h1><p>{{ $case?->branch?->branch_name ?? 'Funeral Service Branch' }}@if($case?->branch?->address) <span aria-hidden="true">&middot;</span> {{ $case->branch->address }}@endif</p></div>
+                <div><h1>Payment Record</h1><p>{{ $case?->branch?->branch_name ?? 'Funeral Service Branch' }}@if($case?->branch?->address) <span aria-hidden="true">&middot;</span> {{ $case->branch->address }}@endif</p></div>
             </div>
             <div class="ps-doc-meta"><strong>{{ $payment->display_payment_record_no ?? 'Payment record' }}</strong><br>Generated {{ now()->format('M d, Y h:i A') }}</div>
         </header>
         <div class="ps-body">
             <div class="ps-note">
-                <span>Follow the numbered sections to review this payment and the updated account balance.</span>
+                <span>{{ $isVoided ? 'VOIDED · Historical record. This amount is excluded from current collections.' : 'This record shows the selected payment and the current case balance.' }}</span>
                 <span class="ps-copy">Reference copy · Not an Official Receipt</span>
             </div>
 
             <section class="ps-section ps-payment">
                 <div class="ps-payment-main">
-                    <h2 class="ps-section-head"><span class="ps-step">1</span> Payment received</h2>
+                    <h2 class="ps-section-head"><span class="ps-step">1</span> {{ $isVoided ? 'Voided payment' : 'Payment received' }}</h2>
                     <span class="ps-amount-label">Amount recorded</span>
                     <strong class="ps-amount">PHP {{ number_format($paymentAmount,2) }}</strong>
                 </div>
@@ -147,7 +148,7 @@
             </section>
 
             <section class="ps-section">
-                <h2 class="ps-section-head"><span class="ps-step">2</span> Payment applied to this case</h2>
+                <h2 class="ps-section-head"><span class="ps-step">2</span> Case information</h2>
                 <div class="ps-case-grid">
                     <div class="ps-row"><span>Case code</span><strong>{{ $case?->case_code ?? 'Not provided' }}</strong></div>
                     <div class="ps-row"><span>Package</span><strong>{{ $packageName }}</strong></div>
@@ -157,18 +158,14 @@
             </section>
 
             <section class="ps-section">
-                <h2 class="ps-section-head"><span class="ps-step">3</span> Updated account balance</h2>
-                <div class="ps-account-flow" aria-label="Previous balance minus payment received equals remaining balance">
-                    <div class="ps-flow-item"><span>Previous balance</span><strong>PHP {{ number_format($previousBalance,2) }}</strong></div>
-                    <div class="ps-flow-op" aria-hidden="true">−</div>
-                    <div class="ps-flow-item"><span>Payment received</span><strong>PHP {{ number_format($paymentAmount,2) }}</strong></div>
-                    <div class="ps-flow-op" aria-hidden="true">=</div>
-                    <div class="ps-flow-item balance"><span>Remaining balance</span><strong>PHP {{ number_format($balanceAfter,2) }}</strong></div>
+                <h2 class="ps-section-head"><span class="ps-step">3</span> Current account balance</h2>
+                <div class="ps-account-flow">
+                    <div class="ps-flow-item"><span>Package total</span><strong>PHP {{ number_format($totalPackage, 2) }}</strong></div>
+                    <div class="ps-flow-item"><span>Total paid</span><strong>PHP {{ number_format($totalPaid, 2) }}</strong></div>
+                    <div class="ps-flow-item balance"><span>Remaining balance</span><strong>PHP {{ number_format($remainingBalance, 2) }}</strong></div>
                 </div>
                 <div class="ps-account-meta">
-                    <div class="ps-row"><span>Package total</span><strong>PHP {{ number_format($totalPackage,2) }}</strong></div>
-                    <div class="ps-row"><span>Updated total paid</span><strong>PHP {{ number_format($totalPaidAfter,2) }}</strong></div>
-                    <div class="ps-row"><span>Status</span><strong><span class="ps-status {{ $status === 'PAID' ? 'paid' : 'partial' }}">{{ $status === 'PAID' ? 'Fully Paid' : 'Partially Paid' }}</span></strong></div>
+                    <div class="ps-row"><span>Current payment status</span><strong><span class="ps-status {{ strtolower($case?->payment_status ?? 'UNPAID') }}">{{ $accountStatus }}</span></strong></div>
                 </div>
             </section>
         </div>

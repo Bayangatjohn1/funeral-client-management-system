@@ -29,8 +29,10 @@ class DashboardAccessTest extends TestCase
         $branch = $this->createBranch('BR009', 'Summary Branch');
         $admin = User::factory()->create(['role' => 'admin', 'admin_scope' => 'branch', 'is_active' => true, 'branch_id' => $branch->id]);
         $this->actingAs($admin)->get('/admin')->assertOk()
-            ->assertSee('Summary Branch')->assertSee('Currently in Wake')
-            ->assertSee('Scheduled Today')->assertSee('Upcoming Events')
+            ->assertSee('Summary Branch')->assertSee('Branch Schedule')
+            ->assertSee('id="branch-tab-today" aria-controls="branch-tabpanel-today" aria-selected="true"', false)
+            ->assertSee('id="branch-tab-wake"', false)->assertSee('id="branch-tab-upcoming"', false)
+            ->assertSee('View in Schedule')
             ->assertSee('Cases With Balance')->assertSee('id="branchCaseSummary"', false);
     }
 
@@ -60,8 +62,7 @@ class DashboardAccessTest extends TestCase
             ->assertSee('North Branch')->assertSee('Daily Operations')
             ->assertSee('Payments Received')->assertSee('Remaining Balance')
             ->assertSee('Payment Progress')->assertSee('Active Cases')
-            ->assertSee('Currently in Wake')->assertSee('Scheduled Today')
-            ->assertSee('Upcoming Events')->assertSee('Cases With Balance')
+            ->assertSee('Branch Schedule')->assertSee('Open Schedule')->assertSee('Cases With Balance')
             ->assertSee(route('admin.reminders.index', ['branch_id' => $branch->id]))
             ->assertDontSee('Record New Case')->assertDontSee('Record Payment')
             ->assertDontSee('System Admin Dashboard');
@@ -113,16 +114,20 @@ class DashboardAccessTest extends TestCase
             ->assertSee('Daily Operations')->assertSee('Ongoing Cases')
             ->assertSee('Recent Daily Activity')->assertSee('Schedules')
             ->assertSee('Outstanding Balances')->assertSee('Needs Attention')
-            ->assertSee('BR001 - Main Branch')
+            ->assertSeeInOrder(['<h1 class="staff-title">Dashboard</h1>', '<span class="staff-branch-chip">Main Branch</span>', '<p class="staff-dashboard-description">'], false)
             ->assertViewHas('dashboardBranch', fn ($item) => $item->id === $mainBranch->id)
             ->assertSee('data-activity-tab="cases"', false)
             ->assertSee('data-activity-tab="payments"', false)
-            ->assertSee(route('intake.main.create'))
+            ->assertSee('Find a case for payment')
+            ->assertSee(route('payments.recordable-cases'))
+            ->assertDontSee('Quick Actions')
             ->assertSee(route('funeral-cases.index'))
             ->assertSee(route('payments.history'))
             ->assertSee(route('staff.reminders.index', ['tab' => 'today']))
             ->assertSee(route('staff.reminders.index', ['tab' => 'upcoming']))
             ->assertDontSee('<header class="topbar">', false)
+            ->assertSee('class="topbar-notification tone-neutral', false)
+            ->assertDontSee('Open Schedules')
             ->assertSee('data-theme-toggle', false);
 
     }

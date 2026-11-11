@@ -70,7 +70,7 @@
 </style>
 
 @include('admin.service-management.partials.catalog-form-ui')
-<form method="POST" action="{{ $action }}" class="cc-form mx-auto">
+<form method="POST" action="{{ $action }}" class="cc-form mx-auto" enctype="multipart/form-data">
     @csrf
     @if($isEdit)
         @method('PUT')
@@ -86,35 +86,36 @@
             <div class="cc-grid">
                 <div>
                     <label class="cc-label" for="casket-name">Casket Name <span aria-hidden="true">*</span></label>
-                    <input id="casket-name" type="text" name="name" value="{{ old('name', $catalog->name) }}" class="form-input" required maxlength="150" pattern=".*[A-Za-z].*" title="Enter a casket name with letters." placeholder="e.g. Premium Hardwood Casket">
+                    <input id="casket-name" type="text" name="name" value="{{ old('name', $catalog->name) }}" class="form-input" required maxlength="150" pattern=".*[A-Za-z].*" title="Enter a casket name with letters." placeholder="e.g. Premium Hardwood Casket" data-text-case="words" autocapitalize="words" autocorrect="off" spellcheck="false">
                     @error('name') <div class="form-error">{{ $message }}</div> @enderror
                 </div>
                 <div>
                     <label class="cc-label" for="casket-price">Reference Value <span aria-hidden="true">*</span></label>
-                    <div class="cc-money"><span>&#8369;</span><input id="casket-price" type="number" step="0.01" min="0.01" inputmode="decimal" name="standard_price" value="{{ old('standard_price', $isEdit ? $catalog->standard_price : '') }}" class="form-input" required placeholder="0.00"></div>
-                    <p class="cc-help">Reference value for this catalog item. It helps keep package casket selection consistent.</p>
+                    <div class="cc-money"><span>&#8369;</span><input id="casket-price" max="9999999999.99" type="number" step="0.01" min="0.01" inputmode="decimal" name="standard_price" value="{{ old('standard_price', $isEdit ? $catalog->standard_price : '') }}" class="form-input" required placeholder="0.00"></div>
+                    <p class="cc-help">Used for applicable replacement or upgrade difference calculations. Covered by the package price when included.</p>
                     @error('standard_price') <div class="form-error">{{ $message }}</div> @enderror
                 </div>
             </div>
             <div>
                 <label class="cc-label" for="casket-material">Type or Material</label>
-                <input id="casket-material" type="text" name="type_or_material" value="{{ old('type_or_material', $catalog->type_or_material) }}" class="form-input" maxlength="100" placeholder="e.g. Hardwood, Metal, Glass">
+                <input id="casket-material" type="text" name="type_or_material" value="{{ old('type_or_material', $catalog->type_or_material) }}" class="form-input" maxlength="100" placeholder="e.g. Hardwood, Metal, Glass" data-text-case="words" autocapitalize="words" autocorrect="off" spellcheck="true">
                 @error('type_or_material') <div class="form-error">{{ $message }}</div> @enderror
             </div>
             <div>
                 <label class="cc-label" for="casket-description">Description</label>
-                <textarea id="casket-description" name="description" rows="3" class="form-input" maxlength="500" placeholder="Optional details for staff.">{{ old('description', $catalog->description) }}</textarea>
+                <textarea id="casket-description" name="description" rows="3" class="form-input" maxlength="500" placeholder="Optional details for staff." data-text-case="sentences" autocapitalize="sentences" autocorrect="on" spellcheck="true">{{ old('description', $catalog->description) }}</textarea>
                 @error('description') <div class="form-error">{{ $message }}</div> @enderror
             </div>
             <div>
                 <input type="hidden" name="is_available" value="0">
-                <label class="inline-flex items-center gap-3 font-semibold">
+                <label class="cc-availability-label inline-flex items-center gap-3 font-semibold">
                     <input type="checkbox" name="is_available" value="1" @checked(old('is_available', $catalog->exists ? $catalog->is_available : true))>
-                    Available for new intake cases
+                    <span>Available for New Intake</span>
                 </label>
                 <p class="cc-help">Turn this off when the casket is temporarily unavailable for new intake cases. This does not archive it.</p>
             </div>
         </div>
+        @include('admin.service-management.partials.photo-field')
         <div class="cc-actions">
             <a href="{{ $returnTo }}" class="cc-secondary" data-service-form-cancel><i class="bi bi-x-circle"></i> Cancel</a>
             <button class="cc-primary"><i class="bi bi-check2-circle"></i> {{ $isEdit ? 'Save Changes' : 'Save Casket' }}</button>

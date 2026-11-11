@@ -3,13 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AddOnCatalog;
 use App\Models\CasketCatalog;
 use App\Models\FreebieCatalog;
 use App\Models\Package;
 use App\Support\AuditLogger;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use App\Support\CatalogPhotos;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -20,7 +20,7 @@ class PackageController extends Controller
         $this->ensureCanViewPackages();
 
         $user = $request->user();
-        $query = Package::query()->with(['packageInclusions', 'packageFreebies']);
+        $query = Package::query()->with(['packageInclusions', 'packageFreebies', 'promotion']);
 
         if ($q = $request->input('q')) {
             $query->where(function ($builder) use ($q) {
@@ -36,11 +36,9 @@ class PackageController extends Controller
         }
 
         if ($request->input('promo') === 'with_promo') {
-            $query->where('promo_is_active', true);
+            $query->whereHas('promotion');
         } elseif ($request->input('promo') === 'no_promo') {
-            $query->where(function ($builder) {
-                $builder->where('promo_is_active', false)->orWhereNull('promo_is_active');
-            });
+            $query->whereDoesntHave('promotion');
         }
 
         [$sortCol, $sortDir] = match ($request->input('sort', 'name_asc')) {
@@ -58,7 +56,6 @@ class PackageController extends Controller
         $stats = $statsQuery->selectRaw(
             'COUNT(*) as total,
              SUM(is_active) as active_count,
-             SUM(promo_is_active) as promo_count,
              MAX(price) as max_price'
         )->first();
 
@@ -66,7 +63,7 @@ class PackageController extends Controller
             'packages'       => $packages,
             'totalPackages'  => (int) ($stats->total ?? 0),
             'activePackages' => (int) ($stats->active_count ?? 0),
-            'promoPackages'  => (int) ($stats->promo_count ?? 0),
+            'promoPackages'  => Package::whereHas('promotion')->count(),
             'highestPrice'   => (float) ($stats->max_price ?? 0),
         ]);
     }
@@ -77,7 +74,12 @@ class PackageController extends Controller
 
         return view('admin.packages.create', [
             'serviceTypeOptions' => Package::serviceTypeOptions(),
-            'freebieCatalogs' => FreebieCatalog::query()->where('is_active', true)->orderBy('name')->get(),
+            'promotions' => \App\Models\Promotion::query()->whereNull('package_id')->orderBy('name')->get()
+                ->reject(fn ($promotion) => $promotion->reviewFields($promotion->package) !== []
+                    || in_array($promotion->statusAt(now('Asia/Manila')), ['Incomplete Setup', 'Expired', 'Turned Off'], true)),
+            'hearseCatalogs' => \App\Models\HearseCatalog::where('is_active', true)->where('is_available', true)->orderBy('name')->get(),
+            'includedAddOnCatalogs' => $this->includedAddOnCatalogs(),
+            'freebieCatalogs' => FreebieCatalog::query()->where('is_active', true)->where('is_available', true)->orderBy('name')->get(),
             'casketCatalogs' => CasketCatalog::query()->where('is_active', true)->where('is_available', true)->orderBy('name')->get(),
         ]);
     }
@@ -85,36 +87,34 @@ class PackageController extends Controller
     public function store(Request $request)
     {
         $this->ensureCanManagePackages();
+        $this->normalizeIncludedServiceInput($request);
         $this->trimPackageInput($request);
 
-        $validated = $request->validate($this->packageValidationRules(), $this->packageValidationMessages());
+        $validated = $request->validate($this->packageValidationRules(), $this->packageValidationMessages(), $this->packageValidationAttributes());
         $inclusions = $this->cleanIncludedServices($validated['included_services'] ?? []);
         $freebies = $this->cleanFreebies($validated['freebies'] ?? []);
 
-        $promoPayload = $this->resolvePromoPayload($request, $validated);
+        $promotionId = $validated['promotion_id'] ?? null;
 
-        $package = DB::transaction(function () use ($validated, $promoPayload, $inclusions, $freebies) {
+        $package = CatalogPhotos::persist($request, new Package(), function (Package $package) use ($validated, $promotionId, $inclusions, $freebies) {
+            $inclusions = array_merge($inclusions, $this->catalogInclusions($validated['included_add_on_quantities'] ?? []));
             $this->assertCatalogItemsAvailable($inclusions, $freebies);
-            $package = Package::create([
+            $promotion = $this->resolvePromotionAssignment($promotionId, null, (float) $validated['price']);
+            $package->fill([
                 'name' => $validated['name'],
                 'short_description' => $validated['short_description'] ?? null,
                 'coffin_type' => $this->coffinTypeFromInclusions($inclusions),
                 'price' => $validated['price'],
                 'inclusions' => implode("\n", $this->includedServiceNames($inclusions)),
                 'freebies' => $freebies === [] ? null : implode("\n", array_column($freebies, 'freebie_name')),
-                'promo_label' => $promoPayload['promo_label'],
-                'promo_value_type' => $promoPayload['promo_value_type'],
-                'promo_value' => $promoPayload['promo_value'],
-                'promo_starts_at' => $promoPayload['promo_starts_at'],
-                'promo_ends_at' => $promoPayload['promo_ends_at'],
-                'promo_is_active' => $promoPayload['promo_is_active'],
                 'is_active' => true,
-            ]);
+            ])->save();
+            $promotion?->forceFill(['package_id' => $package->id])->save();
 
             $this->syncPackageItems($package, $inclusions, $freebies);
 
-            return $package;
         });
+        $package->load('promotion');
 
         AuditLogger::log(
             'package.created',
@@ -123,7 +123,7 @@ class PackageController extends Controller
             $package->id,
             [
                 'price' => $package->price,
-                'promo_label' => $package->promo_label,
+                'promotion' => $package->promotion?->name,
             ],
             null,
             null,
@@ -151,7 +151,7 @@ class PackageController extends Controller
     {
         $this->ensureCanViewPackages();
 
-        $package->load(['packageInclusions.casketCatalog', 'packageFreebies.catalog']);
+        $package->load(['packageInclusions.casketCatalog', 'packageInclusions.hearseCatalog', 'packageInclusions.addOnCatalog', 'packageFreebies.catalog', 'promotion']);
 
         return view('admin.packages.show', [
             'package' => $package,
@@ -165,7 +165,8 @@ class PackageController extends Controller
     {
         $this->ensureCanManagePackages();
 
-        $package->load(['packageInclusions.casketCatalog', 'packageFreebies']);
+        $package->load(['packageInclusions.casketCatalog', 'packageInclusions.hearseCatalog', 'packageFreebies']);
+        $package->load('promotion');
         $selectedFreebieCatalogIds = $package->packageFreebies
             ->pluck('freebie_catalog_id')
             ->filter()
@@ -173,37 +174,53 @@ class PackageController extends Controller
 
         return view('admin.packages.edit', [
             'package' => $package,
+            'promotions' => \App\Models\Promotion::query()->where(function ($query) use ($package) {
+                $query->whereNull('package_id')->orWhere('package_id', $package->id);
+            })->with('package')->orderBy('name')->get()->filter(function ($promotion) use ($package) {
+                $isCurrentAssignment = (int) $promotion->package_id === (int) $package->id;
+                $status = $promotion->statusAt(now('Asia/Manila'), $promotion->package);
+                return $isCurrentAssignment || ($promotion->reviewFields($promotion->package) === []
+                    && ! in_array($status, ['Incomplete Setup', 'Expired', 'Turned Off'], true));
+            })->values(),
             'serviceTypeOptions' => Package::serviceTypeOptions(),
+            'hearseCatalogs' => \App\Models\HearseCatalog::where('is_active', true)->where('is_available', true)->orderBy('name')->get(),
+            'includedAddOnCatalogs' => $this->includedAddOnCatalogs($package),
             'freebieCatalogs' => FreebieCatalog::query()
                 ->where(function ($query) use ($selectedFreebieCatalogIds) {
-                    $query->where('is_active', true)
+                    $query->where('is_active', true)->where('is_available', true)
                         ->when($selectedFreebieCatalogIds->isNotEmpty(), fn ($builder) => $builder->orWhereIn('id', $selectedFreebieCatalogIds));
                 })
                 ->orderBy('name')
                 ->get(),
-            'casketCatalogs' => CasketCatalog::query()->where('is_active', true)->orderBy('name')->get(),
+            'casketCatalogs' => CasketCatalog::query()->where('is_active', true)->where('is_available', true)->orderBy('name')->get(),
         ]);
     }
 
     public function update(Request $request, Package $package)
     {
         $this->ensureCanManagePackages();
+        $this->normalizeIncludedServiceInput($request);
         $this->trimPackageInput($request);
 
-        $validated = $request->validate($this->packageValidationRules(), $this->packageValidationMessages());
+        $validated = $request->validate($this->packageValidationRules(), $this->packageValidationMessages(), $this->packageValidationAttributes());
         $inclusions = $this->cleanIncludedServices($validated['included_services'] ?? []);
         $freebies = $this->cleanFreebies($validated['freebies'] ?? []);
 
-        $promoPayload = $this->resolvePromoPayload($request, $validated);
+        $promotionId = array_key_exists('promotion_id', $validated)
+            ? $validated['promotion_id']
+            : $package->promotion?->id;
 
         $before = [
             'price' => $package->price,
-            'promo_label' => $package->promo_label,
-            'promo_is_active' => $package->promo_is_active,
+            'promotion_id' => $package->promotion?->id,
         ];
 
-        DB::transaction(function () use ($package, $validated, $promoPayload, $inclusions, $freebies) {
+        CatalogPhotos::persist($request, $package, function (Package $package) use ($validated, $promotionId, $inclusions, $freebies) {
+            $current = $package->packageInclusions()->whereNotNull('add_on_catalog_id')->pluck('included_quantity', 'add_on_catalog_id')->all();
+            $quantities = ! empty($validated['configure_included_add_ons']) ? ($validated['included_add_on_quantities'] ?? []) : $current;
+            $inclusions = array_merge($inclusions, $this->catalogInclusions($quantities, $current));
             $this->assertCatalogItemsAvailable($inclusions, $freebies);
+            $promotion = $this->resolvePromotionAssignment($promotionId, $package, (float) $validated['price']);
             $package->update([
                 'name' => $validated['name'],
                 'short_description' => $validated['short_description'] ?? null,
@@ -211,13 +228,21 @@ class PackageController extends Controller
                 'price' => $validated['price'],
                 'inclusions' => implode("\n", $this->includedServiceNames($inclusions)),
                 'freebies' => $freebies === [] ? null : implode("\n", array_column($freebies, 'freebie_name')),
-                'promo_label' => $promoPayload['promo_label'],
-                'promo_value_type' => $promoPayload['promo_value_type'],
-                'promo_value' => $promoPayload['promo_value'],
-                'promo_starts_at' => $promoPayload['promo_starts_at'],
-                'promo_ends_at' => $promoPayload['promo_ends_at'],
-                'promo_is_active' => $promoPayload['promo_is_active'],
+                // Promotions are now authoritative in the related record. Clear
+                // legacy mirror columns only after the chosen assignment is
+                // safely resolved; the original configuration remains in the
+                // Promotion row and is never lost when it is unassigned.
+                'promo_label' => null,
+                'promo_value_type' => null,
+                'promo_value' => null,
+                'promo_starts_at' => null,
+                'promo_ends_at' => null,
+                'promo_is_active' => false,
+                'promo_manually_stopped_at' => null,
+                'promo_manually_stopped_by' => null,
             ]);
+            $package->promotion()->where('id', '!=', $promotion?->id ?? 0)->update(['package_id' => null]);
+            $promotion?->forceFill(['package_id' => $package->id])->save();
 
             $this->syncPackageItems($package, $inclusions, $freebies);
         });
@@ -229,12 +254,9 @@ class PackageController extends Controller
             $package->id,
             [
                 'price' => $package->price,
-                'promo_label' => $package->promo_label,
-                'promo_active' => $package->promo_is_active,
                 'changes' => [
                     ['field' => 'price', 'before' => $before['price'], 'after' => $package->price],
-                    ['field' => 'promo_label', 'before' => $before['promo_label'], 'after' => $package->promo_label],
-                    ['field' => 'promo_is_active', 'before' => $before['promo_is_active'], 'after' => $package->promo_is_active],
+                    ['field' => 'promotion_id', 'before' => $before['promotion_id'], 'after' => $promotionId],
                 ],
             ],
             null,
@@ -264,7 +286,7 @@ class PackageController extends Controller
         $this->ensureCanManagePackages();
 
         $validated = $request->validate([
-            'price' => 'required|numeric|min:0',
+            'price' => 'required|numeric|min:0|max:9999999999.99|decimal:0,2',
         ], $this->packageValidationMessages());
 
         $beforePrice = $package->price;
@@ -297,32 +319,39 @@ class PackageController extends Controller
     private function packageValidationRules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:150', $this->mustContainLetterRule('Package name must include letters.'), $this->allowedNameTextRule('Package name has unnecessary special characters.')],
+            'name' => ['required', 'string', 'max:150', $this->mustContainLetterRule('Package name must include letters.'), $this->allowedNameTextRule('Start Package Name with a letter or number. Use letters, numbers, spaces, periods, commas, apostrophes, parentheses, /, & or hyphens.')],
             'short_description' => ['nullable', 'string', 'max:500'],
-            'price' => ['required', 'numeric', 'min:0'],
+            'price' => ['required', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
+            'promotion_id' => ['nullable', 'integer', 'exists:promotions,id'],
             'included_services' => ['required', 'array', $this->atLeastOneIncludedServiceRule(), $this->requiredIncludedCasketRule()],
             'included_services.*.enabled' => ['nullable', 'boolean'],
             'included_services.*.description' => ['nullable', 'string', 'max:255'],
-            'included_services.*.included_kilometers' => ['nullable', 'integer', 'min:0', 'max:999999'],
-            'included_services.*.price_per_excess_kilometer' => ['nullable', 'numeric', 'min:0'],
-            'included_services.*.included_days' => ['nullable', 'integer', 'min:0', 'max:365'],
-            'included_services.*.price_per_extended_day' => ['nullable', 'numeric', 'min:0'],
+            'included_services.body_retrieval.included_kilometers' => ['required_if:included_services.body_retrieval.enabled,1', 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:999999'],
+            'included_services.hearse.included_kilometers' => ['required_if:included_services.hearse.enabled,1', 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:999999'],
+            'included_services.embalming.included_days' => ['required_if:included_services.embalming.enabled,1', 'nullable', 'integer', 'min:1', 'max:365'],
+            'included_services.home_viewing.included_days' => ['required_if:included_services.home_viewing.enabled,1', 'nullable', 'integer', 'min:1', 'max:365'],
+            'included_services.*.included_kilometers' => ['nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:999999'],
+            'included_services.*.price_per_excess_kilometer' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
+            'included_services.*.price_per_extended_day' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
+            'included_services.body_retrieval.price_per_excess_kilometer' => ['required_if:included_services.body_retrieval.enabled,1', 'nullable', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
+            'included_services.hearse.price_per_excess_kilometer' => ['required_if:included_services.hearse.enabled,1', 'nullable', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
+            'included_services.embalming.price_per_extended_day' => ['required_if:included_services.embalming.enabled,1', 'nullable', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
+            'included_services.home_viewing.price_per_extended_day' => ['required_if:included_services.home_viewing.enabled,1', 'nullable', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
+            'included_services.hearse.hearse_catalog_id' => ['required_if:included_services.hearse.enabled,1', 'nullable', 'integer', Rule::exists('hearse_catalogs', 'id')->where('is_active', true)->where('is_available', true)],
+            'included_services.*.hearse_catalog_id' => ['nullable', 'integer', Rule::exists('hearse_catalogs', 'id')->where('is_active', true)->where('is_available', true)],
             'included_services.*.casket_catalog_id' => ['nullable', 'integer', 'exists:casket_catalogs,id'],
             'included_services.casket.casket_catalog_id' => [$this->requiredIncludedCasketRule()],
-            'included_services.*.casket_type' => ['nullable', 'string', 'max:150', $this->allowedNameTextRule('Casket type has unnecessary special characters.')],
+            'included_services.*.casket_type' => ['nullable', 'string', 'max:150', $this->allowedNameTextRule('The casket description contains unsupported characters. Choose the casket again.')],
             'custom_inclusions' => ['nullable', 'array'],
-            'custom_inclusions.*.description' => ['nullable', 'string', 'max:255', $this->mustContainLetterRule('Custom inclusion must include valid description text.'), $this->allowedNameTextRule('Custom inclusion has unnecessary special characters.')],
+            'configure_included_add_ons' => ['sometimes', 'boolean'],
+            'included_add_on_quantities' => ['nullable', 'array'],
+            'included_add_on_quantities.*' => ['nullable', 'integer', 'min:1', 'max:999'],
+            'custom_inclusions.*.description' => ['nullable', 'string', 'max:255', $this->mustContainLetterRule('Custom Inclusion must contain at least one letter.'), $this->allowedNameTextRule('Use letters, numbers, spaces and supported punctuation in Custom Inclusion.')],
             'freebies' => ['nullable', 'array'],
-            'freebies.*.freebie_catalog_id' => ['nullable', 'integer', Rule::exists('freebie_catalogs', 'id')->where('is_active', true)],
-            'freebies.*.freebie_name' => ['nullable', 'string', 'max:255', $this->mustContainLetterRule('Freebie must include valid description text.'), $this->allowedNameTextRule('Freebie has unnecessary special characters.')],
+            'freebies.*.freebie_catalog_id' => ['nullable', 'integer', Rule::exists('freebie_catalogs', 'id')->where('is_active', true)->where('is_available', true)],
+            'freebies.*.freebie_name' => ['nullable', 'string', 'max:255', $this->mustContainLetterRule('Freebie Name must contain at least one letter.'), $this->allowedNameTextRule('Use letters, numbers, spaces and supported punctuation in Freebie Name.')],
             'freebies.*.quantity' => ['nullable', 'integer', 'min:1', 'max:999'],
             'freebies.*.unit' => ['nullable', 'string', 'max:40'],
-            'promo_label' => ['nullable', 'string', 'max:120', $this->allowedNameTextRule('Promo label has unnecessary special characters.')],
-            'promo_value_type' => 'nullable|in:AMOUNT,PERCENT',
-            'promo_value' => 'nullable|numeric|min:0',
-            'promo_starts_at' => 'nullable|date',
-            'promo_ends_at' => 'nullable|date|after_or_equal:promo_starts_at',
-            'promo_is_active' => 'boolean',
         ];
     }
 
@@ -330,17 +359,52 @@ class PackageController extends Controller
     {
         return [
             'name.required' => 'Package name is required.',
-            'price.required' => 'Price is required.',
-            'price.numeric' => 'Price must be a valid amount.',
-            'price.min' => 'Price cannot be negative.',
+            'required' => ':attribute is required.',
+            'required_if' => ':attribute is required when this service is included.',
+            'string' => 'Enter :attribute as text.',
+            'array' => 'The :attribute could not be read. Review this section and try again.',
+            'integer' => ':attribute must be a whole number.',
+            'numeric' => ':attribute must be a number.',
+            'boolean' => 'Choose a valid setting for :attribute.',
+            'min.numeric' => ':attribute must be at least :min.',
+            'max.numeric' => ':attribute cannot exceed :max.',
+            'max.string' => ':attribute must be :max characters or fewer.',
+            'decimal' => ':attribute can have up to two decimal places.',
+            'date' => 'Enter a valid :attribute.',
+            'included_services.*.hearse_catalog_id.exists' => 'Choose an active, available included hearse.',
+            'included_services.*.casket_catalog_id.exists' => 'The selected casket no longer exists. Choose another casket.',
+            'freebies.*.freebie_catalog_id.exists' => ':attribute is unavailable or archived. Replace or remove this freebie.',
+            'included_services.*.included_kilometers.required_if' => ':attribute is required when this service is included.',
+            'included_services.*.included_days.required_if' => ':attribute is required when this service is included.',
+            'price.required' => 'Base Package Price is required.',
+            'price.numeric' => 'Base Package Price must be a number.',
+            'price.min' => 'Base Package Price cannot be negative.',
             'included_services.required' => 'At least one included service is required.',
             'included_services.casket.casket_catalog_id.exists' => 'Please select a valid casket.',
-            'freebies.*.freebie_name.max' => 'Freebie must include valid description text.',
+            'freebies.*.freebie_name.max' => ':attribute must be 255 characters or fewer.',
             'freebies.*.quantity.min' => 'Freebie quantity must be at least 1.',
-            'promo_value.numeric' => 'Promo value must be a valid amount.',
-            'promo_value.min' => 'Promo value cannot be negative.',
-            'promo_ends_at.after_or_equal' => 'Promo end date must be on or after the start date.',
         ];
+    }
+
+    private function packageValidationAttributes(): array
+    {
+        $attributes = [
+            'name' => 'Package Name', 'short_description' => 'Package Description',
+            'price' => 'Base Package Price', 'included_services' => 'Included Services',
+            'custom_inclusions' => 'Custom Inclusions', 'custom_inclusions.*.description' => 'Custom Inclusion',
+            'freebies' => 'Included Freebies', 'promotion_id' => 'Promotion',
+        ];
+        foreach (Package::serviceTypeOptions() as $type => $label) {
+            foreach (['enabled'=>'Included', 'description'=>'Description', 'included_kilometers'=>'Included Distance (km)',
+                'included_days'=>'Included Days', 'price_per_excess_kilometer'=>'Extra Kilometer Rate',
+                'price_per_extended_day'=>'Extra Day Rate', 'casket_catalog_id'=>'Casket', 'hearse_catalog_id'=>'Hearse', 'casket_type'=>'Casket Description'] as $field=>$title) {
+                $attributes["included_services.$type.$field"] = "$label $title";
+            }
+        }
+        foreach (['freebie_catalog_id'=>'Freebie', 'freebie_name'=>'Freebie Name', 'quantity'=>'Freebie Quantity', 'unit'=>'Freebie Unit'] as $field=>$label) {
+            $attributes["freebies.*.$field"] = $label;
+        }
+        return $attributes;
     }
 
     private function trimPackageInput(Request $request): void
@@ -398,7 +462,7 @@ class PackageController extends Controller
             }
         }
 
-        foreach (['name', 'short_description', 'promo_label'] as $field) {
+        foreach (['name', 'short_description'] as $field) {
             if ($request->has($field)) {
                 $trimmed[$field] = trim(preg_replace('/\s+/', ' ', (string) $request->input($field)));
             }
@@ -429,6 +493,28 @@ class PackageController extends Controller
         if ($trimmed !== []) {
             $request->merge($trimmed);
         }
+    }
+
+    /**
+     * Normalize supported legacy service keys before validation so their
+     * nested values are subject to the same current rules as canonical keys.
+     */
+    private function normalizeIncludedServiceInput(Request $request): void
+    {
+        $rows = $request->input('included_services');
+        if (! is_array($rows)) {
+            return;
+        }
+
+        $normalized = [];
+        foreach ($rows as $rawType => $row) {
+            $type = Package::normalizeServiceType((string) $rawType);
+            if (! array_key_exists($type, $normalized) || (string) $rawType === $type) {
+                $normalized[$type] = $row;
+            }
+        }
+
+        $request->merge(['included_services' => $normalized]);
     }
 
     private function mustContainLetterRule(string $message): \Closure
@@ -521,7 +607,7 @@ class PackageController extends Controller
             ];
 
             if (in_array($type, [Package::SERVICE_BODY_RETRIEVAL, Package::SERVICE_HEARSE], true)) {
-                $payload['included_kilometers'] = $this->nullableInteger($row['included_kilometers'] ?? null);
+                $payload['included_kilometers'] = $this->nullableMoney($row['included_kilometers'] ?? null);
                 $payload['price_per_excess_kilometer'] = $this->nullableMoney($row['price_per_excess_kilometer'] ?? null);
             }
 
@@ -548,6 +634,7 @@ class PackageController extends Controller
                 }
             }
 
+            if ($type === Package::SERVICE_HEARSE) $payload['hearse_catalog_id'] = $row['hearse_catalog_id'] ?? null;
             $enabled[] = $payload;
         }
 
@@ -607,6 +694,9 @@ class PackageController extends Controller
     private function assertCatalogItemsAvailable(array $inclusions, array $freebies): void
     {
         foreach ($inclusions as $item) {
+            if (($item['service_type'] ?? '') === Package::SERVICE_HEARSE && ! \App\Models\HearseCatalog::whereKey($item['hearse_catalog_id'] ?? 0)->where('is_active', true)->where('is_available', true)->lockForUpdate()->exists()) {
+                throw ValidationException::withMessages(['included_services.hearse.hearse_catalog_id' => 'Choose an available included hearse.']);
+            }
             $id = $item['casket_catalog_id'] ?? null;
             if (! $id) {
                 continue;
@@ -623,12 +713,49 @@ class PackageController extends Controller
             if (! $id) {
                 continue;
             }
-            if (! FreebieCatalog::query()->whereKey($id)->where('is_active', true)->lockForUpdate()->exists()) {
+            if (! FreebieCatalog::query()->whereKey($id)->where('is_active', true)->where('is_available', true)->lockForUpdate()->exists()) {
                 throw ValidationException::withMessages([
                     'freebies' => 'A selected freebie is no longer available. Remove or replace it.',
                 ]);
             }
         }
+    }
+
+    private function includedAddOnCatalogs(?Package $package = null)
+    {
+        $existingIds = $package?->packageInclusions->pluck('add_on_catalog_id')->filter() ?? collect();
+
+        return AddOnCatalog::where(fn ($query) => $query->where('is_active', true)->where('is_available', true))
+            ->orWhereIn('id', $existingIds)->orderBy('name')->get();
+    }
+
+    private function catalogInclusions(array $quantities, array $current = []): array
+    {
+        $rows = [];
+        $quantities = array_filter($quantities, fn ($quantity) => $quantity !== null && $quantity !== '');
+        $catalogs = AddOnCatalog::whereIn('id', array_keys($quantities))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+        $chapelBranches = [];
+        foreach ($quantities as $id => $quantity) {
+            $catalog = $catalogs->get($id);
+            if ($catalog?->category === AddOnCatalog::CHAPEL_VIEWING) {
+                if (!$catalog->chapel_ready || in_array($catalog->branch_id, $chapelBranches, true)) {
+                    throw ValidationException::withMessages(["included_add_on_quantities.$id" => 'Choose one fully configured, active chapel per branch.']);
+                }
+                $chapelBranches[] = $catalog->branch_id;
+            }
+            if (! $catalog || ((! $catalog->is_active || ! $catalog->is_available) && (int) ($current[$id] ?? 0) !== (int) $quantity)) {
+                throw ValidationException::withMessages(["included_add_on_quantities.$id" => 'Choose an active, available add-on.']);
+            }
+            $rows[] = [
+                'service_type' => Package::SERVICE_CUSTOM,
+                'is_custom' => true,
+                'inclusion_name' => $catalog->name,
+                'add_on_catalog_id' => $catalog->id,
+                'included_quantity' => $quantity,
+            ];
+        }
+
+        return $rows;
     }
 
     private function syncPackageItems(Package $package, array $inclusions, array $freebies): void
@@ -785,10 +912,6 @@ class PackageController extends Controller
 
         if (! $package->is_active) {
             $package->is_active = true;
-            $reasons = app(\App\Support\ServiceCatalogPolicy::class)->packageBlockers($package);
-            if ($reasons !== []) {
-                return back()->withErrors(['package' => 'This package cannot be restored for new intake yet. '.implode(' ', $reasons)]);
-            }
         } else {
             $package->is_active = false;
         }
@@ -808,34 +931,35 @@ class PackageController extends Controller
         return back()->with('success', $package->name.' '.($package->is_active ? 'restored.' : 'archived.'));
     }
 
-    private function resolvePromoPayload(Request $request, array $validated): array
+    private function resolvePromotionAssignment(?int $promotionId, ?Package $package, float $packagePrice): ?\App\Models\Promotion
     {
-        $promoActive = $request->boolean('promo_is_active');
-        $hasPromoValue = isset($validated['promo_value']) && (float) $validated['promo_value'] > 0;
-        $hasPromoType = !empty($validated['promo_value_type']);
+        if (! $promotionId) return null;
 
-        if (!$promoActive || !$hasPromoValue || !$hasPromoType) {
-            return [
-                'promo_label' => null,
-                'promo_value_type' => null,
-                'promo_value' => null,
-                'promo_starts_at' => null,
-                'promo_ends_at' => null,
-                'promo_is_active' => false,
-            ];
+        $promotion = \App\Models\Promotion::query()->lockForUpdate()->find($promotionId);
+        if (! $promotion) {
+            throw ValidationException::withMessages(['promotion_id' => 'The selected promotion no longer exists.']);
+        }
+        if ($promotion->package_id && $promotion->package_id !== $package?->id) {
+            throw ValidationException::withMessages(['promotion_id' => 'This promotion is already assigned to another package.']);
         }
 
-        return [
-            'promo_label' => $validated['promo_label'] ?? null,
-            'promo_value_type' => $validated['promo_value_type'],
-            'promo_value' => (float) $validated['promo_value'],
-            'promo_starts_at' => ! empty($validated['promo_starts_at'])
-                ? Carbon::parse($validated['promo_starts_at'], 'Asia/Manila')
-                : null,
-            'promo_ends_at' => ! empty($validated['promo_ends_at'])
-                ? Carbon::parse($validated['promo_ends_at'], 'Asia/Manila')->endOfDay()
-                : null,
-            'promo_is_active' => true,
-        ];
+        $promotion->load('package');
+        $issues = $promotion->reviewFields($promotion->package);
+        $isAlreadyAssignedHere = $package && $promotion->package_id === $package->id;
+        if ($issues && ! $isAlreadyAssignedHere) {
+            throw ValidationException::withMessages(['promotion_id' => 'This promotion has incomplete saved configuration and must be corrected before it can be assigned.']);
+        }
+        if (! $isAlreadyAssignedHere && $promotion->statusAt(now('Asia/Manila'), $promotion->package) === 'Expired') {
+            throw ValidationException::withMessages(['promotion_id' => 'Expired promotions cannot be newly assigned. Update the schedule first.']);
+        }
+        if (! $isAlreadyAssignedHere && $promotion->statusAt(now('Asia/Manila'), $promotion->package) === 'Turned Off') {
+            throw ValidationException::withMessages(['promotion_id' => 'This promotion is currently turned off and cannot be used for new cases.']);
+        }
+        if (strtoupper((string) $promotion->discount_type) === 'AMOUNT'
+            && (float) $promotion->discount_value > $packagePrice) {
+            throw ValidationException::withMessages(['promotion_id' => "Fixed discount cannot exceed the assigned package's base price."]);
+        }
+
+        return $promotion;
     }
 }

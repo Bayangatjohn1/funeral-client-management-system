@@ -1,0 +1,4 @@
+@php
+    $itemState = $itemCatalog ? (!$itemCatalog->is_active ? 'archived' : (!$itemCatalog->is_available ? 'unavailable' : null)) : null;
+@endphp
+@if($itemCatalog)<span class="package-catalog-item{{ $itemState ? ' is-' . $itemState : '' }}">@if($itemState && ($itemWarningIcon ?? false))<i class="bi bi-exclamation-circle-fill package-catalog-warning-icon" aria-hidden="true" title="{{ ucfirst($itemState) }}"></i> @endif{{ $itemText }}@if($itemState) <span class="package-catalog-state">{{ ucfirst($itemState) }}</span>@if($itemAdvice ?? false)<span class="package-catalog-advice"> - {{ ($itemKind ?? '') === 'freebie' ? 'Replace or remove this freebie.' : 'Choose an ' . ($itemState === 'archived' ? 'active' : 'available') . ' ' . ($itemKind ?? 'item') . '.' }}</span>@endif @endif</span>@else{{ $itemText }}@endif

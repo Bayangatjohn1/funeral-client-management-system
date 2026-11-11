@@ -3,7 +3,6 @@
 namespace App\Services\CaseDocument;
 
 use App\Models\FuneralCase;
-use App\Models\Package;
 use App\Support\CaseSnapshotDisplayService;
 use Illuminate\Support\Arr;
 
@@ -49,7 +48,7 @@ class FuneralContractSnapshotService
                 'name' => (string) ($case->client?->full_name ?: ''),
                 'address' => (string) ($case->client?->address ?: ''),
                 'contact_number' => (string) ($case->client?->contact_number ?: ''),
-                'relationship' => (string) ($case->client?->relationship ?: $case->client?->relationship_to_deceased ?: ''),
+                'relationship' => (string) $case->clientRelationship(),
             ],
             'deceased' => [
                 'name' => (string) ($case->deceased?->full_name ?: ''),
@@ -64,11 +63,16 @@ class FuneralContractSnapshotService
                 'base_price' => (float) $display['package_price'],
                 'custom_package' => (bool) Arr::get($pricingSnapshot, 'custom_package', false),
             ],
-            'basic_inclusions' => $this->basicInclusions($case, $display),
+            'basic_inclusions' => $display['basic_inclusions'],
+            'other_inclusions' => $display['other_inclusions'],
             'structured_inclusions' => array_values(Arr::get($pricingSnapshot, 'inclusions', [])),
             'freebies' => array_values($display['freebies'] ?? []),
             'included_casket' => $display['included_casket'],
             'selected_casket' => $display['selected_casket'],
+            'selected_hearse' => [
+                'id' => $case->hearse_catalog_id,
+                'name' => (string) ($case->hearse_name_snapshot ?: Arr::get($pricingSnapshot, 'selected_hearse.name', '')),
+            ],
             'service_charges' => array_values(Arr::get($pricingSnapshot, 'service_charges', [])),
             'add_ons' => $hasPricingSnapshot ? array_values(Arr::get($pricingSnapshot, 'add_ons', [])) : array_values($display['add_ons'] ?? []),
             'additional_items' => $hasPricingSnapshot ? array_values(Arr::get($pricingSnapshot, 'additional_items', [])) : array_values($display['additional_items'] ?? []),
@@ -82,6 +86,7 @@ class FuneralContractSnapshotService
                 'wake_start_time' => (string) ($case->wake_start_time ?: ''),
                 'funeral_service_date' => $this->dateString($case->funeral_service_at),
                 'funeral_service_time' => (string) ($case->funeral_service_time ?: ''),
+                'funeral_ceremony_location' => (string) $case->ceremonyLocation(),
                 'interment_date' => $this->dateString($case->interment_at ?: $case->serviceDetail?->internment_date ?: $case->deceased?->interment_at ?: $case->deceased?->interment),
                 'interment_time' => $contractDetails['interment_time'] ?: (string) ($case->interment_time ?: ''),
                 'cemetery' => (string) ($case->deceased?->place_of_cemetery ?: $case->serviceDetail?->cemetery_place ?: ''),
@@ -126,17 +131,6 @@ class FuneralContractSnapshotService
         }
 
         return (string) ($display['package_name'] ?: 'Package');
-    }
-
-    private function basicInclusions(FuneralCase $case, array $display): array
-    {
-        $items = array_values(array_filter($display['inclusions'] ?? []));
-
-        if ($items === [] && $case->custom_package_inclusions) {
-            $items = Package::parseLegacyItems($case->custom_package_inclusions);
-        }
-
-        return $items;
     }
 
     private function additionalServices(array $display, array $details): array

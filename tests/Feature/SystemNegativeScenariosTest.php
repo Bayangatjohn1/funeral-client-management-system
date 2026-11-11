@@ -112,14 +112,16 @@ class SystemNegativeScenariosTest extends TestCase
             'entry_source' => 'MAIN',
         ]);
 
-        $response = $this->actingAs($staff)->from('/payments/history')->post('/payments/pay', [
+        $response = $this->actingAs($staff)->from('/payments/history')->post('/payments/pay', array_merge([
             'funeral_case_id' => $case->id,
+            'submission_id' => (string) \Illuminate\Support\Str::uuid(),
             'paid_at' => now()->format('Y-m-d H:i:s'),
             'amount_paid' => 7000,
             'payment_method' => 'cash',
             'accounting_reference_no' => 'OR-OVERPAY-001',
+            'receipt_or_no' => 'OR-OVERPAY-001',
             'received_by' => 'Accounting Staff',
-        ]);
+        ], $this->uploadedPaymentProof($staff)));
 
         $response->assertRedirect('/payments/history');
         $response->assertSessionHasErrors('payment');

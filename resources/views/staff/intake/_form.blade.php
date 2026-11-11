@@ -3,11 +3,22 @@
     $intakeDraftPayload = $intakeDraftPayload ?? null;
     $draftFields = $intakeDraftPayload['fields'] ?? [];
     $intakeValue = static fn ($key, $default = null) => old($key, data_get($draftFields, $key, $default));
+    $addOnReview = session('add_on_review');
+    $basicDefaults = \App\Models\CustomPackageDefault::find(1);
+    $customDefaultCoverage = $basicDefaults?->coverage() ?? [];
+    $customDefaultRates = $basicDefaults?->rates() ?? [];
     if ($intakeDraft && !$errors->any()) {
         $initialStep = max(1, min(5, (int) $intakeDraft->current_step));
     }
+    if (is_array($addOnReview)) {
+        $initialStep = 4;
+    }
+    if ($intakeValue('viewing_type') === 'chapel' && $errors->hasAny(['chapel_coverage', 'chapel_add_on_id', 'chapel_address', 'package_id'])) {
+        $initialStep = 3;
+    }
 
     $showIntakePageHeading = $showIntakePageHeading ?? false;
+    $intakeModal = $intakeModal ?? false;
     $isOtherEntryMode = !empty($entryMode) && $entryMode === 'other';
     $otherBranchCutoffHour = max(min((int) config('funeral.other_branch_report_cutoff_hour', 18), 23), 0);
     $todayStart = now()->copy()->startOfDay();
@@ -19,9 +30,15 @@
 
     $initialSelectedBranchId = $intakeValue('branch_id', $defaultBranchId ?? auth()->user()->branch_id);
     $oldSelectedAddOns = array_map('strval', (array) $intakeValue('selected_add_ons', []));
+    $oldAddOnQuantities = (array) $intakeValue('add_on_quantities', []);
+    $addOnQuantityErrors = collect($errors->getMessages())->mapWithKeys(function ($messages, $key) {
+        return preg_match('/^add_on_quantities\.(\d+)$/', (string) $key, $match)
+            ? [$match[1] => $messages[0] ?? 'Enter a valid quantity.']
+            : [];
+    })->all();
 @endphp
 
-<div class="intake-root {{ $showIntakePageHeading && !$isOtherEntryMode ? 'intake-reference' : '' }} w-full p-0 m-0 text-slate-800 font-sans border-0 shadow-none rounded-none">
+<div class="intake-root {{ ($showIntakePageHeading || $intakeModal) && !$isOtherEntryMode ? 'intake-reference' : '' }} w-full p-0 m-0 text-slate-800 font-sans border-0 shadow-none rounded-none">
     <style>
     /* ═══════════════════════════════════════════════════════════
        INTAKE FORM  —  Premium SaaS Design System
@@ -356,65 +373,184 @@
     }
     .form-input.field-error,
     .form-textarea.field-error,
-    .form-select.field-error,
-    .schedule-time-display.field-error {
+    .form-select.field-error {
         border-color: #e11d48 !important;
         background: #fff7f8 !important;
         color: #9f1239 !important;
         box-shadow: 0 0 0 4px rgba(225,29,72,.08) !important;
     }
-    html[data-theme] body.panel-shell-body #intakeWizardForm .wizard-panel [data-validation-summary] {
-        border: 1px solid #fda4af !important;
-        border-left: 4px solid #e11d48 !important;
-        background: #fff1f2 !important;
-        padding: 18px !important;
-        border-radius: 12px !important;
-        margin-bottom: 24px;
+    #intakeWizardForm .schedule-time-display[aria-invalid="true"] {
+        border-color:#d61c42 !important;
+        background:#fff1f3 !important;
+        color:#831638 !important;
     }
-    html[data-theme] body.panel-shell-body #intakeWizardForm [data-validation-summary] .validation-heading { display:flex; gap:12px; align-items:flex-start; margin-bottom:12px; }
-    html[data-theme] body.panel-shell-body #intakeWizardForm [data-validation-summary] .validation-icon { display:grid;place-items:center;flex:none;width:32px;height:32px;border-radius:50%;background:#ffe4e6;color:#be123c;font-weight:800; }
-    html[data-theme] body.panel-shell-body #intakeWizardForm [data-validation-summary] p { margin:0; color:#881337 !important; font-weight:700; font-size:14px; }
-    html[data-theme] body.panel-shell-body #intakeWizardForm [data-validation-summary] small { display:block; margin-top:3px; color:#9f1239 !important; font-size:12px; }
-    html[data-theme] body.panel-shell-body #intakeWizardForm [data-validation-summary] ul { display:grid;gap:6px;margin:0;padding:0;list-style:none; }
-    html[data-theme] body.panel-shell-body #intakeWizardForm [data-validation-summary] button { display:flex;gap:10px;align-items:center;width:100%;min-height:44px;padding:10px 12px;background:#fff !important;border:1px solid #fecdd3 !important;border-radius:8px;color:#881337 !important;text-align:left;font-size:13px;line-height:1.5;text-decoration:none; }
-    html[data-theme] body.panel-shell-body #intakeWizardForm [data-validation-summary] button:hover { background:#ffe4e6 !important; }
-    html[data-theme] body.panel-shell-body #intakeWizardForm [data-validation-summary] button:focus-visible { outline:2px solid #be123c;outline-offset:2px; }
-    #intakeWizardForm .validation-number { flex:none;font-size:11px;font-weight:700;opacity:.7; }
-    #intakeWizardForm .validation-arrow { margin-left:auto;flex:none; }
-    #intakeWizardForm .validation-highlight {
-        outline: 3px solid #f59e0b !important;
-        outline-offset: 4px !important;
-        box-shadow: 0 0 0 7px rgb(245 158 11 / .16) !important;
-        border-radius: 8px;
+    html[data-theme="dark"] #intakeWizardForm .schedule-time-display[aria-invalid="true"] {
+        border-color:#fb7185 !important;
+        background:#411f2b !important;
+        color:#ffe4e9 !important;
     }
-    html[data-theme='dark'] body.panel-shell-body #intakeWizardForm .wizard-panel [data-validation-summary] { background:#29191f !important;border-color:#9f1239 !important; }
-    html[data-theme='dark'] body.panel-shell-body #intakeWizardForm [data-validation-summary] :is(p,small,button) { color:#fecdd3 !important; }
-    html[data-theme='dark'] body.panel-shell-body #intakeWizardForm [data-validation-summary] button { background:#351e27 !important;border-color:#7f1d3a !important; }
-    html[data-theme='dark'] body.panel-shell-body #intakeWizardForm [data-validation-summary] button:hover { background:#4c2434 !important; }
     html[data-theme] body.panel-shell-body #intakeWizardForm #intake_autosave_recovery {
-        display:flex;align-items:flex-start;gap:14px;padding:20px;margin-bottom:24px;
-        border:1px solid #fcd34d !important;border-left:4px solid #d97706 !important;
-        border-radius:12px;background:#fffbeb !important;
+        --recovery-surface:#f5eddf;--recovery-text:#493a24;--recovery-icon:#8a520c;--recovery-icon-surface:#f5dfb7;
+        --recovery-primary:#b9d8c6;--recovery-primary-hover:#a5ccb5;--recovery-primary-text:#183d2d;
+        --recovery-secondary:#ebe1d1;--recovery-secondary-hover:#e1d3bd;
+        display:flex;align-items:flex-start;gap:12px;padding:16px;margin-bottom:18px;
+        border:0 !important;border-radius:12px;background:var(--recovery-surface) !important;
     }
-    #intake_autosave_recovery .recovery-icon { display:grid;place-items:center;flex:none;width:38px;height:38px;border-radius:10px;background:#fef3c7;color:#92400e;font-size:20px; }
+    #intake_autosave_recovery .recovery-icon { display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:9px;background:var(--recovery-icon-surface);color:var(--recovery-icon);font-size:18px; }
     #intake_autosave_recovery .recovery-content { flex:1;min-width:0; }
-    html[data-theme] body.panel-shell-body #intake_autosave_recovery h4 { margin:0;color:#78350f !important;font-size:16px;font-weight:750; }
-    html[data-theme] body.panel-shell-body #intake_autosave_recovery p { margin:5px 0 14px;color:#92400e !important;font-size:13px;line-height:1.6; }
+    html[data-theme] body.panel-shell-body #intake_autosave_recovery h4 { margin:0;color:var(--recovery-text) !important;font-size:16px;font-weight:700; }
+    html[data-theme] body.panel-shell-body #intake_autosave_recovery p { margin:4px 0 12px;color:var(--recovery-text) !important;font-size:13px;line-height:1.5; }
     #intake_autosave_recovery .recovery-actions { display:flex;flex-wrap:wrap;gap:10px; }
-    html[data-theme] body.panel-shell-body #intake_autosave_recovery button { min-height:44px;padding:10px 16px;border:1px solid #d97706 !important;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;color:#78350f !important;background:transparent !important; }
-    html[data-theme] body.panel-shell-body #intake_autosave_recovery #restore_intake_autosave { background:#92400e !important;color:#fff !important;border-color:#92400e !important; }
-    #intake_autosave_recovery button:hover { filter:brightness(.95); }
-    #intake_autosave_recovery button:focus-visible { outline:2px solid #d97706;outline-offset:3px; }
-    html[data-theme='dark'] body.panel-shell-body #intakeWizardForm #intake_autosave_recovery { background:#2a2113 !important;border-color:#a16207 !important; }
-    html[data-theme='dark'] body.panel-shell-body #intake_autosave_recovery :is(h4,p,button) { color:#fde68a !important; }
-    html[data-theme='dark'] body.panel-shell-body #intake_autosave_recovery #restore_intake_autosave { background:#fcd34d !important;color:#422006 !important;border-color:#fcd34d !important; }
+    html[data-theme] body.panel-shell-body #intake_autosave_recovery button { min-height:44px;padding:8px 14px;border:0 !important;border-radius:8px;font-size:13px;font-weight:650;color:var(--recovery-text) !important;background:var(--recovery-secondary) !important; }
+    html[data-theme] body.panel-shell-body #intake_autosave_recovery button:hover { background:var(--recovery-secondary-hover) !important; }
+    html[data-theme] body.panel-shell-body #intake_autosave_recovery #restore_intake_autosave { background:var(--recovery-primary) !important;color:var(--recovery-primary-text) !important; }
+    html[data-theme] body.panel-shell-body #intake_autosave_recovery #restore_intake_autosave:hover { background:var(--recovery-primary-hover) !important; }
+    #intake_autosave_recovery button:focus-visible { outline:2px solid var(--recovery-icon);outline-offset:3px; }
+    html[data-theme='dark'] body.panel-shell-body #intakeWizardForm #intake_autosave_recovery {
+        --recovery-surface:#332b20;--recovery-text:#f4e5cb;--recovery-icon:#ffda96;--recovery-icon-surface:#514029;
+        --recovery-primary:#365b49;--recovery-primary-hover:#42705a;--recovery-primary-text:#edfff4;
+        --recovery-secondary:#45392a;--recovery-secondary-hover:#534432;
+    }
+    #intakeWizardForm .payment-field-note { margin-inline-start:4px;font-size:.85em;font-weight:400;opacity:.8; }
     @media(max-width:480px) { #intake_autosave_recovery .recovery-actions { flex-direction:column; } #intake_autosave_recovery button { width:100%; } }
-    html[data-theme] body.panel-shell-body #intakeWizardForm [data-schedule-advisory] { margin-bottom:24px;padding:18px;border:1px solid #fcd34d !important;border-left:4px solid #d97706 !important;border-radius:12px;background:#fffbeb !important;color:#78350f !important; }
-    html[data-theme] body.panel-shell-body #intakeWizardForm [data-schedule-advisory] h4 { margin:0 0 8px;font-size:15px;font-weight:750;color:#78350f !important; }
-    html[data-theme] body.panel-shell-body #intakeWizardForm [data-schedule-advisory] p { margin:0 0 12px;font-size:13px;line-height:1.6;color:#92400e !important; }
-    #intakeWizardForm [data-schedule-advisory] ul { margin:0;padding-left:20px;font-size:13px;line-height:1.8; }
-    html[data-theme='dark'] body.panel-shell-body #intakeWizardForm [data-schedule-advisory] { background:#2a2113 !important;border-color:#a16207 !important; }
-    html[data-theme='dark'] body.panel-shell-body #intakeWizardForm [data-schedule-advisory] :is(h4,p,li) { color:#fde68a !important; }
+    #intakeWizardForm .custom-coverage { margin-top:8px; }
+    #intakeWizardForm .custom-coverage[hidden] { display:none !important; }
+    #intakeWizardForm :is(.custom-package-service-card,#viewing_location_wrap,#chapel_charge_panel,#chapel_charge_controls,#chapel_charge_notice)[hidden] { display:none !important; }
+    #intakeWizardForm .viewing-fields { display:grid;grid-column:1/-1;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px;align-items:start; }
+    #intakeWizardForm .viewing-fields[data-chapel-viewing] { grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); }
+    #intakeWizardForm .viewing-fields:not([data-chapel-viewing]) .viewing-cemetery { grid-column:1/-1; }
+    #intakeWizardForm .viewing-type-select { position:relative; }
+    #intakeWizardForm .viewing-type-select select { appearance:none;padding-inline-end:38px !important; }
+    #intakeWizardForm .viewing-type-select > i { position:absolute;inset-inline-end:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--intake-muted); }
+    #intakeWizardForm #chapel_charge_panel { grid-column:1/-1;display:grid;gap:12px; }
+    #intakeWizardForm .chapel-coverage-options { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:6px; }
+    #intakeWizardForm .chapel-coverage-option {
+        position:relative;display:grid;grid-template-columns:18px minmax(0,1fr);align-items:start;
+        gap:10px;padding:12px 14px;border-radius:8px;
+        background:color-mix(in srgb,var(--intake-card-alt) 60%,var(--intake-card));color:var(--intake-text);cursor:pointer;
+    }
+    #intakeWizardForm .chapel-coverage-option:hover { background:var(--intake-card-alt); }
+    #intakeWizardForm .chapel-coverage-option:has(input:checked) { background:var(--intake-hover); }
+    #intakeWizardForm .chapel-coverage-option:has(input:focus-visible) { box-shadow:0 0 0 2px var(--intake-text); }
+    #intakeWizardForm .chapel-coverage-option input[type="radio"] {
+        position:absolute;inline-size:1px !important;block-size:1px !important;min-height:0 !important;
+        margin:0;padding:0 !important;clip-path:inset(50%);opacity:0;
+    }
+    #intakeWizardForm .chapel-coverage-indicator {
+        display:grid;place-items:center;inline-size:18px;block-size:18px;margin-top:2px;
+        border:1px solid var(--intake-muted);border-radius:50%;
+    }
+    #intakeWizardForm .chapel-coverage-option input:checked + .chapel-coverage-indicator { border-color:currentColor; }
+    #intakeWizardForm .chapel-coverage-option input:checked + .chapel-coverage-indicator::after {
+        content:"";inline-size:8px;block-size:8px;border-radius:50%;background:currentColor;
+    }
+    #intakeWizardForm .chapel-coverage-option strong { font-weight:650; }
+    #intakeWizardForm .chapel-coverage-option small { display:block;margin-top:3px;font-size:13px;line-height:1.4;color:var(--intake-muted); }
+    #intakeWizardForm #chapel_coverage_error:is([hidden],:empty) { display:none !important; }
+    #intakeWizardForm #chapel_package_hint { margin:6px 0 0;font-size:13px;color:var(--intake-muted); }
+    #intakeWizardForm [data-coverage-hidden] { display:none !important; }
+    #intakeWizardForm #chapel_preview_panel { margin:12px 0;padding:14px 16px;border-radius:10px;background:var(--intake-card-alt); }
+    #intakeWizardForm #chapel_preview_panel h5 { margin:0 0 6px;font-size:14px;font-weight:650; }
+    #intakeWizardForm #chapel_rate_readout { margin:0 0 2px;font-weight:650;color:var(--intake-text); }
+    #intakeWizardForm #chapel_address_readout { margin:0 0 8px;color:var(--intake-muted); }
+    #intakeWizardForm #chapel_charge_preview { margin:0; }
+    #intakeWizardForm #chapel-schedule-context {
+        margin-top:12px;padding:10px 0 0;border-top:1px solid var(--intake-border);border-radius:0;background:transparent;
+    }
+    #intakeWizardForm #chapel-schedule-context:is([data-state="conflict"],[data-state="error"]) {
+        --chapel-advisory-surface:#fff1d6;--chapel-advisory-ink:#784305;--chapel-advisory-row:#fffaef;
+        border:0;border-radius:8px;padding:12px 14px;background:var(--chapel-advisory-surface);color:var(--chapel-advisory-ink);
+    }
+    html[data-theme="dark"] #intakeWizardForm #chapel-schedule-context:is([data-state="conflict"],[data-state="error"]) {
+        --chapel-advisory-surface:#3c2e1b;--chapel-advisory-ink:#ffdc9e;--chapel-advisory-row:#302418;
+    }
+    #intakeWizardForm .chapel-advisory-heading, #intakeWizardForm .chapel-conflict-actions { display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px; }
+    #intakeWizardForm .chapel-advisory-heading > i { display:none;font-size:16px; }
+    #intakeWizardForm #chapel-schedule-context:is([data-state="conflict"],[data-state="error"]) .chapel-advisory-heading > i { display:block; }
+    #intakeWizardForm [data-chapel-check-status] { margin:0;font-weight:650;flex:1 1 220px; }
+    #intakeWizardForm [data-chapel-events] { display:grid;gap:5px;margin:9px 0 12px;padding:0;list-style:none; }
+    #intakeWizardForm [data-chapel-events] li {
+        display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 16px;
+        padding:8px 10px;border-radius:6px;background:var(--chapel-advisory-row);
+    }
+    #intakeWizardForm .chapel-conflict-actions button { min-height:36px; }
+    #intakeWizardForm [data-chapel-edit-wake] { background:#315d45;color:#fff; }
+    #intakeWizardForm [data-chapel-edit-wake]:hover { background:#244a36; }
+    #intakeWizardForm [data-chapel-check-retry] { padding:4px 0; }
+    #intakeWizardForm .chapel-alternatives { margin-block:10px; }
+    #intakeWizardForm .chapel-alternatives summary { cursor:pointer;color:inherit;font-weight:650; }
+    #intakeWizardForm .chapel-alternatives p { margin:4px 0 8px; }
+    #intakeWizardForm .chapel-alternative-options { display:flex;flex-wrap:wrap;gap:6px;margin-top:6px; }
+    #intakeWizardForm .chapel-alternatives [hidden] { display:none !important; }
+    #intakeWizardForm #chapel_charge_preview, #intakeWizardForm #chapel_package_feedback { font-size:13px;color:var(--intake-muted); }
+    #intakeWizardForm #chapel_package_feedback { margin:0 0 10px; }
+    #intakeWizardForm #chapel_charge_notice { display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:10px;background:#fff3da;color:#865315;line-height:1.5;font-size:13px; }
+    #intakeWizardForm #chapel_charge_notice > i { flex:none;margin-top:2px;font-size:16px; }
+    #intakeWizardForm #chapel_charge_notice strong { display:block;font-weight:600;margin-bottom:3px; }
+    html[data-theme=dark] #intakeWizardForm #chapel_charge_notice { background:#3b3222;color:#f0ce91; }
+    #intakeWizardForm :is(#casket-inclusion-status,#hearse-inclusion-status)[data-unavailable=true] { color:#a34e2c; }
+    html[data-theme=dark] #intakeWizardForm :is(#casket-inclusion-status,#hearse-inclusion-status)[data-unavailable=true] { color:#f1c19b; }
+    #intakeWizardForm #home_viewing_notice { grid-column:1/-1; }
+    #intakeWizardForm #home_viewing_notice[hidden] { display:none !important; }
+    #intakeWizardForm #home_viewing_notice { grid-column:1/-1; }
+    #intakeWizardForm #home_viewing_notice[hidden] { display:none !important; }
+    @media(max-width:640px) { #intakeWizardForm .viewing-fields, #intakeWizardForm .viewing-fields[data-chapel-viewing] { grid-template-columns:minmax(0,1fr); } }
+    @media(max-width:640px) { #intakeWizardForm .chapel-coverage-options { grid-template-columns:minmax(0,1fr); } }
+    #intakeWizardForm .custom-package-service-card .custom-coverage:only-of-type { align-self:start; }
+    #intakeWizardForm .custom-package-service-card:has(#custom-hearse-slot) .custom-coverage { grid-column:1/-1; }
+    #intakeWizardForm .custom-coverage-heading { display:flex;align-items:center;justify-content:space-between;gap:10px; }
+    #intakeWizardForm .intake-package-select:has(.service-field-chip) > [data-filter-select-icon] { display:none; }
+    #intakeWizardForm .intake-package-select > .service-field-chip { width:min(100%,420px); min-height:44px; padding:10px 14px; }
+    #intakeWizardForm [data-viewing-context][data-extra=true] { color:#8a510d; }
+    html[data-theme=dark] #intakeWizardForm [data-viewing-context][data-extra=true] { color:#f8d38a; }
+    #intakeWizardForm .inline-upgrade-options:popover-open { box-shadow:var(--service-popover-shadow) !important; }
+    #intakeWizardForm .inline-upgrade-options .service-popover-done { width:auto; min-height:30px; padding:4px 12px; font-size:12px; }
+    #intakeWizardForm :is([data-custom-asset-trigger],[data-upgrade-trigger]).service-field-chip { padding:6px 11px; border-radius:8px; background:#dcebe2; color:#234a36; text-decoration:none; }
+    #intakeWizardForm :is([data-custom-asset-trigger],[data-upgrade-trigger]).service-field-chip:is(:hover,[aria-expanded=true]) { background:#c9e0d2; }
+    html[data-theme=dark] #intakeWizardForm :is([data-custom-asset-trigger],[data-upgrade-trigger]).service-field-chip { background:#294538; color:#e3f5eb; }
+    html[data-theme=dark] #intakeWizardForm :is([data-custom-asset-trigger],[data-upgrade-trigger]).service-field-chip:is(:hover,[aria-expanded=true]) { background:#375c49; }
+    #intakeWizardForm .custom-coverage-fields { display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px; }
+    #intakeWizardForm .custom-coverage-fields label { display:flex;flex-direction:column;justify-content:space-between;gap:6px;min-width:0; }
+    #intakeWizardForm .custom-coverage-fields > span { grid-column:1/-1; }
+    #intakeWizardForm .custom-coverage-charge { color:#8a510d;font-size:13px; }
+    html[data-theme='dark'] #intakeWizardForm .custom-coverage-charge { color:#f8d38a; }
+    @media(max-width:480px) { #intakeWizardForm .custom-coverage-fields { grid-template-columns:1fr; } }
+    #intakeWizardForm [data-schedule-advisory] { margin-top:10px;font-size:13px;line-height:1.45;overflow-wrap:anywhere; }
+    #intakeWizardForm [data-schedule-advisory] h4 { margin:0 0 6px;font-size:13px;font-weight:550; }
+    #intakeWizardForm [data-schedule-advisory] ul { display:grid;gap:4px;max-height:9rem;overflow-y:auto; }
+    #intakeWizardForm [data-schedule-advisory] li,
+    #intakeWizardForm .schedule-advisory-summary { padding:6px 10px;border-radius:6px; }
+    #intakeWizardForm .schedule-advisory-summary { order:-1;font-size:13px;line-height:1.4; }
+    #intakeWizardForm .footer-action-bar:has(.schedule-advisory-summary:not([hidden])) { flex-wrap:wrap; }
+    #intakeWizardForm [data-schedule-advisory] [data-tone='match'],
+    #intakeWizardForm .schedule-advisory-summary[data-tone='match'] { background:#fff3dc;color:#854900; }
+    #intakeWizardForm .schedule-advisory-summary[data-tone='info'] { background:#e7f0eb;color:#365548; }
+    #intakeWizardForm [data-schedule-advisory] [data-tone='same'] { background:#edf0f2;color:#465464; }
+    #intakeWizardForm [data-schedule-advisory] p { margin:6px 0 0; }
+    #intakeWizardForm [data-schedule-advisory] li strong { display:block;margin-top:3px; }
+    #intakeWizardForm .schedule-advisory-launch { margin-top:10px; }
+    #intakeWizardForm .schedule-advisory-launch > button { display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border-radius:7px;background:#e7f0eb;color:#365548;text-align:left;font-size:13px;font-weight:500; }
+    #intakeWizardForm .schedule-advisory-launch > button:is(:hover,[aria-expanded=true]) { background:#d9e9df; }
+    #intakeWizardForm .schedule-advisory-launch > button[data-tone='match'] { background:#fff3dc;color:#854900; }
+    #intakeWizardForm .schedule-advisory-launch > button[data-tone='match']:is(:hover,[aria-expanded=true]) { background:#f7e6c6; }
+    #intakeWizardForm .schedule-advisory-panel { width:min(500px,calc(100vw - 24px));background:#f5f8f6;color:#334c40;overscroll-behavior:contain; }
+    #intakeWizardForm .schedule-advisory-panel ul { overscroll-behavior:contain; }
+    #intakeWizardForm .schedule-advisory-panel > [data-schedule-advisory]:first-child,
+    #intakeWizardForm .schedule-advisory-panel > [data-schedule-advisory][hidden] + [data-schedule-advisory] { margin-top:0; }
+    #intakeWizardForm .schedule-advisory-panel > p { margin:8px 0 0;font-size:13px;font-weight:400; }
+    #intakeWizardForm .schedule-advisory-panel [data-tone='same'] { background:#eaf1ed;color:#4b6055; }
+    html[data-theme='dark'] #intakeWizardForm .schedule-advisory-panel { background:#1d3026;color:#cfdfd5; }
+    html[data-theme='dark'] #intakeWizardForm .schedule-advisory-panel [data-tone='same'] { background:#263b30;color:#bbcfc1; }
+    html[data-theme='dark'] #intakeWizardForm .schedule-advisory-launch > button { background:#263b30;color:#c6dace; }
+    html[data-theme='dark'] #intakeWizardForm .schedule-advisory-launch > button:is(:hover,[aria-expanded=true]) { background:#304a3c; }
+    html[data-theme='dark'] #intakeWizardForm .schedule-advisory-launch > button[data-tone='match'] { background:#342718;color:#f8d38a; }
+    html[data-theme='dark'] #intakeWizardForm .schedule-advisory-launch > button[data-tone='match']:is(:hover,[aria-expanded=true]) { background:#4c3923; }
+    html[data-theme='dark'] #intakeWizardForm [data-schedule-advisory] [data-tone='match'],
+    html[data-theme='dark'] #intakeWizardForm .schedule-advisory-summary[data-tone='match'] { background:#342718;color:#f8d38a; }
+    html[data-theme='dark'] #intakeWizardForm .schedule-advisory-summary[data-tone='info'] { background:#263b30;color:#c6dace; }
+    html[data-theme='dark'] #intakeWizardForm [data-schedule-advisory] [data-tone='same'] { background:#273039;color:#ccd6df; }
+    @media (min-width:768px) { #intakeWizardForm .schedule-advisory-summary { order:0;margin-inline:auto; } }
+    @media (max-width:767px) { #intakeWizardForm .schedule-advisory-summary { width:100%; } }
     .intake-field-error {
         display: flex;
         align-items: flex-start;
@@ -468,18 +604,6 @@
     .time-input-wrap {
         position: relative;
     }
-    .time-input-wrap::before {
-        content: "\F293";
-        position: absolute;
-        left: 0.95rem;
-        top: 50%;
-        z-index: 1;
-        transform: translateY(-50%);
-        color: #7A8076;
-        font-family: "bootstrap-icons";
-        font-size: 0.95rem;
-        pointer-events: none;
-    }
     .schedule-time-display {
         display: block;
         width: 100%;
@@ -490,7 +614,7 @@
         color: #333333;
         font-size: 0.92rem;
         font-weight: 800;
-        padding: 0 2.6rem 0 2.5rem;
+        padding: 0 2.6rem 0 0.95rem;
         outline: none;
         text-align: left;
         transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
@@ -520,6 +644,20 @@
         background: #E3ECD9;
         color: #232821;
     }
+    .schedule-time-periods {
+        display: grid;
+        grid-column: 1 / -1;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+    .schedule-time-periods button {
+        padding: 8px;
+        border-radius:4px;
+        font-size: .875rem;
+        line-height:1.3;
+        font-weight:600;
+    }
+    .schedule-time-periods button:is(:hover,[aria-pressed="true"]) { background:var(--staff-soft,var(--intake-hover)); }
     .schedule-time-display:hover { background: #F3F0E8; }
     .schedule-time-display:focus {
         background: #FAFAF7;
@@ -536,6 +674,8 @@
         right: 0;
         z-index: 60;
         display: none;
+        overflow-y: auto;
+        overscroll-behavior: contain;
         width: min(270px, calc(100vw - 32px));
         grid-template-columns: 1fr 1fr 1fr;
         gap: 8px;
@@ -546,6 +686,11 @@
         box-shadow: 0 18px 38px rgba(37, 43, 35, 0.18);
     }
     .time-input-wrap.is-open .schedule-time-popover { display: grid; }
+    .intake-time-presets { display:grid; grid-column:1/-1; max-height:12rem; overflow-y:auto; overscroll-behavior:contain; }
+    .intake-time-presets[hidden] { display: none; }
+    .intake-time-presets button { padding:6px 10px; text-align:start; border-radius:6px; }
+    .intake-time-presets button[hidden] { display:none !important; }
+    .intake-time-presets button:is(:hover,[aria-pressed="true"]) { background:var(--staff-soft); }
     .time-column {
         min-width: 0;
         overflow: hidden;
@@ -628,6 +773,7 @@
         gap: 14px;
     }
     .intake-full-field { grid-column: 1 / -1; }
+    #senior_proof_wrap .payment-proof-widget { padding-block:0; border-block:0; }
     .intake-field-help {
         margin-top: 6px;
         font-size: 11px;
@@ -698,6 +844,140 @@
 
     /* ── Package cards ── */
     .package-card-item { position: relative; }
+    #packageCardList .package-card-item:not(:has(.package-radio:checked)) { display: none; }
+    #packageCardList .package-card { cursor: default; transform: none; box-shadow: none !important; }
+    .inline-package-body { display: grid; gap: 16px; }
+    .inline-package-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: start;
+        justify-content: space-between;
+        gap: 12px 24px;
+    }
+    .inline-package-header .pkg-price-label { margin-top: 0; }
+    .inline-package-price { white-space: nowrap; }
+    .inline-package-details { display: grid; gap: 12px; }
+    .inline-package-items {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+        gap: 6px 16px;
+        overflow-wrap: anywhere;
+    }
+    .inline-package-section {
+        padding-top: 12px;
+        border-top: 1px solid var(--intake-border);
+    }
+    .inline-package-section h5 {
+        margin: 0 0 6px;
+        color: var(--intake-text);
+        font-weight: 650;
+    }
+    .inline-package-detail { color: var(--intake-muted); }
+    .package-options-below {
+        display: grid;
+        gap: 12px;
+        margin-top: 16px;
+    }
+    .package-upgrade-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+        gap: 12px;
+    }
+    .package-options-below:not(:has(section:not([hidden]))),
+    .package-upgrade-grid:not(:has(section:not([hidden]))) {
+        display: none;
+    }
+    .inline-inclusion-card {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px 16px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: var(--intake-card-alt);
+        color: var(--intake-text);
+    }
+    .inline-inclusion-card.hidden { display: none; }
+    .inline-inclusion-card[data-included-addon] { background: #E0ECE4; }
+    .inline-inclusion-card[data-service-control="casket"],
+    #regular-hearse-inclusion { background: #D5E6DB; }
+    html[data-theme='dark'] .inline-inclusion-card[data-included-addon] { background: #1C3428; }
+    html[data-theme='dark'] .inline-inclusion-card[data-service-control="casket"],
+    html[data-theme='dark'] #regular-hearse-inclusion { background: #223C2E; }
+    .included-quantity-grid {
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+        gap: 10px;
+    }
+    .included-quantity-card {
+        display: grid;
+        grid-template-rows: 1fr auto auto;
+        align-items: start;
+        gap: 6px;
+        border-radius: 6px;
+    }
+    .included-quantity-card .inline-quantity { margin-top: 0; }
+    .included-quantity-card .inline-inclusion-note { margin: 0; }
+    .inline-inclusion-main { min-width: 0; }
+    .inline-inclusion-name { font-weight: 650; overflow-wrap: anywhere; }
+    .inline-inclusion-status {
+        color: var(--feedback-success-fg, #166534);
+        font-size: .8rem;
+        font-weight: 650;
+    }
+    .inline-inclusion-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: .8rem; }
+    .inline-inclusion-note { flex-basis: 100%; font-size: .8rem; }
+    .inline-upgrade-button {
+        padding: 7px 12px;
+        border-radius: 8px;
+        background: var(--intake-card-strong);
+        color: var(--intake-text);
+        font-weight: 650;
+    }
+    .inline-upgrade-button:hover { background: var(--intake-hover); }
+    .inline-upgrade-options {
+        padding: 6px;
+        overflow: auto;
+        overscroll-behavior: contain;
+        border: 1px solid var(--intake-border);
+        border-radius: 8px;
+        background: var(--intake-card);
+        color: var(--intake-text);
+    }
+    .inline-upgrade-options button {
+        display: block;
+        width: 100%;
+        padding: 8px;
+        border-radius: 6px;
+        text-align: start;
+        font-size: .875rem;
+    }
+    .inline-upgrade-options button:is(:hover, :focus-visible, [aria-pressed="true"]) { background: var(--intake-hover); }
+    .inline-quantity {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+    }
+    .inline-quantity.hidden { display: none; }
+    .inline-quantity .form-input { width: 5.5rem; }
+    .inline-quantity button {
+        min-width: 40px;
+        min-height: 40px;
+        border-radius: 8px;
+        background: var(--intake-card-alt);
+        color: var(--intake-text);
+    }
+    .inline-quantity button:disabled { opacity: .45; }
+    .inline-package-promotion {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 4px 16px;
+        color: var(--intake-muted);
+        font-size: .875rem;
+    }
+    .inline-package-promotion strong { color: var(--intake-text); }
     .package-card-item .package-radio {
         position: absolute; width: 1px; height: 1px;
         opacity: 0; pointer-events: none;
@@ -722,19 +1002,36 @@
     .pkg-grid-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
     .pkg-section-title { font-size: 15px; font-weight: 800; color: #0d1f38; margin: 0 0 3px; }
     .pkg-section-sub { font-size: 12px; color: #6b7e96; margin: 0; }
+    .package-mode-chooser { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; margin-bottom: 20px; }
+    .package-mode-option { min-height: 92px; display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 14px; width: 100%; padding: 16px; text-align: left; border: 1px solid #c7d8cd; border-radius: 16px; background: #faf8f5; color: #163526; transition: border-color .16s ease, background-color .16s ease, box-shadow .16s ease; }
+    .package-mode-option:hover,.package-mode-option:focus-visible { border-color: #2d6a4f; background: #f1f6f3; box-shadow: 0 8px 22px rgba(27,67,50,.09); outline: none; }
+    .package-mode-option[aria-checked="true"] { border-color: #2d6a4f; background: #e8f1ec; box-shadow: inset 0 0 0 1px #2d6a4f; }
+    .package-mode-option__icon { display: inline-flex; width: 42px; height: 42px; align-items: center; justify-content: center; border-radius: 12px; background: #dce8e0; color: #1b4332; font-size: 18px; }
+    .package-mode-option__icon.is-warm { background: #f2eadf; color: #7a4f2b; }
+    .package-mode-option strong { display:block; font-size: 14px; margin-bottom: 3px; }
+    .package-mode-option small { display:block; color:#596b61; font-size: 11px; line-height:1.45; }
+    .package-mode-option__arrow { color:#587063; }
+    .package-selection-area { margin-top: 4px; }
+    .package-selection-area__heading { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid #d7e2da; }
+    .package-selection-area__heading h4 { margin:0; font-size:15px; font-weight:850; color:#153827; }
+    .package-selection-area__heading p { margin:3px 0 0; color:#607067; font-size:12px; }
+    .package-mode-change { flex:none; border:0; background:transparent; color:#2d6a4f; font-size:11px; font-weight:800; text-decoration:underline; text-underline-offset:3px; }
+    .custom-arrangement-guidance { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 18px; padding:14px; border:1px solid #e4d8c8; border-radius:14px; background:#faf8f5; color:#55483d; font-size:12px; }
+    .custom-arrangement-guidance span { display:flex; align-items:flex-start; gap:7px; }
+    .custom-arrangement-guidance i { color:#2d6a4f; margin-top:1px; }
 
     .pkg-premium-card {
-        border: 1.5px solid #e4e8ef !important;
+        border: 1px solid #d0e2d6 !important;
         border-radius: 16px !important;
-        background: #ffffff !important;
+        background: #faf8f5 !important;
         display: flex !important; flex-direction: column !important;
         padding: 0 !important;
-        box-shadow: 0 1px 4px rgba(15,23,42,.05), 0 4px 14px rgba(15,23,42,.04) !important;
+        box-shadow: 0 1px 2px rgba(27,67,50,.04) !important;
         overflow: hidden;
-        min-height: 380px;
+        min-height: 330px;
         transition: all .22s cubic-bezier(.4,0,.2,1) !important;
     }
-    .pkg-premium-card:hover { border-color: #b0bfd8 !important; box-shadow: 0 8px 28px rgba(27,51,88,.13) !important; transform: translateY(-3px) !important; }
+    .pkg-premium-card:hover { border-color: #2d6a4f !important; box-shadow: 0 10px 26px rgba(27,67,50,.10) !important; transform: translateY(-2px) !important; }
     .pkg-card-featured { border-color: #1b3358 !important; box-shadow: 0 6px 24px rgba(27,51,88,.18) !important; }
     .pkg-card-featured:hover { box-shadow: 0 12px 36px rgba(27,51,88,.22) !important; }
 
@@ -746,20 +1043,64 @@
         padding: 4px 14px; border-radius: 0 0 10px 10px; z-index: 6; white-space: nowrap;
     }
 
-    .pkg-card-body { flex: 1; padding: 22px 22px 14px; }
-    .pkg-tier-label { font-size: 10px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: #6b7e96; margin-bottom: 5px; }
-    .pkg-name { font-size: 18px; font-weight: 800; color: #0d1f38; margin-bottom: 6px; line-height: 1.2; }
-    .pkg-price { font-size: 30px; font-weight: 900; color: #0d1f38; line-height: 1; margin-bottom: 5px; }
+    .pkg-card-body { flex: 1; padding: 22px 22px 16px; }
+    .pkg-card-title-row { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+    .pkg-radio-indicator { width:18px; height:18px; flex:none; border:2px solid #9aaca1; border-radius:999px; background:#fff; box-shadow:inset 0 0 0 4px #fff; }
+    .pkg-premium-card:has(.package-radio:checked) .pkg-radio-indicator { border-color:#2d6a4f; background:#2d6a4f; }
+    .pkg-tier-label { font-size: 10px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: #3d5a4c; margin-bottom: 5px; }
+    .pkg-name { font-size: 19px; font-weight: 800; color: #163526; margin-bottom: 6px; line-height: 1.2; }
+    .pkg-price-label { margin-top:12px; font-size:10px; font-weight:850; letter-spacing:.08em; text-transform:uppercase; color:#66776d; }
+    .pkg-price { font: 850 30px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #1b4332; margin-bottom: 5px; font-variant-numeric: tabular-nums; }
     .pkg-price sub { font-size: 14px; font-weight: 700; vertical-align: super; }
     .pkg-price-note { font-size: 11px; color: #9baec8; margin-bottom: 14px; }
     .pkg-promo-badge { display: inline-block; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; background: #d1fae5; color: #065f46; padding: 3px 8px; border-radius: 999px; margin-bottom: 10px; }
+    .pkg-promo-status-note { display:grid; gap:2px; margin-top:10px; padding:8px 10px; border:1px solid #d8d2c7; border-left:3px solid #9b7653; border-radius:7px; background:#f5f1e9; color:#4f554b; font-size:11px; line-height:1.4; }
+    .pkg-promo-status-note strong { color:#4f554b; font-size:10px; text-transform:uppercase; letter-spacing:.045em; }
+    .pkg-promo-status-note.is-active { border-left-color:#347458; background:#edf4ee; }
+    .pkg-promo-status-note.is-active strong { color:#245a3f; }
+    .promotion-review-banner { margin:18px 0 22px; padding:16px; border:1px solid #d4b477; border-left:4px solid #aa7730; border-radius:10px; background:#fbf4e6; color:#433a2c; }
+    .promotion-review-banner__heading { display:flex; align-items:flex-start; gap:12px; }
+    .promotion-review-banner__heading > i { margin-top:2px; color:#90631f; font-size:1.2rem; }
+    .promotion-review-banner__heading h4 { margin:0; font-size:1rem; font-weight:750; }
+    .promotion-review-banner__heading p { margin:4px 0 0; color:#625844; font-size:.86rem; line-height:1.5; }
+    .promotion-review-banner__comparison { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:12px; margin:14px 0; }
+    .promotion-review-banner__comparison > div:not(.promotion-review-banner__arrow) { display:grid; gap:3px; padding:11px 12px; border:1px solid #e1d2b4; border-radius:8px; background:rgba(255,255,255,.55); }
+    .promotion-review-banner__comparison span,.promotion-review-banner__comparison small { color:#655b49; font-size:.76rem; }
+    .promotion-review-banner__comparison strong { color:#302b22; font-size:1.1rem; font-variant-numeric:tabular-nums; }
+    .promotion-review-banner__arrow { color:#806b47; }
+    .promotion-review-banner__acknowledgement { display:flex; align-items:flex-start; gap:9px; color:#37342d; font-size:.85rem; font-weight:650; line-height:1.45; cursor:pointer; }
+    .promotion-review-banner__acknowledgement input { margin-top:3px; accent-color:#347458; }
+    html[data-theme='dark'] .pkg-promo-status-note { background:#1e2b29; border-color:#455950; color:#d5e2d8; }
+    html[data-theme='dark'] .pkg-promo-status-note strong { color:#e2ece4; }
+    html[data-theme='dark'] .pkg-promo-status-note.is-active { background:#1c332a; border-left-color:#5caa7b; }
+    html[data-theme='dark'] .pkg-promo-status-note.is-active strong { color:#9bd5ac; }
+    html[data-theme='dark'] .promotion-review-banner { background:#30291e; border-color:#715b35; border-left-color:#d2a54f; color:#f0e8d6; }
+    html[data-theme='dark'] .promotion-review-banner__heading > i { color:#e2bd73; }
+    html[data-theme='dark'] .promotion-review-banner__heading p,
+    html[data-theme='dark'] .promotion-review-banner__comparison span,
+    html[data-theme='dark'] .promotion-review-banner__comparison small { color:#d0c5ad; }
+    html[data-theme='dark'] .promotion-review-banner__comparison > div:not(.promotion-review-banner__arrow) { background:#382f22; border-color:#665536; }
+    html[data-theme='dark'] .promotion-review-banner__comparison strong,
+    html[data-theme='dark'] .promotion-review-banner__acknowledgement { color:#f3ecdc; }
+    @media(max-width:560px) { .promotion-review-banner__comparison { grid-template-columns:1fr; } .promotion-review-banner__arrow { transform:rotate(90deg); justify-self:center; } }
+    .pkg-card-description { margin:12px 0 0; color:#56675e; font-size:12px; line-height:1.5; }
+    .pkg-inclusion-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 14px; margin-top:16px; padding-top:14px; border-top:1px solid #dfe8e2; }
+    .pkg-inclusion-list span { display:inline-flex; align-items:flex-start; gap:6px; padding:0; border-radius:0; background:transparent; color:#274c38; font-size:11px; font-weight:700; line-height:1.4; }
+    .pkg-inclusion-list span i { color:#2d6a4f; margin-top:1px; }
+    .pkg-inclusion-list span.is-more { color:#7a4f2b; }
+    .pkg-compact-meta { display:flex; align-items:flex-start; gap:6px; margin:11px 0 0; color:#4f6257; font-size:11px; line-height:1.45; }
+    .pkg-compact-meta i { color:#2d6a4f; }
 
     .pkg-features-list { list-style: none; padding: 0; margin: 14px 0 0; border-top: 1px solid #f0f3f8; padding-top: 14px; display: flex; flex-direction: column; gap: 7px; }
     .pkg-feature-item { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; font-weight: 500; color: #333333; line-height: 1.45; }
     .pkg-feature-check { color: #059669; font-weight: 900; flex-shrink: 0; margin-top: 1px; }
     .pkg-feature-plus { color: #B87956; font-weight: 900; flex-shrink: 0; font-size: 13px; line-height: 1; }
 
-    .pkg-card-footer { padding: 0 22px 20px; }
+    .pkg-card-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; padding: 14px 22px 18px; border-top:1px solid #dfe8e2; }
+    .pkg-card-choice { display:inline-flex; align-items:center; gap:6px; color:#52665a; font-size:11px; font-weight:800; }
+    .pkg-card-choice .is-selected { display:none; color:#1b4332; }
+    .pkg-premium-card:has(.package-radio:checked) .pkg-card-choice .is-default { display:none; }
+    .pkg-premium-card:has(.package-radio:checked) .pkg-card-choice .is-selected { display:inline-flex; align-items:center; gap:6px; }
     .pkg-select-btn {
         width: 100%; padding: 10px 16px; border-radius: 10px;
         font-size: 13px; font-weight: 700; text-align: center;
@@ -773,21 +1114,47 @@
     .pkg-btn-selected { display: none; }
 
     /* Selected state */
-    .pkg-premium-card:has(.package-radio:checked) { border-color: #1b3358 !important; background: #f6f9ff !important; }
+    .pkg-premium-card:has(.package-radio:checked) { border-color: #2d6a4f !important; background: #edf5f0 !important; box-shadow:inset 0 0 0 1px #2d6a4f !important; }
     .pkg-premium-card:has(.package-radio:checked) .pkg-select-btn { background: #1b3358 !important; color: #fff !important; border-color: #1b3358 !important; }
     .pkg-card-custom:has(.package-radio:checked) .pkg-select-btn { background: #92400e !important; color: #fff !important; border-color: #92400e !important; }
     .pkg-premium-card:has(.package-radio:checked) .pkg-btn-unselected { display: none; }
     .pkg-premium-card:has(.package-radio:checked) .pkg-btn-selected { display: flex; align-items: center; gap: 5px; }
 
     /* Dark mode */
-    html[data-theme='dark'] .pkg-premium-card { background: #152035 !important; border-color: #2a3f5f !important; }
-    html[data-theme='dark'] .pkg-name, html[data-theme='dark'] .pkg-price { color: #d8ecff !important; }
-    html[data-theme='dark'] .pkg-tier-label, html[data-theme='dark'] .pkg-price-note { color: #7a9cc0 !important; }
-    html[data-theme='dark'] .pkg-features-list { border-color: #1e3050 !important; }
-    html[data-theme='dark'] .pkg-feature-item { color: #c8ddf2 !important; }
-    html[data-theme='dark'] .pkg-select-btn { background: #1c2f4a !important; border-color: #2a4060 !important; color: #c8ddf2 !important; }
-    html[data-theme='dark'] .pkg-premium-card:has(.package-radio:checked) { background: #1a2f50 !important; border-color: #4a82c0 !important; }
-    html[data-theme='dark'] .pkg-premium-card:has(.package-radio:checked) .pkg-select-btn { background: #1b3358 !important; }
+    html[data-theme='dark'] .pkg-premium-card { background: #0f241c !important; border-color: #315542 !important; }
+    html[data-theme='dark'] .pkg-name, html[data-theme='dark'] .pkg-price { color: #eef8f1 !important; }
+    html[data-theme='dark'] .pkg-tier-label, html[data-theme='dark'] .pkg-price-note { color: #b7cbbd !important; }
+    html[data-theme='dark'] .pkg-features-list, html[data-theme='dark'] .pkg-inclusion-list, html[data-theme='dark'] .pkg-card-footer { border-color: #315542 !important; }
+    html[data-theme='dark'] .pkg-feature-item { color: #d9eee0 !important; }
+    html[data-theme='dark'] .pkg-card-choice { color:#b7cbbd; }
+    html[data-theme='dark'] .pkg-card-choice .is-selected { color:#d9eee0; }
+    html[data-theme='dark'] .pkg-select-btn { background: #10241a !important; border-color: #315542 !important; color: #d9eee0 !important; }
+    html[data-theme='dark'] .pkg-premium-card:has(.package-radio:checked) { background: #173326 !important; border-color: #69a77f !important; box-shadow:inset 0 0 0 1px #69a77f !important; }
+    html[data-theme='dark'] .package-mode-option, html[data-theme='dark'] .custom-arrangement-guidance { background:#10241a; border-color:#315542; color:#eef8f1; }
+    html[data-theme='dark'] .package-mode-option:hover, html[data-theme='dark'] .package-mode-option:focus-visible, html[data-theme='dark'] .package-mode-option[aria-checked="true"] { background:#173326; border-color:#69a77f; }
+    html[data-theme='dark'] .package-mode-option small, html[data-theme='dark'] .package-selection-area__heading p { color:#b7cbbd; }
+    html[data-theme='dark'] .package-selection-area__heading { border-color:#315542; }
+    html[data-theme='dark'] .package-selection-area__heading h4 { color:#f1faf4; }
+    html[data-theme='dark'] .pkg-card-description, html[data-theme='dark'] .pkg-compact-meta, html[data-theme='dark'] .pkg-price-label { color:#c0d2c5; }
+    html[data-theme='dark'] .pkg-inclusion-list span { background:#173326; color:#d9eee0; }
+    .package-preview-drawer { border-radius:22px 0 0 22px; animation:packageDrawerIn .2s ease-out; }
+    .package-preview-section { padding:16px; border:1px solid #d0e2d6; border-radius:16px; background:#fff; }
+    .package-preview-section__title { display:flex; align-items:center; gap:7px; margin:0 0 12px; color:#1b4332; font-size:11px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
+    .package-preview-section__title i { color:#2d6a4f; font-size:14px; }
+    .package-preview-policy { padding:13px; border:1px solid #aec7b7; border-radius:12px; background:#e8f1ec; color:#183f2c; font-size:11px; line-height:1.55; }
+    .package-preview-policy strong { display:block; margin-bottom:3px; }
+    @keyframes packageDrawerIn { from { transform:translateX(24px); opacity:.72; } to { transform:translateX(0); opacity:1; } }
+    html[data-theme='dark'] .package-preview-drawer { background:#0a1a12 !important; border-color:#315542 !important; }
+    html[data-theme='dark'] .package-preview-section { background:#07130e; border-color:#315542; }
+    html[data-theme='dark'] .package-preview-section__title { color:#d9eee0; }
+    html[data-theme='dark'] .package-preview-policy { background:#10241a; border-color:#315542; color:#d9eee0; }
+    html[data-theme='dark'] .package-preview-section .text-\[\#163526\] { color:#eef8f1 !important; }
+    html[data-theme='dark'] .package-preview-section .text-\[\#596b61\] { color:#b7cbbd !important; }
+    html[data-theme='dark'] .package-preview-section .bg-\[\#faf8f5\] { background:#0a1a12 !important; }
+    html[data-theme='dark'] .package-preview-section .border-\[\#d0e2d6\] { border-color:#315542 !important; }
+    @media (prefers-reduced-motion: reduce) { .package-preview-drawer { animation:none; } }
+    @media (max-width: 639px) { .package-preview-drawer { max-width:100%; border-radius:18px 18px 0 0; margin-top:48px; height:calc(100% - 48px); } }
+    @media (max-width: 639px) { .package-mode-chooser,.custom-arrangement-guidance { grid-template-columns:1fr; } .package-selection-area__heading { align-items:center; } }
 
     /* ── Payment type cards ── */
     .payment-type-card {
@@ -984,6 +1351,67 @@
     .flatpickr-next-month::before { content: "›"; font-size: 22px; font-weight: 700; line-height: 1; }
     .flatpickr-weekdays { margin: 8px 0 10px !important; }
     .flatpickr-weekday { font-size: 12px !important; font-weight: 800 !important; color: #6b7e96 !important; }
+    .intake-schedule-calendar {
+        --schedule-event-ink:#fff;
+        --schedule-today:#e2e5e4;
+        --schedule-multiple:#d9e8f2;
+        --schedule-dot-start:#087448;
+        --schedule-dot-end:#9b4d00;
+        --schedule-dot-ceremony:#2555bd;
+        --schedule-dot-interment:#7a32ac;
+        --schedule-range:#cce3d0;
+        --schedule-ink:#152d27;
+    }
+    html[data-theme="dark"] .intake-schedule-calendar {
+        --schedule-event-ink:#10221b;
+        --schedule-today:#414846;
+        --schedule-multiple:#304856;
+        --schedule-dot-start:#5de5a5;
+        --schedule-dot-end:#ffc36a;
+        --schedule-dot-ceremony:#91baff;
+        --schedule-dot-interment:#dda4ff;
+        --schedule-range:#345447;
+        --schedule-ink:#f3faf6;
+    }
+    html[data-theme] body.panel-shell-body:has(.intake-root) .flatpickr-calendar.intake-schedule-calendar .flatpickr-day[data-schedule-fill] {
+        background:var(--schedule-fill) !important;
+        color:var(--schedule-cell-ink, var(--schedule-ink)) !important;
+        border-color:transparent !important;
+        font-weight:700 !important;
+    }
+    html[data-theme] body.panel-shell-body:has(.intake-root) .flatpickr-calendar.intake-schedule-calendar .flatpickr-day.selected[data-schedule-fill] {
+        box-shadow:0 2px 6px rgb(0 0 0 / .24);
+    }
+    :is(.intake-schedule-legend, .schedule-summary-events) i { display:inline-block; width:12px; height:12px; border-radius:3px; background:var(--schedule-swatch); }
+    .intake-schedule-calendar [data-schedule-color="start"] { --schedule-swatch:var(--schedule-dot-start); }
+    .intake-schedule-calendar [data-schedule-color="end"] { --schedule-swatch:var(--schedule-dot-end); }
+    .intake-schedule-calendar [data-schedule-color="ceremony"] { --schedule-swatch:var(--schedule-dot-ceremony); }
+    .intake-schedule-calendar [data-schedule-color="interment"] { --schedule-swatch:var(--schedule-dot-interment); }
+    .intake-schedule-legend [data-schedule-color="today"] { --schedule-swatch:var(--schedule-today); }
+    .intake-schedule-legend [data-schedule-color="range"] { --schedule-swatch:var(--schedule-range); }
+    .intake-schedule-calendar .flatpickr-day { position:relative; }
+    .intake-schedule-markers {
+        position:absolute; inset:auto 0 3px; display:flex; justify-content:center; gap:3px; pointer-events:none;
+    }
+    .intake-schedule-markers i {
+        width:8px; height:8px; border-radius:50%; background:var(--schedule-marker);
+        box-shadow:0 1px 2px rgb(0 0 0 / .25);
+    }
+    .intake-schedule-legend {
+        position:fixed; z-index:2401; box-sizing:border-box; display:grid; gap:6px;
+        padding:14px; overflow:auto; overscroll-behavior:contain;
+        border:1px solid var(--intake-border, var(--border)); border-radius:14px;
+        background:var(--intake-card-alt, var(--card)); color:var(--intake-text, var(--ink));
+        box-shadow:0 12px 30px rgb(0 0 0 / .14); font-size:12px; line-height:1.4;
+    }
+    .intake-schedule-legend[hidden] { display:none; }
+    .intake-schedule-legend h4 { margin:0 0 4px; font-size:14px; font-weight:700; }
+    .intake-schedule-legend > div { display:grid; grid-template-columns:12px minmax(0,1fr) auto; align-items:center; gap:8px; }
+    .intake-schedule-legend [data-schedule-date] { color:var(--ink-muted); text-align:right; }
+    .intake-schedule-legend [data-schedule-date] span { display:block; }
+    .intake-schedule-legend .intake-schedule-key { display:flex; gap:8px; flex-wrap:wrap; }
+    .intake-schedule-key span { display:inline-flex; align-items:center; gap:5px; margin-right:8px; }
+    .intake-schedule-legend [data-wake-duration] { margin:3px 0 0; font-weight:650; }
     .flatpickr-day { border-radius: 10px !important; max-width: 42px !important; height: 42px !important; line-height: 42px !important; font-size: 14px !important; font-weight: 600 !important; color: #0d1f38 !important; }
     .flatpickr-day:hover { background: #f0f4f8 !important; border-color: #f0f4f8 !important; }
     .flatpickr-day.today { border: 2px solid #1b3358 !important; color: #1b3358 !important; font-weight: 800 !important; }
@@ -1533,7 +1961,6 @@
     .intake-field-section,
     .subsection-soft,
     #optional_add_ons_section,
-    #structured_pricing_section,
     #cashless_details_wrap,
     .intake-root .rounded-2xl.border,
     .intake-root .rounded-xl.border,
@@ -1766,7 +2193,6 @@
         background: rgba(62, 74, 61, .2) !important;
     }
 
-    .time-input-wrap::before,
     .schedule-time-display::after,
     .readonly-date-display i,
     .flatpickr-prev-month,
@@ -1928,50 +2354,71 @@
         color: var(--intake-text);
     }
 
-    #selected_add_ons_summary {
-        grid-column: 1 / -1;
-        min-width: 0 !important;
-        width: 100% !important;
-        border-color: var(--intake-border) !important;
-        background: #C7D5BE !important;
-        padding: 14px !important;
+    #optional_add_ons_section:not(.hidden) {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+        padding: 16px;
+        border: 0;
+        border-radius: 10px;
+        background: var(--staff-card, var(--intake-card));
+        color: var(--intake-text);
     }
 
-    #selected_add_ons_summary > div {
-        align-items: center !important;
+    .intake-add-ons-header,
+    .intake-add-ons-totals {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px 16px;
+    }
+    .intake-add-ons-totals {
+        padding-top: 12px;
+        border-top: 1px solid var(--intake-border);
+        font-size: .875rem;
+    }
+    .intake-add-ons-count, .intake-add-on-rate { color: var(--intake-muted); }
+    #optional_add_ons_section #choose_add_ons_btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 40px;
+        padding: 8px 12px;
+        border: 0 !important;
+        border-radius: 8px;
+        background: #AECDBA !important;
+        color: #123524 !important;
+        font-size: .875rem;
+        font-weight: 650;
+    }
+    #optional_add_ons_section #choose_add_ons_btn:hover { background: #9BBAA7 !important; color: #123524 !important; }
+    html[data-theme='dark'] #optional_add_ons_section #choose_add_ons_btn { background: #294A39 !important; color: #E5F4EA !important; }
+    html[data-theme='dark'] #optional_add_ons_section #choose_add_ons_btn:hover { background: #355C46 !important; }
+    .intake-applied-add-on {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px 16px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: #E0ECE4;
+    }
+    html[data-theme='dark'] .intake-applied-add-on { background: #1C3428; }
+    .intake-applied-add-on-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+    .intake-applied-add-on-actions label { display: flex; align-items: center; gap: 6px; }
+    .intake-applied-add-on-actions .form-input { width: 4.5rem; min-height: 36px !important; }
+    .intake-applied-add-on-actions button {
+        padding: 6px 8px;
+        border-radius: 6px;
+        color: var(--feedback-error-fg, #8A3537);
+    }
+    .intake-applied-add-on-actions button:hover {
+        background: var(--feedback-error-bg);
     }
 
-    #structured_pricing_section > button {
-        align-self: center;
-        white-space: nowrap;
-    }
-
-    #optional_add_ons_panel:not(.hidden),
-    #package_adjustments_panel:not(.hidden) {
-        position: fixed !important;
-        inset: auto auto auto auto !important;
-        left: 50% !important;
-        top: 50% !important;
-        z-index: 260 !important;
-        display: flex !important;
-        flex-direction: column !important;
-        width: min(920px, calc(100vw - 32px)) !important;
-        max-height: min(700px, calc(100vh - 40px)) !important;
-        transform: translate(-50%, -50%) !important;
-        margin: 0 !important;
-        overflow: hidden !important;
-        border: 1px solid var(--intake-border-strong) !important;
-        border-radius: 8px !important;
-        background: var(--intake-card) !important;
-        color: var(--intake-text) !important;
-    }
-
-    #optional_add_ons_panel:not(.hidden) {
-        width: min(820px, calc(100vw - 32px)) !important;
-    }
-
-    #optional_add_ons_panel > div:first-child,
-    #package_adjustments_panel > .package-adjustments-head {
+    #optional_add_ons_panel > div:first-child {
         flex: 0 0 auto;
         background: var(--intake-card-strong) !important;
         border-color: var(--intake-border) !important;
@@ -1981,8 +2428,7 @@
         padding: 16px !important;
     }
 
-    #optional_add_ons_panel > div:first-child > div,
-    #package_adjustments_panel > .package-adjustments-head {
+    #optional_add_ons_panel > div:first-child > div {
         align-items: center !important;
     }
 
@@ -2003,8 +2449,7 @@
         padding-left: 42px !important;
     }
 
-    #optional_add_ons_list,
-    #package_adjustments_panel .package-adjustments-body {
+    #optional_add_ons_list {
         flex: 1 1 auto;
         min-height: 0;
         max-height: none !important;
@@ -2028,8 +2473,7 @@
     }
 
     #optional_add_ons_list .optional-add-on-row input[type="checkbox"],
-    #billing_additional_services_section input[type="checkbox"],
-    #package_adjustments_panel input[type="checkbox"] {
+    #billing_additional_services_section input[type="checkbox"] {
         cursor: pointer !important;
     }
 
@@ -2063,58 +2507,13 @@
     }
 
     .service-details-area {
-        margin-top: 28px;
-        padding-top: 24px;
-        border-top: 1px solid rgba(62, 74, 61, .18);
+        margin-bottom: 28px;
     }
 
     .service-details-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr);
         gap: 16px;
         align-items: start;
-    }
-
-    .service-detail-panel {
-        border: 1px solid var(--intake-border);
-        border-radius: 8px;
-        background: var(--intake-card-alt);
-        padding: 18px;
-    }
-
-    .service-detail-panel-header {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-bottom: 16px;
-        padding-bottom: 12px;
-        border-bottom: 1px solid rgba(62, 74, 61, .16);
-    }
-
-    .service-detail-panel-header i {
-        display: inline-flex;
-        width: 34px;
-        height: 34px;
-        align-items: center;
-        justify-content: center;
-        border: 1px solid var(--intake-border-strong);
-        border-radius: 8px;
-        color: var(--intake-dark);
-    }
-
-    .service-detail-panel-header h4 {
-        margin: 0;
-        font-family: var(--font-heading), "Syne", var(--font-body), sans-serif;
-        font-size: 1rem;
-        font-weight: 650;
-        color: var(--intake-text);
-    }
-
-    .service-detail-panel-header p {
-        margin-top: 2px;
-        font-size: .82rem;
-        font-weight: 500;
-        color: var(--intake-muted);
     }
 
     .schedule-stack {
@@ -2122,10 +2521,20 @@
         gap: 14px;
     }
 
+    .service-details-heading {
+        grid-column: 1 / -1;
+        margin: 0;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--intake-border);
+        color: var(--intake-text);
+        font-size: 1rem;
+        font-weight: 650;
+    }
+
     .schedule-field-row {
         display: grid;
-        grid-template-columns: 170px minmax(0, 1fr);
-        gap: 14px;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 8px;
         align-items: start;
         padding: 14px;
         border: 1px solid var(--intake-border);
@@ -2133,8 +2542,53 @@
         background: #DCE6D6;
     }
 
+    .intake-root .intake-location-input > input { padding-inline-end:44px !important; }
+    .intake-location-input > i {
+        position:absolute;
+        inset-inline-end:16px;
+        top:50%;
+        transform:translateY(-50%);
+        color:var(--intake-muted);
+        pointer-events:none;
+    }
+
     .schedule-field-row:hover {
         background: var(--intake-hover);
+    }
+    html[data-theme] body.panel-shell-body .intake-root .schedule-field-row {
+        background:transparent !important;
+        border:0 !important;
+        padding:0 !important;
+    }
+    .schedule-date-time {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .schedule-date-time > .relative {
+        flex: 2 1 13rem;
+        min-width: 0;
+    }
+    .schedule-date-time > .time-input-wrap {
+        flex: 1 1 8.5rem;
+        min-width: 0;
+    }
+    .intake-root .schedule-date-time [data-intake-date-alternate] {
+        padding-inline-end: 2.5rem !important;
+    }
+    .wake-duration-badge > [role="status"] {
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        padding:5px 10px;
+        border-radius:8px;
+        background:#DCEDE2;
+        color:#166534;
+        font-weight:600;
+    }
+    html[data-theme='dark'] .wake-duration-badge > [role="status"] {
+        background:#223D30;
+        color:#A7E3BA;
     }
 
     .schedule-field-label {
@@ -2151,9 +2605,38 @@
         color: var(--intake-muted);
     }
 
+    .schedule-pair,
     .service-info-stack {
         display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
         gap: 14px;
+        align-items: start;
+    }
+
+    .schedule-group-heading {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        flex-wrap:wrap;
+        gap:8px 16px;
+    }
+
+    .schedule-summary-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    #intake_schedule_summary .schedule-summary-events { display:grid; gap:10px; margin:10px 0; }
+    #intake_schedule_summary .schedule-summary-events > div { display:flex; justify-content:space-between; align-items:baseline; gap:8px; flex-wrap:wrap; }
+    #intake_schedule_summary dt { display:flex; align-items:center; gap:8px; font-weight:600; }
+    #intake_schedule_summary dd { margin:0; color:var(--ink-muted); }
+    #intake_schedule_summary h5 { margin:0; font-size:14px; font-weight:700; }
+    #intake_schedule_summary [data-wake-duration] { margin:0; font-weight:600; }
+    #intake_schedule_summary_trigger[hidden], #copy_client_surnames[hidden] { display:none !important; }
+    #copy_client_surnames { margin-top:12px; }
+
+    .schedule-group-title {
+        grid-column:1 / -1;
+        margin:0;
+        font-size:14px;
+        font-weight:650;
+        color:var(--intake-text);
     }
 
     .service-readout {
@@ -2169,78 +2652,13 @@
         font-weight: 650;
     }
 
-    .service-photo-upload {
-        margin-top: 16px;
-        border: 1px dashed var(--intake-border-strong);
-        border-radius: 8px;
-        background: var(--intake-card-alt);
-        padding: 16px;
-    }
-
-    @media (max-width: 1100px) {
-        .service-details-grid {
-            grid-template-columns: 1fr;
-        }
-
-        .schedule-field-row {
-            grid-template-columns: 1fr;
-        }
-    }
-
-    #package_adjustments_panel .package-adjustments-head {
-        padding: 16px !important;
-    }
-
-    #package_adjustments_panel .package-adjustments-body {
-        padding: 16px !important;
-        background: var(--intake-card) !important;
-    }
-
-    #package_adjustments_panel .package-adjustments-body > .rounded-xl {
-        border-radius: 8px !important;
-        background: var(--intake-card-alt) !important;
-        border-color: var(--intake-border) !important;
-        padding: 16px !important;
-    }
-
-    #package_adjustments_panel .package-adjustments-body > .rounded-xl:hover {
-        background: var(--intake-hover) !important;
-    }
-
-    #package_adjustments_panel .package-adjustments-body .rounded-lg {
-        border-radius: 8px !important;
-    }
-
-    #package_adjustments_panel .shadow-sm {
-        box-shadow: none !important;
-    }
-
-    #package_adjustments_panel .package-adjustments-body .grid .rounded-lg.bg-white {
-        background: #F2F6EF !important;
-        border: 1px solid var(--intake-border) !important;
-    }
-
-    #package_adjustments_panel .package-adjustments-body h6 {
-        font-family: var(--font-heading), "Syne", var(--font-body), sans-serif !important;
-        font-size: .92rem !important;
-        font-weight: 650 !important;
-        color: var(--intake-text) !important;
-    }
-
-    #package_adjustments_panel .package-adjustments-body .text-slate-500,
-    #package_adjustments_panel .package-adjustments-body .text-slate-400 {
-        color: var(--intake-muted) !important;
-    }
-
-    #optional_add_ons_panel > div:last-child,
-    #package_adjustments_panel .package-adjustments-foot {
+    #optional_add_ons_panel > div:last-child {
         flex: 0 0 auto;
         background: var(--intake-card-strong) !important;
         border-color: var(--intake-border) !important;
     }
 
-    #optional_add_ons_panel > div:last-child,
-    #package_adjustments_panel .package-adjustments-foot {
+    #optional_add_ons_panel > div:last-child {
         padding: 14px 16px !important;
     }
 
@@ -2507,8 +2925,50 @@
             animation: none;
         }
     }
+    /* Step 3 reference treatment: keep legacy intake rules from recoloring package UI. */
+    .intake-root .pkg-premium-card {
+        border-radius:16px !important;
+        background:#faf8f5 !important;
+        border-color:#d0e2d6 !important;
+    }
+    .intake-root .pkg-premium-card:hover {
+        background:#f6faf7 !important;
+        border-color:#2d6a4f !important;
+    }
+    .intake-root .pkg-premium-card:has(.package-radio:checked) {
+        background:#edf5f0 !important;
+        border-color:#2d6a4f !important;
+    }
+    html[data-theme='dark'] .intake-root .pkg-premium-card {
+        background:#0f241c !important;
+        border-color:#315542 !important;
+    }
+    html[data-theme='dark'] .intake-root .pkg-premium-card:hover {
+        background:#132d22 !important;
+        border-color:#69a77f !important;
+    }
+    html[data-theme='dark'] .intake-root .pkg-premium-card:has(.package-radio:checked) {
+        background:#173326 !important;
+        border-color:#69a77f !important;
+    }
+    html[data-theme='dark'] #package_details_modal .package-preview-drawer,
+    html[data-theme='dark'] #package_details_modal .package-preview-section {
+        background:#0f241c !important;
+        border-color:#315542 !important;
+    }
+    html[data-theme='dark'] #package_details_modal .package-preview-section .bg-white,
+    html[data-theme='dark'] #package_details_modal .package-preview-section .bg-slate-50 {
+        background:#10241a !important;
+        border-color:#315542 !important;
+    }
+    @media (max-width:639px) {
+        .pkg-inclusion-list { grid-template-columns:1fr; }
+        .pkg-card-body { padding:18px 18px 14px; }
+        .pkg-card-footer { padding:12px 18px 16px; }
+    }
     </style>
     @include('staff.intake._interaction-styles')
+    @include('staff.intake._wizard-surface-styles')
 
     <div id="branch_toast" role="status" aria-live="polite" class="hidden fixed left-1/2 -translate-x-1/2 px-5 py-3 rounded-xl bg-slate-900 text-white text-sm font-semibold transition-all duration-300 opacity-0 translate-y-[-8px] toast-pop intake-toast-branch">
         <i class="bi bi-building intake-notice-icon" aria-hidden="true"></i>
@@ -2550,14 +3010,26 @@
         </div>
     @endif
 
-    <div class="intake-section-shell">
+    @if($historicalMode ?? false)
+        <div class="mx-4 mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-950 md:mx-6">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div><strong>Historical / Backlog Entry</strong><p class="mt-1">Past service dates are allowed. This entry stays out of official records and reports until a different authorized administrator approves it.</p></div>
+                <a class="shrink-0 font-semibold underline underline-offset-2" href="{{ route('historical-cases.index') }}" @if($intakeModal) target="_parent" @endif>View submissions</a>
+            </div>
+        </div>
+    @endif
 
+    <div class="intake-section-shell">
+        @if($intakeModal)
+            <form method="POST" action="{{ $formAction }}" enctype="multipart/form-data" id="intakeWizardForm" novalidate>
+                <div class="intake-steps-panel">
+        @endif
         <div class="wizard-steps-shell hide-scrollbar" id="wizardSteps" role="group" aria-label="Case intake progress">
     @php
         $steps = [
             1 => 'Client Info',
             2 => 'Deceased',
-            3 => 'Service Selection',
+            3 => 'Service',
             4 => 'Billing & Payment',
             5 => 'Review',
         ];
@@ -2590,7 +3062,11 @@
         </button>
     @endforeach
 </div>
+        @if($intakeModal)
+                </div>
+        @endif
 
+        @unless($intakeModal)
         <div class="intake-form-wrapper">
 
             <div id="intake_lock_overlay" class="lock-overlay hidden">
@@ -2607,32 +3083,46 @@
                 </div>
             </div>
 
-        <form method="POST" action="{{ $formAction ?? route('intake.main.store') }}" enctype="multipart/form-data" id="intakeWizardForm">
+        <form method="POST" action="{{ $formAction ?? route('intake.main.store') }}" enctype="multipart/form-data" id="intakeWizardForm" novalidate>
+        @endunless
             @csrf
             <input type="hidden" name="submission_id" value="{{ old('submission_id', (string) \Illuminate\Support\Str::uuid()) }}">
 
             <input type="hidden" name="branch_id" id="branch_id" value="{{ $initialSelectedBranchId }}">
             <input type="hidden" name="intake_draft_id" id="intake_draft_id" value="{{ $intakeDraft?->id }}">
             <input type="hidden" name="entry_mode" value="{{ $isOtherEntryMode ? 'other' : 'main' }}">
+            <input type="hidden" name="historical_mode" value="{{ ($historicalMode ?? false) ? 1 : 0 }}">
+            @if(session('historical_parent_submission_id'))<input type="hidden" name="historical_parent_submission_id" value="{{ session('historical_parent_submission_id') }}">@endif
+            @if($historicalMode ?? false)<input type="hidden" name="historical_primary_parent_payment_index" value="{{ old('historical_primary_parent_payment_index', '') }}">@endif
+            <input type="hidden" name="promotion_context_token" value="{{ old('promotion_context_token', '') }}">
+            <input type="hidden" name="promotion_review_token" value="{{ old('promotion_review_token') ?: session('promotion_review.review_token', '') }}">
+            <input type="hidden" name="add_on_context_token" value="{{ session('add_on_review.context_token') ?: old('add_on_context_token', $addOnContextToken ?? '') }}">
+            <input type="hidden" name="package_allowance_context" id="package_allowance_context">
+            <input type="hidden" name="package_configuration_context" id="package_configuration_context">
+            <input type="hidden" name="chapel_draft_pricing" id="chapel_draft_pricing">
+            <input type="hidden" name="custom_defaults_context" value="{{ \Illuminate\Support\Facades\Crypt::encryptString(json_encode(['coverage' => $customDefaultCoverage, 'rates' => $customDefaultRates], JSON_THROW_ON_ERROR)) }}">
+            <input type="hidden" name="add_on_review_token" value="{{ session('add_on_review.review_token') ?: old('add_on_review_token', '') }}">
             <input type="hidden" name="current_step" id="current_step" value="{{ $initialStep ?? 1 }}">
             <input type="hidden" name="return_to" value="{{ $returnTo ?? '' }}">
             <input type="hidden" id="branch_code_main_default" value="{{ optional($branches->first())->branch_code ?? 'BR001' }}">
 
-            @if($intakeDraft)
-                <div class="intake-draft-banner mx-4 mb-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-4 py-3 text-sm text-[var(--color-text-secondary)] flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div class="min-w-0">
-                        <div class="font-semibold text-[var(--color-text-primary)]">Resuming {{ $intakeDraft->draft_number }}</div>
-                        <div class="text-xs">Last saved {{ optional($intakeDraft->last_saved_at)->format('Y-m-d H:i') ?? 'recently' }}</div>
-                    </div>
-                    <a href="{{ route('funeral-cases.index', ['tab' => 'draft', 'record_scope' => 'main']) }}" class="ops-btn-outline inline-flex items-center justify-center gap-2">
-                        <i class="bi bi-list-check" aria-hidden="true"></i>
-                        Intake Drafts
-                    </a>
-                </div>
-            @endif
-
             <div id="intakeFormContent">
+                @if(($historicalMode ?? false) && ($canEncodeAnyBranch ?? false))
+                    <div class="mx-4 mb-5 rounded-xl bg-amber-50/80 p-4 md:mx-6">
+                        <label class="field-label font-semibold text-slate-900" for="historical_branch_selector">Branch where this service took place <span class="text-rose-600">*</span></label>
+                        <select id="historical_branch_selector" class="form-input mt-1 max-w-xl">
+                            @foreach($branches as $branchOption)
+                                <option value="{{ $branchOption->id }}" @selected((string) $initialSelectedBranchId === (string) $branchOption->id)>{{ $branchOption->branch_code }} · {{ $branchOption->branch_name }}</option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1 text-xs text-slate-600">The selected branch controls catalog eligibility, review access, and the official case record.</p>
+                        @error('branch_id')<p class="intake-field-error" role="alert">{{ $message }}</p>@enderror
+                    </div>
+                @endif
                 <section class="wizard-panel" data-step="1" id="intake-step-1">
+                    @if(!$isOtherEntryMode && auth()->user()?->isStaff())
+                        @include('staff.intake._existing-client')
+                    @endif
                     <div class="section-title-block">
                         <div class="section-heading-icon">
                             <i class="bi bi-person-fill"></i>
@@ -2683,7 +3173,7 @@
                                     @error('client_first_name') <p class="intake-field-error">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
-                                    <label class="field-label" for="client_middle_name">Middle Name</label>
+                                    <label class="field-label" for="client_middle_name">Middle Name <span class="text-slate-400 normal-case tracking-normal font-normal">(Optional)</span></label>
                                     <input type="text" name="client_middle_name" id="client_middle_name" value="{{ $intakeValue('client_middle_name') }}" data-label="client middle name" class="form-input" placeholder="Middle name">
                                     @error('client_middle_name') <p class="intake-field-error">{{ $message }}</p> @enderror
                                 </div>
@@ -2739,12 +3229,14 @@
                                         placeholder="09XXXXXXXXX"
                                         required
                                     >
-                                    <p class="intake-field-help">Use an active Philippine mobile number for updates and coordination.</p>
                                 </div>
 
                                 <div class="intake-full-field">
                                     <label class="field-label" for="client_address">Complete Address <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="client_address" id="client_address" value="{{ $intakeValue('client_address') }}" data-label="client address" class="form-input" placeholder="House no., street, barangay, city/municipality, province" required>
+                                    <div class="relative intake-location-input">
+                                        <input type="text" name="client_address" id="client_address" value="{{ $intakeValue('client_address') }}" data-label="client address" class="form-input" placeholder="House no., street, barangay, city/municipality, province" required>
+                                        <i class="bi bi-house-door" aria-hidden="true"></i>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -2794,6 +3286,9 @@
                                     @error('deceased_suffix') <p class="intake-field-error">{{ $message }}</p> @enderror
                                 </div>
                             </div>
+                            <button type="button" id="copy_client_surnames" class="service-field-chip" hidden>
+                                <i class="bi bi-copy" aria-hidden="true"></i> Copy matching names from client
+                            </button>
                         </div>
 
                         <div class="intake-field-section">
@@ -2830,39 +3325,35 @@
                                 <div>
                                     <label class="field-label" for="age">Age</label>
                                     <input type="number" name="age" id="age" value="{{ $intakeValue('age') }}" class="form-input bg-slate-50 text-slate-500 cursor-not-allowed" readonly>
-                                    <p class="intake-field-help">Auto-computed.</p>
                                 </div>
 
                                 <div class="intake-full-field">
                                     <label class="field-label" for="deceased_address">Complete Address <span class="text-rose-500">*</span></label>
-                                    <input type="text" name="deceased_address" id="deceased_address" value="{{ $intakeValue('deceased_address', $intakeValue('client_address')) }}" data-label="deceased address" class="form-input" placeholder="House no., street, barangay, city/municipality, province" required>
+                                    <div class="relative intake-location-input">
+                                        <input type="text" name="deceased_address" id="deceased_address" value="{{ $intakeValue('deceased_address', $intakeValue('client_address')) }}" data-label="deceased address" class="form-input" placeholder="House no., street, barangay, city/municipality, province" required>
+                                        <i class="bi bi-house-door" aria-hidden="true"></i>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         <div class="intake-field-section">
-                            <div class="intake-section-kicker"><i class="bi bi-patch-check"></i><span>Senior citizen verification</span></div>
-                            <div class="intake-info-grid">
-                                <div>
-                                    <label class="field-label" for="senior_citizen_status">Senior Citizen Status</label>
-                                    <div class="form-select-wrap">
-                                        <select name="senior_citizen_status" id="senior_citizen_status" data-label="senior citizen status" class="form-input w-full">
-                                            <option value="0" {{ $intakeValue('senior_citizen_status', '0') === '0' ? 'selected' : '' }}>No / Standard</option>
-                                            <option value="1" {{ $intakeValue('senior_citizen_status') === '1' ? 'selected' : '' }}>Yes / Eligible</option>
-                                        </select>
-                                    </div>
-                                    <p class="intake-field-help">Discount applies automatically when eligible.</p>
-                                </div>
+                            <input type="file" name="deceased_photo" id="deceased_photo" hidden>
+                            <x-payment-proof-upload context="deceased" target="deceased_photo" label="Deceased Photo" accept="image/jpeg,image/png,image/webp" :limit="3" :restore-old="false" />
+                        </div>
 
+                        <div id="senior_verification_section" class="intake-field-section hidden">
+                            <input type="hidden" name="senior_citizen_status" id="senior_citizen_status" value="0">
+                            <div class="intake-info-grid">
+                                <p class="senior-eligible-label intake-full-field"><i class="bi bi-patch-check" aria-hidden="true"></i> Senior citizen eligible</p>
                                 <div id="senior_id_wrap" class="hidden">
                                     <label class="field-label" for="senior_citizen_id_number">Senior Citizen ID Number <span class="text-slate-400 normal-case tracking-normal font-normal">(Optional)</span></label>
                                     <input type="text" name="senior_citizen_id_number" id="senior_citizen_id_number" value="{{ $intakeValue('senior_citizen_id_number') }}" data-label="Senior Citizen ID number" class="form-input" placeholder="Enter Senior Citizen ID number">
                                 </div>
 
-                                <div id="senior_proof_wrap" class="intake-full-field hidden">
-                                    <label class="field-label" for="senior_proof">Upload Senior ID / Certificate <span class="text-slate-400 normal-case tracking-normal font-normal">(Optional)</span></label>
-                                    <input type="file" name="senior_proof" id="senior_proof" accept=".jpg,.jpeg,.png,.webp,.pdf" class="form-input">
-                                    <p class="intake-field-help">Accepted: JPG, PNG, WEBP, PDF. Max 5MB.</p>
+                                <div id="senior_proof_wrap" class="min-w-0 hidden">
+                                    <input type="file" name="senior_proof" id="senior_proof" hidden>
+                                    <x-payment-proof-upload context="senior" target="senior_proof" label="Senior ID / Certificate" accept="image/jpeg,image/png,image/webp,application/pdf" :restore-old="false" />
                                 </div>
                             </div>
                         </div>
@@ -2872,37 +3363,376 @@
                 <section class="wizard-panel hidden" data-step="3" id="intake-step-3">
                     <div class="pkg-grid-header">
                         <div>
-                            <p class="pkg-section-title">Service Packages</p>
-                            <p class="pkg-section-sub">Select the appropriate service package for this case.</p>
+                            <h3 class="pkg-section-title">Service Details</h3>
+                            <p class="pkg-section-sub">Set the schedule and choose a package.</p>
                         </div>
-                        <div id="package_error" class="intake-field-error hidden rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
-                            <i class="bi bi-exclamation-circle-fill"></i> Selection required
+                    </div>
+                    <div class="service-details-area">
+                    <input type="hidden" name="service_requested_at" id="service_requested_at" value="{{ now()->toDateString() }}">
+                    <input type="hidden" name="service_type" id="service_type" value="Burial">
+                    @error('service_requested_at')
+                        <p class="intake-field-error mb-3">{{ $message }}</p>
+                    @enderror
+
+                    <div class="service-details-grid">
+                        <section class="schedule-stack" aria-labelledby="intake-schedule-heading">
+                        <div class="schedule-group-heading">
+                            <h4 class="schedule-group-title" id="intake-schedule-heading">Schedule</h4>
+                            <input type="hidden" name="wake_days" id="wake_days" value="{{ $intakeValue('wake_days') }}" data-label="wake days">
+                            <div class="schedule-summary-actions">
+                                <div class="wake-duration-badge" id="wake_duration_badge" hidden>
+                                    <div role="status">
+                                        <i class="bi bi-hourglass-split" aria-hidden="true"></i>
+                                        <span id="wake_duration_display"></span>
+                                    </div>
+                                </div>
+                                <button type="button" class="service-field-chip" id="intake_schedule_summary_trigger" aria-controls="intake_schedule_summary" aria-expanded="false" hidden>
+                                    <i class="bi bi-calendar-week" aria-hidden="true"></i> View Schedule Summary
+                                </button>
+                            </div>
+                        </div>
+                        <div class="service-field-popover intake-schedule-calendar" id="intake_schedule_summary" aria-labelledby="intake_schedule_summary_title" popover hidden>
+                            <h5 id="intake_schedule_summary_title">Schedule Summary</h5>
+                            <dl class="schedule-summary-events">
+                                @foreach(['start' => 'Wake Start', 'end' => 'Wake End', 'ceremony' => 'Funeral Ceremony', 'interment' => 'Interment'] as $eventColor => $eventLabel)
+                                    <div><dt><i data-schedule-color="{{ $eventColor }}" aria-hidden="true"></i>{{ $eventLabel }}</dt><dd data-summary-date></dd></div>
+                                @endforeach
+                            </dl>
+                            <p data-wake-duration></p>
+                        </div>
+                        <div class="schedule-pair">
+                        <div class="schedule-field-row">
+                            <div class="schedule-field-label">
+                                <label class="field-label" for="wake_start_date">Wake Start Date &amp; Time <span class="text-rose-500">*</span></label>
+                            </div>
+                            <div>
+                            <div class="schedule-date-time">
+                                <div class="relative">
+                                    <input type="text" name="wake_start_date" id="wake_start_date" value="{{ $intakeValue('wake_start_date') }}" data-label="wake start date" class="form-input pr-10 cursor-pointer" placeholder="Wake date" autocomplete="off" required>
+                                    <button type="button" id="wake_start_picker_trigger" aria-label="Open wake start date calendar" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
+                                        <i class="bi bi-calendar-event text-lg"></i>
+                                    </button>
+                                </div>
+                                <div class="time-input-wrap" data-time-picker="wake_start_time">
+                                    <input type="hidden" name="wake_start_time" id="wake_start_time" value="{{ $intakeValue('wake_start_time') ? substr($intakeValue('wake_start_time'), 0, 5) : '' }}" data-label="wake start time" class="schedule-time-value" required>
+                                    <input type="text" class="schedule-time-display" data-time-display-for="wake_start_time" data-skip-autocap aria-label="Wake start time" placeholder="e.g. 8:30 AM" inputmode="text" autocomplete="off" aria-expanded="false">
+                                    <button type="button" class="schedule-time-toggle" data-time-toggle-for="wake_start_time" aria-label="Open wake start time picker">
+                                        <i class="bi bi-clock"></i>
+                                    </button>
+                                    <div class="schedule-time-popover" data-time-popover role="dialog" aria-label="Wake start time picker">
+                                        @include('staff.intake._time-controls')
+                                    </div>
+                                </div>
+                            </div>
+                            @error('wake_start_date')
+                                <p class="intake-field-error" data-schedule-server-error="wake_start_date">{{ $message }}</p>
+                            @enderror
+                            @error('wake_start_time')
+                                <p class="intake-field-error" data-schedule-server-error="wake_start_time">{{ $message }}</p>
+                            @enderror
+                            <p id="wake_start_error" class="intake-field-error hidden"></p>
+                            </div>
+                        </div>
+                        <div class="schedule-field-row">
+                            <div class="schedule-field-label">
+                                <label class="field-label" for="wake_end_date">Wake End Date &amp; Time <span class="text-rose-500">*</span></label>
+                            </div>
+                            <div>
+                            <div class="schedule-date-time">
+                                <div class="relative">
+                                    <input type="text" name="wake_end_date" id="wake_end_date" value="{{ $intakeValue('wake_end_date') }}" data-label="wake end date" class="form-input pr-10 cursor-pointer" placeholder="Wake end date" autocomplete="off" required>
+                                    <button type="button" id="wake_end_picker_trigger" aria-label="Open wake end date calendar" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
+                                        <i class="bi bi-calendar-event text-lg"></i>
+                                    </button>
+                                </div>
+                                <div class="time-input-wrap" data-time-picker="wake_end_time">
+                                    <input type="hidden" name="wake_end_time" id="wake_end_time" value="{{ $intakeValue('wake_end_time') ? substr($intakeValue('wake_end_time'), 0, 5) : '' }}" data-label="wake end time" class="schedule-time-value" required>
+                                    <input type="text" class="schedule-time-display" data-time-display-for="wake_end_time" data-skip-autocap aria-label="Wake end time" placeholder="e.g. 7:00 AM" inputmode="text" autocomplete="off" aria-expanded="false">
+                                    <button type="button" class="schedule-time-toggle" data-time-toggle-for="wake_end_time" aria-label="Open wake end time picker"><i class="bi bi-clock"></i></button>
+                                    <div class="schedule-time-popover" data-time-popover role="dialog" aria-label="Wake end time picker">
+                                        @include('staff.intake._time-controls')
+                                    </div>
+                                </div>
+                            </div>
+                            @error('wake_end_date')<p class="intake-field-error" data-schedule-server-error="wake_end_date">{{ $message }}</p>@enderror
+                            @error('wake_end_time')<p class="intake-field-error" data-schedule-server-error="wake_end_time">{{ $message }}</p>@enderror
+                            <p id="wake_end_error" class="intake-field-error hidden"></p>
+                            </div>
+                        </div>
+                        </div>
+                        <div class="schedule-pair">
+                        <div class="schedule-field-row">
+                            <div class="schedule-field-label">
+                                <label class="field-label" for="funeral_service_at">Funeral Ceremony Date &amp; Time <span class="text-rose-500">*</span></label>
+                            </div>
+                            <div>
+                            <div class="schedule-date-time">
+                                <div class="relative">
+                                    <input type="text" name="funeral_service_at" id="funeral_service_at" value="{{ $intakeValue('funeral_service_at') }}" data-label="funeral ceremony date" class="form-input pr-10 cursor-pointer" placeholder="Ceremony date" autocomplete="off" required>
+                                    <button type="button" id="wake_picker_trigger" aria-label="Open funeral ceremony date calendar" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
+                                        <i class="bi bi-calendar-event text-lg"></i>
+                                    </button>
+                                </div>
+                                <div class="time-input-wrap" data-time-picker="funeral_service_time">
+                                    <input type="hidden" name="funeral_service_time" id="funeral_service_time" value="{{ $intakeValue('funeral_service_time') ? substr($intakeValue('funeral_service_time'), 0, 5) : '' }}" data-label="funeral ceremony time" class="schedule-time-value" required>
+                                    <input type="text" class="schedule-time-display" data-time-display-for="funeral_service_time" data-skip-autocap aria-label="Funeral ceremony time" placeholder="e.g. 9:00 AM" inputmode="text" autocomplete="off" aria-expanded="false">
+                                    <button type="button" class="schedule-time-toggle" data-time-toggle-for="funeral_service_time" aria-label="Open funeral ceremony time picker">
+                                        <i class="bi bi-clock"></i>
+                                    </button>
+                                    <div class="schedule-time-popover" data-time-popover role="dialog" aria-label="Funeral ceremony time picker">
+                                        @include('staff.intake._time-controls')
+                                    </div>
+                                </div>
+                            </div>
+                            @error('funeral_service_at')
+                                <p class="intake-field-error" data-schedule-server-error="funeral_service_at">{{ $message }}</p>
+                            @enderror
+                            @error('funeral_service_time')
+                                <p class="intake-field-error" data-schedule-server-error="funeral_service_time">{{ $message }}</p>
+                            @enderror
+                            <p id="funeral_service_at_error" class="intake-field-error hidden"></p>
+                            @include('staff.intake._schedule-advisory', ['field' => 'funeral', 'label' => 'Funeral Ceremony'])
+                            </div>
+                        </div><div class="schedule-field-row">
+                            <div class="schedule-field-label">
+                                <label class="field-label" for="interment_at">Interment Date &amp; Time <span class="text-rose-500">*</span></label>
+                            </div>
+                            <div>
+                            <div class="schedule-date-time">
+                                <div class="relative">
+                                    <input type="text" name="interment_at" id="interment_at" value="{{ $intakeValue('interment_at') }}" data-label="interment date" class="form-input pr-10 cursor-pointer" placeholder="Interment date" autocomplete="off" required>
+                                    <button type="button" id="inter_picker_trigger" aria-label="Open interment date calendar" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
+                                        <i class="bi bi-calendar-event text-lg"></i>
+                                    </button>
+                                </div>
+                                <div class="time-input-wrap" data-time-picker="interment_time">
+                                    <input type="hidden" name="interment_time" id="interment_time" value="{{ $intakeValue('interment_time') ? substr($intakeValue('interment_time'), 0, 5) : '' }}" data-label="interment time" class="schedule-time-value" required>
+                                    <input type="text" class="schedule-time-display" data-time-display-for="interment_time" data-skip-autocap aria-label="Interment time" placeholder="e.g. 1:00 PM" inputmode="text" autocomplete="off" aria-expanded="false">
+                                    <button type="button" class="schedule-time-toggle" data-time-toggle-for="interment_time" aria-label="Open interment time picker">
+                                        <i class="bi bi-clock"></i>
+                                    </button>
+                                    <div class="schedule-time-popover" data-time-popover role="dialog" aria-label="Interment time picker">
+                                        @include('staff.intake._time-controls')
+                                    </div>
+                                </div>
+                            </div>
+                            @error('interment_at')
+                                <p class="intake-field-error" data-schedule-server-error="interment_at">{{ $message }}</p>
+                            @enderror
+                            @error('interment_time')
+                                <p class="intake-field-error" data-schedule-server-error="interment_time">{{ $message }}</p>
+                            @enderror
+                            <div id="interment_at_error" class="intake-field-error hidden">Interment Date cannot be earlier than the Funeral Ceremony Date.</div>
+                            @include('staff.intake._schedule-advisory', ['field' => 'interment', 'label' => 'Interment'])
+                            <p class="mt-1 text-xs text-slate-600 dark:text-slate-300">Follows the ceremony date. You can change it.</p>
+                            <p id="interment_schedule_warning" class="hidden text-xs font-bold text-amber-600 mt-1">Funeral Ceremony and interment are usually on the same day. Please confirm if interment is scheduled on a different date.</p>
+                            </div>
+                        </div>
+
+                        </div>
+                        </section>
+
+                        <section class="service-info-stack" aria-labelledby="intake-service-info-heading">
+                        <h4 class="schedule-group-title" id="intake-service-info-heading">Viewing &amp; Interment Location</h4>
+                        <div class="viewing-fields">
+                        <div>
+                            <label class="field-label" for="viewing_type">Viewing Type <span class="text-rose-500">*</span></label>
+                            <div class="viewing-type-select">
+                            <select name="viewing_type" id="viewing_type" class="form-input" data-label="viewing type" required>
+                                <option value="">Select viewing type</option>
+                                <option value="home" @selected($intakeValue('viewing_type') === 'home')>Home Viewing</option>
+                                <option value="chapel" @selected($intakeValue('viewing_type') === 'chapel')>Funeral Home Chapel Viewing</option>
+                            </select>
+                            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                            </div>
+                            @error('viewing_type') <p id="viewing_type_inline_error" class="intake-field-error" role="alert">{{ $message }}</p> @enderror
+                        </div>
+                        <div id="chapel_charge_panel" hidden>
+                            <input type="hidden" name="chapel_coverage_flow" value="1">
+                            <fieldset>
+                                <legend class="field-label">How will you choose the chapel? <span class="text-rose-500">*</span></legend>
+                                <div class="chapel-coverage-options">
+                                    <label class="chapel-coverage-option">
+                                        <input type="radio" name="chapel_coverage" value="included" @checked($intakeValue('chapel_coverage') === 'included') aria-describedby="chapel_coverage_error">
+                                        <span class="chapel-coverage-indicator" aria-hidden="true"></span>
+                                        <span><strong>Choose a Package with a Chapel</strong><small>Pick a package to see its chapel and included days.</small></span>
+                                    </label>
+                                    <label class="chapel-coverage-option">
+                                        <input type="radio" name="chapel_coverage" value="separate" @checked($intakeValue('chapel_coverage') === 'separate') aria-describedby="chapel_coverage_error">
+                                        <span class="chapel-coverage-indicator" aria-hidden="true"></span>
+                                        <span><strong>Choose a Chapel from This Branch</strong><small>Pick a chapel separately from the package. The daily rate applies to all wake days.</small></span>
+                                    </label>
+                                </div>
+                                <p class="intake-field-error" id="chapel_coverage_error" @if(!$errors->has('chapel_coverage')) hidden @endif>{{ $errors->first('chapel_coverage') }}</p>
+                            </fieldset>
+                            <div id="chapel_charge_notice" role="status" aria-live="polite" aria-atomic="true">
+                                <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                                <div><strong id="chapel_notice_title"></strong><span id="chapel_notice_detail"></span>
+                                    <button type="button" id="chapel_save_draft" class="service-field-adjust" hidden>Save as Draft</button>
+                                </div>
+                            </div>
+                            <div id="chapel_charge_controls">
+                                <div>
+                                    <label class="field-label" for="chapel_add_on_id">Select Chapel <span class="text-rose-500">*</span></label>
+                                    <div class="viewing-type-select">
+                                        <select name="chapel_add_on_id" id="chapel_add_on_id" class="form-input" aria-describedby="chapel_package_hint" disabled>
+                                            <option value="">Select a branch chapel</option>
+                                            @foreach(($activeAddOns ?? collect())->filter(fn ($rate) => $rate->chapel_ready && (float) $rate->price >= 0) as $rate)
+                                                <option value="{{ $rate->id }}" data-branch="{{ $rate->branch_id }}" @selected((string) $intakeValue('chapel_add_on_id') === (string) $rate->id)>{{ $rate->name }} · ₱{{ number_format((float) $rate->price, 2) }} / day</option>
+                                            @endforeach
+                                        </select>
+                                        <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                                    </div>
+                                    <p id="chapel_package_hint" hidden>Next, choose a compatible service package below.</p>
+                                </div>
+                            </div>
+                            @error('chapel_add_on_id') <p class="intake-field-error" id="chapel_add_on_id_inline_error" role="alert">{{ $message }}</p> @enderror
+                        </div>
+                        <div id="viewing_location_wrap">
+                            <label class="field-label" for="wake_location"><span id="viewing_location_label">Viewing Location</span> <span id="viewing_location_required" class="text-rose-500" hidden>*</span></label>
+                            <div class="relative intake-location-input">
+                                <input type="text" name="wake_location" id="wake_location" value="{{ $intakeValue('wake_location') }}" data-label="viewing location" class="form-input" placeholder="Choose a viewing type first" required>
+                                <i class="bi bi-geo-alt" aria-hidden="true"></i>
+                            </div>
+                            @error('wake_location') <p id="wake_location_inline_error" class="intake-field-error" role="alert">{{ $message }}</p> @enderror
+                        </div>
+                        <div class="viewing-cemetery">
+                            <label class="field-label" for="place_of_cemetery">Place of Interment / Cemetery <span class="text-rose-500">*</span></label>
+                            <div class="relative intake-location-input">
+                                <input type="text" name="place_of_cemetery" id="place_of_cemetery" value="{{ $intakeValue('place_of_cemetery') }}" data-label="place of interment or cemetery" class="form-input" placeholder="e.g., Forest Lake Memorial Park" required>
+                                <i class="bi bi-geo-alt" aria-hidden="true"></i>
+                            </div>
+                        </div>
+                        <p id="home_viewing_notice" class="text-sm" role="status" hidden></p>
+                        <div class="col-span-full">
+                            @include('partials.ceremony-location-fields', [
+                                'ceremonyLocationMode' => $intakeValue('funeral_ceremony_location_mode', 'custom'),
+                                'ceremonyLocationValue' => $intakeValue('funeral_ceremony_location'),
+                            ])
+                        </div>
+                        </div>
+
+                        <input type="hidden" name="case_status" id="case_status" value="{{ $isOtherEntryMode ? 'COMPLETED' : 'ACTIVE' }}">
+                        </section>
+                    </div>
+
+                    </div>{{-- /service-details-wrapper --}}
+
+                    <div class="pkg-grid-header">
+                        <div>
+                            <p class="pkg-section-title">Select Service Package</p>
+                            <p class="pkg-section-sub">Choose a regular package or create a custom arrangement based on the client's requirements.</p>
+                        </div>
+                        <div id="package_error" class="intake-field-error hidden rounded-lg border border-rose-200 bg-rose-50 px-3 py-2" role="alert">
+                            Select a service package or choose Custom Arrangement before continuing.
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5" id="packageCardList">
+                    @error('package_id')
+                        <p class="intake-field-error" role="alert">{{ $message }}</p>
+                    @enderror
+                    <p id="chapel_package_feedback" role="status" hidden></p>
+                    <div class="package-mode-chooser" role="radiogroup" aria-label="Package arrangement type">
+                        <button type="button" class="package-mode-option" data-package-mode="regular" role="radio" aria-checked="false">
+                            <span class="package-mode-option__icon"><i class="bi bi-collection" aria-hidden="true"></i></span>
+                            <span><strong>Regular Package</strong><small>Choose from eligible packages configured by the System Administrator.</small></span>
+                            <i class="bi bi-chevron-right package-mode-option__arrow" aria-hidden="true"></i>
+                        </button>
+                        @if(empty($entryMode) || $entryMode === 'main')
+                            <button type="button" class="package-mode-option" data-package-mode="custom" role="radio" aria-checked="false">
+                                <span class="package-mode-option__icon is-warm"><i class="bi bi-sliders2" aria-hidden="true"></i></span>
+                                <span><strong>Custom Arrangement</strong><small>Create a case-specific arrangement using selected services and an agreed price.</small></span>
+                                <i class="bi bi-chevron-right package-mode-option__arrow" aria-hidden="true"></i>
+                            </button>
+                        @endif
+                    </div>
+
+                    <section id="regular_package_area" class="package-selection-area hidden" aria-labelledby="regular_package_heading">
+                        <div class="package-selection-area__heading">
+                            <div><h4 id="regular_package_heading">Regular Packages</h4><p id="regular_package_help">Predefined, eligible packages configured by the System Administrator.</p></div>
+                            <button type="button" class="package-mode-change" data-change-package-mode>Change type</button>
+                        </div>
+                    <div class="mb-4">
+                        <label class="field-label" for="regular_package_choice">Select Package</label>
+                        <div class="global-filter-select-wrap intake-package-select">
+                        <select class="form-input" id="regular_package_choice" data-plain-options @disabled($packages->isEmpty())>
+                            <option value="" disabled>{{ $packages->isEmpty() ? 'No packages available' : 'Choose a package' }}</option>
+                            @foreach($packages as $pkg)
+                                <option value="{{ $pkg->id }}" @selected((string) $intakeValue('package_id') === (string) $pkg->id)>{{ $pkg->name }}</option>
+                            @endforeach
+                        </select>
+                        <i class="bi bi-chevron-down" data-filter-select-icon aria-hidden="true"></i>
+                        </div>
+                    </div>
+                    <div id="chapel_setup_alternatives">
+                        @include('staff.intake._chapel-alternatives')
+                    </div>
+                    <section id="chapel_preview_panel" aria-labelledby="chapel_preview_heading" hidden>
+                        <h5 id="chapel_preview_heading">Chapel Charge Preview</h5>
+                        <p id="chapel_rate_readout"></p>
+                        <input type="hidden" name="chapel_address" id="chapel_address" value="{{ $intakeValue('chapel_address') }}" disabled>
+                        <p id="chapel_address_readout"></p>
+                        @error('chapel_address') <p class="intake-field-error" role="alert">{{ $message }}</p> @enderror
+                        <p id="chapel_charge_preview" aria-live="polite"></p>
+                        <div id="chapel-schedule-context" data-state="idle" hidden data-url="{{ route('intake.chapel-advisory') }}">
+                            <div class="chapel-advisory-heading">
+                                <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                                <p data-chapel-check-status role="status" tabindex="-1"></p>
+                                <button type="button" class="service-field-adjust" data-chapel-check-retry hidden>Recheck Availability</button>
+                            </div>
+                            <div data-chapel-overlaps hidden>
+                                <ul data-chapel-events></ul>
+                                @include('staff.intake._chapel-alternatives')
+                                <div class="chapel-conflict-actions">
+                                    <button type="button" class="service-field-chip" data-chapel-edit-wake>Edit Wake Schedule</button>
+                                    <button type="button" class="service-field-chip" data-chapel-change-viewing>Change Viewing Type</button>
+                                    <button type="button" class="service-field-chip" data-chapel-conflict-draft>Save as Draft</button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                    <div id="packageCardList">
                         @foreach($packages as $pkg)
                             @php
-                                $promoNow = $pkg->promo_is_active
-                                    && (!$pkg->promo_starts_at || $pkg->promo_starts_at->lte(now()))
-                                    && (!$pkg->promo_ends_at || $pkg->promo_ends_at->gte(now()));
+                                $promoNow = $pkg->is_promo_effective;
+                                $promotion = $pkg->promotion;
+                                $promotionName = $promotion?->name ?? $pkg->promo_label;
+                                $promotionType = $promotion?->discount_type ?? $pkg->promo_value_type;
+                                $promotionValue = $promotion?->discount_value ?? $pkg->promo_value;
+                                $promotionStart = $promotion?->starts_at?->format('M d, Y') ?? $pkg->promo_starts_at?->format('M d, Y');
+                                $promotionEnd = $promotion?->ends_at?->format('M d, Y') ?? $pkg->promo_ends_at?->format('M d, Y');
+                                $promotionConfigured = $promotion !== null || $pkg->hasConfiguredPromotion();
 
-                                $inclusionItems = $pkg->inclusionNames();
+                                $inclusionItems = array_values(array_filter(
+                                    $pkg->inclusionNames(),
+                                    fn ($name) => ! \App\Models\Package::isLegacyPackageDescription($name),
+                                ));
                                 $freebieItems = $pkg->freebieNames();
                                 $structuredInclusions = $pkg->packageInclusions->map(fn ($inclusion) => [
                                     'service_type' => \App\Models\Package::normalizeServiceType($inclusion->service_type),
                                     'name' => $inclusion->inclusion_name,
+                                    'is_legacy_description' => \App\Models\Package::isLegacyPackageDescription($inclusion->inclusion_name),
+                                    'add_on_id' => $inclusion->add_on_catalog_id,
+                                    'included_quantity' => $inclusion->included_quantity,
+                                    'add_on_unit' => $inclusion->addOnCatalog?->unit ?: 'item',
+                                    'add_on_category' => $inclusion->addOnCatalog?->category,
+                                    'add_on_branch_id' => $inclusion->addOnCatalog?->branch_id,
+                                    'add_on_rate' => (float) $inclusion->addOnCatalog?->price,
+                                    'add_on_available' => $inclusion->addOnCatalog?->is_active && $inclusion->addOnCatalog?->is_available,
                                     'included_kilometers' => $inclusion->included_kilometers,
                                     'price_per_excess_kilometer' => (float) $inclusion->price_per_excess_kilometer,
                                     'included_days' => $inclusion->included_days,
-                                    'price_per_extended_day' => (float) $inclusion->price_per_extended_day,
+                                    'price_per_extended_day' => $inclusion->price_per_extended_day === null ? null : (float) $inclusion->price_per_extended_day,
                                     'casket_type' => $inclusion->casket_type,
                                     'casket_catalog_id' => $inclusion->casket_catalog_id,
+                                    'hearse' => $inclusion->hearseCatalog ? ['id' => $inclusion->hearseCatalog->id, 'name' => $inclusion->hearseCatalog->name, 'reference_value' => $inclusion->hearseCatalog->reference_value, 'active' => (bool) $inclusion->hearseCatalog->is_active, 'available' => (bool) ($inclusion->hearseCatalog->is_active && $inclusion->hearseCatalog->is_available)] : null,
                                     'casket' => $inclusion->casketCatalog ? [
                                         'id' => $inclusion->casketCatalog->id,
                                         'name' => $inclusion->casketCatalog->name,
                                         'material' => $inclusion->casketCatalog->type_or_material,
                                         'reference_value' => (float) $inclusion->casketCatalog->standard_price,
+                                        'available' => (bool) ($inclusion->casketCatalog->is_active && $inclusion->casketCatalog->is_available),
+                                        'active' => (bool) $inclusion->casketCatalog->is_active,
                                     ] : null,
                                 ])->values();
                                 $structuredFreebies = $pkg->packageFreebies->map(fn ($freebie) => [
@@ -2911,24 +3741,31 @@
                                     'unit' => $freebie->unit,
                                 ])->values();
                                 $includedCasket = $structuredInclusions->firstWhere('service_type', \App\Models\Package::SERVICE_CASKET);
-                                $inclusionCount = $structuredInclusions->isNotEmpty() ? $structuredInclusions->count() : count($inclusionItems);
-                                $freebieCount = $structuredFreebies->isNotEmpty() ? $structuredFreebies->count() : count($freebieItems);
-                                $includedCasketName = $includedCasket['casket']['name'] ?? $includedCasket['casket_type'] ?? $pkg->coffin_type ?? 'Not configured';
                             @endphp
 
                             <div class="package-card-item">
-                                <div class="package-card pkg-premium-card w-full h-full cursor-pointer" role="radio" tabindex="0" aria-label="{{ $pkg->name }} package">
+                                <div class="package-card pkg-premium-card w-full">
                                     <input
                                         type="radio"
                                         name="package_id"
                                         value="{{ $pkg->id }}"
                                         class="package-radio"
+                                        tabindex="-1"
+                                        aria-hidden="true"
                                         data-name="{{ $pkg->name }}"
+                                        data-allowance-context="{{ $pkg->addOnAllowanceFingerprint() }}"
+                                        data-configuration-context="{{ $pkg->intakeConfigurationFingerprint() }}"
                                         data-price="{{ $pkg->price }}"
                                         data-promo-now="{{ $promoNow ? '1' : '0' }}"
-                                        data-promo-type="{{ $pkg->promo_value_type }}"
-                                        data-promo-value="{{ $pkg->promo_value }}"
-                                        data-promo-label="{{ $pkg->promo_label }}"
+                                        data-promo-configured="{{ $promotionConfigured ? '1' : '0' }}"
+                                        data-promo-type="{{ $promotionType }}"
+                                        data-promo-value="{{ $promotionValue }}"
+                                        data-promo-label="{{ $promotionName }}"
+                                        data-promo-status="{{ $pkg->promo_status }}"
+                                        data-promo-context="{{ $promotionContextTokens[$pkg->id] ?? '' }}"
+                                        data-promo-start="{{ $promotionStart }}"
+                                        data-promo-end="{{ $promotionEnd }}"
+                                        data-description="{{ $pkg->short_description }}"
                                         data-inclusions="{{ implode("\n", $inclusionItems) }}"
                                         data-freebies="{{ implode("\n", $freebieItems) }}"
                                         data-structured-inclusions="{{ $structuredInclusions->toJson() }}"
@@ -2938,169 +3775,160 @@
                                         required
                                     >
 
-                                    <div class="pkg-card-body flex h-full flex-col">
-                                        <div class="min-h-[152px]">
-                                            <div class="pkg-name">{{ $pkg->name }}</div>
-                                            <div class="pkg-price"><sub>&#8369;</sub>{{ number_format($pkg->price, 0) }}</div>
-                                            @if($promoNow)
-                                                <div class="pkg-promo-badge">{{ $pkg->promo_label }}</div>
+                                    <div class="pkg-card-body inline-package-body">
+                                        <div class="inline-package-header">
+                                            <div class="min-w-0">
+                                                <h4 class="pkg-name">{{ $pkg->name }}</h4>
+                                                @if(filled(trim((string) $pkg->short_description)))
+                                                    <p class="pkg-card-description">{{ $pkg->short_description }}</p>
+                                                @endif
+                                            </div>
+                                            <div class="inline-package-price">
+                                                <div class="pkg-price-label">Base Package Price</div>
+                                                <div class="pkg-price"><sub>&#8369;</sub>{{ number_format($pkg->price, 2) }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="inline-package-details" data-inline-package-details></div>
+                                        <section class="inline-package-section">
+                                            <h5>Promotion</h5>
+                                            @if($pkg->promo_status === 'No Promotion')
+                                                <div class="inline-package-promotion-empty">
+                                                    <i class="bi bi-tag" aria-hidden="true"></i>
+                                                    <div>
+                                                        <strong>No promotion</strong>
+                                                        <p>No promotion is assigned to this package.</p>
+                                                    </div>
+                                                </div>
                                             @else
-                                                <p class="pkg-price-note">Base package price</p>
+                                            <div class="inline-package-promotion">
+                                                <strong>{{ $pkg->promo_status }}</strong>
+                                                @if($pkg->promo_status === 'Active' && filled($promotionName))
+                                                    <span>{{ $promotionName }} applies to new cases.</span>
+                                                @elseif($pkg->promo_status === 'Incomplete Setup')
+                                                    <span>This legacy promotion is unavailable until a System Admin corrects its configuration.</span>
+                                                @elseif($pkg->promo_status === 'Scheduled')
+                                                    <span>Promotion is scheduled for a future date.</span>
+                                                @elseif($pkg->promo_status === 'Expired')
+                                                    <span>Promotion has ended and does not affect this case.</span>
+                                                @elseif($pkg->promo_status === 'Turned Off')
+                                                    <span>Promotion is turned off and does not affect this case.</span>
+                                                @else
+                                                    <span>No promotion is assigned to this package.</span>
+                                                @endif
+                                                @if($promotionConfigured && filled($promotionType) && (float) $promotionValue > 0)
+                                                    <span>{{ in_array(strtoupper($promotionType), ['PERCENT', 'PERCENTAGE'], true) ? rtrim(rtrim(number_format((float) $promotionValue, 2, '.', ''), '0'), '.') . '%' : '₱' . number_format((float) $promotionValue, 2) }} off the base price</span>
+                                                @endif
+                                                @if($promotionConfigured && ($promotionStart || $promotionEnd))
+                                                    <span>{{ $promotionStart ? 'Starts ' . $promotionStart : '' }}{{ $promotionStart && $promotionEnd ? ' · ' : '' }}{{ $promotionEnd ? 'Ends ' . $promotionEnd : '' }}</span>
+                                                @endif
+                                            </div>
                                             @endif
-
-                                            <div class="mt-4 rounded-lg border border-slate-200 bg-white/70 px-3 py-2 text-[11px] font-semibold text-slate-600">
-                                                <div class="text-[10px] font-black uppercase tracking-widest text-[#5F685F]">Included Casket</div>
-                                                <div class="mt-1 truncate">{{ $includedCasketName }}</div>
-                                            </div>
-
-                                            <div class="mt-3 grid grid-cols-2 gap-2 text-center">
-                                                <div class="rounded-lg bg-slate-50 px-2 py-2 ring-1 ring-slate-200">
-                                                    <div class="text-base font-black text-slate-900">{{ $inclusionCount }}</div>
-                                                    <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Inclusions</div>
-                                                </div>
-                                                <div class="rounded-lg bg-slate-50 px-2 py-2 ring-1 ring-slate-200">
-                                                    <div class="text-base font-black text-slate-900">{{ $freebieCount }}</div>
-                                                    <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Freebies</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="pkg-card-footer grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                        <button type="button" class="package-details-btn rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900" data-package-value="{{ $pkg->id }}">
-                                            <i class="bi bi-eye mr-1"></i> View Details
-                                        </button>
-                                        <div class="pkg-select-btn justify-center">
-                                            <span class="pkg-btn-unselected">Select Package</span>
-                                            <span class="pkg-btn-selected"><i class="bi bi-check-circle-fill"></i> Selected</span>
-                                        </div>
-                                        <div class="check-dot hidden"></div>{{-- JS compat --}}
+                                        </section>
                                     </div>
                                 </div>
                             </div>
                         @endforeach
 
-                        @if(empty($entryMode) || $entryMode === 'main')
-                            <div class="package-card-item">
-                                <div class="package-card pkg-premium-card pkg-card-custom w-full h-full cursor-pointer" role="radio" tabindex="0" aria-label="Custom package">
-                                    <input
-                                        type="radio"
-                                        name="package_id"
-                                        value="custom"
-                                        id="custom_package_radio"
-                                        class="package-radio"
-                                        data-name="Client Preference"
-                                        data-price="0"
-                                        data-inclusions=""
-                                        data-freebies=""
-                                        data-structured-inclusions="[]"
-                                        data-structured-freebies="[]"
-                                        data-included-casket="{}"
-                                    >
-
-                                    <div class="pkg-card-body">
-                                        <div class="pkg-tier-label" style="color:#b45309;">Client Preference</div>
-                                        <div class="pkg-name" style="color:#78350f;">Custom</div>
-                                        <div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm font-black text-amber-900">
-                                            Price set during package setup.
-                                        </div>
-                                        <p class="pkg-price-note">Manual package details are entered below.</p>
-                                    </div>
-
-                                    <div class="pkg-card-footer grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                        <button type="button" class="package-details-btn rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-700" data-package-value="custom">
-                                            <i class="bi bi-eye mr-1"></i> View Details
-                                        </button>
-                                        <div class="pkg-select-btn justify-center">
-                                            <span class="pkg-btn-unselected">Build Package</span>
-                                            <span class="pkg-btn-selected"><i class="bi bi-check-circle-fill"></i> Selected</span>
-                                        </div>
-                                        <div class="check-dot hidden"></div>{{-- JS compat --}}
-                                    </div>
-                                </div>
-                            </div>
-                        @endif
                     </div>
+                    <div class="package-options-below">
+                        <div class="package-upgrade-grid">
+                            <section class="inline-package-section" id="package-casket-options" hidden>
+                                <h5>Casket Upgrade</h5>
+                                <div data-option-body></div>
+                            </section>
+                            <section class="inline-package-section" id="package-hearse-options" hidden>
+                                <h5>Hearse Upgrade</h5>
+                                <div data-option-body></div>
+                            </section>
+                        </div>
+                        <section class="inline-package-section" id="package-inclusion-options" hidden>
+                            <h5>Other Inclusions</h5>
+                            <div data-option-body></div>
+                        </section>
+                    </div>
+                    </section>
 
                     @if(empty($entryMode) || $entryMode === 'main')
-                        <div id="custom_package_fields" class="hidden mt-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
-                            <div class="mb-4 border-b border-slate-200 pb-3">
-                                <h4 class="text-sm font-bold text-slate-900">Build a custom package</h4>
-                                <p class="mt-1 text-sm text-slate-600">Enter the agreed all-in price and what it covers. Add extras using Optional Add-ons or Manual Charges.</p>
-                            </div>
+                        <section id="custom_package_area" class="package-selection-area hidden" aria-labelledby="custom_arrangement_heading">
+                            <div class="package-selection-area__heading"><div><h4 id="custom_arrangement_heading">Custom Arrangement</h4><p>Create a case-specific arrangement using the client's selected services and agreed price.</p></div><button type="button" class="package-mode-change" data-change-package-mode>Change type</button></div>
+                            <input type="radio" name="package_id" value="custom" id="custom_package_radio" class="package-radio sr-only" data-name="Custom Arrangement" data-price="0" data-inclusions="" data-freebies="" data-structured-inclusions="[]" data-structured-freebies="[]" data-included-casket="{}" @checked($intakeValue('package_id') === 'custom')>
+                        <div id="custom_package_fields" class="custom-package-builder">
                             <div class="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(12rem,0.45fr)]">
                                 <div>
                                     <label for="client_pref_package" class="field-label">Package name <span aria-hidden="true">*</span></label>
-                                    <input type="text" name="custom_package_name" id="client_pref_package" maxlength="150" value="{{ $intakeValue('custom_package_name') }}" class="form-input" placeholder="e.g. Family arrangement" aria-describedby="client_pref_package_help">
-                                    <p id="client_pref_package_help" class="mt-1 text-xs text-slate-600">This name appears in the case record.</p>
+                                    <input type="text" name="custom_package_name" id="client_pref_package" maxlength="150" value="{{ $intakeValue('custom_package_name') }}" class="form-input" placeholder="e.g. Family arrangement">
                                     @error('custom_package_name') <p class="intake-field-error" role="alert">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
                                     <label for="client_pref_price" class="field-label">All-in package price (PHP) <span aria-hidden="true">*</span></label>
-                                    <input type="number" step="0.01" min="0.01" inputmode="decimal" name="custom_package_price" id="client_pref_price" value="{{ $intakeValue('custom_package_price') }}" class="form-input" placeholder="0.00" aria-describedby="client_pref_price_help">
-                                    <p id="client_pref_price_help" class="mt-1 text-xs text-slate-600">Must be greater than zero. Extra charges are listed separately.</p>
+                                    <input type="number" step="0.01" min="0.01" inputmode="decimal" name="custom_package_price" id="client_pref_price" value="{{ $intakeValue('custom_package_price') }}" class="form-input" placeholder="0.00">
                                     @error('custom_package_price') <p class="intake-field-error" role="alert">{{ $message }}</p> @enderror
                                 </div>
-                                <div class="md:col-span-2">
+                                <div class="custom-package-section md:col-span-2">
                                     <p class="field-label">Included services <span aria-hidden="true">*</span></p>
-                                    <p class="mb-3 text-xs text-slate-600">These services, the selected casket, and agreed days are included in your custom price. No automatic casket or extension charges are added.</p>
-                                    <div class="grid gap-2" id="custom_service_choices" role="group" aria-label="Included services">
+                                    <p class="mb-3 text-xs text-slate-600">Included coverage starts from Basic Funeral Inclusions. Use Adjust to change the coverage or enter the requested quantity.</p>
+                                    @if($customDefaultCoverage === [])
+                                        <p class="custom-defaults-notice" role="status">Ask the System Administrator to configure custom package included days and retrieval coverage.</p>
+                                    @endif
+                                    <div class="custom-package-service-grid" id="custom_service_choices" role="group" aria-label="Included services">
                                         @foreach([\App\Models\Package::SERVICE_BODY_RETRIEVAL, \App\Models\Package::SERVICE_EMBALMING, \App\Models\Package::SERVICE_CASKET, \App\Models\Package::SERVICE_HOME_VIEWING, \App\Models\Package::SERVICE_HEARSE] as $serviceType)
                                             @php
                                                 $selectedCustomTypes = (array) $intakeValue('custom_service_types', array_keys(\App\Models\Package::serviceTypeOptions()));
                                                 $coverageUnit = in_array($serviceType, [\App\Models\Package::SERVICE_BODY_RETRIEVAL, \App\Models\Package::SERVICE_HEARSE], true) ? 'km' : 'days';
                                             @endphp
-                                            <div class="rounded-lg border border-[#B8D0C0] bg-[#F7FAF8] p-3">
+                                            <div class="custom-package-service-card rounded-lg">
                                                 <label class="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-900">
                                                     <input type="checkbox" name="custom_service_types[]" value="{{ $serviceType }}" class="custom-service-check h-4 w-4 accent-[#1A4935]" @checked(in_array($serviceType, $selectedCustomTypes, true))>
                                                     {{ \App\Models\Package::serviceTypeOptions()[$serviceType] }}
                                                 </label>
-                                                @if($serviceType === \App\Models\Package::SERVICE_BODY_RETRIEVAL)
-                                                    <div class="custom-service-dependent mt-2"><span class="custom-inclusion-chip">Included</span></div>
-                                                @elseif($serviceType === \App\Models\Package::SERVICE_HEARSE)
+                                                @if($serviceType === \App\Models\Package::SERVICE_HEARSE)
                                                     <div class="custom-service-dependent mt-2">
-                                                        <div class="custom-inclusion-editor" data-inclusion-kind="hearse">
-                                                            <div class="custom-inclusion-summary"><span class="custom-inclusion-chip" data-custom-inclusion-chip></span><button type="button" class="custom-inclusion-edit-label" aria-label="Choose a hearse">Choose a hearse</button></div>
-                                                            <dialog class="custom-inclusion-dialog" aria-labelledby="custom_hearse_dialog_title">
-                                                                <div class="custom-inclusion-dialog-heading"><h4 id="custom_hearse_dialog_title">Choose a hearse</h4><button type="button" class="custom-inclusion-close" aria-label="Close hearse selection">×</button></div>
-                                                                <p class="custom-inclusion-help">Choose from the vehicle types configured by System Admin.</p>
-                                                                <div id="custom_hearse_catalog_options" data-hearse-catalog-options>
-                                                                    <p class="custom-inclusion-help">No hearse vehicles are configured yet. You can continue with Hearse included and select a vehicle when the catalog is available.</p>
-                                                                </div>
-                                                                <button type="button" class="custom-inclusion-done">Done</button>
-                                                            </dialog>
-                                                        </div>
+                                                        <div id="custom-hearse-slot"></div>
                                                     </div>
                                                 @elseif($serviceType === \App\Models\Package::SERVICE_CASKET)
                                                     <div class="custom-service-dependent mt-2">
-                                                        <div class="custom-inclusion-editor">
-                                                        <div class="custom-inclusion-summary"><span class="custom-inclusion-chip" data-custom-inclusion-chip></span><button type="button" class="custom-inclusion-edit-label" aria-label="Choose a casket">Choose a casket</button></div>
-                                                        <dialog class="custom-inclusion-dialog" aria-labelledby="custom_casket_dialog_title">
-                                                        <div class="custom-inclusion-dialog-heading"><h4 id="custom_casket_dialog_title">Included casket</h4><button type="button" class="custom-inclusion-close" aria-label="Close included casket">×</button></div>
-                                                        <p class="custom-inclusion-help">This casket is covered by the agreed custom price.</p>
-                                                        <label for="custom_casket_catalog_id" class="field-label">Included casket</label>
-                                                        <select name="custom_casket_catalog_id" id="custom_casket_catalog_id" data-label="included casket" class="form-input">
+                                                        <div class="custom-inclusion-editor custom-inclusion-inline">
+                                                        <button type="button" class="custom-asset-trigger" data-custom-asset-trigger="casket" aria-controls="custom-casket-options" aria-expanded="false">Choose a casket</button>
+                                                        <div id="custom-casket-options" class="inline-upgrade-options" popover aria-label="Choose a casket"></div>
+                                                        <select name="custom_casket_catalog_id" id="custom_casket_catalog_id" data-label="included casket" class="form-input" hidden>
                                                             <option value="">Choose an available casket</option>
                                                             @foreach($activeCaskets->where('is_available', true) as $casket)
                                                                 <option value="{{ $casket->id }}" @selected((string) $intakeValue('custom_casket_catalog_id') === (string) $casket->id)>{{ $casket->display_name }}</option>
                                                             @endforeach
                                                         </select>
                                                         @error('custom_casket_catalog_id') <p class="intake-field-error" role="alert">{{ $message }}</p> @enderror
-                                                        <button type="button" class="custom-inclusion-done">Done</button>
-                                                        </dialog></div>
+                                                        </div>
                                                     </div>
-                                                @else
-                                                    <div class="custom-service-dependent mt-2">
-                                                        <div class="custom-inclusion-editor">
-                                                        <div class="custom-inclusion-summary"><span class="custom-inclusion-chip" data-custom-inclusion-chip></span><button type="button" class="custom-inclusion-edit-label" aria-label="Set {{ \App\Models\Package::serviceTypeOptions()[$serviceType] }} agreed days">Set agreed days</button></div>
-                                                        <dialog class="custom-inclusion-dialog" aria-labelledby="custom_{{ $serviceType }}_dialog_title">
-                                                        <div class="custom-inclusion-dialog-heading"><h4 id="custom_{{ $serviceType }}_dialog_title">{{ \App\Models\Package::serviceTypeOptions()[$serviceType] }} days</h4><button type="button" class="custom-inclusion-close" aria-label="Close {{ \App\Models\Package::serviceTypeOptions()[$serviceType] }} days">×</button></div>
-                                                        <p class="custom-inclusion-help">These agreed days are covered by the custom price.</p>
-                                                        <label for="custom_coverage_{{ $serviceType }}" class="field-label">Included {{ $coverageUnit }}</label>
-                                                        <input type="number" min="1" step="1" name="custom_service_coverage[{{ $serviceType }}]" id="custom_coverage_{{ $serviceType }}" data-label="{{ \App\Models\Package::serviceTypeOptions()[$serviceType] }} included {{ $coverageUnit }}" value="{{ data_get($intakeValue('custom_service_coverage', []), $serviceType) }}" class="form-input" placeholder="0">
-                                                        @error('custom_service_coverage.'.$serviceType) <p class="intake-field-error" role="alert">{{ $message }}</p> @enderror
-                                                        <button type="button" class="custom-inclusion-done">Done</button>
-                                                        </dialog></div>
+                                                @endif
+                                                @if(isset(\App\Models\CustomPackageDefault::SERVICE_FIELDS[$serviceType]))
+                                                    @php
+                                                        $defaultCoverage = $customDefaultCoverage[$serviceType] ?? null;
+                                                        $savedCoverage = $intakeValue('custom_included.'.$serviceType);
+                                                        $coverage = filled($savedCoverage) ? $savedCoverage : $defaultCoverage;
+                                                        $rate = $customDefaultRates[$serviceType] ?? null;
+                                                        $stepSize = $coverageUnit === 'days' ? '1' : '0.01';
+                                                    @endphp
+                                                    <div class="custom-coverage" data-custom-coverage="{{ $serviceType }}" data-unit="{{ $coverageUnit }}" data-rate="{{ $rate }}">
+                                                        <div class="custom-coverage-heading"><span class="custom-inclusion-chip" data-coverage-label>{{ $coverage === null ? 'Coverage not configured' : ($coverageUnit === 'days' ? $coverage.' day(s) included' : number_format((float) $coverage, 2).' km included') }}</span><button type="button" class="service-field-adjust" aria-controls="custom-config-{{ $serviceType }}" data-coverage-adjust>Adjust</button></div>
+                                                        <div id="custom-config-{{ $serviceType }}" class="service-field-popover is-configuration" data-coverage-panel aria-label="{{ \App\Models\Package::serviceTypeOptions()[$serviceType] }} configuration" hidden>
+                                                        <div class="custom-coverage-fields">
+                                                            <label>Included {{ $coverageUnit }}
+                                                                <input class="form-input" type="number" data-coverage-included data-default-coverage="{{ $defaultCoverage }}" name="custom_included[{{ $serviceType }}]" min="{{ $coverageUnit === 'days' ? 1 : 0 }}" max="100000" step="{{ $stepSize }}" value="{{ $coverage }}" placeholder="Not configured">
+                                                            </label>
+                                                            <label>Requested {{ $coverageUnit }} (Optional)
+                                                                <input class="form-input" type="number" data-coverage-requested name="custom_requested[{{ $serviceType }}]" min="0" max="100000" step="{{ $stepSize }}" value="{{ $intakeValue('custom_requested.'.$serviceType) }}" placeholder="{{ $coverage ?? '0' }}">
+                                                            </label>
+                                                            <span>{{ $rate === null ? 'Rate not configured' : ((float) $rate === 0.0 ? 'No extra charge' : '₱'.number_format((float) $rate, 2).' / '.($coverageUnit === 'days' ? 'day' : 'km')) }}</span>
+                                                        </div>
+                                                        @if($serviceType === \App\Models\Package::SERVICE_HOME_VIEWING)
+                                                            <input type="hidden" name="custom_home_viewing_manual" value="{{ $intakeValue('custom_home_viewing_manual', filled($intakeValue('custom_requested.home_viewing')) ? '1' : '0') }}" data-viewing-manual>
+                                                            <button type="button" class="custom-asset-trigger" data-use-wake-duration>Use wake duration</button>
+                                                        @endif
+                                                        </div>
+                                                        <p data-coverage-charge aria-live="polite" class="custom-coverage-charge"></p>
+                                                        @foreach(['custom_service_coverage', 'custom_included', 'custom_requested'] as $errorKey)
+                                                            @error($errorKey.'.'.$serviceType) <p class="intake-field-error" role="alert">{{ $message }}</p> @enderror
+                                                        @endforeach
                                                     </div>
                                                 @endif
                                             </div>
@@ -3108,11 +3936,11 @@
                                     </div>
                                     @error('custom_service_types') <p class="intake-field-error" role="alert">{{ $message }}</p> @enderror
                                 </div>
-                                <div>
+                                <div class="custom-package-section md:col-span-2">
                                     <p class="field-label">Catalog freebies <span class="font-normal text-slate-500">(optional)</span></p>
-                                    <div id="custom_freebie_choices" class="max-h-36 space-y-1 overflow-y-auto rounded-lg border border-[#B8D0C0] bg-[#F7FAF8] p-3">
+                                    <div id="custom_freebie_choices" class="custom-package-freebie-grid">
                                         @forelse($activeFreebies as $freebie)
-                                            <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-900">
+                                            <label class="custom-package-freebie">
                                                 <input type="checkbox" name="custom_freebie_catalog_ids[]" value="{{ $freebie->id }}" data-freebie-name="{{ $freebie->name }}" class="custom-freebie-check h-4 w-4 accent-[#1A4935]" @checked(in_array((string) $freebie->id, array_map('strval', (array) $intakeValue('custom_freebie_catalog_ids', [])), true))>
                                                 {{ $freebie->name }}
                                             </label>
@@ -3132,167 +3960,142 @@
                                     <p class="text-sm whitespace-pre-line">{{ $intakeValue('custom_other_inclusions') }}</p>
                                 </div>
                             @endif
-                            <p class="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">Your agreed price covers the selected inclusions. Optional catalog add-ons below and Manual Charges are extra and increase the total.</p>
-                        </div>
+                            <p class="custom-package-note">Your agreed price covers the selected inclusions. Optional catalog add-ons below and Manual Charges are extra and increase the total.</p>
+                        </div></section>
                     @endif
+
+                    <div id="hearse-assignment-home">
+                    <div id="hearse_assignment_fields" class="hidden">
+                        <div id="regular-hearse-inclusion" class="inline-inclusion-card hidden">
+                            <div class="inline-inclusion-main">
+                                <p id="inherited_hearse_summary" class="inline-inclusion-name"></p>
+                                <span class="inline-inclusion-status" id="hearse-inclusion-status">Included</span>
+                            </div>
+                            <div class="inline-inclusion-actions">
+                                    <span data-upgrade-charge="hearse" hidden>Additional charge <strong>₱<span id="hearse-inclusion-charge">0.00</span></strong></span>
+                                <button type="button" class="inline-upgrade-button" data-upgrade-trigger="hearse" aria-expanded="false" aria-controls="hearse-upgrade-options">Upgrade</button>
+                                <button type="button" class="inline-upgrade-button hidden" data-upgrade-reset="hearse">Use included</button>
+                                <div id="hearse-upgrade-options" class="inline-upgrade-options" popover aria-label="Hearse options"></div>
+                            </div>
+                        </div>
+                        <div id="custom-hearse-picker" hidden>
+                            <button type="button" class="custom-asset-trigger" data-custom-asset-trigger="hearse" aria-controls="custom-hearse-options" aria-expanded="false">Choose a hearse</button>
+                            <div id="custom-hearse-options" class="inline-upgrade-options" popover aria-label="Choose a hearse"></div>
+                            <select name="hearse_catalog_id" id="hearse_catalog_id" data-label="assigned hearse" class="form-input" hidden disabled>
+                                <option value="">Choose an active hearse</option>
+                                @foreach($activeHearses as $hearse)
+                                    <option value="{{ $hearse->id }}" data-name="{{ $hearse->name }}" data-reference-value="{{ $hearse->reference_value }}" @selected((string) $intakeValue('hearse_catalog_id') === (string) $hearse->id)>{{ $hearse->name }}{{ $hearse->reference_value !== null ? ' - PHP ' . number_format((float) $hearse->reference_value, 2) : ' - Value not configured' }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <p id="hearse_upgrade_preview" class="mt-2 text-sm" aria-live="polite"></p>
+                        @if($activeHearses->isEmpty())
+                            <p class="intake-field-error mt-2" role="alert">No active hearse is available. Ask the System Administrator to configure the Hearse Catalog.</p>
+                        @endif
+                        @error('hearse_catalog_id') <p class="intake-field-error" role="alert">{{ $message }}</p> @enderror
+                    </div>
+                    </div>
 
                     <ul id="selected_package_inclusions" class="hidden"></ul>
                     <ul id="selected_package_freebies" class="hidden"></ul>
 
-                    <dialog id="package_details_modal" class="hidden fixed inset-0 z-[210] items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="package_details_title">
-                        <div class="absolute inset-0" style="background:var(--modal-scrim);" data-package-details-close></div>
-                        <div class="relative max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200">
-                            <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
-                                <div class="min-w-0">
-                                    <h4 id="package_details_title" class="text-lg font-black text-slate-900">Package Details</h4>
-                                    <p id="package_details_subtitle" class="mt-1 text-xs font-semibold text-slate-500">Review included limits and possible extra charges before selecting.</p>
-                                </div>
-                                <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900" aria-label="Close package details" data-package-details-close>
-                                    <i class="bi bi-x-lg"></i>
-                                </button>
-                            </div>
-                            <div class="border-b border-slate-200 px-5 py-3">
-                                <div class="flex flex-wrap gap-2" role="tablist" aria-label="Package detail sections">
-                                    <button type="button" class="package-detail-tab rounded-lg px-3 py-2 text-xs font-black uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-slate-900" data-package-detail-tab="services" role="tab">Included Services</button>
-                                    <button type="button" class="package-detail-tab rounded-lg px-3 py-2 text-xs font-black uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-slate-900" data-package-detail-tab="freebies" role="tab">Freebies</button>
-                                    <button type="button" class="package-detail-tab rounded-lg px-3 py-2 text-xs font-black uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-slate-900" data-package-detail-tab="coverage" role="tab">Included Limits & Extra Charges</button>
-                                </div>
-                            </div>
-                            <div class="max-h-[58vh] overflow-y-auto px-5 py-4">
-                                <div id="package_detail_services" class="package-detail-panel space-y-2" role="tabpanel"></div>
-                                <div id="package_detail_freebies" class="package-detail-panel hidden space-y-2" role="tabpanel"></div>
-                                <div id="package_detail_coverage" class="package-detail-panel hidden space-y-2" role="tabpanel"></div>
-                            </div>
-                            <div class="flex justify-end border-t border-slate-200 bg-slate-50 px-5 py-4">
-                                <button type="button" class="rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2" data-package-details-close>
-                                    Done
-                                </button>
-                            </div>
-                        </div>
-                    </dialog>
-
                     <div id="intake_service_modal_backdrop" class="intake-modal-backdrop hidden"></div>
 
                     <div class="service-selection-actions">
-                    <div id="structured_pricing_section" class="hidden service-tool-card">
-                        <div class="min-w-0">
-                            <div>
-                                <h5 class="service-tool-title">
-                                    <i class="bi bi-sliders2"></i> Package Adjustments
-                                </h5>
-                                <p class="service-tool-help">Review package upgrades, covered items, and excess usage before adding optional services.</p>
-                            </div>
-                            <div class="service-tool-value">
-                                Total adjustments: &#8369; <span id="structured_charges_total">0.00</span>
-                            </div>
-                        </div>
-                        <button type="button" id="open_package_adjustments_btn" class="inline-flex items-center gap-2 rounded-lg bg-[#3E4A3D] px-4 py-2 text-xs font-bold text-white hover:bg-[#2f382e]">
-                            <i class="bi bi-sliders"></i> Open Adjustments
-                        </button>
-                    </div>
-
+                    @error('included_add_on_requested')
+                        <p class="intake-field-error" role="alert">{{ $message }}</p>
+                    @enderror
                     <div id="optional_add_ons_section" class="hidden service-tool-card">
-                        <div class="min-w-0">
+                        <div class="intake-add-ons-header">
                             <div>
                                 <h5 class="service-tool-title">
                                     <i class="bi bi-plus-square"></i> Optional Add-ons
                                 </h5>
-                                <p class="service-tool-help">Select paid catalog services only when requested.</p>
+                                <p class="service-tool-help">Paid extras outside the selected package.</p>
                             </div>
-                            <div class="service-tool-value">
-                                Selected total: &#8369; <span id="selected_add_ons_total">0.00</span>
-                            </div>
+                            <button type="button" id="choose_add_ons_btn" popovertarget="optional_add_ons_panel" aria-expanded="false" aria-controls="optional_add_ons_panel">
+                                <i class="bi bi-plus-circle" aria-hidden="true"></i> Choose Add-ons
+                            </button>
                         </div>
 
-                        <div id="selected_add_ons_summary" class="min-w-[220px] rounded-lg border border-[#C9C5BB] bg-white px-4 py-3 text-sm text-[#333333]">
-                            <div class="flex flex-wrap items-center justify-between gap-3">
-                                <div class="min-w-0">
-                                    <div class="font-bold">No add-ons selected.</div>
-                                    <div class="mt-0.5 text-xs font-medium text-[#5F685F]">Optional add-ons are not included in the base package price.</div>
-                                </div>
-                                <button type="button" id="choose_add_ons_btn" class="inline-flex items-center gap-2 rounded-lg bg-[#3E4A3D] px-4 py-2 text-xs font-bold text-white hover:bg-[#2f382e] focus:outline-none focus:ring-2 focus:ring-[#3E4A3D] focus:ring-offset-2" aria-expanded="false" aria-controls="optional_add_ons_panel">
-                                    <i class="bi bi-plus-circle"></i> Choose Add-ons
-                                </button>
-                            </div>
-                            <div id="selected_add_ons_lines" class="mt-3 hidden space-y-2"></div>
+                        <div id="selected_add_ons_lines" class="hidden space-y-2"></div>
+                        <div class="intake-add-ons-totals">
+                            <span id="selected_add_ons_count" class="intake-add-ons-count">No add-ons selected</span>
+                            <strong>Selected total <span class="whitespace-nowrap">&#8369;<span id="selected_add_ons_total">0.00</span></span></strong>
                         </div>
 
-                        <dialog id="optional_add_ons_panel" class="optional-add-ons-panel mt-4 hidden overflow-hidden rounded-xl border border-[#C9C5BB] bg-white" role="dialog" aria-modal="true" aria-label="Available optional add-ons">
+                        <div id="optional_add_ons_panel" popover class="optional-add-ons-panel hidden overflow-hidden rounded-xl" role="dialog" aria-label="Available optional add-ons">
                             <div class="border-b border-[#E5E0D5] bg-[#FBFAF7] p-4">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
                                     <div>
-                                        <div class="service-tool-title"><i class="bi bi-plus-square"></i> Optional Add-ons</div>
-                                        <div class="service-tool-help">Choose catalog add-ons first. Use manual charges only when the request is not listed.</div>
+                                        <div class="service-tool-title"><i class="bi bi-plus-square"></i> Optional Add-ons <span id="draft_add_ons_header_count" aria-live="polite">0 selected</span></div>
+                                        <div class="service-tool-help">Click a card to select or unselect it. Set the quantity for each selected add-on.</div>
                                     </div>
                                     <button type="button" id="close_add_ons_btn" class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#C9C5BB] bg-[#F2F6EF] text-[#3E4A3D] hover:bg-[#DDE8D6]" aria-label="Close optional add-ons">
                                         <i class="bi bi-x-lg"></i>
                                     </button>
                                     <div class="optional-add-ons-searchbar">
-                                        <div class="relative min-w-0 flex-1">
-                                            <i class="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-[#687466]"></i>
-                                            <input type="search" id="optional_add_ons_search" class="form-input" placeholder="Search add-ons..." aria-label="Search optional add-ons">
+                                        <div class="intake-addon-search relative min-w-0 flex-1">
+                                            <i class="bi bi-search" aria-hidden="true"></i>
+                                            <input type="search" id="optional_add_ons_search" class="form-input" placeholder="Add-on name, category, unit or description" aria-label="Search optional add-ons" autocomplete="off" aria-autocomplete="list" aria-controls="addon_search_matches" aria-expanded="false">
+                                            <button type="button" id="addon_search_clear" hidden aria-label="Clear add-on search"><i class="bi bi-x" aria-hidden="true"></i></button>
+                                            <button type="button" id="addon_search_submit">Search</button>
+                                            <div id="addon_search_matches" role="listbox" aria-label="Matching add-ons" hidden></div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                             <div id="optional_add_ons_list" class="max-h-[420px] overflow-y-auto p-4 space-y-2"></div>
                             <div class="flex flex-wrap items-center justify-between gap-3 border-t border-[#E5E0D5] bg-[#FBFAF7] p-4">
-                                <div class="text-xs font-bold text-[#5F685F]">Draft total: &#8369; <span id="draft_add_ons_total">0.00</span></div>
+                                <div class="add-ons-draft-summary"><span id="draft_add_ons_count">No add-ons selected</span><strong>Draft total: &#8369; <span id="draft_add_ons_total">0.00</span></strong></div>
                                 <div class="flex flex-wrap items-center gap-2">
                                     <button type="button" id="cancel_add_ons_btn" class="rounded-lg border border-[#C9C5BB] bg-white px-4 py-2 text-xs font-bold text-[#333333] hover:bg-[#F3F0E8] focus:outline-none focus:ring-2 focus:ring-[#3E4A3D] focus:ring-offset-2">Cancel</button>
                                     <button type="button" id="apply_add_ons_btn" class="inline-flex items-center gap-2 rounded-lg bg-[#3E4A3D] px-4 py-2 text-xs font-bold text-white hover:bg-[#2f382e] focus:outline-none focus:ring-2 focus:ring-[#3E4A3D] focus:ring-offset-2">
-                                        <i class="bi bi-check2-circle"></i> Apply Selected Add-ons
+                                        <i class="bi bi-check2-circle"></i> Apply
                                     </button>
                                 </div>
                             </div>
-                        </dialog>
+                        </div>
                         @error('selected_add_ons') <div class="intake-field-error">{{ $message }}</div> @enderror
                     </div>
                     </div>
 
-                    <dialog id="package_adjustments_panel" class="package-adjustments-modal hidden" role="dialog" aria-modal="true" aria-labelledby="package_adjustments_title">
-                        <div class="package-adjustments-head flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 p-4">
-                            <div>
-                                <h5 id="package_adjustments_title" class="service-tool-title">
-                                    <i class="bi bi-sliders2"></i> Package Adjustments
-                                </h5>
-                                <p class="service-tool-help">Enter only actual excess usage or selected upgrades.</p>
-                            </div>
-                            <button type="button" id="close_package_adjustments_btn" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50" aria-label="Close package adjustments">
-                                <i class="bi bi-x-lg"></i>
-                            </button>
-                        </div>
-                        <div class="package-adjustments-body p-4 space-y-4">
-                            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                                <div class="flex items-start gap-3">
-                                    <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-slate-700 shadow-sm ring-1 ring-slate-200">
-                                        <i class="bi bi-box-seam"></i>
+                    <div id="package-inclusion-controls" hidden>
+                            <div id="included-addon-adjustments" class="inline-package-items included-quantity-grid">
+                                @foreach($packages->flatMap(fn ($package) => $package->packageInclusions)->whereNotNull('add_on_catalog_id')->unique('add_on_catalog_id') as $inclusion)
+                                    <div class="inline-inclusion-card included-quantity-card hidden" data-included-addon="{{ $inclusion->add_on_catalog_id }}">
+                                        <div class="inline-inclusion-main">
+                                            <label class="inline-inclusion-name" for="requested-addon-{{ $inclusion->add_on_catalog_id }}">{{ $inclusion->inclusion_name }}</label>
+                                            <p class="service-tool-help" data-allowance></p>
+                                        </div>
+                                        <div class="inline-quantity">
+                                            <button type="button" data-inclusion-quantity-step="-1" aria-label="Decrease {{ $inclusion->inclusion_name }} quantity">−</button>
+                                            <input type="number" min="1" max="9999" step="1" class="form-input" id="requested-addon-{{ $inclusion->add_on_catalog_id }}"
+                                                name="included_add_on_requested[{{ $inclusion->add_on_catalog_id }}]" value="{{ $intakeValue('included_add_on_requested.'.$inclusion->add_on_catalog_id) }}" aria-label="Total requested for {{ $inclusion->inclusion_name }}" disabled>
+                                            <button type="button" data-inclusion-quantity-step="1" aria-label="Increase {{ $inclusion->inclusion_name }} quantity">+</button>
+                                        </div>
+                                        <p class="inline-inclusion-note" data-extra-charge aria-live="polite"></p>
+                                        @error('included_add_on_requested.'.$inclusion->add_on_catalog_id)
+                                            <p class="intake-field-error">{{ $message }}</p>
+                                        @enderror
                                     </div>
-                                    <div class="min-w-0 flex-1">
-                                        <div class="flex flex-wrap items-start justify-between gap-3">
-                                            <div>
-                                                <h6 class="text-sm font-black text-slate-900">Casket Selection</h6>
-                                                <p id="included_casket_summary" class="mt-1 text-xs font-semibold text-slate-500">Included casket will be used.</p>
-                                            </div>
-                                            <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
-                                                + &#8369; <span id="casket_adjustment_amount">0.00</span>
-                                            </div>
-                                        </div>
-
-                                        <div class="mt-4">
-                                            <input type="hidden" name="casket_selection_mode" value="included">
-                                            <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-3 hover:border-slate-300">
-                                                <input type="checkbox" name="casket_selection_mode" value="replacement" class="mt-1 h-4 w-4 text-slate-900 focus:ring-slate-900" {{ $intakeValue('replacement_casket_catalog_id') ? 'checked' : '' }}>
-                                                <span>
-                                                    <span class="block text-sm font-bold text-slate-800">Choose replacement/upgrade</span>
-                                                    <span class="block text-xs text-slate-500">Off means the included casket is used with no additional charge.</span>
-                                                </span>
-                                            </label>
-                                        </div>
-
-                                        <div id="replacement_casket_wrap" class="mt-4 hidden">
-                                            <label class="field-label" for="replacement_casket_catalog_id">Alternative Casket</label>
-                                            <select name="replacement_casket_catalog_id" id="replacement_casket_catalog_id" class="form-input" data-label="replacement casket">
+                                @endforeach
+                            </div>
+                            <div class="inline-inclusion-card" data-service-control="casket">
+                                <div class="inline-inclusion-main">
+                                    <p class="inline-inclusion-name" id="included_casket_summary"></p>
+                                    <span class="inline-inclusion-status" id="casket-inclusion-status">Included</span>
+                                </div>
+                                <div class="inline-inclusion-actions">
+                                    <span data-upgrade-charge="casket" hidden>Additional charge <strong>₱<span id="casket_adjustment_amount">0.00</span></strong></span>
+                                    <button type="button" class="inline-upgrade-button" data-upgrade-trigger="casket" aria-expanded="false" aria-controls="casket-upgrade-options">Upgrade</button>
+                                    <button type="button" class="inline-upgrade-button hidden" data-upgrade-reset="casket">Use included</button>
+                                    <div id="casket-upgrade-options" class="inline-upgrade-options" popover aria-label="Casket options"></div>
+                                </div>
+                                <input type="hidden" name="casket_selection_mode" value="included">
+                                <input type="checkbox" name="casket_selection_mode" value="replacement" hidden {{ $intakeValue('replacement_casket_catalog_id') ? 'checked' : '' }}>
+                                <div hidden>
+                                    <select name="replacement_casket_catalog_id" id="replacement_casket_catalog_id" class="form-input" data-label="replacement casket">
                                                 <option value="">Select replacement or upgrade casket</option>
                                                 @foreach(($activeCaskets ?? collect()) as $casket)
                                                     <option
@@ -3307,18 +4110,13 @@
                                                     </option>
                                                 @endforeach
                                             </select>
-                                            <p id="casket_upgrade_preview" class="mt-1 text-xs text-slate-500">Select a replacement casket to calculate the upgrade difference.</p>
-                                            @error('replacement_casket_catalog_id') <div class="intake-field-error">{{ $message }}</div> @enderror
-                                        </div>
-                                    </div>
                                 </div>
+                                <p id="casket_upgrade_preview" class="inline-inclusion-note" aria-live="polite" hidden></p>
+                                @error('replacement_casket_catalog_id') <div class="intake-field-error inline-inclusion-note">{{ $message }}</div> @enderror
                             </div>
 
-                            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                            <div class="inline-service-control" data-service-control="embalming">
                                 <div class="flex items-start gap-3">
-                                    <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-slate-700 shadow-sm ring-1 ring-slate-200">
-                                        <i class="bi bi-droplet"></i>
-                                    </div>
                                     <div class="min-w-0 flex-1">
                                         <div class="flex flex-wrap items-start justify-between gap-3">
                                             <div>
@@ -3332,7 +4130,7 @@
                                         <div id="embalming_config_warning" class="mt-3 hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
                                             <i class="bi bi-exclamation-triangle mr-1"></i> Ask Admin to configure included days and extended-day rate for Embalming.
                                         </div>
-                                        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                                        <div class="inline-service-metrics">
                                             <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
                                                 <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Included</span>
                                                 <span class="mt-1 block text-sm font-black text-slate-800"><span id="embalming_included_days">0</span> day(s)</span>
@@ -3359,11 +4157,8 @@
                                 </div>
                             </div>
 
-                            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                            <div class="inline-service-control" data-service-control="home_viewing">
                                 <div class="flex items-start gap-3">
-                                    <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-slate-700 shadow-sm ring-1 ring-slate-200">
-                                        <i class="bi bi-house-heart"></i>
-                                    </div>
                                     <div class="min-w-0 flex-1">
                                         <div class="flex flex-wrap items-start justify-between gap-3">
                                             <div>
@@ -3377,7 +4172,7 @@
                                         <div id="viewing_config_warning" class="mt-3 hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
                                             <i class="bi bi-exclamation-triangle mr-1"></i> Ask Admin to configure included days and extended-day rate for Home Viewing.
                                         </div>
-                                        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                                        <div class="inline-service-metrics">
                                             <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
                                                 <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Included</span>
                                                 <span class="mt-1 block text-sm font-black text-slate-800"><span id="viewing_included_days">0</span> day(s)</span>
@@ -3404,11 +4199,8 @@
                                 </div>
                             </div>
 
-                            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                            <div class="inline-service-control" data-service-control="body_retrieval">
                                 <div class="flex items-start gap-3">
-                                    <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-slate-700 shadow-sm ring-1 ring-slate-200">
-                                        <i class="bi bi-truck"></i>
-                                    </div>
                                     <div class="min-w-0 flex-1">
                                         <div class="flex flex-wrap items-start justify-between gap-3">
                                             <div>
@@ -3422,7 +4214,7 @@
                                         <div id="retrieval_config_warning" class="mt-3 hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
                                             <i class="bi bi-exclamation-triangle mr-1"></i> Ask Admin to configure included kilometers and excess kilometer rate for Body Retrieval.
                                         </div>
-                                        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                        <div class="inline-service-metrics">
                                             <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
                                                 <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Included Coverage</span>
                                                 <span class="mt-1 block text-sm font-black text-slate-800"><span id="retrieval_included_km">0.00</span> km</span>
@@ -3454,11 +4246,8 @@
                                 </div>
                             </div>
 
-                            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                            <div class="inline-service-control" data-service-control="hearse">
                                 <div class="flex items-start gap-3">
-                                    <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-slate-700 shadow-sm ring-1 ring-slate-200">
-                                        <i class="bi bi-signpost-split"></i>
-                                    </div>
                                     <div class="min-w-0 flex-1">
                                         <div class="flex flex-wrap items-start justify-between gap-3">
                                             <div>
@@ -3472,7 +4261,7 @@
                                         <div id="hearse_config_warning" class="mt-3 hidden rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
                                             <i class="bi bi-exclamation-triangle mr-1"></i> Ask Admin to configure included kilometers and excess kilometer rate for Hearse Service.
                                         </div>
-                                        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                        <div class="inline-service-metrics">
                                             <div class="rounded-lg bg-white p-3 ring-1 ring-slate-200">
                                                 <span class="block text-[10px] font-black uppercase tracking-widest text-slate-400">Included Coverage</span>
                                                 <span class="mt-1 block text-sm font-black text-slate-800"><span id="hearse_included_km">0.00</span> km</span>
@@ -3503,229 +4292,8 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="package-adjustments-foot flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 p-4">
-                            <div class="text-xs font-bold text-[#5F685F]">Current total: &#8369; <span id="structured_charges_total_modal">0.00</span></div>
-                            <button type="button" id="done_package_adjustments_btn" class="inline-flex items-center gap-2 rounded-lg bg-[#3E4A3D] px-4 py-2 text-xs font-bold text-white hover:bg-[#2f382e]">
-                                <i class="bi bi-check2-circle"></i> Done
-                            </button>
-                        </div>
-                    </dialog>
-
-                    <div class="service-details-area">
-                        <div class="section-title-block mb-6">
-                            <div class="section-heading-icon">
-                                <i class="bi bi-geo-alt-fill"></i>
-                            </div>
-                            <div class="section-title-text">
-                                <h3>Service Details</h3>
-                                <p>Set the service schedule, locations, and case progress.</p>
-                            </div>
-                        </div>
-
-                    <input type="hidden" name="service_requested_at" id="service_requested_at" value="{{ now()->toDateString() }}">
-                    <input type="hidden" name="service_type" id="service_type" value="Burial">
-                    @error('service_requested_at')
-                        <p class="intake-field-error mb-3">{{ $message }}</p>
-                    @enderror
-
-                    <div class="service-details-grid">
-                        <div class="service-detail-panel">
-                            <div class="service-detail-panel-header">
-                                <i class="bi bi-calendar2-week"></i>
-                                <div>
-                                    <h4>Schedule</h4>
-                                    <p>Arrange the wake, Funeral Ceremony, and interment timeline.</p>
-                                </div>
-                            </div>
-
-                            <div class="schedule-stack">
-
-                        <section class="wake-period-group" aria-label="Wake period"><h5 class="wake-period-heading">Wake Period</h5><div class="schedule-field-row">
-                            <div class="schedule-field-label">
-                                <label class="field-label">Wake Start <span class="text-rose-500">*</span></label>
-                                <p>First day and time of the wake or viewing period.</p>
-                            </div>
-                            <div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <div class="relative">
-                                    <input type="text" name="wake_start_date" id="wake_start_date" value="{{ $intakeValue('wake_start_date') }}" data-label="wake start date" class="form-input pr-10 cursor-pointer" placeholder="Wake date" autocomplete="off" required>
-                                    <button type="button" id="wake_start_picker_trigger" aria-label="Open wake start date calendar" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
-                                        <i class="bi bi-calendar-event text-lg"></i>
-                                    </button>
-                                </div>
-                                <div class="time-input-wrap" data-time-picker="wake_start_time">
-                                    <input type="hidden" name="wake_start_time" id="wake_start_time" value="{{ $intakeValue('wake_start_time') ? substr($intakeValue('wake_start_time'), 0, 5) : '' }}" data-label="wake start time" class="schedule-time-value" required>
-                                    <input type="text" class="schedule-time-display" data-time-display-for="wake_start_time" data-skip-autocap aria-label="Wake start time" placeholder="e.g. 8:30 AM" inputmode="text" autocomplete="off" aria-expanded="false">
-                                    <button type="button" class="schedule-time-toggle" data-time-toggle-for="wake_start_time" aria-label="Open wake start time picker">
-                                        <i class="bi bi-chevron-down"></i>
-                                    </button>
-                                    <div class="schedule-time-popover" data-time-popover role="dialog" aria-label="Wake start time picker">
-                                        @include('staff.intake._time-controls')
-                                    </div>
-                                </div>
-                            </div>
-                            @error('wake_start_date')
-                                <p class="intake-field-error">{{ $message }}</p>
-                            @enderror
-                            @error('wake_start_time')
-                                <p class="intake-field-error">{{ $message }}</p>
-                            @enderror
-                            <p id="wake_start_error" class="intake-field-error hidden"></p>
-                            </div>
-                        </div><div class="schedule-field-row">
-                            <div class="schedule-field-label">
-                                <label class="field-label">Wake End <span class="text-rose-500">*</span></label>
-                                <p>The date and time the wake or viewing period concludes.</p>
-                            </div>
-                            <div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <div class="relative">
-                                    <input type="text" name="wake_end_date" id="wake_end_date" value="{{ $intakeValue('wake_end_date') }}" data-label="wake end date" class="form-input pr-10 cursor-pointer" placeholder="Wake end date" autocomplete="off" required>
-                                    <button type="button" id="wake_end_picker_trigger" aria-label="Open wake end date calendar" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
-                                        <i class="bi bi-calendar-event text-lg"></i>
-                                    </button>
-                                </div>
-                                <div class="time-input-wrap" data-time-picker="wake_end_time">
-                                    <input type="hidden" name="wake_end_time" id="wake_end_time" value="{{ $intakeValue('wake_end_time') ? substr($intakeValue('wake_end_time'), 0, 5) : '' }}" data-label="wake end time" class="schedule-time-value" required>
-                                    <input type="text" class="schedule-time-display" data-time-display-for="wake_end_time" data-skip-autocap aria-label="Wake end time" placeholder="e.g. 7:00 AM" inputmode="text" autocomplete="off" aria-expanded="false">
-                                    <button type="button" class="schedule-time-toggle" data-time-toggle-for="wake_end_time" aria-label="Open wake end time picker"><i class="bi bi-chevron-down"></i></button>
-                                    <div class="schedule-time-popover" data-time-popover role="dialog" aria-label="Wake end time picker">
-                                        @include('staff.intake._time-controls')
-                                    </div>
-                                </div>
-                            </div>
-                            @error('wake_end_date')<p class="intake-field-error">{{ $message }}</p>@enderror
-                            @error('wake_end_time')<p class="intake-field-error">{{ $message }}</p>@enderror
-                            <p id="wake_end_error" class="intake-field-error hidden"></p>
-                            </div>
-                        </div><div class="schedule-field-row wake-duration-summary">
-                            <div class="schedule-field-label">
-                                <label class="field-label">Wake Duration</label>
-                                <p>System-calculated from Wake Start through Wake End.</p>
-                            </div>
-                            <div>
-                            <input type="hidden" name="wake_days" id="wake_days" value="{{ $intakeValue('wake_days') }}" data-label="wake days">
-                            <div class="service-readout pointer-events-none">
-                                <i class="bi bi-moon-stars text-slate-500"></i>
-                                <span id="wake_duration_display">Auto-calculated</span>
-                            </div>
-                            <p id="wake_days_helper" class="text-xs text-slate-500 mt-1">Calculated automatically from Wake Start Date through Wake End Date, inclusive.</p>
-                            </div>
-                        </div></section><div class="schedule-field-row">
-                            <div class="schedule-field-label">
-                                <label class="field-label">Funeral Ceremony <span class="text-rose-500">*</span></label>
-                                <p>Date and time of the formal funeral, memorial, or religious ceremony.</p>
-                            </div>
-                            <div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <div class="relative">
-                                    <input type="text" name="funeral_service_at" id="funeral_service_at" value="{{ $intakeValue('funeral_service_at') }}" data-label="funeral ceremony date" class="form-input pr-10 cursor-pointer" placeholder="Ceremony date" autocomplete="off" required>
-                                    <button type="button" id="wake_picker_trigger" aria-label="Open funeral ceremony date calendar" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
-                                        <i class="bi bi-calendar-event text-lg"></i>
-                                    </button>
-                                </div>
-                                <div class="time-input-wrap" data-time-picker="funeral_service_time">
-                                    <input type="hidden" name="funeral_service_time" id="funeral_service_time" value="{{ $intakeValue('funeral_service_time') ? substr($intakeValue('funeral_service_time'), 0, 5) : '' }}" data-label="funeral ceremony time" class="schedule-time-value" required>
-                                    <input type="text" class="schedule-time-display" data-time-display-for="funeral_service_time" data-skip-autocap aria-label="Funeral ceremony time" placeholder="e.g. 9:00 AM" inputmode="text" autocomplete="off" aria-expanded="false">
-                                    <button type="button" class="schedule-time-toggle" data-time-toggle-for="funeral_service_time" aria-label="Open funeral ceremony time picker">
-                                        <i class="bi bi-chevron-down"></i>
-                                    </button>
-                                    <div class="schedule-time-popover" data-time-popover role="dialog" aria-label="Funeral ceremony time picker">
-                                        @include('staff.intake._time-controls')
-                                    </div>
-                                </div>
-                            </div>
-                            @error('funeral_service_at')
-                                <p class="intake-field-error">{{ $message }}</p>
-                            @enderror
-                            @error('funeral_service_time')
-                                <p class="intake-field-error">{{ $message }}</p>
-                            @enderror
-                            <p id="funeral_service_at_error" class="intake-field-error hidden"></p>
-                            </div>
-                        </div><div class="schedule-field-row">
-                            <div class="schedule-field-label">
-                                <label class="field-label">Interment <span class="text-rose-500">*</span></label>
-                                <p>Date and time of burial or interment.</p>
-                            </div>
-                            <div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <div class="relative">
-                                    <input type="text" name="interment_at" id="interment_at" value="{{ $intakeValue('interment_at') }}" data-label="interment date" class="form-input pr-10 cursor-pointer" placeholder="Interment date" autocomplete="off" required>
-                                    <button type="button" id="inter_picker_trigger" aria-label="Open interment date calendar" class="absolute inset-y-0 right-3 flex items-center text-slate-400 cursor-pointer hover:text-slate-600 transition-colors">
-                                        <i class="bi bi-calendar-event text-lg"></i>
-                                    </button>
-                                </div>
-                                <div class="time-input-wrap" data-time-picker="interment_time">
-                                    <input type="hidden" name="interment_time" id="interment_time" value="{{ $intakeValue('interment_time') ? substr($intakeValue('interment_time'), 0, 5) : '' }}" data-label="interment time" class="schedule-time-value" required>
-                                    <input type="text" class="schedule-time-display" data-time-display-for="interment_time" data-skip-autocap aria-label="Interment time" placeholder="e.g. 1:00 PM" inputmode="text" autocomplete="off" aria-expanded="false">
-                                    <button type="button" class="schedule-time-toggle" data-time-toggle-for="interment_time" aria-label="Open interment time picker">
-                                        <i class="bi bi-chevron-down"></i>
-                                    </button>
-                                    <div class="schedule-time-popover" data-time-popover role="dialog" aria-label="Interment time picker">
-                                        @include('staff.intake._time-controls')
-                                    </div>
-                                </div>
-                            </div>
-                            @error('interment_at')
-                                <p class="intake-field-error">{{ $message }}</p>
-                            @enderror
-                            @error('interment_time')
-                                <p class="intake-field-error">{{ $message }}</p>
-                            @enderror
-                            <div id="interment_at_error" class="intake-field-error hidden">Interment Date cannot be earlier than the Funeral Ceremony Date.</div>
-                            <p id="interment_schedule_warning" class="hidden text-xs font-bold text-amber-600 mt-1">Funeral Ceremony and interment are usually on the same day. Please confirm if interment is scheduled on a different date.</p>
-                            </div>
-                        </div>
-
-                            </div>
-                        </div>
-
-                        <div class="service-detail-panel">
-                            <div class="service-detail-panel-header">
-                                <i class="bi bi-geo-alt"></i>
-                                <div>
-                                    <h4>Service Information</h4>
-                                    <p>Burial service details and current case progress.</p>
-                                </div>
-                            </div>
-
-                            <div class="service-info-stack">
-
-                        <div class="md:col-span-1">
-                            <label class="field-label" for="wake_location">Wake Location <span class="text-rose-500">*</span></label>
-                            <input type="text" name="wake_location" id="wake_location" value="{{ $intakeValue('wake_location') }}" data-label="wake location" class="form-input" placeholder="Chapel or House Address" required>
-                        </div>
-
-                        <div>
-                            <label class="field-label" for="place_of_cemetery">Place of Interment / Cemetery <span class="text-rose-500">*</span></label>
-                            <input type="text" name="place_of_cemetery" id="place_of_cemetery" value="{{ $intakeValue('place_of_cemetery') }}" data-label="place of interment or cemetery" class="form-input" placeholder="Cemetery Name" required>
-                        </div>
-
-                        <div>
-                            <label class="field-label" for="case_status">Case Status <span class="text-rose-500">*</span></label>
-
-                            @if($isOtherEntryMode)
-                                <input type="hidden" name="case_status" id="case_status" value="COMPLETED">
-                                <div class="form-input bg-emerald-50 border-emerald-200 text-emerald-800 font-bold flex items-center gap-2 pointer-events-none">
-                                    <i class="bi bi-check-circle-fill"></i> Completed
-                                </div>
-                            @else
-                                <select name="case_status" id="case_status" data-label="case status" class="form-input" required>
-                                    <option value="ACTIVE" selected>Ongoing</option>
-                                </select>
-                            @endif
-                        </div>
-                            </div>
-                        </div>
                     </div>
 
-                    <div class="service-photo-upload">
-                        <label class="field-label" for="deceased_photo">Upload Deceased Photo (Optional)</label>
-                        <input type="file" name="deceased_photo" id="deceased_photo" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300">
-                    </div>
-                    </div>{{-- /service-details-wrapper --}}
                 </section>
 
                 <section class="wizard-panel hidden" data-step="4" id="intake-step-4">
@@ -3739,7 +4307,57 @@
                         </div>
                     </div>
 
-                            <div id="billing_additional_services_section" class="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    @php
+                        $promotionReview = session('promotion_review');
+                    @endphp
+                    @if(is_array($promotionReview) && (string) old('package_id') === (string) ($promotionReview['package_id'] ?? ''))
+                        <div class="promotion-review-banner" role="alert" aria-labelledby="promotion-review-title">
+                            <div class="promotion-review-banner__heading">
+                                <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+                                <div>
+                                    <h4 id="promotion-review-title">Promotion changed since package selection</h4>
+                                    <p>{{ $promotionReview['package_name'] ?? 'Selected package' }} was repriced using the current promotion status. Review the updated amount before saving.</p>
+                                </div>
+                            </div>
+                            <div class="promotion-review-banner__comparison">
+                                <div><span>Previously shown total</span><strong>₱{{ number_format((float) ($promotionReview['previous_package_amount'] ?? 0), 2) }}</strong><small>{{ $promotionReview['previous_status'] ?? 'Unknown' }}</small></div>
+                                <div aria-hidden="true" class="promotion-review-banner__arrow"><i class="bi bi-arrow-right"></i></div>
+                                <div><span>Current calculated total</span><strong>₱{{ number_format((float) ($promotionReview['current_package_amount'] ?? 0), 2) }}</strong><small>{{ $promotionReview['current_status'] ?? 'Unknown' }}</small></div>
+                            </div>
+                            <label class="promotion-review-banner__acknowledgement">
+                                <input type="checkbox" name="promotion_acknowledged" value="1" required @checked(old('promotion_acknowledged'))>
+                                <span>I reviewed and accept the current server-calculated amount for this case.</span>
+                            </label>
+                        </div>
+                    @endif
+
+                    @if(is_array($addOnReview) && count($addOnReview['items'] ?? []))
+                        <div class="promotion-review-banner" role="alert" aria-labelledby="add-on-review-title">
+                            <div class="promotion-review-banner__heading">
+                                <i class="bi bi-tag" aria-hidden="true"></i>
+                                <div>
+                                    <h4 id="add-on-review-title">Add-on prices changed</h4>
+                                    <p>Catalog prices or billing units changed while this intake was open. Review the current price for each selected Add-on before saving.</p>
+                                </div>
+                            </div>
+                            <div class="mt-3 space-y-2">
+                                @foreach($addOnReview['items'] as $item)
+                                    <div class="grid grid-cols-1 gap-1 rounded-lg border border-[#e1d2b4] bg-white/60 px-3 py-2 text-sm sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
+                                        <strong class="min-w-0 break-words">{{ $item['name'] }}</strong>
+                                        <span class="text-xs text-[#625844]">Before: ₱{{ number_format((float) ($item['previous_price'] ?? 0), 2) }} / {{ $item['previous_unit'] ?: 'unit' }}</span>
+                                        <span class="text-xs font-bold text-[#302b22]">Now: ₱{{ number_format((float) ($item['current_price'] ?? 0), 2) }} / {{ $item['current_unit'] ?: 'unit' }} · Qty {{ (int) ($item['quantity'] ?? 1) }} · Line total ₱{{ number_format((float) ($item['current_line_total'] ?? 0), 2) }}</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                            <label class="promotion-review-banner__acknowledgement mt-3">
+                                <input type="checkbox" name="add_on_acknowledged" value="1" required @checked(old('add_on_acknowledged'))>
+                                <span>I reviewed and accept the current Add-on prices and line totals.</span>
+                            </label>
+                            @error('add_on_acknowledged') <div class="intake-field-error mt-2">{{ $message }}</div> @enderror
+                        </div>
+                    @endif
+
+                            <div id="billing_additional_services_section" class="wizard-divider-section">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
                                     <div>
                                         <h5 class="text-[10px] font-black uppercase tracking-widest text-slate-600">Manual Charges</h5>
@@ -3749,16 +4367,16 @@
                                         <i class="bi bi-plus-circle"></i> Add Line
                                     </button>
                                 </div>
-                                <div id="additional_service_items_list" class="mt-4 space-y-2"></div>
+                                <div id="additional_service_items_list" class="mt-4 space-y-2" role="region" aria-label="Manual charge lines"></div>
                                 <input type="hidden" name="additional_service_amount" id="additional_service_amount" value="{{ $intakeValue('additional_service_amount') }}">
                                 <input type="hidden" name="additional_services" id="additional_services" value="{{ $intakeValue('additional_services') }}">
                             </div>
 
-                    <div class="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6 mt-6">
+                    <div class="billing-workspace grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6 mt-6">
 
                         {{-- LEFT: Record Payment card --}}
-                        <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                            <div class="px-5 py-4 border-b border-slate-100 flex items-center gap-3 bg-slate-50">
+                        <div class="billing-payment-section">
+                            <div class="billing-section-heading flex items-center gap-3">
                                 <div class="billing-heading-icon w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0">
                                     <i class="bi bi-credit-card text-xs" aria-hidden="true"></i>
                                 </div>
@@ -3778,7 +4396,7 @@
                                     <span id="discount_help_text_secondary">Discount is tied to Senior Citizen status.</span>
                                 </div>
 
-                                <div class="rounded-lg border border-[#AEBBA8] bg-[#DCE6D6] px-4 py-3 text-xs font-medium text-[#3F4C3E]">
+                                <div class="billing-draft-note text-xs">
                                     <div class="flex items-start gap-2">
                                         <i class="bi bi-save2 mt-0.5 text-[#3E4A3D]"></i>
                                         <p>
@@ -3824,8 +4442,11 @@
                                 <div id="payment_form_fields" class="space-y-5">
                                     {{-- Payment Method --}}
                                     <div>
-                                        <label class="field-label text-xs">Payment Method</label>
-                                        <div class="billing-method-choice" id="payment_method_group" role="radiogroup" aria-label="Payment method" aria-describedby="payment_method_hint">
+                                        <div class="payment-method-heading">
+                                            <span class="field-label text-xs">Payment Method</span>
+                                            <button type="button" id="change_intake_payment_method" class="inline-upgrade-button hidden" aria-controls="payment_method_group">Change payment method</button>
+                                        </div>
+                                        <div class="billing-method-choice" id="payment_method_group" role="radiogroup" aria-label="Payment method">
                                             <label class="payment-method-card cursor-pointer">
                                                 <input type="radio" name="payment_method" value="cash" class="payment-method-radio sr-only" {{ in_array($intakeValue('payment_method'), ['cash', 'CASH'], true) ? 'checked' : '' }}>
                                                 <span class="flex flex-col gap-1 text-sm font-bold text-slate-700">
@@ -3841,27 +4462,21 @@
                                                 </span>
                                             </label>
                                         </div>
-                                        @if(!$isOtherEntryMode)
-                                            <label class="payment-method-card cursor-pointer mt-2">
-                                                <input type="radio" name="payment_method" value="none" class="payment-method-radio sr-only" {{ $intakeValue('payment_method') === 'none' ? 'checked' : '' }}>
-                                                <span class="payment-choice-title">No payment received yet</span>
-                                            </label>
-                                        @endif
-                                        <p id="payment_method_hint" class="mt-2 text-xs font-medium text-slate-500">Select a payment method or confirm that no payment has been received.</p>
-                                        <p id="payment_method_error" class="intake-field-error hidden" role="alert">Select a payment method or No payment received yet before continuing.</p>
+                                        <p id="payment_method_error" class="intake-field-error hidden" role="alert">Select Cash or Cashless to record a payment.</p>
                                     </div>
 
                                     <div id="payment_details_section" class="payment-details-shell hidden space-y-5">
                                     <div id="cash_reference_wrap">
-                                        <label class="field-label" for="cash_reference_number">Receipt / Reference No. <span class="text-slate-400 font-medium">(optional)</span></label>
-                                        <input type="text" name="reference_number" id="cash_reference_number" value="{{ $intakeValue('reference_number') }}" data-label="receipt reference" class="form-input" placeholder="Optional receipt or reference number">
+                                        <label class="field-label" for="cash_reference_number">Receipt / OR No. <span class="text-rose-500">*</span></label>
+                                        <input type="text" name="receipt_or_no" id="cash_reference_number" value="{{ $intakeValue('receipt_or_no') }}" data-label="Receipt / OR number" class="form-input" minlength="3" maxlength="50" placeholder="e.g., OR-001234">
+                                        @error('receipt_or_no') <p id="cash_reference_number_inline_error" class="intake-field-error" role="alert">{{ $message }}</p> @enderror
                                     </div>
 
                                     <div id="cashless_details_wrap" class="hidden space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
                                         <div>
-                                            <label class="field-label" for="cashless_type">Cashless Type</label>
+                                            <label class="field-label" for="cashless_type">Cashless Type <span class="text-rose-500">*</span></label>
                                             <div class="payment-select-wrap"><i class="bi bi-credit-card payment-select-icon" aria-hidden="true"></i>
-                                            <select name="cashless_type" id="cashless_type" class="form-input">
+                                            <select name="cashless_type" id="cashless_type" class="form-input" data-native-select>
                                                 <option value="">Select cashless type</option>
                                                 <option value="bank_transfer" {{ $intakeValue('cashless_type', in_array($intakeValue('payment_method'), ['bank_transfer', 'BANK_TRANSFER'], true) ? 'bank_transfer' : null) === 'bank_transfer' ? 'selected' : '' }}>Bank Transfer</option>
                                                 <option value="gcash" {{ $intakeValue('cashless_type') === 'gcash' ? 'selected' : '' }}>GCash</option>
@@ -3870,11 +4485,12 @@
                                                 <option value="other" {{ $intakeValue('cashless_type') === 'other' ? 'selected' : '' }}>Other</option>
                                             </select>
                                             <i class="bi bi-chevron-down payment-select-chevron" aria-hidden="true"></i></div>
+                                            @error('cashless_type') <p id="cashless_type_inline_error" class="intake-field-error" role="alert">{{ $message }}</p> @enderror
                                         </div>
 
                                         <div data-intake-cashless-panel="bank_transfer" class="intake-cashless-panel hidden grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
-                                                <label class="field-label">Bank Name</label>
+                                                <label class="field-label" for="bank_name">Bank Name <span class="text-rose-500">*</span></label>
                                                 <div class="payment-select-wrap"><i class="bi bi-bank payment-select-icon" aria-hidden="true"></i>
                                                 <select name="bank_name" id="bank_name" class="form-input">
                                                     <option value="">Select bank</option>
@@ -3883,42 +4499,44 @@
                                                     @endforeach
                                                 </select>
                                                 <i class="bi bi-chevron-down payment-select-chevron" aria-hidden="true"></i></div>
+                                                @error('bank_name') <p id="bank_name_inline_error" class="intake-field-error" role="alert">{{ $message }}</p> @enderror
                                             </div>
                                             <div>
-                                                <label class="field-label" for="account_name">Account Name</label>
-                                                <input type="text" name="account_name" id="account_name" value="{{ $intakeValue('account_name') }}" class="form-input" maxlength="120" placeholder="Optional">
+                                                <label class="field-label" for="account_name">Account Name <span class="payment-field-note">(Optional)</span></label>
+                                                <input type="text" name="account_name" id="account_name" value="{{ $intakeValue('account_name') }}" class="form-input" maxlength="120" placeholder="e.g. Maria Dela Cruz">
                                             </div>
                                             <div id="other_bank_name_wrap" class="hidden md:col-span-2">
-                                                <label class="field-label" for="other_bank_name">Other Bank Name</label>
-                                                <input type="text" name="other_bank_name" id="other_bank_name" value="{{ $intakeValue('other_bank_name') }}" class="form-input" maxlength="100">
+                                                <label class="field-label" for="other_bank_name">Other Bank Name <span class="text-rose-500">*</span></label>
+                                                <input type="text" name="other_bank_name" id="other_bank_name" value="{{ $intakeValue('other_bank_name') }}" class="form-input" minlength="2" maxlength="80" placeholder="e.g. EastWest Bank">
+                                                @error('other_bank_name') <p id="other_bank_name_inline_error" class="intake-field-error" role="alert">{{ $message }}</p> @enderror
                                             </div>
                                         </div>
 
                                         <div data-intake-cashless-panel="gcash" class="intake-cashless-panel hidden grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
-                                                <label class="field-label">GCash Account Name</label>
-                                                <input type="text" data-intake-account-name-field value="{{ $intakeValue('account_name') }}" class="form-input" maxlength="120" placeholder="Optional">
+                                                <label class="field-label" for="gcash_account_name">GCash Account Name <span class="payment-field-note">(Optional)</span></label>
+                                                <input type="text" id="gcash_account_name" data-intake-account-name-field value="{{ $intakeValue('account_name') }}" class="form-input" maxlength="120" placeholder="e.g. Maria Dela Cruz">
                                             </div>
                                             <div>
-                                                <label class="field-label">GCash Mobile Number</label>
-                                                <input type="text" data-intake-mobile-number-field value="{{ $intakeValue('mobile_number') }}" class="form-input" maxlength="30" placeholder="Optional">
+                                                <label class="field-label" for="gcash_mobile_number">GCash Mobile Number <span class="payment-field-note">(Optional)</span></label>
+                                                <input type="text" id="gcash_mobile_number" data-intake-mobile-number-field value="{{ $intakeValue('mobile_number') }}" class="form-input" maxlength="30" inputmode="tel" placeholder="e.g. 09171234567">
                                             </div>
                                         </div>
 
                                         <div data-intake-cashless-panel="maya" class="intake-cashless-panel hidden grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
-                                                <label class="field-label">Maya Account Name</label>
-                                                <input type="text" data-intake-account-name-field value="{{ $intakeValue('account_name') }}" class="form-input" maxlength="120" placeholder="Optional">
+                                                <label class="field-label" for="maya_account_name">Maya Account Name <span class="payment-field-note">(Optional)</span></label>
+                                                <input type="text" id="maya_account_name" data-intake-account-name-field value="{{ $intakeValue('account_name') }}" class="form-input" maxlength="120" placeholder="e.g. Maria Dela Cruz">
                                             </div>
                                             <div>
-                                                <label class="field-label">Maya Mobile Number</label>
-                                                <input type="text" data-intake-mobile-number-field value="{{ $intakeValue('mobile_number') }}" class="form-input" maxlength="30" placeholder="Optional">
+                                                <label class="field-label" for="maya_mobile_number">Maya Mobile Number <span class="payment-field-note">(Optional)</span></label>
+                                                <input type="text" id="maya_mobile_number" data-intake-mobile-number-field value="{{ $intakeValue('mobile_number') }}" class="form-input" maxlength="30" inputmode="tel" placeholder="e.g. 09171234567">
                                             </div>
                                         </div>
 
                                         <div data-intake-cashless-panel="card" class="intake-cashless-panel hidden grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
-                                                <label class="field-label" for="card_type">Card Type</label>
+                                                <label class="field-label" for="card_type">Card Type <span class="payment-field-note">(Optional)</span></label>
                                                 <select name="card_type" id="card_type" class="form-input">
                                                     <option value="">Select card type</option>
                                                     <option value="debit" {{ $intakeValue('card_type') === 'debit' ? 'selected' : '' }}>Debit</option>
@@ -3926,36 +4544,59 @@
                                                 </select>
                                             </div>
                                             <div>
-                                                <label class="field-label" for="terminal_provider">Terminal / Provider</label>
-                                                <input type="text" name="terminal_provider" id="terminal_provider" value="{{ $intakeValue('terminal_provider') }}" class="form-input" maxlength="80" placeholder="Optional">
+                                                <label class="field-label" for="terminal_provider">Terminal / Provider <span class="payment-field-note">(Optional)</span></label>
+                                                <input type="text" name="terminal_provider" id="terminal_provider" value="{{ $intakeValue('terminal_provider') }}" class="form-input" maxlength="80" placeholder="e.g. BDO POS">
                                             </div>
+                                            <p id="card_payment_hint" class="payment-field-note md:col-span-2">Enter at least one: Approval Code or Transaction Reference No.</p>
                                             <div>
                                                 <label class="field-label" for="approval_code">Approval Code</label>
-                                                <input type="text" name="approval_code" id="approval_code" value="{{ $intakeValue('approval_code') }}" class="form-input" maxlength="40">
+                                                <input type="text" name="approval_code" id="approval_code" value="{{ $intakeValue('approval_code') }}" class="form-input" maxlength="40" placeholder="e.g. A12345" aria-describedby="card_payment_hint">
                                             </div>
+                                            <div id="intake_card_reference_slot"></div>
+                                            <p id="approval_code_inline_error" class="intake-field-error md:col-span-2 @unless($errors->has('approval_code')) hidden @endunless" role="alert">{{ $errors->first('approval_code') }}</p>
                                         </div>
 
                                         <div data-intake-cashless-panel="other" class="intake-cashless-panel hidden grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
-                                                <label class="field-label">Payment Channel</label>
-                                                <input type="text" data-intake-payment-channel-field value="{{ $intakeValue('payment_channel') }}" class="form-input" maxlength="100" placeholder="e.g. PalawanPay">
+                                                <label class="field-label" for="intake_payment_channel">Payment Channel <span class="text-rose-500">*</span></label>
+                                                <input type="text" id="intake_payment_channel" data-intake-payment-channel-field value="{{ $intakeValue('payment_channel') }}" class="form-input" minlength="2" maxlength="80" placeholder="e.g. PalawanPay">
+                                                @error('payment_channel') <p id="intake_payment_channel_inline_error" class="intake-field-error" role="alert">{{ $message }}</p> @enderror
                                             </div>
                                             <div>
-                                                <label class="field-label" for="payment_notes">Notes</label>
-                                                <input type="text" name="payment_notes" id="payment_notes" value="{{ $intakeValue('payment_notes') }}" class="form-input" maxlength="255" placeholder="Optional">
+                                                <label class="field-label" for="payment_notes">Notes <span class="payment-field-note">(Optional)</span></label>
+                                                <input type="text" name="payment_notes" id="payment_notes" value="{{ $intakeValue('payment_notes') }}" class="form-input" maxlength="255" placeholder="e.g. Paid at the branch counter">
+                                                @error('payment_notes') <p id="payment_notes_inline_error" class="intake-field-error" role="alert">{{ $message }}</p> @enderror
                                             </div>
                                         </div>
 
-                                        <div>
-                                            <label class="field-label" for="reference_number">Reference No.</label>
-                                            <input type="text" id="reference_number" value="{{ $intakeValue('reference_number', $intakeValue('bank_reference')) }}" data-label="reference number" class="form-input" placeholder="e.g. TXN-20240101-001">
+                                        <div id="intake_reference_slot">
+                                            <div id="intake_reference_field">
+                                                <label class="field-label" for="reference_number">Transaction Reference No. <span id="cashless_reference_required" class="text-rose-500">*</span></label>
+                                                <input type="text" name="reference_number" id="reference_number" value="{{ $intakeValue('reference_number', $intakeValue('bank_reference')) }}" data-label="reference number" class="form-input" placeholder="e.g. TXN-20240101-001">
+                                                @if($intakeValue('payment_method') !== 'cash')
+                                                    @error('reference_number') <p id="reference_number_inline_error" class="intake-field-error" role="alert">{{ $message }}</p> @enderror
+                                                @endif
+                                            </div>
                                         </div>
                                         <input type="hidden" name="wallet_provider" id="wallet_provider" value="{{ $intakeValue('wallet_provider') }}">
                                         <input type="hidden" name="mobile_number" id="mobile_number" value="{{ $intakeValue('mobile_number') }}">
                                         <input type="hidden" name="payment_channel" id="payment_channel" value="{{ $intakeValue('payment_channel') }}">
                                         <input type="hidden" name="bank_reference" id="bank_reference" value="{{ $intakeValue('bank_reference') }}">
                                     </div>
-
+                                    <x-payment-proof-upload context="intake" :proof="$intakeValue('payment_proof_id')" :form-id="$intakeValue('payment_proof_form_id')" />
+                                    @if($historicalMode ?? false)
+                                        @php
+                                            $retainedProof = $intakeValue('historical_primary_existing_proof');
+                                        @endphp
+                                        @if(is_array($retainedProof) && !empty($retainedProof['path']))
+                                            @if(session('historical_parent_submission_id') !== null && $intakeValue('historical_primary_parent_payment_index') !== '')<p class="mt-2 text-sm text-emerald-900">Previously attached proof retained: <a class="font-semibold underline" target="_blank" rel="noopener" href="{{ route('historical-cases.payment-proof', [session('historical_parent_submission_id'), $intakeValue('historical_primary_parent_payment_index')]) }}">{{ $retainedProof['name'] ?? 'View proof' }}</a></p>@endif
+                                        @endif
+                                        <div class="mt-3">
+                                            <label class="field-label" for="payment_proof_missing_reason">If the old payment proof is unavailable, explain why</label>
+                                            <textarea name="payment_proof_missing_reason" id="payment_proof_missing_reason" class="form-input min-h-20" maxlength="500" placeholder="Example: Original receipt was not retained; amount and date were transcribed from the branch ledger.">{{ $intakeValue('payment_proof_missing_reason') }}</textarea>
+                                            <p class="mt-1 text-xs text-slate-500">A reviewer will see this explanation. Do not claim the payment is verified when no proof is attached.</p>
+                                        </div>
+                                    @endif
                                     </div>
 
                                     @if(!$isOtherEntryMode)
@@ -3964,11 +4605,11 @@
                                             <div class="bpay-tab-group" id="payment_type_group" role="radiogroup" aria-label="Payment type">
                                                 <label class="payment-type-card cursor-pointer transition-colors">
                                                     <input type="radio" name="payment_type" value="FULL" class="payment-type-radio sr-only" {{ $intakeValue('payment_type') === 'FULL' ? 'checked' : '' }}>
-                                                    <span class="payment-type-copy"><span class="payment-choice-title"><i class="bi bi-check-circle" aria-hidden="true"></i> Full Payment</span><span class="payment-choice-help">Settle the full balance.</span></span>
+                                                    <span class="payment-type-copy"><span class="payment-choice-title"><i class="bi bi-check-circle" aria-hidden="true"></i> Full Payment</span></span>
                                                 </label>
                                                 <label class="payment-type-card cursor-pointer transition-colors">
                                                     <input type="radio" name="payment_type" value="PARTIAL" class="payment-type-radio sr-only" {{ $intakeValue('payment_type') === 'PARTIAL' ? 'checked' : '' }}>
-                                                    <span class="payment-type-copy"><span class="payment-choice-title"><i class="bi bi-pie-chart" aria-hidden="true"></i> Partial Payment</span><span class="payment-choice-help">Record a deposit or installment.</span></span>
+                                                    <span class="payment-type-copy"><span class="payment-choice-title"><i class="bi bi-pie-chart" aria-hidden="true"></i> Partial Payment</span></span>
                                                 </label>
                                             </div>
                                             <div id="payment_type_error" class="intake-field-error hidden">Please select a type.</div>
@@ -4001,11 +4642,10 @@
                                         <div>
                                             <label class="field-label" for="paid_at">Payment Received Date &amp; Time</label>
                                             <input type="datetime-local" name="paid_at" id="paid_at" value="{{ $intakeValue('paid_at', '') }}" data-label="payment received date/time" class="form-input">
-                                            <p class="intake-field-help mt-2 text-xs">Select the actual date and time payment was received. Required when recording a payment. Review this saved time when resuming a draft; recording time is saved separately.</p>
                                         </div>
                                     </div>
 
-                                    <div class="grid grid-cols-3 gap-3">
+                                    <div class="billing-payment-metrics grid grid-cols-3 gap-3">
                                         <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
                                             <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Status</div>
                                             <div id="payment_status_preview" class="text-base font-black text-slate-800">UNPAID</div>
@@ -4026,9 +4666,9 @@
                         </div>
 
                         {{-- RIGHT: Live Summary card --}}
-                        <div class="self-start sticky top-6">
-                            <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                                <div class="px-5 py-4 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
+                        <div class="billing-summary self-start sticky top-6">
+                            <div class="billing-summary-panel">
+                                <div class="billing-section-heading flex items-center gap-3">
                                     <div class="billing-heading-icon w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0">
                                         <i class="bi bi-receipt text-xs" aria-hidden="true"></i>
                                     </div>
@@ -4050,6 +4690,7 @@
                                         <span class="text-slate-500">Selected Add-ons</span>
                                         <span class="font-bold text-slate-900 whitespace-nowrap">&#8369;&nbsp;<span id="summary_add_ons">0.00</span></span>
                                     </div>
+                                    <div id="summary_package_adjustments" class="space-y-2"></div>
 
                                     <div class="flex justify-between items-center gap-2">
                                         <span class="text-emerald-600 text-xs">Discount (<span id="summary_discount_source">None</span>)</span>
@@ -4098,6 +4739,9 @@
                                             <span id="summary_reference_label">Reference No.</span>
                                             <span id="summary_payment_reference" class="font-bold text-slate-800 text-right break-all">-</span>
                                         </div>
+                                        <div data-proof-review-wrap class="flex justify-between items-start gap-3 text-slate-500" hidden>
+                                            <span>Payment proof</span><a data-proof-review target="_blank" rel="noopener" hidden>View Attached Proof</a>
+                                        </div>
                                         <div id="summary_notes_row" class="hidden flex justify-between items-start gap-3 text-slate-500">
                                             <span>Notes</span>
                                             <span id="summary_payment_notes" class="font-bold text-slate-800 text-right break-words">-</span>
@@ -4117,6 +4761,50 @@
                         </div>
 
                     </div>
+
+                    @if($historicalMode ?? false)
+                        <section class="mt-6 rounded-2xl bg-amber-50/70 p-4 md:p-5" aria-labelledby="historical-payments-heading">
+                            <div class="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                    <h4 id="historical-payments-heading" class="text-base font-bold text-slate-900">Other Past Payments</h4>
+                                    <p class="mt-1 text-sm text-slate-600">Add each old payment with its actual date. These stay pending and are not official until approval.</p>
+                                </div>
+                                <button type="button" id="add_historical_payment" class="inline-flex items-center gap-2 rounded-xl bg-emerald-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-900"><i class="bi bi-plus-lg" aria-hidden="true"></i> Add payment</button>
+                            </div>
+                            @error('historical_payments')<p class="mt-3 rounded-lg bg-rose-100 px-3 py-2 text-sm font-semibold text-rose-900" role="alert">{{ $message }}</p>@enderror
+                            <div id="historical_payment_rows" class="mt-4 space-y-4">
+                                @foreach(old('historical_payments', []) as $index => $row)
+                                    @include('staff.intake._historical_payment_row', ['index' => $index, 'row' => $row])
+                                @endforeach
+                            </div>
+                            <template id="historical_payment_template">
+                                @include('staff.intake._historical_payment_row', ['index' => '__INDEX__', 'row' => [], 'isTemplate' => true])
+                            </template>
+                            <p class="mt-3 text-xs text-slate-600">Payment proof is strongly preferred. If the original proof is unavailable, explain why so the reviewer can assess the ledger evidence.</p>
+                        </section>
+                        <script>
+                            (() => {
+                                const list = document.getElementById('historical_payment_rows');
+                                const template = document.getElementById('historical_payment_template');
+                                const add = document.getElementById('add_historical_payment');
+                                if (!list || !template || !add) return;
+                                let next = Math.max(-1, ...[...list.querySelectorAll('[data-historical-payment-index]')].map((el) => Number(el.dataset.historicalPaymentIndex) || 0)) + 1;
+                                const bind = (card) => {
+                                    card.querySelector('[data-remove-historical-payment]')?.addEventListener('click', () => card.remove());
+                                    const method = card.querySelector('[data-historical-method]');
+                                    const cashless = card.querySelector('[data-historical-cashless-fields]');
+                                    const update = () => cashless?.classList.toggle('hidden', method?.value !== 'cashless');
+                                    method?.addEventListener('change', update); update();
+                                };
+                                list.querySelectorAll('[data-historical-payment-index]').forEach(bind);
+                                add.addEventListener('click', () => {
+                                    const html = template.innerHTML.replaceAll('__INDEX__', String(next)).replaceAll('__FORM_ID__', (crypto.randomUUID?.() || `hist-${Date.now()}-${next}`));
+                                    const holder = document.createElement('div'); holder.innerHTML = html.trim();
+                                    const card = holder.firstElementChild; list.append(card); bind(card); next += 1;
+                                });
+                            })();
+                        </script>
+                    @endif
                 </section>
 
                 <section class="wizard-panel hidden" data-step="5" id="intake-step-5">
@@ -4142,7 +4830,7 @@
                     @endphp
                     <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
                         @foreach($reviewCards as $id => $card)
-                            <div class="rounded-2xl border border-slate-200 bg-white p-5 md:p-6 group relative shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
+                            <div class="wizard-review-section group relative">
                                 <button
                                     type="button"
                                     class="review-edit absolute top-4 right-4 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:text-slate-900 flex items-center gap-1 min-h-8 px-2"
@@ -4158,13 +4846,25 @@
                         @endforeach
                     </div>
 
-                    <label for="confirm_review" class="review-confirmation mt-8 rounded-xl border p-5 flex items-start gap-4 cursor-pointer">
-                        <input type="checkbox" name="confirm_review" id="confirm_review" value="1" class="review-confirmation-input" required>
-                        <span class="review-confirmation-mark" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
-                        <span class="review-confirmation-copy text-base font-semibold leading-snug">
-                            I verify that I have reviewed this data and it is accurate to the best of my knowledge.
-                        </span>
-                    </label>
+                    @if($historicalMode ?? false)
+                        <div class="mt-6 rounded-xl bg-amber-50/70 p-4 md:p-5">
+                            <label class="field-label text-slate-900" for="historical_entry_reason">Why is this completed case being recorded now? <span class="text-rose-600">*</span></label>
+                            <textarea name="historical_entry_reason" id="historical_entry_reason" class="form-input min-h-24" minlength="10" maxlength="1000" required placeholder="Explain why the case was not entered when the service took place.">{{ $intakeValue('historical_entry_reason') }}</textarea>
+                            <p class="mt-1 text-xs text-slate-600">This explanation and the submitter will be visible in the approval history.</p>
+                            @error('historical_entry_reason')<p class="intake-field-error" role="alert">{{ $message }}</p>@enderror
+                        </div>
+                    @endif
+
+                    <div class="review-confirmation-wrap mt-8">
+                        <label for="confirm_review" class="review-confirmation rounded-xl border p-5 flex items-start gap-4 cursor-pointer" aria-describedby="confirm_review_error">
+                            <input type="checkbox" name="confirm_review" id="confirm_review" value="1" class="review-confirmation-input" required>
+                            <span class="review-confirmation-mark" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
+                            <span class="review-confirmation-copy text-base font-semibold leading-snug">
+                                I verify that I have reviewed this data and it is accurate to the best of my knowledge.
+                            </span>
+                        </label>
+                        <p id="confirm_review_error" class="intake-field-error hidden" role="alert"></p>
+                    </div>
                 </section>
             </div>
 
@@ -4176,12 +4876,13 @@
                     </button>
                 </div>
 
+                <p id="schedule_advisory_summary" class="schedule-advisory-summary" role="status" hidden></p>
                 {{-- Right group: Back + Continue / Save --}}
                 <div class="footer-right-group flex flex-1 sm:flex-none sm:ml-auto items-center gap-2">
                     <button
                         type="submit"
                         id="saveIntakeDraft"
-                        formaction="{{ route('intake.drafts.save') }}"
+                        formaction="{{ route('intake.drafts.save', $intakeModal ? ['intake_modal' => 1] : []) }}"
                         formmethod="POST"
                         formnovalidate
                         class="hidden"
@@ -4192,6 +4893,7 @@
                         Save Draft
                     </button>
                     <button type="button" id="wizardPrev" class="w-auto shrink-0 px-6 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all disabled:opacity-30 disabled:hover:bg-white">
+                        <i class="bi bi-chevron-left me-1" aria-hidden="true"></i>
                         Back
                     </button>
                     <button type="button" id="wizardNext" class="w-full sm:w-auto sm:min-w-[190px] px-8 py-3 rounded-xl bg-slate-900 text-white text-sm font-bold transition-all hover:bg-[#3E4A3D] hover:-translate-y-0.5">
@@ -4199,12 +4901,14 @@
                     </button>
 
                     <button type="submit" id="saveIntakeRecord" class="hidden w-full sm:w-auto sm:min-w-[190px] px-8 py-3 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-all disabled:opacity-50">
-                        Save Record
+                        {{ ($historicalMode ?? false) ? 'Submit for Approval' : 'Save Record' }}
                     </button>
                 </div>
             </div>
         </form>
+        @unless($intakeModal)
         </div>{{-- /intake-form-wrapper --}}
+        @endunless
     </div>{{-- /intake-section-shell --}}
 
     {{-- Cancel Confirmation Modal --}}
@@ -4212,14 +4916,16 @@
         <div class="absolute inset-0" id="intakeCancelModalBackdrop" style="background:var(--modal-scrim);"></div>
         <div class="cancel-modal-box">
             <p id="intakeCancelTitle" class="cancel-modal-title">Save this intake before leaving?</p>
-            <p class="cancel-modal-msg">You have unsaved intake details. Save them as a draft so staff can continue later, or leave without saving.</p>
+            <p class="cancel-modal-msg">{{ $intakeModal
+                ? 'You have unsaved changes. Save them as a draft to continue later, or leave without saving.'
+                : 'You have unsaved intake details. Save them as a draft so staff can continue later, or leave without saving.' }}</p>
             <div class="cancel-modal-actions">
-                <button type="button" id="intakeCancelModalKeep">Keep Editing</button>
-                <button type="button" id="intakeCancelModalDiscard">Leave without saving</button>
                 <button type="button" id="intakeCancelModalSaveDraft">
                     <i class="bi bi-save2" aria-hidden="true"></i>
                     Save as Draft
                 </button>
+                <button type="button" id="intakeCancelModalKeep">Keep Editing</button>
+                <button type="button" id="intakeCancelModalDiscard">Leave without saving</button>
             </div>
         </div>
     </dialog>
@@ -4228,6 +4934,7 @@
 
 <link rel="stylesheet" href="{{ asset('vendor/offline/flatpickr.min.css') }}">
 <script src="{{ asset('vendor/offline/flatpickr.min.js') }}"></script>
+@include('partials.service-field-popover')
 <script>
 (() => {
     const f = document.getElementById('intakeWizardForm');
@@ -4245,6 +4952,53 @@
     const lockOverlay = document.getElementById('intake_lock_overlay');
 
     const branch = document.getElementById('branch_id');
+    const viewingType = document.getElementById('viewing_type');
+    const viewingLocation = document.getElementById('wake_location');
+    const viewingLocationWrap = document.getElementById('viewing_location_wrap');
+    const viewingLocationLabel = document.getElementById('viewing_location_label');
+    const viewingLocationRequired = document.getElementById('viewing_location_required');
+    const chapelAddress = document.getElementById('chapel_address');
+    const chapelChargePanel = document.getElementById('chapel_charge_panel');
+    const viewingFields = viewingType.closest('.viewing-fields');
+    const viewingCemetery = viewingFields.querySelector('.viewing-cemetery');
+    const chapelChargeControls = document.getElementById('chapel_charge_controls');
+    const chapelRate = document.getElementById('chapel_add_on_id');
+    const chapelRateReadout = document.getElementById('chapel_rate_readout');
+    const chapelAddressReadout = document.getElementById('chapel_address_readout');
+    const chapelPreviewPanel = document.getElementById('chapel_preview_panel');
+    const chapelScheduleBox = document.getElementById('chapel-schedule-context');
+    const chapelChargePreview = document.getElementById('chapel_charge_preview');
+    const chapelCoverageChoices = [...f.querySelectorAll('[name="chapel_coverage"]')];
+    const chapelCoverageError = document.getElementById('chapel_coverage_error');
+    const chapelPackageFeedback = document.getElementById('chapel_package_feedback');
+    const chapelSaveDraft = document.getElementById('chapel_save_draft');
+    const homeViewingNotice = document.getElementById('home_viewing_notice');
+    const chapelCategory = @json(\App\Models\AddOnCatalog::CHAPEL_VIEWING);
+    const isChapelViewing = () => viewingType.value === 'chapel';
+    const chapelCoverage = () => chapelCoverageChoices.find(choice => choice.checked)?.value || '';
+    let homeViewingAddress = isChapelViewing() ? '' : viewingLocation.value;
+    const syncViewingLocation = (animate = false) => {
+        const chapel = isChapelViewing();
+        const selected = !!viewingType.value;
+        viewingFields.toggleAttribute('data-chapel-viewing', chapel);
+        if (chapel && viewingCemetery.nextElementSibling !== chapelChargePanel) {
+            chapelChargePanel.before(viewingCemetery);
+        } else if (!chapel && viewingCemetery.previousElementSibling !== viewingLocationWrap) {
+            viewingLocationWrap.after(viewingCemetery);
+        }
+        viewingLocation.disabled = !selected && !viewingLocation.value;
+        viewingLocation.required = !chapel;
+        viewingLocationWrap.hidden = chapel;
+        viewingLocationRequired.hidden = !selected;
+        viewingLocationLabel.textContent = chapel ? 'Chapel Name' : selected ? 'Wake Address' : 'Viewing Location';
+        viewingLocation.dataset.label = viewingLocationLabel.textContent.toLowerCase();
+        viewingLocation.placeholder = chapel ? 'e.g., Main Branch Chapel'
+            : selected ? 'e.g., 24 Mabini St., Brgy. San Jose, Quezon City' : 'Choose a viewing type first';
+        chapelAddress.disabled = !chapel;
+        if (animate && selected && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            viewingLocationWrap.animate?.([{ opacity:.65 }, { opacity:1 }], { duration:160, easing:'ease-out' });
+        }
+    };
     const branchError = document.getElementById('branch_error');
     const branchBtns = [...document.querySelectorAll('.branch-toggle')];
     const nextCode = document.getElementById('next_case_code');
@@ -4254,6 +5008,7 @@
 
     const requestDate = document.getElementById('service_requested_at');
     const requestDateDisplay = document.getElementById('service_requested_display');
+    const historicalIntake = document.querySelector('input[name="historical_mode"]')?.value === '1';
 
     const reporterBox = document.getElementById('external_reporter_box');
     const reporterName = document.getElementById('reporter_name');
@@ -4267,6 +5022,18 @@
 
     const clientAddr = document.getElementById('client_address');
     const deceasedAddr = document.getElementById('deceased_address');
+    const clientRelationship = document.getElementById('client_relationship');
+    const copyClientSurnames = document.getElementById('copy_client_surnames');
+    const surnameFields = ['middle_name', 'last_name'].map(name => ({
+        source: f.elements.namedItem(`client_${name}`),
+        destination: f.elements.namedItem(`deceased_${name}`),
+    }));
+    const availableSurnameCopies = () => surnameFields.filter(({ source, destination }) =>
+        source?.value.trim() && destination && !destination.value.trim());
+    const syncSurnameCopy = () => {
+        const family = ['Father', 'Mother', 'Spouse', 'Child', 'Sibling', 'Relative'];
+        copyClientSurnames.hidden = !family.includes(clientRelationship?.value) || !availableSurnameCopies().length;
+    };
 
     const wakeDays = document.getElementById('wake_days');
     const wakeDurationDisplay = document.getElementById('wake_duration_display');
@@ -4298,11 +5065,22 @@
     const proofWrap = document.getElementById('senior_proof_wrap');
     const proofInput = document.getElementById('senior_proof');
 
-    const pkgList = document.getElementById('packageCardList');
+    const regularPackageChoice = document.getElementById('regular_package_choice');
+    const regularPackagePicker = window.bindServiceFieldSelection(regularPackageChoice, 'Choose a package');
+    if (regularPackagePicker) {
+        const wrapper = regularPackageChoice.closest('.intake-package-select');
+        wrapper.classList.remove('global-filter-select-wrap');
+        wrapper.querySelector('[data-filter-select-icon]')?.remove();
+    }
     const pkgRadios = [...document.querySelectorAll('.package-radio')];
     const pkgCards = [...document.querySelectorAll('.package-card')];
     const pkgAmount = document.getElementById('package_amount');
     const packageError = document.getElementById('package_error');
+    const packageModeChooser = document.querySelector('.package-mode-chooser');
+    const packageModeOptions = [...document.querySelectorAll('[data-package-mode]')];
+    const regularPackageArea = document.getElementById('regular_package_area');
+    const customPackageArea = document.getElementById('custom_package_area');
+    let lastRegularPackageValue = pkgRadios.find((radio) => radio.checked && radio.value !== 'custom')?.value || '';
 
     const customPkgRadio = document.getElementById('custom_package_radio');
     const prefPkg = document.getElementById('client_pref_package');
@@ -4312,16 +5090,46 @@
     const customPkgFields = document.getElementById('custom_package_fields');
     const customPkgPriceDisplay = document.getElementById('custom_package_price_display');
 
+    const showPackageMode = (mode, { restoreSelection = true } = {}) => {
+        const isRegular = mode === 'regular';
+        const isCustom = mode === 'custom';
+        packageModeChooser?.classList.toggle('hidden', isRegular || isCustom);
+        regularPackageArea?.classList.toggle('hidden', !isRegular);
+        customPackageArea?.classList.toggle('hidden', !isCustom);
+        packageModeOptions.forEach((option) => option.setAttribute('aria-checked', option.dataset.packageMode === mode ? 'true' : 'false'));
+        if (isCustom && customPkgRadio) {
+            const currentRegular = pkgRadios.find((radio) => radio.checked && radio.value !== 'custom');
+            if (currentRegular) lastRegularPackageValue = currentRegular.value;
+            customPkgRadio.checked = true;
+        } else if (isRegular) {
+            const previous = restoreSelection && lastRegularPackageValue
+                ? pkgRadios.find((radio) => String(radio.value) === String(lastRegularPackageValue))
+                : null;
+            if (previous) previous.checked = true;
+            else if (customPkgRadio) customPkgRadio.checked = false;
+        }
+        renderPkg(false);
+        syncControls();
+        render();
+    };
+
+    const syncPackageModeFromSelection = () => {
+        const selected = pkgRadios.find(radio => radio.checked);
+        if (selected) {
+            showPackageMode(selected === customPkgRadio ? 'custom' : 'regular', { restoreSelection: false });
+            return;
+        }
+        lastRegularPackageValue = '';
+        packageModeChooser?.classList.remove('hidden');
+        regularPackageArea?.classList.add('hidden');
+        customPackageArea?.classList.add('hidden');
+        packageModeOptions.forEach(option => option.setAttribute('aria-checked', 'false'));
+    };
+
     const inclusions = document.getElementById('selected_package_inclusions');
     const freebies = document.getElementById('selected_package_freebies');
-    const packageDetailsModal = document.getElementById('package_details_modal');
-    const packageDetailsTitle = document.getElementById('package_details_title');
-    const packageDetailsSubtitle = document.getElementById('package_details_subtitle');
-    const packageDetailTabs = [...document.querySelectorAll('.package-detail-tab')];
-    const packageDetailPanels = [...document.querySelectorAll('.package-detail-panel')];
-    const packageDetailServices = document.getElementById('package_detail_services');
-    const packageDetailFreebies = document.getElementById('package_detail_freebies');
-    const packageDetailCoverage = document.getElementById('package_detail_coverage');
+    const hearseAssignmentFields = document.getElementById('hearse_assignment_fields');
+    const hearseCatalogSelect = document.getElementById('hearse_catalog_id');
     const optionalAddOnsSection = document.getElementById('optional_add_ons_section');
     const optionalAddOnsList = document.getElementById('optional_add_ons_list');
     const optionalAddOnsPanel = document.getElementById('optional_add_ons_panel');
@@ -4330,12 +5138,19 @@
     const applyAddOnsBtn = document.getElementById('apply_add_ons_btn');
     const cancelAddOnsBtn = document.getElementById('cancel_add_ons_btn');
     const closeAddOnsBtn = document.getElementById('close_add_ons_btn');
-    const selectedAddOnsSummary = document.getElementById('selected_add_ons_summary');
+    const selectedAddOnsCount = document.getElementById('selected_add_ons_count');
     const selectedAddOnsLines = document.getElementById('selected_add_ons_lines');
     const draftAddOnsTotal = document.getElementById('draft_add_ons_total');
     const selectedAddOnsTotal = document.getElementById('selected_add_ons_total');
     const serviceModalBackdrop = document.getElementById('intake_service_modal_backdrop');
     const oldSelectedAddOns = new Set(@json($oldSelectedAddOns));
+    const addOnQuantities = new Map(Object.entries(@json($oldAddOnQuantities)).map(([id, quantity]) => {
+        const parsed = Number.parseInt(quantity, 10);
+        return [String(id), Number.isInteger(parsed) ? parsed : 1];
+    }));
+    const addOnQuantityErrors = {!! \Illuminate\Support\Js::from($addOnQuantityErrors) !!};
+    let draftSelectedAddOns = new Set(oldSelectedAddOns);
+    let draftAddOnQuantities = new Map(addOnQuantities);
     const globalAddOns = {!! \Illuminate\Support\Js::from(($activeAddOns ?? collect())->map(fn ($addOn) => [
         'id' => $addOn->id,
         'name' => $addOn->name,
@@ -4343,6 +5158,8 @@
         'description' => $addOn->description,
         'price' => (float) $addOn->price,
         'unit' => $addOn->unit,
+        'branch_id' => $addOn->branch_id,
+        'chapel_address' => $addOn->chapel_address,
     ])->values()) !!};
     const serviceTypeLabels = {
         body_retrieval: 'Body Retrieval',
@@ -4350,17 +5167,9 @@
         casket: 'Casket',
         home_viewing: 'Home Viewing',
         hearse: 'Hearse',
-        custom: 'Other Package Inclusion',
+        custom: 'Other Inclusions',
     };
-    const structuredPricingSection = document.getElementById('structured_pricing_section');
-    const packageAdjustmentsPanel = document.getElementById('package_adjustments_panel');
-    const openPackageAdjustmentsBtn = document.getElementById('open_package_adjustments_btn');
-    const closePackageAdjustmentsBtn = document.getElementById('close_package_adjustments_btn');
-    const donePackageAdjustmentsBtn = document.getElementById('done_package_adjustments_btn');
-    const structuredChargesTotal = document.getElementById('structured_charges_total');
-    const structuredChargesTotalModal = document.getElementById('structured_charges_total_modal');
     const replacementCasket = document.getElementById('replacement_casket_catalog_id');
-    const replacementCasketWrap = document.getElementById('replacement_casket_wrap');
     const casketModeRadios = [...document.querySelectorAll('[name="casket_selection_mode"]')];
     const includedCasketSummary = document.getElementById('included_casket_summary');
     const casketAdjustmentAmount = document.getElementById('casket_adjustment_amount');
@@ -4420,6 +5229,7 @@
     const summaryPackage = document.getElementById('summary_package_price');
     const summaryAdd = document.getElementById('summary_additional');
     const summaryAddOns = document.getElementById('summary_add_ons');
+    const summaryPackageAdjustments = document.getElementById('summary_package_adjustments');
     const summarySubtotal = document.getElementById('summary_subtotal');
     const summaryDiscountSource = document.getElementById('summary_discount_source');
     const summaryDiscount = document.getElementById('summary_discount');
@@ -4462,6 +5272,7 @@
 
     const seniorPct = {{ (float) ($seniorDiscountPercent ?? config('funeral.senior_discount_percent', 20)) }};
     const isOtherEntryMode = @json($isOtherEntryMode);
+    const isIntakeModal = @json($intakeModal);
     const otherBranchWindowClosed = @json($otherBranchWindowClosed);
     const intakeAutosaveKey = [
         'funeral-system',
@@ -4469,7 +5280,7 @@
         @json(auth()->id()),
         @json($isOtherEntryMode ? 'other' : 'main'),
         @json((string) $initialSelectedBranchId),
-        @json($intakeDraft ? 'saved-' . $intakeDraft->id : 'new'),
+        @json($intakeDraft ? 'saved-' . $intakeDraft->id : ($intakeModal ? 'modal-new' : 'new')),
     ].join(':');
     const totalSteps = panels.length;
     const initialStep = Math.max(1, Math.min(totalSteps, Number(@json($initialStep ?? 1))));
@@ -4505,7 +5316,8 @@
     const textOrDash = (value) => String(value || '').trim() || '-';
     const parseAddOns = (radio = pkg()) => {
         if (!radio) return [];
-        return Array.isArray(globalAddOns) ? globalAddOns : [];
+        const includedIds = new Set(structuredInclusionsFor(radio).map(item => item.add_on_id).filter(Boolean).map(String));
+        return globalAddOns.filter(item => item.category !== chapelCategory && !includedIds.has(String(item.id)));
     };
     const parseJsonDataset = (radio, key, fallback = []) => {
         try {
@@ -4527,92 +5339,71 @@
         const parsed = parseJsonDataset(radio, 'includedCasket', {});
         return parsed && typeof parsed === 'object' ? parsed : {};
     };
-    const packageCountsFor = (radio = pkg()) => {
-        const structuredRows = structuredInclusionsFor(radio);
-        const structuredFreebieRows = structuredFreebiesFor(radio);
-        return {
-            inclusions: structuredRows.length || list(radio?.dataset.inclusions).length,
-            freebies: structuredFreebieRows.length || list(radio?.dataset.freebies).length,
-        };
-    };
-    const packageDetailRow = (title, details = '', icon = 'bi-check2') => `
-        <div class="rounded-lg border border-slate-200 bg-white px-4 py-3">
-            <div class="flex items-start gap-3">
-                <i class="bi ${icon} mt-0.5 text-slate-500"></i>
-                <div class="min-w-0">
-                    <div class="text-sm font-bold text-slate-900">${escapeHtml(title)}</div>
-                    ${details ? `<div class="mt-1 text-xs font-semibold text-slate-500">${escapeHtml(details)}</div>` : ''}
-                </div>
+    const packageDetailRow = (title, details = '', icon = 'bi-check2', viewing = false) => `
+        <div class="package-service-summary flex items-start gap-2">
+            <i class="bi ${icon} mt-0.5 shrink-0" aria-hidden="true"></i>
+            <div class="min-w-0">
+                <div class="text-sm font-semibold">${escapeHtml(title)}</div>
+                ${details || viewing ? `<div class="inline-package-detail text-xs leading-relaxed" ${viewing ? 'data-viewing-context' : ''}>${escapeHtml(details)}</div>` : ''}
             </div>
         </div>
     `;
+    const includedAssetStatus = (asset) => !asset ? 'Not configured' : asset.active === false ? 'Archived' : asset.available === false ? 'Unavailable' : 'Included';
     const detailRowsForPackage = (radio = pkg()) => {
-        const structuredRows = structuredInclusionsFor(radio);
+        const serviceOrder = ['body_retrieval', 'embalming', 'casket', 'home_viewing', 'hearse'];
+        const includedRows = structuredInclusionsFor(radio).filter(item => !item.is_legacy_description);
+        const otherRows = includedRows.filter(item => item.service_type === 'custom');
+        const structuredRows = includedRows.filter(item => item.service_type !== 'custom').sort((left, right) => {
+            const leftIndex = serviceOrder.indexOf(left.service_type);
+            const rightIndex = serviceOrder.indexOf(right.service_type);
+            return (leftIndex < 0 ? serviceOrder.length : leftIndex) - (rightIndex < 0 ? serviceOrder.length : rightIndex);
+        });
         const structuredFreebieRows = structuredFreebiesFor(radio);
         const legacyInclusions = list(radio?.dataset.inclusions);
         const legacyFreebies = list(radio?.dataset.freebies);
 
-        const serviceRows = structuredRows.length
-            ? structuredRows.map((item) => {
-                const label = serviceTypeLabels[item.service_type] || item.name || 'Included service';
-                const details = [];
-                if (item.service_type === 'casket') {
-                    const casket = item.casket || {};
-                    details.push(`${casket.name || item.casket_type || 'Included casket'}${casket.material ? ` - ${casket.material}` : ''}`);
-                    if (num(casket.reference_value) > 0) details.push(`Reference Value PHP ${fmt(casket.reference_value)}`);
-                }
-                if (item.included_kilometers !== null && item.included_kilometers !== undefined) details.push(`${fmt(item.included_kilometers)} included km`);
-                if (num(item.price_per_excess_kilometer) > 0) details.push(`PHP ${fmt(item.price_per_excess_kilometer)} per excess km`);
-                if (item.included_days !== null && item.included_days !== undefined) details.push(`${item.included_days} included day(s)`);
-                if (num(item.price_per_extended_day) > 0) details.push(`PHP ${fmt(item.price_per_extended_day)} per extended day`);
-                return packageDetailRow(label, details.join(' | '), item.service_type === 'casket' ? 'bi-box-seam' : 'bi-check2-circle');
-            })
-            : legacyInclusions.map((item) => packageDetailRow(item, '', 'bi-check2-circle'));
+        const structuredServiceLabels = new Set([
+            ...includedRows.map(item => item.name?.trim().toLowerCase()),
+            ...structuredRows.map(item => serviceTypeLabels[item.service_type]?.toLowerCase()),
+        ].filter(Boolean));
+        const structuredFreebieLabels = new Set(structuredFreebieRows.map((item) => String(item.name || '').trim().toLowerCase()).filter(Boolean));
+        const legacyServiceRows = legacyInclusions
+            .filter((item) => !structuredServiceLabels.has(item.toLowerCase()))
+            .map((item) => packageDetailRow(item, '', 'bi-check2-circle'));
+        const legacyFreebieRows = legacyFreebies
+            .filter((item) => !structuredFreebieLabels.has(item.toLowerCase()))
+            .map((item) => packageDetailRow(item, '', 'bi-gift'));
 
-        const freebieRows = structuredFreebieRows.length
-            ? structuredFreebieRows.map((item) => packageDetailRow(item.name || 'Freebie', `${item.quantity || 1} ${item.unit || 'item'}`, 'bi-gift'))
-            : legacyFreebies.map((item) => packageDetailRow(item, '', 'bi-gift'));
+        const serviceRows = structuredRows.map(item => {
+            const asset = ['casket', 'hearse'].includes(item.service_type);
+            const coverage = [
+                item.included_kilometers != null ? `${fmt(item.included_kilometers)} km included` : '',
+                num(item.price_per_excess_kilometer) > 0 ? `₱${fmt(item.price_per_excess_kilometer)} per excess km` : '',
+                item.included_days != null ? `${item.included_days} day(s) included` : '',
+                num(item.price_per_extended_day) > 0 ? `₱${fmt(item.price_per_extended_day)} per extra day` : '',
+            ].filter(Boolean).join(' · ');
+            if (asset) return `<div class="package-asset-slot" data-package-asset-slot="${item.service_type}"><p class="inline-package-detail">${escapeHtml(coverage)}</p></div>`;
+            return packageDetailRow(serviceTypeLabels[item.service_type] || item.name || 'Included service', coverage, 'bi-check2', item.service_type === 'home_viewing');
+        }).concat(legacyServiceRows);
 
-        const coverageRows = structuredRows
-            .filter((item) => item.included_kilometers !== null || item.price_per_excess_kilometer || item.included_days !== null || item.price_per_extended_day || item.service_type === 'casket')
-            .map((item) => {
-                const label = serviceTypeLabels[item.service_type] || item.name || 'Included Limit';
-                const details = [];
-                if (item.service_type === 'casket') {
-                    const casket = item.casket || {};
-                    details.push(`Included casket: ${casket.name || item.casket_type || 'Not configured'}`);
-                    details.push(num(casket.reference_value) > 0 ? `Reference Value PHP ${fmt(casket.reference_value)}` : 'Reference Value not configured');
-                }
-                if (item.included_kilometers !== null && item.included_kilometers !== undefined) details.push(`Included ${fmt(item.included_kilometers)} km`);
-                if (num(item.price_per_excess_kilometer) > 0) details.push(`Excess rate PHP ${fmt(item.price_per_excess_kilometer)} / km`);
-                if (item.included_days !== null && item.included_days !== undefined) details.push(`Included ${item.included_days} day(s)`);
-                if (num(item.price_per_extended_day) > 0) details.push(`Extended-day rate PHP ${fmt(item.price_per_extended_day)} / day`);
-                return packageDetailRow(label, details.join(' | '), 'bi-speedometer2');
-            });
+        const freebieRows = structuredFreebieRows
+            .map((item) => packageDetailRow(item.name || 'Freebie', `${item.quantity || 1} ${item.unit || 'item'}`, 'bi-gift'))
+            .concat(legacyFreebieRows);
+
+        const legacyCasket = includedCasketFor(radio);
+        const hasStructuredCasket = structuredRows.some((item) => item.service_type === 'casket');
+        if (!hasStructuredCasket && legacyCasket.name) {
+            serviceRows.push('<div class="package-asset-slot" data-package-asset-slot="casket"></div>');
+        }
 
         return {
             services: serviceRows.join('') || '<div class="text-sm font-semibold text-slate-500">No included services configured.</div>',
+            otherInclusions: otherRows.filter(item => !item.add_on_id && item.name?.trim())
+                .map(item => packageDetailRow(item.name.trim(), item.add_on_id ? `${item.included_quantity} ${item.add_on_unit} included` : '')).join(''),
+            hasCatalogAddOns: otherRows.some(item => item.add_on_id),
             freebies: freebieRows.join('') || '<div class="text-sm font-semibold text-slate-500">No freebies configured.</div>',
-            coverage: radio === customPkgRadio
-                ? legacyInclusions.map(item => packageDetailRow(item, 'Included in the agreed all-in price.', 'bi-check2-circle')).join('') || '<div class="text-sm">Select the services and coverage included in this custom package.</div>'
-                : coverageRows.join('') || '<div class="text-sm font-semibold text-slate-500">No included limits or extra charges configured.</div>',
+            hasCasket: hasStructuredCasket || Boolean(legacyCasket.name),
         };
-    };
-    const activatePackageDetailTab = (target = 'services') => {
-        packageDetailTabs.forEach((tab) => {
-            const active = tab.dataset.packageDetailTab === target;
-            tab.classList.toggle('bg-slate-900', active);
-            tab.classList.toggle('text-white', active);
-            tab.classList.toggle('text-slate-500', !active);
-            tab.setAttribute('aria-selected', active ? 'true' : 'false');
-            tab.tabIndex = active ? 0 : -1;
-            tab.id = `package-detail-tab-${tab.dataset.packageDetailTab}`;
-            tab.setAttribute('aria-controls', `package_detail_${tab.dataset.packageDetailTab}`);
-        });
-        packageDetailPanels.forEach((panel) => {
-            panel.classList.toggle('hidden', panel.id !== `package_detail_${target}`);
-            panel.setAttribute('aria-labelledby', panel.id.replace('package_detail_', 'package-detail-tab-'));
-        });
     };
     const intakeDialogStates = new Map();
     const setIntakeDialog = (modal, open, firstFocus = null) => {
@@ -4620,18 +5411,37 @@
         const state = intakeDialogStates.get(modal);
         if (open && !state) {
             const previousFocus = document.activeElement;
-            intakeDialogStates.set(modal, { previousFocus });
+            const scrollPositions = [];
+            for (let parent = modal.parentElement; parent; parent = parent.parentElement) {
+                scrollPositions.push({ element: parent, top: parent.scrollTop, left: parent.scrollLeft });
+            }
+            const restoreScroll = () => scrollPositions.forEach(({ element, top, left }) => {
+                element.scrollTop = top;
+                element.scrollLeft = left;
+            });
+            intakeDialogStates.set(modal, { previousFocus, restoreScroll });
             document.body.dataset.intakeModalOpen = 'true';
             modal.classList.remove('hidden');
             modal.showModal();
             modal.tabIndex = -1;
-            (firstFocus || modal.querySelector('button, input, select, textarea, a[href]') || modal).focus();
+            (firstFocus || modal.querySelector('button, input, select, textarea, a[href]') || modal).focus({ preventScroll: true });
+            restoreScroll();
+            requestAnimationFrame(restoreScroll);
         } else if (!open && state) {
-            modal.close();
-            modal.classList.add('hidden');
-            intakeDialogStates.delete(modal);
-            if (!intakeDialogStates.size) delete document.body.dataset.intakeModalOpen;
-            if (state.previousFocus?.isConnected && state.previousFocus.getClientRects().length) state.previousFocus.focus();
+            if (state.closing) return;
+            state.closing = true;
+            const finish = () => {
+                if (intakeDialogStates.get(modal) !== state) return;
+                clearTimeout(state.closeTimer);
+                intakeDialogStates.delete(modal);
+                modal.close();
+                modal.classList.add('hidden');
+                state.closeAnimation?.cancel();
+                if (!intakeDialogStates.size) delete document.body.dataset.intakeModalOpen;
+                if (state.previousFocus?.isConnected && state.previousFocus.getClientRects().length) state.previousFocus.focus({ preventScroll: true });
+                state.restoreScroll();
+            };
+            finish();
         }
     };
     document.addEventListener('keydown', event => {
@@ -4647,52 +5457,32 @@
             event.preventDefault(); first.focus();
         }
     }, true);
-    const openPackageDetails = (radio = pkg()) => {
-        if (!radio || !packageDetailsModal) return;
-        const rows = detailRowsForPackage(radio);
-        const counts = packageCountsFor(radio);
-        if (packageDetailsTitle) packageDetailsTitle.textContent = radio.dataset.name || 'Package Details';
-        if (packageDetailsSubtitle) {
-            const casket = includedCasketFor(radio);
-            packageDetailsSubtitle.textContent = radio.value === 'custom'
-                ? `PHP ${fmt(radio.dataset.price)} agreed all-in price. Selected casket and days are included. Optional add-ons and Manual Charges are extra.`
-                : `PHP ${fmt(radio.dataset.price)} | ${counts.inclusions} inclusion(s) | ${counts.freebies} freebie(s) | Casket: ${casket.name || 'Not configured'}`;
-        }
-        if (packageDetailServices) packageDetailServices.innerHTML = rows.services;
-        if (packageDetailFreebies) packageDetailFreebies.innerHTML = rows.freebies;
-        if (packageDetailCoverage) packageDetailCoverage.innerHTML = rows.coverage;
-        activatePackageDetailTab('services');
-        packageDetailsModal.classList.add('flex');
-        setIntakeDialog(packageDetailsModal, true, packageDetailsModal.querySelector('button[data-package-details-close]'));
-    };
-    const closePackageDetails = () => {
-        setIntakeDialog(packageDetailsModal, false);
-        packageDetailsModal?.classList.remove('flex');
-    };
     const checkedAddOns = () => [...document.querySelectorAll('.optional-add-on-checkbox:checked')]
-        .map((checkbox) => ({
+        .map((checkbox) => {
+            const rawQuantity = checkbox.closest('.optional-add-on-row')?.querySelector('[data-draft-add-on-quantity]')?.value;
+            const quantity = Number(rawQuantity ?? 1);
+            return ({
             id: checkbox.value,
             name: checkbox.dataset.name || '',
             description: checkbox.dataset.description || '',
             price: num(checkbox.dataset.price),
             unit: checkbox.dataset.unit || '',
-        }));
-    const appliedAddOns = () => parseAddOns().filter((addOn) => oldSelectedAddOns.has(String(addOn.id)));
-    const addOnsTotal = () => appliedAddOns().reduce((sum, addOn) => sum + num(addOn.price), 0);
-    [packageDetailsModal, packageAdjustmentsPanel, optionalAddOnsPanel, document.getElementById('intakeCancelModal')].filter(Boolean).forEach(modal => {
+            quantity: Number.isInteger(quantity) ? quantity : 0,
+        });
+    });
+    const appliedAddOns = () => parseAddOns().filter((addOn) => oldSelectedAddOns.has(String(addOn.id))).map((addOn) => {
+        const rawQuantity = addOnQuantities.has(String(addOn.id)) ? addOnQuantities.get(String(addOn.id)) : 1;
+        const parsedQuantity = Number(rawQuantity);
+        const quantity = Number.isInteger(parsedQuantity) && parsedQuantity >= 1 ? parsedQuantity : 0;
+        return { ...addOn, quantity, lineTotal: Math.round(num(addOn.price) * quantity * 100) / 100 };
+    });
+    const addOnsTotal = () => appliedAddOns().reduce((sum, addOn) => sum + addOn.lineTotal, 0);
+    [document.getElementById('intakeCancelModal')].filter(Boolean).forEach(modal => {
         modal.addEventListener('cancel', event => event.preventDefault());
-        if (modal === packageDetailsModal || modal.id === 'intakeCancelModal') {
+        if (modal.id === 'intakeCancelModal') {
             modal.addEventListener('click', event => {
                 if (event.target !== modal) return;
-                if (modal === packageDetailsModal) closePackageDetails();
-                else document.getElementById('intakeCancelModalKeep')?.click();
-            });
-        }
-        if (modal === packageAdjustmentsPanel || modal === optionalAddOnsPanel) {
-            modal.addEventListener('click', event => {
-                if (event.target !== modal) return;
-                const rect = modal.getBoundingClientRect();
-                if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) serviceModalBackdrop?.click();
+                document.getElementById('intakeCancelModalKeep')?.click();
             });
         }
     });
@@ -4702,35 +5492,62 @@
     };
     const setAddOnsPanelOpen = (open) => {
         if (!optionalAddOnsPanel) return;
-        setIntakeDialog(optionalAddOnsPanel, open, optionalAddOnsSearch);
+        if (open) {
+            if (optionalAddOnsPanel.matches(':popover-open')) return;
+            optionalAddOnsPanel.classList.remove('hidden');
+            optionalAddOnsPanel.showPopover();
+            positionIntakePicker(optionalAddOnsPanel, chooseAddOnsBtn, 640);
+            optionalAddOnsSearch?.focus({ preventScroll: true });
+        } else if (optionalAddOnsPanel.matches(':popover-open')) {
+            optionalAddOnsPanel.hidePopover();
+        }
         chooseAddOnsBtn?.setAttribute('aria-expanded', open ? 'true' : 'false');
         syncServiceBackdrop();
-        if (open) {
-            optionalAddOnsSearch?.focus();
-        }
-    };
-    const setPackageAdjustmentsOpen = (open) => {
-        if (!packageAdjustmentsPanel) return;
-        setIntakeDialog(packageAdjustmentsPanel, open, closePackageAdjustmentsBtn);
-        openPackageAdjustmentsBtn?.setAttribute('aria-expanded', open ? 'true' : 'false');
-        syncServiceBackdrop();
-        if (open) {
-            closePackageAdjustmentsBtn?.focus();
-        }
     };
     const syncDraftAddOnsTotal = () => {
-        if (draftAddOnsTotal) draftAddOnsTotal.textContent = fmt(checkedAddOns().reduce((sum, addOn) => sum + num(addOn.price), 0));
+        const selected = checkedAddOns();
+        if (draftAddOnsTotal) draftAddOnsTotal.textContent = fmt(selected.reduce((sum, addOn) => sum + num(addOn.price) * addOn.quantity, 0));
+        const count = document.getElementById('draft_add_ons_count');
+        if (count) count.textContent = selected.length ? `${selected.length} add-on${selected.length === 1 ? '' : 's'} selected` : 'No add-ons selected';
+        const headerCount = document.getElementById('draft_add_ons_header_count');
+        if (headerCount) headerCount.textContent = `${selected.length} selected`;
     };
     const restoreAppliedAddOns = () => {
+        draftSelectedAddOns = new Set(oldSelectedAddOns);
+        draftAddOnQuantities = new Map(addOnQuantities);
         document.querySelectorAll('.optional-add-on-checkbox').forEach((checkbox) => {
-            checkbox.checked = oldSelectedAddOns.has(String(checkbox.value));
+            const id = String(checkbox.value);
+            checkbox.checked = draftSelectedAddOns.has(id);
+            const quantity = checkbox.closest('.optional-add-on-row')?.querySelector('[data-draft-add-on-quantity]');
+            if (quantity) {
+                quantity.value = String(draftAddOnQuantities.has(id) && draftAddOnQuantities.get(id) > 0 ? draftAddOnQuantities.get(id) : 1);
+                quantity.disabled = !checkbox.checked;
+                const total = checkbox.closest('.optional-add-on-row')?.querySelector('[data-draft-add-on-line-total]');
+                if (total) total.textContent = fmt(num(checkbox.dataset.price) * Number(quantity.value));
+            }
         });
         syncDraftAddOnsTotal();
     };
     const applyDraftAddOns = () => {
+        const invalidQuantity = [...document.querySelectorAll('.optional-add-on-checkbox:checked')]
+            .map((checkbox) => checkbox.closest('.optional-add-on-row')?.querySelector('[data-draft-add-on-quantity]'))
+            .find((field) => field && !field.checkValidity());
+        if (invalidQuantity) {
+            invalidQuantity.reportValidity();
+            invalidQuantity.focus();
+            return;
+        }
         oldSelectedAddOns.clear();
-        checkedAddOns().forEach((addOn) => oldSelectedAddOns.add(String(addOn.id)));
+        addOnQuantities.clear();
+        checkedAddOns().forEach((addOn) => {
+            const id = String(addOn.id);
+            oldSelectedAddOns.add(id);
+            addOnQuantities.set(id, addOn.quantity);
+        });
+        draftSelectedAddOns = new Set(oldSelectedAddOns);
+        draftAddOnQuantities = new Map(addOnQuantities);
         setAddOnsPanelOpen(false);
+        renderPkg(false);
         render();
     };
     const selectedAppliedAddOns = () => {
@@ -4772,12 +5589,14 @@
             render();
         }));
         row.querySelector('[data-remove-additional-service]')?.addEventListener('click', () => {
+            const nextRow = row.nextElementSibling || row.previousElementSibling;
             row.remove();
-            if (!additionalItemsList.querySelector('[data-additional-service-row]')) addAdditionalServiceRow();
             syncAdditionalServiceHiddenFields();
             render();
+            (nextRow?.querySelector('[data-remove-additional-service]') || addAdditionalItem)?.focus({ preventScroll: true });
         });
         syncAdditionalServiceHiddenFields();
+        return row;
     };
     const selectedReplacementCasket = () => {
         if (casketModeRadios.length && casketModeRadios.find((radio) => radio.checked)?.value !== 'replacement') return null;
@@ -4814,7 +5633,7 @@
         return { amount: excess * rate, excess, included, rate, configured: true, applied };
     };
     const chargeForDays = (type) => {
-        if (isCustomSelected()) return { amount: 0, excess: 0, included: 0, rate: 0, actual: 0, configured: false };
+        if (isCustomSelected() || (type === 'home_viewing' && isChapelViewing())) return { amount: 0, excess: 0, included: 0, rate: 0, actual: 0, configured: false };
         const row = structuredInclusionsFor().find((item) => item.service_type === type);
         if (!row || row.included_days === null || row.included_days === undefined || num(row.price_per_extended_day) <= 0) {
             return { amount: 0, excess: 0, included: num(row?.included_days), rate: num(row?.price_per_extended_day), actual: inclusiveWakeDays(), configured: false };
@@ -4825,12 +5644,376 @@
         const excess = Math.max(actual - included, 0);
         return { amount: excess * rate, excess, included, rate, actual, configured: true };
     };
+    const hearseUpgradeAmount = () => {
+        if (isCustomSelected() || !hearseCatalogSelect?.value) return 0;
+        const included = structuredInclusionsFor().find(row => row.service_type === 'hearse')?.hearse;
+        const selected = hearseCatalogSelect.selectedOptions[0];
+        if (!included || included.reference_value === null || selected?.dataset.referenceValue === '') return 0;
+        return Math.max(0, num(selected?.dataset.referenceValue) - num(included.reference_value));
+    };
+    const includedAddOnAdjustments = document.getElementById('included-addon-adjustments');
+    const includedAddOnRows = [...includedAddOnAdjustments.querySelectorAll('[data-included-addon]')];
+    const packageAllowanceContext = document.getElementById('package_allowance_context');
+    const packageConfigurationContext = document.getElementById('package_configuration_context');
+    const inclusionControlsPool = document.getElementById('package-inclusion-controls');
+    const casketInclusionCard = inclusionControlsPool.querySelector('[data-service-control="casket"]');
+    const hearseAssignmentHome = document.getElementById('hearse-assignment-home');
+    const packageCasketOptions = document.getElementById('package-casket-options');
+    const packageHearseOptions = document.getElementById('package-hearse-options');
+    const packageInclusionOptions = document.getElementById('package-inclusion-options');
+    packageCasketOptions.querySelector('[data-option-body]').append(casketInclusionCard);
+    packageInclusionOptions.querySelector('[data-option-body]').append(includedAddOnAdjustments);
+
+    const mountPackageInclusionCards = (selected, custom, regularIncludesHearse, customIncludesHearse) => {
+        const selectedCard = selected && !custom ? selected.closest('.package-card') : null;
+        const casketSlot = selectedCard?.querySelector('[data-package-asset-slot="casket"]');
+        const hearseSlot = selectedCard?.querySelector('[data-package-asset-slot="hearse"]');
+        const otherSlot = selectedCard?.querySelector('[data-package-other-slot]');
+        const casketDestination = casketSlot || packageCasketOptions.querySelector('[data-option-body]');
+        if (casketInclusionCard.parentElement !== casketDestination) casketDestination.prepend(casketInclusionCard);
+        const otherDestination = otherSlot || packageInclusionOptions.querySelector('[data-option-body]');
+        if (includedAddOnAdjustments.parentElement !== otherDestination) otherDestination.append(includedAddOnAdjustments);
+        packageCasketOptions.hidden = true; // The fallback owns parked controls only.
+        packageHearseOptions.hidden = !regularIncludesHearse || Boolean(hearseSlot);
+        if (otherSlot) packageInclusionOptions.hidden = true;
+        const hearseDestination = regularIncludesHearse ? (hearseSlot || packageHearseOptions.querySelector('[data-option-body]'))
+            : customIncludesHearse ? document.getElementById('custom-hearse-slot') : hearseAssignmentHome;
+        if (hearseAssignmentFields.parentElement !== hearseDestination) hearseDestination.prepend(hearseAssignmentFields);
+    };
+
+    const syncIncludedAddOnAdjustments = (radio) => {
+        packageAllowanceContext.value = radio?.dataset.allowanceContext || '';
+        packageConfigurationContext.value = radio?.dataset.configurationContext || '';
+        const allowances = new Map(structuredInclusionsFor(radio).filter(item => item.add_on_id).map(item => [String(item.add_on_id), item]));
+        packageInclusionOptions.hidden = ![...allowances.values()].some(item => item.add_on_category !== chapelCategory);
+        includedAddOnRows.forEach(row => {
+            const item = allowances.get(row.dataset.includedAddon);
+            const input = row.querySelector('input');
+            const available = !!item && item.add_on_category !== chapelCategory;
+            row.classList.toggle('hidden', !available);
+            input.disabled = !available;
+            if (!available) return;
+            input.placeholder = item.included_quantity;
+            if (!input.dataset.initialized) {
+                if (input.value === '') input.value = item.included_quantity;
+                input.dataset.initialized = 'true';
+            }
+            row.querySelector('[data-allowance]').textContent = `${item.included_quantity} ${item.add_on_unit} included · Additional charge ₱0.00 within allowance`;
+            row.querySelector('.inline-inclusion-name').textContent = item.name;
+        });
+    };
+
+    const includedAddOnCharges = () => structuredInclusionsFor().filter(item => item.add_on_id && item.add_on_category !== chapelCategory).map(item => {
+        const row = includedAddOnRows.find(row => row.dataset.includedAddon === String(item.add_on_id));
+        const input = row.querySelector('input');
+        const requested = input.valueAsNumber;
+        const displayedQuantity = Number.isInteger(requested) ? requested : item.included_quantity;
+        const extra = Number.isInteger(requested) ? Math.max(0, requested - item.included_quantity) : 0;
+        const unavailable = extra > 0 && (!item.add_on_available || item.add_on_rate <= 0);
+        const amount = unavailable ? 0 : Math.round(extra * item.add_on_rate * 100) / 100;
+        input.setCustomValidity(unavailable ? 'Extra units require an available add-on with a configured rate.' : '');
+        row.querySelector('[data-inclusion-quantity-step="-1"]').disabled = displayedQuantity <= 1;
+        row.querySelector('[data-inclusion-quantity-step="1"]').disabled = displayedQuantity >= 9999
+            || (displayedQuantity >= item.included_quantity && (!item.add_on_available || item.add_on_rate <= 0));
+        row.querySelector('[data-extra-charge]').textContent = unavailable ? input.validationMessage
+            : extra > 0 ? `${extra} extra ${item.add_on_unit} × ₱${fmt(item.add_on_rate)} = ₱${fmt(amount)} additional`
+            : 'No additional charge. The package price stays the same.';
+        return { label: `Extra ${item.name}`, amount };
+    });
+
+    const customCoverageRows = [...document.querySelectorAll('[data-custom-coverage]')];
+    const customViewingRow = customCoverageRows.find(row => row.dataset.customCoverage === 'home_viewing');
+    const viewingRequested = customViewingRow?.querySelector('[data-coverage-requested]');
+    const viewingManual = customViewingRow?.querySelector('[data-viewing-manual]');
+    const customCoverageCharges = () => {
+        if (viewingRequested && viewingManual.value !== '1') viewingRequested.value = wakeDays?.value || '';
+        return customCoverageRows.flatMap(row => {
+            if (row.hidden) return [];
+            const includedField = row.querySelector('[data-coverage-included]');
+            const included = includedField.value || includedField.dataset.defaultCoverage;
+            const requested = row.querySelector('[data-coverage-requested]').value;
+            const rate = row.dataset.rate;
+            const days = row.dataset.unit === 'days';
+            const unit = days ? 'days' : 'km';
+            const extra = included === '' || requested === '' ? 0 : Math.max(0, Number(requested) - Number(included));
+            const amount = Math.round((Number(extra.toFixed(2)) * Number(rate) + Number.EPSILON) * 100) / 100;
+            row.querySelector('[data-coverage-label]').textContent = included === '' ? 'Coverage not configured'
+                : days ? `${included} day(s) included` : `${Number(included).toFixed(2)} km included`;
+            row.querySelector('[data-coverage-charge]').textContent = included === '' && requested !== '' ? 'Coverage not configured'
+                : extra <= 0 ? ''
+                : rate === '' ? `${Number(extra.toFixed(2))} extra ${unit} · Rate not configured`
+                : `${Number(extra.toFixed(2))} extra ${unit} × ₱${fmt(Number(rate))} = ₱${fmt(amount)}`;
+            const label = row.closest('.custom-package-service-card').querySelector('label').textContent.trim();
+            return amount > 0 ? [{ label: label + (days ? ' extension' : ' excess distance'), amount }] : [];
+        });
+    };
+    let restoredChapelPricing = null;
+    const defaultRestoreMessage = 'Autosave restored. Review the selected package, chapel coverage and charges before continuing.';
+    let restoredServiceMessage = defaultRestoreMessage;
+    let previousIncludedChapel = '';
+    let chapelScheduleKey = '';
+    let chapelScheduleTimer;
+    let chapelScheduleRequest;
+    const renderChapelAlternatives = (host, availableIds) => {
+        const choices = host.querySelector('[data-chapel-alternatives]');
+        const ids = new Set(availableIds.map(String));
+        const addChoice = (list, label, type, value) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'service-field-chip';
+            button.dataset.alternativeType = type;
+            button.dataset.alternativeValue = value;
+            button.textContent = label;
+            list.append(button);
+        };
+        const packages = choices.querySelector('[data-alternative-packages]');
+        const packageOptions = packages.querySelector('[data-alternative-package-options]');
+        packageOptions.replaceChildren();
+        if (chapelCoverage() === 'included') {
+            for (const option of regularPackageChoice.options) {
+                const radio = pkgRadios.find(item => item.value === option.value);
+                if (radio && !option.disabled && ids.has(String(chapelAllowanceFor(radio)?.add_on_id))) {
+                    addChoice(packageOptions, option.textContent, 'package', option.value);
+                }
+            }
+        }
+        packages.hidden = !packageOptions.childElementCount;
+        const chapels = choices.querySelector('[data-alternative-chapels]');
+        const chapelOptions = chapels.querySelector('[data-alternative-chapel-options]');
+        chapelOptions.replaceChildren();
+        for (const option of chapelRate.options) {
+            if (!option.disabled && ids.has(option.value)) addChoice(chapelOptions, option.textContent, 'chapel', option.value);
+        }
+        chapels.hidden = !chapelOptions.childElementCount;
+        choices.hidden = packages.hidden && chapels.hidden;
+        packages.open = false;
+        chapels.open = false;
+    };
+    const checkChapelSchedule = (rate, staleIncluded = false) => {
+        const box = document.getElementById('chapel-schedule-context');
+        if (!box) return;
+        const setup = document.getElementById('chapel_setup_alternatives');
+        const dateKey = (field, picker) => {
+            const date = getDateValue(field, picker);
+            return date ? `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}` : '';
+        };
+        const fromDate = dateKey(wakeStart, wakeStartPicker), toDate = dateKey(wakeEnd, wakeEndPicker);
+        const from = `${fromDate} ${wakeStartTime.value}`;
+        const to = `${toDate} ${wakeEndTime.value}`;
+        const ready = isChapelViewing() && (rate || (staleIncluded && branch.value))
+            && fromDate && toDate && wakeStartTime.value && wakeEndTime.value && from < to;
+        const key = ready ? `${chapelCoverage()}|${rate ? 'chapel:' + rate.id : 'branch:' + branch.value}|${from}|${to}` : '';
+        if (key === chapelScheduleKey) return;
+        chapelScheduleKey = key;
+        clearTimeout(chapelScheduleTimer);
+        chapelScheduleRequest?.abort();
+        box.hidden = !ready || !rate;
+        box.dataset.state = ready && rate ? 'checking' : 'idle';
+        box.querySelector('[data-chapel-overlaps]').hidden = true;
+        box.querySelector('[data-chapel-alternatives]').hidden = true;
+        setup.querySelector('[data-chapel-alternatives]').hidden = true;
+        if (!ready) return;
+        const status = box.querySelector('[data-chapel-check-status]');
+        const retry = box.querySelector('[data-chapel-check-retry]');
+        status.textContent = 'Checking chapel schedule…';
+        retry.hidden = true;
+        chapelScheduleTimer = setTimeout(async () => {
+            const request = new AbortController();
+            chapelScheduleRequest = request;
+            try {
+                const url = new URL(box.dataset.url, location.origin);
+                url.search = new URLSearchParams({ ...(rate ? { chapel_id: rate.id } : { branch_id: branch.value }), start: from, end: to });
+                const response = await fetch(url, { signal: request.signal, headers: { Accept: 'application/json' } });
+                if (!response.ok) throw new Error('Schedule unavailable');
+                const data = await response.json();
+                if (request.signal.aborted || key !== chapelScheduleKey) return;
+                if (!rate) {
+                    renderChapelAlternatives(setup, data.available_chapel_ids);
+                    return;
+                }
+                const hasConflict = data.events.length > 0;
+                box.dataset.state = hasConflict ? 'conflict' : 'available';
+                const events = box.querySelector('[data-chapel-events]');
+                events.replaceChildren();
+                data.events.forEach(event => {
+                    const row = document.createElement('li');
+                    const reference = document.createElement('strong');
+                    reference.textContent = `Case ${event.case_code}`;
+                    const wakeEnd = document.createElement('span');
+                    wakeEnd.textContent = `Scheduled Wake End · ${formatScheduleDateTime(...event.end.split(' '))}`;
+                    row.append(reference, wakeEnd);
+                    events.append(row);
+                });
+                status.textContent = hasConflict ? 'Chapel schedule conflict' : 'No overlap in the recorded chapel schedule.';
+                box.querySelector('[data-chapel-overlaps]').hidden = !hasConflict;
+                if (hasConflict) renderChapelAlternatives(box, data.available_chapel_ids);
+                retry.hidden = !hasConflict;
+            } catch (error) {
+                if (error.name === 'AbortError' || key !== chapelScheduleKey || !rate) return;
+                box.dataset.state = 'error';
+                status.textContent = 'Chapel availability could not be checked. Recheck availability before continuing.';
+                retry.hidden = false;
+            }
+        }, 300);
+        retry.onclick = () => { chapelScheduleKey = ''; checkChapelSchedule(rate); };
+    };
+    const chapelAllowanceFor = radio => {
+        const rows = structuredInclusionsFor(radio).filter(item => item.add_on_category === chapelCategory);
+        return rows.find(item => String(item.add_on_branch_id) === String(branch.value))
+            || rows.find(item => !item.add_on_branch_id);
+    };
+    const configuredChapelFor = id => {
+        if (![...chapelRate.options].some(option => option.value && option.value === String(id)
+            && String(option.dataset.branch) === String(branch.value))) return null;
+        return globalAddOns.find(item => String(item.id) === String(id)) || null;
+    };
+    const chapelPackageIsEligible = (radio, coverage = chapelCoverage()) => {
+        if (!isChapelViewing()) return true;
+        const allowance = chapelAllowanceFor(radio);
+        if (coverage === 'included') return Boolean(allowance && configuredChapelFor(allowance.add_on_id));
+        return coverage === 'separate' && !allowance;
+    };
+    const restoreLegacyChapelCoverage = fields => {
+        if (!isChapelViewing() || fields.chapel_coverage_flow || chapelCoverage()) return;
+        const selected = pkg();
+        if (!selected && !chapelRate.value && !restoredChapelPricing) return;
+        const coverage = chapelAllowanceFor(selected) || restoredChapelPricing?.days > 0 ? 'included' : 'separate';
+        chapelCoverageChoices.find(choice => choice.value === coverage).checked = true;
+    };
+    const syncChapelPackageChoices = () => {
+        const chapel = isChapelViewing();
+        const coverage = chapelCoverage();
+        const included = chapel && coverage === 'included';
+        const selected = pkg();
+        const awaitingChapel = chapel && (!coverage || (coverage === 'separate' && !configuredChapelFor(chapelRate.value)));
+        packageModeChooser.toggleAttribute('data-coverage-hidden', awaitingChapel || included);
+        regularPackageArea.toggleAttribute('data-coverage-hidden', awaitingChapel);
+        customPackageArea?.toggleAttribute('data-coverage-hidden', chapel && (awaitingChapel || included));
+        if (included) regularPackageArea.classList.remove('hidden');
+        regularPackageArea.querySelector('[data-change-package-mode]').hidden = included;
+        const packageHeading = document.getElementById('regular_package_heading');
+        const packageHelp = document.getElementById('regular_package_help');
+        const heading = included ? 'Packages with Included Chapel' : 'Regular Packages';
+        const help = included ? 'Each option shows the chapel and included days for this branch.'
+            : 'Predefined, eligible packages configured by the System Administrator.';
+        if (packageHeading.textContent !== heading) packageHeading.textContent = heading;
+        if (packageHelp.textContent !== help) packageHelp.textContent = help;
+
+        let hasOptions = false;
+        [...regularPackageChoice.options].forEach(option => {
+            if (!option.value) return;
+            const radio = pkgRadios.find(item => item.value === option.value);
+            const eligible = chapelPackageIsEligible(radio);
+            const allowance = included && eligible ? chapelAllowanceFor(radio) : null;
+            const rate = allowance ? configuredChapelFor(allowance.add_on_id) : null;
+            option.disabled = !eligible;
+            option.hidden = !eligible;
+            const label = rate ? [radio.dataset.name, rate.name, allowance.included_quantity + ' days included'].join(' · ') : radio.dataset.name;
+            if (option.textContent !== label) option.textContent = label;
+            hasOptions ||= eligible;
+        });
+        regularPackageChoice.disabled = !hasOptions;
+        const message = !chapel || !coverage ? ''
+            : selected && !chapelPackageIsEligible(selected)
+                ? selected.dataset.name + ' is unavailable for this chapel coverage at this branch. Choose an eligible package or change coverage.'
+                : !hasOptions && included ? 'No package with usable chapel coverage is available at this branch.'
+                : !hasOptions ? 'No regular package without chapel coverage is available at this branch.'
+                : coverage === 'separate' ? 'Showing packages with no chapel coverage at this branch.' : '';
+        chapelPackageFeedback.hidden = !message || awaitingChapel;
+        if (chapelPackageFeedback.textContent !== message) chapelPackageFeedback.textContent = message;
+        const anchor = selected && selected === customPkgRadio && coverage === 'separate'
+            ? customPackageArea.querySelector('.package-selection-area__heading')
+            : regularPackageChoice.closest('.mb-4');
+        if (chapelPreviewPanel.previousElementSibling !== anchor) anchor.after(chapelPreviewPanel);
+    };
+    const chapelViewingCharge = () => {
+        const visible = isChapelViewing();
+        const coverage = chapelCoverage();
+        const selected = pkg();
+        const eligiblePackage = selected && chapelPackageIsEligible(selected);
+        const included = visible && coverage === 'included' ? chapelAllowanceFor(selected) : null;
+        const includedId = included ? String(included.add_on_id) : '';
+        const separate = visible && coverage === 'separate';
+        chapelChargePanel.hidden = !visible;
+        chapelCoverageChoices.forEach(choice => { choice.disabled = !visible; });
+        if (previousIncludedChapel && !includedId) chapelRate.value = '';
+        previousIncludedChapel = includedId;
+        [...chapelRate.options].forEach(option => {
+            const wrongBranch = Boolean(option.value && String(option.dataset.branch) !== String(branch.value));
+            option.hidden = wrongBranch;
+            option.disabled = wrongBranch;
+        });
+        const hasRates = [...chapelRate.options].some(option => option.value && !option.disabled);
+        if (includedId) chapelRate.value = includedId;
+        const rate = included ? configuredChapelFor(includedId) : separate ? configuredChapelFor(chapelRate.value) : null;
+        const configured = Boolean(visible && eligiblePackage && rate);
+        const draftPricing = document.getElementById('chapel_draft_pricing');
+        const includedDays = Number(included?.included_quantity || 0);
+        const current = configured ? { id: String(rate.id), rate: Number(rate.price), days: includedDays } : null;
+        draftPricing.value = current ? JSON.stringify(current) : '';
+        restoredServiceMessage = defaultRestoreMessage;
+        if (restoredChapelPricing && visible) {
+            const prior = restoredChapelPricing;
+            const describe = item => '₱' + fmt(item.rate) + '/day · ' + item.days + ' included day(s)';
+            if (!current) restoredServiceMessage = 'Saved chapel pricing: ' + describe(prior) + '. Review chapel coverage before continuing.';
+            else if (JSON.stringify(prior) !== JSON.stringify(current)) {
+                restoredServiceMessage = 'Chapel pricing changed. Saved: ' + describe(prior) + '. Current: ' + describe(current) + '. Review the updated charge before continuing.';
+            }
+        }
+
+        viewingLocation.readOnly = visible;
+        chapelAddress.disabled = !visible;
+        if (visible) {
+            viewingLocation.value = rate?.name || '';
+            chapelAddress.value = rate?.chapel_address || '';
+        }
+        chapelChargeControls.hidden = !separate;
+        chapelRate.disabled = !separate;
+        chapelRate.required = separate;
+        document.getElementById('chapel_package_hint').hidden = !(separate && rate && !eligiblePackage
+            && (!regularPackageChoice.disabled || customPkgRadio));
+        const staleIncluded = visible && coverage === 'included' && (selected ? !eligiblePackage : regularPackageChoice.disabled);
+        const noRates = separate && !hasRates;
+        const notice = document.getElementById('chapel_charge_notice');
+        const noticeAnchor = staleIncluded ? document.getElementById('chapel_setup_alternatives') : chapelChargeControls;
+        if (notice.nextElementSibling !== noticeAnchor) noticeAnchor.before(notice);
+        notice.hidden = !(staleIncluded || noRates);
+        document.getElementById('chapel_notice_title').textContent = staleIncluded
+            ? 'No usable included chapel for this selection.'
+            : 'No chapel with a daily rate is available at this branch.';
+        document.getElementById('chapel_notice_detail').textContent = staleIncluded
+            ? 'Choose an eligible package, adjust the wake schedule, or save as draft.'
+            : 'Choose a package with a chapel or save as draft.';
+        chapelSaveDraft.hidden = notice.hidden;
+        chapelPreviewPanel.hidden = !configured;
+        const advisoryContainer = separate ? chapelChargeControls : chapelPreviewPanel;
+        if (chapelScheduleBox.parentElement !== advisoryContainer) advisoryContainer.append(chapelScheduleBox);
+        checkChapelSchedule(rate, staleIncluded);
+
+        const days = inclusiveWakeDays();
+        const billableDays = Math.max(0, days - includedDays);
+        const amount = configured ? Math.round(billableDays * rate.price * 100) / 100 : 0;
+        if (configured) {
+            chapelRateReadout.textContent = rate.name + ' · ₱' + fmt(rate.price) + ' / day';
+            chapelAddressReadout.textContent = rate.chapel_address;
+            const coverageText = included ? 'Included in package · ' + includedDays + ' covered day(s)' : 'Separate chapel rate';
+            const chargePreview = !days
+                ? coverageText + ' · Set the wake schedule to calculate the charge.'
+                : [coverageText, wakeDurationLabel(days), billableDays + ' billable day(s)', '₱' + fmt(amount) + ' chapel charge'].join(' · ');
+            if (chapelChargePreview.textContent !== chargePreview) chapelChargePreview.textContent = chargePreview;
+        }
+        return { label: included ? 'Chapel Viewing Extension' : 'Chapel Viewing', amount, configured, blocked: visible && !configured };
+    };
     const serviceCharges = () => {
         const retrieval = chargeForKm('body_retrieval', applyRetrievalExcess, retrievalExcessInput);
         const hearse = chargeForKm('hearse', applyHearseExcess, hearseExcessInput);
         const embalming = chargeForDays('embalming');
         const viewing = chargeForDays('home_viewing');
         const casket = casketUpgradeAmount();
+        const hearseUpgrade = hearseUpgradeAmount();
+        const includedAddOns = includedAddOnCharges();
+        const customCharges = isCustomSelected() ? customCoverageCharges() : [];
+        const chapel = chapelViewingCharge();
 
         return {
             retrieval,
@@ -4838,7 +6021,12 @@
             embalming,
             viewing,
             casket,
-            total: retrieval.amount + hearse.amount + embalming.amount + viewing.amount + casket,
+            hearseUpgrade,
+            includedAddOns,
+            customCharges,
+            chapel,
+            total: retrieval.amount + hearse.amount + embalming.amount + viewing.amount + casket + hearseUpgrade
+                + chapel.amount + [...includedAddOns, ...customCharges].reduce((sum, item) => sum + item.amount, 0),
         };
     };
 
@@ -4913,13 +6101,17 @@
 
     const fieldByName = (name) => f.querySelector(`[name="${name}"]`);
 
+    const scheduleTimeDisplay = field => field?.classList.contains('schedule-time-value')
+        ? f.querySelector(`[data-time-display-for="${field.id}"]`)
+        : null;
+
     const fieldErrorElement = (field, create = true) => {
         if (!field) return null;
-        const fieldName = field.getAttribute('name') || field.id;
+        const fieldName = field.id === 'cash_reference_number' ? field.id : (field.getAttribute('name') || field.id);
         if (!fieldName) return null;
 
         const safeName = fieldName.replace(/[^A-Za-z0-9_-]/g, '_');
-        const dateErrorIds = { born: 'born_error', died: 'died_error', wake_start_date: 'wake_start_error', wake_end_date: 'wake_end_error', funeral_service_at: 'funeral_service_at_error', interment_at: 'interment_at_error' };
+        const dateErrorIds = { born: 'born_error', died: 'died_error', wake_start_date: 'wake_start_error', wake_end_date: 'wake_end_error', funeral_service_at: 'funeral_service_at_error', interment_at: 'interment_at_error', wake_start_time: 'wake_start_error', wake_end_time: 'wake_end_error', funeral_service_time: 'funeral_service_at_error', interment_time: 'interment_at_error', confirm_review: 'confirm_review_error' };
         const existing = document.getElementById(dateErrorIds[field.id]);
         if (existing) return existing;
         let errorEl = document.getElementById(`${safeName}_inline_error`);
@@ -4928,9 +6120,10 @@
             errorEl.id = `${safeName}_inline_error`;
             errorEl.className = 'intake-field-error hidden';
 
-            const selectWrap = field.matches('select') ? field.closest('.form-select-wrap') : null;
+            const selectWrap = field.matches('select') ? field.closest('.form-select-wrap, .payment-select-wrap') : null;
             const amountWrap = field.id === 'amount_paid' ? field.parentElement : null;
-            (selectWrap || amountWrap || field).insertAdjacentElement('afterend', errorEl);
+            const locationWrap = field.closest('.intake-location-input');
+            (selectWrap || amountWrap || locationWrap || field).insertAdjacentElement('afterend', errorEl);
         }
 
         return errorEl;
@@ -4944,7 +6137,7 @@
         if (inclusionDialog && !collectingValidation) setIntakeDialog(inclusionDialog, true, field);
         const errorEl = fieldErrorElement(field);
         field.setCustomValidity(message);
-        setFieldError(field, errorEl, message, field._flatpickr?.altInput);
+        setFieldError(field, errorEl, message, scheduleTimeDisplay(field) || field._flatpickr?.altInput);
         if (!collectingValidation) field.focus();
         return false;
     };
@@ -4954,7 +6147,8 @@
     const hasLetter = (value) => /\p{L}/u.test(String(value ?? ''));
     const validPlacePattern = /^[\p{L}\p{M}\p{N} .,\u2019'#()/&-]+$/u;
     const placeMessage = (field, value) => {
-        const label = field.name === 'wake_location' ? 'Wake location'
+        const label = field.name === 'wake_location' ? (isChapelViewing() ? 'Chapel name / location' : 'Wake address')
+            : field.name === 'chapel_address' ? 'Chapel address'
             : field.name === 'place_of_cemetery' ? 'Place of interment / cemetery' : 'Complete address';
         if (!value) return `${label} is required.`;
         if (value.length > 255) return `${label} must not exceed 255 characters.`;
@@ -5036,13 +6230,15 @@
     };
 
     const validateClientInformationStep = () => {
-        let valid = validateNameGroup('client', { first: 'First name', middle: 'Middle name', last: 'Last name' });
+        const usingExistingClient = !!f.elements.existing_client_id?.value;
+        let valid = usingExistingClient || validateNameGroup('client', { first: 'First name', middle: 'Middle name', last: 'Last name' });
 
         const relationship = fieldByName('client_relationship');
         if (!normalizeText(relationship?.value)) {
             valid = showFieldError(relationship, 'Relationship is required.') && valid;
         }
         if (normalizeText(relationship?.value)) clearFieldMessage(relationship);
+        if (usingExistingClient) return valid;
 
         const contact = fieldByName('client_contact_number');
         if (!normalizeText(contact?.value)) {
@@ -5151,7 +6347,7 @@
             else element.textContent = message;
             if (type === 'branch') {
                 const icon = element.querySelector('.intake-notice-icon');
-                if (icon) icon.className = `bi ${/draft restored/i.test(message) ? 'bi-file-earmark-check' : 'bi-building'} intake-notice-icon`;
+                if (icon) icon.className = `bi ${/^(Resuming |.*draft restored)/i.test(message) ? 'bi-file-earmark-check' : 'bi-building'} intake-notice-icon`;
             }
         }
 
@@ -5168,7 +6364,7 @@
         if (type === 'package') packageToastTimer = timer;
     };
 
-    const showBranchToast = (message) => showToast(branchToast, message, 2600, 'branch');
+    const showBranchToast = (message, duration = 2600) => showToast(branchToast, message, duration, 'branch');
     const showPackageToast = (message) => showToast(pkgToast, message, 2300, 'package');
 
     const branchPromptMessage = () => {
@@ -5234,7 +6430,7 @@
         if (selected && selected.value !== 'custom' && selected.dataset.promoNow === '1') {
             const promoType = String(selected.dataset.promoType || '').toUpperCase();
             const promoValue = num(selected.dataset.promoValue);
-            const amount = promoType === 'PERCENT'
+            const amount = ['PERCENT', 'PERCENTAGE'].includes(promoType)
                 ? num(pkgAmount?.value) * (promoValue / 100)
                 : promoValue;
             const label = selected.dataset.promoLabel || 'Package Promo';
@@ -5306,7 +6502,8 @@
         if (!payNow()) return { method: 'Not recorded', bank: '', account: '', mobile: '', channelLabel: 'Payment Channel', channel: '', referenceLabel: 'Reference No.', reference: '', referenceInvalid: false, notes: '' };
         const selected = payMethodRadios.find(r => r.checked)?.value || 'cash';
         if (selected !== 'cashless') {
-            const ref = refState(cashReferenceNumber?.value, false);
+            const receipt = clean(cashReferenceNumber?.value);
+            const validReceipt = /^[A-Za-z0-9 /-]{3,50}$/.test(receipt);
             return {
                 method: 'Cash',
                 bank: '',
@@ -5314,9 +6511,9 @@
                 mobile: '',
                 channelLabel: 'Payment Channel',
                 channel: '',
-                referenceLabel: 'Receipt / Reference No.',
-                reference: ref.value,
-                referenceInvalid: ref.invalid,
+                referenceLabel: 'Receipt / OR No.',
+                reference: validReceipt ? receipt : 'Not provided',
+                referenceInvalid: !validReceipt,
                 notes: '',
             };
         }
@@ -5359,6 +6556,7 @@
     };
 
     const getDateValue = (input, picker) => {
+        if (input?.dataset.invalidTypedValue) return null;
         const picked = picker?.selectedDates?.[0];
         if (picked instanceof Date && !Number.isNaN(picked.getTime())) return picked;
 
@@ -5391,15 +6589,14 @@
         interment.dataset.autoFilled = '0';
     };
 
-    const syncIntermentDateFromFuneral = () => {
-        if (!funeral || !interment) return;
+    const syncIntermentDateFromFuneral = (ceremonyChanged = false) => {
+        if (!funeral || !interment || isAutoSyncingIntermentDate) return;
 
         const serviceRaw = (funeral.value || '').trim();
-        if (!serviceRaw) return;
-
         const intermentRaw = (interment.value || '').trim();
-        const shouldAutoFill = interment.dataset.autoFilled === '1' || (!intermentRaw && interment.dataset.autoFilled !== '0');
-        if (!shouldAutoFill) return;
+        const shouldAutoFill = (ceremonyChanged && Boolean(serviceRaw))
+            || interment.dataset.autoFilled === '1' || !intermentRaw;
+        if (!shouldAutoFill || serviceRaw === intermentRaw) return;
 
         isAutoSyncingIntermentDate = true;
         interment.dataset.autoFilled = '1';
@@ -5408,7 +6605,8 @@
         interment.dataset.invalidTypedValue = '';
 
         if (interPicker) {
-            interPicker.setDate(serviceRaw, false, 'Y-m-d');
+            interPicker.set('minDate', serviceRaw || wakeStart?.value || (historicalIntake ? null : requestDate?.value || 'today'));
+            interPicker.setDate(serviceRaw || null, false, 'Y-m-d');
         } else {
             interment.value = serviceRaw;
         }
@@ -5471,16 +6669,16 @@
         if (died) died.max = today;
 
         if (wakeStart) {
-            wakeStart.min = requestDate?.value || '';
-            if (wakeStartPicker) wakeStartPicker.set('minDate', requestDate?.value || null);
+            wakeStart.min = historicalIntake ? '' : (requestDate?.value || '');
+            if (wakeStartPicker) wakeStartPicker.set('minDate', historicalIntake ? null : (requestDate?.value || null));
         }
 
         if (wakePicker) {
-            wakePicker.set('minDate', wakeStart?.value || requestDate?.value || null);
+            wakePicker.set('minDate', wakeStart?.value || (historicalIntake ? null : requestDate?.value || null));
         }
 
         if (interPicker) {
-            interPicker.set('minDate', funeral?.value || wakeStart?.value || requestDate?.value || 'today');
+            interPicker.set('minDate', funeral?.value || wakeStart?.value || (historicalIntake ? null : requestDate?.value || 'today'));
         }
 
         if (paidAt && died?.value) {
@@ -5491,7 +6689,7 @@
     const syncPreferredPackage = () => {
         if (!customPkgRadio) return;
 
-        const serviceRows = [...document.querySelectorAll('.custom-service-check:checked')].map((input) => {
+        const serviceRows = [...document.querySelectorAll('.custom-service-check:checked:not(:disabled)')].map((input) => {
             const label = input.closest('label')?.textContent?.trim() || input.value;
             const dependent = input.closest('.rounded-lg')?.querySelector('.custom-service-dependent input, .custom-service-dependent select');
             const detail = dependent?.tagName === 'SELECT'
@@ -5532,12 +6730,41 @@
     };
 
     const renderPkg = (shouldToast = false) => {
+        syncChapelPackageChoices();
         const selected = pkg();
+        syncIncludedAddOnAdjustments(selected);
+        if (regularPackageChoice) {
+            regularPackageChoice.value = selected && selected !== customPkgRadio && chapelPackageIsEligible(selected) ? selected.value : '';
+            regularPackagePicker?.sync();
+        }
 
         pkgCards.forEach((card) => {
             const radio = cardRadio(card);
-            const active = !!radio?.checked;
-            card.setAttribute('aria-checked', active ? 'true' : 'false');
+            const eligible = chapelPackageIsEligible(radio);
+            card.toggleAttribute('data-coverage-hidden', !eligible);
+            const active = !!radio?.checked && eligible;
+            const details = active && card.querySelector('[data-inline-package-details]');
+            if (details && !details.firstElementChild) {
+                const rows = detailRowsForPackage(radio);
+                details.innerHTML = `
+                    <section class="inline-package-section">
+                        <h5>Basic Funeral Inclusions</h5>
+                        <div class="inline-package-items">${rows.services}</div>
+                        ${rows.hasCasket ? '<p class="inline-package-detail mt-2 text-xs">The package price covers the included casket. A replacement or upgrade may add a charge.</p>' : ''}
+                    </section>
+                    ${rows.otherInclusions || rows.hasCatalogAddOns ? `
+                        <section class="inline-package-section">
+                            <h5>Other Inclusions</h5>
+                            <div class="inline-package-items">${rows.otherInclusions}</div>
+                            <div data-package-other-slot></div>
+                        </section>
+                    ` : ''}
+                    <section class="inline-package-section">
+                        <h5>Included Freebies</h5>
+                        <div class="inline-package-items">${rows.freebies}</div>
+                    </section>
+                `;
+            }
             card.classList.toggle('border-slate-800', active);
             card.classList.toggle('bg-slate-50', active);
             card.classList.toggle('ring-2', active);
@@ -5561,27 +6788,38 @@
             } else {
                 optionalAddOnsList.innerHTML = addOns.map((addOn) => {
                     const checked = oldSelectedAddOns.has(String(addOn.id)) ? 'checked' : '';
+                    const rawQuantity = addOnQuantities.has(String(addOn.id)) ? addOnQuantities.get(String(addOn.id)) : 1;
+                    const quantity = Number(rawQuantity);
                     const searchable = [addOn.name, addOn.category, addOn.description, addOn.unit].filter(Boolean).join(' ').toLowerCase();
                     return `
-                        <label class="optional-add-on-row flex items-start gap-3 rounded-lg border border-[#C9C5BB] bg-white px-3 py-3 text-sm text-[#333333] hover:bg-[#F3F0E8] focus-within:ring-2 focus-within:ring-[#3E4A3D]" data-add-on-search="${escapeHtml(searchable)}">
-                            <input type="checkbox" name="selected_add_ons[]" value="${escapeHtml(addOn.id)}" ${checked} class="optional-add-on-checkbox mt-1 h-4 w-4 rounded border-[#C9C5BB] text-[#3E4A3D] focus:ring-[#3E4A3D]" data-name="${escapeHtml(addOn.name)}" data-description="${escapeHtml(addOn.description || '')}" data-price="${escapeHtml(addOn.price)}" data-unit="${escapeHtml(addOn.unit || '')}" data-category="${escapeHtml(addOn.category || '')}">
-                            <span class="min-w-0 flex-1">
-                                <span class="flex flex-wrap items-baseline justify-between gap-2">
+                        <div class="optional-add-on-row inline-inclusion-card" tabindex="0" role="group" aria-label="${escapeHtml(addOn.name)}" data-add-on-search="${escapeHtml(searchable)}">
+                            <input type="checkbox" hidden name="selected_add_ons[]" value="${escapeHtml(addOn.id)}" ${checked} class="optional-add-on-checkbox" data-name="${escapeHtml(addOn.name)}" data-description="${escapeHtml(addOn.description || '')}" data-price="${escapeHtml(addOn.price)}" data-unit="${escapeHtml(addOn.unit || '')}" data-category="${escapeHtml(addOn.category || '')}">
+                            <span class="addon-card-copy min-w-0">
+                                <span class="addon-card-heading">
                                     <span class="font-bold">${escapeHtml(addOn.name)}</span>
                                     <span class="font-black">&#8369; ${fmt(addOn.price)}${addOn.unit ? ` / ${escapeHtml(addOn.unit)}` : ''}</span>
                                 </span>
                                 <span class="mt-1 flex flex-wrap items-center gap-2">
                                     ${addOn.category ? `<span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">${escapeHtml(addOn.category)}</span>` : ''}
-                                    ${addOn.unit ? `<span class="text-[11px] font-bold text-[#5F685F]">Unit: ${escapeHtml(addOn.unit)}</span>` : ''}
                                 </span>
                                 ${addOn.description ? `<span class="mt-1 block text-xs font-medium text-[#5F685F]">${escapeHtml(addOn.description)}</span>` : ''}
-                                <span class="mt-2 hidden text-xs font-bold text-[#3E4A3D]" data-add-on-quantity-note>Quantity: 1 ${escapeHtml(addOn.unit || 'item')} | Line total: PHP ${fmt(addOn.price)}</span>
                             </span>
-                        </label>`;
+                            <button type="button" data-optional-add-on-toggle aria-pressed="${Boolean(checked)}" aria-label="Select or unselect ${escapeHtml(addOn.name)}">${checked ? '<i class="bi bi-check2" aria-hidden="true"></i> Selected' : '<i class="bi bi-plus" aria-hidden="true"></i> Select'}</button>
+                                <span class="add-on-quantity-area ${checked ? '' : 'hidden'}" data-add-on-quantity-note>
+                                    <label for="draft_add_on_${escapeHtml(addOn.id)}">Quantity <span>(${escapeHtml(addOn.unit || 'unit')})</span></label>
+                                    <span class="inline-quantity">
+                                    <button type="button" data-optional-quantity-step="-1" aria-label="Decrease ${escapeHtml(addOn.name)} quantity">−</button>
+                                    <input id="draft_add_on_${escapeHtml(addOn.id)}" type="number" min="1" step="1" required inputmode="numeric" value="${Number.isInteger(quantity) ? quantity : ''}" ${checked ? '' : 'disabled'} class="w-20 rounded-md border border-[#C9C5BB] bg-white px-2 py-1 text-sm text-[#333333] disabled:opacity-50" data-draft-add-on-quantity aria-label="Quantity for ${escapeHtml(addOn.name)}">
+                                    <button type="button" data-optional-quantity-step="1" aria-label="Increase ${escapeHtml(addOn.name)} quantity">+</button>
+                                    </span>
+                                    <span class="add-on-line-total">Line total <strong>&#8369;<span data-draft-add-on-line-total>${fmt(num(addOn.price) * quantity)}</span></strong></span>
+                                </span>
+                        </div>`;
                 }).join('');
             }
         }
         if (optionalAddOnsSearch) optionalAddOnsSearch.value = '';
+        const applied = appliedAddOns();
         if (chooseAddOnsBtn) {
             const unavailable = !selected || addOns.length === 0;
             chooseAddOnsBtn.disabled = unavailable;
@@ -5590,30 +6828,43 @@
             chooseAddOnsBtn.classList.toggle('cursor-not-allowed', unavailable);
             chooseAddOnsBtn.innerHTML = addOns.length === 0
                 ? '<i class="bi bi-slash-circle"></i> No Add-ons Available'
-                : (oldSelectedAddOns.size ? '<i class="bi bi-pencil-square"></i> Change Add-ons' : '<i class="bi bi-plus-circle"></i> Choose Add-ons');
+                : (applied.length ? '<i class="bi bi-pencil-square" aria-hidden="true"></i> Change Add-ons' : '<i class="bi bi-plus-circle" aria-hidden="true"></i> Choose Add-ons');
         }
         if (selectedAddOnsTotal) selectedAddOnsTotal.textContent = fmt(addOnsTotal());
         if (draftAddOnsTotal) draftAddOnsTotal.textContent = fmt(addOnsTotal());
         if (selectedAddOnsLines) {
-            const applied = appliedAddOns();
             selectedAddOnsLines.classList.toggle('hidden', applied.length === 0);
             selectedAddOnsLines.innerHTML = applied.map((addOn) => `
-                <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#E5E0D5] bg-[#FBFAF7] px-3 py-2">
+                <div class="intake-applied-add-on" data-applied-add-on-row="${escapeHtml(addOn.id)}">
                     <span class="min-w-0">
                         <span class="block font-bold">${escapeHtml(addOn.name)}</span>
-                        <span class="block text-xs font-medium text-[#5F685F]">Qty 1${addOn.unit ? ` ${escapeHtml(addOn.unit)}` : ''}</span>
+                        <span class="intake-add-on-rate block text-sm">&#8369;${fmt(addOn.price)} per ${escapeHtml(addOn.unit || 'unit')}</span>
                     </span>
-                    <span class="font-black">&#8369; ${fmt(addOn.price)}</span>
+                    <div class="intake-applied-add-on-actions text-sm">
+                        <label>Qty (${escapeHtml(addOn.unit || 'unit')})
+                            <input type="number" name="add_on_quantities[${escapeHtml(addOn.id)}]" min="1" step="1" required inputmode="numeric" value="${addOn.quantity || ''}" class="form-input" data-applied-add-on-quantity="${escapeHtml(addOn.id)}" aria-label="Quantity for ${escapeHtml(addOn.name)}" aria-invalid="${addOnQuantityErrors[String(addOn.id)] ? 'true' : 'false'}">
+                        </label>
+                        <strong class="whitespace-nowrap">&#8369;<span data-applied-add-on-line-total="${escapeHtml(addOn.id)}">${fmt(addOn.lineTotal)}</span></strong>
+                        <button type="button" data-remove-applied-add-on="${escapeHtml(addOn.id)}" aria-label="Remove ${escapeHtml(addOn.name)}">Remove</button>
+                    </div>
+                    ${addOnQuantityErrors[String(addOn.id)] ? `<span class="text-xs font-semibold text-red-700" role="alert">${escapeHtml(addOnQuantityErrors[String(addOn.id)])}</span>` : ''}
                 </div>
             `).join('');
         }
-        const summaryTitle = selectedAddOnsSummary?.querySelector('.font-bold');
-        const summaryHelp = selectedAddOnsSummary?.querySelector('.text-xs');
-        if (summaryTitle) summaryTitle.textContent = oldSelectedAddOns.size ? `${oldSelectedAddOns.size} add-on(s) selected.` : (addOns.length ? 'No add-ons selected.' : 'No add-ons are currently available.');
-        if (summaryHelp) summaryHelp.textContent = oldSelectedAddOns.size ? 'Applied add-ons are shown below. Use Change Add-ons to update them.' : 'Optional add-ons are not included in the base package price.';
+        const appliedCount = applied.length;
+        if (selectedAddOnsCount) {
+            const excludedReasons = [];
+            if (structuredInclusionsFor(selected).some(item => item.add_on_id && item.add_on_category !== chapelCategory)) {
+                excludedReasons.push('Package add-ons are listed under Other Inclusions.');
+            }
+            if (globalAddOns.some(item => item.category === chapelCategory)) {
+                excludedReasons.push('Chapel rates are shown under Chapel Viewing Charge.');
+            }
+            selectedAddOnsCount.textContent = appliedCount
+                ? `${appliedCount} add-on${appliedCount === 1 ? '' : 's'} selected`
+                : (addOns.length ? 'No add-ons selected' : ['No optional add-ons available.', ...excludedReasons].join(' '));
+        }
 
-        if (structuredPricingSection) structuredPricingSection.classList.toggle('hidden', !selected || selected === customPkgRadio);
-        if (!selected || selected === customPkgRadio) setPackageAdjustmentsOpen(false);
 
         syncPreferredPackage();
 
@@ -5634,6 +6885,15 @@
             field.disabled = !isCustomSelected;
         });
         customPkgFields?.querySelectorAll('.custom-service-check').forEach((checkbox) => {
+            const excluded = checkbox.value === 'home_viewing' && isChapelViewing();
+            checkbox.disabled = !isCustomSelected || excluded;
+            checkbox.closest('.custom-package-service-card').hidden = excluded;
+            const coverageRow = checkbox.closest('.custom-package-service-card')?.querySelector('[data-custom-coverage]');
+            if (coverageRow) {
+                coverageRow.hidden = !checkbox.checked || checkbox.disabled;
+                coverageRow.querySelectorAll('input').forEach(field => { field.disabled = coverageRow.hidden; });
+                coverageRow.querySelector('[data-coverage-included]').required = !coverageRow.hidden && coverageRow.dataset.unit === 'days';
+            }
             const dependent = checkbox.closest('.rounded-lg')?.querySelector('.custom-service-dependent');
             if (!dependent) return;
             dependent.classList.toggle('hidden', !checkbox.checked || !isCustomSelected);
@@ -5642,6 +6902,45 @@
                 field.required = checkbox.checked && isCustomSelected;
             });
         });
+
+        const regularIncludesHearse = selected && selected !== customPkgRadio
+            && (structuredInclusionsFor(selected).some((row) => row.service_type === 'hearse')
+                || list(selected.dataset.inclusions).some((name) => /\bhearse\b/i.test(name)));
+        const customIncludesHearse = isCustomSelected
+            && !!document.querySelector('.custom-service-check[value="hearse"]:checked');
+        const requiresHearse = !!(regularIncludesHearse || customIncludesHearse);
+        mountPackageInclusionCards(selected, isCustomSelected, regularIncludesHearse, customIncludesHearse);
+        document.getElementById('regular-hearse-inclusion').classList.toggle('hidden', !regularIncludesHearse);
+        document.getElementById('custom-hearse-picker').hidden = !customIncludesHearse;
+        hearseAssignmentFields?.classList.toggle('hidden', !requiresHearse);
+        if (hearseCatalogSelect) {
+            hearseCatalogSelect.options[0].textContent = isCustomSelected ? 'Choose an available hearse' : 'Use included hearse';
+            const includedHearse = structuredInclusionsFor(selected).find(row => row.service_type === 'hearse')?.hearse;
+            [...hearseCatalogSelect.options].slice(1).forEach(option => {
+                const reference = option.dataset.referenceValue;
+                const extra = includedHearse?.reference_value != null && reference !== ''
+                    ? ` · Extra charge ₱${fmt(Math.max(0, num(reference) - num(includedHearse.reference_value)))}`
+                    : ' · Upgrade rate unavailable';
+                option.textContent = option.dataset.name + (isCustomSelected ? '' : extra);
+            });
+            hearseCatalogSelect.disabled = !requiresHearse;
+            hearseCatalogSelect.required = requiresHearse && isCustomSelected;
+            if (!requiresHearse) {
+                hearseCatalogSelect.value = '';
+                hearseCatalogSelect.setCustomValidity('');
+            }
+        }
+        if (replacementCasket) {
+            const includedValue = num(includedCasketFor(selected).reference_value);
+            [...replacementCasket.options].slice(1).forEach(option => {
+                const label = [option.dataset.name, option.dataset.material].filter(Boolean).join(' - ');
+                const selectedValue = num(option.dataset.price);
+                const extra = includedValue > 0 && selectedValue > 0
+                    ? ` · Extra charge ₱${fmt(Math.max(0, selectedValue - includedValue))}`
+                    : ' · Upgrade rate unavailable';
+                option.textContent = label + extra + (option.disabled ? ' · Unavailable' : '');
+            });
+        }
 
         if (selected && shouldToast) {
             const name = selected.dataset.name || 'this package';
@@ -5664,6 +6963,7 @@
 
         if (deceasedAddr && clientAddr && deceasedAddr.dataset.manual !== '1') deceasedAddr.value = clientAddr.value;
 
+        document.getElementById('senior_verification_section')?.classList.toggle('hidden', senior?.value !== '1');
         setHidden(seniorIdWrap, seniorId, senior?.value !== '1');
         if (seniorId) seniorId.required = false;
 
@@ -5695,55 +6995,180 @@
         syncBranchUiLock();
     };
 
-    let advisoryKey = '';
-    let advisoryRequest = 0;
-    const updateScheduleAdvisory = async (force = false) => {
-        const panel = panels.find(panel => Number(panel.dataset.step) === totalSteps);
-        if (!panel || step !== totalSteps) return;
-        let card = panel.querySelector('[data-schedule-advisory]');
-        if (!card) {
-            card = document.createElement('section');
-            card.dataset.scheduleAdvisory = 'true';
-            card.setAttribute('aria-live', 'polite');
-            panel.querySelector('.section-title-block')?.insertAdjacentElement('afterend', card);
-            if (!card.isConnected) panel.prepend(card);
+    const advisorySummary = document.getElementById('schedule_advisory_summary');
+    const scheduleSummaryTrigger = document.getElementById('intake_schedule_summary_trigger');
+    const scheduleSummaryPanel = document.getElementById('intake_schedule_summary');
+    const scheduleSummaryDates = [...scheduleSummaryPanel.querySelectorAll('[data-summary-date]')];
+    const supportsScheduleSummaryPopover = typeof scheduleSummaryPanel.showPopover === 'function';
+    const closeScheduleSummary = () => {
+        if (supportsScheduleSummaryPopover) {
+            if (scheduleSummaryPanel.matches(':popover-open')) scheduleSummaryPanel.hidePopover();
+        } else {
+            scheduleSummaryPanel.hidden = true;
+            scheduleSummaryTrigger.setAttribute('aria-expanded', 'false');
         }
-        const params = new URLSearchParams({ branch_id: branch.value, funeral_service_at: funeral.value, interment_at: interment.value });
-        const key = params.toString();
-        if (!force && key === advisoryKey) return;
-        advisoryKey = key;
-        const request = ++advisoryRequest;
-        card.hidden = false;
-        card.textContent = 'Checking other cases scheduled on these dates…';
-        try {
-            const response = await fetch(@json(route('intake.schedule-advisory')) + '?' + key, { headers: { Accept: 'application/json' }, cache: 'no-store' });
-            if (!response.ok) throw new Error('Schedule check failed');
-            const data = await response.json();
-            if (request !== advisoryRequest) return;
-            card.replaceChildren();
-            card.hidden = !data.events.length;
-            if (!data.events.length) return;
-            const title = document.createElement('h4');
-            title.textContent = 'Schedule advisory · Other cases are scheduled on the same date';
-            const copy = document.createElement('p');
-            copy.textContent = `${data.case_count} other case(s) in this branch. Review staff, venue, and vehicle availability. You may save this case if the schedules can be accommodated.`;
-            const list = document.createElement('ul');
-            data.events.forEach(event => {
-                const item = document.createElement('li');
-                item.textContent = `${event.case_code} · ${event.event} · ${event.date} ${event.time} · ${event.status === 'ACTIVE' ? 'Ongoing' : event.status === 'COMPLETED' ? 'Completed' : 'Draft'}`;
-                list.appendChild(item);
+    };
+    if (supportsScheduleSummaryPopover) {
+        scheduleSummaryPanel.hidden = false;
+        window.bindServiceFieldPopover(scheduleSummaryTrigger, scheduleSummaryPanel, null, formContent);
+    } else {
+        scheduleSummaryPanel.removeAttribute('popover');
+        scheduleSummaryTrigger.addEventListener('click', () => {
+            scheduleSummaryPanel.hidden = !scheduleSummaryPanel.hidden;
+            scheduleSummaryTrigger.setAttribute('aria-expanded', String(!scheduleSummaryPanel.hidden));
+        });
+    }
+    const advisoryFields = [...f.querySelectorAll('[data-advisory-field]')].map(launch => {
+        const trigger = launch.querySelector('button');
+        const panel = launch.querySelector('.schedule-advisory-panel');
+        const supportsPopover = typeof panel.showPopover === 'function';
+        if (supportsPopover) {
+            panel.hidden = false;
+            window.bindServiceFieldPopover(trigger, panel, null, formContent);
+        } else {
+            trigger.setAttribute('aria-expanded', 'false');
+            trigger.addEventListener('click', () => {
+                panel.hidden = !panel.hidden;
+                trigger.setAttribute('aria-expanded', String(!panel.hidden));
             });
-            card.append(title, copy, list);
-        } catch (error) {
-            if (request !== advisoryRequest) return;
-            advisoryKey = '';
-            card.textContent = 'Schedule advisory is currently unavailable. Check branch schedules before saving. You may still proceed.';
         }
+        return { launch, trigger, panel, supportsPopover };
+    });
+    const advisoryUnavailable = 'Schedule advisory unavailable. Check the branch schedule.';
+    const scheduleMatchesStart = (entry, event) => entry.date === event.date_key && entry.time === event.start_time;
+    let advisoryKey = '';
+    let advisoryTimer;
+    let advisoryController;
+    let advisoryCache;
+
+    const advisoryHearseId = () => {
+        const selected = pkg();
+        if (!selected) return '';
+        if (!hearseCatalogSelect?.disabled && hearseCatalogSelect?.value) return hearseCatalogSelect.value;
+        if (selected === customPkgRadio) return '';
+        return structuredInclusionsFor(selected).find(row => row.service_type === 'hearse')?.hearse?.id || '';
+    };
+
+    const drawScheduleAdvisory = (entries, data, unavailable = false) => {
+        const events = (data?.events ?? []).filter(event =>
+            entries.some(entry => entry.field === event.event_type && entry.date === event.date_key));
+        const sameStart = events.filter(event => entries.some(entry =>
+            entry.field === event.event_type && scheduleMatchesStart(entry, event)));
+        const otherEvents = events.filter(event => !sameStart.includes(event));
+        const hearseId = advisoryHearseId();
+        const usesSameHearse = event => hearseId && event.assigned_hearse_id
+            && String(hearseId) === String(event.assigned_hearse_id);
+        const branchName = data?.branch_name;
+        advisoryFields.forEach(({ launch, trigger, panel, supportsPopover }) => {
+            const entry = entries.find(item => item.field === launch.dataset.advisoryField);
+            const onDate = entry ? events.filter(event => event.event_type === entry.field && event.date_key === entry.date) : [];
+            const matches = onDate.filter(event => scheduleMatchesStart(entry, event));
+            const others = onDate.filter(event => !matches.includes(event));
+            launch.hidden = step !== 3 || !entry || (!onDate.length && !unavailable);
+            if (launch.hidden) {
+                if (supportsPopover && panel.matches(':popover-open')) panel.hidePopover();
+                if (!supportsPopover) {
+                    panel.hidden = true;
+                    trigger.setAttribute('aria-expanded', 'false');
+                }
+                return;
+            }
+            trigger.dataset.tone = matches.length ? 'match' : 'info';
+            trigger.querySelector('i').className = matches.length ? 'bi bi-exclamation-triangle' : 'bi bi-info-circle';
+            trigger.querySelector('[data-advisory-trigger-label]').textContent = matches.length
+                ? `${matches.length} ${matches.length === 1 ? 'event starts' : 'events start'} at this time · View advisory`
+                : others.length ? `${others.length} other ${others.length === 1 ? 'event' : 'events'} · View advisory` : 'View schedule advisory';
+            panel.querySelector('[data-advisory-guidance]').hidden = !matches.length;
+            panel.querySelectorAll('[data-schedule-advisory]').forEach(card => {
+                const matched = card.dataset.scheduleAdvisory === 'match';
+                const items = matched ? matches : others;
+                card.replaceChildren();
+                card.hidden = !items.length;
+                if (!matched && unavailable) {
+                    card.textContent = advisoryUnavailable;
+                    card.hidden = false;
+                    return;
+                }
+                if (!items.length) return;
+                const title = document.createElement('h4');
+                title.textContent = matched ? 'Same start time' : `Other events on this date${branchName ? ` (${branchName})` : ''}`;
+                const list = document.createElement('ul');
+                items.forEach(event => {
+                    const item = document.createElement('li');
+                    item.dataset.tone = matched ? 'match' : 'same';
+                    const dateTime = event.start_time ? `${event.date} at ${event.time}` : `${event.date} (Time not recorded)`;
+                    item.textContent = `${dateTime} · ${event.event} · Case ${event.case_code}`;
+                    if (matched && usesSameHearse(event)) {
+                        const asset = document.createElement('strong');
+                        asset.textContent = `Same hearse on both cases${event.assigned_hearse ? ` · ${event.assigned_hearse}` : ''}. Confirm vehicle availability with your branch.`;
+                        item.append(asset);
+                    }
+                    list.append(item);
+                });
+                card.append(title, list);
+            });
+        });
+
+        const same = sameStart.length;
+        const other = otherEvents.length;
+        advisorySummary.dataset.tone = same ? 'match' : 'info';
+        const sameHearseCases = new Set(sameStart.filter(usesSameHearse).map(event => event.case_code)).size;
+        const dateLabel = new Set(entries.map(entry => entry.date)).size === 1 ? 'this date' : 'the selected dates';
+        advisorySummary.hidden = step !== totalSteps || (!events.length && !unavailable);
+        advisorySummary.textContent = unavailable ? advisoryUnavailable : [
+            same ? `${same} ${same === 1 ? 'event starts' : 'events start'} at the same time` : '',
+            sameHearseCases ? `Same hearse on ${sameHearseCases} ${sameHearseCases === 1 ? 'case' : 'cases'}` : '',
+            other ? `${other} other ${other === 1 ? 'event' : 'events'} on ${dateLabel}` : '',
+        ].filter(Boolean).join(' · ');
+    };
+
+    const updateScheduleAdvisory = () => {
+        const entries = [
+            { field: 'funeral', date: funeral.value, time: funeralTime.value },
+            { field: 'interment', date: interment.value, time: intermentTime.value },
+        ].filter(entry => /^\d{4}-\d{2}-\d{2}$/.test(entry.date) && /^\d{2}:\d{2}$/.test(entry.time));
+        const active = (step === 3 || step === totalSteps) && branch.value && entries.length;
+        const key = active ? JSON.stringify([step, branch.value, entries, advisoryHearseId()]) : '';
+        if (key === advisoryKey) return;
+        advisoryKey = key;
+        clearTimeout(advisoryTimer);
+        advisoryController?.abort();
+        const params = new URLSearchParams({ branch_id: branch.value });
+        entries.forEach(entry => params.set(entry.field === 'funeral' ? 'funeral_service_at' : 'interment_at', entry.date));
+        const query = params.toString();
+        if (active && advisoryCache?.query === query && step !== totalSteps) {
+            drawScheduleAdvisory(entries, advisoryCache.data);
+            return;
+        }
+        drawScheduleAdvisory(entries, null);
+        if (!active) return;
+        const controller = new AbortController();
+        advisoryController = controller;
+        advisoryTimer = setTimeout(async () => {
+            try {
+                const response = await fetch(@json(route('intake.schedule-advisory')) + '?' + params, {
+                    headers: { Accept: 'application/json' }, cache: 'no-store', signal: controller.signal,
+                });
+                if (!response.ok) throw new Error('Schedule check failed');
+                const data = await response.json();
+                if (!controller.signal.aborted) {
+                    advisoryCache = { query, data };
+                    drawScheduleAdvisory(entries, data);
+                }
+            } catch (error) {
+                if (!controller.signal.aborted) drawScheduleAdvisory(entries, null, true);
+            }
+        }, 200);
     };
     const renderReview = () => {
         updateScheduleAdvisory();
         const selected = pkg();
         const t = totals();
+        const homeViewingIncluded = isCustomSelected()
+            ? !!document.querySelector('.custom-service-check[value="home_viewing"]:checked:not(:disabled)')
+            : structuredInclusionsFor().some(item => item.service_type === 'home_viewing');
+        homeViewingNotice.hidden = viewingType.value !== 'home' || !pkg() || homeViewingIncluded;
+        homeViewingNotice.textContent = 'Home Viewing not included. No automatic Home Viewing charge applies.';
 
         if (reviewClient) {
             reviewClient.innerHTML = [
@@ -5776,13 +7201,20 @@
                 detailRow('Wake Start Date & Time', formatScheduleDateTime(f.elements.wake_start_date?.value, f.elements.wake_start_time?.value)),
                 detailRow('Wake End Date & Time', formatScheduleDateTime(f.elements.wake_end_date?.value, f.elements.wake_end_time?.value)),
                 detailRow('Funeral Ceremony Date & Time', formatScheduleDateTime(f.elements.funeral_service_at?.value, f.elements.funeral_service_time?.value)),
+                detailRow('Funeral Ceremony Location', textOrDash(f.elements.funeral_ceremony_location_mode.value === 'wake'
+                    ? viewingLocation.value : f.elements.funeral_ceremony_location.value)),
                 detailRow('Interment Date & Time', formatScheduleDateTime(f.elements.interment_at?.value, f.elements.interment_time?.value)),
                 detailRow('Wake Duration', wakeDurationLabel(f.elements.wake_days?.value)),
                 detailRow('Retrieval Excess KM', applyRetrievalExcess?.checked ? textOrDash(retrievalExcessInput?.value) : 'Within coverage'),
                 detailRow('Hearse Excess KM', applyHearseExcess?.checked ? textOrDash(hearseExcessInput?.value) : 'Within coverage'),
-                detailRow('Wake Location', textOrDash(f.elements.wake_location?.value)),
+                detailRow('Viewing Type', textOrDash(viewingType.value ? viewingType.selectedOptions[0]?.textContent : '')),
+                detailRow(viewingLocationLabel.textContent, textOrDash(viewingLocation.value)),
+                ...(isChapelViewing() ? [detailRow('Chapel Address', textOrDash(chapelAddress.value))] : []),
+                ...(isChapelViewing() ? [
+                    detailRow('Chapel Selection', chapelCoverage() === 'included' ? 'Included in Package' : 'Branch Chapel at a Daily Rate'),
+                    detailRow('Chapel Charge', chapelChargePreview.textContent),
+                ] : []),
                 detailRow('Place of Interment', textOrDash(f.elements.place_of_cemetery?.value)),
-                detailRow('Case Status', textOrDash(f.elements.case_status?.value)),
             ].join('');
         }
 
@@ -5790,6 +7222,7 @@
             const selectedAddOnRows = appliedAddOns();
             reviewPackage.innerHTML = [
                 detailRow('Selected Package', selected?.dataset?.name || '-'),
+                detailRow('Assigned Hearse', hearseCatalogSelect?.value ? hearseCatalogSelect.selectedOptions[0]?.textContent : (structuredInclusionsFor().find(row => row.service_type === 'hearse')?.hearse?.name || 'None')),
                 detailRow('Package Price', `PHP ${fmt(t.packagePrice)}`),
                 detailRow('Included services and items', list(selected?.dataset.inclusions).join(', ') || '-'),
                 detailRow('Freebies', list(selected?.dataset.freebies).join(', ') || 'None'),
@@ -5798,7 +7231,7 @@
                     : []),
                 ...(!isCustomSelected() ? [detailRow('Replacement Casket', selectedReplacementCasket()?.name || 'Use included casket')] : []),
                 detailRow('Optional Add-ons', selectedAddOnRows.length
-                    ? selectedAddOnRows.map((addOn) => `${addOn.name} x1 - PHP ${fmt(addOn.price)}`).join(', ')
+                    ? selectedAddOnRows.map((addOn) => `${addOn.name} × ${addOn.quantity} ${addOn.unit || 'unit'} - PHP ${fmt(addOn.lineTotal)}`).join(', ')
                     : 'No optional add-ons selected.'),
             ].join('');
         }
@@ -5807,6 +7240,10 @@
             reviewBilling.innerHTML = [
                 detailRow('Package Price', `PHP ${fmt(t.packagePrice)}`),
                 detailRow('Automatic Charges', `PHP ${fmt(t.structuredTotal)}`),
+                ...t.structured.includedAddOns.filter(item => item.amount > 0).map(item => detailRow(item.label, `PHP ${fmt(item.amount)}`)),
+                detailRow('Casket Upgrade', `PHP ${fmt(t.structured.casket)}`),
+                detailRow('Hearse Upgrade', `PHP ${fmt(t.structured.hearseUpgrade || 0)}`),
+                detailRow('Hearse Excess Distance', `PHP ${fmt(t.structured.hearse.amount)}`),
                 detailRow('Add-ons Total', `PHP ${fmt(t.selectedAddOns)}`),
                 detailRow('Additional Services', textOrDash(additionalServices?.value)),
                 detailRow('Additional Charges', `PHP ${fmt(t.additional)}`),
@@ -5830,29 +7267,31 @@
         }
     };
 
+    const viewingDurationLabel = days => {
+        const nights = Math.max(0, days - 1);
+        return `${days} ${days === 1 ? 'day' : 'days'} / ${nights} ${nights === 1 ? 'night' : 'nights'}`;
+    };
     const computeWakeDays = () => {
         if (!wakeDays) return;
 
         const wakeDate = getDateValue(wakeStart, wakeStartPicker);
         const serviceDate = getDateValue(wakeEnd, wakeEndPicker);
+        const badge = document.getElementById('wake_duration_badge');
 
         if (!wakeDate || !serviceDate || serviceDate < wakeDate) {
+            if (badge) badge.hidden = true;
             wakeDays.value = '';
             if (wakeDurationDisplay) wakeDurationDisplay.textContent = 'Auto-calculated';
-            const helper = document.getElementById('wake_days_helper');
-            if (helper) helper.textContent = 'Calculated automatically from Wake Start Date through Wake End Date, inclusive.';
             return;
         }
 
         const wakeOnly = new Date(wakeDate.getFullYear(), wakeDate.getMonth(), wakeDate.getDate());
         const serviceOnly = new Date(serviceDate.getFullYear(), serviceDate.getMonth(), serviceDate.getDate());
-        const diffDays = Math.floor((serviceOnly - wakeOnly) / 86400000) + 1;
+        const days = Math.min(365, Math.floor((serviceOnly - wakeOnly) / 86400000) + 1);
+        wakeDays.value = String(days);
+        if (wakeDurationDisplay) wakeDurationDisplay.textContent = `Wake Duration: ${viewingDurationLabel(days)}`;
+        if (badge) badge.hidden = false;
 
-        wakeDays.value = diffDays >= 0 ? String(diffDays) : '';
-        if (wakeDurationDisplay) wakeDurationDisplay.textContent = wakeDurationLabel(diffDays);
-
-        const helper = document.getElementById('wake_days_helper');
-        if (helper) helper.textContent = `Wake Duration: ${wakeDurationLabel(diffDays)}`;
     };
 
     const combineDateAndTime = (date, timeValue) => {
@@ -5864,6 +7303,46 @@
         return Number.isNaN(combined.getTime()) ? null : combined;
     };
 
+    const positionIntakePicker = (panel, anchor, preferredWidth) => {
+        const gap = 8;
+        const viewportWidth = document.documentElement.clientWidth;
+        const viewportHeight = document.documentElement.clientHeight;
+        const rect = anchor.getBoundingClientRect();
+        const width = Math.min(preferredWidth, viewportWidth - gap * 2);
+        panel.style.setProperty('position', 'fixed', 'important');
+        panel.style.setProperty('width', `${width}px`, 'important');
+        panel.style.setProperty('margin', '0', 'important');
+        panel.style.setProperty('inset', 'auto', 'important');
+        panel.style.setProperty('max-height', `${viewportHeight - gap * 2}px`, 'important');
+        const below = viewportHeight - rect.bottom - gap * 2;
+        const above = rect.top - gap * 2;
+        const openAbove = panel.offsetHeight > below && above > below;
+        panel.style.setProperty('max-height', `${Math.max(0, openAbove ? above : below)}px`, 'important');
+        const top = openAbove ? rect.top - gap - panel.offsetHeight : rect.bottom + gap;
+        panel.style.setProperty('top', `${top}px`, 'important');
+        panel.style.setProperty('left', `${Math.max(gap, Math.min(rect.left, viewportWidth - width - gap))}px`, 'important');
+    };
+
+    const closeIntakePickerOnScroll = (anchor, panel, close) => {
+        window.addEventListener('scroll', (event) => {
+            const target = event.target;
+            if (target instanceof Element && (panel.contains(target) || !target.contains(anchor))) return;
+            close();
+        }, { capture: true, passive: true });
+        window.addEventListener('resize', close);
+    };
+
+    advisoryFields.forEach(({ trigger, panel, supportsPopover }) => {
+        closeIntakePickerOnScroll(trigger, panel, () => {
+            if (supportsPopover) {
+                if (panel.matches(':popover-open')) panel.hidePopover();
+            } else if (!panel.hidden) {
+                panel.hidden = true;
+                trigger.setAttribute('aria-expanded', 'false');
+            }
+        });
+    });
+
     const initScheduleTimePicker = (hiddenInput) => {
         if (!hiddenInput) return;
 
@@ -5871,45 +7350,55 @@
         const displayInput = document.querySelector(`[data-time-display-for="${hiddenInput.id}"]`);
         const toggleButton = document.querySelector(`[data-time-toggle-for="${hiddenInput.id}"]`);
         const popover = picker?.querySelector('[data-time-popover]');
-        if (!picker || !displayInput || !popover) return;
+        if (!picker || !displayInput || !toggleButton || !popover) return;
 
         const state = { hour: '', minute: '', period: '' };
         const pad = (value) => String(value).padStart(2, '0');
-        const allOptions = [...picker.querySelectorAll('.time-option')];
-
-        const parseTypedTime = (value) => {
-            const raw = String(value || '').trim().toUpperCase().replace(/\s+/g, '');
-            if (!raw) return null;
-
-            const amPmMatch = raw.match(/^(\d{1,2})(?::?(\d{2}))?(AM|PM)$/);
-            if (amPmMatch) {
-                let hour = Number(amPmMatch[1]);
-                const minute = Number(amPmMatch[2] ?? '00');
-                const period = amPmMatch[3];
-
-                if (hour < 1 || hour > 12 || minute < 0 || minute > 59) return null;
-                hour = hour % 12;
-                if (period === 'PM') hour += 12;
-                return `${pad(hour)}:${pad(minute)}`;
+        const floating = typeof popover.showPopover === 'function';
+        const periods = document.createElement('div');
+        periods.className = 'schedule-time-periods';
+        periods.setAttribute('role', 'group');
+        periods.setAttribute('aria-label', `${displayInput.getAttribute('aria-label')} period`);
+        const periodButtons = ['AM', 'PM'].map(period => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = period;
+            button.setAttribute('aria-pressed', 'false');
+            button.addEventListener('click', () => showPeriod(period));
+            periods.append(button);
+            return button;
+        });
+        toggleButton.setAttribute('aria-haspopup', 'dialog');
+        toggleButton.setAttribute('aria-expanded', 'false');
+        let presets;
+        displayInput.readOnly = true;
+        displayInput.placeholder = 'Select time';
+        if (floating) popover.setAttribute('popover', 'manual');
+        {
+            presets = document.createElement('div');
+            presets.className = 'intake-time-presets';
+            presets.setAttribute('role', 'group');
+            presets.setAttribute('aria-label', 'Half-hour time options');
+            for (let hour = 0; hour < 24; hour++) {
+                for (const minute of ['00', '30']) {
+                    const value = `${pad(hour)}:${minute}`;
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.dataset.timePreset = value;
+                    button.textContent = `${pad(hour % 12 || 12)}:${minute} ${hour < 12 ? 'AM' : 'PM'}`;
+                    button.addEventListener('click', () => {
+                        hiddenInput.value = value;
+                        applyHiddenValueToPicker();
+                        syncHiddenValue();
+                        closePicker();
+                        displayInput.focus({ preventScroll:true });
+                    });
+                    presets.append(button);
+                }
             }
-
-            const twentyFourHourMatch = raw.match(/^(\d{1,2})(?::?(\d{2}))$/);
-            if (twentyFourHourMatch) {
-                const hour = Number(twentyFourHourMatch[1]);
-                const minute = Number(twentyFourHourMatch[2]);
-                if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
-                return `${pad(hour)}:${pad(minute)}`;
-            }
-
-            const hourOnly = raw.match(/^(\d{1,2})$/);
-            if (hourOnly) {
-                const hour = Number(hourOnly[1]);
-                if (hour < 1 || hour > 12) return null;
-                return `${pad(hour)}:00`;
-            }
-
-            return null;
-        };
+            presets.hidden = true;
+            popover.replaceChildren(periods, presets);
+        }
 
         const formatDisplay = () => {
             if (!state.hour || !state.minute || !state.period) return '';
@@ -5917,25 +7406,43 @@
         };
 
         const closePicker = () => {
+            if (floating && popover.matches(':popover-open')) popover.hidePopover();
             picker.classList.remove('is-open');
             displayInput.setAttribute('aria-expanded', 'false');
+            toggleButton.setAttribute('aria-expanded', 'false');
+            presets.hidden = true;
+            periodButtons.forEach(button => button.setAttribute('aria-pressed', 'false'));
+        };
+
+        const positionPicker = () => {
+            if (floating) {
+                if (!popover.matches(':popover-open')) popover.showPopover();
+                positionIntakePicker(popover, picker, 280);
+            }
         };
 
         const openPicker = () => {
+            if (picker.classList.contains('is-open')) return;
             document.querySelectorAll('.time-input-wrap.is-open').forEach((openWrap) => {
-                if (openWrap !== picker) {
-                    openWrap.classList.remove('is-open');
-                    openWrap.querySelector('.schedule-time-display')?.setAttribute('aria-expanded', 'false');
-                }
+                openWrap.dispatchEvent(new Event('intake:close-time'));
             });
             picker.classList.add('is-open');
             displayInput.setAttribute('aria-expanded', 'true');
-            popover.querySelector('[data-time-editor="hour"]').value = state.hour;
-            popover.querySelector('[data-time-editor="minute"]').value = state.minute;
-            popover.querySelectorAll('[data-time-period]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.timePeriod === state.period)));
-            popover.querySelector('.time-editor-error').hidden = true;
-            const selected = picker.querySelector('.time-option.is-selected');
-            selected?.scrollIntoView({ block: 'nearest' });
+            toggleButton.setAttribute('aria-expanded', 'true');
+            positionPicker();
+            periodButtons[0].focus({ preventScroll: true });
+        };
+
+        const showPeriod = (period) => {
+            presets.hidden = false;
+            periodButtons.forEach(button => button.setAttribute('aria-pressed', String(button.textContent === period)));
+            [...presets.children].forEach(button => {
+                button.hidden = !button.textContent.endsWith(period);
+                button.setAttribute('aria-pressed', String(button.dataset.timePreset === hiddenInput.value));
+            });
+            positionPicker();
+            const selectedPreset = presets.querySelector('[aria-pressed="true"]:not([hidden])');
+            presets.scrollTop = selectedPreset ? selectedPreset.offsetTop - presets.offsetTop : 0;
         };
 
         const syncHiddenValue = () => {
@@ -5956,12 +7463,6 @@
             hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
         };
 
-        const syncSelectedStyles = () => {
-            allOptions.forEach((option) => {
-                option.classList.toggle('is-selected', state[option.dataset.timePart] === option.dataset.timeValue);
-            });
-        };
-
         const applyHiddenValueToPicker = () => {
             const [hourRaw, minuteRaw] = String(hiddenInput.value || '').slice(0, 5).split(':');
             const hour24 = Number(hourRaw);
@@ -5972,7 +7473,6 @@
                 state.minute = '';
                 state.period = '';
                 displayInput.value = '';
-                syncSelectedStyles();
                 return;
             }
 
@@ -5980,55 +7480,16 @@
             state.minute = pad(minute);
             state.period = hour24 >= 12 ? 'PM' : 'AM';
             displayInput.value = formatDisplay();
-            syncSelectedStyles();
         };
 
-        const applyTypedTime = (showError = false) => {
-            const typed = displayInput.value.trim();
-            if (!typed) {
-                state.hour = '';
-                state.minute = '';
-                state.period = '';
-                hiddenInput.value = '';
-                hiddenInput.setCustomValidity('');
-                displayInput.setCustomValidity('');
-                syncSelectedStyles();
-                hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
-                return true;
-            }
-
-            const parsed = parseTypedTime(typed);
-            if (!parsed) {
-                const message = 'Use a valid time like 8:30 AM.';
-                hiddenInput.setCustomValidity(message);
-                displayInput.setCustomValidity(showError ? message : '');
-                if (showError) displayInput.reportValidity();
-                return false;
-            }
-
-            hiddenInput.value = parsed;
-            hiddenInput.setCustomValidity('');
-            displayInput.setCustomValidity('');
-            applyHiddenValueToPicker();
-            hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
-            return true;
-        };
-
-        toggleButton?.addEventListener('click', () => {
-            picker.classList.contains('is-open') ? closePicker() : openPicker();
+        toggleButton.addEventListener('click', () => {
+            if (picker.classList.contains('is-open')) closePicker();
+            else openPicker();
         });
-
         displayInput.addEventListener('focus', () => {
-            displayInput.select();
+            displayInput.setAttribute('aria-haspopup', 'dialog');
         });
-
-        displayInput.addEventListener('input', () => {
-            applyTypedTime(false);
-        });
-
-        displayInput.addEventListener('blur', () => {
-            applyTypedTime(true);
-        });
+        displayInput.addEventListener('click', () => openPicker());
 
         displayInput.addEventListener('keydown', (event) => {
             if (event.key === 'ArrowDown') {
@@ -6039,42 +7500,20 @@
 
             if (event.key === 'Enter') {
                 event.preventDefault();
-                if (applyTypedTime(true)) closePicker();
+                openPicker();
             }
-        });
-
-        popover.querySelectorAll('[data-time-period]').forEach(button => button.addEventListener('click', () => {
-            popover.querySelectorAll('[data-time-period]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
-        }));
-        popover.querySelectorAll('[data-time-minute]').forEach(button => button.addEventListener('click', () => {
-            popover.querySelector('[data-time-editor="minute"]').value = button.dataset.timeMinute;
-        }));
-        popover.querySelector('[data-time-apply]').addEventListener('click', () => {
-            const hourText = popover.querySelector('[data-time-editor="hour"]').value;
-            const minuteText = popover.querySelector('[data-time-editor="minute"]').value;
-            const hour = Number(hourText), minute = Number(minuteText);
-            const period = popover.querySelector('[data-time-period][aria-pressed="true"]')?.dataset.timePeriod;
-            if (!hourText || !minuteText || !Number.isInteger(hour) || hour < 1 || hour > 12 || !Number.isInteger(minute) || minute < 0 || minute > 59 || !period) {
-                popover.querySelector('.time-editor-error').hidden = false;
-                return;
-            }
-            state.hour = pad(hour); state.minute = pad(minute); state.period = period;
-            syncHiddenValue(); closePicker(); displayInput.focus();
-        });
-        allOptions.forEach((option) => {
-            option.addEventListener('click', () => {
-                state[option.dataset.timePart] = option.dataset.timeValue;
-                syncSelectedStyles();
-                syncHiddenValue();
-                if (state.hour && state.minute && state.period) closePicker();
-            });
         });
 
         picker.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape') {
+            if (event.key === 'Escape' && picker.classList.contains('is-open')) {
+                event.preventDefault();
                 closePicker();
                 displayInput.focus();
             }
+        });
+        picker.addEventListener('intake:close-time', closePicker);
+        closeIntakePickerOnScroll(picker, popover, () => {
+            if (picker.classList.contains('is-open')) closePicker();
         });
 
         applyHiddenValueToPicker();
@@ -6088,8 +7527,7 @@
     document.addEventListener('click', (event) => {
         document.querySelectorAll('.time-input-wrap.is-open').forEach((picker) => {
             if (!picker.contains(event.target)) {
-                picker.classList.remove('is-open');
-                picker.querySelector('.schedule-time-display')?.setAttribute('aria-expanded', 'false');
+                picker.dispatchEvent(new Event('intake:close-time'));
             }
         });
     });
@@ -6177,128 +7615,92 @@
         }
     };
 
-    const validateWakeInterment = (mode = 'full') => {
-        const wakeStartRaw = getRawDateString(wakeStart, wakeStartPicker);
-        const wakeRaw = getRawDateString(funeral, wakePicker);
-        const interRaw = getRawDateString(interment, interPicker);
-        const wakeStartDate = getDateValue(wakeStart, wakeStartPicker);
-        const wakeEndDate = getDateValue(wakeEnd, wakeEndPicker);
-        const wakeDate = getDateValue(funeral, wakePicker);
-        const interDate = getDateValue(interment, interPicker);
-        const requestDateValue = getDateValue(requestDate);
-        const wakeStartDateTime = combineDateAndTime(wakeStartDate, wakeStartTime?.value);
-        const wakeEndDateTime = combineDateAndTime(wakeEndDate, wakeEndTime?.value);
-        const funeralDateTime = combineDateAndTime(wakeDate, funeralTime?.value);
-        const intermentDateTime = combineDateAndTime(interDate, intermentTime?.value);
+    const validateWakeInterment = (mode = 'light') => {
+        const fields = [
+            [wakeStart, wakeStartTime, wakeStartPicker, wakeStartErr, 'Wake Start'],
+            [wakeEnd, wakeEndTime, wakeEndPicker, wakeEndErr, 'Wake End'],
+            [funeral, funeralTime, wakePicker, wakeErr, 'Funeral Ceremony'],
+            [interment, intermentTime, interPicker, intermentErr, 'Interment'],
+        ];
+        const errors = new Map();
+        const dates = fields.map(([field, , picker]) => getDateValue(field, picker));
+        const times = fields.map(([, time], index) => combineDateAndTime(dates[index], time?.value));
+        const [startDate, , ceremonyDate, intermentDate] = dates;
+        const [start, end, ceremony, burial] = times;
+        const deathDate = dateOnly(getDateValue(died, diedPicker));
+        const requestDay = dateOnly(getDateValue(requestDate));
+        const todayDate = dateOnly(new Date());
 
-        wakeStart?.setCustomValidity('');
-        wakeStartTime?.setCustomValidity('');
-        wakeEnd?.setCustomValidity('');
-        wakeEndTime?.setCustomValidity('');
-        funeral?.setCustomValidity('');
-        funeralTime?.setCustomValidity('');
-        interment?.setCustomValidity('');
-        intermentTime?.setCustomValidity('');
-        intermentWarning?.classList.add('hidden');
-
-        if (mode === 'full') {
-            setFieldError(wakeStart, wakeStartErr, '', wakeStartPicker?.altInput);
-            setFieldError(wakeEnd, wakeEndErr, '', wakeEndPicker?.altInput);
-            setFieldError(funeral, wakeErr, '', wakePicker?.altInput);
-            setFieldError(interment, intermentErr, '', interPicker?.altInput);
-        }
-
-        if (wakeStart) {
-            if (!wakeStartRaw || !wakeStartTime?.value) {
-                if (mode === 'full') {
-                    wakeStart.setCustomValidity('Please select a wake start date and time.');
-                    wakeStartTime?.setCustomValidity('Please select a wake start date and time.');
-                }
-            } else if (!wakeStartDate) {
-                wakeStart.setCustomValidity('Please select a wake start date and time.');
+        fields.forEach(([field, time, picker, , label], index) => {
+            const raw = getRawDateString(field, picker);
+            const dateBeingEdited = document.activeElement === (picker?.altInput || field);
+            if (!dates[index] && (mode === 'full' || (raw && !dateBeingEdited))) errors.set(field, `Select a valid ${label} date.`);
+            if (!time?.value && mode === 'full') errors.set(time, `Select a ${label} time.`);
+            else if (time?.value && !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time.value)) errors.set(time, `Select a valid ${label} time.`);
+            if (historicalIntake && dates[index] && todayDate && dateOnly(dates[index]) > todayDate) {
+                errors.set(field, `${label} date cannot be in the future for a historical entry.`);
             }
-        }
-
-        if (funeral) {
-            if (!wakeRaw || !funeralTime?.value) {
-                if (mode === 'full') {
-                    funeral.setCustomValidity('Please select a Funeral Ceremony date and time.');
-                    funeralTime?.setCustomValidity('Please select a Funeral Ceremony date and time.');
-                }
-            } else if (!wakeDate) {
-                funeral.setCustomValidity('Please select a Funeral Ceremony date and time.');
+            if (index !== 1 && dates[index] && deathDate && dateOnly(dates[index]) < deathDate) {
+                errors.set(field, `${label} date must be on or after the date of death.`);
             }
+        });
+        if (!historicalIntake && startDate && requestDay && dateOnly(startDate) < requestDay) {
+            errors.set(wakeStart, 'Wake start date cannot be before the request/recorded date.');
         }
 
-        if (wakeEnd) {
-            if (!getRawDateString(wakeEnd, wakeEndPicker) || !wakeEndTime?.value) {
-                if (mode === 'full') {
-                    wakeEnd.setCustomValidity('Please select a wake end date and time.');
-                    wakeEndTime?.setCustomValidity('Please select a wake end date and time.');
-                }
-            } else if (!wakeEndDate) {
-                wakeEnd.setCustomValidity('Please select a wake end date and time.');
+        const checkOrder = (previousIndex, currentIndex, invalid, message) => {
+            if (!invalid) return;
+            const [field, time] = fields[currentIndex];
+            const sameDay = sameDate(dates[previousIndex], dates[currentIndex]);
+            errors.set(sameDay ? time : field, message);
+        };
+        checkOrder(0, 1, start && end && end <= start, sameDate(dates[0], dates[1])
+            ? 'Wake End time must be later than Wake Start time.'
+            : 'Wake End date cannot be before Wake Start date.');
+        checkOrder(0, 2, start && ceremony && ceremony < start, sameDate(dates[0], dates[2])
+            ? 'Funeral Ceremony time cannot be before Wake Start time.'
+            : 'Funeral Ceremony date cannot be before Wake Start date.');
+        checkOrder(1, 2, end && ceremony && ceremony < end, sameDate(dates[1], dates[2])
+            ? 'Funeral Ceremony time cannot be before Wake End time.'
+            : 'Funeral Ceremony date cannot be before Wake End date.');
+        if (intermentDate && ceremonyDate && dateOnly(intermentDate) < dateOnly(ceremonyDate)) {
+            errors.set(interment, 'Interment date cannot be before the Funeral Ceremony date.');
+        } else {
+            checkOrder(2, 3, ceremony && burial && burial <= ceremony, 'Interment time must be later than the Funeral Ceremony time.');
+        }
+        intermentWarning?.classList.toggle('hidden', !(intermentDate && ceremonyDate && dateOnly(intermentDate) > dateOnly(ceremonyDate)));
+
+        fields.forEach(([field, time, picker, error], index) => {
+            const dateMessage = errors.get(field) || '';
+            const timeMessage = errors.get(time) || '';
+            const timeDisplay = scheduleTimeDisplay(time);
+            const serverDateError = field?.name
+                ? f.querySelector(`[data-schedule-server-error="${field.name}"]`)
+                : null;
+            const serverTimeError = time?.name
+                ? f.querySelector(`[data-schedule-server-error="${time.name}"]`)
+                : null;
+            if (dateMessage || dates[index] || mode === 'full') serverDateError?.remove();
+            if (timeMessage || time?.value || mode === 'full') serverTimeError?.remove();
+            field?.setCustomValidity(dateMessage);
+            time?.setCustomValidity(timeMessage);
+            if (time) time.dataset.scheduleError = timeMessage;
+            setFieldError(field, error, dateMessage, picker?.altInput);
+            setFieldError(time, error, timeMessage, timeDisplay);
+            if (error) {
+                error.textContent = dateMessage || timeMessage;
+                error.classList.toggle('hidden', !error.textContent);
             }
+        });
+        const summaryReady = step === 3 && errors.size === 0 && times.every(Boolean);
+        scheduleSummaryTrigger.hidden = !summaryReady;
+        if (summaryReady) {
+            scheduleSummaryDates.forEach((date, index) => { date.textContent = formatDateTime(times[index]); });
+            scheduleSummaryPanel.querySelector('[data-wake-duration]').textContent = `Wake duration · ${viewingDurationLabel(Number(wakeDays.value))}`;
+        } else {
+            closeScheduleSummary();
         }
-
-        if (interment) {
-            if (!interRaw || !intermentTime?.value) {
-                if (mode === 'full') {
-                    interment.setCustomValidity('Please select an interment date and time.');
-                    intermentTime?.setCustomValidity('Please select an interment date and time.');
-                }
-            } else if (!interDate) {
-                interment.setCustomValidity('Please select an interment date and time.');
-            }
-        }
-
-        if (requestDateValue && wakeStartDate) {
-            const requestOnly = new Date(requestDateValue.getFullYear(), requestDateValue.getMonth(), requestDateValue.getDate());
-            const wakeOnly = new Date(wakeStartDate.getFullYear(), wakeStartDate.getMonth(), wakeStartDate.getDate());
-            if (wakeOnly < requestOnly) {
-                wakeStart.setCustomValidity('Wake start date cannot be before the request/recorded date.');
-            }
-        }
-
-        if (wakeStartDateTime && funeralDateTime && funeralDateTime < wakeStartDateTime) {
-            funeral.setCustomValidity('Funeral Ceremony date/time cannot be before the Wake End date/time.');
-        }
-
-        if (wakeStartDateTime && wakeEndDateTime && wakeEndDateTime <= wakeStartDateTime) {
-            wakeEnd.setCustomValidity('Wake End Date/Time must be later than the Wake Start Date/Time.');
-        }
-
-        if (wakeEndDateTime && funeralDateTime && funeralDateTime < wakeEndDateTime) {
-            funeral.setCustomValidity('Funeral Ceremony Date/Time cannot be earlier than the Wake End Date/Time.');
-        }
-
-        if (wakeDate && interDate) {
-            const serviceOnly = dateOnly(wakeDate);
-            const interOnly = dateOnly(interDate);
-
-            if (interOnly < serviceOnly) {
-                interment.setCustomValidity('Interment date/time must be after the Funeral Ceremony date/time.');
-            } else if (interOnly > serviceOnly) {
-                intermentWarning?.classList.remove('hidden');
-            } else if (funeralTime?.value && intermentTime?.value && intermentDateTime && funeralDateTime && intermentDateTime <= funeralDateTime) {
-                interment.setCustomValidity('Interment time must be later than the Funeral Ceremony time.');
-                intermentTime?.setCustomValidity('Interment time must be later than the Funeral Ceremony time.');
-            }
-        }
-
-        if (wakeStartRaw || wakeStartTime?.value || mode === 'full') {
-            setFieldError(wakeStart, wakeStartErr, wakeStart?.validationMessage || wakeStartTime?.validationMessage || '', wakeStartPicker?.altInput);
-        }
-
-        if (wakeRaw || mode === 'full') {
-            setFieldError(funeral, wakeErr, funeral?.validationMessage || funeralTime?.validationMessage || '', wakePicker?.altInput);
-        }
-        if (getRawDateString(wakeEnd, wakeEndPicker) || mode === 'full') {
-            setFieldError(wakeEnd, wakeEndErr, wakeEnd?.validationMessage || wakeEndTime?.validationMessage || '', wakeEndPicker?.altInput);
-        }
-        if (interRaw || mode === 'full') {
-            setFieldError(interment, intermentErr, interment?.validationMessage || intermentTime?.validationMessage || '', interPicker?.altInput);
-        }
+        return errors.size === 0;
     };
 
     const render = () => {
@@ -6310,11 +7712,46 @@
 
         const t = totals();
 
+        if (!isCustomSelected()) {
+            const viewing = structuredInclusionsFor().find(item => item.service_type === 'home_viewing');
+            const context = pkg()?.closest('.package-card')?.querySelector('[data-viewing-context]');
+            if (viewing && context && isChapelViewing()) {
+                context.textContent = 'Home Viewing coverage does not apply to Chapel Viewing.';
+                context.dataset.extra = 'false';
+            } else if (viewing && context) {
+                const included = viewing.included_days;
+                const actual = inclusiveWakeDays();
+                const extra = included == null ? 0 : Math.max(actual - included, 0);
+                const parts = [included == null ? 'Included days not configured' : `${included} ${Number(included) === 1 ? 'day' : 'days'} included`];
+                if (actual) parts.push(`${actual} wake ${actual === 1 ? 'day' : 'days'}`);
+                if (extra) {
+                    parts.push(`${extra} extra ${extra === 1 ? 'day' : 'days'}`);
+                    parts.push(viewing.price_per_extended_day == null ? 'Rate not configured'
+                        : t.structured.viewing.amount > 0 ? `+₱${fmt(t.structured.viewing.amount)}` : 'No extra charge');
+                }
+                context.textContent = parts.join(' · ');
+                context.dataset.extra = String(extra > 0);
+            }
+        }
         if (summaryPackage) summaryPackage.textContent = fmt(t.packagePrice);
         if (summaryAddOns) summaryAddOns.textContent = fmt(t.selectedAddOns);
+        if (summaryPackageAdjustments) {
+            summaryPackageAdjustments.innerHTML = [
+                ...t.structured.includedAddOns,
+                ...t.structured.customCharges,
+                t.structured.chapel,
+                { label: 'Home Viewing Extension', amount: t.structured.viewing.amount },
+                { label: 'Casket Upgrade', amount: t.structured.casket },
+                { label: 'Hearse Upgrade', amount: t.structured.hearseUpgrade },
+                { label: 'Hearse Excess Distance', amount: t.structured.hearse.amount },
+            ].filter(item => item.amount > 0).map(item => `
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-slate-500">${escapeHtml(item.label)}</span>
+                    <span class="whitespace-nowrap font-bold text-slate-900">₱${fmt(item.amount)}</span>
+                </div>
+            `).join('');
+        }
         if (selectedAddOnsTotal) selectedAddOnsTotal.textContent = fmt(t.selectedAddOns);
-        if (structuredChargesTotal) structuredChargesTotal.textContent = fmt(t.structuredTotal);
-        if (structuredChargesTotalModal) structuredChargesTotalModal.textContent = fmt(t.structuredTotal);
         if (summaryAdd) summaryAdd.textContent = fmt(t.additional);
         if (summarySubtotal) summarySubtotal.textContent = fmt(t.subtotal);
         if (summaryDiscountSource) summaryDiscountSource.textContent = t.disc.source;
@@ -6351,27 +7788,60 @@
         if (autoDiscountAmount) autoDiscountAmount.value = `PHP ${fmt(t.disc.amount)}`;
         if (discountHelpSecondary) discountHelpSecondary.textContent = t.disc.message;
 
-        const replacementMode = casketModeRadios.find((radio) => radio.checked)?.value === 'replacement';
-        if (replacementCasketWrap) replacementCasketWrap.classList.toggle('hidden', !replacementMode);
+        const requiresReplacement = !isCustomSelected() && includedCasketFor()?.available === false;
+        const replacementToggle = casketModeRadios.find(radio => radio.value === 'replacement');
+        if (replacementToggle) { if (requiresReplacement) replacementToggle.checked = true; replacementToggle.disabled = requiresReplacement; }
+        if (replacementCasket) replacementCasket.required = requiresReplacement;
+        const replacementMode = requiresReplacement || casketModeRadios.find((radio) => radio.checked)?.value === 'replacement';
         if (replacementCasket && !replacementMode && replacementCasket.value) {
             replacementCasket.value = '';
         }
         const includedCasket = includedCasketFor();
         if (includedCasketSummary) {
-            const name = includedCasket?.name || 'No included casket configured';
-            const material = includedCasket?.material ? ` - ${includedCasket.material}` : '';
-            const value = num(includedCasket?.reference_value) > 0
-                ? `Reference Value: PHP ${fmt(includedCasket.reference_value)}`
-                : 'Reference Value not configured';
-            includedCasketSummary.textContent = `${name}${material}. ${value}.`;
+            const selected = selectedReplacementCasket();
+            const casket = selected || includedCasket;
+            includedCasketSummary.textContent = [casket?.name || 'No included casket configured', casket?.material].filter(Boolean).join(' - ');
+            const status = document.getElementById('casket-inclusion-status');
+            status.textContent = selected ? (t.structured.casket > 0 ? 'Upgrade top-up' : 'Replacement included') : includedAssetStatus(includedCasket);
+            status.dataset.unavailable = String(!selected && includedAssetStatus(includedCasket) !== 'Included');
+            document.querySelector('[data-upgrade-trigger="casket"]').textContent = selected ? 'Change' : requiresReplacement ? 'Choose replacement' : 'Upgrade';
+            document.querySelector('[data-upgrade-charge="casket"]').hidden = !selected;
+            document.querySelector('[data-upgrade-reset="casket"]').classList.toggle('hidden', !selected || requiresReplacement);
         }
         if (casketAdjustmentAmount) casketAdjustmentAmount.textContent = fmt(t.structured.casket);
+        const hearseUpgradePreview = document.getElementById('hearse_upgrade_preview');
+        if (hearseUpgradePreview) {
+            const included = structuredInclusionsFor().find(row => row.service_type === 'hearse')?.hearse;
+            const selected = hearseCatalogSelect?.selectedOptions[0];
+            const changing = hearseCatalogSelect?.value && String(included?.id) !== hearseCatalogSelect.value;
+            const missingValue = !isCustomSelected() && changing && (included?.reference_value == null || selected?.dataset.referenceValue === '');
+            hearseCatalogSelect?.setCustomValidity(missingValue ? 'Configure reference values for both hearses before selecting an upgrade.' : '');
+            document.getElementById('inherited_hearse_summary').textContent = changing ? selected.dataset.name : included?.name || 'No included hearse configured';
+            const status = document.getElementById('hearse-inclusion-status');
+            status.textContent = changing ? (t.structured.hearseUpgrade > 0 ? 'Upgrade top-up' : 'Replacement included') : includedAssetStatus(included);
+            const unavailable = !!included && includedAssetStatus(included) !== 'Included';
+            status.dataset.unavailable = String(!changing && includedAssetStatus(included) !== 'Included');
+            document.querySelector('[data-upgrade-trigger="hearse"]').textContent = changing ? 'Change' : unavailable ? 'Choose replacement' : 'Upgrade';
+            document.querySelector('[data-upgrade-charge="hearse"]').hidden = !changing;
+            document.querySelector('[data-upgrade-reset="hearse"]').classList.toggle('hidden', !changing || !included);
+            document.getElementById('hearse-inclusion-charge').textContent = fmt(t.structured.hearseUpgrade);
+            hearseUpgradePreview.hidden = isCustomSelected() || (!missingValue && (!unavailable || changing));
+            hearseUpgradePreview.textContent = isCustomSelected() ? 'Covered by the agreed all-in price.' : unavailable && !changing
+                ? `Included hearse is ${includedAssetStatus(included).toLowerCase()}. Choose an available replacement or ask the System Admin to update the package.`
+                : missingValue ? 'Reference value not configured. Ask the System Admin to configure both hearses.' : '';
+        }
+
 
         if (casketUpgradePreview) {
             const included = includedCasketFor();
             const selected = selectedReplacementCasket();
+            casketUpgradePreview.hidden = !requiresReplacement && (!selected || (num(included.reference_value) > 0 && selected.referenceValue > 0));
             if (isCustomSelected()) {
                 casketUpgradePreview.textContent = 'Custom packages do not calculate casket upgrades yet.';
+            } else if (requiresReplacement && !selected) {
+                casketUpgradePreview.textContent = included?.active === false
+                    ? 'Included casket is archived. Ask the System Admin to update the package, choose another package, or save as Draft.'
+                    : 'Included casket is unavailable. Choose an available replacement before saving.';
             } else if (!selected) {
                 casketUpgradePreview.textContent = included?.name ? `${included.name} is included in the package price.` : 'Included casket will be used.';
             } else if (num(included.reference_value) <= 0) {
@@ -6471,7 +7941,9 @@
         let valid = true;
         const flatpickrDateFields = ['born', 'died', 'wake_start_date', 'funeral_service_at', 'interment_at'];
 
-        for (const field of [...panel.querySelectorAll('input, select, textarea')].filter((element) => element.type !== 'hidden' && !element.disabled && !element.dataset.intakeDateAlternate)) {
+        for (const field of [...panel.querySelectorAll('input, select, textarea')].filter((element) =>
+            element.type !== 'hidden' && !element.disabled && !element.dataset.intakeDateAlternate
+            && !element.closest('.schedule-stack, [data-coverage-hidden]'))) {
             const isFlatpickrDate = flatpickrDateFields.includes(field.id);
 
             // Do NOT clear date custom validity here
@@ -6509,7 +7981,7 @@
         return valid;
     };
 
-    const validateStep = (targetStep) => {
+    const validateStep = (targetStep, scheduleMode) => {
         clearMessages();
         let valid = true;
 
@@ -6524,7 +7996,7 @@
         if (!panel) return true;
 
         valid = validatePanelFields(panel) && valid;
-        if (targetStep === 3 && customPkgRadio?.checked && prefIncl) {
+        if (targetStep === 3 && customPkgRadio?.checked && prefIncl && chapelPackageIsEligible(customPkgRadio)) {
             syncPreferredPackage();
             const includedItems = prefIncl.value.split(/\r\n|\r|\n/u).map((item) => item.trim()).filter(Boolean);
             if (includedItems.length === 0) {
@@ -6537,10 +8009,6 @@
         if (targetStep === 1) valid = validateClientInformationStep() && valid;
         if (targetStep === 2) valid = validateDeceasedInformationStep() && valid;
         if (targetStep === 2) validateDobDod('full');
-        if (targetStep === 3) validateWakeInterment('full');
-
-
-
         if (targetStep === 4) {
             for (const row of document.querySelectorAll('[data-additional-service-row]')) {
                 const description = row.querySelector('[data-additional-description]');
@@ -6634,168 +8102,43 @@
                 valid = false;
             }
         }
-        if (targetStep === 3 && !pkg()) {
-            packageError?.classList.remove('hidden');
+        const packageSelectionReady = !isChapelViewing() || chapelCoverage() === 'included'
+            || (chapelCoverage() === 'separate' && configuredChapelFor(chapelRate.value));
+        if (targetStep === 3 && packageSelectionReady && (!pkg() || !chapelPackageIsEligible(pkg()))) {
+            packageError.textContent = isChapelViewing()
+                ? (chapelCoverage() === 'included' ? 'Choose a package with chapel coverage at this branch.' : 'Choose a package without chapel coverage at this branch.')
+                : 'Select a service package or choose Custom Arrangement before continuing.';
+            packageError.classList.remove('hidden');
             valid = false;
         }
 
         if (targetStep === 3) {
-            valid = validateAddressField(fieldByName('wake_location')) && valid;
+            const invalidAddon = includedAddOnRows.map(row => row.querySelector('input'))
+                .find(input => !input.disabled && !input.validity.valid);
+            if (invalidAddon) {
+                showFieldError(invalidAddon, invalidAddon.validationMessage);
+                valid = false;
+            }
+            if (!viewingType.value) valid = showFieldError(viewingType, 'Select a viewing type.') && valid;
+            if (!isChapelViewing() && !viewingLocation.disabled) valid = validateAddressField(viewingLocation) && valid;
+            if (isChapelViewing()) {
+                const chapel = chapelViewingCharge();
+                if (!chapelCoverage()) {
+                    chapelCoverageError.textContent = 'Choose a package with a chapel or select a branch chapel separately.';
+                    chapelCoverageError.hidden = false;
+                    chapelCoverageChoices[0].setAttribute('aria-invalid', 'true');
+                    valid = false;
+                } else if (chapelCoverage() === 'separate' && !configuredChapelFor(chapelRate.value)) {
+                    valid = showFieldError(chapelRate, 'Select a chapel for this branch.') && valid;
+                } else if (chapel.blocked || chapelScheduleBox.dataset.state !== 'available') {
+                    valid = false;
+                }
+            }
             valid = validateAddressField(fieldByName('place_of_cemetery')) && valid;
-            const wakeStartRaw = getRawDateString(wakeStart, wakeStartPicker);
-            const wakeEndRaw = getRawDateString(wakeEnd, wakeEndPicker);
-            const wakeRaw = getRawDateString(funeral, wakePicker);
-            const interRaw = getRawDateString(interment, interPicker);
-            const wakeStartDate = getDateValue(wakeStart, wakeStartPicker);
-            const wakeEndDate = getDateValue(wakeEnd, wakeEndPicker);
-            const wakeDate = getDateValue(funeral, wakePicker);
-            const interDate = getDateValue(interment, interPicker);
-            const requestDateValue = getDateValue(requestDate);
-            const wakeStartDateTime = combineDateAndTime(wakeStartDate, wakeStartTime?.value);
-            const wakeEndDateTime = combineDateAndTime(wakeEndDate, wakeEndTime?.value);
-            const funeralDateTime = combineDateAndTime(wakeDate, funeralTime?.value);
-            const intermentDateTime = combineDateAndTime(interDate, intermentTime?.value);
-
-            setFieldError(wakeStart, wakeStartErr, '', wakeStartPicker?.altInput);
-            setFieldError(wakeEnd, wakeEndErr, '', wakeEndPicker?.altInput);
-            setFieldError(funeral, wakeErr, '', wakePicker?.altInput);
-            setFieldError(interment, intermentErr, '', interPicker?.altInput);
-            wakeStart?.setCustomValidity('');
-            wakeStartTime?.setCustomValidity('');
-            wakeEnd?.setCustomValidity('');
-            wakeEndTime?.setCustomValidity('');
-            funeral?.setCustomValidity('');
-            funeralTime?.setCustomValidity('');
-            interment?.setCustomValidity('');
-            intermentTime?.setCustomValidity('');
-
-            [[wakeStart, wakeStartTime, wakeStartErr, wakeStartPicker, 'Wake start'],
-                [wakeEnd, wakeEndTime, wakeEndErr, wakeEndPicker, 'Wake end'],
-                [funeral, funeralTime, wakeErr, wakePicker, 'Funeral ceremony'],
-                [interment, intermentTime, intermentErr, interPicker, 'Interment']].forEach(([date, time, error, picker, label]) => {
-                if (time?.value && !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time.value)) {
-                    const message = `${label} time must be a valid time between 00:00 and 23:59.`;
-                    date.setCustomValidity(message);
-                    time.setCustomValidity(message);
-                    setFieldError(date, error, message, picker?.altInput);
-                    valid = false;
-                }
-            });
-
-            const deathOnly = dateOnly(getDateValue(died, diedPicker));
-            [[wakeStart, wakeStartDate, wakeStartErr, wakeStartPicker, 'Wake start'],
-                [funeral, wakeDate, wakeErr, wakePicker, 'Funeral ceremony'],
-                [interment, interDate, intermentErr, interPicker, 'Interment']].forEach(([field, date, error, picker, label]) => {
-                if (date && deathOnly && dateOnly(date) < deathOnly) {
-                    const message = `${label} date must be on or after the date of death.`;
-                    field.setCustomValidity(message);
-                    setFieldError(field, error, message, picker?.altInput);
-                    valid = false;
-                }
-            });
-
-            if (!wakeStartRaw || !wakeStartTime?.value) {
-                wakeStart.setCustomValidity('Please select a wake start date and time.');
-                wakeStartTime?.setCustomValidity('Please select a wake start date and time.');
-                setFieldError(wakeStart, wakeStartErr, 'Please select a wake start date and time.', wakeStartPicker?.altInput);
-
-                valid = false;
-            }
-
-            if (!wakeRaw || !funeralTime?.value) {
-                funeral.setCustomValidity('Please select a funeral ceremony date and time.');
-                funeralTime?.setCustomValidity('Please select a funeral ceremony date and time.');
-                setFieldError(funeral, wakeErr, 'Please select a funeral ceremony date and time.', wakePicker?.altInput);
-
-                valid = false;
-            }
-
-            if (!wakeEndRaw || !wakeEndTime?.value) {
-                wakeEnd.setCustomValidity('Please select a wake end date and time.');
-                wakeEndTime?.setCustomValidity('Please select a wake end date and time.');
-                setFieldError(wakeEnd, wakeEndErr, 'Please select a wake end date and time.', wakeEndPicker?.altInput);
-
-                valid = false;
-            }
-
-            if (!interRaw || !intermentTime?.value) {
-                interment.setCustomValidity('Please select an interment date and time.');
-                intermentTime?.setCustomValidity('Please select an interment date and time.');
-                setFieldError(interment, intermentErr, 'Please select an interment date and time.', interPicker?.altInput);
-
-                valid = false;
-            }
-
-            if (wakeStartRaw && !wakeStartDate) {
-                wakeStart.setCustomValidity('Please select a wake start date and time.');
-                setFieldError(wakeStart, wakeStartErr, 'Please select a wake start date and time.', wakeStartPicker?.altInput);
-
-                valid = false;
-            }
-
-            if (wakeRaw && !wakeDate) {
-                funeral.setCustomValidity('Please select a funeral ceremony date and time.');
-                setFieldError(funeral, wakeErr, 'Please select a funeral ceremony date and time.', wakePicker?.altInput);
-
-                valid = false;
-            }
-
-            if (wakeEndRaw && !wakeEndDate) {
-                wakeEnd.setCustomValidity('Please select a wake end date and time.');
-                setFieldError(wakeEnd, wakeEndErr, 'Please select a wake end date and time.', wakeEndPicker?.altInput);
-
-                valid = false;
-            }
-
-            if (interRaw && !interDate) {
-                interment.setCustomValidity('Please select an interment date and time.');
-                setFieldError(interment, intermentErr, 'Please select an interment date and time.', interPicker?.altInput);
-
-                valid = false;
-            }
-
-            const requestOnly = requestDateValue ? new Date(requestDateValue.getFullYear(), requestDateValue.getMonth(), requestDateValue.getDate()) : null;
-            const wakeOnly = wakeStartDate ? dateOnly(wakeStartDate) : null;
-            if (requestOnly && wakeOnly && wakeOnly < requestOnly) {
-                wakeStart.setCustomValidity('Wake start date cannot be before the request/recorded date.');
-                setFieldError(wakeStart, wakeStartErr, 'Wake start date cannot be before the request/recorded date.', wakeStartPicker?.altInput);
-
-                valid = false;
-            }
-
-            if (wakeEndDateTime && wakeStartDateTime && wakeEndDateTime <= wakeStartDateTime) {
-                wakeEnd.setCustomValidity('Wake End Date/Time must be later than the Wake Start Date/Time.');
-                setFieldError(wakeEnd, wakeEndErr, 'Wake End Date/Time must be later than the Wake Start Date/Time.', wakeEndPicker?.altInput);
-
-                valid = false;
-            }
-
-            if (funeralDateTime && wakeEndDateTime && funeralDateTime < wakeEndDateTime) {
-                funeral.setCustomValidity('Funeral Ceremony Date/Time cannot be earlier than the Wake End Date/Time.');
-                setFieldError(funeral, wakeErr, 'Funeral Ceremony Date/Time cannot be earlier than the Wake End Date/Time.', wakePicker?.altInput);
-
-                valid = false;
-            }
-
-            const serviceOnly = wakeDate ? dateOnly(wakeDate) : null;
-            const interOnly = interDate ? dateOnly(interDate) : null;
-            if (interOnly && serviceOnly && interOnly < serviceOnly) {
-                interment.setCustomValidity('Interment date/time must be after the Funeral Ceremony date/time.');
-                setFieldError(interment, intermentErr, 'Interment date/time must be after the Funeral Ceremony date/time.', interPicker?.altInput);
-
-                valid = false;
-            }
-
-            if (wakeDate && interDate && sameDate(wakeDate, interDate) && intermentDateTime <= funeralDateTime) {
-                interment.setCustomValidity('Interment time must be later than the Funeral Ceremony time.');
-                intermentTime?.setCustomValidity('Interment time must be later than the Funeral Ceremony time.');
-                setFieldError(interment, intermentErr, 'Interment time must be later than the Funeral Ceremony time.', interPicker?.altInput);
-
-                valid = false;
-            }
+            valid = validateWakeInterment(scheduleMode) && valid;
         }
 
-        if (targetStep === 4 && !payMethodRadios.some((radio) => radio.checked)) {
+        if (targetStep === 4 && isOtherEntryMode && !payMethodRadios.some((radio) => radio.checked)) {
             document.getElementById('payment_method_error')?.classList.remove('hidden');
 
 
@@ -6861,35 +8204,30 @@
     const attemptedSteps = new Set();
     const validationTarget = field => {
         if (!field) return null;
+        if (field === regularPackageChoice && regularPackagePicker) return regularPackagePicker.trigger;
+        if (chapelCoverageChoices.includes(field)) return field;
+        if (field.id === 'custom_casket_catalog_id') return document.querySelector('[data-custom-asset-trigger="casket"]');
+        if (field === hearseCatalogSelect && isCustomSelected()) return document.querySelector('[data-custom-asset-trigger="hearse"]');
+        if (field === replacementCasket) return document.querySelector('[data-upgrade-trigger="casket"]');
+        if (field === hearseCatalogSelect && !isCustomSelected()) return document.querySelector('[data-upgrade-trigger="hearse"]');
         const inclusionDialog = field.closest('.custom-inclusion-dialog');
         if (inclusionDialog && !inclusionDialog.open) return field.closest('.custom-inclusion-editor').querySelector('.custom-inclusion-edit-label');
-        const input = field._flatpickr?.altInput || field;
+        const input = scheduleTimeDisplay(field) || field._flatpickr?.altInput || field;
         if (getComputedStyle(input).display !== 'none' && !['hidden', 'radio', 'checkbox'].includes(input.type)) return input;
         const label = field.closest('label') || (field.id && f.querySelector(`label[for="${field.id}"]`));
         const target = label || (field === branch ? branchBtns[0] : input);
         if (target) target.tabIndex = -1;
         return target;
     };
-    const renderValidationSummary = (panel) => {
-        let summary = panel.querySelector('[data-validation-summary]');
-        if (!summary) {
-            summary = document.createElement('div');
-            summary.dataset.validationSummary = 'true';
-            summary.className = 'intake-validation-summary';
-            summary.setAttribute('role', 'region');
-            summary.setAttribute('aria-label', 'Fields to check');
-            const stepHeading = panel.querySelector(':scope > .section-title-block');
-            if (stepHeading) {
-                stepHeading.insertAdjacentElement('afterend', summary);
-            } else {
-                panel.prepend(summary);
-            }
-        }
+    const collectValidationErrors = (panel) => {
         const errors = [];
         panel.querySelectorAll('input,select,textarea').forEach(field => {
-            if (field.disabled || field.dataset.intakeDateAlternate || (field.type === 'hidden' && !field._flatpickr)) return;
+            if (field.disabled || field.dataset.intakeDateAlternate || field.closest('[data-coverage-hidden]')
+                || (field.type === 'hidden' && !field._flatpickr && !scheduleTimeDisplay(field))) return;
             const inlineError = fieldErrorElement(field, false);
-            const message = field.validationMessage || (inlineError && !inlineError.classList.contains('hidden') ? inlineError.textContent.trim() : '');
+            if (['wake_start_error', 'wake_end_error', 'funeral_service_at_error', 'interment_at_error'].includes(inlineError?.id)
+                && field.getAttribute('aria-invalid') !== 'true') return;
+            const message = (field.validity?.customError && scheduleTimeDisplay(field) ? field.dataset.scheduleError : field.validationMessage) || (inlineError && !inlineError.classList.contains('hidden') ? inlineError.textContent.trim() : '');
             if (!message) return;
             if (field.type === 'radio' && errors.some(error => error.name === field.name)) return;
             if (field.name === 'package_id' && !packageError?.classList.contains('hidden')) return;
@@ -6898,63 +8236,19 @@
             showFieldError(field, message);
             errors.push({ target, message, name: field.name });
         });
-        ['payment_method_error', 'payment_type_error', 'package_error', 'branch_error'].forEach(id => {
+        ['chapel_coverage_error', 'payment_method_error', 'payment_type_error', 'package_error', 'branch_error'].forEach(id => {
             const error = panel.querySelector('#' + id);
-            if (!error || error.classList.contains('hidden')) return;
-            const target = id === 'payment_method_error' ? payMethodRadios[0]
+            if (!error || error.hidden || error.classList.contains('hidden')) return;
+            const target = id === 'chapel_coverage_error' ? chapelCoverageChoices[0]
+                : id === 'payment_method_error' ? payMethodRadios[0]
                 : id === 'payment_type_error' ? payTypeRadios[0]
-                : id === 'package_error' ? pkgRadios[0] : branch;
+                : id === 'package_error' ? (regularPackageArea?.classList.contains('hidden') ? packageModeOptions[0]
+                    : regularPackageChoice.disabled ? chapelCoverageChoices.find(choice => choice.checked) : regularPackageChoice) : branch;
             if (target) errors.push({ target: validationTarget(target), message: error.textContent.trim() });
         });
-        summary.replaceChildren();
-        summary.hidden = errors.length === 0;
-        if (errors.length) {
-            const title = document.createElement('p');
-            title.textContent = errors.length === 1 ? 'Please check this field.' : `Please check these ${errors.length} fields.`;
-            const heading = document.createElement('div');
-            heading.className = 'validation-heading';
-            const icon = document.createElement('span');
-            icon.className = 'validation-icon';
-            icon.setAttribute('aria-hidden', 'true');
-            icon.textContent = '!';
-            const copy = document.createElement('div');
-            const help = document.createElement('small');
-            help.textContent = 'Select an item to go to the field and correct it.';
-            copy.append(title, help);
-            heading.append(icon, copy);
-            summary.appendChild(heading);
-            const list = document.createElement('ul');
-            errors.forEach(({ target, message }, index) => {
-                const item = document.createElement('li');
-                const link = document.createElement('button');
-                link.type = 'button';
-                const number = document.createElement('span');
-                number.className = 'validation-number';
-                number.setAttribute('aria-hidden', 'true');
-                number.textContent = String(index + 1).padStart(2, '0');
-                const text = document.createElement('span');
-                text.textContent = message;
-                const arrow = document.createElement('span');
-                arrow.className = 'validation-arrow';
-                arrow.setAttribute('aria-hidden', 'true');
-                arrow.textContent = '→';
-                link.append(number, text, arrow);
-                link.addEventListener('click', () => {
-                    if (target.matches('.custom-inclusion-edit-label')) {
-                        target.click();
-                        return;
-                    }
-                    target.scrollIntoView({ block: 'center', behavior: 'smooth' });
-                    target.focus({ preventScroll: true });
-                    f.querySelectorAll('.validation-highlight').forEach(field => field.classList.remove('validation-highlight'));
-                    target.classList.add('validation-highlight');
-                    clearTimeout(target._validationHighlightTimer);
-                    target._validationHighlightTimer = setTimeout(() => target.classList.remove('validation-highlight'), 2200);
-                });
-                item.appendChild(link);
-                list.appendChild(item);
-            });
-            summary.appendChild(list);
+        if (panel.contains(chapelScheduleBox) && !chapelScheduleBox.hidden && chapelScheduleBox.dataset.state !== 'available') {
+            const status = chapelScheduleBox.querySelector('[data-chapel-check-status]');
+            errors.push({ target: status, message: status.textContent });
         }
         return errors;
     };
@@ -6964,9 +8258,9 @@
         let valid;
         let errors;
         try {
-            valid = validateStep(targetStep);
+            valid = validateStep(targetStep, focus ? 'full' : 'light');
             const panel = panels.find(element => Number(element.dataset.step) === targetStep);
-            errors = panel ? renderValidationSummary(panel) : [];
+            errors = panel ? collectValidationErrors(panel) : [];
         } finally {
             collectingValidation = false;
         }
@@ -6977,10 +8271,11 @@
         return valid && errors.length === 0;
     };
     f.addEventListener('focusout', event => {
-        if (event.relatedTarget?.closest('button,a,[data-validation-summary]')) return;
+        if (event.relatedTarget?.closest('button,a')) return;
         const field = event.target;
         const panel = field.closest('.wizard-panel');
-        if (!panel || !field.matches('input,select,textarea') || field.disabled) return;
+        if (!panel || !field.matches('input,select,textarea') || field.disabled || field.readOnly || field.closest('[data-existing-client-picker]')) return;
+        if (field.closest('.schedule-stack')) return;
         const stepNumber = Number(panel.dataset.step);
         if (attemptedSteps.has(stepNumber)) { validate(stepNumber, false); return; }
         if (!String(field.value || '').trim()) return;
@@ -6998,6 +8293,7 @@
     });
     let validationRefresh;
     const refreshAttemptedValidation = event => {
+        if (event.target.closest('.schedule-stack')) return;
         const panel = event.target.closest('.wizard-panel');
         if (!panel || !attemptedSteps.has(Number(panel.dataset.step))) return;
         clearTimeout(validationRefresh);
@@ -7007,6 +8303,10 @@
     f.addEventListener('change', refreshAttemptedValidation);
 
     const scrollToStepTop = (smooth = false) => {
+        if (isIntakeModal) {
+            formContent?.scrollTo({ top: 0, behavior: smooth && !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'auto' });
+            return;
+        }
         const anchor = wizardSteps || formContent;
         if (!anchor) return;
 
@@ -7052,9 +8352,13 @@
         }
 
         targetStep = Math.min(targetStep, maxUnlockedStep);
+        if (targetStep > 3 && chapelViewingCharge().blocked) targetStep = 3;
         step = Math.max(1, Math.min(totalSteps, targetStep));
 
         panels.forEach((panel) => panel.classList.toggle('hidden', Number(panel.dataset.step) !== step));
+        if (step === 2) syncSurnameCopy();
+        if (step === 3) validateWakeInterment('light');
+        else closeScheduleSummary();
 
         tabs.forEach((tab) => {
             const tabStep = Number(tab.dataset.step);
@@ -7088,7 +8392,9 @@
                 : 'Continue <i class="bi bi-chevron-right text-[10px] ml-1"></i>';
         }
 
-        if (step === totalSteps) { advisoryKey = ''; renderReview(); }
+        if (step === totalSteps) renderReview();
+        else updateScheduleAdvisory();
+        chapelViewingCharge();
         if (scroll && step !== previousStep) scrollToStepTop(smooth);
 
         // Update progress rail
@@ -7099,6 +8405,7 @@
     };
 
     const syncBranch = (showNotice = false) => {
+        syncViewingLocation();
         branchBtns.forEach((button) => {
             const active = String(button.dataset.branchId) === String(branch.value);
 
@@ -7124,6 +8431,89 @@
             showBranchToast(branchPromptMessage());
         }
     };
+
+    const historicalBranchSelector = document.getElementById('historical_branch_selector');
+    historicalBranchSelector?.addEventListener('change', () => {
+        branch.value = historicalBranchSelector.value;
+        document.querySelector('[data-existing-client-clear]')?.click();
+        chapelRate.value = '';
+        chapelCoverageChoices.forEach(choice => { choice.checked = false; });
+        syncBranch(true);
+        syncPackageModeFromSelection();
+        syncControls();
+        updateScheduleAdvisory();
+    });
+
+    viewingType.addEventListener('change', event => {
+        chapelRate.setCustomValidity('');
+        setFieldError(chapelRate, fieldErrorElement(chapelRate, false), '');
+        viewingType.setCustomValidity('');
+        setFieldError(viewingType, fieldErrorElement(viewingType, false), '');
+        viewingLocation.setCustomValidity('');
+        setFieldError(viewingLocation, fieldErrorElement(viewingLocation, false), '');
+        if (!isChapelViewing()) {
+            if (event.isTrusted) viewingLocation.value = homeViewingAddress;
+            else homeViewingAddress = viewingLocation.value;
+        }
+        chapelCoverageError.hidden = true;
+        syncViewingLocation(event.isTrusted);
+        renderPkg(false);
+        syncPreferredPackage();
+        render();
+    });
+    viewingLocation.addEventListener('input', () => { if (!isChapelViewing()) homeViewingAddress = viewingLocation.value; });
+    chapelCoverageChoices.forEach(choice => choice.addEventListener('change', () => {
+        chapelCoverageError.hidden = true;
+        chapelCoverageChoices[0].removeAttribute('aria-invalid');
+        chapelRate.setCustomValidity('');
+        setFieldError(chapelRate, fieldErrorElement(chapelRate, false), '');
+        if (previousIncludedChapel && chapelCoverage() !== 'included') {
+            previousIncludedChapel = '';
+            chapelRate.value = '';
+        }
+        syncPackageModeFromSelection();
+        renderPkg(false);
+        render();
+    }));
+    chapelSaveDraft.addEventListener('click', () => f.requestSubmit(document.getElementById('saveIntakeDraft')));
+    const focusChapelField = field => {
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        field.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'instant' : 'smooth' });
+        field.focus({ preventScroll: true });
+    };
+    chapelScheduleBox.querySelector('[data-chapel-edit-wake]').addEventListener('click', () => {
+        focusChapelField(validationTarget(wakeStart));
+    });
+    f.addEventListener('click', event => {
+        const option = event.target.closest('[data-alternative-type]');
+        if (!option) return;
+        const value = option.dataset.alternativeValue;
+        if (option.dataset.alternativeType === 'package') {
+            regularPackageChoice.value = value;
+            regularPackageChoice.dispatchEvent(new Event('change', { bubbles: true }));
+            focusChapelField(validationTarget(regularPackageChoice));
+            return;
+        }
+        if (!configuredChapelFor(value)) return;
+        const separate = chapelCoverageChoices.find(choice => choice.value === 'separate');
+        if (!separate.checked) {
+            separate.checked = true;
+            separate.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        chapelRate.value = value;
+        chapelRate.dispatchEvent(new Event('change', { bubbles: true }));
+        focusChapelField(chapelRate);
+    });
+    chapelScheduleBox.querySelector('[data-chapel-change-viewing]').addEventListener('click', () => focusChapelField(viewingType));
+    chapelScheduleBox.querySelector('[data-chapel-conflict-draft]').addEventListener('click', () => {
+        f.requestSubmit(document.getElementById('saveIntakeDraft'));
+    });
+    chapelRate.addEventListener('change', () => {
+        chapelRate.setCustomValidity('');
+        setFieldError(chapelRate, fieldErrorElement(chapelRate, false), '');
+        renderPkg(false);
+        render();
+    });
 
     tabs.forEach((tab) => {
         tab.addEventListener('click', () => {
@@ -7156,7 +8546,9 @@
     branchBtns.forEach((button) => {
         button.addEventListener('click', () => {
             branch.value = button.dataset.branchId;
+            if (chapelCoverage() === 'separate' && !configuredChapelFor(chapelRate.value)) chapelRate.value = '';
             syncBranch(true);
+            renderPkg(false);
             render();
         });
     });
@@ -7166,6 +8558,20 @@
     }
 
     clientAddr?.addEventListener('input', syncControls);
+
+    clientRelationship?.addEventListener('change', syncSurnameCopy);
+    surnameFields.forEach(({ source, destination }) => {
+        source?.addEventListener('input', syncSurnameCopy);
+        destination?.addEventListener('input', syncSurnameCopy);
+    });
+    copyClientSurnames.addEventListener('click', () => {
+        const copies = availableSurnameCopies();
+        copies.forEach(({ source, destination }) => {
+            destination.value = source.value.trim();
+            destination.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        copies[0]?.destination.focus({ preventScroll: true });
+    });
 
     deceasedAddr?.addEventListener('input', () => {
         deceasedAddr.dataset.manual = deceasedAddr.value ? '1' : '';
@@ -7180,18 +8586,18 @@
 
     died?.addEventListener('change', () => {
         validateDobDod('full');
-        validateWakeInterment('full');
+        validateWakeInterment('light');
         syncAge();
         syncDateConstraints();
         render();
     });
 
     [wakeStart, wakeStartTime, wakeEnd, wakeEndTime, funeral, funeralTime, interment, intermentTime, requestDate].forEach((element) => {
-        element?.addEventListener('change', () => {
-            if (element === funeral) syncIntermentDateFromFuneral();
+        element?.addEventListener('change', event => {
+            if (element === funeral) syncIntermentDateFromFuneral(event.isTrusted);
             if (element === interment) markIntermentDateManual();
             computeWakeDays();
-            validateWakeInterment('full');
+            validateWakeInterment('light');
             syncDateConstraints();
             render();
         });
@@ -7200,14 +8606,14 @@
     funeral?.addEventListener('change', () => {
         syncIntermentDateFromFuneral();
         computeWakeDays();
-        validateWakeInterment('full');
+        validateWakeInterment('light');
         render();
     });
 
     interment?.addEventListener('change', () => {
         markIntermentDateManual();
         computeWakeDays();
-        validateWakeInterment('full');
+        validateWakeInterment('light');
         render();
     });
 
@@ -7272,7 +8678,7 @@
         const raw = getRawDateString(funeral, wakePicker);
         if (!raw) return;
         computeWakeDays();
-        validateWakeInterment('full');
+        validateWakeInterment('light');
         render();
     });
 
@@ -7280,66 +8686,11 @@
         const raw = getRawDateString(interment, interPicker);
         if (!raw) return;
         computeWakeDays();
-        validateWakeInterment('full');
+        validateWakeInterment('light');
         render();
     });
 
     if (typeof flatpickr !== 'undefined') {
-        const ensurePickerVisible = (instance) => {
-            if (!instance) return;
-
-            const anchor = instance.altInput || instance._positionElement || instance.input;
-            const cal = instance.calendarContainer;
-            if (!anchor || !cal) return;
-            const scroller = anchor.closest('.page-content') || document.querySelector('.page-content');
-
-            if (instance.config.positionElement !== anchor) {
-                instance.set('positionElement', anchor);
-            }
-
-            const anchorRect = anchor.getBoundingClientRect();
-            const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-            const estimatedHeight = instance.config.enableTime ? 520 : (cal.offsetHeight || 420);
-            const spaceBelow = Math.max(viewportHeight - anchorRect.bottom, 0);
-            const spaceAbove = Math.max(anchorRect.top, 0);
-            const shouldOpenAbove = spaceBelow < estimatedHeight && spaceAbove > spaceBelow;
-            const desiredPosition = shouldOpenAbove ? 'above left' : 'below left';
-
-            if (instance.config.position !== desiredPosition) {
-                instance.set('position', desiredPosition);
-            }
-
-            if (typeof instance._positionCalendar === 'function') {
-                instance._positionCalendar();
-            }
-
-            const nudgeViewport = () => {
-                const rect = cal.getBoundingClientRect();
-                const pad = 10;
-                let delta = 0;
-
-                if (rect.bottom > viewportHeight - pad) {
-                    delta = rect.bottom - (viewportHeight - pad);
-                } else if (rect.top < pad) {
-                    delta = rect.top - pad;
-                }
-
-                if (!delta) return;
-
-                if (scroller) {
-                    scroller.scrollTop += delta;
-                } else {
-                    window.scrollBy({ top: delta, left: 0, behavior: 'auto' });
-                }
-
-                if (typeof instance._positionCalendar === 'function') {
-                    instance._positionCalendar();
-                }
-            };
-
-            requestAnimationFrame(nudgeViewport);
-        };
-
         const dateYear = (value) => {
             if (!value) return null;
             const date = value instanceof Date ? value : new Date(value);
@@ -7367,8 +8718,12 @@
                 });
             }
 
-            const maxYear = dateYear(instance.config.maxDate) ?? (instance.input?.id === 'born' || instance.input?.id === 'died' ? currentYear : currentYear + 1);
-            const minYear = dateYear(instance.config.minDate) ?? (instance.input?.id === 'born' || instance.input?.id === 'died' ? currentYear - 125 : currentYear - 1);
+            const maxYear = historicalIntake
+                ? currentYear
+                : dateYear(instance.config.maxDate) ?? (instance.input?.id === 'born' || instance.input?.id === 'died' ? currentYear : currentYear + 1);
+            const minYear = historicalIntake
+                ? 1000
+                : dateYear(instance.config.minDate) ?? (instance.input?.id === 'born' || instance.input?.id === 'died' ? currentYear - 125 : currentYear - 1);
             const startYear = Math.min(minYear, maxYear);
             const endYear = Math.max(minYear, maxYear);
             const selectedYear = instance.currentYear || dateYear(instance.selectedDates?.[0]) || endYear;
@@ -7388,32 +8743,43 @@
             select.value = String(Math.min(Math.max(selectedYear, startYear), endYear));
         };
 
+        const parseMaskedDate = (value) => {
+            const match = /^(\d{2})\s*\/\s*(\d{2})\s*\/\s*(\d{4})$/.exec(value);
+            if (!match) return undefined;
+            const [, month, day, year] = match.map(Number);
+            const date = new Date(0);
+            date.setFullYear(year, month - 1, day);
+            date.setHours(0, 0, 0, 0);
+            return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : undefined;
+        };
+
         const pickerBaseOpts = {
-            position: 'auto left',
+            altFormat: 'M d, Y (l)',
+            parseDate: (value, format) => value.includes('/') ? parseMaskedDate(value) : flatpickr.parseDate(value, format),
+            position: (instance) => {
+                positionIntakePicker(instance.calendarContainer, instance.altInput || instance.input, 340);
+            },
             appendTo: document.body,
-            animate: true,
+            animate: !isIntakeModal,
             monthSelectorType: 'dropdown',
             prevArrow: '<span>&lsaquo;</span>',
             nextArrow: '<span>&rsaquo;</span>',
             onReady: (selectedDates, dateStr, instance) => {
                 enhanceYearDropdown(instance);
-                ensurePickerVisible(instance);
+                if (instance.calendarContainer) {
+                    closeIntakePickerOnScroll(instance.altInput || instance.input, instance.calendarContainer, () => {
+                        if (instance.isOpen) instance.close();
+                    });
+                }
             },
             onOpen: (selectedDates, dateStr, instance) => {
-                const cal = instance.calendarContainer;
-                if (cal) {
-                    cal.classList.add('shadow-2xl', 'border', 'border-slate-200');
-                }
                 enhanceYearDropdown(instance);
-                ensurePickerVisible(instance);
             },
             onMonthChange: (selectedDates, dateStr, instance) => {
                 enhanceYearDropdown(instance);
-                ensurePickerVisible(instance);
             },
             onYearChange: (selectedDates, dateStr, instance) => {
                 enhanceYearDropdown(instance);
-                ensurePickerVisible(instance);
             }
         };
 
@@ -7422,33 +8788,45 @@
             if (!visible) return;
             visible.dataset.intakeDateAlternate = 'true';
             visible.setAttribute('aria-label', input.dataset.label || input.name);
-            visible.setAttribute('title', 'Use a full month name, for example October 13, 2026, or choose a date from the calendar.');
-            const hint = document.createElement('p');
-            hint.id = `${input.id}_format_help`;
-            hint.className = 'intake-field-help';
-            hint.textContent = 'Example: October 13, 2026. You can also use the calendar.';
-            input.closest('.relative')?.insertAdjacentElement('afterend', hint);
-            visible.setAttribute('aria-describedby', hint.id);
+            visible.inputMode = 'numeric';
+            visible.placeholder = 'MM / DD / YYYY';
+            visible.setAttribute('title', 'Enter MM / DD / YYYY or choose a date from the calendar.');
 
             input.dataset.userTyped = input.dataset.userTyped || '0';
             input.dataset.lastTypedValue = input.dataset.lastTypedValue || '';
             input.dataset.invalidTypedValue = input.dataset.invalidTypedValue || '';
+            picker.config.onChange.unshift((selectedDates) => {
+                if (selectedDates.length) input.dataset.invalidTypedValue = '';
+            });
+
+            visible.addEventListener('focus', () => {
+                const selected = picker.selectedDates[0];
+                if (selected && !input.dataset.invalidTypedValue) {
+                    visible.value = flatpickr.formatDate(selected, 'm / d / Y');
+                }
+                visible.select();
+            });
 
             const invalidMessage = () => {
                 if (type === 'born') return 'Please enter a valid birthdate.';
                 if (type === 'died') return 'Please enter a valid date of death.';
                 if (type === 'wake') return 'Please enter a valid funeral ceremony date.';
+                if (type === 'wake_start') return 'Please enter a valid wake start date.';
                 if (type === 'wake_end') return 'Please enter a valid wake end date.';
-                return 'Please enter a valid interment date and time.';
+                return 'Please enter a valid interment date.';
             };
 
-            visible.addEventListener('input', () => {
+            visible.addEventListener('input', (event) => {
+                const digits = visible.value.replace(/\D/g, '').slice(0, 8);
+                const parts = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4)].filter(Boolean);
+                const atSeparator = digits.length === 2 || digits.length === 4;
+                visible.value = parts.join(' / ') + (atSeparator && !event.inputType?.startsWith('delete') ? ' / ' : '');
                 const raw = visible.value.trim();
                 if (type === 'interment') markIntermentDateManual();
                 input.dataset.userTyped = '1';
                 input.dataset.lastTypedValue = raw;
 
-                // While typing: no error on empty, only show if obviously invalid after some input
+                // Keep the raw value for validation after the schedule date is committed.
                 if (!raw) {
                     input.dataset.invalidTypedValue = '';
                     input.setCustomValidity('');
@@ -7456,11 +8834,11 @@
                     return;
                 }
 
-                const parsed = Date.parse(raw);
-                if (Number.isNaN(parsed)) {
+                if (!parseMaskedDate(raw)) {
                     input.dataset.invalidTypedValue = raw;
-                    input.setCustomValidity(invalidMessage());
-                    setFieldError(input, errorEl, invalidMessage(), visible);
+                    const message = type === 'born' || type === 'died' ? invalidMessage() : '';
+                    input.setCustomValidity(message);
+                    setFieldError(input, errorEl, message, visible);
                     return;
                 }
 
@@ -7469,20 +8847,38 @@
                 setFieldError(input, errorEl, '', visible);
             });
 
+            const normalizeShortDate = () => {
+                if (input.dataset.userTyped !== '1' || !/^[\d\s/]+$/.test(visible.value)) return;
+                const digits = visible.value.replace(/\D/g, '');
+                if (![5, 6, 7].includes(digits.length)) return;
+
+                const yearLength = digits.length === 7 ? 4 : 2;
+                const month = digits.slice(0, 2);
+                const day = digits.slice(2, -yearLength).padStart(2, '0');
+                const year = digits.slice(-yearLength).padStart(4, '20');
+                visible.value = `${month} / ${day} / ${year}`;
+                visible.dispatchEvent(new Event('input', { bubbles:true }));
+            };
+            // Normalize before Flatpickr commits the alternate input.
+            visible.addEventListener('blur', normalizeShortDate, true);
+            visible.addEventListener('keydown', event => {
+                if (event.key === 'Enter') normalizeShortDate();
+            }, true);
+
             visible.addEventListener('blur', () => {
                 const raw = (input.dataset.lastTypedValue || visible.value || '').trim();
                 const invalidTyped = (input.dataset.invalidTypedValue || '').trim();
                 const hasSelectedDate = !!picker.selectedDates.length;
 
                 // untouched empty
-                if (!raw && input.dataset.userTyped !== '1') {
+                if (!raw && !invalidTyped && input.dataset.userTyped !== '1') {
                     input.setCustomValidity('');
                     setFieldError(input, errorEl, '', visible);
                     return;
                 }
 
                 // empty after typing
-                if (!raw) {
+                if (!raw && !invalidTyped) {
                     input.setCustomValidity('');
                     setFieldError(input, errorEl, '', visible);
                     return;
@@ -7504,10 +8900,172 @@
                     validateDobDod('full');
                     setFieldError(input, errorEl, input.validationMessage, visible);
                 } else {
-                    validateWakeInterment('full');
+                    validateWakeInterment('light');
                     setFieldError(input, errorEl, input.validationMessage, visible);
                 }
             });
+        };
+
+        const scheduleEvents = [
+            { field: wakeStart, time: wakeStartTime, key: 'start', label: 'Wake Start' },
+            { field: wakeEnd, time: wakeEndTime, key: 'end', label: 'Wake End' },
+            { field: funeral, time: funeralTime, key: 'ceremony', label: 'Funeral Ceremony' },
+            { field: interment, time: intermentTime, key: 'interment', label: 'Interment' },
+        ];
+        const dateKey = date => flatpickr.formatDate(date, 'Y-m-d');
+        const markScheduleDay = day => {
+            const key = dateKey(day.dateObj);
+            const events = scheduleEvents.filter(event => event.field?.value === key);
+            const start = wakeStart?.value;
+            const end = wakeEnd?.value;
+            const inWake = Boolean(start && end && key >= start && key <= end);
+            const isToday = day.classList.contains('today');
+            const singleEvent = !isToday && events.length === 1;
+            const fill = isToday ? 'today'
+                : events.length > 1 ? 'multiple'
+                : singleEvent ? `dot-${events[0].key}`
+                : inWake ? 'range' : null;
+            day.toggleAttribute('data-schedule-fill', Boolean(fill));
+            if (singleEvent) day.style.setProperty('--schedule-cell-ink', 'var(--schedule-event-ink)');
+            else day.style.removeProperty('--schedule-cell-ink');
+            if (fill) {
+                day.style.setProperty('--schedule-fill', `var(--schedule-${fill})`);
+            } else {
+                day.style.removeProperty('--schedule-fill');
+            }
+            day.querySelector('.intake-schedule-markers')?.remove();
+            if (events.length > 1 || (isToday && events.length === 1)) {
+                const markers = document.createElement('span');
+                markers.className = 'intake-schedule-markers';
+                markers.setAttribute('aria-hidden', 'true');
+                events.forEach(event => {
+                    const dot = document.createElement('i');
+                    dot.style.setProperty('--schedule-marker', `var(--schedule-dot-${event.key})`);
+                    markers.append(dot);
+                });
+                day.append(markers);
+            }
+
+            const dateLabel = day.dataset.scheduleDateLabel ?? day.getAttribute('aria-label') ?? key;
+            day.dataset.scheduleDateLabel = dateLabel;
+            const labels = events.map(event => event.label);
+            if (isToday) labels.unshift('Today');
+            if (inWake && !events.length) labels.push('Wake period');
+            day.setAttribute('aria-label', [dateLabel, ...labels].join(', '));
+            day.title = labels.join(' · ');
+        };
+        const scheduleLegends = new WeakMap();
+        const refreshScheduleCalendar = instance => {
+            const calendar = instance.calendarContainer;
+            calendar.querySelectorAll('.flatpickr-day').forEach(markScheduleDay);
+            const legend = scheduleLegends.get(instance);
+            if (!legend) return;
+            legend.querySelectorAll('[data-schedule-date]').forEach((label, index) => {
+                const event = scheduleEvents[index];
+                const key = event.field?.value;
+                const date = key && flatpickr.parseDate(key, 'Y-m-d');
+                label.textContent = date ? flatpickr.formatDate(date, 'M j, Y') : 'Not set';
+                if (date) {
+                    const dateTime = combineDateAndTime(date, event.time?.value);
+                    const time = document.createElement('span');
+                    time.textContent = dateTime ? flatpickr.formatDate(dateTime, 'h:i K') : 'Time not set';
+                    label.append(time);
+                }
+            });
+            const start = Date.parse(wakeStart?.value);
+            const end = Date.parse(wakeEnd?.value);
+            const days = Number.isFinite(start) && end >= start
+                ? Math.min(365, Math.round((end - start) / 86400000) + 1)
+                : 0;
+            legend.querySelector('[data-wake-duration]').textContent = days
+                ? `${days} wake ${days === 1 ? 'day' : 'days'} · includes start and end`
+                : 'Set Wake Start and Wake End to see the duration.';
+        };
+        const positionScheduleCalendar = instance => {
+            pickerBaseOpts.position(instance);
+            const calendar = instance.calendarContainer;
+            const legend = scheduleLegends.get(instance);
+            if (!legend) return;
+
+            const gap = 8;
+            const viewportWidth = document.documentElement.clientWidth;
+            const viewportHeight = document.documentElement.clientHeight;
+            const rect = calendar.getBoundingClientRect();
+            const width = Math.min(270, viewportWidth - gap * 2);
+            legend.style.width = `${width}px`;
+            legend.style.maxHeight = `${viewportHeight - gap * 2}px`;
+            let left = rect.right + gap;
+            let top = rect.top;
+            if (left + width > viewportWidth - gap) left = rect.left - width - gap;
+            if (left < gap) {
+                left = Math.max(gap, Math.min(rect.left, viewportWidth - width - gap));
+                legend.style.maxHeight = `${Math.floor(viewportHeight * .4)}px`;
+                const maxCalendarHeight = Math.max(0, viewportHeight - legend.offsetHeight - gap * 3);
+                calendar.style.setProperty('max-height', `${maxCalendarHeight}px`, 'important');
+                const calendarTop = Math.max(gap, Math.min(rect.top, viewportHeight - calendar.offsetHeight - legend.offsetHeight - gap * 2));
+                calendar.style.setProperty('top', `${calendarTop}px`, 'important');
+                top = calendarTop + calendar.offsetHeight + gap;
+            }
+            legend.style.left = `${left}px`;
+            legend.style.top = `${Math.max(gap, Math.min(top, viewportHeight - legend.offsetHeight - gap))}px`;
+        };
+        const schedulePickerOpts = {
+            disableMobile: true,
+            position: positionScheduleCalendar,
+            ...(historicalIntake ? { maxDate: 'today' } : {}),
+            onDayCreate: (_, __, ___, day) => markScheduleDay(day),
+            onReady: (dates, value, instance) => {
+                pickerBaseOpts.onReady(dates, value, instance);
+                const legend = document.createElement('div');
+                legend.className = 'intake-schedule-legend intake-schedule-calendar';
+                legend.hidden = true;
+                const title = document.createElement('h4');
+                title.textContent = 'Schedule summary';
+                legend.append(title);
+                scheduleEvents.forEach(event => {
+                    const row = document.createElement('div');
+                    const dot = document.createElement('i');
+                    dot.dataset.scheduleColor = event.key;
+                    dot.setAttribute('aria-hidden', 'true');
+                    const date = document.createElement('span');
+                    date.dataset.scheduleDate = '';
+                    row.append(dot, document.createTextNode(event.label), date);
+                    legend.append(row);
+                });
+                const duration = document.createElement('p');
+                duration.dataset.wakeDuration = '';
+                const key = document.createElement('div');
+                key.className = 'intake-schedule-key';
+                for (const [color, label] of [['today', 'Today'], ['range', 'Wake period']]) {
+                    const item = document.createElement('span');
+                    const swatch = document.createElement('i');
+                    swatch.dataset.scheduleColor = color;
+                    swatch.setAttribute('aria-hidden', 'true');
+                    item.append(swatch, document.createTextNode(label));
+                    key.append(item);
+                }
+                legend.append(key, duration);
+                instance.calendarContainer.classList.add('intake-schedule-calendar');
+                document.body.append(legend);
+                scheduleLegends.set(instance, legend);
+                instance.config.ignoredFocusElements = [...instance.config.ignoredFocusElements, legend];
+                instance.config.onClose.unshift(() => { legend.hidden = true; });
+                instance.config.onDestroy.push(() => legend.remove());
+                instance.config.onValueUpdate.push(() => refreshScheduleCalendar(instance));
+                refreshScheduleCalendar(instance);
+            },
+            onOpen: (dates, value, instance) => {
+                pickerBaseOpts.onOpen(dates, value, instance);
+                const selectedDate = dates[0];
+                if (selectedDate) instance.jumpToDate(selectedDate);
+                refreshScheduleCalendar(instance);
+                scheduleLegends.get(instance).hidden = false;
+                if (selectedDate) requestAnimationFrame(() => {
+                    if (instance.isOpen) instance.calendarContainer
+                        .querySelector('.flatpickr-day.selected:not(.prevMonthDay):not(.nextMonthDay)')
+                        ?.focus({ preventScroll: true });
+                });
+            },
         };
 
         wakeStartPicker = flatpickr(wakeStart, {
@@ -7518,6 +9076,8 @@
             clickOpens: false,
             defaultDate: wakeStart?.value || null,
             ...pickerBaseOpts,
+            ...schedulePickerOpts,
+            altFormat: 'M d, Y (D)',
             onChange: (selectedDates) => {
                 wakeStart.dataset.userTyped = '0';
                 wakeStart.dataset.lastTypedValue = '';
@@ -7529,7 +9089,7 @@
                 }
 
                 computeWakeDays();
-                validateWakeInterment('full');
+                validateWakeInterment('light');
                 render();
             },
             onClose: (selectedDates, dateStr, instance) => {
@@ -7537,18 +9097,18 @@
                 const invalidTyped = (wakeStart.dataset.invalidTypedValue || '').trim();
 
                 if (invalidTyped || (raw && !selectedDates.length && Number.isNaN(Date.parse(raw)))) {
-                    wakeStart.setCustomValidity('Please select a wake start date and time.');
-                    setFieldError(wakeStart, wakeStartErr, 'Please select a wake start date and time.', instance.altInput);
+                    wakeStart.setCustomValidity('Select a valid Wake Start date.');
+                    setFieldError(wakeStart, wakeStartErr, 'Select a valid Wake Start date.', instance.altInput);
                     return;
                 }
 
-                validateWakeInterment('full');
-                setFieldError(wakeStart, wakeStartErr, wakeStart.validationMessage || '', instance.altInput);
+                validateWakeInterment('light');
+
             },
             onValueUpdate: () => {
                 computeWakeDays();
                 validateWakeInterment('light');
-                setFieldError(wakeStart, wakeStartErr, wakeStart.validationMessage, wakeStartPicker?.altInput);
+
                 render();
             }
         });
@@ -7560,8 +9120,10 @@
             allowInput: true,
             clickOpens: false,
             defaultDate: wakeEnd?.value || null,
-            minDate: wakeStart?.value || requestDate?.value || 'today',
+            minDate: wakeStart?.value || (historicalIntake ? null : requestDate?.value || 'today'),
             ...pickerBaseOpts,
+            ...schedulePickerOpts,
+            altFormat: 'M d, Y (D)',
             onChange: (selectedDates) => {
                 wakeEnd.dataset.userTyped = '0';
                 wakeEnd.dataset.lastTypedValue = '';
@@ -7569,12 +9131,12 @@
                 setFieldError(wakeEnd, wakeEndErr, '', wakeEndPicker?.altInput);
                 if (wakePicker && selectedDates[0]) wakePicker.set('minDate', selectedDates[0]);
                 computeWakeDays();
-                validateWakeInterment('full');
+                validateWakeInterment('light');
                 render();
             },
             onClose: () => {
-                validateWakeInterment('full');
-                setFieldError(wakeEnd, wakeEndErr, wakeEnd.validationMessage || '', wakeEndPicker?.altInput);
+                validateWakeInterment('light');
+
             },
             onValueUpdate: () => {
                 computeWakeDays();
@@ -7591,6 +9153,8 @@
             clickOpens: false,
             defaultDate: funeral?.value || null,
             ...pickerBaseOpts,
+            ...schedulePickerOpts,
+            altFormat: 'M d, Y (D)',
             onChange: (selectedDates) => {
                 funeral.dataset.userTyped = '0';
                 funeral.dataset.lastTypedValue = '';
@@ -7601,9 +9165,9 @@
                     interPicker.set('minDate', selectedDates[0]);
                 }
 
-                syncIntermentDateFromFuneral();
+                syncIntermentDateFromFuneral(true);
                 computeWakeDays();
-                validateWakeInterment('full');
+                validateWakeInterment('light');
                 render();
             },
             onClose: (selectedDates, dateStr, instance) => {
@@ -7622,8 +9186,8 @@
                     return;
                 }
 
-                validateWakeInterment('full');
-                setFieldError(funeral, wakeErr, funeral.validationMessage || '', instance.altInput);
+                validateWakeInterment('light');
+
             },
             onValueUpdate: () => {
                 const raw = (wakePicker?.altInput?.value || '').trim();
@@ -7638,7 +9202,7 @@
 
                 computeWakeDays();
                 validateWakeInterment('light');
-                setFieldError(funeral, wakeErr, funeral.validationMessage, wakePicker?.altInput);
+
                 render();
             }
         });
@@ -7650,8 +9214,10 @@
             allowInput: true,
             clickOpens: false,
             defaultDate: interment?.value || null,
-            minDate: funeral?.value || wakeStart?.value || requestDate?.value || 'today',
+            minDate: funeral?.value || wakeStart?.value || (historicalIntake ? null : requestDate?.value || 'today'),
             ...pickerBaseOpts,
+            ...schedulePickerOpts,
+            altFormat: 'M d, Y (D)',
             onChange: () => {
                 markIntermentDateManual();
                 interment.dataset.userTyped = '0';
@@ -7660,7 +9226,7 @@
                 setFieldError(interment, intermentErr, '', interPicker?.altInput);
 
                 computeWakeDays();
-                validateWakeInterment('full');
+                validateWakeInterment('light');
                 render();
             },
             onClose: (selectedDates, dateStr, instance) => {
@@ -7668,8 +9234,8 @@
             const invalidTyped = (interment.dataset.invalidTypedValue || '').trim();
 
             if (invalidTyped || (raw && !selectedDates.length && Number.isNaN(Date.parse(raw)))) {
-                interment.setCustomValidity('Please select an interment date and time.');
-                setFieldError(interment, intermentErr, 'Please select an interment date and time.', instance.altInput);
+                interment.setCustomValidity('Select a valid Interment date.');
+                setFieldError(interment, intermentErr, 'Select a valid Interment date.', instance.altInput);
                 return;
             }
 
@@ -7679,8 +9245,8 @@
                 return;
             }
 
-            validateWakeInterment('full');
-            setFieldError(interment, intermentErr, interment.validationMessage || '', instance.altInput);
+            validateWakeInterment('light');
+
         },
             onValueUpdate: () => {
                 const raw = (interPicker?.altInput?.value || '').trim();
@@ -7695,7 +9261,7 @@
 
                 computeWakeDays();
                 validateWakeInterment('light');
-                setFieldError(interment, intermentErr, interment.validationMessage, interPicker?.altInput);
+
                 render();
             }
         });
@@ -7831,7 +9397,7 @@
 
                 syncAge();
                 validateDobDod('full');
-                validateWakeInterment('full');
+                validateWakeInterment('light');
                 syncDateConstraints();
                 render();
             },
@@ -7881,17 +9447,6 @@
         });
     });
 
-    senior?.addEventListener('change', () => {
-        if (!enforceSeniorEligibility(true)) {
-            syncControls();
-            render();
-            return;
-        }
-        clearFieldMessage(senior);
-        syncControls();
-        render();
-    });
-
     proofInput?.addEventListener('change', () => {
         syncControls();
         render();
@@ -7936,7 +9491,6 @@
     const payMethodRadios = [...document.querySelectorAll('.payment-method-radio')];
     const payMethodCards  = [...document.querySelectorAll('.payment-method-card')];
     const paymentDetailsSection = document.getElementById('payment_details_section');
-    const paymentMethodHint = document.getElementById('payment_method_hint');
     const cashReferenceWrap = document.getElementById('cash_reference_wrap');
     const cashReferenceNumber = document.getElementById('cash_reference_number');
     const cashlessWrap    = document.getElementById('cashless_details_wrap');
@@ -7954,6 +9508,7 @@
     function syncPayMethod() {
         const selected = payMethodRadios.find(r => r.checked)?.value;
         const hasMethod = selected === 'cash' || selected === 'cashless';
+        document.getElementById('change_intake_payment_method')?.classList.toggle('hidden', !hasMethod);
         document.getElementById('payment_type_section')?.classList.toggle('hidden', !hasMethod);
         if (selected) document.getElementById('payment_method_error')?.classList.add('hidden');
         if (mark?.type === 'checkbox') {
@@ -7968,12 +9523,11 @@
         if (paymentDetailsSection) paymentDetailsSection.classList.toggle('hidden', !hasMethod);
         const typeSelected = !!document.querySelector('.payment-type-radio:checked') || !!document.getElementById('payment_type')?.value;
         document.getElementById('payment_amount_section')?.classList.toggle('hidden', !hasMethod || !typeSelected);
-        if (paymentMethodHint) {
-            paymentMethodHint.textContent = hasMethod
-                ? 'Payment details are now available below.'
-                : selected === 'none' ? 'This case will be saved without a payment.' : 'Select a payment method or confirm that no payment has been received.';
-        }
         if (cashReferenceWrap) cashReferenceWrap.classList.toggle('hidden', !hasMethod || isCashless);
+        if (cashReferenceNumber) {
+            cashReferenceNumber.disabled = !hasMethod || isCashless;
+            cashReferenceNumber.required = !cashReferenceNumber.disabled;
+        }
         if (cashlessWrap) cashlessWrap.classList.toggle('hidden', !hasMethod || !isCashless);
         if (cashlessType) cashlessType.required = hasMethod && isCashless;
         if (!hasMethod && amountPaid) {
@@ -7997,12 +9551,40 @@
         document.querySelectorAll('.intake-cashless-panel').forEach(panel => {
             panel.classList.toggle('hidden', !isCashless || panel.dataset.intakeCashlessPanel !== type);
         });
-        if (bankName) bankName.required = isCashless && type === 'bank_transfer';
+        if (bankName) {
+            bankName.required = isCashless && type === 'bank_transfer';
+            bankName.disabled = !bankName.required;
+        }
         const isOtherBank = isCashless && type === 'bank_transfer' && bankName?.value === 'Other Bank';
         if (otherBankWrap) otherBankWrap.classList.toggle('hidden', !isOtherBank);
-        if (otherBankName) otherBankName.required = isOtherBank;
-        if (referenceNumber) referenceNumber.required = isCashless && ['bank_transfer', 'gcash', 'maya', 'other'].includes(type);
-        if (isCashless && cashReferenceNumber && referenceNumber) cashReferenceNumber.value = referenceNumber.value;
+        if (otherBankName) {
+            otherBankName.required = isOtherBank;
+            otherBankName.disabled = !isOtherBank;
+        }
+        cashlessWrap?.querySelectorAll('[data-intake-cashless-panel="card"] input, [data-intake-cashless-panel="card"] select').forEach(field => {
+            field.disabled = !isCashless || type !== 'card';
+        });
+        const channelField = document.getElementById('intake_payment_channel');
+        if (channelField) {
+            channelField.disabled = !isCashless || type !== 'other';
+            channelField.required = !channelField.disabled;
+        }
+        const notes = document.getElementById('payment_notes');
+        if (notes) notes.disabled = !isCashless || type !== 'other';
+        if (referenceNumber) {
+            referenceNumber.disabled = !isCashless;
+            referenceNumber.required = isCashless && ['bank_transfer', 'gcash', 'maya', 'other'].includes(type);
+        }
+        document.getElementById('cashless_reference_required').hidden = !referenceNumber?.required;
+        const isCard = isCashless && type === 'card';
+        const referenceSlot = document.getElementById(isCard ? 'intake_card_reference_slot' : 'intake_reference_slot');
+        const referenceField = document.getElementById('intake_reference_field');
+        if (referenceSlot && referenceField && referenceField.parentElement !== referenceSlot) referenceSlot.append(referenceField);
+        document.getElementById('intake_reference_slot').hidden = isCard;
+        if (referenceNumber) {
+            if (isCard) referenceNumber.setAttribute('aria-describedby', 'card_payment_hint');
+            else referenceNumber.removeAttribute('aria-describedby');
+        }
         if (bankReference && referenceNumber) bankReference.value = referenceNumber.value;
 
         const activeAccount = document.querySelector(`[data-intake-cashless-panel="${type}"] [data-intake-account-name-field]`);
@@ -8021,6 +9603,9 @@
             bankName,
             otherBankName,
             referenceNumber,
+            cashReferenceNumber,
+            document.getElementById('payment_notes'),
+            document.getElementById('terminal_provider'),
             document.getElementById('approval_code'),
             ...document.querySelectorAll('[data-intake-account-name-field], [data-intake-mobile-number-field], [data-intake-payment-channel-field]'),
         ].forEach(clearFieldMessage);
@@ -8046,15 +9631,115 @@
         return true;
     };
 
+    const paymentIdentifierCheckUrl = @json(route('payments.identifier-check'));
+    const identifierCheckState = new WeakMap();
+    const intakeIdentifierProvider = () => {
+        const type = cashlessType?.value || '';
+        if (type === 'bank_transfer') return bankName?.value === 'Other Bank' ? otherBankName?.value?.trim() : bankName?.value?.trim();
+        if (type === 'gcash') return 'GCash';
+        if (type === 'maya') return 'Maya';
+        if (type === 'card') return document.getElementById('terminal_provider')?.value?.trim() || '';
+        if (type === 'other') return document.getElementById('intake_payment_channel')?.value?.trim() || '';
+        return '';
+    };
+    const showIdentifierDuplicate = (field, message) => {
+        if (!field) return;
+        field.dataset.identifierDuplicate = '1';
+        field.setCustomValidity(message);
+        const errorEl = fieldErrorElement(field);
+        setFieldError(field, errorEl, message);
+    };
+    const checkIntakeIdentifier = async (field, identifierType) => {
+        if (!field || field.disabled || !field.value.trim()) {
+            if (field?.dataset.identifierDuplicate === '1') clearFieldMessage(field);
+            if (field) delete field.dataset.identifierDuplicate;
+            return false;
+        }
+        const value = field.value.trim();
+        const paymentMethod = payMethodRadios.find(radio => radio.checked)?.value || '';
+        const payload = {
+            branch_id: document.getElementById('branch_id')?.value || '',
+            payment_method: paymentMethod,
+            identifier_type: identifierType,
+            identifier: value,
+            cashless_type: cashlessType?.value || '',
+            provider: intakeIdentifierProvider(),
+        };
+        if (!payload.branch_id || (identifierType !== 'receipt_or_no' && (paymentMethod !== 'cashless' || !payload.cashless_type))) return false;
+        const state = identifierCheckState.get(field) || { sequence: 0, timer: null };
+        const sequence = ++state.sequence;
+        if (state.timer) clearTimeout(state.timer);
+        identifierCheckState.set(field, state);
+        try {
+            const response = await fetch(paymentIdentifierCheckUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': f.querySelector('[name="_token"]')?.value || '',
+                },
+                body: JSON.stringify(payload),
+                credentials: 'same-origin',
+            });
+            if (!response.ok) return false;
+            const result = await response.json();
+            if (identifierCheckState.get(field)?.sequence !== sequence || field.value.trim() !== value) return false;
+            if (result.duplicate) {
+                showIdentifierDuplicate(field, result.message || 'This number is already used by another payment in this branch.');
+                return true;
+            }
+            if (field.dataset.identifierDuplicate === '1') clearFieldMessage(field);
+            delete field.dataset.identifierDuplicate;
+            return false;
+        } catch (error) {
+            // The final intake save still performs an authoritative server-side duplicate check.
+            return false;
+        }
+    };
+    const scheduleIntakeIdentifierCheck = (field, identifierType) => {
+        if (!field) return;
+        const state = identifierCheckState.get(field) || { sequence: 0, timer: null };
+        if (state.timer) clearTimeout(state.timer);
+        state.sequence += 1;
+        identifierCheckState.set(field, state);
+        if (field.dataset.identifierDuplicate === '1') clearFieldMessage(field);
+        delete field.dataset.identifierDuplicate;
+        if (!field.value.trim() || field.disabled) return;
+        state.timer = setTimeout(() => checkIntakeIdentifier(field, identifierType), 450);
+    };
+    const checkIntakePaymentIdentifiers = async () => {
+        if (!payNow()) return false;
+        const selected = payMethodRadios.find(radio => radio.checked)?.value;
+        const checks = [];
+        if (selected === 'cash' && cashReferenceNumber?.value.trim()) checks.push([cashReferenceNumber, 'receipt_or_no']);
+        if (selected === 'cashless') {
+            if (cashReferenceNumber?.value.trim()) checks.push([cashReferenceNumber, 'receipt_or_no']);
+            if (referenceNumber && !referenceNumber.disabled && referenceNumber.value.trim()) checks.push([referenceNumber, 'reference_number']);
+            const approvalField = document.getElementById('approval_code');
+            if (cashlessType?.value === 'card' && approvalField?.value.trim()) checks.push([approvalField, 'approval_code']);
+        }
+        const results = await Promise.all(checks.map(([field, type]) => checkIntakeIdentifier(field, type)));
+        const duplicateIndex = results.findIndex(Boolean);
+        if (duplicateIndex >= 0) checks[duplicateIndex][0]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return duplicateIndex >= 0;
+    };
+
     const validatePaymentMethodDetails = () => {
         let valid = true;
         syncPayMethod();
         clearPaymentMethodValidity();
 
         const selected = payMethodRadios.find(r => r.checked)?.value;
-        if (!selected) {
+        if (!selected && isOtherEntryMode) {
             document.getElementById('payment_method_error')?.classList.remove('hidden');
             return false;
+        }
+        if (selected === 'cash') {
+            const receipt = (cashReferenceNumber.value || '').trim();
+            if (!receipt) return showFieldError(cashReferenceNumber, 'Enter the Receipt / OR number for this cash payment.');
+            if (receipt.length < 3 || receipt.length > 50) return showFieldError(cashReferenceNumber, 'Receipt / OR number must be 3 to 50 characters.');
+            if (!/^[A-Za-z0-9 /-]+$/.test(receipt)) return showFieldError(cashReferenceNumber, 'Use letters, numbers, spaces, hyphens, or slashes only.');
+            return window.validatePaymentProof?.(f) ?? false;
         }
         if (selected !== 'cashless') return true;
 
@@ -8064,51 +9749,79 @@
         const activeChannel = document.querySelector(`[data-intake-cashless-panel="${type}"] [data-intake-payment-channel-field]`);
         const activeAccount = document.querySelector(`[data-intake-cashless-panel="${type}"] [data-intake-account-name-field]`);
 
-        if (!type) valid = showFieldError(cashlessType, 'Please select a cashless type.') && valid;
+        if (!type) valid = showFieldError(cashlessType, 'Cashless type is required.') && valid;
         if (type === 'bank_transfer') {
             if (!(bankName?.value || '').trim()) valid = showFieldError(bankName, 'Please select the bank name.') && valid;
-            if (bankName.value === 'Other Bank' && !(otherBankName?.value || '').trim()) {
-                valid = showFieldError(otherBankName, 'Please enter the other bank name.') && valid;
+            if (bankName.value === 'Other Bank') {
+                const name = otherBankName.value.trim();
+                if (!name) valid = showFieldError(otherBankName, 'Please enter the bank name.') && valid;
+                else if (name.length < 2 || name.length > 80) valid = showFieldError(otherBankName, 'Bank name must be between 2 and 80 characters.') && valid;
+                else if (!/^[A-Za-z0-9 .&()-]+$/.test(name)) valid = showFieldError(otherBankName, 'Bank name contains invalid characters.') && valid;
             }
             if (!validateAccountNameValue(accountName)) valid = false;
             if (!validateReferenceValue(referenceNumber, true)) valid = false;
         }
-        if ((type === 'gcash' || type === 'maya') && !ref) {
-            valid = showFieldError(referenceNumber, 'Please enter the wallet reference number.') && valid;
-        }
         if ((type === 'gcash' || type === 'maya')) {
             if (!validateAccountNameValue(activeAccount)) valid = false;
             if (!validateReferenceValue(referenceNumber, true)) valid = false;
+            const mobile = document.querySelector(`[data-intake-cashless-panel="${type}"] [data-intake-mobile-number-field]`);
+            if (mobile?.value.trim() && !/^(09\d{9}|\+?639\d{9})$/.test(mobile.value.trim())) {
+                valid = showFieldError(mobile, 'Please enter a valid Philippine mobile number.') && valid;
+            }
         }
         if (type === 'card' && !approval && !ref) {
-            valid = showFieldError(document.getElementById('approval_code'), 'Please enter the approval code or reference number.') && valid;
+            valid = showFieldError(document.getElementById('approval_code'), 'Enter an approval code or a transaction reference number.') && valid;
         }
         if (type === 'card' && ref && !validateReferenceValue(referenceNumber, false)) valid = false;
+        if (type === 'card') {
+            const approvalField = document.getElementById('approval_code');
+            const terminal = document.getElementById('terminal_provider');
+            if (approval && !/^[A-Za-z0-9_/-]{4,40}$/.test(approval)) valid = showFieldError(approvalField, 'Approval code contains invalid characters or is not 4 to 40 characters long.') && valid;
+            if (terminal?.value.trim() && !/^[A-Za-z0-9 .()-]{1,80}$/.test(terminal.value.trim())) valid = showFieldError(terminal, 'Enter a valid terminal or provider name up to 80 characters.') && valid;
+        }
         if (type === 'other') {
-            if (!(activeChannel?.value || '').trim()) valid = showFieldError(activeChannel, 'Please enter the payment channel.') && valid;
+            const channel = activeChannel?.value.trim() || '';
+            if (!channel) valid = showFieldError(activeChannel, 'Payment channel is required.') && valid;
+            else if (channel.length < 2 || channel.length > 80) valid = showFieldError(activeChannel, 'Payment channel must be between 2 and 80 characters.') && valid;
+            else if (!/^[A-Za-z0-9 ._&()-]+$/.test(channel)) valid = showFieldError(activeChannel, 'Payment channel contains invalid characters.') && valid;
+            const notes = document.getElementById('payment_notes');
+            if (notes?.value.trim().length > 255) valid = showFieldError(notes, 'Notes must not exceed 255 characters.') && valid;
+            else if (/[<>]/.test(notes?.value || '')) valid = showFieldError(notes, 'Notes cannot contain angle brackets.') && valid;
             if (!validateReferenceValue(referenceNumber, true)) valid = false;
         }
 
-        return valid;
+        return valid && (window.validatePaymentProof?.(f) ?? false);
     };
 
-    const syncPaymentAndRender = () => {
+    const syncPaymentAndRender = (event) => {
+        if (event?.type === 'change') clearPaymentMethodValidity();
+        else if (event?.target) clearFieldMessage(event.target);
         syncPayMethod();
+        scheduleIntakeIdentifierCheck(cashReferenceNumber, 'receipt_or_no');
+        scheduleIntakeIdentifierCheck(referenceNumber, 'reference_number');
+        scheduleIntakeIdentifierCheck(document.getElementById('approval_code'), 'approval_code');
         render();
     };
 
     payMethodRadios.forEach(r => r.addEventListener('change', syncPaymentAndRender));
+    document.getElementById('change_intake_payment_method')?.addEventListener('click', () => {
+        payMethodRadios.forEach(radio => { radio.checked = false; });
+        clearPaymentMethodValidity();
+        syncPaymentAndRender();
+        payMethodRadios[0]?.focus({ preventScroll: true });
+    });
     cashlessType?.addEventListener('change', syncPaymentAndRender);
     bankName?.addEventListener('change', syncPaymentAndRender);
     otherBankName?.addEventListener('input', syncPaymentAndRender);
-    cashReferenceNumber?.addEventListener('input', render);
+    cashReferenceNumber?.addEventListener('input', syncPaymentAndRender);
     referenceNumber?.addEventListener('input', () => {
         syncPayMethod();
         clearFieldMessage(referenceNumber);
+        scheduleIntakeIdentifierCheck(referenceNumber, 'reference_number');
         render();
     });
     referenceNumber?.addEventListener('blur', () => {
-        validateReferenceValue(referenceNumber, false);
+        if (validateReferenceValue(referenceNumber, false)) checkIntakeIdentifier(referenceNumber, 'reference_number');
         render();
     });
     document.querySelectorAll('[data-intake-account-name-field], [data-intake-mobile-number-field], [data-intake-payment-channel-field]').forEach(field => {
@@ -8122,108 +9835,198 @@
     });
     document.getElementById('approval_code')?.addEventListener('input', () => {
         clearPaymentMethodValidity();
+        scheduleIntakeIdentifierCheck(document.getElementById('approval_code'), 'approval_code');
         render();
     });
+    document.getElementById('approval_code')?.addEventListener('blur', () => checkIntakeIdentifier(document.getElementById('approval_code'), 'approval_code'));
+    cashReferenceNumber?.addEventListener('blur', () => checkIntakeIdentifier(cashReferenceNumber, 'receipt_or_no'));
+    cashlessType?.addEventListener('change', () => {
+        scheduleIntakeIdentifierCheck(referenceNumber, 'reference_number');
+        scheduleIntakeIdentifierCheck(document.getElementById('approval_code'), 'approval_code');
+    });
+    bankName?.addEventListener('change', () => scheduleIntakeIdentifierCheck(referenceNumber, 'reference_number'));
+    otherBankName?.addEventListener('input', () => scheduleIntakeIdentifierCheck(referenceNumber, 'reference_number'));
+    document.getElementById('terminal_provider')?.addEventListener('input', () => scheduleIntakeIdentifierCheck(document.getElementById('approval_code'), 'approval_code'));
+    document.getElementById('intake_payment_channel')?.addEventListener('input', () => scheduleIntakeIdentifierCheck(referenceNumber, 'reference_number'));
     document.getElementById('card_type')?.addEventListener('change', render);
     document.getElementById('terminal_provider')?.addEventListener('input', render);
     document.querySelectorAll('[name="payment_notes"]').forEach(field => {
-        field.addEventListener('input', render);
+        field.addEventListener('input', syncPaymentAndRender);
     });
     syncPayMethod();
 
     pkgRadios.forEach((radio) => {
         radio.addEventListener('change', (event) => {
+            if (radio.value !== 'custom' && radio.checked) lastRegularPackageValue = radio.value;
+            const promotionContextField = document.querySelector('[name="promotion_context_token"]');
+            const promotionReviewField = document.querySelector('[name="promotion_review_token"]');
+            const promotionAcknowledgement = document.querySelector('[name="promotion_acknowledged"]');
+            const promotionReviewBanner = document.querySelector('.promotion-review-banner');
+            if (promotionContextField) promotionContextField.value = radio.checked && radio.value !== 'custom' ? (radio.dataset.promoContext || '') : '';
+            if (promotionReviewField) promotionReviewField.value = '';
+            if (promotionAcknowledgement) promotionAcknowledgement.checked = false;
+            if (promotionReviewBanner) promotionReviewBanner.hidden = true;
             renderPkg(event.isTrusted);
             syncControls();
             render();
         });
     });
-
-    pkgCards.forEach((card) => {
-        card.addEventListener('click', (event) => {
-            if (event.target.closest('.package-details-btn')) return;
-            const radio = cardRadio(card);
-            if (radio && !radio.checked) radio.checked = true;
-            renderPkg(true);
-            syncControls();
-            render();
-        });
-        card.addEventListener('keydown', (event) => {
-            if (event.key !== 'Enter' && event.key !== ' ') return;
-            if (event.target.closest('.package-details-btn')) return;
-            event.preventDefault();
-            const radio = cardRadio(card);
-            if (radio && !radio.checked) radio.checked = true;
-            renderPkg(true);
-            syncControls();
-            render();
-        });
-    });
-
-    if (pkgList) {
-        pkgList.addEventListener('click', (event) => {
-            const card = event.target.closest('.package-card');
-            if (!card) return;
-            if (event.target.closest('.package-details-btn')) return;
-            const radio = cardRadio(card);
-            if (radio && !radio.checked) radio.checked = true;
-            renderPkg(true);
-            syncControls();
-            render();
-        });
+    const initialSelectedPackage = pkgRadios.find((radio) => radio.checked && radio.value !== 'custom');
+    const promotionContextField = document.querySelector('[name="promotion_context_token"]');
+    if (initialSelectedPackage && promotionContextField && !promotionContextField.value) {
+        promotionContextField.value = initialSelectedPackage.dataset.promoContext || '';
     }
 
-    document.querySelectorAll('.package-details-btn').forEach((button) => {
-        ['pointerdown', 'mousedown', 'touchstart'].forEach((eventName) => {
-            button.addEventListener(eventName, (event) => {
-                event.stopPropagation();
-            }, { passive: true });
-        });
-        button.addEventListener('click', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            const radio = pkgRadios.find((item) => String(item.value) === String(button.dataset.packageValue));
-            openPackageDetails(radio);
-        });
-    });
+    const selectPackageRadio = (radio) => {
+        if (!radio || radio.checked) return;
+        radio.checked = true;
+        radio.dispatchEvent(new Event('change', { bubbles: true }));
+    };
 
-    packageDetailsModal?.querySelectorAll('[data-package-details-close]').forEach((button) => {
-        button.addEventListener('click', closePackageDetails);
-    });
-
-    packageDetailTabs.forEach((tab) => {
-        tab.addEventListener('click', () => activatePackageDetailTab(tab.dataset.packageDetailTab));
-        tab.addEventListener('keydown', event => {
-            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    packageModeOptions.forEach((option) => {
+        option.addEventListener('click', () => showPackageMode(option.dataset.packageMode));
+        option.addEventListener('keydown', (event) => {
+            if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
             event.preventDefault();
-            const index = packageDetailTabs.indexOf(tab);
-            const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? packageDetailTabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + packageDetailTabs.length) % packageDetailTabs.length;
-            const target = packageDetailTabs[nextIndex];
-            activatePackageDetailTab(target.dataset.packageDetailTab);
+            const index = packageModeOptions.indexOf(option);
+            const delta = ['ArrowRight', 'ArrowDown'].includes(event.key) ? 1 : -1;
+            const target = packageModeOptions[(index + delta + packageModeOptions.length) % packageModeOptions.length];
             target.focus();
         });
     });
+    document.querySelectorAll('[data-change-package-mode]').forEach((button) => {
+        button.addEventListener('click', () => {
+            packageModeChooser?.classList.remove('hidden');
+            pkgRadios.forEach(radio => { radio.checked = false; });
+            regularPackageArea?.classList.add('hidden');
+            customPackageArea?.classList.add('hidden');
+            renderPkg(false);
+            syncControls();
+            render();
+            packageModeOptions.forEach((option) => option.setAttribute('aria-checked', 'false'));
+            packageModeOptions[0]?.focus();
+        });
+    });
 
-    packageDetailsModal?.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') closePackageDetails();
+    regularPackageChoice?.addEventListener('change', () => {
+        selectPackageRadio(pkgRadios.find((radio) => radio.value === regularPackageChoice.value));
     });
 
     optionalAddOnsList?.addEventListener('change', (event) => {
-        if (!event.target.matches('.optional-add-on-checkbox')) return;
         const row = event.target.closest('.optional-add-on-row');
-        row?.querySelector('[data-add-on-quantity-note]')?.classList.toggle('hidden', !event.target.checked);
+        if (!row) return;
+        const checkbox = row.querySelector('.optional-add-on-checkbox');
+        const quantityField = row.querySelector('[data-draft-add-on-quantity]');
+        const id = String(checkbox?.value || '');
+        if (event.target.matches('.optional-add-on-checkbox')) {
+            row.querySelector('[data-add-on-quantity-note]').classList.toggle('hidden', !checkbox.checked);
+            row.querySelector('[data-optional-add-on-toggle]').innerHTML = checkbox.checked ? '<i class="bi bi-check2" aria-hidden="true"></i> Selected' : '<i class="bi bi-plus" aria-hidden="true"></i> Select';
+            row.querySelector('[data-optional-add-on-toggle]').setAttribute('aria-pressed', String(checkbox.checked));
+            if (checkbox.checked) {
+                draftSelectedAddOns.add(id);
+                if (!draftAddOnQuantities.has(id)) draftAddOnQuantities.set(id, 1);
+            } else {
+                draftSelectedAddOns.delete(id);
+                draftAddOnQuantities.delete(id);
+            }
+            if (quantityField) {
+                quantityField.disabled = !checkbox.checked;
+                quantityField.value = String(draftAddOnQuantities.get(id) || 1);
+            }
+        } else if (event.target.matches('[data-draft-add-on-quantity]')) {
+            const quantity = Number(quantityField.value);
+            draftAddOnQuantities.set(id, Number.isInteger(quantity) && quantity > 0 ? quantity : 0);
+        } else {
+            return;
+        }
+        const lineTotal = row.querySelector('[data-draft-add-on-line-total]');
+        const quantity = Number(quantityField?.value);
+        if (lineTotal) lineTotal.textContent = fmt(num(checkbox?.dataset.price) * (Number.isInteger(quantity) && quantity > 0 ? quantity : 0));
         syncDraftAddOnsTotal();
     });
 
-    chooseAddOnsBtn?.addEventListener('click', () => {
+    optionalAddOnsList?.addEventListener('click', event => {
+        const button = event.target.closest('[data-optional-add-on-toggle], [data-optional-quantity-step]');
+        if (!button) {
+            if (event.target.closest('button, input, label, select, a, [data-add-on-quantity-note]')) return;
+            event.target.closest('.optional-add-on-row')?.querySelector('.optional-add-on-checkbox')?.click();
+            return;
+        }
+        const row = button.closest('.optional-add-on-row');
+        if (button.hasAttribute('data-optional-add-on-toggle')) {
+            row.querySelector('.optional-add-on-checkbox').click();
+            return;
+        }
+        const input = row.querySelector('[data-draft-add-on-quantity]');
+        input.value = Math.max(1, (input.valueAsNumber || 1) + Number(button.dataset.optionalQuantityStep));
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    optionalAddOnsList?.addEventListener('keydown', event => {
+        if (!event.target.matches('.optional-add-on-row') || !['Enter', ' '].includes(event.key)) return;
+        event.preventDefault();
+        event.target.querySelector('.optional-add-on-checkbox')?.click();
+    });
+
+    optionalAddOnsList?.addEventListener('input', (event) => {
+        if (!event.target.matches('[data-draft-add-on-quantity]')) return;
+        const row = event.target.closest('.optional-add-on-row');
+        const checkbox = row?.querySelector('.optional-add-on-checkbox');
+        const quantity = Number(event.target.value);
+        if (checkbox?.checked) draftAddOnQuantities.set(String(checkbox.value), Number.isInteger(quantity) && quantity > 0 ? quantity : 0);
+        const lineTotal = row?.querySelector('[data-draft-add-on-line-total]');
+        if (lineTotal) lineTotal.textContent = fmt(num(checkbox?.dataset.price) * (Number.isInteger(quantity) ? quantity : 0));
+        syncDraftAddOnsTotal();
+    });
+
+    selectedAddOnsLines?.addEventListener('input', (event) => {
+        const field = event.target.closest('[data-applied-add-on-quantity]');
+        if (!field) return;
+        const id = String(field.dataset.appliedAddOnQuantity);
+        const quantity = Number(field.value);
+        addOnQuantities.set(id, Number.isInteger(quantity) && quantity > 0 ? quantity : 0);
+        const addOn = parseAddOns().find((item) => String(item.id) === id);
+        const lineTotal = selectedAddOnsLines.querySelector(`[data-applied-add-on-line-total="${CSS.escape(id)}"]`);
+        if (lineTotal) lineTotal.textContent = fmt(num(addOn?.price) * (Number.isInteger(quantity) ? quantity : 0));
+        const total = addOnsTotal();
+        if (selectedAddOnsTotal) selectedAddOnsTotal.textContent = fmt(total);
+        if (draftAddOnsTotal) draftAddOnsTotal.textContent = fmt(total);
+        render();
+    });
+
+    selectedAddOnsLines?.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-remove-applied-add-on]');
+        if (!button) return;
+        const row = button.closest('[data-applied-add-on-row]');
+        const adjacentRow = row.nextElementSibling || row.previousElementSibling;
+        const adjacentId = adjacentRow?.dataset.appliedAddOnRow;
+        const id = String(button.dataset.removeAppliedAddOn);
+        oldSelectedAddOns.delete(id);
+        addOnQuantities.delete(id);
+        const checkbox = optionalAddOnsList?.querySelector(`.optional-add-on-checkbox[value="${CSS.escape(id)}"]`);
+        if (checkbox) checkbox.checked = false;
+        draftSelectedAddOns.delete(id);
+        draftAddOnQuantities.delete(id);
+        renderPkg(false);
+        render();
+        const nextAction = adjacentId && selectedAddOnsLines.querySelector(`[data-remove-applied-add-on="${CSS.escape(adjacentId)}"]`);
+        (nextAction || chooseAddOnsBtn)?.focus({ preventScroll: true });
+    });
+
+    chooseAddOnsBtn?.addEventListener('click', event => {
+        event.preventDefault();
         if (chooseAddOnsBtn.disabled) return;
+        if (optionalAddOnsPanel.matches(':popover-open')) { setAddOnsPanelOpen(false); return; }
         restoreAppliedAddOns();
         optionalAddOnsList?.querySelectorAll('[data-add-on-quantity-note]').forEach((note) => {
-            const checkbox = note.closest('.optional-add-on-row')?.querySelector('.optional-add-on-checkbox');
+            const row = note.closest('.optional-add-on-row');
+            const checkbox = row.querySelector('.optional-add-on-checkbox');
             note.classList.toggle('hidden', !checkbox?.checked);
+            row.querySelector('[data-optional-add-on-toggle]').innerHTML = checkbox.checked ? '<i class="bi bi-check2" aria-hidden="true"></i> Selected' : '<i class="bi bi-plus" aria-hidden="true"></i> Select';
+            row.querySelector('[data-optional-add-on-toggle]').setAttribute('aria-pressed', String(checkbox.checked));
         });
         if (optionalAddOnsSearch) optionalAddOnsSearch.value = '';
         optionalAddOnsList?.querySelectorAll('.optional-add-on-row').forEach((row) => row.classList.remove('hidden'));
+        resetAddonSearch();
         setAddOnsPanelOpen(true);
     });
 
@@ -8237,58 +10040,264 @@
     closeAddOnsBtn?.addEventListener('click', () => {
         restoreAppliedAddOns();
         setAddOnsPanelOpen(false);
-        chooseAddOnsBtn?.focus();
+        chooseAddOnsBtn?.focus({ preventScroll: true });
     });
 
-    optionalAddOnsSearch?.addEventListener('input', () => {
+    // This dialog already holds the complete authorized catalog: search stays local.
+    const addonSearchMatches = document.getElementById('addon_search_matches');
+    const addonSearchClear = document.getElementById('addon_search_clear');
+    const hideAddonMatches = () => {
+        addonSearchMatches.hidden = true;
+        addonSearchMatches.replaceChildren();
+        optionalAddOnsSearch.setAttribute('aria-expanded', 'false');
+        optionalAddOnsSearch.removeAttribute('aria-activedescendant');
+    };
+    const filterAddonCards = () => {
         const term = optionalAddOnsSearch.value.trim().toLowerCase();
-        optionalAddOnsList?.querySelectorAll('.optional-add-on-row').forEach((row) => {
-            row.classList.toggle('hidden', term !== '' && !String(row.dataset.addOnSearch || '').includes(term));
+        let visible = 0;
+        optionalAddOnsList?.querySelectorAll('.optional-add-on-row').forEach(row => {
+            const match = !term || row.dataset.addOnSearch.includes(term);
+            row.classList.toggle('hidden', !match);
+            if (match) visible++;
         });
+        let empty = document.getElementById('addon_search_empty');
+        if (!empty) {
+            empty = document.createElement('p');
+            empty.id = 'addon_search_empty';
+            empty.setAttribute('role', 'status');
+            empty.textContent = 'No matching add-ons.';
+            optionalAddOnsList.append(empty);
+        }
+        empty.hidden = visible > 0;
+        optionalAddOnsList.scrollTop = 0;
+        hideAddonMatches();
+        addonSearchClear.hidden = !optionalAddOnsSearch.value;
+        optionalAddOnsSearch.focus({ preventScroll: true });
+    };
+    const resetAddonSearch = () => {
+        optionalAddOnsSearch.value = '';
+        addonSearchClear.hidden = true;
+        hideAddonMatches();
+        document.getElementById('addon_search_empty')?.setAttribute('hidden', '');
+    };
+    const underlineSearchMatch = (target, text, query) => {
+        const folded = text.toLowerCase();
+        let offset = 0, index;
+        while ((index = folded.indexOf(query, offset)) !== -1) {
+            target.append(document.createTextNode(text.slice(offset, index)));
+            const mark = document.createElement('mark');
+            mark.textContent = text.slice(index, index + query.length);
+            target.append(mark);
+            offset = index + query.length;
+        }
+        target.append(document.createTextNode(text.slice(offset)));
+    };
+    const drawAddonMatches = () => {
+        hideAddonMatches();
+        addonSearchClear.hidden = !optionalAddOnsSearch.value;
+        const query = optionalAddOnsSearch.value.trim().toLowerCase();
+        if (query.length < 2) return;
+        [...optionalAddOnsList.querySelectorAll('.optional-add-on-row')]
+            .filter(row => row.dataset.addOnSearch.includes(query)).slice(0, 5).forEach((row, index) => {
+                const record = row.querySelector('.optional-add-on-checkbox');
+                const option = document.createElement('button');
+                option.type = 'button';
+                option.id = `addon_match_${index}`;
+                option.setAttribute('role', 'option');
+                option.setAttribute('aria-selected', 'false');
+                option.title = [record.dataset.name, record.dataset.unit].filter(Boolean).join(' · ');
+                const name = document.createElement('span');
+                underlineSearchMatch(name, record.dataset.name, query);
+                option.append(name);
+                const detail = [record.dataset.category, record.dataset.unit, record.dataset.description].filter(Boolean).find(value => value.toLowerCase().includes(query)) || record.dataset.unit;
+                if (detail) {
+                    const context = document.createElement('span');
+                    underlineSearchMatch(context, detail, query);
+                    option.append(context);
+                }
+                option.addEventListener('click', () => {
+                    optionalAddOnsSearch.value = record.dataset.name;
+                    filterAddonCards();
+                });
+                addonSearchMatches.append(option);
+            });
+        addonSearchMatches.hidden = !addonSearchMatches.children.length;
+        optionalAddOnsSearch.setAttribute('aria-expanded', String(!addonSearchMatches.hidden));
+    };
+    optionalAddOnsSearch?.addEventListener('input', drawAddonMatches);
+    document.getElementById('addon_search_submit')?.addEventListener('click', filterAddonCards);
+    addonSearchClear?.addEventListener('click', () => {
+        resetAddonSearch();
+        filterAddonCards();
+    });
+    optionalAddOnsSearch?.addEventListener('keydown', event => {
+        const options = [...addonSearchMatches.children];
+        const current = options.findIndex(option => option.getAttribute('aria-selected') === 'true');
+        if (['ArrowDown', 'ArrowUp'].includes(event.key) && options.length) {
+            event.preventDefault();
+            const index = (current + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length;
+            options.forEach((option, i) => option.setAttribute('aria-selected', String(i === index)));
+            optionalAddOnsSearch.setAttribute('aria-activedescendant', options[index].id);
+            options[index].scrollIntoView({ block: 'nearest' });
+        } else if (event.key === 'Enter') {
+            event.preventDefault();
+            if (current >= 0 && !addonSearchMatches.hidden) options[current].click();
+            else filterAddonCards();
+        } else if (event.key === 'Escape' && !addonSearchMatches.hidden) {
+            event.preventDefault();
+            event.stopPropagation();
+            hideAddonMatches();
+        }
+    });
+    optionalAddOnsPanel?.addEventListener('click', event => {
+        if (!event.target.closest('.intake-addon-search')) hideAddonMatches();
+    });
+    optionalAddOnsSearch?.closest('.intake-addon-search')?.addEventListener('focusout', event => {
+        if (!event.currentTarget.contains(event.relatedTarget)) hideAddonMatches();
     });
 
     optionalAddOnsPanel?.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
+            event.preventDefault();
+            event.stopPropagation();
             restoreAppliedAddOns();
             setAddOnsPanelOpen(false);
-            chooseAddOnsBtn?.focus();
+            chooseAddOnsBtn?.focus({ preventScroll: true });
         }
     });
-
-    openPackageAdjustmentsBtn?.addEventListener('click', () => {
-        setPackageAdjustmentsOpen(true);
-    });
-
-    closePackageAdjustmentsBtn?.addEventListener('click', () => {
-        setPackageAdjustmentsOpen(false);
-    });
-
-    donePackageAdjustmentsBtn?.addEventListener('click', () => {
-        setPackageAdjustmentsOpen(false);
-    });
-
-    packageAdjustmentsPanel?.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') {
-            setPackageAdjustmentsOpen(false);
+    optionalAddOnsPanel?.addEventListener('toggle', event => {
+        const open = event.newState === 'open';
+        chooseAddOnsBtn?.setAttribute('aria-expanded', String(open));
+        if (!open) {
+            restoreAppliedAddOns();
         }
     });
+    closeIntakePickerOnScroll(chooseAddOnsBtn, optionalAddOnsPanel, () => setAddOnsPanelOpen(false));
 
     serviceModalBackdrop?.addEventListener('click', () => {
-        if (!optionalAddOnsPanel?.classList.contains('hidden')) {
+        if (optionalAddOnsPanel?.matches(':popover-open')) {
             restoreAppliedAddOns();
             setAddOnsPanelOpen(false);
         }
-        if (!packageAdjustmentsPanel?.classList.contains('hidden')) {
-            setPackageAdjustmentsOpen(false);
-        }
+    });
+    includedAddOnAdjustments.addEventListener('click', event => {
+        const button = event.target.closest('[data-inclusion-quantity-step]');
+        if (!button) return;
+        const row = button.closest('[data-included-addon]');
+        const item = structuredInclusionsFor().find(item => String(item.add_on_id) === row.dataset.includedAddon);
+        const input = row.querySelector('input');
+        const current = Number.isInteger(input.valueAsNumber) ? input.valueAsNumber : item.included_quantity;
+        input.value = Math.max(1, Math.min(9999, current + Number(button.dataset.inclusionQuantityStep)));
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    document.querySelectorAll('[data-upgrade-trigger], [data-custom-asset-trigger]').forEach(trigger => {
+        trigger.classList.add('service-field-chip');
+        trigger.dataset.serviceTooltip = (trigger.dataset.upgradeTrigger || trigger.dataset.customAssetTrigger) === 'casket' ? 'Choose casket' : 'Choose hearse';
+        const custom = trigger.hasAttribute('data-custom-asset-trigger');
+        const isCasket = (trigger.dataset.upgradeTrigger || trigger.dataset.customAssetTrigger) === 'casket';
+        const select = isCasket ? (custom ? document.getElementById('custom_casket_catalog_id') : replacementCasket) : hearseCatalogSelect;
+        const panel = document.getElementById(trigger.getAttribute('aria-controls'));
+        const reset = document.querySelector(`[data-upgrade-reset="${trigger.dataset.upgradeTrigger}"]`);
+        const setUpgrade = value => {
+            select.value = value;
+            if (isCasket && !custom) casketModeRadios.find(field => field.type === 'checkbox').checked = Boolean(value);
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            syncPreferredPackage();
+            render();
+        };
+        const syncLabel = () => {
+            if (!custom) return;
+            const option = select.selectedOptions[0];
+            trigger.textContent = select.value ? (option?.dataset.name || option?.textContent || '') : (isCasket ? 'Choose a casket' : 'Choose a hearse');
+        };
+        select.addEventListener('change', syncLabel);
+        syncLabel();
+        const close = () => {
+            if (panel.matches(':popover-open')) panel.hidePopover();
+        };
+        closeIntakePickerOnScroll(trigger, panel, close);
+        panel.addEventListener('toggle', () => {
+            trigger.setAttribute('aria-expanded', String(panel.matches(':popover-open')));
+        });
+        reset?.addEventListener('click', () => {
+            setUpgrade('');
+            trigger.focus({ preventScroll: true });
+        });
+        trigger.addEventListener('click', () => {
+            if (panel.matches(':popover-open')) {
+                close();
+                return;
+            }
+            const includedId = custom ? null : isCasket
+                ? includedCasketFor()?.id
+                : structuredInclusionsFor().find(item => item.service_type === 'hearse')?.hearse?.id;
+            const options = [...select.options].filter(option => option.value && !option.disabled && option.value !== String(includedId));
+            const searchFrame = document.createElement('div');
+            searchFrame.className = 'intake-asset-search';
+            const search = document.createElement('input');
+            search.type = 'search';
+            search.placeholder = isCasket ? 'Casket name or material' : 'Hearse name';
+            search.setAttribute('aria-label', isCasket ? 'Search caskets' : 'Search hearses');
+            const clear = document.createElement('button');
+            clear.type = 'button';
+            clear.textContent = '×';
+            clear.hidden = true;
+            clear.setAttribute('aria-label', 'Clear search');
+            const submit = document.createElement('button');
+            submit.type = 'button';
+            submit.textContent = 'Search';
+            searchFrame.append(search, clear, submit);
+            const list = document.createElement('div');
+            list.className = 'intake-asset-options';
+            list.replaceChildren(...options.map(option => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.textContent = option.textContent;
+                button.setAttribute('aria-pressed', String(option.value === select.value));
+                button.addEventListener('click', () => {
+                    setUpgrade(option.value);
+                    close();
+                    trigger.focus({ preventScroll: true });
+                });
+                return button;
+            }));
+            const empty = document.createElement('p');
+            empty.textContent = 'No available options.';
+            empty.hidden = Boolean(options.length);
+            const filter = () => {
+                const query = search.value.trim().toLowerCase();
+                let visible = 0;
+                [...list.children].forEach(button => {
+                    button.hidden = !button.textContent.toLowerCase().includes(query);
+                    if (!button.hidden) visible++;
+                });
+                empty.hidden = visible > 0;
+                clear.hidden = !search.value;
+            };
+            search.addEventListener('input', filter);
+            search.addEventListener('keydown', event => {
+                if (event.key === 'Enter') { event.preventDefault(); filter(); }
+                if (event.key === 'ArrowDown') { event.preventDefault(); list.querySelector('button:not([hidden])')?.focus({ preventScroll: true }); }
+            });
+            submit.addEventListener('click', filter);
+            clear.addEventListener('click', () => { search.value = ''; filter(); search.focus({ preventScroll: true }); });
+            panel.replaceChildren(searchFrame, list, empty);
+            window.addServicePopoverDone(panel, trigger);
+            panel.showPopover();
+            positionIntakePicker(panel, trigger, 380);
+            search.focus({ preventScroll: true });
+        });
     });
 
     addAdditionalItem?.addEventListener('click', () => {
-        addAdditionalServiceRow();
+        const row = addAdditionalServiceRow();
         render();
+        additionalItemsList.scrollTop = additionalItemsList.scrollHeight;
+        row?.querySelector('[data-additional-description]')?.focus({ preventScroll: true });
     });
 
-    [replacementCasket, retrievalExcessInput, hearseExcessInput, applyRetrievalExcess, applyHearseExcess].forEach((field) => {
+    [hearseCatalogSelect, replacementCasket, retrievalExcessInput, hearseExcessInput, applyRetrievalExcess, applyHearseExcess].forEach((field) => {
         field?.addEventListener('input', render);
         field?.addEventListener('change', render);
     });
@@ -8302,6 +10311,27 @@
         });
     });
 
+    customCoverageRows.forEach(row => {
+        row.addEventListener('input', render);
+        const trigger = row.querySelector('[data-coverage-adjust]');
+        trigger.dataset.serviceTooltip = 'Adjust';
+        const panel = row.querySelector('[data-coverage-panel]');
+        if (typeof panel.showPopover === 'function') {
+            panel.setAttribute('popover', 'auto');
+            panel.hidden = false;
+            const open = window.bindServiceFieldPopover(trigger, panel);
+            row.addEventListener('invalid', () => open(), true);
+        } else {
+            trigger.addEventListener('click', () => { panel.hidden = !panel.hidden; });
+            row.addEventListener('invalid', () => { panel.hidden = false; }, true);
+        }
+        row.querySelector('[data-use-wake-duration]')?.addEventListener('click', () => {
+            viewingManual.value = '0';
+            render();
+            viewingManual.dispatchEvent(new Event('change', { bubbles:true }));
+        });
+    });
+    viewingRequested?.addEventListener('input', () => { viewingManual.value = viewingRequested.value === '' ? '0' : '1'; });
     prefPkg?.addEventListener('input', () => {
         syncPreferredPackage();
         render();
@@ -8324,32 +10354,6 @@
         render();
     });
 
-    customPkgFields?.querySelectorAll('.custom-inclusion-editor').forEach((editor) => {
-        const dialog = editor.querySelector('dialog');
-        const field = dialog.querySelector('input,select');
-        const opener = editor.querySelector('.custom-inclusion-edit-label');
-        opener.addEventListener('click', () => setIntakeDialog(dialog, true, field));
-        const close = () => setIntakeDialog(dialog, false);
-        editor.querySelector('.custom-inclusion-close').addEventListener('click', close);
-        dialog.addEventListener('cancel', (event) => { event.preventDefault(); close(); });
-        dialog.addEventListener('click', (event) => {
-            if (event.target !== dialog) return;
-            const bounds = dialog.getBoundingClientRect();
-            if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) close();
-        });
-    });
-    customPkgFields?.querySelectorAll('.custom-inclusion-done').forEach((button) => {
-        button.addEventListener('click', () => {
-            const editor = button.closest('.custom-inclusion-dialog');
-            const field = editor?.querySelector('input,select');
-            if (field && !field.checkValidity()) {
-                showFieldError(field, field.validationMessage);
-                field.focus();
-                return;
-            }
-            setIntakeDialog(editor, false);
-        });
-    });
     customPkgFields?.querySelectorAll('.custom-service-check, .custom-freebie-check, .custom-service-dependent input, .custom-service-dependent select, #custom_other_inclusions').forEach((field) => {
         field.addEventListener(field.matches('input[type="checkbox"], select') ? 'change' : 'input', () => {
             syncPreferredPackage();
@@ -8417,8 +10421,28 @@
 
         if (target.matches('input, textarea, select')) {
             clearFieldMessage(target);
+            if (target.id === 'cash_reference_number') scheduleIntakeIdentifierCheck(target, 'receipt_or_no');
+            if (target.id === 'reference_number') scheduleIntakeIdentifierCheck(target, 'reference_number');
+            if (target.id === 'approval_code') scheduleIntakeIdentifierCheck(target, 'approval_code');
+            if (includedAddOnAdjustments.contains(target)) render();
         }
     });
+
+    let intakeIdentifierSubmitBypass = false;
+    f.addEventListener('invalid', () => { intakeIdentifierSubmitBypass = false; }, true);
+    f.addEventListener('submit', async (event) => {
+        if (event.submitter?.id === 'saveIntakeDraft' || intakeIdentifierSubmitBypass || !payNow()) {
+            if (intakeIdentifierSubmitBypass) intakeIdentifierSubmitBypass = false;
+            return;
+        }
+        event.preventDefault();
+        if (await checkIntakePaymentIdentifiers()) {
+            go(4);
+            return;
+        }
+        intakeIdentifierSubmitBypass = true;
+        f.requestSubmit(event.submitter || document.getElementById('saveIntakeRecord'));
+    }, true);
 
     f.addEventListener('submit', (event) => {
         if (currentStepField) currentStepField.value = String(step);
@@ -8450,7 +10474,13 @@
         for (let index = 1; index <= totalSteps; index += 1) {
             if (!validate(index)) {
                 event.preventDefault();
-                go(index);
+                if (index === 3 && !chapelScheduleBox.hidden && chapelScheduleBox.dataset.state !== 'available') {
+                    go(index, { scroll: false });
+                    focusChapelField(chapelScheduleBox.querySelector('[data-chapel-check-status]'));
+                } else {
+                    go(index);
+                }
+                if (index === 3) validateWakeInterment('full');
                 return;
             }
         }
@@ -8462,10 +10492,183 @@
         }
     });
 
+    const clientPicker = f.querySelector('[data-existing-client-picker]');
+    const existingClientField = f.elements.existing_client_id;
+    const savedClientSelection = @json($existingClientSelection ?? null);
+    const clientProfileFields = ['first_name', 'middle_name', 'last_name', 'suffix', 'contact_number', 'address'];
+    const syncExistingClient = (client = null, clear = false) => {
+        if (!clientPicker) return;
+        const selected = Boolean(existingClientField.value);
+        clientProfileFields.forEach(key => {
+            const field = f.elements['client_' + key];
+            if (client || clear) field.value = client?.[key] ?? '';
+            if (field.tagName === 'SELECT') field.disabled = selected;
+            else field.readOnly = selected;
+            if (selected || clear) clearFieldMessage(field);
+        });
+        clientPicker.querySelector('[data-existing-client-search]').hidden = selected;
+        clientPicker.querySelector('[data-existing-client-selected]').hidden = !selected;
+        const clientName = client?.full_name
+            || ['first_name', 'middle_name', 'last_name', 'suffix'].map(key => f.elements['client_' + key].value).filter(Boolean).join(' ')
+            || 'Selected client';
+        clientPicker.querySelector('[data-existing-client-name]').textContent = [clientName, client?.directory_id].filter(Boolean).join(' · ');
+    };
+
+    if (clientPicker) {
+        const search = clientPicker.querySelector('input[type="search"]');
+        const control = search.closest('.worklist-search-control');
+        const clear = clientPicker.querySelector('[data-existing-client-clear]');
+        const status = clientPicker.querySelector('[role="status"]');
+        const results = clientPicker.querySelector('[data-existing-client-results]');
+        const idleStatus = status.textContent;
+        let searchTimer;
+        let activeSearch;
+        const resetResults = () => {
+            clearTimeout(searchTimer);
+            searchTimer = null;
+            activeSearch?.abort();
+            activeSearch = null;
+            results.replaceChildren();
+            results.hidden = true;
+            search.setAttribute('aria-expanded', 'false');
+            search.removeAttribute('aria-activedescendant');
+            status.textContent = idleStatus;
+        };
+        const changeSelection = client => {
+            existingClientField.value = client?.id ?? '';
+            clientRelationship.value = '';
+            clearFieldMessage(clientRelationship);
+            syncExistingClient(client, !client);
+            syncControls();
+            render();
+            clientPicker.querySelector('[data-existing-client-error]')?.remove();
+            existingClientField.dispatchEvent(new Event('change', { bubbles: true }));
+        };
+        const findClients = async (explicit = false) => {
+            resetResults();
+            const query = search.value.trim();
+            if (explicit) {
+                search.value = query;
+                clear.hidden = !query;
+                search.focus({ preventScroll: true });
+            }
+            if (query.length < 2) {
+                if (explicit) status.textContent = 'Enter at least two characters to search.';
+                return;
+            }
+            const controller = new AbortController();
+            activeSearch = controller;
+            status.textContent = 'Searching…';
+            try {
+                const url = new URL(clientPicker.dataset.url, location.href);
+                url.searchParams.set('q', query);
+                if (historicalIntake && branch?.value) url.searchParams.set('branch_id', branch.value);
+                const response = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/json' } });
+                if (!response.ok) throw new Error('Client lookup failed');
+                const clients = await response.json();
+                if (controller.signal.aborted || !clientPicker.isConnected) return;
+                status.textContent = clients.length ? idleStatus : 'No matching clients in your branch.';
+                const match = query.toLowerCase();
+                const digits = query.replace(/\D/g, '');
+                const visibleClients = explicit ? clients : clients.slice(0, 5);
+                for (const client of visibleClients) {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'worklist-match';
+                    button.id = 'intake-client-match-' + client.id;
+                    button.tabIndex = -1;
+                    button.setAttribute('role', 'option');
+                    button.setAttribute('aria-selected', 'false');
+                    const details = [
+                        client.matched_case_code ? 'Case ' + client.matched_case_code : null,
+                        client.contact_number,
+                        client.address,
+                    ].filter(Boolean);
+                    const parts = [client.full_name, client.directory_id, ...details].filter(Boolean);
+                    button.title = parts.join(' · ');
+                    button.setAttribute('aria-label', button.title);
+                    const name = document.createElement('span');
+                    underlineSearchMatch(name, client.full_name, match);
+                    const code = document.createElement('span');
+                    code.className = 'existing-client-match-code';
+                    underlineSearchMatch(code, client.directory_id, match);
+                    button.append(name, code);
+                    const detail = document.createElement('span');
+                    detail.className = 'existing-client-match-detail';
+                    const highlight = /^[+\d\s().-]+$/.test(query) && digits.length >= 2 ? digits : match;
+                    underlineSearchMatch(detail, details.join(' · '), highlight);
+                    if (detail.textContent) button.append(detail);
+                    button.addEventListener('click', () => {
+                        search.value = '';
+                        clear.hidden = true;
+                        resetResults();
+                        changeSelection(client);
+                        clientRelationship.focus();
+                    });
+                    results.append(button);
+                }
+                results.hidden = !results.children.length;
+                search.setAttribute('aria-expanded', String(!results.hidden));
+            } catch (error) {
+                if (!controller.signal.aborted) status.textContent = 'Client search is unavailable. Try again.';
+            } finally {
+                if (activeSearch === controller) activeSearch = null;
+            }
+        };
+        clientPicker.querySelector('[data-existing-client-find]').addEventListener('click', () => findClients(true));
+        clear.addEventListener('click', () => {
+            search.value = '';
+            clear.hidden = true;
+            resetResults();
+            search.focus({ preventScroll: true });
+        });
+        search.addEventListener('input', () => {
+            resetResults();
+            clear.hidden = !search.value;
+            if (search.value.trim().length >= 2) searchTimer = setTimeout(findClients, 300);
+        });
+        search.addEventListener('keydown', event => {
+            if (event.isComposing) return;
+            const options = [...results.children];
+            const current = options.findIndex(option => option.id === search.getAttribute('aria-activedescendant'));
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                if (current >= 0) options[current].click();
+                else findClients(true);
+            } else if (event.key === 'Escape' && (!results.hidden || activeSearch || searchTimer)) {
+                event.preventDefault();
+                resetResults();
+            } else if (options.length && ['ArrowDown', 'ArrowUp'].includes(event.key)) {
+                event.preventDefault();
+                const next = event.key === 'ArrowDown' ? current + 1 : (current < 0 ? options.length - 1 : current - 1);
+                const index = (next + options.length) % options.length;
+                options.forEach((option, i) => option.setAttribute('aria-selected', String(i === index)));
+                search.setAttribute('aria-activedescendant', options[index].id);
+                options[index].scrollIntoView({ block: 'nearest' });
+            }
+        });
+        results.addEventListener('mousedown', event => {
+            if (event.target.closest('button')) event.preventDefault();
+        });
+        control.addEventListener('focusout', event => {
+            if (!control.contains(event.relatedTarget)) resetResults();
+        });
+        f.addEventListener('click', event => {
+            if (!control.contains(event.target)) resetResults();
+        });
+        clientPicker.querySelector('[data-existing-client-change]').addEventListener('click', () => {
+            changeSelection(null);
+            search.focus();
+        });
+        syncExistingClient(savedClientSelection);
+    }
+
     const getAutosaveFields = () => [...f.querySelectorAll('input, select, textarea')]
         .filter((field) => {
             if (!field.name || field.type === 'file') return false;
-            if (field.name === '_token') return false;
+            if (['_token', 'package_allowance_context', 'package_configuration_context', 'custom_defaults_context',
+                'promotion_context_token', 'promotion_review_token', 'promotion_acknowledged',
+                'add_on_context_token', 'add_on_review_token', 'add_on_acknowledged'].includes(field.name)) return false;
             return true;
         });
 
@@ -8485,11 +10688,14 @@
                     return;
                 }
 
+                if (field.hasAttribute('data-coverage-included')
+                    && (field.value === '' || Number(field.value) === Number(field.dataset.defaultCoverage) && field.dataset.defaultCoverage !== '')) return;
                 fields[field.name] = field.value;
             });
 
             localStorage.setItem(intakeAutosaveKey, JSON.stringify({
-                version: 1,
+                // Only coverage values that differ from the admin defaults are saved.
+                version: 2,
                 savedAt: new Date().toISOString(),
                 step,
                 selectedAddOns: [...oldSelectedAddOns],
@@ -8500,8 +10706,21 @@
         }
     };
 
-    const restoreDraftPayload = (draft) => {
+    const restoreDraftPayload = (draft, { localAutosave = false } = {}) => {
         if (!draft?.fields || typeof draft.fields !== 'object') return false;
+        previousIncludedChapel = '';
+        chapelCoverageChoices.forEach(choice => { choice.checked = false; });
+        try {
+            restoredChapelPricing = JSON.parse(draft.fields.chapel_draft_pricing || 'null');
+        } catch {
+            restoredChapelPricing = null;
+        }
+        Object.entries(draft.fields).forEach(([name, value]) => {
+            const match = name.match(/^add_on_quantities\[(\d+)\]$/);
+            if (!match) return;
+            const quantity = Number(value);
+            addOnQuantities.set(match[1], Number.isInteger(quantity) && quantity > 0 ? quantity : 0);
+        });
 
         const grouped = new Map();
         getAutosaveFields().forEach((field) => {
@@ -8527,11 +10746,24 @@
                     return;
                 }
 
-                field.value = value ?? '';
+                // Older browser autosaves copied every prefilled value. Use the
+                // current settings when we cannot tell a default from an override.
+                const useCurrentCoverage = field.hasAttribute('data-coverage-included')
+                    && (value === '' || value == null || (localAutosave && draft.version !== 2));
+                field.value = useCurrentCoverage
+                    ? field.dataset.defaultCoverage
+                    : (value ?? '');
                 restoredElements.push(field);
             });
             restoredChanges.push(...restoredElements);
         });
+        if (existingClientField) {
+            existingClientField.value = draft.fields.existing_client_id ?? '';
+            syncExistingClient(String(savedClientSelection?.id) === existingClientField.value ? savedClientSelection : null);
+        }
+        if (viewingManual && !Object.hasOwn(draft.fields, 'custom_home_viewing_manual') && viewingRequested.value !== '') {
+            viewingManual.value = '1';
+        }
 
         // Preserve user-entered overrides before rendering dependent controls.
         if (deceasedAddr) deceasedAddr.dataset.manual = draft.fields.deceased_address && draft.fields.deceased_address !== draft.fields.client_address ? '1' : '';
@@ -8564,6 +10796,7 @@
         });
 
         // Restore every value before handlers read dependent fields.
+        restoreLegacyChapelCoverage(draft.fields);
         restoredChanges.filter((field) => !['radio', 'checkbox'].includes(field.type) || field.checked)
             .forEach((field) => field.dispatchEvent(new Event('change', { bubbles: true })));
 
@@ -8611,11 +10844,11 @@
 
     initializeBranchState();
     const restoredServerDraft = !@json(session()->hasOldInput()) && restoreDraftPayload(serverDraftPayload);
-    // Opening New Case starts clean. Recovery always requires an explicit action.
-    const restoredLocalDraft = false;
+    restoreLegacyChapelCoverage({ chapel_coverage_flow: @json((bool) $intakeValue('chapel_coverage_flow')) });
     syncPayMethod();
     syncBranch(false);
     syncRequestDate();
+    syncPackageModeFromSelection();
     syncControls();
     syncAge();
     syncDateConstraints();
@@ -8625,8 +10858,6 @@
         oldAdditionalItems.forEach((item) => addAdditionalServiceRow(item || {}));
     } else if (num(addAmt?.value) > 0 || (additionalServices?.value || '').trim()) {
         addAdditionalServiceRow({ description: additionalServices?.value || '', amount: addAmt?.value || '' });
-    } else {
-        addAdditionalServiceRow();
     }
     syncPreferredPackage();
     renderPkg(false);
@@ -8635,7 +10866,7 @@
     try {
         const recovery = JSON.parse(localStorage.getItem(intakeAutosaveKey) || 'null');
         const hasRecoverableEntries = Object.entries(recovery?.fields || {}).some(([name, value]) => {
-            const userFields = /^(client_(first_name|middle_name|last_name|suffix|contact_number|address)|deceased_(first_name|middle_name|last_name|suffix|address)|born|died|package_id|custom_package_(name|price)|custom_other_inclusions|senior_citizen_id_number|wake_(location|start_date|end_date|start_time|end_time)|funeral_service_at|interment_at|place_of_cemetery|reporter_(name|contact))$/;
+            const userFields = /^(client_(first_name|middle_name|last_name|suffix|contact_number|address)|deceased_(first_name|middle_name|last_name|suffix|address)|born|died|package_id|custom_package_(name|price)|custom_other_inclusions|senior_citizen_id_number|viewing_type|chapel_address|wake_(location|start_date|end_date|start_time|end_time)|funeral_service_at|interment_at|place_of_cemetery|reporter_(name|contact))$/;
             if (['custom_service_types[]', 'custom_freebie_catalog_ids[]'].includes(name)) return Array.isArray(value) && value.length > 0;
             return (userFields.test(name) || /^additional_service_items\[\d+\]\[description\]$/.test(name)) && String(value ?? '').trim() !== '';
         });
@@ -8652,9 +10883,9 @@
             content.className = 'recovery-content';
             const title = document.createElement('h4');
             title.id = 'intake_recovery_title';
-            title.textContent = 'Continue your unsaved progress?';
+            title.textContent = 'Restore your unsaved intake?';
             const copy = document.createElement('p');
-            copy.textContent = 'An autosaved copy is available on this browser. Restore your entries, or dismiss it to keep the current form.';
+            copy.textContent = 'This browser saved a copy of your entries. Restore it to pick up where you left off.';
             const actions = document.createElement('div');
             actions.className = 'recovery-actions';
             const restore = document.createElement('button');
@@ -8662,11 +10893,13 @@
             restore.id = 'restore_intake_autosave';
             restore.textContent = 'Restore autosave';
             restore.addEventListener('click', () => {
-                restoreDraftPayload(recovery);
+                restoreDraftPayload(recovery, { localAutosave: true });
                 syncPayMethod();
+                syncPackageModeFromSelection();
                 render();
                 go(Math.max(1, Math.min(4, Number(recovery.step) || 1)), { scroll: false, smooth: false });
                 notice.remove();
+                showBranchToast(restoredServiceMessage, 6000);
             });
             const dismiss = document.createElement('button');
             dismiss.type = 'button';
@@ -8684,10 +10917,8 @@
     } catch (error) {
         // Recovery is optional when storage is unavailable.
     }
-    if (restoredServerDraft || restoredLocalDraft) {
-        showBranchToast(restoredServerDraft
-            ? 'Server draft restored. Continue editing or save the official record.'
-            : 'Unsaved local draft restored. Submit to save it officially.');
+    if (restoredServerDraft) {
+        showBranchToast(@json($intakeDraft ? 'Resuming '.$intakeDraft->draft_number : 'Draft restored.'), 5000);
     } else if (isOtherEntryMode) {
         showBranchToast(branchPromptMessage());
     }
@@ -8702,7 +10933,8 @@
     const saveDraftBtn   = document.getElementById('saveIntakeDraft');
     const cancelUrl      = @json($cancelUrl ?? '/');
 
-    let formIsDirty = false;
+    let formIsDirty = isIntakeModal && @json($errors->any());
+    let modalSubmitting = false;
     let autosaveTimer = null;
     const queueLocalDraftSave = () => {
         window.clearTimeout(autosaveTimer);
@@ -8710,16 +10942,35 @@
     };
 
     // Mark dirty on any user interaction with the form
-    f.addEventListener('input',  () => { document.getElementById('intake_autosave_recovery')?.remove(); formIsDirty = true; queueLocalDraftSave(); }, { passive: true });
-    f.addEventListener('change', () => { document.getElementById('intake_autosave_recovery')?.remove(); formIsDirty = true; queueLocalDraftSave(); }, { passive: true });
+    const autosaveOnEdit = event => {
+        if (event.target.id === 'intake-client-search') return;
+        document.getElementById('intake_autosave_recovery')?.remove();
+        formIsDirty = true;
+        queueLocalDraftSave();
+    };
+    f.addEventListener('input', autosaveOnEdit, { passive: true });
+    f.addEventListener('change', autosaveOnEdit, { passive: true });
 
+    let cancelReturnFocus;
     const openCancelModal  = () => {
+        cancelReturnFocus = document.activeElement;
+        if (isIntakeModal && window.parent.showStaffIntakeConfirmation?.(window)) return;
         setIntakeDialog(cancelModal, true, cancelKeep);
     };
     const closeCancelModal = () => {
         setIntakeDialog(cancelModal, false);
     };
-    const doCancel = () => { window.location.href = cancelUrl; };
+    const doCancel = () => {
+        if (isIntakeModal && window.parent !== window) {
+            window.clearTimeout(autosaveTimer);
+            if (formIsDirty) {
+                try { localStorage.removeItem(intakeAutosaveKey); } catch {}
+            }
+            window.parent.closeStaffIntake?.(window);
+            return;
+        }
+        if (!window.SabanganNavigate?.(cancelUrl)) window.location.href = cancelUrl;
+    };
     const saveDraftFromCancel = () => {
         closeCancelModal();
         if (currentStepField) currentStepField.value = String(step);
@@ -8732,9 +10983,29 @@
         saveDraftBtn?.click();
     };
 
-    cancelBtn?.addEventListener('click', () => {
+    const requestClose = () => {
+        if (modalSubmitting || cancelModal?.open) return;
         formIsDirty ? openCancelModal() : doCancel();
-    });
+    };
+    cancelBtn?.addEventListener('click', requestClose);
+
+    if (isIntakeModal) {
+        window.requestStaffIntakeClose = requestClose;
+        window.resolveStaffIntakeConfirmation = decision => {
+            if (decision === 'keep') cancelReturnFocus?.focus({ preventScroll: true });
+            if (decision === 'draft') saveDraftFromCancel();
+            if (decision === 'discard') doCancel();
+        };
+        f.addEventListener('submit', event => {
+            if (event.defaultPrevented) return;
+            if (modalSubmitting) {
+                event.preventDefault();
+                return;
+            }
+            modalSubmitting = true;
+            window.clearTimeout(autosaveTimer);
+        });
+    }
 
     cancelKeep?.addEventListener('click',     closeCancelModal);
     cancelBackdrop?.addEventListener('click', closeCancelModal);
@@ -8751,7 +11022,7 @@
         panels.forEach(panel => {
             if (panel.querySelector('[aria-invalid="true"]')) {
                 attemptedSteps.add(Number(panel.dataset.step));
-                renderValidationSummary(panel);
+                collectValidationErrors(panel);
             }
         });
         collectingValidation = false;
@@ -8764,8 +11035,12 @@
 
     // Close on Escape key
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && cancelModal && !cancelModal.classList.contains('hidden')) {
+        if (e.key !== 'Escape' || e.defaultPrevented) return;
+        if (cancelModal && !cancelModal.classList.contains('hidden')) {
             closeCancelModal();
+        } else if (isIntakeModal && !document.querySelector('dialog[open]')) {
+            e.preventDefault();
+            requestClose();
         }
     });
     // ─────────────────────────────────────────────────────────────────────

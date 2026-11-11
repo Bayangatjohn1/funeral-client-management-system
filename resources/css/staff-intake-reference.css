@@ -237,10 +237,13 @@ html[data-theme] body.panel-shell-body.staff-ui .intake-root #intakeCancelModal 
 html[data-theme] body.panel-shell-body.staff-ui .intake-root #intakeCancelModalSaveDraft { grid-column: 1 / -1; }
 html[data-theme] body.panel-shell-body.staff-ui .intake-root #intakeCancelModalDiscard { color: var(--staff-ink) !important; }
 @media (max-width: 480px) { html[data-theme] body.panel-shell-body.staff-ui .intake-root #intakeCancelModal .cancel-modal-actions { grid-template-columns: 1fr; } }
-/* Review confirmation retains its native required checkbox and a clear visual mark. */
+/* Keep the review error in its own row so it never joins the checkbox flex layout. */
+html[data-theme] body.panel-shell-body.staff-ui .intake-root .review-confirmation-wrap { width: 100%; min-width: 0; }
+html[data-theme] body.panel-shell-body.staff-ui .intake-root #confirm_review_error { margin: 8px 0 0 16px; max-width: 720px; }
 html[data-theme] body.panel-shell-body.staff-ui .intake-root .review-confirmation { position: relative; align-items: center; background: var(--staff-card) !important; border-color: var(--staff-border) !important; color: var(--staff-ink) !important; min-height: 76px; }
-html[data-theme] body.panel-shell-body.staff-ui .intake-root #confirm_review.review-confirmation-input { position: absolute; width: 24px !important; height: 24px !important; left: 20px; margin: 0; opacity: 0; }
+html[data-theme] body.panel-shell-body.staff-ui .intake-root #confirm_review.review-confirmation-input { position: absolute; width: 24px !important; height: 24px !important; left: 20px; margin: 0; opacity: 0; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
 html[data-theme] body.panel-shell-body.staff-ui .intake-root .review-confirmation-mark { display: grid; place-items: center; flex: 0 0 24px; width: 24px; height: 24px; border: 2px solid #527461; border-radius: 6px; background: var(--staff-card); color: #FFF; }
+html[data-theme] body.panel-shell-body.staff-ui .intake-root .review-confirmation-mark { user-select: none; -webkit-user-select: none; }
 html[data-theme] body.panel-shell-body.staff-ui .intake-root .review-confirmation-mark i { visibility: hidden; font-size: 17px; line-height: 1; color: #FFF !important; }
 html[data-theme] body.panel-shell-body.staff-ui .intake-root #confirm_review:checked + .review-confirmation-mark { background: #1B4332; border-color: #1B4332; }
 html[data-theme] body.panel-shell-body.staff-ui .intake-root #confirm_review:checked + .review-confirmation-mark i { visibility: visible; }

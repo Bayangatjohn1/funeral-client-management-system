@@ -23,6 +23,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h.01M11 15h2m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v10a2 2 0 002 2z"/>
             </svg>
             <span>Payment Monitoring</span>
+            @include('partials.sidebar.payment-correction-count')
         </a>
 
         @if(auth()->user()?->isBranchAdmin())

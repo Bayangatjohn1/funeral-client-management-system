@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\FuneralCase;
 use App\Models\Package;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 
 class CaseSnapshotDisplayService
 {
@@ -12,13 +13,21 @@ class CaseSnapshotDisplayService
     {
         $snapshot = is_array($case->pricing_snapshot) ? $case->pricing_snapshot : [];
         $hasSnapshot = $snapshot !== [];
+        $inclusionRows = $hasSnapshot && (! Arr::get($snapshot, 'custom_package') || Arr::get($snapshot, 'inclusions', []) !== [])
+            ? $this->snapshotInclusions($snapshot)
+            : collect($this->legacyInclusions($case))->map(fn (string $label) => [
+                'label' => $label, 'basic' => Package::isLegacyBasicInclusion($label),
+            ]);
+        $inclusionRows = $inclusionRows->reject(fn (array $row) => Package::isLegacyPackageDescription($row['label']));
+        [$basicInclusions, $otherInclusions] = $inclusionRows->partition('basic');
 
         return [
             'has_snapshot' => $hasSnapshot,
             'package_name' => $this->packageName($case, $snapshot),
             'package_price' => $this->packagePrice($case, $snapshot),
-            'inclusions' => $hasSnapshot && (! Arr::get($snapshot, 'custom_package') || Arr::get($snapshot, 'inclusions', []) !== [])
-                ? $this->snapshotInclusions($snapshot) : $this->legacyInclusions($case),
+            'inclusions' => $inclusionRows->pluck('label')->all(),
+            'basic_inclusions' => $basicInclusions->pluck('label')->all(),
+            'other_inclusions' => $otherInclusions->pluck('label')->all(),
             'freebies' => $hasSnapshot && (! Arr::get($snapshot, 'custom_package') || Arr::get($snapshot, 'freebies', []) !== [])
                 ? $this->snapshotFreebies($snapshot) : $this->legacyFreebies($case),
             'included_casket' => $hasSnapshot ? Arr::get($snapshot, 'included_casket') : null,
@@ -58,50 +67,54 @@ class CaseSnapshotDisplayService
         ), 2);
     }
 
-    private function snapshotInclusions(array $snapshot): array
+    private function snapshotInclusions(array $snapshot): Collection
     {
         return collect(Arr::get($snapshot, 'inclusions', []))
             ->filter(fn ($row) => is_array($row))
-            ->map(function (array $row): string {
-                $type = Package::normalizeServiceType($row['service_type'] ?? null);
-                $label = (string) ($row['name'] ?? (Package::serviceTypeOptions()[$type] ?? 'Inclusion'));
+            ->map(fn (array $row) => [
+                'label' => $this->inclusionLabel($row),
+                'basic' => Package::isBasicServiceType($row['service_type'] ?? null),
+            ])
+            ->filter(fn (array $row) => $row['label'] !== '');
+    }
 
-                if ($type === Package::SERVICE_CASKET) {
-                    $casket = trim((string) ($row['casket_type'] ?? ''));
-                    return $casket !== '' ? "{$label}: {$casket}" : $label;
-                }
+    private function inclusionLabel(array $row): string
+    {
+        $type = Package::normalizeServiceType($row['service_type'] ?? null);
+        $label = (string) ($row['name'] ?? (Package::serviceTypeOptions()[$type] ?? 'Inclusion'));
 
-                if (in_array($type, [Package::SERVICE_BODY_RETRIEVAL, Package::SERVICE_HEARSE], true)) {
-                    $km = $row['included_kilometers'] ?? null;
-                    $rate = (float) ($row['price_per_excess_kilometer'] ?? 0);
-                    $parts = [];
-                    if ($km !== null) {
-                        $parts[] = 'Includes ' . number_format((float) $km, 2) . ' km';
-                    }
-                    if ($rate > 0) {
-                        $parts[] = 'excess ' . number_format($rate, 2) . '/km';
-                    }
-                    return $parts ? "{$label} (" . implode(', ', $parts) . ')' : $label;
-                }
+        if ($type === Package::SERVICE_CASKET) {
+            $casket = trim((string) ($row['casket_type'] ?? ''));
+            return $casket !== '' ? "{$label}: {$casket}" : $label;
+        }
 
-                if (in_array($type, [Package::SERVICE_EMBALMING, Package::SERVICE_HOME_VIEWING], true)) {
-                    $days = $row['included_days'] ?? null;
-                    $rate = (float) ($row['price_per_extended_day'] ?? 0);
-                    $parts = [];
-                    if ($days !== null) {
-                        $parts[] = 'Includes ' . (int) $days . ' day(s)';
-                    }
-                    if ($rate > 0) {
-                        $parts[] = 'extended ' . number_format($rate, 2) . '/day';
-                    }
-                    return $parts ? "{$label} (" . implode(', ', $parts) . ')' : $label;
-                }
+        if (in_array($type, [Package::SERVICE_BODY_RETRIEVAL, Package::SERVICE_HEARSE], true)) {
+            $km = $row['included_kilometers'] ?? null;
+            $rate = (float) ($row['price_per_excess_kilometer'] ?? 0);
+            $parts = [];
+            if ($km !== null) {
+                $parts[] = 'Includes ' . number_format((float) $km, 2) . ' km';
+            }
+            if ($rate > 0) {
+                $parts[] = 'excess ' . number_format($rate, 2) . '/km';
+            }
+            return $parts ? "{$label} (" . implode(', ', $parts) . ')' : $label;
+        }
 
-                return $label;
-            })
-            ->filter()
-            ->values()
-            ->all();
+        if (in_array($type, [Package::SERVICE_EMBALMING, Package::SERVICE_HOME_VIEWING], true)) {
+            $days = $row['included_days'] ?? null;
+            $rate = (float) ($row['price_per_extended_day'] ?? 0);
+            $parts = [];
+            if ($days !== null) {
+                $parts[] = 'Includes ' . (int) $days . ' day(s)';
+            }
+            if ($rate > 0) {
+                $parts[] = 'extended ' . number_format($rate, 2) . '/day';
+            }
+            return $parts ? "{$label} (" . implode(', ', $parts) . ')' : $label;
+        }
+
+        return $label;
     }
 
     private function legacyInclusions(FuneralCase $case): array

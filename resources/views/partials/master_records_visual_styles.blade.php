@@ -120,93 +120,6 @@
             overflow:visible;
         }
 
-        .master-records-page .admin-table-toolbar .case-compact-filter,
-        .master-records-page .admin-table-toolbar .case-compact-search-row,
-        .master-records-page .admin-table-toolbar .case-compact-filter-bar,
-        .master-records-page .admin-table-toolbar .case-compact-advanced {
-            background:transparent !important;
-            border:0 !important;
-            padding:0 !important;
-        }
-
-        .master-records-page .admin-table-toolbar .case-compact-filter {
-            display:flex !important;
-            flex-wrap:wrap;
-            align-items:center;
-            gap:.7rem;
-        }
-
-        .master-records-page .admin-table-toolbar .case-compact-search-row {
-            display:contents !important;
-        }
-
-        .master-records-page .admin-table-toolbar .case-compact-search-field {
-            order:1 !important;
-            flex:1 1 320px !important;
-            display:block !important;
-            width:auto !important;
-            min-width:0 !important;
-            max-width:none !important;
-            height:auto !important;
-            min-height:0 !important;
-            align-self:end;
-            background:transparent !important;
-            border:0 !important;
-            border-radius:0 !important;
-            padding:0 !important;
-        }
-
-        .master-records-page .admin-table-toolbar .case-compact-filter-bar {
-            order:2 !important;
-            display:flex !important;
-            align-items:center;
-            justify-content:flex-start;
-            flex-wrap:wrap;
-            gap:.6rem;
-            width:auto !important;
-            min-height:2.85rem;
-            min-width:0 !important;
-            background:transparent !important;
-            border:0 !important;
-            border-radius:0 !important;
-            padding:0 !important;
-        }
-
-        .master-records-page .admin-table-toolbar .case-compact-filter-bar > * {
-            flex-shrink:0 !important;
-        }
-
-        .master-records-page .admin-table-toolbar .case-compact-actions {
-            order:3 !important;
-            display:flex !important;
-            align-items:center;
-            justify-content:flex-end;
-            gap:.55rem;
-            width:auto !important;
-            margin-left:auto !important;
-            flex:0 0 auto !important;
-        }
-
-        .master-records-page .admin-table-toolbar .case-compact-advanced {
-            order:3 !important;
-            position:fixed !important;
-            inset:0 !important;
-            z-index:1200 !important;
-            display:flex !important;
-            justify-content:flex-end !important;
-            width:100% !important;
-            flex:none !important;
-            background:transparent !important;
-            border:0 !important;
-            border-radius:0 !important;
-            padding:0 !important;
-            overflow:visible;
-        }
-
-        .master-records-page .admin-table-toolbar .case-compact-advanced[hidden] {
-            display:none !important;
-        }
-
         .master-records-page .case-compact-advanced-grid {
             display:grid;
             grid-template-columns:1fr;
@@ -475,24 +388,6 @@
         }
 
         @media (max-width: 1000px) {
-            .master-records-page .admin-table-toolbar .case-compact-filter {
-                display:flex !important;
-            }
-
-            .master-records-page .admin-table-toolbar .case-compact-search-row,
-            .master-records-page .admin-table-toolbar .case-compact-actions {
-                width:100% !important;
-                justify-content:flex-start;
-            }
-
-            .master-records-page .case-compact-branch,
-            .master-records-page .case-compact-seg,
-            .master-records-page .case-compact-more {
-                flex-basis:100% !important;
-                width:100% !important;
-                max-width:none !important;
-            }
-
             .master-records-page .case-records-tabs-row {
                 align-items:flex-start;
             }
@@ -502,14 +397,6 @@
                 justify-content:flex-start;
             }
 
-            .master-records-page .case-compact-advanced-grid {
-                grid-template-columns:1fr;
-            }
-
-            .master-records-page .case-compact-advanced-actions {
-                flex-direction:column;
-                align-items:stretch;
-            }
         }
 
         .master-records-page .table-system-wrap,

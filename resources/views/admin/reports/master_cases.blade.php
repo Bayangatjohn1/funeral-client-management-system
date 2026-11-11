@@ -5,6 +5,7 @@
 @section('hide_layout_topbar', '1')
 
 @section('content')
+@include('partials.historical_cases_transition')
 <div class="admin-table-page master-records-page">
     @php
         $isBranchAdmin = auth()->user()?->isBranchAdmin() ?? false;
@@ -73,7 +74,6 @@
         }
         $masterTabParams = request()->except(['case_status', 'page']);
         $masterAllUrl = route('admin.cases.index', array_filter($masterTabParams, fn ($value) => filled($value)));
-        $masterDraftUrl = route('admin.cases.index', array_filter(array_merge($masterTabParams, ['case_status' => 'DRAFT']), fn ($value) => filled($value)));
         $masterActiveUrl = route('admin.cases.index', array_filter(array_merge($masterTabParams, ['case_status' => 'ACTIVE']), fn ($value) => filled($value)));
         $masterCompletedUrl = route('admin.cases.index', array_filter(array_merge($masterTabParams, ['case_status' => 'COMPLETED']), fn ($value) => filled($value)));
     @endphp
@@ -99,23 +99,16 @@
                     aria-selected="{{ blank($caseStatus ?? null) ? 'true' : 'false' }}"
                     class="table-quick-tab {{ blank($caseStatus ?? null) ? 'table-quick-tab-active' : '' }}"
                 >
-                    All
+                    <i class="bi bi-collection" aria-hidden="true"></i><span>All</span>
                 </a>
-                <a
-                    href="{{ $masterDraftUrl }}"
-                    role="tab"
-                    aria-selected="{{ ($caseStatus ?? null) === 'DRAFT' ? 'true' : 'false' }}"
-                    class="table-quick-tab {{ ($caseStatus ?? null) === 'DRAFT' ? 'table-quick-tab-active' : '' }}"
-                >
-                    Draft
-                </a>
+
                 <a
                     href="{{ $masterActiveUrl }}"
                     role="tab"
                     aria-selected="{{ ($caseStatus ?? null) === 'ACTIVE' ? 'true' : 'false' }}"
                     class="table-quick-tab {{ ($caseStatus ?? null) === 'ACTIVE' ? 'table-quick-tab-active' : '' }}"
                 >
-                    Active
+                    <i class="bi bi-clock" aria-hidden="true"></i><span>Active</span>
                 </a>
                 <a
                     href="{{ $masterCompletedUrl }}"
@@ -123,15 +116,23 @@
                     aria-selected="{{ ($caseStatus ?? null) === 'COMPLETED' ? 'true' : 'false' }}"
                     class="table-quick-tab {{ ($caseStatus ?? null) === 'COMPLETED' ? 'table-quick-tab-active' : '' }}"
                 >
-                    Completed
+                    <i class="bi bi-check2-all" aria-hidden="true"></i><span>Completed</span>
                 </a>
             </div>
+
+            @if(config('funeral.historical_cases_enabled', false))
+                <a href="{{ route('historical-cases.index') }}" class="historical-cases-entry-link inline-flex shrink-0 items-center gap-2 rounded-xl bg-amber-100 px-4 py-2.5 text-sm font-semibold text-amber-950 hover:bg-amber-200 historical-cases-nav-link" data-historical-transition>
+                    <i class="bi bi-clock-history" aria-hidden="true"></i><span>Historical Cases</span>
+                </a>
+            @endif
 
         </div>
 
 <div class="table-system-toolbar admin-table-toolbar">
             @include('partials.case_filter_toolbar', [
                 'showPerPage' => true,
+                    // Status is owned by the chip tabs above. Keep it in the
+                    // query without duplicating it in the additional filters.
                     'showCaseStatus' => false,
                     'showServiceType' => false,
                 'action' => route('admin.cases.index'),
@@ -150,17 +151,26 @@
                 'showVerificationStatus' => false,
                 'showPackage' => true,
                 'showEncodedBy' => true,
-                'hiddenInputs' => ['case_status' => request('case_status')],
+                'hiddenInputs' => filled($caseStatus ?? null) ? ['case_status' => $caseStatus] : [],
                 'showSort' => true,
                 'sortOptions' => [
-                    'newest' => 'Newest',
-                    'oldest' => 'Oldest',
+                    'newest' => 'Newest first',
+                    'oldest' => 'Oldest first',
+                    'alpha_asc' => 'Client A-Z',
+                    'alpha_desc' => 'Client Z-A',
+
+
+
+
                 ],
                 'sort' => $sort,
                 'showInlineChips' => false,
                 'showBranchField' => !$isBranchAdmin,
                 'dateInMoreFilters' => false,
                 'datePreset' => $resolvedDatePreset === 'ANY' ? '' : $resolvedDatePreset,
+                'searchPlaceholder' => 'e.g., FC0008, Juan Luna...',
+                'dateChipLabel' => 'Date',
+                'compactDateChip' => true,
             ])
 
             <form method="GET" action="{{ route('admin.cases.index') }}" class="admin-master-toolbar hidden" data-table-toolbar data-search-debounce="400">
@@ -170,7 +180,7 @@
                             name="q"
                             value="{{ $q }}"
                             class="table-toolbar-search"
-                            placeholder="Search case, client, or deceased..."
+                            placeholder="e.g., FC0008, Juan Luna..."
                             data-table-search
                         >
                     </div>
@@ -194,7 +204,6 @@
                     <div class="table-toolbar-field">
                         <select name="case_status" class="table-toolbar-select" data-table-auto-submit>
                             <option value="">All Case Status</option>
-                            <option value="DRAFT" {{ $caseStatus === 'DRAFT' ? 'selected' : '' }}>Draft</option>
                             <option value="ACTIVE" {{ $caseStatus === 'ACTIVE' ? 'selected' : '' }}>Active</option>
                             <option value="COMPLETED" {{ $caseStatus === 'COMPLETED' ? 'selected' : '' }}>Completed</option>
                         </select>
@@ -290,28 +299,7 @@
         <div class="table-system-list">
             <div class="table-wrapper table-system-wrap" @if($isBranchAdmin) tabindex="0" role="region" aria-label="Case records table, scroll horizontally to view all columns" @endif>
                 <table class="table-base table-system-table admin-master-table records-worklist-table">
-                    <colgroup>
-                        <col class="records-col-case">
-                        <col class="records-col-family">
-                        <col class="records-col-service">
-                        <col class="records-col-schedule">
-                        <col class="records-col-financials">
-                        <col class="records-col-case-status">
-                        <col class="records-col-payment-status">
-                        <col class="records-col-actions">
-                    </colgroup>
-                    <thead>
-                        <tr>
-                            <th class="text-left">Case</th>
-                            <th class="text-left">Deceased / Client</th>
-                            <th class="text-left">Service</th>
-                            <th class="text-left">Schedule</th>
-                            <th class="table-col-number">Package Availed</th>
-                            <th class="table-status-col">Case Status</th>
-                            <th class="table-status-col table-payment-status-col">Payment Status</th>
-                            <th class="table-col-actions">Actions</th>
-                        </tr>
-                    </thead>
+                    @include('partials.case_worklist_head', ['showBranch' => false])
                     <tbody>
                     @forelse($cases as $case)
                         @php
@@ -323,44 +311,14 @@
                                 ?? $case->deceased?->interment;
                         @endphp
 
-                        <tr class="{{ $needsAttention ? 'row-needs-attention' : '' }}">
-                            <td data-label="Case">
-                                <div class="table-primary whitespace-nowrap records-case-code">{{ $case->case_code }}</div>
-                                <div class="table-secondary">Recorded by: {{ $case->encodedBy?->name ?: 'Not recorded' }}</div>
-                                <div class="table-secondary">{{ $case->created_at?->format('M d, Y h:i A') ?? 'Not recorded' }}</div>
-                            </td>
-                            <td data-label="Deceased / Client">
-                                <div class="table-primary records-person-names">Deceased: {{ $case->deceased?->full_name ?? '-' }}</div>
-                                <div class="table-secondary records-person-names">Client: {{ $case->client?->full_name ?? '-' }}</div>
-                            </td>
-                            <td data-label="Service">
-                                <div class="table-primary">{{ $case->service_type ?? '-' }}</div>
-                                <div class="table-secondary">{{ $case->package?->name ?? $case->service_package ?? '-' }}</div>
-                            </td>
-                            <td data-label="Schedule">
-                                <div class="table-primary whitespace-nowrap">{{ $intermentDate ? $intermentDate->format('M d, Y') : '-' }}</div>
-                                <div class="table-secondary">{{ $intermentDate ? $intermentDate->format('h:i A') : 'Interment time' }}</div>
-                            </td>
-                            <td class="table-col-number" data-label="Package Availed">
-                                <div class="table-primary table-financial-total whitespace-nowrap">{{ number_format((float) $case->total_amount, 2) }}</div>
-                                <div class="table-secondary table-financial-breakdown whitespace-nowrap">Paid {{ number_format((float) $case->total_paid, 2) }} &middot; Bal {{ number_format((float) $case->balance_amount, 2) }}</div>
-                            </td>
-                            <td class="table-status-cell" data-label="Case Status">
-                                <x-status-badge :status="$case->case_status" :label="\Illuminate\Support\Str::headline(strtolower((string) $case->case_status))" />
-                            </td>
-                            <td class="table-status-cell table-payment-status-cell" data-label="Payment Status">
-                                <x-status-badge :status="$case->payment_status" :label="\Illuminate\Support\Str::headline(strtolower((string) $case->payment_status))" class="table-payment-status-badge" />
-                            </td>
-                            <td class="table-col-actions" data-label="Actions">
-                                <a class="records-view-case" href="{{ route('funeral-cases.show', ['funeral_case' => $case, 'return_to' => request()->fullUrl()]) }}" aria-label="View Full Information for {{ $case->case_code }}" @unless($isBranchAdmin) title="View Full Information" @endunless>
-                                    <i class="bi bi-eye" aria-hidden="true"></i>
-                                    @if($isBranchAdmin)<span class="records-action-tooltip" aria-hidden="true">View Full Information</span>@endif
-                                </a>
-                            </td>
+                        <tr
+@include('partials.case_search_metadata')
+ class="{{ $needsAttention ? 'row-needs-attention' : '' }}">
+                            @include('partials.case_worklist_cells', ['case' => $case, 'worklistInterment' => $intermentDate, 'showBranch' => false])
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="table-system-empty">No case records found.</td>
+                            <td colspan="7" class="table-system-empty"><div class="records-empty-state">No case records found.</div></td>
                         </tr>
                     @endforelse
                     </tbody>
@@ -393,79 +351,8 @@
     </div>
 </div>
 
+@include('partials.master_case_tab_navigation')
 <script>
-    (() => {
-        const pageSelector = '.master-records-page';
-        let pendingRequest = null;
-
-        const loadTab = async (url, selectedLink = null, pushState = true) => {
-            const page = document.querySelector(pageSelector);
-            const currentCard = page?.querySelector('.table-system-card');
-            if (!page || !currentCard) {
-                window.location.assign(url.href);
-                return;
-            }
-
-            pendingRequest?.abort();
-            const request = new AbortController();
-            pendingRequest = request;
-            page.classList.add('is-updating');
-            currentCard.setAttribute('aria-busy', 'true');
-
-            if (selectedLink) {
-                currentCard.querySelectorAll('.case-records-tabs a').forEach((tab) => {
-                    const selected = tab === selectedLink;
-                    tab.classList.toggle('table-quick-tab-active', selected);
-                    tab.setAttribute('aria-selected', String(selected));
-                });
-            }
-
-            try {
-                const response = await fetch(url.href, {
-                    signal: request.signal,
-                    headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' },
-                    credentials: 'same-origin',
-                });
-                if (!response.ok) throw new Error(`Case records request failed: ${response.status}`);
-
-                const documentFromResponse = new DOMParser().parseFromString(await response.text(), 'text/html');
-                const nextCard = documentFromResponse.querySelector(`${pageSelector} .table-system-card`);
-                if (!nextCard) throw new Error('Master Case Records was not found in the response.');
-                if (request.signal.aborted) return;
-
-                currentCard.replaceWith(nextCard);
-                if (pushState) window.history.pushState({}, '', url.href);
-                document.dispatchEvent(new CustomEvent('panel-ui:reset'));
-                document.dispatchEvent(new CustomEvent('master-case-records:updated'));
-            } catch (error) {
-                if (error.name !== 'AbortError' && !request.signal.aborted) window.location.assign(url.href);
-            } finally {
-                if (pendingRequest === request) {
-                    pendingRequest = null;
-                    page.classList.remove('is-updating');
-                    page.querySelector('.table-system-card')?.removeAttribute('aria-busy');
-                }
-            }
-        };
-
-        document.addEventListener('click', (event) => {
-            const link = event.target instanceof Element
-                ? event.target.closest(`${pageSelector} .case-records-tabs a[href]`)
-                : null;
-            if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-
-            const url = new URL(link.href, window.location.href);
-            if (url.origin !== window.location.origin) return;
-            event.preventDefault();
-            event.stopPropagation();
-            if (url.href !== window.location.href) loadTab(url, link);
-        }, true);
-
-        window.addEventListener('popstate', () => {
-            loadTab(new URL(window.location.href), null, false);
-        });
-    })();
-
     (() => {
         const page = document.querySelector('.master-records-page');
         if (!page) return;
@@ -504,6 +391,7 @@
             }
 
             setCompactCustomOpen(form, false);
+            if (select.closest('[data-case-more-panel]')) return;
             submitCompactForm(form);
         });
 
@@ -578,6 +466,7 @@
 
         const load = async (url) => {
             content.innerHTML = loadingHtml;
+            const finishSkeleton = window.PanelSkeleton?.begin(content, {variant:'form'});
             try {
                 const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' });
                 const html = await res.text();
@@ -595,7 +484,7 @@
                 }
             } catch {
                 content.innerHTML = `<div class="case-view-error">Network error. Please try again.</div>`;
-            }
+            } finally { finishSkeleton?.(); }
         };
 
         document.querySelectorAll('.open-case-modal').forEach(btn => {

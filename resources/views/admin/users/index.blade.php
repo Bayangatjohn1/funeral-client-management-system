@@ -3,14 +3,15 @@
 @section('page_title','User Management')
 @section('page_desc', auth()->user()?->isBranchAdmin() ? 'Manage staff accounts in your branch.' : 'Manage user accounts and access.')
 @section('hide_layout_topbar', '1')
-@section('topbar_actions')
-    <a href="{{ route('admin.users.create', ['return_to' => request()->fullUrl()]) }}" @if(auth()->user()?->isSystemAdmin()) data-create-role-trigger aria-haspopup="dialog" aria-controls="create-role-dialog" @endif class="btn btn-primary-custom btn-sm">
+@section('record_toolbar_action')
+    <a href="{{ route('admin.users.create', ['return_to' => request()->fullUrl()]) }}" @if(auth()->user()?->isSystemAdmin()) data-create-role-trigger aria-haspopup="dialog" aria-controls="create-role-dialog" @endif class="reference-page-action btn btn-primary-custom btn-sm">
         <i class="bi bi-plus-circle" aria-hidden="true"></i>
         <span>Add User</span>
     </a>
 @endsection
 
 @section('content')
+@include('partials.directory_empty_states')
 @include('partials.user_management_visual_styles')
 @include('partials.case_records_layout_styles')
 @php
@@ -223,12 +224,12 @@
 .directory-page .table-toolbar-sort:hover {
     background:#DFE9D9 !important;
     background-color:#DFE9D9 !important;
-    border-color:#2F3A2E !important;
+    border-color:var(--border) !important;
 }
 .directory-page .table-toolbar-search:focus,
 .directory-page .table-toolbar-select:focus,
 .directory-page .table-toolbar-sort:focus {
-    border-color:#1F2A20 !important;
+    border-color:var(--border) !important;
     background:#EEF5E9 !important;
     background-color:#EEF5E9 !important;
     box-shadow:none !important;
@@ -289,7 +290,7 @@
 .directory-page .btn-secondary:hover,
 .directory-page .btn-primary-custom:hover {
     background:#2F3A2E !important;
-    border-color:#2F3A2E !important;
+    border-color:var(--border) !important;
     color:#fff !important;
 }
 .directory-page .admin-table-head-actions .btn-primary-custom {
@@ -357,7 +358,7 @@
 }
 .directory-page .directory-item-card:hover {
     background:#C7D5BE !important;
-    border-color:#2F3A2E !important;
+    border-color:var(--border) !important;
 }
 .directory-page .directory-user-card-head {
     background:#C7D5BE;
@@ -457,14 +458,6 @@
     font-weight:700;
     padding:0 .75rem;
 }
-.directory-page .row-action-trigger::after {
-    content:"Actions";
-}
-.directory-page .row-action-trigger:hover,
-.directory-page .row-action-item:hover {
-    background:#C7D5BE !important;
-    color:var(--ink) !important;
-}
 .directory-page .row-action-dropdown {
     min-width:12rem;
     border:1px solid #B5C4AD !important;
@@ -517,7 +510,8 @@
 }
 </style>
 
-<div class="admin-table-page directory-page" x-data="userCatalog()">
+@include('partials.worklist_consistency_styles')
+<div class="admin-table-page directory-page" x-data="userCatalog()" data-record-results-page="users" data-worklist-consistent>
 <div class="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-8 pt-4 pb-6">
 <div class="space-y-4">
 
@@ -541,149 +535,27 @@
 </div>
 
 <section class="user-directory-stats" aria-label="Account summary for your permitted directory">
-    <div class="user-directory-stat"><div><span>Total Accounts</span><strong>{{ $directoryStats['total'] }}</strong><small>{{ $isBranchAdminView ? 'Staff in your branch' : 'Accounts in this directory' }}</small></div><i class="bi bi-people" aria-hidden="true"></i></div>
-    <div class="user-directory-stat"><div><span>Active Users</span><strong>{{ $directoryStats['active'] }}</strong><small>Sign-in access enabled</small></div><i class="bi bi-person-check" aria-hidden="true"></i></div>
-    <div class="user-directory-stat"><div><span>Inactive Users</span><strong>{{ $directoryStats['inactive'] }}</strong><small>Sign-in access disabled</small></div><i class="bi bi-person-x" aria-hidden="true"></i></div>
+    <div style="background:var(--directory-card,var(--card)) !important" class="user-directory-stat"><div><span>Total Accounts</span><strong>{{ $directoryStats['total'] }}</strong><small>{{ $isBranchAdminView ? 'Staff in your branch' : 'Accounts in this directory' }}</small></div><i class="bi bi-people" aria-hidden="true"></i></div>
+    <div style="background:var(--directory-card,var(--card)) !important" class="user-directory-stat" data-kpi-tone="success"><div><span>Active Users</span><strong>{{ $directoryStats['active'] }}</strong><small>Sign-in access enabled</small></div><i class="bi bi-person-check" aria-hidden="true"></i></div>
+    <div style="background:var(--directory-card,var(--card)) !important" class="user-directory-stat" data-kpi-tone="warning"><div><span>Inactive Users</span><strong>{{ $directoryStats['inactive'] }}</strong><small>Sign-in access disabled</small></div><i class="bi bi-person-x" aria-hidden="true"></i></div>
     @unless($isBranchAdminView)
-    <div class="user-directory-stat"><div><span>Role Distribution</span><strong class="user-directory-role-counts"><span>{{ $directoryStats['admins'] }} <small>Admins</small></span><span>{{ $directoryStats['staff'] }} <small>Staff</small></span></strong><small>Accounts in this directory</small></div><i class="bi bi-shield-check" aria-hidden="true"></i></div>
+    <div style="background:var(--directory-card,var(--card)) !important" class="user-directory-stat"><div><span>Role Distribution</span><strong class="user-directory-role-counts"><span>{{ $directoryStats['admins'] }} <small>Admins</small></span><span>{{ $directoryStats['staff'] }} <small>Staff</small></span></strong><small>Accounts in this directory</small></div><i class="bi bi-shield-check" aria-hidden="true"></i></div>
     @endunless
 </section>
 
 <section class="table-system-card admin-table-card">
     <div class="table-system-toolbar">
-        <form
-            method="GET"
-            action="{{ route('admin.users.index') }}"
-            class="table-toolbar uniform-record-filters {{ $isBranchAdminView ? 'user-filters-branch' : 'user-filters-system' }}"
-            data-table-toolbar
-            data-live-search-suggestions
-            data-live-search-commit-only
-            data-search-debounce="400"
-        >
-            @if(auth()->user()?->isSystemAdmin() && request('return_to') === url('/admin'))
-                <input type="hidden" name="return_to" value="{{ url('/admin') }}">
-            @endif
-            <div class="table-toolbar-field">
-                <label class="table-toolbar-label">Search</label>
-                <div class="table-toolbar-input-wrap {{ filled(request('q')) ? 'is-filtered' : '' }}">
-                    <i class="bi bi-search table-toolbar-leading-icon" aria-hidden="true"></i>
-                    <input
-                        type="text"
-                        name="q"
-                        value="{{ request('q') }}"
-                        placeholder="{{ $isBranchAdminView ? 'Search staff name or email...' : 'Search users...' }}"
-                        class="form-input table-toolbar-search has-clear-action"
-                        data-table-search
-                        data-live-search-input
-                        autocomplete="off"
-                    >
-                    <button type="button" class="live-search-clear" data-live-search-clear aria-label="Clear search" @if(!filled(request('q'))) hidden @endif>
-                        <i class="bi bi-x"></i>
-                    </button>
-                    <div class="live-search-results" data-live-search-results hidden></div>
-                </div>
-            </div>
-            @unless($isBranchAdminView)
-                <div class="table-toolbar-field">
-                    <label class="table-toolbar-label">Branch</label>
-                    <div class="table-toolbar-select-wrap {{ filled(request('branch_id')) ? 'is-filtered' : '' }}">
-                        <i class="bi bi-building table-toolbar-leading-icon" aria-hidden="true"></i>
-                        <select name="branch_id" class="form-select table-toolbar-select" data-table-auto-submit>
-                            <option value="">All Branches</option>
-                            @foreach($branches as $branch)
-                                <option value="{{ $branch->id }}" {{ (string) ($selectedBranchId ?? '') === (string) $branch->id ? 'selected' : '' }}>
-                                    {{ $branch->branch_code }} - {{ $branch->branch_name }}
-                                </option>
-                            @endforeach
-                        </select>
-                        <i class="bi bi-chevron-down table-toolbar-select-icon" aria-hidden="true"></i>
-                    </div>
-                </div>
-            @endunless
-            @if($isBranchAdminView)
-            <div class="table-toolbar-field">
-                <label class="table-toolbar-label">Status</label>
-                <div class="table-toolbar-select-wrap {{ filled(request('status')) ? 'is-filtered' : '' }}">
-                    <i class="bi bi-activity table-toolbar-leading-icon" aria-hidden="true"></i>
-                    <select name="status" class="form-select table-toolbar-select" data-table-auto-submit>
-                        <option value="">{{ $isBranchAdminView ? 'All' : 'All Status' }}</option>
-                        <option value="active" {{ request('status') === 'active' ? 'selected' : '' }}>Active</option>
-                        <option value="inactive" {{ request('status') === 'inactive' ? 'selected' : '' }}>Inactive</option>
-                    </select>
-                    <i class="bi bi-chevron-down table-toolbar-select-icon" aria-hidden="true"></i>
-                </div>
-            </div>
-            @endif
-            <div class="table-toolbar-field">
-                <label class="table-toolbar-label">Sort</label>
-                <div class="table-toolbar-select-wrap {{ filled(request('sort')) && request('sort') !== 'latest' ? 'is-filtered' : '' }}">
-                    <i class="bi bi-sort-alpha-down table-toolbar-leading-icon" aria-hidden="true"></i>
-                    <select name="sort" class="form-select table-toolbar-sort" data-table-sort>
-                        <option value="latest" {{ request('sort', 'latest') === 'latest' ? 'selected' : '' }}>Newest</option>
-                        @if($isBranchAdminView)
-                        <option value="oldest" {{ request('sort') === 'oldest' ? 'selected' : '' }}>Oldest</option>
-                        <option value="name_asc" {{ request('sort') === 'name_asc' ? 'selected' : '' }}>Name A–Z</option>
-                        @else
-                        <option value="name_asc" {{ request('sort') === 'name_asc' ? 'selected' : '' }}>Name</option>
-                        <option value="role_asc" {{ request('sort') === 'role_asc' ? 'selected' : '' }}>Role</option>
-                        <option value="branch_asc" {{ request('sort') === 'branch_asc' ? 'selected' : '' }}>Branch</option>
-                        @endif
-                    </select>
-                    <i class="bi bi-chevron-down table-toolbar-select-icon" aria-hidden="true"></i>
-                </div>
-            </div>
-            @unless($isBranchAdminView)
-            <details class="user-more-filters" @if(filled(request('role')) || filled(request('status'))) data-has-active-filters @endif>
-                <summary aria-label="More user filters"><i class="bi bi-sliders" aria-hidden="true"></i><span>More Filters</span>@if(filled(request('role')) || filled(request('status')))<span class="user-more-filters-count" aria-label="{{ (int) filled(request('role')) + (int) filled(request('status')) }} active filters">{{ (int) filled(request('role')) + (int) filled(request('status')) }}</span>@endif<i class="bi bi-chevron-down" aria-hidden="true"></i></summary>
-                <div class="user-more-filters-panel">
-                    <div class="table-toolbar-field">
-                        <label class="table-toolbar-label" for="user-filter-role">Role</label>
-                        <div class="table-toolbar-select-wrap">
-                            <i class="bi bi-person-badge table-toolbar-leading-icon" aria-hidden="true"></i>
-                            <select id="user-filter-role" name="role" class="form-select table-toolbar-select" data-table-auto-submit>
-                                <option value="">All Roles</option>
-                                <option value="admin" {{ request('role') === 'admin' ? 'selected' : '' }}>Admin</option>
-                                <option value="staff" {{ request('role') === 'staff' ? 'selected' : '' }}>Staff</option>
-                            </select>
-                            <i class="bi bi-chevron-down table-toolbar-select-icon" aria-hidden="true"></i>
-                        </div>
-                    </div>
-                    <div class="table-toolbar-field">
-                        <label class="table-toolbar-label" for="user-filter-status">Status</label>
-                        <div class="table-toolbar-select-wrap">
-                            <i class="bi bi-activity table-toolbar-leading-icon" aria-hidden="true"></i>
-                            <select id="user-filter-status" name="status" class="form-select table-toolbar-select" data-table-auto-submit>
-                                <option value="">All Status</option>
-                                <option value="active" {{ request('status') === 'active' ? 'selected' : '' }}>Active</option>
-                                <option value="inactive" {{ request('status') === 'inactive' ? 'selected' : '' }}>Inactive</option>
-                            </select>
-                            <i class="bi bi-chevron-down table-toolbar-select-icon" aria-hidden="true"></i>
-                        </div>
-                    </div>
-                </div>
-            </details>
-            @endunless
-            @if($hasUserFilters)
-            <a class="user-filter-clear filter-clear-action" href="{{ $userFilterResetUrl }}"><i class="bi bi-x-circle" aria-hidden="true"></i>Clear</a>
-            @endif
-            <div class="user-directory-view-toggle" role="group" aria-label="Directory view">
-                <button type="button" @click="setView('card')" :aria-pressed="view === 'card'" :class="view === 'card' ? 'is-active' : ''" aria-label="Grid view"><i class="bi bi-grid-3x3-gap-fill" aria-hidden="true"></i></button>
-                <button type="button" @click="setView('table')" :aria-pressed="view === 'table'" :class="view === 'table' ? 'is-active' : ''" aria-label="Table view"><i class="bi bi-table" aria-hidden="true"></i></button>
-            </div>
-        </form>
+        @include('partials.directory_toolbar', ['directoryKind' => 'users'])
     </div>
 
     <div
         x-show="view === 'card'"
         x-cloak
-        x-transition:enter="transition ease-out duration-200"
-        x-transition:enter-start="opacity-0 translate-y-2"
-        x-transition:enter-end="opacity-100 translate-y-0"
-        class="directory-card-view"
+        class="directory-card-view" data-record-results="cards"
     >
         @if($users->isEmpty())
-            <div class="flex flex-col items-center justify-center py-16 gap-3 text-center">
-                <div class="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center">
+            <div class="directory-empty-state" data-skeleton-empty>
+                <div class="directory-empty-icon" aria-hidden="true">
                     <i class="bi bi-people text-2xl text-slate-400"></i>
                 </div>
                 <div>
@@ -703,8 +575,8 @@
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 @foreach($users as $user)
                     <div
-                        class="directory-item-card border border-slate-200 rounded-2xl transition-colors duration-200 flex flex-col"
-                        data-live-search-row
+                        style="background:var(--directory-card,var(--card)) !important" class="directory-item-card border border-slate-200 rounded-2xl transition-colors duration-200 flex flex-col"
+                        data-live-search-row @include('partials.directory_search_metadata', ['directoryKind'=>'users', 'searchRecord'=>$user])
                         data-live-search-title="{{ $user->name }}"
                         data-live-search-meta="{{ $user->roleLabel() }} / {{ $user->branch->branch_name ?? 'No branch assigned' }}"
                         data-live-search-text="{{ $user->name }} {{ $user->email }} {{ $user->roleLabel() }} {{ $user->branch->branch_name ?? '' }} {{ $user->contact_number }} {{ $user->is_active ? 'Active' : 'Inactive' }}"
@@ -713,7 +585,7 @@
                             <span class="user-directory-avatar {{ $user->isSystemAdmin() ? 'is-system' : ($user->isBranchAdmin() ? 'is-branch' : 'is-staff') }}" aria-hidden="true">{{ mb_strtoupper(mb_substr($user->name, 0, 1)) }}</span>
                             <div class="flex-1 min-w-0">
                                 <div class="directory-user-role-strip">
-                                    <span class="user-card-status {{ $user->is_active ? 'is-active' : 'is-inactive' }}">{{ $user->is_active ? 'Active' : 'Inactive' }}</span>
+                                    <span class="directory-plain-status {{ $user->is_active ? 'is-active' : 'is-inactive' }}">{{ $user->is_active ? 'Active' : 'Inactive' }}</span>
                                 </div>
                                 <h3 class="font-bold text-slate-900 text-[15px] leading-snug truncate">{{ $user->name }}</h3>
                                 <p class="text-xs text-slate-500 mt-0.5 truncate">{{ $user->email }}</p>
@@ -721,35 +593,32 @@
                         </div>
 
                         <div class="user-directory-card-meta">
-                            <div><span>Role</span><strong class="user-directory-role-badge {{ $user->isSystemAdmin() ? 'is-system' : ($user->isBranchAdmin() ? 'is-branch' : 'is-staff') }}">{{ $user->roleLabel() }}</strong></div>
+                            <div><span>Role</span><strong class="directory-role-text {{ $user->isSystemAdmin() ? 'is-system' : ($user->isBranchAdmin() ? 'is-branch' : 'is-staff') }}">{{ $user->roleLabel() }}</strong></div>
                             <div><span>Branch</span><strong>{{ $user->branch ? $user->branch->branch_code.' - '.$user->branch->branch_name : 'No branch assigned' }}</strong></div>
                             <div><span>Contact</span><strong>{{ $user->contact_number ?: 'No contact number' }}</strong></div>
                         </div>
 
                         <div class="directory-user-card-actions">
                             @include('partials.user_view_button', ['directoryUser' => $user, 'userViewVariant' => 'card'])
-                            <div class="user-directory-card-action-group">
-                                <a class="user-directory-action user-directory-action--card" href="{{ route('admin.users.edit', ['user' => $user, 'return_to' => request()->fullUrl()]) }}" aria-label="Edit {{ $user->name }}" title="Edit user"><i class="bi bi-pencil-square" aria-hidden="true"></i><span>Edit</span></a>
-                                <button type="button" class="user-directory-action user-directory-action--card {{ $user->is_active ? 'is-danger' : 'is-enable' }}" data-user-status-dialog="user-status-{{ $user->id }}" aria-label="{{ $user->is_active ? 'Deactivate' : 'Activate' }} {{ $user->name }}" title="{{ $user->is_active ? 'Deactivate user' : 'Activate user' }}" aria-haspopup="dialog"><i class="bi {{ $user->is_active ? 'bi-slash-circle' : 'bi-check-circle' }}" aria-hidden="true"></i><span>{{ $user->is_active ? 'Deactivate' : 'Activate' }}</span></button>
+                            <div class="row-action-menu compact-action-menu user-directory-card-action-group" data-row-menu>
+                                <button type="button" class="row-action-trigger compact-action-trigger record-action-control" data-row-menu-trigger data-action-tooltip="More actions" aria-label="More user actions for {{ $user->name }}" aria-haspopup="menu" aria-expanded="false"><i class="bi bi-three-dots-vertical" aria-hidden="true"></i></button>
+                                <div class="row-action-dropdown" role="menu">
+                                    <a class="row-action-item compact-action-item is-edit" data-row-menu-item href="{{ route('admin.users.edit', ['user' => $user, 'return_to' => request()->fullUrl()]) }}"><i class="bi bi-pencil" aria-hidden="true"></i><span>Edit</span></a>
+                                    <button type="button" class="row-action-item compact-action-item {{ $user->is_active ? 'is-caution' : 'is-positive' }}" data-row-menu-item data-user-status-dialog="user-status-{{ $user->id }}" aria-controls="user-status-{{ $user->id }}" aria-haspopup="dialog"><i class="bi {{ $user->is_active ? 'bi-slash-circle' : 'bi-check-circle' }}" aria-hidden="true"></i><span>{{ $user->is_active ? 'Deactivate' : 'Activate' }}</span></button>
+                                </div>
                             </div>
                         </div>
                     </div>
                 @endforeach
             </div>
 
-            <div class="table-system-pagination directory-card-pagination">
-                @if($users->hasPages()){{ $users->links() }}@endif
-            </div>
         @endif
     </div>
 
     <div
         x-show="view === 'table'"
         x-cloak
-    x-transition:enter="transition ease-out duration-200"
-    x-transition:enter-start="opacity-0 translate-y-2"
-    x-transition:enter-end="opacity-100 translate-y-0"
-    class="directory-table-view"
+    class="directory-table-view" data-record-results="table"
 >
         <div class="table-system-list">
             <div class="table-wrapper table-system-wrap">
@@ -768,7 +637,7 @@
                     <tbody>
                         @forelse($users as $user)
                             <tr
-                                data-live-search-row
+                                data-live-search-row @include('partials.directory_search_metadata', ['directoryKind'=>'users', 'searchRecord'=>$user])
                                 data-live-search-title="{{ $user->name }}"
                                 data-live-search-meta="{{ $user->roleLabel() }} / {{ $user->branch->branch_name ?? 'No branch assigned' }}"
                                 data-live-search-text="{{ $user->name }} {{ $user->email }} {{ $user->roleLabel() }} {{ $user->branch->branch_name ?? '' }} {{ $user->contact_number }} {{ $user->is_active ? 'Active' : 'Inactive' }}"
@@ -788,31 +657,35 @@
                                 <td class="table-col-actions">
                                     <div class="user-table-actions">
                                         @include('partials.user_view_button', ['directoryUser' => $user])
-                                        <a class="user-directory-action" href="{{ route('admin.users.edit', ['user' => $user, 'return_to' => request()->fullUrl()]) }}" aria-label="Edit {{ $user->name }}" title="Edit user"><i class="bi bi-pencil-square" aria-hidden="true"></i></a>
-                                        <button type="button" class="user-directory-action {{ $user->is_active ? 'is-danger' : 'is-enable' }}" data-user-status-dialog="user-status-{{ $user->id }}" aria-label="{{ $user->is_active ? 'Deactivate' : 'Activate' }} {{ $user->name }}" title="{{ $user->is_active ? 'Deactivate user' : 'Activate user' }}" aria-haspopup="dialog"><i class="bi {{ $user->is_active ? 'bi-slash-circle' : 'bi-check-circle' }}" aria-hidden="true"></i></button>
+                                        <div class="row-action-menu compact-action-menu" data-row-menu>
+                                            <button type="button" class="row-action-trigger compact-action-trigger record-action-control" data-row-menu-trigger data-action-tooltip="More actions" aria-label="More user actions for {{ $user->name }}" aria-haspopup="menu" aria-expanded="false"><i class="bi bi-three-dots-vertical" aria-hidden="true"></i></button>
+                                            <div class="row-action-dropdown" role="menu">
+                                                <a class="row-action-item compact-action-item is-edit" data-row-menu-item href="{{ route('admin.users.edit', ['user' => $user, 'return_to' => request()->fullUrl()]) }}"><i class="bi bi-pencil" aria-hidden="true"></i><span>Edit</span></a>
+                                                <button type="button" class="row-action-item compact-action-item {{ $user->is_active ? 'is-caution' : 'is-positive' }}" data-row-menu-item data-user-status-dialog="user-status-{{ $user->id }}" aria-controls="user-status-{{ $user->id }}" aria-haspopup="dialog"><i class="bi {{ $user->is_active ? 'bi-slash-circle' : 'bi-check-circle' }}" aria-hidden="true"></i><span>{{ $user->is_active ? 'Deactivate' : 'Activate' }}</span></button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="table-system-empty">No users found.</td>
+                                <td colspan="7" class="table-system-empty"><div class="directory-table-empty">No users found.</div></td>
                             </tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
-            <div class="table-system-pagination">
-                @if($users->hasPages()){{ $users->links() }}@endif
-            </div>
         </div>
     </div>
+<div class="table-system-pagination worklist-footer {{ $users->hasPages() ? '' : 'is-pagination-hidden' }}" data-record-results="footer" @if(!$users->hasPages()) aria-hidden="true" @endif>{{ $users->links('components.pagination.table') }}</div>
 </section>
 
 </div>
 </div>
 </div>
 
-@include('partials.user_information_modals')
+<div data-record-results-dialogs="users">
+@include('partials.user_information_modals', ['users' => $users])
 @if(auth()->user()?->isSystemAdmin())
     @include('admin.users._role_selection')
 @endif

@@ -3,38 +3,51 @@
 @section('hide_layout_topbar', '1')
 @section('page_title', 'Payment Monitoring')
 @section('page_desc', 'Review payment progress, transaction history, branch scope, and outstanding balances.')
-@section('header_actions')
-    @unless(auth()->user()?->isBranchAdmin() && request('tab') === 'corrections')
-    <a class="ops-btn-outline" data-pm-print-preview href="{{ route('payments.monitoring.print', request()->except(['page', 'transactions_page', 'tab'])) }}" target="_blank" rel="noopener"><i class="bi bi-printer" aria-hidden="true"></i><span>Print Preview</span></a>
-    @endunless
+@php
+    $user = auth()->user();
+    $isBranchAdmin = $user?->isBranchAdmin();
+    $isStaff = $user?->isStaff();
+    $isMainAdmin = $user?->isMainBranchAdmin();
+    $canViewCorrections = $isBranchAdmin || $isStaff || $isMainAdmin;
+    $showCorrections = $canViewCorrections && request('tab') === 'corrections';
+    $monitoringRoute = request()->routeIs('admin.payments.index') || request()->routeIs('admin.payment-monitoring')
+        ? 'admin.payments.index'
+        : 'payments.history';
+@endphp
+@section('topbar_actions')
+    @if($canViewCorrections)
+        <div data-pm-header-slot @if($showCorrections) hidden @endif>
+            @unless($showCorrections)
+                <a href="{{ route($monitoringRoute, ['tab' => 'corrections']) }}" class="pm-header-action pm-header-action--corrections" data-pm-section-action>
+                    <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+                    <span>{{ $isStaff ? 'My Correction Requests' : 'Correction Requests' }}</span>
+                    <span class="correction-request-count" data-workflow-pending data-attention="{{ $pendingCorrectionCount > 0 ? 'true' : 'false' }}" aria-label="{{ $pendingCorrectionCount }} pending requests">{{ $pendingCorrectionCount }}</span>
+                </a>
+            @endunless
+        </div>
+    @endif
 @endsection
-
-@if(auth()->user()?->isStaff())
-    @section('topbar_actions')
-        <button type="button" id="openPaymentForm" class="ops-btn-primary">
+@section('record_toolbar_action')
+    @if(auth()->user()?->isStaff())
+        <button type="button" id="openPaymentForm" class="reference-page-action ops-btn-primary">
             <i class="bi bi-cash-stack" aria-hidden="true"></i>
             <span>Record Payment</span>
         </button>
-    @endsection
-@endif
+    @endif
+    @if(auth()->user()?->isAdmin() && request('tab') !== 'corrections')
+    <a class="reference-page-action ops-btn-outline" data-pm-print-preview href="{{ route('payments.monitoring.print', request()->except(['page', 'transactions_page', 'tab'])) }}" target="_blank" rel="noopener"><i class="bi bi-printer" aria-hidden="true"></i><span>Print Preview</span></a>
+    @endif
+@endsection
 
 @section('content')
 @if($canRecordPayment ?? false)
     @include('staff.payments._record_modal')
 @endif
 @php
-    $user = auth()->user();
     $isBranchOnly = ($branches ?? collect())->count() === 1;
-    $isBranchAdmin = $user?->isBranchAdmin();
-    $isStaff = $user?->isStaff();
-    $isMainAdmin = $user?->isMainBranchAdmin();
     $isOwner = $user?->isOwner();
-    $showCorrections = $isBranchAdmin && request('tab') === 'corrections';
     $activeTab = request('tab') === 'transactions' ? 'transactions' : 'summary';
     $defaultPaymentBranchId = $defaultPaymentBranchId ?? null;
-    $monitoringRoute = request()->routeIs('admin.payments.index') || request()->routeIs('admin.payment-monitoring')
-        ? 'admin.payments.index'
-        : 'payments.history';
     $paymentStatus = $paymentStatus ?? $statusAfterPayment ?? null;
     $dateRange = request('date_preset') ?: ((request()->filled('paid_from') || request()->filled('paid_to')) ? 'custom' : 'all');
     $branchFilterIsActive = !$isStaff
@@ -80,6 +93,7 @@
         || !in_array($dateRange, ['all', 'any'], true);
 @endphp
 
+@push('worklist-styles')
 <style>
     .pm-page { color: var(--ink); padding: 12px var(--panel-content-inline, 20px) 20px; }
     .pm-kpis { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:.75rem; margin-bottom:1rem; }
@@ -127,8 +141,7 @@
     .pm-kpi.is-link:hover .pm-kpi-action { opacity:1; }
 
     .pm-toolbar-shell { background:#D3DEC9; border:1px solid var(--border); border-radius:.75rem; padding:.7rem; margin-bottom:1rem; overflow:visible; box-shadow:none; }
-    .pm-page.is-loading .pm-kpis,
-    .pm-page.is-loading .pm-panel { opacity:.62; pointer-events:none; transition:opacity .16s ease; }
+    .pm-page.is-loading .pm-records-body { cursor:progress; }
     .pm-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:.55rem; }
     .pm-field { flex:1 1 8rem; min-width:0; }
     .pm-field.branch { flex:1.5 1 11rem; }
@@ -157,22 +170,6 @@
     }
     .pm-search-clear:hover { background:#C7D5BE; color:var(--ink); }
     .pm-field.search .pm-control { padding-right:2.45rem; cursor:text; }
-    .pm-search-suggestions {
-        position:absolute; left:0; right:0; top:calc(100% + .35rem); z-index:40;
-        background:#E1E7D9; border:1px solid var(--border); border-radius:.75rem;
-        padding:.35rem; display:grid; gap:.25rem; max-height:16rem; overflow:auto;
-    }
-    .pm-search-suggestions[hidden] { display:none !important; }
-    .pm-search-option {
-        width:100%; border:0; border-radius:.55rem; background:transparent;
-        color:var(--ink); display:grid; gap:.08rem; text-align:left;
-        padding:.55rem .65rem; cursor:pointer;
-        transition:background-color .16s ease, color .16s ease;
-    }
-    .pm-search-option:hover,
-    .pm-search-option:focus-visible { outline:none; background:#C7D5BE; }
-    .pm-search-title { font-size:.83rem; font-weight:700; }
-    .pm-search-meta { font-size:.72rem; color:var(--ink-muted); font-weight:600; }
     .pm-readonly-control {
         display:flex; align-items:center; min-height:2.75rem; height:2.75rem;
         background:var(--surface-muted); color:var(--ink-muted); cursor:default;
@@ -224,6 +221,11 @@
     .pm-row-title { font-weight:850; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .pm-row-meta { margin-top:.22rem; color:var(--ink-muted); font-size:.82rem; display:flex; gap:.4rem; flex-wrap:wrap; align-items:center; }
     .pm-row-date { color:var(--ink-muted); font-size:.86rem; white-space:nowrap; }
+    .pm-date-subline { display:flex; align-items:center; gap:.65rem; flex-wrap:wrap; margin-top:.22rem; font-size:.8rem; line-height:1.45; }
+    .pm-date-reference { color:var(--ink-muted); overflow-wrap:anywhere; }
+    .pm-date-method { color:var(--ink); font-weight:650; }
+    .pm-status-stack { display:flex; flex-direction:column; align-items:flex-start; gap:.22rem; min-width:0; }
+    .pm-last-payment-amount { color:var(--ink); font-size:.95rem; font-weight:750; font-variant-numeric:tabular-nums; white-space:nowrap; }
     .pm-row-actions { display:flex; align-items:center; justify-content:flex-end; gap:.55rem; min-width:max-content; flex-wrap:nowrap; }
     .pm-row-link { display:inline-flex; align-items:center; gap:.4rem; color:var(--accent); font-weight:850; font-size:.84rem; text-decoration:none; background:transparent; border:0; padding:0; }
     .pm-light-link { display:inline-flex; align-items:center; justify-content:center; min-height:2.25rem; gap:.4rem; color:var(--ink); font-weight:700; font-size:.82rem; text-decoration:none; background:#E1E7D9; border:1px solid var(--border); border-radius:.65rem; padding:0 .75rem; transition:background-color .16s ease, border-color .16s ease, color .16s ease; }
@@ -335,7 +337,7 @@
     html[data-theme='dark'] .pm-control,
     html[data-theme='dark'] .pm-btn { background:#1e334f; color:#e2ecf9; border-color:#3a5069; }
 
-    /* ── Dark mode: KPI cards ─────────────────────────────────────── */
+    /* â”€â”€ Dark mode: KPI cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     html[data-theme='dark'] .pm-kpi {
         background: #182334;
         border-color: #3a495f;
@@ -357,12 +359,12 @@
         box-shadow: none;
     }
 
-    /* ── Dark mode: status pills ──────────────────────────────────── */
+    /* â”€â”€ Dark mode: status pills â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     html[data-theme='dark'] .pm-status.is-paid    { background:rgba(34,197,94,0.14);  color:#86efac; }
     html[data-theme='dark'] .pm-status.is-partial { background:rgba(245,158,11,0.14); color:#fcd34d; }
     html[data-theme='dark'] .pm-status.is-unpaid  { background:rgba(239,68,68,0.14);  color:#fca5a5; }
 
-    /* ── Dark mode: row hover & icon toggle ───────────────────────── */
+    /* â”€â”€ Dark mode: row hover & icon toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     html[data-theme='dark'] .pm-case-row.is-toggle:hover,
     html[data-theme='dark'] .pm-case-row[aria-expanded="true"],
     html[data-theme='dark'] .pm-trans-row:hover { background: #202d3f; }
@@ -382,7 +384,7 @@
         color: #9fb1c8;
     }
 
-    /* ── Dark mode: summary / transaction detail areas ────────────── */
+    /* â”€â”€ Dark mode: summary / transaction detail areas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     html[data-theme='dark'] .pm-summary-detail,
     html[data-theme='dark'] .pm-case-overview,
     html[data-theme='dark'] .pm-txn-det { background: #1a2738; border-color: #354e69; }
@@ -395,15 +397,11 @@
         .pm-field, .pm-field.search, .pm-field.branch { flex:1 1 11rem; min-width:10rem; }
         .pm-actions { margin-left:0; }
     }
-    .pm-payment-summary-ready { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px; padding:14px 16px; border:1px solid #9fb398; border-radius:14px; background:#e7eee2; color:#273427; }
-    .pm-payment-summary-ready strong,.pm-payment-summary-ready span { display:block; }
-    .pm-payment-summary-ready span { margin-top:3px; color:#526052; font-size:12px; line-height:1.4; }
     @media (max-width: 900px) {
         .pm-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
         .pm-summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
     }
     @media (max-width: 640px) {
-        .pm-payment-summary-ready { align-items:stretch; flex-direction:column; }
         .pm-kpis { grid-template-columns:1fr; }
         .pm-toolbar { flex-wrap:wrap; min-width:0; }
         .pm-field, .pm-field.search, .pm-field.branch, .pm-field.branch-readonly, .pm-actions, .pm-actions .pm-btn { width:100%; flex-basis:100%; min-width:0; max-width:none; }
@@ -426,41 +424,53 @@
         .pm-summary-detail { display:grid !important; }
     }
 
-    /* Module navigation has its own surface, separate from filter chips. */
-    .payment-monitoring-page .pm-section-tabs {
-        display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-        margin:0 0 20px; padding:0 0 12px; border:0;
-        border-bottom:1px solid var(--border); background:transparent;
+    @media (min-width:701px) {
+        html[data-theme] body.panel-shell-body .panel-page-header:has(.pm-header-action--corrections) {
+            grid-template-columns:minmax(0,1fr) minmax(0,760px) minmax(max-content,1fr);
+        }
     }
-    .payment-monitoring-page .pm-section-tabs > a {
+    .panel-page-header__actions:has([data-pm-header-slot][hidden]) { display:none; }
+    .pm-header-action {
         display:inline-flex; align-items:center; justify-content:center; gap:8px;
-        min-height:44px; padding:10px 14px; border:1px solid transparent;
-        border-radius:8px; background:transparent; color:var(--ink-muted);
-        font:500 14px/1.4 var(--font-body); text-decoration:none;
-        transition:background-color .15s,color .15s;
+        min-height:44px; padding:8px 12px; border:0; border-radius:8px;
+        background:var(--rs-control,var(--surface-muted)); color:var(--rs-text,var(--ink));
+        font:600 13px/1.4 var(--font-body); text-decoration:none;
     }
-    .payment-monitoring-page .pm-section-tabs > a:hover { background:var(--surface-muted); color:var(--ink); }
-    .payment-monitoring-page .pm-section-tabs > a[aria-current="page"] {
-        background:#374151; border-color:#374151; color:#fff;
+    .pm-header-action:hover { background:var(--rs-hover,var(--surface-muted)); }
+    .panel-page-header .pm-header-action--corrections {
+        padding-inline:16px;
+        background:var(--brand); color:var(--card);
+        font-weight:700;
     }
-    .payment-monitoring-page .pm-section-tabs > a:focus-visible { outline:2px solid #64748b; outline-offset:3px; }
-    .payment-monitoring-page .pm-section-tabs__count {
-        display:inline-flex; align-items:center; justify-content:center;
-        min-width:24px; height:24px; padding:0 6px; border-radius:6px;
-        background:var(--surface-muted); color:var(--ink); font-size:12px;
-        font-variant-numeric:tabular-nums;
+    .panel-page-header .pm-header-action--corrections:hover { background:var(--brand-hover); }
+    .panel-page-header .pm-header-action--corrections .correction-request-count[data-attention="true"] { color:#f9d78e; }
+    html[data-theme="dark"] .panel-page-header .pm-header-action--corrections .correction-request-count[data-attention="true"] { color:#472300; }
+    .pm-header-action:focus-visible { outline:2px solid var(--filter-ui-focus,var(--brand)); outline-offset:2px; }
+
+    html.pm-section-switching :is(.pm-header-action--corrections, [data-pm-correction-card]) { view-transition-name:pm-correction-card; }
+    html.pm-section-switching [data-pm-view="records"] { view-transition-name:pm-records; }
+    html.pm-section-switching::view-transition-old(root) { display:none; }
+    html.pm-section-switching::view-transition-new(root) { animation:none; }
+    html.pm-section-switching::view-transition-group(pm-records) { animation-duration:180ms; }
+    html.pm-section-switching::view-transition-group(pm-correction-card) {
+        z-index:1; animation-duration:340ms; animation-timing-function:cubic-bezier(.2,.65,.25,1);
     }
-    .payment-monitoring-page .pm-section-tabs > a[aria-current="page"] .pm-section-tabs__count { background:#fff; color:#374151; }
-    html[data-theme='dark'] .payment-monitoring-page .pm-section-tabs > a[aria-current="page"] { background:#d1d5db; border-color:#d1d5db; color:#111827; }
-    html[data-theme='dark'] .payment-monitoring-page .pm-section-tabs > a[aria-current="page"] .pm-section-tabs__count { background:#374151; color:#fff; }
-    @media (max-width:480px) {
-        .payment-monitoring-page .pm-section-tabs { gap:4px; }
-        .payment-monitoring-page .pm-section-tabs > a { padding:9px 10px; font-size:13px; }
+    html.pm-section-switching::view-transition-image-pair(pm-correction-card) { overflow:hidden; border-radius:12px; }
+    html.pm-section-switching::view-transition-old(pm-correction-card) {
+        height:100%; mix-blend-mode:normal; animation:pm-section-fade-out 150ms ease both;
     }
+    html.pm-section-switching::view-transition-new(pm-correction-card) {
+        height:100%; mix-blend-mode:normal; animation:pm-section-fade-in 230ms ease 90ms both;
+    }
+    @keyframes pm-section-fade-out { to { opacity:0; } }
+    @keyframes pm-section-fade-in { from { opacity:0; } }
 
     .payment-monitoring-page .pc-requests { background:var(--card,var(--surface)); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
     .payment-monitoring-page .pc-requests__header { padding:20px 24px; border-bottom:1px solid var(--border); }
     .payment-monitoring-page .pc-requests__header h2 { margin:0 0 6px; font:600 18px/1.4 var(--font-body); color:var(--ink); }
+    .payment-monitoring-page .pc-requests__header--queue { display:flex; align-items:center; gap:12px; padding:12px 16px; }
+    .payment-monitoring-page .pc-requests__header--queue h2 { margin:0; }
+    .pc-requests__header--queue .pm-header-action { flex:none; }
     .payment-monitoring-page .pc-requests__header p,.payment-monitoring-page .pc-empty p { margin:0; font-size:14px; color:var(--ink-muted); }
     .payment-monitoring-page .pc-empty { padding:48px 24px; text-align:center; }
     .payment-monitoring-page .pc-empty__icon { display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; background:var(--surface-muted); border-radius:12px; font-size:22px; color:var(--ink-muted); }
@@ -518,33 +528,31 @@
     .pc-approval-dialog button:focus-visible { outline:2px solid #64748b; outline-offset:3px; }
     .pc-approval-dialog button:disabled { opacity:.6; cursor:wait; }
 </style>
+@include('staff.partials.remaining-pages-visual-system')
+@include('partials.case_records_layout_styles')
+@include('staff.payments._consistency_styles')
+@endpush
 
-<div class="pm-page ops-page payment-monitoring-page">
-    @if(session('success'))
+<div class="pm-page ops-page payment-monitoring-page pm-consistent-ui" data-pm-view="{{ $showCorrections ? 'corrections' : 'records' }}">
+    @if(session('success') && !session('payment_summary_id') && !session('payment_success.id'))
         <div class="flash-success">{{ session('success') }}</div>
     @endif
-    @if(session('payment_summary_id'))
-        <div class="pm-payment-summary-ready">
-            <div>
-                <strong>Payment Summary is ready.</strong>
-                <span>Print a reference copy showing the package amount, payment received, and updated remaining balance. It is not an Official Receipt.</span>
-            </div>
-            <a class="pm-btn primary ops-btn-primary" href="{{ route('payments.summary', session('payment_summary_id')) }}" target="_blank" rel="noopener">
-                <i class="bi bi-printer" aria-hidden="true"></i><span>Print Payment Summary</span>
-            </a>
-        </div>
+    @if(session('payment_success.id'))
+        @include('staff.intake._payment-success', [
+            'paymentSuccess' => session('payment_success'),
+            'paymentSuccessContext' => 'payment',
+        ])
+    @elseif(session('payment_summary_id'))
+        @include('partials.centered-success-toast', ['toastId' => 'payment-recorded-toast', 'title' => 'Payment recorded successfully', 'message' => 'The payment has been added to the case.'])
     @endif
     @if($errors->any())
         <div class="flash-error">{{ $errors->first() }}</div>
     @endif
 
-    @if($isBranchAdmin)
-        <nav class="pm-section-tabs" aria-label="Payment monitoring sections">
-            <a href="{{ route($monitoringRoute) }}" @if(!$showCorrections) aria-current="page" @endif><i class="bi bi-receipt" aria-hidden="true"></i><span>Payment Records</span></a>
-            <a href="{{ route($monitoringRoute, ['tab' => 'corrections']) }}" @if($showCorrections) aria-current="page" @endif><i class="bi bi-arrow-repeat" aria-hidden="true"></i><span>Correction Requests</span><span class="pm-section-tabs__count" aria-label="{{ $pendingCorrectionCount }} pending requests">{{ $pendingCorrectionCount }}</span></a>
-        </nav>
-    @endif
     @if($showCorrections)
+        @if($openCorrectionId ?? null)
+            <span hidden data-open-correction-url="{{ route('payments.corrections.show', $openCorrectionId) }}"></span>
+        @endif
         @include('staff.payments._correction_requests', ['requests' => $correctionRequests])
     @else
     @if(!$isStaff)
@@ -560,7 +568,7 @@
                 </div>
             </div>
         </div>
-        {{-- Total Payment Transactions — links to Transaction History tab --}}
+        {{-- Total Payment Transactions â€” links to Transaction History tab --}}
         <div class="pm-kpi ops-stat-card">
             <div class="pm-kpi-inner ops-stat-card__inner">
                 <span class="pm-kpi-icon ops-stat-card__icon"><i class="bi bi-receipt" aria-hidden="true"></i></span>
@@ -571,7 +579,7 @@
                 </div>
             </div>
         </div>
-        {{-- Total Collected — links to Transaction History tab --}}
+        {{-- Total Collected â€” links to Transaction History tab --}}
         <div class="pm-kpi ops-stat-card">
             <div class="pm-kpi-inner ops-stat-card__inner">
                 <span class="pm-kpi-icon ops-stat-card__icon pm-kpi-icon--success"><i class="bi bi-cash-stack" aria-hidden="true"></i></span>
@@ -596,131 +604,54 @@
     </div>
     @endif
 
-    <div class="pm-toolbar-shell ops-toolbar-shell">
-        <form id="pmFilterForm" method="GET" action="{{ route($monitoringRoute) }}" class="pm-toolbar ops-toolbar uniform-record-filters" data-pm-default-branch="{{ $defaultPaymentBranchId ?? '' }}">
-            @if($caseScopePreset ?? null)
-                <input type="hidden" name="case_scope" value="{{ $caseScopePreset }}">
-            @endif
-            <input type="hidden" name="tab" value="{{ $activeTab }}">
-
-            <div class="pm-field search has-icon ops-field ops-field--search">
-                <i class="bi bi-search" aria-hidden="true"></i>
-                <input class="pm-control ops-control" name="q" value="{{ $q ?? '' }}" placeholder="Search client, deceased, case no., payment record, accounting ref, transaction ref..." autocomplete="off" data-pm-search-input>
-                <button type="button" class="pm-search-clear" data-pm-search-clear @if(blank($q ?? null)) hidden @endif aria-label="Clear search">
-                    <i class="bi bi-x" aria-hidden="true"></i>
-                </button>
-                <div class="pm-search-suggestions" data-pm-search-suggestions hidden></div>
-            </div>
-
-            @if(!$isStaff && ($isMainAdmin || !$isBranchOnly))
-                <div class="pm-field branch has-icon ops-field">
-                    <i class="bi bi-building" aria-hidden="true"></i>
-                    <select name="branch_id" class="pm-control ops-control" title="Branch">
-                        <option value="all" @selected(($selectedBranchId ?? null) === 'all')>All Branches</option>
-                        @foreach($branches as $branch)
-                            <option value="{{ $branch->id }}" @selected((string) ($selectedBranchId ?? '') === (string) $branch->id)>
-                                {{ $branch->branch_code }} - {{ $branch->branch_name }}
-                            </option>
-                        @endforeach
-                    </select>
-                    <i class="bi bi-chevron-down pm-sel-chev" aria-hidden="true"></i>
-                </div>
-            @endif
-
-            <div class="pm-field has-icon ops-field">
-                <i class="bi bi-credit-card" aria-hidden="true"></i>
-                <select name="payment_status" class="pm-control ops-control" title="Payment Status">
-                    <option value="">All Payment Statuses</option>
-                    <option value="HAS_PAYMENT" @selected($paymentStatus === 'HAS_PAYMENT')>With Payments</option>
-                    <option value="WITH_BALANCE" @selected($paymentStatus === 'WITH_BALANCE')>With Balance</option>
-                    <option value="UNPAID" @selected($paymentStatus === 'UNPAID')>Unpaid</option>
-                    <option value="PARTIAL" @selected($paymentStatus === 'PARTIAL')>Partial</option>
-                    <option value="PAID" @selected($paymentStatus === 'PAID')>Paid</option>
-                </select>
-                <i class="bi bi-chevron-down pm-sel-chev" aria-hidden="true"></i>
-            </div>
-
-            <div class="pm-field has-icon ops-field">
-                <i class="bi bi-calendar3" aria-hidden="true"></i>
-                <select id="pmDateRange" name="date_preset" class="pm-control ops-control" title="Date Range">
-                    <option value="all" @selected($dateRange === 'all' || $dateRange === 'any')>All Dates</option>
-                    <option value="today" @selected($dateRange === 'today')>Today</option>
-                    <option value="week" @selected($dateRange === 'week')>This Week</option>
-                    <option value="month" @selected($dateRange === 'month')>This Month</option>
-                    <option value="year" @selected($dateRange === 'year')>This Year</option>
-                    <option value="custom" @selected($dateRange === 'custom')>Custom</option>
-                </select>
-                <i class="bi bi-chevron-down pm-sel-chev" aria-hidden="true"></i>
-            </div>
-
-            <details class="pm-more-filters">
-                <summary><i class="bi bi-sliders" aria-hidden="true"></i> More Filters <i class="bi bi-chevron-down" aria-hidden="true"></i></summary>
-                <div class="pm-more-panel">
-            <div class="pm-field has-icon ops-field">
-                <i class="bi bi-clipboard-check" aria-hidden="true"></i>
-                <select name="case_status" class="pm-control ops-control" title="Case Status">
-                    <option value="">All Cases</option>
-                    <option value="DRAFT" @selected(($caseStatus ?? '') === 'DRAFT')>Draft</option>
-                    <option value="ACTIVE" @selected(($caseStatus ?? '') === 'ACTIVE')>Active</option>
-                    <option value="COMPLETED" @selected(($caseStatus ?? '') === 'COMPLETED')>Completed</option>
-                </select>
-                <i class="bi bi-chevron-down pm-sel-chev" aria-hidden="true"></i>
-            </div>
-
-            <div class="pm-field has-icon ops-field">
-                <i class="bi bi-wallet2" aria-hidden="true"></i>
-                <select name="payment_method" class="pm-control ops-control" title="Payment Method">
-                    <option value="">All Methods</option>
-                    <option value="cash" @selected(($paymentMethod ?? '') === 'cash')>Cash</option>
-                    <option value="cashless" @selected(($paymentMethod ?? '') === 'cashless')>Cashless</option>
-                </select>
-                <i class="bi bi-chevron-down pm-sel-chev" aria-hidden="true"></i>
-            </div>
-                </div>
-            </details>
-
-            <div class="pm-hidden-date-fields">
-                <input id="pmPaidFrom" type="date" name="paid_from" value="{{ $paidFrom ?? '' }}">
-                <input id="pmPaidTo" type="date" name="paid_to" value="{{ $paidTo ?? '' }}">
-            </div>
-
-            <label class="pm-page-size" for="pmPerPage">Rows per page
-                <span class="pm-page-size-control">
-                    <select id="pmPerPage" name="per_page" class="pm-control ops-control" aria-label="Rows per page">
-                        @foreach([10,20,50,100] as $pageSize)
-                            <option value="{{ $pageSize }}" @selected($paymentCases->perPage() === $pageSize)>{{ $pageSize }}</option>
-                        @endforeach
-                    </select>
-                    <i class="bi bi-chevron-down" aria-hidden="true"></i>
-                </span>
-            </label>
-            <div class="pm-actions">
-                <a href="{{ route($monitoringRoute) }}" class="pm-btn ops-btn-outline filter-clear-action" data-pm-clear-filters @if(!$hasPaymentFilters) hidden @endif><i class="bi bi-x-circle" aria-hidden="true"></i><span>Clear</span></a>
-            </div>
-        </form>
-    </div>
+    @include('staff.payments._toolbar')
 
     @if($activeTab === 'summary')
         <div class="pm-panel ops-list-panel">
             <div class="pm-records-body ops-list-body">
+            @include('staff.payments._record_headers', ['showActions' => false])
             <div class="pm-row-list">
                 @forelse($paymentCases as $case)
                     @php
                         $casePayments = $case->payments ?? collect();
-                        $latestCasePayment = $casePayments->last();
+                        $latestCasePayment = $casePayments->last(fn ($payment) => !$payment->isVoided());
+                        $latestPaymentMethodValue = strtolower((string) ($latestCasePayment?->payment_method ?: $latestCasePayment?->payment_mode ?: 'cash'));
+                        $latestPaymentIsCashless = $latestPaymentMethodValue === 'cashless' || $latestPaymentMethodValue === 'bank_transfer';
+                        $latestPaymentReference = $latestPaymentIsCashless
+                            ? ($latestCasePayment?->transaction_reference_no ?: $latestCasePayment?->reference_number)
+                            : $latestCasePayment?->receipt_or_no;
+                        if ($latestPaymentReference && $latestCasePayment?->payment_record_no
+                            && strcasecmp(trim((string) $latestPaymentReference), trim((string) $latestCasePayment->payment_record_no)) === 0) {
+                            $latestPaymentReference = null;
+                        }
+                        $latestPaymentReferenceLabel = $latestPaymentIsCashless ? 'Reference No.' : 'OR No.';
+                        $latestPaymentMethodLabel = $latestCasePayment ? \App\Support\Payments\PaymentDetails::label($latestCasePayment) : null;
+                        $searchPaymentReferences = $casePayments
+                            ->reject(fn ($payment) => $payment->isVoided())
+                            ->flatMap(fn ($payment) => [
+                                $payment->display_payment_record_no,
+                                $payment->receipt_number,
+                                $payment->receipt_or_no,
+                                $payment->accounting_reference_no,
+                                $payment->transaction_reference_no,
+                                $payment->reference_number,
+                                $payment->approval_code,
+                            ])
+                            ->filter()
+                            ->unique()
+                            ->implode(' · ');
                         $latestPaymentRecorder = $latestCasePayment?->recordedBy?->name ?? $latestCasePayment?->encodedBy?->name;
                         $latestPaymentAt = $case->payments_max_paid_at ? \Illuminate\Support\Carbon::parse($case->payments_max_paid_at) : null;
-                        $summaryId = 'summary-case-' . $case->id;
                         $transactionsModalId = 'transactions-modal-case-' . $case->id;
                     @endphp
                     <article
                         class="pm-case-item ops-list-row"
-                        data-pm-search-row
-                        data-pm-search-title="{{ trim(($case->case_code ?? '') . ' ' . ($case->client?->full_name ?? '') . ' ' . ($case->deceased?->full_name ?? '')) }}"
-                        data-pm-search-meta="{{ trim(($case->branch?->branch_code ?? '') . ' ' . ($case->branch?->branch_name ?? '') . ' ' . \Illuminate\Support\Str::headline($case->payment_status ?? 'UNPAID')) }}"
-                        data-pm-search-text="{{ trim(($case->case_code ?? '') . ' ' . ($case->client?->full_name ?? '') . ' ' . ($case->deceased?->full_name ?? '') . ' ' . ($case->branch?->branch_code ?? '') . ' ' . ($case->branch?->branch_name ?? '') . ' ' . \Illuminate\Support\Str::headline($case->payment_status ?? 'UNPAID')) }}"
+                        data-pm-match-case="{{ $case->case_code ?? '' }}"
+                        data-pm-match-client="{{ $case->client?->full_name ?? 'Not provided' }}"
+                        data-pm-match-deceased="{{ $case->deceased?->full_name ?? 'Not provided' }}"
+                        data-pm-match-payment="{{ $searchPaymentReferences }}"
                     >
-                    <div class="pm-case-row">
+                    <div class="pm-case-row pm-history-row" role="button" tabindex="0" aria-label="Open payment history for case {{ $case->case_code }}" aria-controls="{{ $transactionsModalId }}" aria-expanded="false" data-pm-open-transactions-modal="{{ $transactionsModalId }}">
                         <div class="pm-case-identity">
                             <div class="pm-case">{{ $case->case_code ?? '-' }}</div>
                             @if($latestCasePayment)
@@ -730,164 +661,172 @@
                         <div class="pm-row-main">
                             <div class="pm-row-title">{{ $case->client?->full_name ?? '-' }} &ndash; {{ $case->deceased?->full_name ?? '-' }}</div>
                             <div class="pm-row-meta">
-                                <span>{{ $case->branch?->branch_code ?? '-' }}{{ $case->branch?->branch_name ? ' · ' . $case->branch->branch_name : '' }}</span>
+                                <span>{{ $case->branch?->branch_code ?? '-' }}{{ $case->branch?->branch_name ? ' Â· ' . $case->branch->branch_name : '' }}</span>
                             </div>
                         </div>
-                        <div class="pm-row-date">Last payment: {{ $latestPaymentAt?->format('M d, Y h:i A') ?? 'No payment yet' }}</div>
-                        <div class="pm-row-actions">
-                            <span class="pm-status {{ $statusClass($case->payment_status) }}">{{ \Illuminate\Support\Str::headline($case->payment_status ?? 'UNPAID') }}</span>
-                            <button type="button" class="pm-light-link ops-btn-outline pm-case-icon-action" aria-label="View Transactions" data-pm-stop-row-toggle data-pm-open-transactions-modal="{{ $transactionsModalId }}">
-                                <i class="bi bi-list-ul" aria-hidden="true"></i><span class="pm-action-tooltip" aria-hidden="true">View Transactions</span>
-                            </button>
-                            <button type="button" class="pm-icon-toggle pm-case-icon-action" data-pm-summary-toggle="{{ $summaryId }}" aria-controls="{{ $summaryId }}" aria-expanded="false" aria-label="Show summary">
-                                <i class="bi bi-chevron-down pm-chev" aria-hidden="true"></i><span class="pm-action-tooltip" aria-hidden="true">Show summary</span>
-                            </button>
+                        <div class="pm-row-date"><span class="pm-date-label">Last payment</span><span class="pm-date-value">{{ $latestPaymentAt?->format('M d, Y h:i A') ?? 'No payment yet' }}</span>
+                            @if($latestCasePayment)
+                                <span class="pm-date-subline">
+                                    @if($latestPaymentMethodLabel)<span class="pm-date-method">{{ $latestPaymentMethodLabel }}</span>@endif
+                                    <span class="pm-date-reference">{{ $latestPaymentReferenceLabel }} {{ $latestPaymentReference ?: 'Not recorded' }}</span>
+                                </span>
+                            @endif
+                        </div>
+                        <div class="pm-history-view-cell">
+                            <span class="pm-status-stack">
+                                @if($latestCasePayment)<strong class="pm-last-payment-amount">&#8369;{{ number_format((float) $latestCasePayment->amount, 2) }}</strong>@endif
+                                <span class="pm-status {{ $statusClass($case->payment_status) }}">{{ \Illuminate\Support\Str::headline($case->payment_status ?? 'UNPAID') }}</span>
+                            </span>
+                            <button type="button" class="primary-view-action record-action-control record-row-view" data-pm-open-transactions-modal="{{ $transactionsModalId }}" data-action-tooltip="Open payment history" data-action-tooltip-placement="row-end" aria-label="Open payment history for case {{ $case->case_code }}" aria-controls="{{ $transactionsModalId }}" aria-expanded="false"><i class="bi bi-eye" aria-hidden="true"></i></button>
                         </div>
                     </div>
-                    <div id="{{ $summaryId }}" class="pm-summary-detail">
-                        <div class="pm-summary-stat"><span>Service Amount</span><strong>PHP {{ number_format((float) $case->total_amount, 2) }}</strong></div>
-                        <div class="pm-summary-stat"><span>Total Paid</span><strong>PHP {{ number_format((float) $case->total_paid, 2) }}</strong></div>
-                        <div class="pm-summary-stat"><span>Remaining Balance</span><strong>PHP {{ number_format((float) $case->balance_amount, 2) }}</strong></div>
-                        <div class="pm-summary-stat"><span>Transactions</span><strong>{{ number_format($case->payments_count ?? 0) }}</strong></div>
-                    </div>
-                    <div id="{{ $transactionsModalId }}" class="pm-modal-backdrop ops-modal-backdrop pm-transactions-backdrop" aria-hidden="true">
-                        <div class="pm-modal ops-modal pm-transactions-modal" role="dialog" aria-modal="true" aria-labelledby="{{ $transactionsModalId }}-title">
+                    <div id="{{ $transactionsModalId }}" class="pm-modal-backdrop ops-modal-backdrop pm-transactions-backdrop" role="dialog" aria-modal="true" aria-labelledby="{{ $transactionsModalId }}-title" aria-hidden="true">
+                        <div class="pm-modal ops-modal pm-transactions-modal">
                             <div class="pm-modal-hd ops-modal__head">
-                                <div>
-                                    <div class="pm-modal-title" id="{{ $transactionsModalId }}-title">Transactions for {{ $case->case_code ?? 'Case' }}</div>
-                                    <div class="pm-sub">{{ $case->client?->full_name ?? '-' }} &ndash; {{ $case->deceased?->full_name ?? '-' }}</div>
-                                    <div class="pm-sub">{{ $case->branch?->branch_code ?? '-' }}{{ $case->branch?->branch_name ? ' - ' . $case->branch->branch_name : '' }}</div>
+                                <div class="pm-drawer-heading">
+                                    <div class="pm-drawer-title-row">
+                                        <span class="pm-drawer-title-icon" aria-hidden="true"><i class="bi bi-receipt-cutoff"></i></span>
+                                        <div>
+                                            <div class="pm-modal-title" data-pm-history-title id="{{ $transactionsModalId }}-title">Payment History</div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <button type="button" class="pm-btn compact ops-btn-outline" data-pm-close-transactions-modal aria-label="Close transactions"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                                <button type="button" class="pm-btn compact ops-btn-outline pm-drawer-close" data-pm-close-transactions-modal aria-label="Close payment history"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
                             </div>
                             <div class="pm-modal-body ops-modal__body">
-                                <h3 class="pm-section-heading">Current Case Summary</h3>
-                                <div class="pm-case-overview">
-                                    <div class="pm-summary-stat"><span>Service Amount</span><strong>PHP {{ number_format((float) $case->total_amount, 2) }}</strong></div>
-                                    <div class="pm-summary-stat"><span>Total Paid</span><strong>PHP {{ number_format((float) $case->total_paid, 2) }}</strong></div>
-                                    <div class="pm-summary-stat"><span>Remaining Balance</span><strong>PHP {{ number_format((float) $case->balance_amount, 2) }}</strong></div>
-                                    <div class="pm-summary-stat"><span>Transactions</span><strong>{{ number_format($case->payments_count ?? $casePayments->count()) }}</strong></div>
-                                </div>
-
-                                <h3 class="pm-section-heading">Payment Transactions</h3>
-                                <div class="pm-txn-list">
-                                    @php
-                                        $runningBalance = (float) $case->total_amount;
-                                    @endphp
-                                    @forelse($casePayments as $payment)
-                                        @php
-                                            $method = $payment->payment_method ?: $payment->payment_mode ?: 'cash';
-                                            $cashlessType = $payment->cashless_type ?: ($method === 'bank_transfer' || $payment->payment_mode === 'bank_transfer' ? 'bank_transfer' : null);
-                                            $isCashless = $method === 'cashless' || $cashlessType;
-                                            $methodLabel = \App\Support\Payments\PaymentDetails::label($payment);
-                                            $paidAt = $payment->paid_at ?? $payment->paid_date;
-                                            $hasBalSnap = $payment->balance_after_payment !== null;
-                                            $balanceLabel = $hasBalSnap ? 'Balance After Payment' : 'Current Balance';
-                                            $balanceValue = $hasBalSnap ? $payment->balance_after_payment : $case->balance_amount;
-                                            $txnDetId = 'summary-txnd-' . $payment->id;
-                                            $txnRef = $payment->reference_number ?: $payment->transaction_reference_no ?: null;
-                                            $remarks = $payment->remarks ?: null;
-                                            $recordedBy = $payment->recordedBy?->name ?? $payment->encodedBy?->name ?? null;
-                                            $senderName = $payment->sender_name ?: null;
-                                            $statusAfter = $payment->payment_status_after_payment ?? null;
-                                            $recordNo = $payment->display_payment_record_no ?? null;
-                                            $previousBalance = $runningBalance;
-                                            $computedBalanceAfter = max(0, $previousBalance - (float) $payment->amount);
-                                            $runningBalance = $computedBalanceAfter;
-                                            $balanceLabel = 'Balance After Payment';
-                                            $balanceValue = $computedBalanceAfter;
-                                        @endphp
-                                        <div class="pm-txn-card">
-                                            <div class="pm-txn-hd">
-                                                <div class="pm-txn-info">
-                                                    <span class="pm-txn-rec-label">Payment Record No.</span>
-                                                    <div class="pm-txn-rec">{{ $recordNo ?? 'Not provided' }}</div>
-                                                    <div class="pm-txn-sub pm-txn-facts">
-                                                        <span>Date &amp; Time Received: <strong>{{ $paidAt?->format('M d, Y h:i A') ?? 'Not provided' }}</strong></span>
-                                                        <span>Payment Method: <strong>{{ $methodLabel }}</strong></span>
-                                                        <span>Recorded By: <strong>{{ $recordedBy ?: 'Not provided' }}</strong></span>
-                                                    </div>
-                                                    <button type="button" class="pm-txn-tog inline ops-btn-outline" data-pm-txn-det="{{ $txnDetId }}" aria-controls="{{ $txnDetId }}" aria-expanded="false">
-                                                        <i class="bi bi-info-circle" aria-hidden="true"></i> View details <i class="bi bi-chevron-down pm-chev" aria-hidden="true"></i>
-                                                    </button>
-                                                </div>
-                                                <div class="pm-txn-right">
-                                                    <span class="pm-txn-rec-label">Amount Paid</span>
-                                                    <div class="pm-txn-amt">PHP {{ number_format((float) $payment->amount, 2) }}</div>
-                                                    @if($statusAfter)
-                                                        <span class="pm-txn-rec-label">Status After Payment</span>
-                                                        <span class="pm-status {{ $statusClass($statusAfter) }}">{{ \Illuminate\Support\Str::headline($statusAfter) }}</span>
-                                                    @endif
-                                                </div>
-                                            </div>
-                                            <div id="{{ $txnDetId }}" class="pm-txn-det" hidden>
-                                                <div class="pm-txn-det-grid">
-                                                    <div class="pm-txn-det-cell"><span>Previous Balance</span><strong>PHP {{ number_format($previousBalance, 2) }}</strong></div>
-                                                    <div class="pm-txn-det-cell"><span>{{ $balanceLabel }}</span><strong>PHP {{ number_format((float) $balanceValue, 2) }}</strong></div>
-                                                    <div class="pm-txn-det-cell"><span>Recorded On</span><strong>{{ $payment->created_at?->format('M d, Y h:i A') ?? 'Not provided' }}</strong></div>
-                                                    <div class="pm-txn-det-cell"><span>Official Receipt Reference</span><strong>{{ $payment->receipt_or_no ?: 'Not recorded' }}</strong></div>
-                                                    @if($isCashless || $txnRef)
-                                                        <div class="pm-txn-det-cell"><span>{{ $payment->approval_code ? 'Approval Code' : 'Transaction Reference' }}</span><strong>{{ $payment->approval_code ?: ($txnRef ?: 'Not provided') }}</strong></div>
-                                                    @endif
-                                                    @if($senderName)
-                                                        <div class="pm-txn-det-cell"><span>Sender / Account Name</span><strong>{{ $senderName }}</strong></div>
-                                                    @endif
-                                                    @if($remarks)
-                                                        <div class="pm-txn-det-cell pm-txn-det-full"><span>Remarks</span><strong>{{ $remarks }}</strong></div>
-                                                    @endif
-                                                </div>
-                                                <div class="pm-detail-actions">
-                                                    <a class="pm-btn ops-btn-outline" href="{{ route('payments.summary', $payment) }}" target="_blank" rel="noopener"><i class="bi bi-printer" aria-hidden="true"></i><span>Print Payment Summary</span></a>
-                                                    @include('staff.payments._correction_request', ['payment' => $payment])
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @empty
-                                        <div class="pm-empty ops-empty">No payment transactions found for this case.</div>
-                                    @endforelse
-                                </div>
+                                <dl class="pm-ledger-context">
+                                    <div><i class="bi bi-folder" aria-hidden="true"></i><div><dt>Case ID</dt><dd>{{ $case->case_code ?? 'Not provided' }}</dd></div></div>
+                                    <div><i class="bi bi-building" aria-hidden="true"></i><div><dt>Branch</dt><dd><span class="pm-context-code">{{ $case->branch?->branch_code ?? 'Not provided' }}</span><span>{{ $case->branch?->branch_name ?? 'Not provided' }}</span></dd></div></div>
+                                    <div><i class="bi bi-person" aria-hidden="true"></i><div><dt>Client</dt><dd>{{ $case->client?->full_name ?? 'Not provided' }}</dd></div></div>
+                                    <div><i class="bi bi-heart" aria-hidden="true"></i><div><dt>Deceased</dt><dd>{{ $case->deceased?->full_name ?? 'Not provided' }}</dd></div></div>
+                                </dl>
+@include('staff.payments._history_modal_body')
                             </div>
                             <div class="pm-modal-ft ops-modal__foot">
-                                <a class="pm-btn primary ops-btn-primary" href="{{ route('payments.history.print', $case) }}" target="_blank" rel="noopener"><i class="bi bi-printer" aria-hidden="true"></i><span>Print Payment History</span></a>
-                                <button type="button" class="pm-btn ops-btn-outline" data-pm-close-transactions-modal>Close</button>
+                                <div class="pm-drawer-footer-actions" data-pm-history-footer>
+                                    <a class="pm-ledger-print" aria-label="Print Full Payment History" title="Print Full Payment History" href="{{ route('payments.history.print', $case) }}" target="_blank" rel="noopener"><i class="bi bi-printer" aria-hidden="true"></i><span>Print Full Payment History</span></a>
+                                    @if(auth()->user()?->isStaff())
+                                        <button type="button" class="pm-btn" data-pm-correction-picker-toggle aria-expanded="false" aria-controls="{{ $transactionsModalId }}-correction" hidden><i class="bi bi-pencil-square" aria-hidden="true"></i> Request Correction</button>
+                                    @endif
+                                </div>
                             </div>
                         </div>
+                        <section id="{{ $transactionsModalId }}-payment" class="pw-companion pm-payment-companion" data-pm-payment-pane aria-labelledby="{{ $transactionsModalId }}-payment-title" hidden>
+                            <div class="pw-content">
+                                <header class="pw-head">
+                                    <h2 id="{{ $transactionsModalId }}-payment-title" data-pm-detail-title>Payment Details</h2>
+                                    <button type="button" data-pm-history-back aria-label="Close payment details"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                                </header>
+                                <div class="pw-body" data-pm-detail-host></div>
+                                <footer class="pw-footer" data-pm-detail-footer>
+                                    <div data-pm-detail-request></div>
+                                    <a class="pw-button pw-primary" data-pm-detail-print target="_blank" rel="noopener"><i class="bi bi-printer" aria-hidden="true"></i> <span>Print Payment Record</span></a>
+                                </footer>
+                            </div>
+                        </section>
+                        @if(auth()->user()?->isStaff())
+                            <section id="{{ $transactionsModalId }}-correction" class="pw-companion pm-correction-picker" data-pm-correction-picker data-client-name="{{ $case->client?->full_name ?? 'Client not recorded' }}" aria-labelledby="{{ $transactionsModalId }}-correction-title" hidden>
+                                <div class="pw-content">
+                                    <header class="pw-head"><h2 id="{{ $transactionsModalId }}-correction-title">Request Payment Correction</h2></header>
+                                    <div class="pw-body">
+                                        <h3 class="pm-correction-search-title">Transaction Selection</h3>
+                                        <form role="search" data-pm-correction-search-form>
+                                            <label for="{{ $transactionsModalId }}-correction-search">Search Payment Transaction</label>
+                                            <div class="pm-field search shared-record-search pm-correction-search">
+                                                <i class="bi bi-search shared-record-search-icon" aria-hidden="true"></i>
+                                                <input id="{{ $transactionsModalId }}-correction-search" class="shared-record-search-input" type="search"
+                                                       data-pm-correction-search maxlength="100" autocomplete="off" placeholder="Receipt / OR No. or transaction reference"
+                                                       role="combobox" aria-autocomplete="list" aria-expanded="false"
+                                                       aria-controls="{{ $transactionsModalId }}-correction-results">
+                                                <button type="button" class="shared-record-search-clear" data-pm-correction-search-clear aria-label="Clear search" hidden><i class="bi bi-x" aria-hidden="true"></i></button>
+                                                <button type="submit" class="pm-search-button">Search</button>
+                                            </div>
+                                        </form>
+                                        <p class="pm-correction-search-status" role="status" data-pm-correction-search-status></p>
+                                        <ul id="{{ $transactionsModalId }}-correction-results" class="pm-correction-search-results" role="listbox" aria-label="Matching payment transactions" data-pm-correction-results hidden></ul>
+                                    </div>
+                                    <footer class="pw-footer">
+                                        <button type="button" data-pm-correction-cancel>Cancel</button>
+                                    </footer>
+                                </div>
+                            </section>
+                        @endif
                     </div>
                     </article>
                 @empty
-                    <div class="pm-empty ops-empty">{{ $emptyMessage }}</div>
+                    <div class="pm-empty ops-empty records-empty-state">{{ $emptyMessage }}</div>
                 @endforelse
             </div>
-            </div>{{-- /.pm-records-body --}}
-        </div>
-                <div class="pm-foot">
+            </div>{{-- /.pm-records-body --}}</div>
+<div class="pm-foot">
                     {{ $paymentCases->onEachSide(1)->links('components.pagination.table') }}
                 </div>
     @else
         <div class="pm-panel ops-list-panel">
             <div class="pm-records-body ops-list-body">
+            @include('staff.payments._record_headers')
             <div class="pm-trans-list">
                 @forelse($transactionCases as $case)
                     @php
                         $casePayments = $case->payments ?? collect();
+                        $searchPaymentReferences = $casePayments
+                            ->reject(fn ($payment) => $payment->isVoided())
+                            ->flatMap(fn ($payment) => [
+                                $payment->display_payment_record_no,
+                                $payment->receipt_number,
+                                $payment->receipt_or_no,
+                                $payment->accounting_reference_no,
+                                $payment->transaction_reference_no,
+                                $payment->reference_number,
+                                $payment->approval_code,
+                            ])
+                            ->filter()
+                            ->unique()
+                            ->implode(' · ');
                         $latestPayment = $casePayments->first();
+                        $latestPaymentMethodValue = strtolower((string) ($latestPayment?->payment_method ?: $latestPayment?->payment_mode ?: 'cash'));
+                        $latestPaymentIsCashless = $latestPaymentMethodValue === 'cashless' || $latestPaymentMethodValue === 'bank_transfer';
+                        $latestPaymentReference = $latestPaymentIsCashless
+                            ? ($latestPayment?->transaction_reference_no ?: $latestPayment?->reference_number)
+                            : $latestPayment?->receipt_or_no;
+                        if ($latestPaymentReference && $latestPayment?->payment_record_no
+                            && strcasecmp(trim((string) $latestPaymentReference), trim((string) $latestPayment->payment_record_no)) === 0) {
+                            $latestPaymentReference = null;
+                        }
+                        $latestPaymentReferenceLabel = $latestPaymentIsCashless ? 'Reference No.' : 'OR No.';
+                        $latestPaymentMethodLabel = $latestPayment ? \App\Support\Payments\PaymentDetails::label($latestPayment) : null;
                         $latestPaymentAt = $latestPayment?->paid_at
                             ?? ($case->payments_max_paid_at ? \Illuminate\Support\Carbon::parse($case->payments_max_paid_at) : null);
                         $latestAmount = $latestPayment?->amount;
                         $detailId = 'case-transactions-' . $case->id;
                     @endphp
-                    <div class="pm-trans-item ops-list-row">
+                    <div class="pm-trans-item ops-list-row"
+                        data-pm-match-case="{{ $case->case_code ?? '' }}"
+                        data-pm-match-client="{{ $case->client?->full_name ?? 'Not provided' }}"
+                        data-pm-match-deceased="{{ $case->deceased?->full_name ?? 'Not provided' }}"
+                        data-pm-match-payment="{{ $searchPaymentReferences }}"
+>
                         <button type="button" class="pm-trans-row ops-clickable" data-pm-transaction-toggle="{{ $detailId }}" data-case-code="{{ $case->case_code }}" aria-expanded="false">
                             <div class="pm-case">{{ $case->case_code ?? '-' }}</div>
                             <div class="pm-trans-main">
                                 <div class="pm-trans-title">{{ $case->client?->full_name ?? '-' }} &ndash; {{ $case->deceased?->full_name ?? '-' }}</div>
                                 <div class="pm-trans-meta">
-                                    <span>{{ $case->branch?->branch_code ?? '-' }}{{ $case->branch?->branch_name ? ' · ' . $case->branch->branch_name : '' }}</span>
+                                    <span>{{ $case->branch?->branch_code ?? '-' }}{{ $case->branch?->branch_name ? ' Â· ' . $case->branch->branch_name : '' }}</span>
                                 </div>
                             </div>
-                            <div class="pm-row-date">Last payment: {{ $latestPaymentAt?->format('M d, Y h:i A') ?? '-' }}</div>
-                            <div class="pm-trans-side">
+                            <div class="pm-row-date"><span class="pm-date-label">Last payment</span><span class="pm-date-value">{{ $latestPaymentAt?->format('M d, Y h:i A') ?? 'No payment yet' }}</span>
+                                @if($latestPayment)
+                                    <span class="pm-date-subline">
+                                        @if($latestPaymentMethodLabel)<span class="pm-date-method">{{ $latestPaymentMethodLabel }}</span>@endif
+                                        <span class="pm-date-reference">{{ $latestPaymentReferenceLabel }} {{ $latestPaymentReference ?: 'Not recorded' }}</span>
+                                    </span>
+                                @endif
+                            </div>
+                            <span class="pm-status-stack">
+                                @if($latestPayment)<strong class="pm-last-payment-amount">&#8369;{{ number_format((float) $latestPayment->amount, 2) }}</strong>@endif
                                 <span class="pm-status {{ $statusClass($case->payment_status) }}">{{ \Illuminate\Support\Str::headline($case->payment_status ?? 'UNPAID') }}</span>
+                            </span>
+                            <div class="pm-trans-side">
                                 <span class="pm-expand-label">View Full Transactions</span>
                                 <i class="bi bi-chevron-down pm-chev" aria-hidden="true"></i>
                             </div>
@@ -895,10 +834,10 @@
 
                         <div id="{{ $detailId }}" class="pm-detail">
                             <div class="pm-case-overview">
-                                <div class="pm-summary-stat"><span>Service Amount</span><strong>PHP {{ number_format((float) $case->total_amount, 2) }}</strong></div>
-                                <div class="pm-summary-stat"><span>Total Paid</span><strong>PHP {{ number_format((float) $case->total_paid, 2) }}</strong></div>
                                 <div class="pm-summary-stat"><span>Remaining Balance</span><strong>PHP {{ number_format((float) $case->balance_amount, 2) }}</strong></div>
-                                <div class="pm-summary-stat"><span>Transactions</span><strong>{{ number_format($case->payments_count ?? $casePayments->count()) }}</strong></div>
+                                <div class="pm-summary-stat"><span>Total Paid</span><strong>PHP {{ number_format((float) $case->total_paid, 2) }}</strong></div>
+                                <div class="pm-summary-stat"><span>Total Service Amount</span><strong>PHP {{ number_format((float) $case->total_amount, 2) }}</strong></div>
+                                <div class="pm-summary-stat"><span>Payment Count</span><strong>{{ number_format($case->payments_count ?? $casePayments->count()) }}</strong></div>
                             </div>
                             <div class="pm-txn-list">
                                 @forelse($casePayments as $payment)
@@ -927,7 +866,7 @@
                                         <div class="pm-txn-hd">
                                             <div class="pm-txn-info">
                                                 <span class="pm-txn-rec-label">Payment Record No.</span>
-                                                <div class="pm-txn-rec">{{ $recordNo ?? '—' }}</div>
+                                                <div class="pm-txn-rec">{{ $recordNo ?? 'â€”' }}</div>
                                                 <div class="pm-txn-sub">
                                                     <span>{{ $methodLabel }}</span>
                                                     @if($refLabel)
@@ -1012,7 +951,7 @@
                                             </div>
                                             <div class="pm-detail-actions">
                                                 @include('staff.payments._correction_request', ['payment' => $payment])
-                                                <a class="pm-btn ops-btn-outline" href="{{ route('payments.summary', $payment) }}" target="_blank" rel="noopener"><i class="bi bi-printer" aria-hidden="true"></i><span>Print Payment Summary</span></a>
+                                                <a class="pm-case-icon-action pm-print-action" aria-label="Print Payment Record" title="Print Payment Record" href="{{ route('payments.summary', $payment) }}" target="_blank" rel="noopener"><i class="bi bi-printer" aria-hidden="true"></i><span>Print Payment Record</span></a>
                                             </div>
                                         </div>
                                     </div>
@@ -1028,22 +967,19 @@
                         </div>
                     </div>
                 @empty
-                    <div class="pm-empty ops-empty">{{ $emptyMessage }}</div>
+                    <div class="pm-empty ops-empty records-empty-state">{{ $emptyMessage }}</div>
                 @endforelse
             </div>
-            </div>{{-- /.pm-records-body --}}
-            @if($transactionCases->hasPages())
-                <div class="pm-foot">
+            </div>{{-- /.pm-records-body --}}</div>
+<div class="pm-foot">
                     {{ $transactionCases->onEachSide(1)->links('components.pagination.table') }}
                 </div>
-            @endif
-        </div>
     @endif
     @endif
 </div>
 
-<div id="pmDateModal" class="pm-modal-backdrop ops-modal-backdrop" aria-hidden="true">
-    <div class="pm-modal ops-modal" role="dialog" aria-modal="true" aria-labelledby="pmDateModalTitle">
+<div id="pmDateModal" class="pm-date-popover" popover="manual" role="group" aria-labelledby="pmDateModalTitle">
+    <div class="pm-modal ops-modal">
         <div class="pm-modal-hd ops-modal__head">
             <div class="pm-modal-title ops-modal__title" id="pmDateModalTitle">Custom Payment Date Range</div>
             <button type="button" class="pm-btn compact ops-btn-outline" data-pm-date-cancel aria-label="Close date range modal"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
@@ -1060,12 +996,13 @@
         </div>
         <div class="pm-modal-ft ops-modal__foot">
             <button type="button" class="pm-btn ops-btn-outline" data-pm-date-cancel>Cancel</button>
-            <button type="button" class="pm-btn primary ops-btn-primary" id="pmApplyCustomDates">Apply Date Range</button>
+            <button type="button" class="pm-btn primary ops-btn-primary" id="pmApplyCustomDates">Use date range</button>
         </div>
     </div>
 </div>
 
 <script>
+let paymentSectionTransition;
 window.initPaymentMonitoring = () => {
     const approvalDialog = document.getElementById('pcApprovalDialog');
     if (approvalDialog && !approvalDialog.dataset.initialized) {
@@ -1113,7 +1050,7 @@ window.initPaymentMonitoring = () => {
     window.pmMonitoringAbort?.abort();
     window.pmMonitoringAbort = new AbortController();
     const listenerSignal = window.pmMonitoringAbort.signal;
-    const form = document.getElementById('pmFilterForm');
+    const form = document.querySelector('#pmFilterForm:not([data-correction-toolbar])');
     const range = document.getElementById('pmDateRange');
     const paidFrom = document.getElementById('pmPaidFrom');
     const paidTo = document.getElementById('pmPaidTo');
@@ -1124,16 +1061,19 @@ window.initPaymentMonitoring = () => {
     const openCase = new URLSearchParams(window.location.search).get('open_case');
     const searchInput = form?.querySelector('[data-pm-search-input]');
     const searchClear = form?.querySelector('[data-pm-search-clear]');
-    const searchSuggestions = form?.querySelector('[data-pm-search-suggestions]');
     const clearFilters = form?.querySelector('[data-pm-clear-filters]');
+    const pendingFilterKeys = ['branch_id','payment_status','case_status','payment_method','date_preset','paid_from','paid_to'];
+    const appliedFilterValues = new Map(form ? new FormData(form).entries() : []);
     let isFetching = false;
+    let searchRequest = null;
+    let requestNumber = 0;
 
     const toDateValue = (date) => date.toISOString().slice(0, 10);
     const submitFilters = () => form?.requestSubmit();
     const hasActiveFilters = () => {
         if (!form) return false;
-        return Array.from(new FormData(form).entries()).some(([key, value]) => {
-            if (key === 'tab' || key === 'case_scope' || key === 'per_page') return false;
+        return Array.from(appliedFilterValues.entries()).some(([key, value]) => {
+            if (key === 'q' || key === 'tab' || key === 'case_scope' || key === 'per_page' || key === 'sort') return false;
             if (key === 'date_preset') return value && value !== 'all' && value !== 'any';
             if (key === 'branch_id') {
                 const defaultBranch = form.dataset.pmDefaultBranch || '';
@@ -1145,41 +1085,83 @@ window.initPaymentMonitoring = () => {
     const updateClearVisibility = () => {
         if (clearFilters) clearFilters.hidden = !hasActiveFilters();
     };
-    const replacePaymentMonitoringContent = (html, url, push = true) => {
+    const replacePaymentMonitoringContent = async (html, url, push, isCurrentRequest) => {
         const doc = new DOMParser().parseFromString(html, 'text/html');
         const nextPage = doc.querySelector('.pm-page');
         const currentPage = document.querySelector('.pm-page');
         const nextDateModal = doc.getElementById('pmDateModal');
         const currentDateModal = document.getElementById('pmDateModal');
+        const nextHeaderSlot = doc.querySelector('[data-pm-header-slot]');
+        const currentHeaderSlot = document.querySelector('[data-pm-header-slot]');
 
         if (!nextPage || !currentPage) {
-            window.location.href = url;
+            throw new Error('Payment monitoring content is missing.');
+        }
+
+        const switchingSections = currentPage.dataset.pmView !== nextPage.dataset.pmView;
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const commit = () => {
+            if (!isCurrentRequest()) return;
+            const restoreFocus = document.activeElement?.matches('[data-pm-section-action]');
+            nextPage.querySelectorAll('.flash-success, .flash-error, .flash-info, .flash-warning').forEach(el => el.remove());
+            currentPage.replaceWith(nextPage);
+            if (nextHeaderSlot && currentHeaderSlot) currentHeaderSlot.replaceWith(nextHeaderSlot);
+            if (nextDateModal && currentDateModal) currentDateModal.replaceWith(nextDateModal);
+            if (switchingSections) {
+                const scroller = nextPage.closest('.page-content');
+                if (scroller) scroller.scrollTop = 0;
+            }
+            if (switchingSections || restoreFocus) {
+                document.querySelector('[data-pm-section-action]')?.focus({ preventScroll: true });
+            }
+            if (push) window.history.pushState({}, '', url);
+            document.querySelectorAll('[data-pm-print-preview]').forEach(link => {
+                const printUrl = new URL(link.href);
+                printUrl.search = new URL(url, window.location.origin).search;
+                ['page','transactions_page','tab'].forEach(key => printUrl.searchParams.delete(key));
+                link.href = printUrl.toString();
+            });
+            window.initPaymentMonitoring();
+            document.dispatchEvent(new CustomEvent('panel-ui:reset'));
+        };
+
+        if (switchingSections && !reduceMotion && typeof document.startViewTransition === 'function') {
+            const root = document.documentElement;
+            root.classList.add('pm-section-switching');
+            const transition = document.startViewTransition(commit);
+            paymentSectionTransition = transition;
+            const clearTransition = () => {
+                if (paymentSectionTransition !== transition) return;
+                paymentSectionTransition = null;
+                root.classList.remove('pm-section-switching');
+            };
+            transition.finished.then(clearTransition, clearTransition);
+            await transition.updateCallbackDone;
             return;
         }
 
-        nextPage.querySelectorAll('.flash-success, .flash-error, .flash-info, .flash-warning').forEach(el => el.remove());
-        currentPage.replaceWith(nextPage);
-        if (nextDateModal && currentDateModal) {
-            currentDateModal.replaceWith(nextDateModal);
+        commit();
+        if (switchingSections && !reduceMotion && nextPage.isConnected) {
+            const card = nextPage.querySelector('[data-pm-correction-card]');
+            (card || nextPage).animate?.(
+                card ? [{ opacity:0, clipPath:'inset(0 0 80% 70% round 12px)' }, { opacity:1, clipPath:'inset(0 round 12px)' }]
+                    : [{ opacity:0 }, { opacity:1 }],
+                { duration:260, easing:'ease-out' },
+            );
         }
-        if (push) window.history.pushState({}, '', url);
-        document.querySelectorAll('[data-pm-print-preview]').forEach(link => {
-            const printUrl = new URL(link.href);
-            printUrl.search = new URL(url, window.location.origin).search;
-            ['page','transactions_page','tab'].forEach(key => printUrl.searchParams.delete(key));
-            link.href = printUrl.toString();
-        });
-        window.initPaymentMonitoring();
-        document.dispatchEvent(new CustomEvent('panel-ui:reset'));
     };
     const fetchFilters = async (url, push = true) => {
-        if (isFetching) return;
+        searchRequest?.abort();
+        searchRequest = new AbortController();
+        const requestId = ++requestNumber;
         isFetching = true;
         const page = document.querySelector('.pm-page');
+        page?.querySelector('[data-pm-load-error]')?.remove();
         page?.classList.add('is-loading');
 
         try {
             const response = await fetch(url, {
+                signal:searchRequest.signal,
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                     'Accept': 'text/html',
@@ -1187,18 +1169,32 @@ window.initPaymentMonitoring = () => {
             });
 
             if (!response.ok) throw new Error('Payment monitoring filter failed.');
-            replacePaymentMonitoringContent(await response.text(), url, push);
+            const html = await response.text();
+            if (requestId !== requestNumber) return;
+            await replacePaymentMonitoringContent(html, url, push, () => requestId === requestNumber);
         } catch (error) {
-            window.location.href = url;
+            if (error.name === 'AbortError' || requestId !== requestNumber) return;
+            const message = document.createElement('p');
+            message.dataset.pmLoadError = '';
+            message.className = 'flash-error';
+            message.setAttribute('role', 'alert');
+            message.textContent = 'Unable to update payment monitoring. Please try again.';
+            page?.prepend(message);
         } finally {
+            if (requestId !== requestNumber) return;
             isFetching = false;
             page?.classList.remove('is-loading');
         }
     };
-    const submitFiltersAsync = (push = true) => {
+    window.loadPaymentMonitoring = fetchFilters;
+    const buildFilterUrl = (applyPending = false) => {
         if (!form) return;
         const url = new URL(form.action, window.location.origin);
-        new FormData(form).forEach((value, key) => {
+        const values = new FormData(form);
+        if (!applyPending) pendingFilterKeys.forEach(key => {
+            if (appliedFilterValues.has(key)) values.set(key,appliedFilterValues.get(key)); else values.delete(key);
+        });
+        values.forEach((value, key) => {
             if (value !== null && String(value).trim() !== '') {
                 url.searchParams.set(key, value);
             } else {
@@ -1207,67 +1203,103 @@ window.initPaymentMonitoring = () => {
         });
         url.searchParams.delete('page');
         url.searchParams.delete('transactions_page');
-        fetchFilters(url.toString(), push);
+        return url;
     };
-    const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, char => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#039;',
-    }[char]));
-    const closeSearchSuggestions = () => {
-        if (!searchSuggestions) return;
-        searchSuggestions.hidden = true;
-        searchSuggestions.innerHTML = '';
+    const submitFiltersAsync = (push = true, applyPending = false) => {
+        if (form) fetchFilters(buildFilterUrl(applyPending).toString(),push);
     };
-    const commitSearch = (value = searchInput?.value || '') => {
+    const matchPanel = form?.querySelector('[data-pm-search-matches]');
+    let matchTimer, matchRequest, matchVersion = 0;
+    const closeMatches = () => {
+        clearTimeout(matchTimer);
+        matchRequest?.abort();
+        matchVersion++;
+        if (matchPanel) { matchPanel.hidden = true; matchPanel.replaceChildren(); }
+        searchInput?.setAttribute('aria-expanded','false');
+    };
+    const readMatches = root => [...root.querySelectorAll('[data-pm-match-case]')].map(row=>({code:row.dataset.pmMatchCase,client:row.dataset.pmMatchClient,deceased:row.dataset.pmMatchDeceased,payment:row.dataset.pmMatchPayment}));
+    const underlineMatch = (element, text, query = searchInput?.value.trim().toLowerCase()) => {
+        const value=String(text || '');
+        if (!query) { element.textContent=value; return; }
+        let cursor=0, index;
+        while ((index=value.toLowerCase().indexOf(query,cursor))!==-1) {
+            element.append(document.createTextNode(value.slice(cursor,index)));
+            const mark=document.createElement('mark'); mark.textContent=value.slice(index,index+query.length); element.append(mark);
+            cursor=index+query.length;
+        }
+        element.append(document.createTextNode(value.slice(cursor)));
+    };
+    const drawMatches = (rows, emptyMessage = 'No matching cases found.') => {
+        if (!matchPanel) return;
+        matchPanel.replaceChildren();
+        const seen = new Set();
+        rows.filter(row=>row.code&&!seen.has(row.code)&&seen.add(row.code)).slice(0,5).forEach(row=>{
+            const button = document.createElement('button');
+            button.type='button'; button.className='pm-search-match'; button.dataset.pmMatchValue=row.code;
+            button.setAttribute('aria-label',row.code+', Client: '+row.client+', Deceased: '+row.deceased);
+            button.title=row.code+' Â· '+row.client+' Â· '+row.deceased;
+            for (const [text,kind] of [[row.code,'pm-match-code'],[row.client,'pm-match-name'],[row.deceased,'pm-match-name'],[row.payment,'pm-match-reference']].filter(([text])=>text)) {
+                const line=document.createElement('span'); line.className=kind;
+                if(kind==='pm-match-name') { const name=document.createElement('span'); underlineMatch(name,text); line.append(name); } else underlineMatch(line,text);
+                button.append(line);
+            }
+            matchPanel.append(button);
+        });
+        if (!matchPanel.children.length && emptyMessage) {
+            const status = document.createElement('p');
+            status.className = 'pm-search-match pm-search-match--status';
+            status.setAttribute('role', 'status');
+            status.textContent = emptyMessage;
+            matchPanel.append(status);
+        }
+        matchPanel.hidden = false;
+        searchInput?.setAttribute('aria-expanded',String(!matchPanel.hidden));
+    };
+    const suggestMatches = () => {
+        closeMatches();
+        const query=searchInput?.value.trim();
+        if (!query || query.length<2) return;
+        const localMatches = readMatches(document.querySelector('.pm-page')).filter(row=>[row.code,row.client,row.deceased,row.payment].some(value=>value?.toLowerCase().includes(query.toLowerCase())));
+        if (localMatches.length) drawMatches(localMatches, '');
+        else drawMatches([], 'Searching for matching cases…');
+        const version=matchVersion;
+        matchTimer=setTimeout(async()=>{
+            matchRequest=new AbortController();
+            try {
+                const url=buildFilterUrl(); url.searchParams.set('q',query);
+                const response=await fetch(url.toString(),{signal:matchRequest.signal,headers:{'X-Requested-With':'XMLHttpRequest','Accept':'text/html'}});
+                if(!response.ok) throw new Error('Search unavailable');
+                const doc=new DOMParser().parseFromString(await response.text(),'text/html');
+                if(version!==matchVersion || !doc.querySelector('.pm-page')) return;
+                drawMatches(readMatches(doc));
+            } catch(error) {
+                if (error.name !== 'AbortError' && version === matchVersion && !localMatches.length) {
+                    drawMatches([], 'Search unavailable. Press Search to try again.');
+                }
+            }
+        },300);
+    };
+    const commitSearch = () => {
         if (!searchInput) return;
-        searchInput.value = value.trim();
-        closeSearchSuggestions();
+        closeMatches();
+        searchInput.value = searchInput.value.trim();
         submitFiltersAsync();
     };
-    const renderSearchSuggestions = () => {
-        if (!searchInput || !searchClear || !searchSuggestions) return;
-
-        const term = searchInput.value.trim().toLowerCase();
-        searchClear.hidden = term.length === 0;
-
-        if (term.length < 2) {
-            closeSearchSuggestions();
-            return;
-        }
-
-        const matches = [];
-        const seen = new Set();
-        document.querySelectorAll('[data-pm-search-row]').forEach(row => {
-            const haystack = (row.dataset.pmSearchText || '').toLowerCase();
-            if (!haystack.includes(term)) return;
-
-            const title = row.dataset.pmSearchTitle || 'Payment record';
-            if (seen.has(title)) return;
-            seen.add(title);
-            matches.push({
-                title,
-                meta: row.dataset.pmSearchMeta || 'Payment monitoring result',
-            });
-        });
-
-        if (!matches.length) {
-            searchSuggestions.innerHTML = '<div class="pm-search-option" role="status"><span class="pm-search-title">No match found</span><span class="pm-search-meta">Press Enter to search all records.</span></div>';
-            searchSuggestions.hidden = false;
-            return;
-        }
-
-        searchSuggestions.innerHTML = matches.slice(0, 6).map(match => `
-            <button type="button" class="pm-search-option" data-pm-search-value="${escapeHtml(match.title)}">
-                <span class="pm-search-title">${escapeHtml(match.title)}</span>
-                <span class="pm-search-meta">${escapeHtml(match.meta)}</span>
-            </button>
-        `).join('');
-        searchSuggestions.hidden = false;
-    };
-
+    matchPanel?.addEventListener('click',event=>{
+        const option=event.target.closest('[data-pm-match-value]');
+        if(!option) return;
+        searchInput.value=option.dataset.pmMatchValue;
+        commitSearch();
+    },{signal:listenerSignal});
+    matchPanel?.addEventListener('keydown',event=>{
+        if(event.key==='Escape') { closeMatches(); searchInput?.focus(); return; }
+        if(!['ArrowDown','ArrowUp'].includes(event.key)) return;
+        event.preventDefault();
+        const items=[...matchPanel.querySelectorAll('button')], index=items.indexOf(document.activeElement)+(event.key==='ArrowDown'?1:-1);
+        if(index<0) searchInput?.focus(); else items[Math.min(index,items.length-1)]?.focus();
+    },{signal:listenerSignal});
+    document.addEventListener('click',event=>{if(!form?.querySelector('.pm-field.search')?.contains(event.target)) closeMatches();},{signal:listenerSignal});
+    listenerSignal.addEventListener('abort',closeMatches,{once:true});
     const setDateRange = (preset) => {
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -1297,45 +1329,48 @@ window.initPaymentMonitoring = () => {
         if (paidTo) paidTo.value = to;
     };
 
-    let dateModalAnchor = null;
     const openDateModal = () => {
         if (modalFrom && paidFrom) modalFrom.value = paidFrom.value;
         if (modalTo && paidTo) modalTo.value = paidTo.value;
-        if (modal && modal.parentElement !== document.body) {
-            dateModalAnchor = document.createComment('payment-date-modal-position');
-            modal.before(dateModalAnchor);
-            document.body.appendChild(modal);
-        }
-        modal?.classList.add('open');
-        modal?.setAttribute('aria-hidden', 'false');
+        if (!modal) return;
+        modal.showPopover();
+        const panel = form?.querySelector('.pm-more-panel')?.getBoundingClientRect();
+        const anchor = range?.getBoundingClientRect();
+        const width = Math.min(352,innerWidth-32), box = modal.getBoundingClientRect();
+        const right = (panel?.right ?? anchor?.right ?? 16)+8;
+        const left = right+width<=innerWidth-16 ? right : (panel?.left ?? 16)-width-8>=16 ? panel.left-width-8 : Math.max(16,innerWidth-width-16);
+        Object.assign(modal.style,{left:`${left}px`,top:`${Math.max(16,Math.min(anchor?.top ?? 80,innerHeight-box.height-16))}px`,width:`${width}px`});
         modalFrom?.focus();
     };
 
     const closeDateModal = () => {
-        modal?.classList.remove('open');
-        modal?.setAttribute('aria-hidden', 'true');
-        if (dateModalAnchor && modal) {
-            dateModalAnchor.replaceWith(modal);
-            dateModalAnchor = null;
-        }
+        if (modal?.matches(':popover-open')) modal.hidePopover();
     };
 
     form?.addEventListener('submit', event => {
         event.preventDefault();
-        closeSearchSuggestions();
-        updateClearVisibility();
-        submitFiltersAsync();
+        submitFiltersAsync(true,!!event.submitter?.matches('[data-pm-apply-filters]'));
     }, { signal: listenerSignal });
 
     clearFilters?.addEventListener('click', event => {
         event.preventDefault();
-        fetchFilters(clearFilters.href);
+        const url = new URL(clearFilters.href,location.href);
+        const query = searchInput?.value.trim();
+        if (query) url.searchParams.set('q',query); else url.searchParams.delete('q');
+        fetchFilters(url.toString());
     }, { signal: listenerSignal });
 
-    document.querySelectorAll('.pm-foot a[href]').forEach(link => {
+    document.querySelectorAll('.pm-foot:not([data-correction-pagination]) a[href]').forEach(link => {
         link.addEventListener('click', event => {
             event.preventDefault();
             fetchFilters(link.href);
+        }, { signal: listenerSignal });
+    });
+    document.querySelectorAll('[data-pm-section-action]').forEach(link => {
+        link.addEventListener('click', event => {
+            if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            if (link.href !== window.location.href) fetchFilters(link.href);
         }, { signal: listenerSignal });
     });
 
@@ -1346,14 +1381,12 @@ window.initPaymentMonitoring = () => {
         }
 
         setDateRange(range.value);
-        submitFilters();
     }, { signal: listenerSignal });
 
     applyCustomDates?.addEventListener('click', () => {
         if (paidFrom && modalFrom) paidFrom.value = modalFrom.value;
         if (paidTo && modalTo) paidTo.value = modalTo.value;
         closeDateModal();
-        submitFilters();
     }, { signal: listenerSignal });
 
     document.querySelectorAll('[data-pm-date-cancel]').forEach(button => {
@@ -1371,24 +1404,110 @@ window.initPaymentMonitoring = () => {
         link.addEventListener('click', event => event.stopPropagation(), { signal: listenerSignal });
     });
 
+    // Native top-layer tooltips escape every records scroller and rounded clip.
+    document.querySelectorAll('.pm-case-icon-action .pm-action-tooltip, .pm-modal-icon .pm-action-tooltip').forEach(tooltip => {
+        const trigger = tooltip.parentElement;
+        let suppressed = false;
+        tooltip.setAttribute('popover', 'manual');
+        tooltip.style.setProperty('display','none','important');
+        const hide = () => {
+            if (tooltip.matches(':popover-open')) tooltip.hidePopover();
+            tooltip.style.setProperty('display','none','important');
+        };
+        const show = () => {
+            tooltip.style.setProperty('display','block','important');
+            tooltip.showPopover();
+            const rect = trigger.getBoundingClientRect();
+            const box = tooltip.getBoundingClientRect();
+            const left = Math.max(8,Math.min(rect.left+(rect.width-box.width)/2,innerWidth-box.width-8));
+            const top = rect.top-box.height-6 >= 8 ? rect.top-box.height-6 : rect.bottom+6;
+            const styles = {position:'fixed',inset:'auto',margin:'0',left:`${left}px`,top:`${top}px`,right:'auto',bottom:'auto',transform:'none',visibility:'visible',opacity:'1',border:'0'};
+            Object.entries(styles).forEach(([key,value])=>tooltip.style.setProperty(key,value,'important'));
+        };
+        document.addEventListener('pm-dismiss-tooltips',hide,{signal:listenerSignal});
+        trigger.addEventListener('pointerenter',()=>{ suppressed=false; document.dispatchEvent(new Event('pm-dismiss-tooltips')); show(); },{signal:listenerSignal});
+        trigger.addEventListener('pointerleave',hide,{signal:listenerSignal});
+        trigger.addEventListener('focus',()=>{ if(!suppressed && trigger.matches(trigger.matches('[data-pm-history-detail]') ? ':hover' : ':focus-visible')) show(); },{signal:listenerSignal});
+        trigger.addEventListener('blur',hide,{signal:listenerSignal});
+        const dismiss = () => { suppressed=true; document.dispatchEvent(new Event('pm-dismiss-tooltips')); };
+        trigger.addEventListener('pointerdown',dismiss,{signal:listenerSignal});
+        trigger.addEventListener('click',dismiss,{signal:listenerSignal});
+        document.addEventListener('keydown',event=>{if(event.key==='Tab') suppressed=false;},{signal:listenerSignal});
+        window.addEventListener('resize',hide,{signal:listenerSignal});
+        document.addEventListener('scroll',hide,{capture:true,signal:listenerSignal});
+        document.addEventListener('keydown',event=>{if(event.key==='Escape') hide();},{signal:listenerSignal});
+        listenerSignal.addEventListener('abort',hide,{once:true});
+    });
     let activeTransactionsTrigger = null;
     const moreFilters = form?.querySelector('.pm-more-filters');
+    moreFilters?.addEventListener('toggle', () => {
+        moreFilters.querySelector('summary')?.setAttribute('aria-expanded',String(moreFilters.open));
+        if (moreFilters.open) return;
+        moreFilters.querySelectorAll('.filter-select-menu').forEach(menu => {
+            if (menu.matches(':popover-open')) menu.hidePopover();
+            menu.hidden = true;
+            const wrap = menu.closest('[data-filter-select-wrap]');
+            wrap?.classList.remove('is-open');
+            wrap?.querySelector('select')?.setAttribute('aria-expanded','false');
+        });
+    }, {signal:listenerSignal});
+    form?.querySelector('[data-pm-filter-close]')?.addEventListener('click', () => { moreFilters.open=false; moreFilters.querySelector('summary').focus(); }, {signal:listenerSignal});
+    form?.querySelectorAll('[data-pm-remove-filter]').forEach(button => button.addEventListener('click', () => {
+        const url = new URL(location.href);
+        const key = button.dataset.pmRemoveFilter;
+        (key === 'date_preset' ? ['date_preset','paid_from','paid_to'] : [key]).forEach(name => url.searchParams.delete(name));
+        url.searchParams.delete('page'); url.searchParams.delete('transactions_page');
+        fetchFilters(url.href);
+    }, {signal:listenerSignal}));
     document.addEventListener('click', event => {
-        if (moreFilters?.open && !moreFilters.contains(event.target) && !event.target.closest('.filter-select-menu')) moreFilters.open = false;
+        if (moreFilters?.open && !moreFilters.contains(event.target) && !modal?.contains(event.target) && !event.target.closest('.filter-select-menu')) moreFilters.open = false;
+        if (modal?.matches(':popover-open') && !modal.contains(event.target) && !moreFilters?.contains(event.target) && !event.target.closest('.filter-select-menu')) closeDateModal();
     }, { signal: listenerSignal });
     document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && modal?.matches(':popover-open')) { closeDateModal(); range?.focus(); return; }
         if (event.key === 'Escape' && moreFilters?.open) { moreFilters.open = false; moreFilters.querySelector('summary')?.focus(); }
     }, { signal: listenerSignal });
     const transactionsModalAnchors = new WeakMap();
+    const transactionsModalCloseTimers = new WeakMap();
 
     const getTransactionsModalFocusable = modal => Array.from(modal?.querySelectorAll(
         'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
     ) || []).filter(element => !element.hidden && element.getClientRects().length > 0);
 
+    const setHistoryRowActive = (trigger, active) => {
+        if (!(trigger instanceof HTMLElement)) return;
+        const row = trigger.closest('.pm-history-row');
+        if (!row) return;
+        row.classList.toggle('is-active', active);
+        row.setAttribute('aria-expanded', String(active));
+        row.querySelectorAll('[data-pm-open-transactions-modal]').forEach(button => button.setAttribute('aria-expanded', String(active)));
+    };
+
     const setTransactionsModalOpen = (modal, open, trigger = null) => {
         if (!modal) return;
+        const existingTimer = transactionsModalCloseTimers.get(modal);
+        if (existingTimer) {
+            window.clearTimeout(existingTimer);
+            transactionsModalCloseTimers.delete(modal);
+        }
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const finishClose = () => {
+            modal.classList.remove('is-closing', 'is-opening');
+            const anchor = transactionsModalAnchors.get(modal);
+            if (anchor) {
+                anchor.replaceWith(modal);
+                transactionsModalAnchors.delete(modal);
+            }
+            document.documentElement.classList.remove('overflow-hidden');
+            document.body.classList.remove('overflow-hidden', 'pm-transactions-modal-open');
+            if (activeTransactionsTrigger instanceof HTMLElement) activeTransactionsTrigger.focus();
+            activeTransactionsTrigger = null;
+        };
         if (open) {
+            modal.dispatchEvent(new Event('pm-history-reset'));
+            if (activeTransactionsTrigger !== trigger) setHistoryRowActive(activeTransactionsTrigger, false);
             activeTransactionsTrigger = trigger || document.activeElement;
+            setHistoryRowActive(activeTransactionsTrigger, true);
             // Escape the transformed page container so the scrim covers the viewport.
             if (modal.parentElement !== document.body) {
                 const anchor = document.createComment('transactions-modal-position');
@@ -1396,13 +1515,11 @@ window.initPaymentMonitoring = () => {
                 transactionsModalAnchors.set(modal, anchor);
                 document.body.appendChild(modal);
             }
-        }
-        modal.classList.toggle('open', open);
-        modal.setAttribute('aria-hidden', open ? 'false' : 'true');
-        document.documentElement.classList.toggle('overflow-hidden', open);
-        document.body.classList.toggle('overflow-hidden', open);
-        document.body.classList.toggle('pm-transactions-modal-open', open);
-        if (open) {
+            modal.classList.remove('is-closing', 'open');
+            modal.classList.add('is-opening');
+            modal.setAttribute('aria-hidden', 'false');
+            document.documentElement.classList.add('overflow-hidden');
+            document.body.classList.add('overflow-hidden', 'pm-transactions-modal-open');
             document.body.removeAttribute('data-sidebar-hovered');
             const modalBody = modal.querySelector('.pm-modal-body');
             if (modalBody) modalBody.scrollTop = 0;
@@ -1412,18 +1529,39 @@ window.initPaymentMonitoring = () => {
                 button.setAttribute('aria-expanded', 'false');
             });
             requestAnimationFrame(() => {
-                if (modalBody) modalBody.scrollTop = 0;
-                getTransactionsModalFocusable(modal)[0]?.focus();
+                requestAnimationFrame(() => {
+                    modal.classList.add('open');
+                    modal.classList.remove('is-opening');
+                    if (modalBody) modalBody.scrollTop = 0;
+                    getTransactionsModalFocusable(modal)[0]?.focus();
+                });
             });
         } else {
-            const anchor = transactionsModalAnchors.get(modal);
-            if (anchor) {
-                anchor.replaceWith(modal);
-                transactionsModalAnchors.delete(modal);
+            modal.dispatchEvent(new Event('pm-history-reset'));
+            setHistoryRowActive(activeTransactionsTrigger, false);
+            modal.setAttribute('aria-hidden', 'true');
+            modal.classList.remove('is-opening', 'open');
+            modal.classList.add('is-closing');
+            if (reducedMotion) {
+                finishClose();
+            } else {
+                const timer = window.setTimeout(() => {
+                    transactionsModalCloseTimers.delete(modal);
+                    finishClose();
+                }, 280);
+                transactionsModalCloseTimers.set(modal, timer);
             }
-            if (activeTransactionsTrigger instanceof HTMLElement) activeTransactionsTrigger.focus();
-            activeTransactionsTrigger = null;
         }
+    };
+
+    const closeTopPaymentPanel = modal => {
+        if (modal.classList.contains('pw-with-request')) {
+            modal.dispatchEvent(new CustomEvent('pm-close-correction-panel', {bubbles:true, detail:{}}));
+            return;
+        }
+        const closeChild = modal.querySelector('[data-pm-correction-picker]:not([hidden]) [data-pm-correction-cancel], [data-pm-payment-pane]:not([hidden]) [data-pm-history-back]');
+        if (closeChild) closeChild.click();
+        else setTransactionsModalOpen(modal, false);
     };
 
     document.querySelectorAll('[data-pm-open-transactions-modal]').forEach(button => {
@@ -1432,23 +1570,291 @@ window.initPaymentMonitoring = () => {
             const modal = document.getElementById(button.dataset.pmOpenTransactionsModal);
             setTransactionsModalOpen(modal, true, button);
         }, { signal: listenerSignal });
+        button.addEventListener('keydown', event => {
+            if (event.target !== button || (event.key !== 'Enter' && event.key !== ' ')) return;
+            event.preventDefault();
+            const modal = document.getElementById(button.dataset.pmOpenTransactionsModal);
+            setTransactionsModalOpen(modal, true, button);
+        }, { signal: listenerSignal });
     });
 
     document.querySelectorAll('.pm-transactions-backdrop').forEach(modal => {
+        const historyPane = modal.querySelector('[data-pm-history-pane]');
+        const detailPane = modal.querySelector('[data-pm-payment-pane]');
+        const host = modal.querySelector('[data-pm-detail-host]');
+        const requestSlot = detailPane.querySelector('[data-pm-detail-request]');
+        const detailPaneTitle = detailPane.querySelector('[data-pm-detail-title]');
+        const detailPaneFooter = detailPane.querySelector('[data-pm-detail-footer]');
+        const detailPaneClose = detailPane.querySelector('[data-pm-history-back]');
+        const picker = modal.querySelector('[data-pm-correction-picker]');
+        const pickerToggle = modal.querySelector('[data-pm-correction-picker-toggle]');
+        const transactionSearch = picker?.querySelector('[data-pm-correction-search]');
+        let pickerSearchTimer;
+        const showPicker = (open) => {
+            if (!picker) return;
+            if (!open) {
+                clearTimeout(pickerSearchTimer);
+                picker.querySelector('[data-pm-correction-results]').hidden = true;
+                transactionSearch?.setAttribute('aria-expanded', 'false');
+                transactionSearch?.removeAttribute('aria-activedescendant');
+            }
+            picker.hidden = !open;
+            modal.classList.toggle('pw-with-picker', open);
+            pickerToggle.setAttribute('aria-expanded', String(open));
+            if (open) transactionSearch.focus();
+        };
+        if (picker) {
+            const results = picker.querySelector('[data-pm-correction-results]');
+            const status = picker.querySelector('[data-pm-correction-search-status]');
+            const clear = picker.querySelector('[data-pm-correction-search-clear]');
+            const normalize = text => text.trim().toLowerCase();
+            const compactReference = text => normalize(text).replace(/[\s/.-]+/g, '');
+            let activeIndex = -1;
+            const candidates = [...historyPane.querySelectorAll('[data-correction-references]')].map(row => {
+                const viewDetails = row.querySelector('[data-pm-history-detail]');
+                const dateCell = row.querySelector('[data-label="Payment date"]');
+                const date = [...dateCell.children].map(part => part.textContent.trim()).join(' ') || dateCell.textContent.trim();
+                const amount = row.querySelector('[data-label="Amount"]').textContent.trim();
+                const references = JSON.parse(row.dataset.correctionReferences).map(String);
+                return {row, viewDetails, record:viewDetails.dataset.paymentRecord, date, amount, references};
+            });
+            const renderResults = () => {
+                clearTimeout(pickerSearchTimer);
+                activeIndex = -1;
+                transactionSearch.removeAttribute('aria-activedescendant');
+                const query = normalize(transactionSearch.value);
+                const compactQuery = compactReference(query);
+                const matches = ref => normalize(ref).includes(query) || (compactQuery && compactReference(ref).includes(compactQuery));
+                const isExact = item => item.references.some(ref => compactReference(ref) === compactQuery);
+                const matching = candidates.filter(item => !query || item.references.some(matches));
+                matching.sort((a, b) => Number(isExact(b)) - Number(isExact(a)));
+                const visible = query ? matching.slice(0, 5) : matching;
+                clear.hidden = !transactionSearch.value;
+                results.replaceChildren(...visible.map(item => {
+                    const row = document.createElement('li');
+                    const requestLink = item.row.querySelector('[data-payment-correction-create]');
+                    const option = document.createElement(requestLink ? 'a' : 'button');
+                    option.id = `${results.id}-${results.children.length}`;
+                    option.setAttribute('role', 'option');
+                    option.setAttribute('aria-selected', 'false');
+                    option.tabIndex = -1;
+                    option.setAttribute('data-pm-correction-result', '');
+                    if (requestLink) {
+                        option.href = requestLink.href;
+                        option.setAttribute('data-payment-workflow', '');
+                        option.setAttribute('data-payment-correction-create', '');
+                    } else {
+                        option.type = 'button';
+                        option.addEventListener('click', () => {
+                            showPicker(false);
+                            item.viewDetails.click();
+                        });
+                    }
+                    const reference = item.references.find(ref => compactReference(ref) === compactQuery)
+                        ?? item.references.find(matches);
+                    const title = document.createElement('strong');
+                    underlineMatch(title, [...new Set([reference, item.record].filter(Boolean))].join(' · ') || 'Payment without reference', query);
+                    const client = document.createElement('span');
+                    client.textContent = picker.dataset.clientName;
+                    const detail = document.createElement('small');
+                    detail.textContent = [item.amount, item.date, item.row.dataset.correctionStatus].join(' · ');
+                    option.append(title, client, detail);
+                    if (!requestLink) {
+                        const hint = document.createElement('small');
+                        hint.textContent = 'View Payment Details';
+                        option.append(hint);
+                    }
+                    row.append(option);
+                    return row;
+                }));
+                results.hidden = !visible.length;
+                transactionSearch.setAttribute('aria-expanded', String(visible.length > 0));
+                status.textContent = query
+                    ? (matching.length ? `Showing ${visible.length} of ${matching.length} matches` : 'No matching payments for this case.')
+                    : (visible.length ? 'Payments for this case' : 'No payment transactions available for correction.');
+            };
+            const queueSearch = delay => {
+                clearTimeout(pickerSearchTimer);
+                results.hidden = true;
+                results.replaceChildren();
+                status.textContent = '';
+                transactionSearch.setAttribute('aria-expanded', 'false');
+                transactionSearch.removeAttribute('aria-activedescendant');
+                activeIndex = -1;
+                const term = transactionSearch.value.trim();
+                if ([...term].length < 2) {
+                    if (delay === 0) status.textContent = 'Enter at least two characters.';
+                    return;
+                }
+                pickerSearchTimer = setTimeout(renderResults, delay);
+            };
+            pickerToggle.hidden = candidates.length === 0;
+            pickerToggle.addEventListener('click', () => {
+                const open = () => {
+                    renderResults();
+                    showPicker(true);
+                };
+                if (modal.classList.contains('pw-with-request')) {
+                    modal.dispatchEvent(new CustomEvent('pm-close-correction-panel', {
+                        bubbles:true, detail:{afterClose:open},
+                    }));
+                } else if (picker.hidden) open();
+                else showPicker(false);
+            }, {signal:listenerSignal});
+            transactionSearch.addEventListener('input', event => {
+                if (!event.isComposing) queueSearch(300);
+            }, {signal:listenerSignal});
+            transactionSearch.addEventListener('compositionend', () => queueSearch(300), {signal:listenerSignal});
+            picker.querySelector('[data-pm-correction-search-form]').addEventListener('submit', event => {
+                event.preventDefault();
+                transactionSearch.focus();
+                queueSearch(0);
+            }, {signal:listenerSignal});
+            clear.addEventListener('click', () => {
+                transactionSearch.value = '';
+                transactionSearch.dispatchEvent(new Event('input', {bubbles:true}));
+                transactionSearch.focus();
+            }, {signal:listenerSignal});
+            modal.addEventListener('pointerdown', event => {
+                if (!picker.hidden && !picker.contains(event.target)) {
+                    results.hidden = true;
+                    transactionSearch.setAttribute('aria-expanded', 'false');
+                    transactionSearch.removeAttribute('aria-activedescendant');
+                    activeIndex = -1;
+                }
+            }, {signal:listenerSignal});
+            picker.addEventListener('keydown', event => {
+                if (event.key === 'Escape' && !results.hidden) {
+                    event.preventDefault();
+                    results.hidden = true;
+                    transactionSearch.setAttribute('aria-expanded', 'false');
+                    transactionSearch.removeAttribute('aria-activedescendant');
+                    activeIndex = -1;
+                    transactionSearch.focus();
+                    return;
+                }
+                const options = results.querySelectorAll('[data-pm-correction-result]');
+                if (results.hidden || !options.length || !['ArrowUp', 'ArrowDown', 'Enter'].includes(event.key)) return;
+                if (event.key === 'Enter' && activeIndex >= 0) {
+                    event.preventDefault();
+                    options[activeIndex].click();
+                    return;
+                }
+                if (!['ArrowUp', 'ArrowDown'].includes(event.key) || event.target !== transactionSearch) return;
+                event.preventDefault();
+                options[activeIndex]?.setAttribute('aria-selected', 'false');
+                activeIndex = event.key === 'ArrowDown'
+                    ? (activeIndex + 1) % options.length
+                    : (activeIndex <= 0 ? options.length - 1 : activeIndex - 1);
+                const active = options[activeIndex];
+                active.setAttribute('aria-selected', 'true');
+                transactionSearch.setAttribute('aria-activedescendant', active.id);
+                active.scrollIntoView({block:'nearest'});
+            }, {signal:listenerSignal});
+            results.addEventListener('click', event => {
+                if (event.target.closest('a') && event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+                    showPicker(false);
+                }
+            }, {signal:listenerSignal});
+            picker.querySelector('[data-pm-correction-cancel]').addEventListener('click', () => {
+                showPicker(false);
+                transactionSearch.value = '';
+                const focus = pickerToggle.getClientRects().length ? pickerToggle : modal.querySelector('[data-pm-close-transactions-modal]');
+                focus?.focus({preventScroll:true});
+            }, {signal:listenerSignal});
+        }
+
+        let restoreAnchor, activeDetail, detailTrigger;
+        const closeDetail = (restoreFocus = true) => {
+            if (activeDetail && restoreAnchor) {
+                const requestAction = requestSlot.firstElementChild;
+                const originalActionSlot = activeDetail.querySelector('.pm-detail-actions');
+                if (requestAction && originalActionSlot) originalActionSlot.prepend(requestAction);
+                activeDetail.hidden = true;
+                restoreAnchor.replaceWith(activeDetail);
+            }
+            activeDetail = null;
+            restoreAnchor = null;
+            detailPane.hidden = true;
+            modal.classList.remove('pm-with-detail');
+            detailPaneFooter.hidden = false;
+            detailPaneTitle.textContent = 'Payment Details';
+            detailPaneClose.setAttribute('aria-label', 'Close payment details');
+            detailTrigger?.setAttribute('aria-expanded', 'false');
+            if (restoreFocus) detailTrigger?.focus({preventScroll:true});
+            detailTrigger = null;
+        };
+        const openCompanion = (button, contentId, paneType) => {
+            const open = () => {
+                if (detailTrigger !== button) {
+                    const detail = document.getElementById(contentId);
+                    if (!detail || !host) return;
+                    closeDetail(false);
+                    detailTrigger = button;
+                    button.setAttribute('aria-expanded', 'true');
+                    if (paneType === 'history') {
+                        detailPaneTitle.textContent = 'Correction History';
+                        detailPaneClose.setAttribute('aria-label', 'Close correction history');
+                        detailPaneFooter.hidden = true;
+                    } else {
+                        detailPaneTitle.textContent = 'Payment Details';
+                        detailPaneClose.setAttribute('aria-label', 'Close payment details');
+                        detailPaneFooter.hidden = false;
+                        const printLink = detailPane.querySelector('[data-pm-detail-print]');
+                        printLink.href = button.dataset.printUrl;
+                        printLink.querySelector('span').textContent = button.dataset.printLabel || 'Print Payment Record';
+                    }
+                    restoreAnchor = document.createComment('payment-detail-position');
+                    detail.before(restoreAnchor);
+                    host.append(detail);
+                    if (paneType === 'payment') {
+                        const requestAction = detail.querySelector('[data-payment-correction-create]');
+                        if (requestAction) requestSlot.append(requestAction);
+                    }
+                    activeDetail = detail;
+                    detail.hidden = false;
+                    detailPane.hidden = false;
+                    modal.classList.add('pm-with-detail');
+                    host.scrollTop = 0;
+                }
+                detailPaneClose.focus({preventScroll:true});
+            };
+            if (modal.classList.contains('pw-with-request')) {
+                modal.dispatchEvent(new CustomEvent('pm-close-correction-panel', {
+                    bubbles:true, detail:{afterClose:open},
+                }));
+            } else open();
+        };
+        modal.querySelectorAll('[data-pm-history-detail]').forEach(button => button.addEventListener('click', () => {
+            openCompanion(button, button.dataset.pmHistoryDetail, 'payment');
+        }, {signal:listenerSignal}));
+        modal.querySelectorAll('[data-pm-correction-history-open]').forEach(button => button.addEventListener('click', () => {
+            openCompanion(button, button.dataset.pmCorrectionHistoryOpen, 'history');
+        }, {signal:listenerSignal}));
+        modal.addEventListener('pm-history-reset', () => {
+            closeDetail(false);
+            if (!picker) return;
+            showPicker(false);
+            transactionSearch.value = '';
+        }, {signal:listenerSignal});
+        modal.querySelector('[data-pm-history-back]')?.addEventListener('click', () => closeDetail(), {signal:listenerSignal});
         modal.addEventListener('click', event => {
-            if (event.target === modal) setTransactionsModalOpen(modal, false);
+            if (event.target === modal) closeTopPaymentPanel(modal);
+            const print = event.target.closest('[data-pm-detail-print], [data-pm-transaction-print]');
+            if (print && event.detail > 0) print.blur();
         }, { signal: listenerSignal });
         modal.querySelectorAll('[data-pm-close-transactions-modal]').forEach(button => {
-            button.addEventListener('click', () => setTransactionsModalOpen(modal, false), { signal: listenerSignal });
+            button.addEventListener('click', () => closeTopPaymentPanel(modal), { signal: listenerSignal });
         });
     });
 
     document.addEventListener('keydown', event => {
         const modal = document.querySelector('.pm-transactions-backdrop.open');
-        if (!modal) return;
+        if (!modal || event.defaultPrevented || event.target.closest('dialog[open]')) return;
 
         if (event.key === 'Escape') {
-            setTransactionsModalOpen(modal, false);
+            event.preventDefault();
+            closeTopPaymentPanel(modal);
             return;
         }
 
@@ -1457,7 +1863,10 @@ window.initPaymentMonitoring = () => {
         if (!focusable.length) return;
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
-        if (event.shiftKey && document.activeElement === first) {
+        if (!modal.contains(document.activeElement)) {
+            event.preventDefault();
+            (event.shiftKey ? last : first).focus();
+        } else if (event.shiftKey && document.activeElement === first) {
             event.preventDefault();
             last.focus();
         } else if (!event.shiftKey && document.activeElement === last) {
@@ -1465,22 +1874,6 @@ window.initPaymentMonitoring = () => {
             first.focus();
         }
     }, { signal: listenerSignal });
-
-    document.querySelectorAll('[data-pm-summary-toggle]').forEach(button => {
-        const toggleSummary = () => {
-            const target = document.getElementById(button.dataset.pmSummaryToggle);
-            if (!target) return;
-            const nextOpen = !target.classList.contains('open');
-            target.classList.toggle('open', nextOpen);
-            button.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
-            const label = nextOpen ? 'Hide summary' : 'Show summary';
-            button.setAttribute('aria-label', label);
-            const tooltip = button.querySelector('.pm-action-tooltip');
-            if (tooltip) tooltip.textContent = label;
-        };
-
-        button.addEventListener('click', toggleSummary, { signal: listenerSignal });
-    });
 
     document.querySelectorAll('[data-pm-transaction-toggle]').forEach(button => {
         const target = document.getElementById(button.dataset.pmTransactionToggle);
@@ -1508,7 +1901,7 @@ window.initPaymentMonitoring = () => {
         }, { signal: listenerSignal });
     });
 
-    form?.querySelectorAll('select[name="branch_id"], select[name="payment_status"], select[name="case_status"], select[name="payment_method"], select[name="per_page"]').forEach(control => {
+    form?.querySelectorAll('select[name="per_page"], select[name="sort"]').forEach(control => {
         control.addEventListener('change', () => {
             updateClearVisibility();
             submitFilters();
@@ -1516,70 +1909,30 @@ window.initPaymentMonitoring = () => {
     });
 
     searchInput?.addEventListener('input', () => {
-        renderSearchSuggestions();
+        if (searchClear) searchClear.hidden = !searchInput.value.trim();
+        suggestMatches();
         updateClearVisibility();
     }, { signal: listenerSignal });
     searchInput?.addEventListener('keydown', event => {
+        if(event.key==='ArrowDown' && !matchPanel?.hidden) { event.preventDefault(); matchPanel.querySelector('button')?.focus(); }
+        if(event.key==='Escape') closeMatches();
         if (event.key === 'Enter') {
             event.preventDefault();
             commitSearch();
         }
-
-        if (event.key === 'Escape') {
-            closeSearchSuggestions();
-        }
     }, { signal: listenerSignal });
     searchClear?.addEventListener('click', () => {
         if (!searchInput) return;
+        closeMatches();
         searchInput.value = '';
         searchClear.hidden = true;
-        closeSearchSuggestions();
-        updateClearVisibility();
         submitFiltersAsync();
     }, { signal: listenerSignal });
-    searchSuggestions?.addEventListener('click', event => {
-        const option = event.target.closest('[data-pm-search-value]');
-        if (!option) return;
-        commitSearch(option.dataset.pmSearchValue || '');
-    }, { signal: listenerSignal });
-    document.addEventListener('click', event => {
-        if (!form?.contains(event.target)) {
-            closeSearchSuggestions();
-        }
-    }, { signal: listenerSignal });
+    form?.querySelector('[data-pm-search-submit]')?.addEventListener('click',commitSearch,{signal:listenerSignal});
 
     updateClearVisibility();
 };
-window.addEventListener('popstate', () => {
-    fetch(window.location.href, {
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            'Accept': 'text/html',
-        },
-    })
-        .then(response => response.ok ? response.text() : Promise.reject())
-        .then(html => {
-            const doc = new DOMParser().parseFromString(html, 'text/html');
-            const nextPage = doc.querySelector('.pm-page');
-            const currentPage = document.querySelector('.pm-page');
-            const nextDateModal = doc.getElementById('pmDateModal');
-            const currentDateModal = document.getElementById('pmDateModal');
-
-            if (!nextPage || !currentPage) {
-                window.location.reload();
-                return;
-            }
-
-            nextPage.querySelectorAll('.flash-success, .flash-error, .flash-info, .flash-warning').forEach(el => el.remove());
-            currentPage.replaceWith(nextPage);
-            if (nextDateModal && currentDateModal) currentDateModal.replaceWith(nextDateModal);
-            window.initPaymentMonitoring();
-            document.dispatchEvent(new CustomEvent('panel-ui:reset'));
-        })
-        .catch(() => window.location.reload());
-});
+window.addEventListener('popstate', () => window.loadPaymentMonitoring?.(window.location.href, false));
 window.initPaymentMonitoring();
 </script>
-@include('staff.partials.remaining-pages-visual-system')
-@include('partials.case_records_layout_styles')
 @endsection

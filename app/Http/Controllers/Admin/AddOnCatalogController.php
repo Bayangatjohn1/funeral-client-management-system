@@ -15,6 +15,9 @@ class AddOnCatalogController extends Controller
         $this->ensureCanView();
 
         $query = AddOnCatalog::query();
+        if (auth()->user()->isBranchAdmin()) {
+            $query->where(fn ($q) => $q->where('category', '<>', AddOnCatalog::CHAPEL_VIEWING)->orWhere('branch_id', auth()->user()->branch_id));
+        }
 
         if ($search = trim((string) $request->query('q'))) {
             $query->where(function ($builder) use ($search) {
@@ -69,7 +72,7 @@ class AddOnCatalogController extends Controller
         $validated = $this->normalize($validated);
         $validated['is_active'] = true;
 
-        if ($this->duplicateExists($validated['name'])) {
+        if ($this->duplicateExists($validated['name'], null, $validated['category'], $validated['branch_id'] ?? null)) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'message' => 'An add-on with this name already exists.',
@@ -82,7 +85,7 @@ class AddOnCatalogController extends Controller
             ])->withInput();
         }
 
-        $catalog = AddOnCatalog::create($validated);
+        $catalog = \App\Support\CatalogPhotos::save($request, new AddOnCatalog(), $validated);
 
         AuditLogger::log(
             'add_on_catalog.created',
@@ -104,8 +107,7 @@ class AddOnCatalogController extends Controller
             ], 201);
         }
 
-        return redirect($request->input('return_to') ?: route('admin.add-on-catalogs.index'))
-            ->with('success', 'Add-on saved successfully.');
+        return \App\Support\CatalogFormResponse::saved($request, 'Add-on saved successfully.', route('admin.add-on-catalogs.index'));
     }
 
     public function show(Request $request, AddOnCatalog $add_on_catalog)
@@ -113,6 +115,8 @@ class AddOnCatalogController extends Controller
         $this->ensureCanView();
 
         $add_on_catalog->loadCount('legacyPackageAddOns');
+        abort_if(auth()->user()->isBranchAdmin() && $add_on_catalog->category === AddOnCatalog::CHAPEL_VIEWING && (int) $add_on_catalog->branch_id !== (int) auth()->user()->branch_id, 403);
+        $add_on_catalog->load('legacyPackageAddOns.package');
 
         return view('admin.add-on-catalogs.show', [
             'catalog' => $add_on_catalog,
@@ -137,7 +141,14 @@ class AddOnCatalogController extends Controller
         $validated = $request->validate($this->rules(), $this->messages());
         $validated = $this->normalize($validated);
 
-        if ($this->duplicateExists($validated['name'], $add_on_catalog->id)) {
+        $referenced = $add_on_catalog->legacyPackageAddOns()->exists()
+            || \App\Models\PackageInclusion::where('add_on_catalog_id', $add_on_catalog->id)->exists()
+            || \App\Models\FuneralCase::withoutGlobalScope('branch_scope')->where('chapel_catalog_id', $add_on_catalog->id)->exists();
+        if ($referenced && ($add_on_catalog->category !== $validated['category']
+            || ($add_on_catalog->branch_id && (int) $add_on_catalog->branch_id !== (int) ($validated['branch_id'] ?? 0)))) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['category' => 'This catalog item is already in use. Its category and assigned branch cannot be changed.']);
+        }
+        if ($this->duplicateExists($validated['name'], $add_on_catalog->id, $validated['category'], $validated['branch_id'] ?? null)) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'message' => 'An add-on with this name already exists.',
@@ -150,7 +161,7 @@ class AddOnCatalogController extends Controller
             ])->withInput();
         }
 
-        $add_on_catalog->update($validated);
+        \App\Support\CatalogPhotos::save($request, $add_on_catalog, $validated);
 
         AuditLogger::log(
             'add_on_catalog.updated',
@@ -172,13 +183,28 @@ class AddOnCatalogController extends Controller
             ]);
         }
 
-        return redirect($request->input('return_to') ?: route('admin.add-on-catalogs.index'))
-            ->with('success', 'Add-on updated successfully.');
+        return \App\Support\CatalogFormResponse::saved($request, 'Add-on updated successfully.', route('admin.add-on-catalogs.index'));
+    }
+
+    public function toggleAvailability(AddOnCatalog $add_on_catalog)
+    {
+        $this->ensureCanManage();
+        if (! $add_on_catalog->is_active) {
+            return back()->withErrors(['catalog' => 'Restore the archived item before changing its availability.']);
+        }
+
+        $add_on_catalog->update(['is_available' => ! $add_on_catalog->is_available]);
+        AuditLogger::log('add_on_catalog.availability_changed', 'status_change', 'add_on_catalog', $add_on_catalog->id, ['is_available' => $add_on_catalog->is_available]);
+
+        return back()->with('success', $add_on_catalog->name.' marked '.($add_on_catalog->is_available ? 'available.' : 'unavailable.').' Package status is unchanged; intake eligibility is recalculated.');
     }
 
     public function toggleActive(AddOnCatalog $add_on_catalog)
     {
         $this->ensureCanManage();
+        if ($message = app(\App\Support\ServiceCatalogPolicy::class)->archiveBlockMessage($add_on_catalog)) {
+            return back()->withErrors(['catalog' => $message]);
+        }
 
         $add_on_catalog->update(['is_active' => ! $add_on_catalog->is_active]);
 
@@ -188,11 +214,17 @@ class AddOnCatalogController extends Controller
     private function rules(): array
     {
         return [
+            'branch_id' => ['exclude_unless:category,Chapel Viewing', 'required', 'integer', Rule::exists('branches', 'id')->where('is_active', true)],
+            'chapel_address' => ['exclude_unless:category,Chapel Viewing', 'required', 'string', 'max:255', 'regex:/\\pL/u'],
             'name' => ['required', 'string', 'max:150', $this->mustContainLetterRule('Add-on name must include letters.'), $this->allowedNameTextRule('Add-on name has unnecessary special characters.')],
             'category' => ['required', 'string', Rule::in(AddOnCatalog::CATEGORY_OPTIONS)],
             'description' => ['nullable', 'string', 'max:500'],
-            'price' => ['required', 'numeric', 'min:0'],
-            'unit' => ['required', 'string', Rule::in(AddOnCatalog::UNIT_OPTIONS)],
+            'price' => ['required', 'numeric', 'min:0', 'max:9999999999.99', 'decimal:0,2'],
+            'unit' => ['required', 'string', Rule::in(AddOnCatalog::UNIT_OPTIONS), function ($attribute, $value, $fail) {
+                if (request('category') === AddOnCatalog::CHAPEL_VIEWING && $value !== 'day') {
+                    $fail('Select Day as the billing unit for Chapel Viewing.');
+                }
+            }],
             'return_to' => ['nullable', 'string', 'max:1000'],
         ];
     }
@@ -223,17 +255,24 @@ class AddOnCatalogController extends Controller
         $validated['description'] = $validated['description'] ?: null;
         $validated['unit'] = $validated['unit'] ?: 'item';
         $validated['price'] = round((float) $validated['price'], 2);
+        $isChapel = $validated['category'] === AddOnCatalog::CHAPEL_VIEWING;
+        $validated['branch_id'] = $isChapel ? (int) $validated['branch_id'] : null;
+        $validated['chapel_address'] = $isChapel ? trim($validated['chapel_address']) : null;
+        $validated['chapel_identity'] = $isChapel ? $validated['branch_id'].':'.mb_strtolower($validated['name']) : null;
 
         unset($validated['return_to']);
 
         return $validated;
     }
 
-    private function duplicateExists(string $name, ?int $ignoreId = null): bool
+    private function duplicateExists(string $name, ?int $ignoreId = null, ?string $category = null, ?int $branchId = null): bool
     {
         return AddOnCatalog::query()
             ->when($ignoreId, fn ($query) => $query->whereKeyNot($ignoreId))
             ->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])
+            ->when($category === AddOnCatalog::CHAPEL_VIEWING,
+                fn ($q) => $q->where('category', $category)->where('branch_id', $branchId),
+                fn ($q) => $q->where('category', '<>', AddOnCatalog::CHAPEL_VIEWING))
             ->exists();
     }
 
@@ -247,6 +286,7 @@ class AddOnCatalogController extends Controller
             'price' => (float) $catalog->price,
             'unit' => $catalog->unit,
             'is_active' => (bool) $catalog->is_active,
+            'branch_id' => $catalog->branch_id, 'chapel_address' => $catalog->chapel_address,
             'update_url' => route('admin.add-on-catalogs.update', $catalog, absolute: false),
         ];
     }
@@ -271,7 +311,10 @@ class AddOnCatalogController extends Controller
                 return;
             }
 
-            if (! preg_match("~^[\pL\pM][\pL\pM\s,'()/&-]*$~u", trim((string) $value))) {
+            $pattern = request('category') === AddOnCatalog::CHAPEL_VIEWING
+                ? "~^[\pL\pM][\pL\pM\pN\s,'()/&-]*$~u"
+                : "~^[\pL\pM][\pL\pM\s,'()/&-]*$~u";
+            if (! preg_match($pattern, trim((string) $value))) {
                 $fail($message);
             }
         };

@@ -74,7 +74,7 @@ class PaymentDetails
             'other_bank_name.required' => 'Please enter the bank name.',
             'other_bank_name.min' => 'Bank name must be between 2 and 80 characters.',
             'other_bank_name.max' => 'Bank name must be between 2 and 80 characters.',
-            'other_bank_name.regex' => 'Bank name must be between 2 and 80 characters.',
+            'other_bank_name.regex' => 'Bank name contains invalid characters.',
             'reference_number.required' => 'Reference number is required.',
             'reference_number.min' => 'Reference number must be 4 to 60 characters.',
             'reference_number.max' => 'Reference number must be 4 to 60 characters.',
@@ -89,12 +89,16 @@ class PaymentDetails
             'payment_channel.required' => 'Payment channel is required.',
             'payment_channel.min' => 'Payment channel must be between 2 and 80 characters.',
             'payment_channel.max' => 'Payment channel must be between 2 and 80 characters.',
-            'payment_channel.regex' => 'Payment channel must be between 2 and 80 characters.',
+            'payment_channel.regex' => 'Payment channel contains invalid characters.',
             'payment_notes.max' => 'Notes must not exceed 255 characters.',
-            'payment_notes.not_regex' => 'Notes must not exceed 255 characters.',
+            'payment_notes.not_regex' => 'Notes cannot contain angle brackets.',
             'card_type.in' => 'Please select a valid card type.',
             'terminal_provider.max' => 'Terminal/provider must not exceed 80 characters.',
             'terminal_provider.regex' => 'Terminal/provider must not exceed 80 characters.',
+            'receipt_or_no.required_if' => 'Enter the Receipt / OR number for this cash payment.',
+            'payment_proof_id.required' => 'Attach a receipt or transaction confirmation before saving the payment.',
+            'payment_proof_id.uuid' => 'The payment proof could not be restored. Attach it again.',
+            'payment_proof_form_id.required' => 'Attach the payment proof again in this form.',
             'receipt_or_no.min' => 'Receipt / OR number must be 3 to 50 characters.',
             'receipt_or_no.max' => 'Receipt / OR number must be 3 to 50 characters.',
             'receipt_or_no.regex' => 'Receipt / OR number may contain letters, numbers, spaces, hyphens, and slashes only.',
@@ -244,7 +248,7 @@ class PaymentDetails
         }
 
         if ($type === 'card' && empty($details['approval_code']) && empty($details['reference_number'])) {
-            $errors['approval_code'] = 'Approval code or reference number is required for card payments.';
+            $errors['approval_code'] = 'Enter an approval code or a transaction reference number.';
         } elseif ($type === 'card' && ! empty($details['reference_number']) && (strlen($details['reference_number']) < 4 || strlen($details['reference_number']) > 60)) {
             $errors['reference_number'] = 'Reference number must be 4 to 60 characters.';
         }

@@ -3,6 +3,7 @@
 @section('page_title', 'Edit Package')
 @section('page_desc', 'Update structured package details, included services, freebies, and promo settings.')
 @section('hide_layout_topbar', '1')
+@section('suppress_layout_page_header', '1')
 
 @section('content')
     @include('admin.packages._form', ['package' => $package])

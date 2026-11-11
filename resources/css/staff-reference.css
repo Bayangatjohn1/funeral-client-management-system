@@ -176,7 +176,6 @@ html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .staff-actio
 html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .staff-action-arrow svg { width: 20px; height: 20px; }
 html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .staff-action-card .desc { font-weight: 400 !important; }
 html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .staff-tabs { background: var(--staff-card) !important; }
-html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 :is([data-attention-card], [data-outstanding-card]) .staff-card-head { background: var(--staff-card) !important; }
 html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 :is([data-schedules-card], [data-attention-card], [data-outstanding-card]) .staff-list { max-height: 340px; overflow-y: auto; }
 html[data-theme] body.panel-shell-body.staff-ui .staff-nav-icon { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 34px; border-radius: .5rem; background: var(--staff-soft); color: var(--staff-action); }
 html[data-theme] body.panel-shell-body.staff-ui .staff-nav-icon svg { background: transparent !important; color: inherit !important; width: 18px !important; height: 18px !important; border: 0 !important; box-shadow: none !important; }
@@ -206,10 +205,6 @@ html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .staff-heade
     padding: 1.25rem 1.5rem 0;
     border: 0;
     border-radius: 0;
-}
-html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 > :is(section:not(.staff-header-card), .staff-subgrid-two) {
-    width: calc(100% - 3rem);
-    margin-inline: 1.5rem;
 }
 html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .staff-header-main {
     display: grid;
@@ -296,7 +291,6 @@ html[data-theme] body.panel-shell-body.staff-ui .sidebar .nav-link.active .nav-l
     html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .staff-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 699px) {
-    html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 > :is(section:not(.staff-header-card), .staff-subgrid-two) { width: calc(100% - 1.5rem); margin-inline: .75rem; }
     html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 :is(.staff-action-grid, .staff-subgrid-two) { grid-template-columns: minmax(0, 1fr); }
     html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .staff-summary-card { padding: 1rem; }
     html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .staff-card-head-controls { align-items: flex-start; }
@@ -307,8 +301,6 @@ html[data-theme] body.panel-shell-body.staff-ui .sidebar .nav-link.active .nav-l
     html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .staff-table { min-width: 650px; }
 }
 /* Final reference surfaces override the shared panel's legacy presentation. */
-html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 [data-attention-card].staff-card .staff-card-head,
-html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 [data-outstanding-card].staff-card .staff-card-head { background: var(--staff-card) !important; }
 html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .ref-attention-message span { color: #6B4D08 !important; }
 html[data-theme='dark'] body.panel-shell-body.staff-ui .staff-dashboard-v2 .ref-attention-message span { color: #F0D892 !important; }
 html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 .ref-activity-row .status-pill { background: var(--staff-soft) !important; color: var(--staff-action) !important; border: 1px solid var(--staff-border) !important; border-radius: .3rem !important; padding: .2rem .5rem; text-transform: uppercase; font-family: 'JetBrains Mono', Consolas, monospace; font-size: .65rem; }
@@ -354,3 +346,143 @@ html[data-theme='dark'] body.panel-shell-body.staff-ui .staff-dashboard-v2 :is(.
     border-color: #41634F !important;
 }
 html[data-theme] body.panel-shell-body.staff-ui .staff-dashboard-v2 :is(.staff-action-arrow, .staff-tab-btn.is-active) i { color: inherit !important; }
+html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui) .sidebar {
+    --sidebar-link-hover:#D6E7DC;
+}
+html[data-theme='dark'] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui) .sidebar {
+    --sidebar-link-hover:#20382B;
+}
+html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui) .sidebar .nav-link:not(.active,.staff-intake-trigger):hover {
+    background:var(--sidebar-link-hover) !important;
+}
+html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui) .sidebar .nav-link > :is(.staff-nav-icon,.nav-link__icon) {
+    border:0 !important;
+}
+html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui) .sidebar .nav-link:hover > :is(.staff-nav-icon,.nav-link__icon) {
+    transform:none !important;
+}
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .sidebar .profile-pill {
+    border: 0 !important;
+    border-radius: .5rem;
+    padding: .5rem !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .sidebar .profile-avatar {
+    flex: 0 0 36px;
+    width: 36px;
+    height: 36px;
+}
+
+@media (min-width:1024px) {
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui)[data-sidebar-manual] .sidebar .sidebar-scroll {
+        padding:10px 8px;
+    }
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui)[data-sidebar-manual] .sidebar .nav-section + .nav-section {
+        margin-top:8px;
+    }
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui)[data-sidebar-manual] .sidebar .nav-list {
+        gap:7px;
+    }
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui)[data-sidebar-manual] .sidebar .nav-link {
+        width:100%;
+        min-height:46px;
+        height:46px;
+        justify-content:flex-start;
+        gap:10px;
+        margin:0;
+        padding:0 10px;
+        transition:background-color .16s ease, color .16s ease;
+    }
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui)[data-sidebar-manual] .sidebar .nav-link > span {
+        flex:1;
+        min-width:0;
+        max-width:none;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        transition:
+            opacity var(--sidebar-motion-duration) var(--sidebar-motion-ease),
+            transform var(--sidebar-motion-duration) var(--sidebar-motion-ease);
+    }
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui)[data-sidebar-manual] .sidebar .sidebar-brand {
+        justify-content:flex-start;
+        gap:8px;
+        padding:10px 14px;
+    }
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui)[data-sidebar-manual] .sidebar .sidebar-footer {
+        padding:10px 8px;
+    }
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui)[data-sidebar-manual] .sidebar .profile-pill {
+        position:relative;
+        min-height:52px;
+        min-width:0;
+        gap:8px;
+        overflow:hidden;
+    }
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui)[data-sidebar-manual] .sidebar .profile-copy {
+        max-width:none;
+        padding-inline-end:16px;
+    }
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui)[data-sidebar-manual] .sidebar .profile-role {
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+    }
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui)[data-sidebar-manual] .sidebar .profile-pill-caret {
+        display:block !important;
+        position:absolute;
+        inset-inline-end:8px;
+        margin:0;
+        pointer-events:none;
+        transition:
+            opacity var(--sidebar-motion-duration) var(--sidebar-motion-ease),
+            transform .16s ease;
+    }
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui)[data-sidebar-manual][data-sidebar-collapsed] .sidebar .sidebar-brand-copy {
+        display:flex !important;
+    }
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui)[data-sidebar-manual][data-sidebar-collapsed] .sidebar .profile-copy {
+        display:block !important;
+    }
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui)[data-sidebar-manual][data-sidebar-collapsed] .sidebar .profile-pill-caret {
+        opacity:0;
+    }
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui)[data-sidebar-manual] .sidebar .nav-link.active {
+        isolation:isolate;
+        background:transparent !important;
+        border-color:transparent !important;
+        backdrop-filter:none;
+    }
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui)[data-sidebar-manual] .sidebar .nav-link.active::before {
+        content:"";
+        display:block;
+        position:absolute;
+        inset:0;
+        z-index:-1;
+        pointer-events:none;
+        background:var(--sidebar-reference-action);
+        clip-path:inset(0 round .65rem);
+        transition:clip-path var(--sidebar-motion-duration) var(--sidebar-motion-ease);
+    }
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui)[data-sidebar-manual][data-sidebar-collapsed] .sidebar .nav-link.active::before {
+        clip-path:inset(6px calc(100% - 3px) 6px 0 round 2px);
+    }
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui)[data-sidebar-manual][data-sidebar-collapsed] .sidebar .nav-link:not(.active,.staff-intake-trigger):hover {
+        background:transparent !important;
+    }
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui)[data-sidebar-manual][data-sidebar-collapsed] .sidebar .nav-link:not(.active,.staff-intake-trigger):hover > :is(.staff-nav-icon,.nav-link__icon) {
+        background:color-mix(in srgb,var(--sidebar-reference-soft),var(--sidebar-reference-ink) 10%) !important;
+    }
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui)[data-sidebar-manual] .sidebar .nav-link.active > :is(.staff-nav-icon,.nav-link__icon) {
+        background:#285A44 !important;
+    }
+}
+
+@media (min-width:1024px) and (prefers-reduced-motion:reduce) {
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui)[data-sidebar-manual] .sidebar,
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui)[data-sidebar-manual] .sidebar :is(.sidebar-brand-copy,.profile-copy,.profile-pill-caret,.nav-link > span),
+    html[data-theme] body.panel-shell-body:is(.staff-ui,.branch-admin-ui,.system-admin-ui,.owner-ui)[data-sidebar-manual] .sidebar .nav-link.active::before {
+        transition:none !important;
+    }
+}

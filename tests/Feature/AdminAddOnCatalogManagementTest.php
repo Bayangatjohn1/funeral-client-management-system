@@ -18,6 +18,40 @@ class AdminAddOnCatalogManagementTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_add_on_price_and_unit_labels_are_consistent_in_forms_details_and_table(): void
+    {
+        $admin = $this->mainAdmin();
+        $catalog = AddOnCatalog::create([
+            'name' => 'Preview Fixture',
+            'category' => 'General',
+            'price' => 500,
+            'unit' => 'item',
+            'is_active' => true,
+        ]);
+
+        foreach ([
+            route('admin.add-on-catalogs.create', absolute: false),
+            route('admin.add-on-catalogs.edit', $catalog, absolute: false),
+            route('admin.add-on-catalogs.show', $catalog, absolute: false),
+            route('admin.add-on-catalogs.index', absolute: false),
+        ] as $url) {
+            $this->actingAs($admin)->get($url)
+                ->assertOk()
+                ->assertSee('Unit Price (PHP)')
+                ->assertSee('Billing Unit');
+        }
+
+        $this->actingAs($admin)->get(route('admin.add-on-catalogs.create', absolute: false))
+            ->assertSee('Enter the unit price and select a billing unit to preview.')
+            ->assertSee('data-plain-options', false)
+            ->assertSee('data-no-leading-filter-icon', false)
+            ->assertSee('>Item<', false)
+            ->assertSee('>Set<', false)
+            ->assertSee('>Day<', false)
+            ->assertSee('>Trip<', false)
+            ->assertSee('>Service<', false);
+    }
+
     public function test_main_admin_can_add_edit_archive_and_restore_global_add_ons(): void
     {
         $admin = $this->mainAdmin();

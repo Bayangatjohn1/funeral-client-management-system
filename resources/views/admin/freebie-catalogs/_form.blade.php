@@ -67,7 +67,7 @@
 </style>
 
 @include('admin.service-management.partials.catalog-form-ui')
-<form method="POST" action="{{ $action }}" class="fbc-form mx-auto">
+<form method="POST" action="{{ $action }}" class="fbc-form mx-auto" enctype="multipart/form-data">
     @csrf
     @if($isEdit)
         @method('PUT')
@@ -77,14 +77,14 @@
     <section class="fbc-card">
         <div class="fbc-head">
             <div class="fbc-title"><i class="bi bi-gift"></i> {{ $isEdit ? 'Edit Freebie' : 'Add Freebie' }}</div>
-            <p class="fbc-copy">Reusable freebies for service package setup. Admins select from this list when defining package inclusions.</p>
+            <p class="fbc-copy">Reusable complimentary items for service package setup.</p>
             <div class="fbc-note"><i class="bi bi-info-circle"></i><span>Configured freebies appear in Service Package setup. Archive a freebie to hide it from future package selections while keeping historical package records intact.</span></div>
         </div>
         <div class="fbc-body">
             <div class="fbc-grid">
                 <div>
                     <label class="fbc-label" for="freebie-name">Freebie Name <span aria-hidden="true">*</span></label>
-                    <input id="freebie-name" type="text" name="name" value="{{ old('name', $catalog->name) }}" class="form-input" required maxlength="150" pattern="[A-Za-zÀ-ž][A-Za-zÀ-ž\s,'()/&-]*" title="Use letters and normal separators only. Numbers and unnecessary symbols are not allowed." placeholder="e.g. Memorial folder">
+                    <input id="freebie-name" type="text" name="name" value="{{ old('name', $catalog->name) }}" class="form-input" required maxlength="150" pattern="[A-Za-zÀ-ž][A-Za-zÀ-ž\s,'()/&-]*" title="Use letters and normal separators only. Numbers and unnecessary symbols are not allowed." placeholder="e.g. Memorial folder" data-text-case="words" autocapitalize="words" autocorrect="off" spellcheck="false">
                     @error('name') <div class="form-error">{{ $message }}</div> @enderror
                 </div>
                 <div>
@@ -98,7 +98,9 @@
                     @error('default_unit') <div class="form-error">{{ $message }}</div> @enderror
                 </div>
             </div>
+            <p class="pkg-field-help">All freebies are complimentary.</p>
         </div>
+        @include('admin.service-management.partials.photo-field')
         <div class="fbc-actions">
             <a href="{{ $returnTo }}" class="fbc-secondary" data-service-form-cancel><i class="bi bi-x-circle"></i> Cancel</a>
             <button class="fbc-primary"><i class="bi bi-check2-circle"></i> {{ $isEdit ? 'Save Changes' : 'Save Freebie' }}</button>

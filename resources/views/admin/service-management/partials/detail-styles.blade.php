@@ -352,22 +352,89 @@
         html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-overview { margin-top:14px; }
     }
     .svc-status-feedback { display:flex; align-items:flex-start; gap:8px; margin:0 0 12px; padding:11px 14px; border:1px solid var(--border); border-radius:10px; background:var(--card); color:var(--ink); font-size:13px; }
-    .svc-status-feedback.is-error { border-color:#CC8A83; color:#8B3028; }
+    .svc-status-feedback.is-error { border-color:var(--feedback-error-border); background:var(--feedback-error-bg); color:var(--feedback-error-fg); }
+    .svc-status-feedback.is-success { border-color:var(--feedback-success-border); background:var(--feedback-success-bg); color:var(--feedback-success-fg); }
+    .svc-status-feedback :is(i,svg) { display:inline-grid; place-items:center; flex:0 0 22px; width:22px; height:22px; margin-top:-1px; border-radius:50%; background:currentColor; color:var(--card); font-size:12px; }
+    .svc-status-feedback.is-error :is(i,svg) { background:var(--feedback-error-fg); color:var(--card); }
+    .svc-status-feedback.is-success :is(i,svg) { background:var(--feedback-success-fg); color:var(--card); }
     .svc-intake-readiness ul { margin:6px 0 0 20px; list-style:disc; }
     .svc-intake-readiness li { margin-top:4px; }
-    .svc-status-dialog { width:min(440px,calc(100vw - 32px)); max-height:calc(100vh - 32px); margin:auto; padding:20px; border:1px solid var(--border); border-radius:16px; background:var(--card); color:var(--ink); box-shadow:0 18px 50px rgb(0 0 0 / 20%); }
-    .svc-status-dialog::backdrop { background:rgba(15,23,42,.55); }
-    .svc-status-dialog-head { display:flex; align-items:flex-start; gap:12px; }
-    .svc-status-dialog-icon { display:grid; place-items:center; flex:0 0 38px; height:38px; border-radius:9px; background:var(--surface-muted); color:var(--ink); }
-    .svc-status-dialog h2 { margin:0 0 5px; font-size:17px; line-height:1.35; }
-    .svc-status-dialog p { margin:0; color:var(--ink-muted); font-size:13px; line-height:1.55; }
+    .svc-status-dialog { width:min(400px,calc(100vw - 32px)); max-height:calc(100vh - 32px); margin:auto; padding:16px; border:1px solid var(--border); border-radius:14px; background:var(--card); color:var(--ink); box-shadow:0 18px 50px rgb(0 0 0 / 20%); }
+    .svc-status-dialog::backdrop { background:transparent; }
+    .svc-status-dialog-head { display:flex; flex-direction:column; align-items:center; gap:7px; text-align:center; }
+    .svc-status-dialog-icon { display:grid; place-items:center; flex:0 0 40px; width:40px; height:40px; border-radius:11px; background:var(--surface-muted); color:var(--ink); font-size:17px; }
+    .svc-status-dialog[data-feedback-kind='warning'] .svc-status-dialog-icon { background:var(--feedback-warning-bg); color:var(--feedback-warning-fg); }
+    .svc-status-dialog[data-feedback-kind='success'] .svc-status-dialog-icon { background:var(--feedback-success-bg); color:var(--feedback-success-fg); }
+    .svc-status-dialog[data-feedback-kind='error'] .svc-status-dialog-icon { background:var(--feedback-error-bg); color:var(--feedback-error-fg); }
+    .svc-status-dialog h2 { margin:0 0 4px; font-size:16px; line-height:1.35; }
+    .svc-status-dialog p { margin:0; color:var(--ink-muted); font-size:13px; line-height:1.45; }
     .svc-status-affected { margin-top:14px; padding:12px; border:1px solid var(--border); border-radius:10px; background:var(--surface-muted); font-size:12px; }
     .svc-status-affected ul { margin:6px 0 0 18px; list-style:disc; }
     .svc-status-affected li { margin-top:4px; }
     .svc-status-affected a { color:var(--ink); text-decoration:underline; }
-    .svc-status-dialog-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:8px; margin-top:18px; }
+    .svc-status-dialog-actions { display:flex; justify-content:center; flex-wrap:wrap; gap:8px; margin-top:12px; }
     .svc-status-dialog-actions form { margin:0; }
-    .svc-status-dialog-actions button { min-height:40px; cursor:pointer; }
+    .svc-status-dialog-actions button { min-height:38px; cursor:pointer; }
     .svc-status-dialog :is(button,a):focus-visible { outline:2px solid #2D6A4F; outline-offset:2px; }
     html[data-theme='dark'] .svc-status-feedback.is-error { color:#F5B2AA; }
+/* Shared detail modal follows the same header/body/footer hierarchy as catalog forms. */
+html[data-theme] body.service-catalog-modal-frame .svc-detail-card { border:0 !important; border-radius:0; box-shadow:none; }
+html[data-theme] body.service-catalog-modal-frame .svc-detail-head { padding:24px 72px 20px 24px; border-bottom:1px solid var(--border); }
+html[data-theme] body.service-catalog-modal-frame .svc-detail :is(.svc-detail-section,.svc-detail-overview) { padding:20px 24px; }
+html[data-theme] body.service-catalog-modal-frame .svc-detail-actions { position:sticky; bottom:0; padding:16px 24px; background:var(--card); border-top:1px solid var(--border); }
+html[data-theme] body.service-catalog-modal-frame .svc-detail-badge { background:transparent !important; border:0; }
+html[data-theme] body.service-catalog-modal-frame .svc-detail-badge.is-active { color:#167044; }
+html[data-theme='dark'] body.service-catalog-modal-frame .svc-detail-badge.is-active { color:#52E6B0; }
+
+/* Modal.tsx and catalog detail reference: distinct title, record, identity, value, notes and footer. */
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail { max-width:none; margin:0; padding:0; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-card { border:0 !important; border-radius:0; background:var(--card); }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-head { padding:22px 72px 18px 24px; margin:0; border-bottom:1px solid var(--border); background:var(--card); }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-modal-title { font-size:20px; font-weight:700; margin:0; line-height:1.3; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-record { font-size:12px; color:var(--ink-muted); margin-top:5px; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-identity { padding:20px 24px 0; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-identity h1 { font-size:18px; font-weight:700; line-height:1.4; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-identity p { font-size:13px; color:var(--ink-muted); margin-top:5px; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-overview { margin:16px 24px 0; padding:16px; border:1px solid var(--border); border-radius:8px; background:var(--surface-muted); }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-overview-price { text-align:left; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-overview-price span { font-size:12px; letter-spacing:0; text-transform:none; color:var(--ink-muted); }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-overview-price strong { font-size:24px; font-weight:700; color:var(--brand); }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-stat-grid { padding:16px 24px 0; gap:12px; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-stat { padding:12px; border:1px solid var(--border); border-radius:8px; background:var(--surface-muted); }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-section { padding:18px 24px 0; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-section h3 { font-size:13px; font-weight:600; letter-spacing:0; text-transform:none; margin-bottom:8px; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-description .svc-detail-note { padding:14px; border:1px solid var(--border); border-radius:8px; background:var(--surface-muted); font-size:13px; line-height:1.6; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-actions { margin-top:22px; padding:16px 24px; position:sticky; bottom:0; background:var(--card); border-top:1px solid var(--border); gap:8px; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-actions > [data-parent-modal-close] { order:-1; margin-right:auto; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-actions .svc-detail-primary { order:2; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-actions :is(a,button) { min-height:40px; min-width:0; padding:9px 12px; font-size:13px; border-radius:8px; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-badge { background:transparent !important; border:0; padding:0; min-height:0; font-size:12px; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-identity { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-identity .svc-detail-badges { display:flex; flex-direction:column; align-items:flex-end; flex-shrink:0; gap:6px; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-overview { display:block; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-actions > [data-status-open]:has(.bi-archive) { color:#986000; background:transparent; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-actions > [data-status-open]:has(.bi-arrow-counterclockwise) { color:#167044; background:transparent; }
+html[data-theme='dark'] body.service-catalog-modal-frame .svc-detail-actions > [data-status-open]:has(.bi-archive) { color:#FBBF24; }
+html[data-theme='light'] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui):has(.svc-detail) { --surface:#FFFFFF; --card:#FFFFFF; --surface-muted:#F8F7F4; --border:#B8C8BD; --ink:#13271A; --ink-muted:#52645A; }
+html[data-theme='dark'] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui):has(.svc-detail) { --surface:#0E1511; --card:#121D17; --surface-muted:#15221B; --border:#31503E; --ink:#F1F7F3; --ink-muted:#B5C6BB; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-actions > [data-status-open] { display:inline-flex; align-items:center; justify-content:center; gap:7px; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-status-dialog-head > div { width:100%; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-status-dialog-head > div > p + p { margin-top:7px; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-status-dialog-actions > form { display:flex; justify-content:center; }
+</style>
+
+<style>
+/* User Information reference: distinct header section and catalog identity icon. */
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .svc-detail-card .svc-detail-head { display:flex; justify-content:flex-start !important; align-items:center; gap:12px; background:#D0E2D6 !important; border-bottom:1px solid var(--border); padding:20px 72px 20px 24px; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .svc-detail-card .svc-detail-heading-icon { display:grid; place-items:center; flex:0 0 40px; width:40px; height:40px; border-radius:10px; background:#1B4332; color:#fff; font-size:18px; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .svc-detail-card .svc-detail-head > div { min-width:0; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .svc-detail-card .svc-detail-head .svc-detail-modal-title { color:var(--ink); margin:0; }
+html[data-theme] body:is(.branch-admin-ui,.system-admin-ui) .svc-detail-card .svc-detail-head .svc-detail-record { margin:4px 0 0; color:var(--ink-muted); }
+html[data-theme='dark'] body:is(.branch-admin-ui,.system-admin-ui) .svc-detail-card .svc-detail-head { background:#1F3528 !important; }
+html[data-theme='dark'] body:is(.branch-admin-ui,.system-admin-ui) .svc-detail-card .svc-detail-heading-icon { background:#315843; }
+html[data-theme] body.service-catalog-modal-frame:is(.branch-admin-ui,.system-admin-ui) .svc-detail-card .svc-detail-section + .svc-detail-section { border-top:1px solid var(--border); margin-top:16px; padding-top:16px; }
+</style>
+
+<style>
+.svc-detail-title-row { display:flex; align-items:center; gap:8px; }
 </style>

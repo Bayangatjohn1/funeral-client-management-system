@@ -27,14 +27,21 @@
             if (!response.ok) throw new Error('Unable to load schedules.');
             const page = new DOMParser().parseFromString(await response.text(), 'text/html');
             const next = page.querySelector('.rp-wrap');
-            if (!next) { location.assign(response.url); return; }
+            if (!next) throw new Error('Schedules content is missing.');
             next.querySelectorAll('script').forEach(script => script.remove());
             document.querySelectorAll('body > dialog.calendar-details').forEach(dialog => dialog.remove());
             document.documentElement.classList.remove('schedule-modal-open');
             const search = document.activeElement?.id === 'schedule-search' ? document.activeElement : null;
+            const primaryTabHadFocus = Boolean(document.activeElement?.closest('.rp-tabs-row--header .rp-tab'));
             const caret = search?.selectionStart;
             current.replaceWith(next);
             if (search) { const field = next.querySelector('#schedule-search'); field?.focus({preventScroll:true}); field?.setSelectionRange(caret, caret); }
+            const nextPrimaryTabs = page.querySelector('.rp-tabs-row--header');
+            const currentPrimaryTabs = document.querySelector('.rp-tabs-row--header');
+            if (nextPrimaryTabs && currentPrimaryTabs) {
+                currentPrimaryTabs.replaceWith(nextPrimaryTabs);
+                if (primaryTabHadFocus) nextPrimaryTabs.querySelector('[aria-current="page"]')?.focus({preventScroll:true});
+            }
             const filters = page.querySelector('#rpFilterForm');
             if (filters) document.querySelector('#rpFilterForm')?.replaceWith(filters);
             if (push) history.pushState({}, '', response.url);

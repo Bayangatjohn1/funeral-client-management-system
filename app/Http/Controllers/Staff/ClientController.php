@@ -217,24 +217,24 @@ class ClientController extends Controller
         $this->ensureClientBranchAccessible($client);
 
         $client->load([
-            'deceaseds:id,client_id,full_name,address,born,age,died,date_of_death,interment,place_of_cemetery,created_at',
             'funeralCases' => function ($query) {
                 $query->select([
                     'id',
+                    'branch_id',
                     'client_id',
+                    'client_relationship',
                     'deceased_id',
                     'case_code',
-                    'service_package',
-                    'total_amount',
+                    'entry_source',
+                    'balance_amount',
                     'payment_status',
-                    'paid_at',
                     'case_status',
                     'created_at',
                 ])->latest('created_at');
             },
             'funeralCases.deceased:id,full_name',
-            'funeralCases.payments:id,funeral_case_id,method,amount,paid_at,paid_date',
         ]);
+        $client->funeralCases->each(fn ($case) => $case->setRelation('client', $client));
 
         if ($this->wantsModalFragment(request())) {
             return view('staff.clients.partials.show-content', compact('client'));

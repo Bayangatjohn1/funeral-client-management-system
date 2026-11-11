@@ -10,15 +10,17 @@
 <div class="nav-section">
     <div class="nav-list">
         <a href="{{ route('intake.main.create') }}"
-           class="{{ $isActive((request()->routeIs('intake.main.create') || request()->routeIs('intake.drafts.edit')) || (request()->routeIs('funeral-cases.index') && request()->boolean('open_wizard'))) }}">
+           class="nav-link staff-intake-trigger" data-intake-trigger="{{ route('intake.main.create', ['intake_modal' => 1]) }}"
+           aria-haspopup="dialog" aria-controls="staff-intake-dialog">
             <x-staff-nav-icon name="new" />
-            <span>New Case</span>
+            <span>Add New Case</span>
         </a>
 
         <a href="{{ route('payments.history') }}"
            class="{{ $isActive(request()->routeIs('payments.history') || request()->routeIs('payments.index')) }}">
             <x-staff-nav-icon name="payments" />
             <span>Payment Monitoring</span>
+            @include('partials.sidebar.payment-correction-count')
         </a>
 
         <a href="{{ route('staff.reminders.index') }}"

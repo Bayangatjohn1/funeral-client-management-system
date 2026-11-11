@@ -39,6 +39,11 @@ class ScheduleTimelineTest extends DuskTestCase
                 $this->assertSame(3, count($browser->elements('.schedule-section-tab')));
                 $browser->script('window.reminderNavigationMarker="preserved"');
                 $this->assertTrue($browser->script('return window.reminderPartialNavigationReady === true')[0], 'partial script not initialized');
+                $browser->click('.rp-tab[href*="tab=warnings"]')->waitUntil('document.querySelector(".rp-tab[href*=\\"tab=warnings\\"]").matches(".is-active[aria-current=page]")');
+                $browser->assertAttribute('.rp-tab[href*="tab=warnings"]', 'aria-current', 'page');
+                $this->assertFalse($browser->script('return document.querySelector(".rp-tab[href*=\\"tab=schedules\\"]").classList.contains("is-active")')[0]);
+                $this->assertSame('preserved', $browser->script('return window.reminderNavigationMarker')[0], 'primary tab navigation reloaded');
+                $browser->click('.rp-tab[href*="tab=schedules"]')->waitUntil('document.querySelector(".rp-tab[href*=\\"tab=schedules\\"]").matches(".is-active[aria-current=page]")');
                 $this->assertTrue($browser->script('const u=new URL(document.querySelector(".schedule-section-tab").href);return u.origin===location.origin && u.pathname===location.pathname')[0], json_encode($browser->script('return [location.href,document.querySelector(".schedule-section-tab").href]')));
                 $browser->click('.calendar-agenda .calendar-event')->waitFor('.calendar-details[open]')->assertSeeIn('.calendar-details[open]', 'Case Schedule')->assertSeeIn('.calendar-details[open]', 'Wake Begins')->assertSeeIn('.calendar-details[open]', 'Wake Ends')->assertSeeIn('.calendar-details[open]', 'Funeral Ceremony')->assertSeeIn('.calendar-details[open]', 'Interment');
                 $this->assertTrue($browser->script('const d=document.querySelector(".calendar-details[open]"); const a=document.querySelector("#appSidebar a"); a.focus(); return d.matches(":modal") && document.activeElement!==a')[0]);

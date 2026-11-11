@@ -25,8 +25,10 @@ class IntakePaymentWorkflowTest extends DuskTestCase
             $browser->loginAs($staff)->visit('/intake/main')->waitFor('#wizardNext');
             $browser->script('localStorage.clear();const field=document.querySelector("[name=client_first_name]");field.value="Maria";field.dispatchEvent(new Event("input",{bubbles:true}))');
             $browser->pause(500);
-            $browser->script('const key=Object.keys(localStorage).find(k=>k.endsWith("new"));const draft=JSON.parse(localStorage.getItem(key));Object.assign(draft.fields,'.json_encode($fields).');localStorage.setItem(key,JSON.stringify(draft))');
+            $browser->script('const key=Object.keys(localStorage).find(k=>k.endsWith("new"));const draft=JSON.parse(localStorage.getItem(key));Object.assign(draft.fields,'.json_encode($fields).');draft.fields.package_id="custom";draft.step=3;localStorage.setItem(key,JSON.stringify(draft))');
             $browser->refresh()->waitFor('#restore_intake_autosave')->click('#restore_intake_autosave');
+            $browser->assertVisible('#custom_package_area')->assertMissing('#regular_package_area')
+                ->assertScript('document.querySelector("#custom_package_radio").checked', true);
             foreach ($fields as $name => $value) $browser->assertInputValue($name, $value);
             $browser->assertInputValue('[data-time-display-for="wake_start_time"]', '08:30 AM');
             $browser->refresh()->waitFor('#restore_intake_autosave')->click('#restore_intake_autosave');
@@ -43,21 +45,11 @@ class IntakePaymentWorkflowTest extends DuskTestCase
             $browser->refresh()->waitFor('#wizardNext')->assertMissing('[data-validation-summary]');
             $browser->type('client_contact_number', '123')->click('[name="client_first_name"]');
             $browser->assertVisible('#client_contact_number_inline_error')->assertMissing('[data-validation-summary]');
-            $browser->click('#wizardNext')->waitFor('[data-validation-summary]');
+            $browser->click('#wizardNext')->waitFor('#client_first_name_inline_error')->assertMissing('[data-validation-summary]');
             foreach (['client_first_name', 'client_last_name', 'client_relationship', 'client_contact_number', 'client_address'] as $field) {
                 $browser->assertVisible('#'.$field.'_inline_error');
             }
-            $this->assertGreaterThanOrEqual(5, $browser->script('return document.querySelectorAll("[data-validation-summary] li").length')[0]);
-            $browser->script('document.querySelector("[data-validation-summary]").scrollIntoView({block:"center"})');
-            $browser->screenshot('intake-validation-summary-light');
-            $this->assertSame('rgb(255, 241, 242)', $browser->script('return getComputedStyle(document.querySelector("[data-validation-summary]")).backgroundColor')[0]);
-            $browser->script('document.documentElement.dataset.theme="dark"');
-            $browser->pause(350)->screenshot('intake-validation-summary-dark');
-            $this->assertSame('rgb(41, 25, 31)', $browser->script('return getComputedStyle(document.querySelector("[data-validation-summary]")).backgroundColor')[0]);
-            $browser->script('document.documentElement.dataset.theme="light"');
-            $browser->click('[data-validation-summary] button');
             $this->assertSame('client_first_name', $browser->script('return document.activeElement.name')[0]);
-            $this->assertTrue($browser->script('return document.activeElement.classList.contains("validation-highlight")')[0]);
             $browser->type('client_first_name', 'Maria')->pause(400);
             $this->assertTrue($browser->script('return document.querySelector("#client_first_name_inline_error").classList.contains("hidden")')[0]);
             $browser->assertVisible('#client_last_name_inline_error');
@@ -66,13 +58,11 @@ class IntakePaymentWorkflowTest extends DuskTestCase
             $browser->click('#wizardNext')->waitUntil('document.querySelector(".wizard-panel:not(.hidden)").dataset.step==="2"');
             $browser->click('#wizardNext');
             $browser->assertVisible('#deceased_first_name_inline_error')->assertVisible('#deceased_last_name_inline_error');
-            $this->assertGreaterThanOrEqual(5, $browser->script('return document.querySelectorAll(".wizard-panel")[1].querySelectorAll("[data-validation-summary] li").length')[0]);
             $browser->script('document.querySelector("[name=deceased_first_name]").value="Jose";document.querySelector("[name=deceased_last_name]").value="Santos";const values={born:"1980-01-01",died:"'.now()->subDay()->toDateString().'"};Object.entries(values).forEach(([id,value])=>{const field=document.getElementById(id);field.value=value;if(field._flatpickr)field._flatpickr.setDate(value,false);field.dispatchEvent(new Event("change",{bubbles:true}))})');
             $browser->type('deceased_address', 'Manila');
             $browser->pause(400)->click('#wizardNext');
             $browser->waitUntil('document.querySelector(".wizard-panel:not(.hidden)").dataset.step==="3"');
             $browser->click('#wizardNext');
-            $this->assertGreaterThanOrEqual(3, $browser->script('return document.querySelectorAll(".wizard-panel")[2].querySelectorAll("[data-validation-summary] li").length')[0]);
         });
     }
 
@@ -88,10 +78,8 @@ class IntakePaymentWorkflowTest extends DuskTestCase
         $this->browse(function (Browser $browser) use ($staff, $draft) {
             $browser->loginAs($staff)->visit(route('intake.drafts.edit', $draft, false))->waitFor('#wizardNext');
             $browser->assertMissing('[data-validation-summary]');
-            $browser->click('#wizardNext')->assertVisible('#amount_paid_inline_error')->assertVisible('#paid_at_inline_error');
-            $this->assertGreaterThanOrEqual(2, $browser->script('return document.querySelectorAll(".wizard-panel")[3].querySelectorAll("[data-validation-summary] li").length')[0]);
+            $browser->click('#wizardNext')->assertVisible('#amount_paid_inline_error')->assertVisible('#paid_at_inline_error')->assertMissing('[data-validation-summary]');
             $browser->assertSee('Payment Received Date & Time');
-            $browser->screenshot('intake-billing-validation-summary');
             $browser->script('document.getElementById("intakeWizardForm").requestSubmit(document.getElementById("saveIntakeDraft"))');
             $browser->waitForText('Draft saved');
         });
@@ -115,9 +103,7 @@ class IntakePaymentWorkflowTest extends DuskTestCase
             $browser->loginAs($staff)->visit(route('intake.drafts.edit', $draft, false))->waitFor('#wizardNext');
             $browser->script('document.getElementById("wake_start_time").value="25:00"');
             $browser->click('#wizardNext')->assertVisible('#wake_location_inline_error')->assertVisible('#place_of_cemetery_inline_error');
-            $browser->assertSeeIn('#wake_start_error', 'valid time')->assertVisible('#funeral_service_at_error')->assertVisible('#interment_at_error');
-            $browser->script('document.querySelector(".wizard-panel:not(.hidden) [data-validation-summary]").scrollIntoView({block:"start"})');
-            $browser->screenshot('intake-service-validation-summary');
+            $browser->assertSeeIn('#wake_start_error', 'valid time')->assertVisible('#funeral_service_at_error')->assertVisible('#interment_at_error')->assertMissing('[data-validation-summary]');
         });
     }
 
@@ -174,8 +160,8 @@ class IntakePaymentWorkflowTest extends DuskTestCase
                 $this->assertSame(390, $browser->script('return innerWidth')[0]);
                 $this->assertTrue($browser->script('const r=document.querySelector("#intakePaymentSuccess").getBoundingClientRect(); return r.left>=0 && r.right<=innerWidth && r.top>=0 && r.bottom<=innerHeight')[0]);
                 $browser->click('#intakePaymentDone')->assertMissing('#intakePaymentSuccess');
-                $browser->visit(route('payments.summary', $payment))->assertSee('Payment Summary')
-                    ->assertSee($case->client->full_name)->assertSee('PHP '.number_format($payment->amount, 2))->assertSee('Print Payment Summary');
+                $browser->visit(route('payments.summary', $payment))->assertSee('Payment Record')
+                    ->assertSee($case->client->full_name)->assertSee('PHP '.number_format($payment->amount, 2))->assertSee('Print Payment Record');
             });
         } finally {
             @unlink($preview);

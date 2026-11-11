@@ -154,6 +154,20 @@ class UserController extends Controller
                 'reason' => ['required', 'string', 'min:10', 'max:500'],
                 'confirmed' => ['accepted'],
                 'password' => ['required', 'string', 'min:12'],
+            ], [
+                'current_password.required' => 'Enter your current password.',
+                'current_password.current_password' => 'Your current password is incorrect.',
+                'privileged_for_user_id.integer' => 'Choose an eligible existing account, or leave this blank.',
+                'privileged_for_user_id.exists' => 'Choose an active Staff or Branch Admin account eligible for linking, or leave this blank.',
+                'privileged_for_user_id.unique' => 'This account is already linked to a System Admin account. Choose another account or leave this blank.',
+                'reason.required' => 'Enter a reason for System Admin access.',
+                'reason.string' => 'Enter the reason for System Admin access as text.',
+                'reason.min' => 'Reason for System Admin access must contain at least 10 characters.',
+                'reason.max' => 'Reason for System Admin access must be 500 characters or fewer.',
+                'confirmed.accepted' => 'Confirm that this person requires System Admin access.',
+                'password.required' => 'Password is required.',
+                'password.string' => 'Enter Temporary Password as text.',
+                'password.min' => 'Password must be at least 12 characters.',
             ]);
             $request->merge(['role' => 'system_admin', 'branch_id' => null]);
         } elseif (in_array($request->input('admin_scope'), ['main', 'all_branches'], true)) {
@@ -227,10 +241,10 @@ class UserController extends Controller
 
         $returnTo = $request->input('return_to');
         if ($returnTo) {
-            return redirect()->to($this->safeReturnTo($returnTo))->with('success', 'User created successfully.');
+            return redirect()->to($this->safeReturnTo($returnTo))->with('success', $user->name.' was created successfully.');
         }
 
-        return redirect()->route('admin.users.index')->with('success', 'User created successfully.');
+        return redirect()->route('admin.users.index')->with('success', $user->name.' was created successfully.');
     }
 
     public function createSystemAdmin()
@@ -334,7 +348,7 @@ class UserController extends Controller
             throw ValidationException::withMessages(['role' => 'Use Change Role to change account privileges. System Admin requires a separate account.']);
         }
         if ($user->isSystemAdmin() && $request->input('email') !== $user->email) {
-            $request->validate(['current_password' => ['required', 'current_password:web']]);
+            $request->validate(['current_password' => ['required', 'current_password:web']], ['current_password.required' => 'Enter your current password.', 'current_password.current_password' => 'Your current password is incorrect.']);
         }
         $this->ensureRoleAssignmentAllowed($request, $user);
         /**
@@ -403,10 +417,10 @@ class UserController extends Controller
 
         $returnTo = $request->input('return_to');
         if ($returnTo) {
-            return redirect()->to($this->safeReturnTo($returnTo))->with('success', 'User updated successfully.');
+            return redirect()->to($this->safeReturnTo($returnTo))->with('success', $user->name.' was updated successfully.');
         }
 
-        return redirect()->route('admin.users.index')->with('success', 'User updated successfully.');
+        return redirect()->route('admin.users.index')->with('success', $user->name.' was updated successfully.');
     }
 
     public function toggleActive(User $user)
@@ -419,7 +433,7 @@ class UserController extends Controller
             $target = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
             $this->ensureManageableUser($target);
             if ($target->isSystemAdmin() && $target->is_active && User::where('is_active', true)->where('role', 'admin')->get()->filter(fn ($admin) => $admin->isSystemAdmin())->count() <= 1) {
-                throw ValidationException::withMessages(['status' => 'The last active System Admin cannot be deactivated.']);
+                throw ValidationException::withMessages(['status' => $target->name.' is the last active System Admin and cannot be deactivated.']);
             }
             $before = $target->is_active;
             $target->is_active = ! $before;
@@ -486,11 +500,11 @@ class UserController extends Controller
         $rules = [
             // DNS validation is not full verification; Laravel email verification can be enabled later using email_verified_at once mail is configured.
             'email' => [
-                'required',
+                'bail', 'required', 'string', 'max:255',
                 $this->validEmailAddressRule(),
                 Rule::unique('users', 'email')->ignore($user?->id),
             ],
-            'password' => [$user ? 'nullable' : 'required', 'string', 'min:6'],
+            'password' => [$user ? 'nullable' : 'required', 'string', 'min:'.($request->routeIs('admin.system-admins.store') ? 12 : 6)],
             'role' => ['required', Rule::in(['admin', 'staff'])],
             'branch_id' => [(string) $request->input('admin_scope') === 'system' ? 'nullable' : 'required', 'exists:branches,id'],
             'contact_number' => ['nullable', 'string', 'max:50', $this->validPhilippineMobileRule()],
@@ -527,7 +541,15 @@ class UserController extends Controller
             'email.dns' => 'The email domain appears to be invalid.',
             'email.unique' => 'This email address is already taken.',
             'password.required' => 'Password is required.',
-            'password.min' => 'Password must be at least 6 characters.',
+            'password.min' => 'Password must be at least :min characters.',
+            'email.max' => 'Email Address must be 255 characters or fewer.',
+            'email.string' => 'Enter Email Address as text.',
+            'first_name.max' => 'First Name must be 100 characters or fewer.',
+            'middle_name.max' => 'Middle Name must be 100 characters or fewer.',
+            'last_name.max' => 'Last Name must be 100 characters or fewer.',
+            'name.max' => 'Name must be 255 characters or fewer.',
+            'contact_number.max' => 'Contact Number must be 50 characters or fewer.',
+            'address.max' => 'Address must be 255 characters or fewer.',
             'role.required' => 'Role is required.',
             'role.in' => 'Select a valid role.',
             'branch_id.required' => 'Branch is required for staff and branch admin accounts.',
@@ -601,6 +623,9 @@ class UserController extends Controller
 
     private function prepareValidatedUserAttributes(array $validated): array
     {
+        foreach (['name','first_name','middle_name','last_name','address'] as $field) {
+            if (array_key_exists($field,$validated)) $validated[$field] = \App\Support\UiTextCase::words($validated[$field]);
+        }
         if (array_key_exists('first_name', $validated) && array_key_exists('last_name', $validated)) {
             $validated['name'] = User::buildFullName(
                 $validated['first_name'] ?? null,
@@ -629,6 +654,11 @@ class UserController extends Controller
 
             if (preg_match('/\d/u', $value)) {
                 $fail("{$field} must not contain numbers.");
+                return;
+            }
+
+            if (! preg_match('/[\pL\pM]/u', $value)) {
+                $fail("{$field} must contain at least one letter.");
                 return;
             }
 

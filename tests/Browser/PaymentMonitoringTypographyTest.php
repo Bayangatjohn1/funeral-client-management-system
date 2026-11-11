@@ -32,7 +32,7 @@ class PaymentMonitoringTypographyTest extends DuskTestCase
                 foreach (['light', 'dark'] as $theme) {
                     $browser->script('document.documentElement.dataset.theme = '.json_encode($theme));
                     $weights = $browser->script('const page=document.querySelector(".payment-monitoring-page"); return [".pm-case-row .pm-case", ".pm-case-row .pm-row-title", ".pm-case-row .pm-row-date", ".pm-status", ".pm-summary-detail .pm-summary-stat strong"].map(selector => getComputedStyle(page.querySelector(selector)).fontWeight)')[0];
-                    $this->assertSame(['500', '500', '500', '500', '500'], $weights);
+                    $this->assertSame(['400', '400', '400', '500', '500'], $weights);
                 }
 
                 $browser->click('.pm-case-item [data-pm-open-transactions-modal]')

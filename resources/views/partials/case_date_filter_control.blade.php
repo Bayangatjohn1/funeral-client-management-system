@@ -1,5 +1,5 @@
 <div class="case-compact-seg case-compact-date-filter" role="group" aria-label="Date encoded preset filter">
-    <i class="bi bi-calendar3 case-compact-date-icon"></i>
+    <i class="bi bi-funnel case-compact-date-icon shared-record-filter-icon" aria-hidden="true"></i>
     @if($useDateDisplayLabel)
         <span class="case-compact-date-label" aria-hidden="true">{{ $dateControlLabel }}</span>
     @endif

@@ -43,7 +43,7 @@
             </div>
 
             <div class="table-system-toolbar">
-                <form method="GET" class="table-toolbar" data-table-toolbar data-live-search-suggestions data-live-search-commit-only data-search-debounce="500" style="grid-template-columns:minmax(260px, 1.8fr) minmax(150px, .75fr) minmax(150px, .75fr) auto;">
+                <form method="GET" class="table-toolbar" data-table-toolbar data-catalog-filter-toolbar data-live-search-suggestions data-live-search-commit-only data-search-debounce="500">
                     <div class="table-toolbar-field">
                         <label class="table-toolbar-label">Search</label>
                         <div class="table-toolbar-input-wrap">
@@ -60,9 +60,9 @@
                         <div class="table-toolbar-select-wrap">
                             <i class="bi bi-activity table-toolbar-leading-icon" aria-hidden="true"></i>
                             <select name="status" class="table-toolbar-select" data-table-auto-submit>
-                                <option value="">All Status</option>
-                                <option value="active" @selected(request('status') === 'active')>Active</option>
-                                <option value="inactive" @selected(request('status') === 'inactive')>Archived</option>
+                                <option value="active" @selected(request('status', 'active') === 'active')>Active</option>
+                                <option value="inactive" @selected(in_array(request('status'), ['inactive', 'archived'], true))>Archived</option>
+                                <option value="all" @selected(request('status') === 'all')>All statuses</option>
                             </select>
                             <i class="bi bi-chevron-down table-toolbar-select-icon" aria-hidden="true"></i>
                         </div>
@@ -72,8 +72,8 @@
                         <div class="table-toolbar-select-wrap">
                             <i class="bi bi-sort-alpha-down table-toolbar-leading-icon" aria-hidden="true"></i>
                             <select name="sort" class="table-toolbar-select" data-table-auto-submit>
-                                <option value="name_asc" @selected(request('sort', 'name_asc') === 'name_asc')>Name</option>
-                                <option value="latest" @selected(request('sort') === 'latest')>Newest</option>
+                                <option value="name_asc" data-display-label="Name: A–Z" @selected(request('sort', 'name_asc') === 'name_asc')>Name: A–Z</option>
+                                <option value="latest" data-display-label="Newest First" @selected(request('sort') === 'latest')>Newest First</option>
                                 <option value="usage_desc" @selected(request('sort') === 'usage_desc')>Most Used</option>
                             </select>
                             <i class="bi bi-chevron-down table-toolbar-select-icon" aria-hidden="true"></i>
@@ -97,7 +97,7 @@
                 <table class="table-base table-system-table w-full">
                     <thead>
                         <tr>
-                            <th>Name</th>
+                            <th>Freebie Name</th>
                             <th>Default Unit</th>
                             <th>Used In Packages</th>
                             <th>Status</th>
@@ -111,6 +111,7 @@
                             <tr data-live-search-row data-live-search-title="{{ $catalog->name }}" data-live-search-meta="{{ ($catalog->default_unit ?: 'item') . ' / ' . ($catalog->is_active ? 'Active' : 'Archived') }}" data-live-search-text="{{ $catalog->name }} {{ $catalog->default_unit }} {{ $catalog->is_active ? 'Active' : 'Archived' }}">
                                 <td>
                                     <div class="font-semibold catalog-primary-cell">
+                                        @include('admin.service-management.partials.photo', ['photoRecord' => $catalog, 'photoSize' => 'thumbnail'])
                                         <i class="bi bi-gift text-[#3E4A3D] mr-2"></i>
                                         {{ $catalog->name }}
                                     </div>

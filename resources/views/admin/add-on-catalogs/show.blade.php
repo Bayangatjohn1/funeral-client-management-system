@@ -16,7 +16,8 @@
         'message' => $catalog->is_active
             ? 'This add-on will not be available for new intake. Existing cases keep their saved details.'
             : 'This add-on will be available for new intake again.',
-        'affected' => collect(),
+        'affected' => $catalog->is_active ? $catalog->legacyPackageAddOns->pluck('package')->filter()->where('is_active', true)->unique('id') : collect(),
+        'reason' => 'Optional add-on reference only. Package eligibility is unchanged.',
         'url' => route('admin.add-on-catalogs.toggleActive', $catalog),
     ]];
 @endphp
@@ -26,25 +27,23 @@
 <section class="svc-detail">
     @include('admin.service-management.partials.status-feedback')
     <article class="svc-detail-card">
-        <header class="svc-detail-head">
-            <div>
-                <span class="svc-detail-kicker"><i class="bi bi-plus-circle" aria-hidden="true"></i> Add-on Details</span>
-                <h1>{{ $catalog->name }}</h1>
-                <p class="svc-detail-subtitle">{{ $catalog->category ?: 'General' }}</p>
-            </div>
-        </header>
+        @include('admin.service-management.partials.detail-header', ['detailTitle' => 'Add-on Service Details', 'detailRecord' => 'Catalog Record #' . $catalog->getKey(), 'detailName' => $catalog->name, 'detailActive' => $catalog->is_active, 'detailAvailable' => $catalog->is_available, 'detailPromo' => null, 'detailSubtitle' => $catalog->category ?: 'General'])
 
         <div class="svc-detail-overview">
             <span class="svc-detail-badge {{ $catalog->is_active ? 'is-active' : 'is-muted' }}">
                 <i class="bi bi-{{ $catalog->is_active ? 'check-circle' : 'archive' }}" aria-hidden="true"></i>
                 {{ $catalog->is_active ? 'Active' : 'Archived' }}
             </span>
-            <div class="svc-detail-overview-price"><span>Standard Price</span><strong>{{ $money($catalog->price) }}</strong></div>
+            <div class="svc-detail-overview-price"><span>Unit Price (PHP)</span><strong>{{ $money($catalog->price) }}</strong></div>
         </div>
 
         <div class="svc-detail-stat-grid">
+            @if($catalog->category === \App\Models\AddOnCatalog::CHAPEL_VIEWING)
+            <div class="svc-detail-stat"><span>Branch</span><strong>{{ $catalog->branch?->branch_name ?: 'Needs Setup' }}</strong></div>
+            <div class="svc-detail-stat"><span>Chapel Address</span><strong>{{ $catalog->chapel_address ?: 'Needs Setup' }}</strong></div>
+            @endif
             <div class="svc-detail-stat">
-                <span>Unit</span>
+                <span>Billing Unit</span>
                 <strong>{{ $catalog->unit ?: 'item' }}</strong>
             </div>
             <div class="svc-detail-stat">
@@ -62,20 +61,18 @@
             @endif
         </section>
 
-        <footer class="svc-detail-actions">
+        @unless(request()->boolean('modal'))
+<footer class="svc-detail-actions">
             @if($canManage)
-                <a class="svc-detail-primary" href="{{ $editUrl }}" data-service-modal-url="{{ $editUrl }}" data-service-modal-title="Edit Add-on">
-                    <i class="bi bi-pencil-square" aria-hidden="true"></i>
-                    Edit Add-on
-                </a>
+                <a class="svc-detail-secondary" href="{{ $editUrl }}" data-service-modal-url="{{ $editUrl }}" data-service-modal-title="Edit Add-on"><i class="bi bi-pencil" aria-hidden="true"></i> Edit Add-on</a>
+                @include('admin.service-management.partials.status-actions', ['canManage' => $canManage])
             @endif
-            @include('admin.service-management.partials.status-actions')
-            @if(request()->boolean('modal'))<button type="button" class="svc-detail-secondary" data-parent-modal-close>Close</button>@endif
             @unless(request()->boolean('modal'))<a class="svc-detail-secondary" href="{{ $returnTo }}" data-parent-modal-close>
                 <i class="bi bi-arrow-left" aria-hidden="true"></i>
                 Back to Service Management
             </a>@endunless
         </footer>
+@endunless
     </article>
 </section>
 @endsection

@@ -1,25 +1,4 @@
-<div class="reports-module-controls" aria-label="Report scope controls">
-            <label class="reports-module-control-wrap" for="reportsHeaderDatePreset">
-                <i class="bi bi-calendar3" aria-hidden="true"></i>
-                <select
-                    id="reportsHeaderDatePreset"
-                    class="reports-module-control"
-                    aria-label="Date range"
-                    x-model="datePreset"
-                    @change="changeReportDatePreset(datePreset)"
-                >
-                    <option value="">All Dates</option>
-                    <option value="TODAY">Today</option>
-                    <option value="THIS_WEEK">This Week</option>
-                    <option value="THIS_MONTH">This Month</option>
-                    <option value="THIS_QUARTER">This Quarter</option>
-                    <option value="FIRST_HALF">Semi-Annual — First Half</option>
-                    <option value="SECOND_HALF">Semi-Annual — Second Half</option>
-                    <option value="THIS_YEAR">This Year</option>
-                    <option value="CUSTOM">Custom Range</option>
-                </select>
-            </label>
-
+<div class="reports-module-controls" aria-label="Report scope controls" data-report-filter-controls>
             <label class="reports-module-control-wrap" for="reportsHeaderBranch" x-show="!isBranchAdmin" x-cloak>
                 <i class="bi bi-building" aria-hidden="true"></i>
                 <select
@@ -38,6 +17,29 @@
                     @endforeach
                 </select>
             </label>
+            <label class="reports-module-control-wrap" for="reportsHeaderDatePreset">
+                <i class="bi bi-calendar3" aria-hidden="true"></i>
+                <select
+                    id="reportsHeaderDatePreset"
+                    class="reports-module-control"
+                    aria-label="Date range"
+                    x-model="datePreset"
+                    @change="changeReportDatePreset($event.target.value)"
+                >
+                    <option value="">All Time</option>
+                    <option value="TODAY">Today</option>
+                    <option value="THIS_WEEK">This Week</option>
+                    <option value="THIS_MONTH">This Month</option>
+                    <option value="LAST_MONTH">Last Month</option>
+                    <option value="THIS_QUARTER">This Quarter</option>
+                    <option value="LAST_QUARTER">Last Quarter</option>
+                    <option value="THIS_YEAR">This Year</option>
+                    <option value="LAST_YEAR">Last Year</option>
+                    <option value="CUSTOM">Custom Range</option>
+                </select>
+            </label>
+
+
 
             <label class="reports-module-control-wrap" for="reportsHeaderPaymentStatus" x-show="shows('payment_status')" x-cloak>
                 <i class="bi bi-wallet2" aria-hidden="true"></i>

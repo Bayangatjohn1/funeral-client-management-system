@@ -59,6 +59,11 @@ class Client extends Model
         return $this->belongsTo(\App\Models\Branch::class);
     }
 
+    public function directoryCode(): string
+    {
+        return 'CL-' . str_pad((string) $this->getKey(), 3, '0', STR_PAD_LEFT);
+    }
+
     public function deceaseds()
     {
         return $this->hasMany(\App\Models\Deceased::class);

@@ -4,6 +4,9 @@
     $returnTo = old('return_to', request('return_to', route('admin.add-on-catalogs.index')));
     $categoryOptions = $categoryOptions ?? \App\Models\AddOnCatalog::CATEGORY_OPTIONS;
     $unitOptions = \App\Models\AddOnCatalog::UNIT_OPTIONS;
+    $selectedCategory = old('category', $catalog->category ?: 'General');
+    $defaultUnits = \App\Models\AddOnCatalog::DEFAULT_UNITS_BY_CATEGORY;
+    $selectedUnit = old('unit', $catalog->unit ?: ($defaultUnits[$selectedCategory] ?? 'item'));
 @endphp
 
 <style>
@@ -21,6 +24,20 @@
     .aoc-select-wrap { position:relative; }
     .aoc-select-wrap .form-select { cursor:pointer; appearance:none; background-image:none !important; padding-right:2.4rem; }
     .aoc-select-icon { position:absolute; right:.85rem; top:50%; transform:translateY(-50%); color:#5F685F; font-size:.9rem; pointer-events:none; }
+    .aoc-card:has(:is(#addon-category,#addon-unit)[aria-expanded='true']) { overflow:visible; position:relative; z-index:2; }
+    .aoc-select-wrap:has(:is(#addon-category,#addon-unit)[aria-expanded='true']) { z-index:20; }
+    #addon-unit + .aoc-select-icon { z-index:1; }
+    #addon-unit-preview { margin-top:7px; color:var(--ink-muted); font-size:.82rem; line-height:1.35; }
+    #addon-unit[aria-expanded='true'] ~ .filter-select-menu { max-height:min(240px, 45vh); overflow-y:auto; overscroll-behavior:contain; }
+    #addon-unit[aria-expanded='true'] ~ .filter-select-menu .filter-select-menu__item { min-height:42px; padding:10px 12px; gap:10px; }
+    #addon-unit[aria-expanded='true'] ~ .filter-select-menu .filter-select-menu__item > span { flex:1; text-align:left; }
+    #addon-unit[aria-expanded='true'] ~ .filter-select-menu .filter-select-menu__check { visibility:hidden; width:18px; flex:0 0 18px; text-align:right; }
+    #addon-unit[aria-expanded='true'] ~ .filter-select-menu .filter-select-menu__item.is-selected .filter-select-menu__check,
+    #addon-unit[aria-expanded='true'] ~ .filter-select-menu .filter-select-menu__item[aria-selected='true'] .filter-select-menu__check { visibility:visible; }
+    #addon-category ~ .filter-select-menu .filter-select-menu__item { display:flex;align-items:center;justify-content:flex-start;gap:10px;min-height:42px;padding:10px 12px; }
+    #addon-category ~ .filter-select-menu .filter-select-menu__item > .bi:not(.filter-select-menu__check) { flex:0 0 18px;width:18px;text-align:center; }
+    #addon-category ~ .filter-select-menu .filter-select-menu__item > span { flex:1;min-width:0;text-align:start; }
+    #addon-category ~ .filter-select-menu .filter-select-menu__check { flex:0 0 18px;margin-inline-start:auto; }
     .aoc-money { display:flex; align-items:center; border:1px solid #C9C5BB; border-radius:7px; background:#fff; overflow:hidden; }
     .aoc-money span { padding-left:12px; font-weight:950; color:#5F685F; }
     .aoc-money .form-input { border:0; border-radius:0; }
@@ -77,7 +94,7 @@
 </style>
 
 @include('admin.service-management.partials.catalog-form-ui')
-<form method="POST" action="{{ $action }}" class="aoc-form mx-auto">
+<form method="POST" action="{{ $action }}" class="aoc-form mx-auto" enctype="multipart/form-data">
     @csrf
     @if($isEdit)
         @method('PUT')
@@ -87,22 +104,22 @@
     <section class="aoc-card">
         <div class="aoc-head">
             <div class="aoc-title"><i class="bi bi-plus-circle"></i> {{ $isEdit ? 'Edit Add-on' : 'Add Add-on' }}</div>
-            <p class="aoc-copy">Reusable optional add-ons for future intake selection. These are not package inclusions, freebies, casket upgrades, excess kilometer charges, or extended-day charges.</p>
+            <p class="aoc-copy">Configure catalog services for optional extras or package inclusions. Chapel Viewing identifies a physical chapel and its daily rate.</p>
             <div class="aoc-note"><i class="bi bi-info-circle"></i><span>New add-ons are automatically available. Archive an add-on to hide it from future selections while keeping historical package and case records intact.</span></div>
         </div>
         <div class="aoc-body">
             <div class="aoc-grid">
                 <div>
-                    <label class="aoc-label" for="addon-name">Add-on Name <span aria-hidden="true">*</span></label>
-                    <input id="addon-name" type="text" name="name" value="{{ old('name', $catalog->name) }}" class="form-input" required maxlength="150" pattern="[A-Za-zÀ-ž][A-Za-zÀ-ž\s,'()/&-]*" title="Use letters and normal separators only. Numbers and unnecessary symbols are not allowed." placeholder="e.g. Extra flower arrangement">
+                    <label class="aoc-label" for="addon-name"><span data-chapel-name-label>Add-on Name</span> <span aria-hidden="true">*</span></label>
+                    <input id="addon-name" type="text" name="name" value="{{ old('name', $catalog->name) }}" class="form-input" required maxlength="150" pattern="[A-Za-zÀ-ž][A-Za-zÀ-ž\s,'()/&-]*" title="Use letters and normal separators only. Numbers and unnecessary symbols are not allowed." placeholder="e.g. Extra flower arrangement" data-text-case="words" autocapitalize="words" autocorrect="off" spellcheck="false">
                     @error('name') <div class="form-error">{{ $message }}</div> @enderror
                 </div>
                 <div>
-                    <label class="aoc-label" for="addon-category">Add-on Type <span aria-hidden="true">*</span></label>
+                    <label class="aoc-label" for="addon-category">Category <span aria-hidden="true">*</span></label>
                     <div class="aoc-select-wrap">
                         <select id="addon-category" name="category" class="form-select" required>
                             @foreach($categoryOptions as $category)
-                                <option value="{{ $category }}" @selected(old('category', $catalog->category ?: 'General') === $category)>{{ $category }}</option>
+                                <option value="{{ $category }}" data-default-unit="{{ $defaultUnits[$category] ?? 'item' }}" @selected($selectedCategory === $category)>{{ $category }}</option>
                             @endforeach
                         </select>
                         <i class="bi bi-chevron-down aoc-select-icon" aria-hidden="true"></i>
@@ -111,35 +128,79 @@
                 </div>
             </div>
 
+            <div class="aoc-grid" data-chapel-config hidden>
+                <div>
+                    <label class="aoc-label" for="addon-branch">Branch *</label>
+                    <select class="form-select" name="branch_id" id="addon-branch">
+                        <option value="">Select branch</option>
+                        @foreach(\App\Models\Branch::where('is_active', true)->orderBy('branch_name')->get() as $chapelBranch)
+                        <option value="{{ $chapelBranch->id }}" @selected((string) old('branch_id', $catalog->branch_id) === (string) $chapelBranch->id)>{{ $chapelBranch->branch_name }}</option>
+                        @endforeach
+                    </select>
+                    @error('branch_id') <p class="form-error">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="aoc-label" for="addon-chapel-address">Chapel Address *</label>
+                    <input id="addon-chapel-address" class="form-input" name="chapel_address" maxlength="255" value="{{ old('chapel_address', $catalog->chapel_address) }}" placeholder="e.g., 24 Mabini St., Quezon City">
+                    @error('chapel_address') <p class="form-error">{{ $message }}</p> @enderror
+                </div>
+            </div>
             <div class="aoc-grid">
                 <div>
-                    <label class="aoc-label" for="addon-price">Standard Price <span aria-hidden="true">*</span></label>
-                    <div class="aoc-money"><span>&#8369;</span><input id="addon-price" type="number" step="0.01" min="0" inputmode="decimal" name="price" value="{{ old('price', $isEdit ? $catalog->price : '') }}" class="form-input" required placeholder="0.00"></div>
+                    <label class="aoc-label" for="addon-price">Unit Price (PHP) <span aria-hidden="true">*</span></label>
+                    <div class="aoc-money"><span>&#8369;</span><input id="addon-price" data-addon-unit-price max="9999999999.99" type="number" step="0.01" min="0" inputmode="decimal" name="price" value="{{ old('price', $isEdit ? $catalog->price : '') }}" class="form-input" required placeholder="0.00"></div>
                     @error('price') <div class="form-error">{{ $message }}</div> @enderror
                 </div>
                 <div>
-                    <label class="aoc-label" for="addon-unit">Unit <span aria-hidden="true">*</span></label>
+                    <label class="aoc-label" for="addon-unit">Billing Unit <span aria-hidden="true">*</span></label>
                     <div class="aoc-select-wrap">
-                        <select id="addon-unit" name="unit" class="form-select" required>
+                        <select id="addon-unit" data-addon-billing-unit name="unit" class="form-select" required data-plain-options data-no-leading-filter-icon>
                             @foreach($unitOptions as $unit)
-                                <option value="{{ $unit }}" @selected(old('unit', $catalog->unit ?: 'item') === $unit)>{{ ucfirst($unit) }}</option>
+                                <option value="{{ $unit }}" @selected($selectedUnit === $unit) @disabled($selectedCategory === \App\Models\AddOnCatalog::CHAPEL_VIEWING && $unit !== 'day')>{{ ucfirst($unit) }}</option>
                             @endforeach
                         </select>
                         <i class="bi bi-chevron-down aoc-select-icon" aria-hidden="true"></i>
                     </div>
                     @error('unit') <div class="form-error">{{ $message }}</div> @enderror
+                    <div id="addon-unit-preview" data-addon-price-preview aria-live="polite">Enter the unit price and select a billing unit to preview.</div>
                 </div>
             </div>
 
             <div>
                 <label class="aoc-label" for="addon-description">Description</label>
-                <textarea id="addon-description" name="description" rows="3" class="form-input" maxlength="500" placeholder="Optional staff-facing details.">{{ old('description', $catalog->description) }}</textarea>
+                <textarea id="addon-description" name="description" rows="3" class="form-input" maxlength="500" placeholder="Optional staff-facing details." data-text-case="sentences" autocapitalize="sentences" autocorrect="on" spellcheck="true">{{ old('description', $catalog->description) }}</textarea>
                 @error('description') <div class="form-error">{{ $message }}</div> @enderror
             </div>
         </div>
+        @include('admin.service-management.partials.photo-field')
         <div class="aoc-actions">
             <a href="{{ $returnTo }}" class="aoc-secondary" data-service-form-cancel><i class="bi bi-x-circle"></i> Cancel</a>
             <button class="aoc-primary"><i class="bi bi-check2-circle"></i> {{ $isEdit ? 'Save Changes' : 'Save Add-on' }}</button>
         </div>
     </section>
 </form>
+<style>.aoc-form [data-chapel-config][hidden],.aoc-form [data-chapel-unit-readout][hidden],.aoc-form .aoc-select-wrap[hidden]{display:none!important}.aoc-form [data-chapel-config]{grid-template-columns:repeat(2,minmax(0,1fr))}@media(max-width:720px){.aoc-form [data-chapel-config]{grid-template-columns:1fr}}</style>
+<script>
+(() => {
+    const form = document.getElementById('addon-category')?.form;
+    if (!form) return;
+    const category = form.querySelector('#addon-category');
+    const sync = () => {
+        const chapel = category.value === 'Chapel Viewing';
+        form.querySelector('[data-chapel-config]').hidden = !chapel;
+        form.querySelectorAll('[data-chapel-config] input,[data-chapel-config] select').forEach(field => { field.disabled = !chapel; field.required = chapel; });
+        form.querySelector('[data-chapel-name-label]').textContent = chapel ? 'Chapel Name' : 'Add-on Name';
+        form.querySelector('#addon-name').pattern = chapel ? String.raw`[A-Za-zÀ-ž][A-Za-zÀ-ž0-9\s,'()/&-]*` : String.raw`[A-Za-zÀ-ž][A-Za-zÀ-ž\s,'()/&-]*`;
+        const unit = form.querySelector('#addon-unit');
+        if (chapel) unit.value = 'day';
+        [...unit.options].forEach(option => option.disabled = chapel && option.value !== 'day');
+        const wrap = unit.closest('.aoc-select-wrap');
+        wrap.hidden = chapel;
+        let readout = form.querySelector('[data-chapel-unit-readout]');
+        if (!readout) { readout = document.createElement('p'); readout.dataset.chapelUnitReadout='';readout.className='form-input';readout.textContent='Day';readout.setAttribute('aria-label','Billing unit: Day, read-only');wrap.after(readout); }
+        readout.hidden = !chapel;
+    };
+    category.addEventListener('change', sync);
+    sync();
+})();
+</script>

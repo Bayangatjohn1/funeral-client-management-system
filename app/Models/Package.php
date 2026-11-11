@@ -20,6 +20,8 @@ class Package extends Model
         'promo_starts_at',
         'promo_ends_at',
         'promo_is_active',
+        'promo_manually_stopped_at',
+        'promo_manually_stopped_by',
         'is_active',
     ];
 
@@ -29,6 +31,7 @@ class Package extends Model
         'promo_starts_at' => 'datetime',
         'promo_ends_at' => 'datetime',
         'promo_is_active' => 'boolean',
+        'promo_manually_stopped_at' => 'datetime',
         'is_active' => 'boolean',
     ];
 
@@ -68,6 +71,20 @@ class Package extends Model
         ];
     }
 
+    public static function isBasicServiceType(?string $value): bool
+    {
+        $type = self::normalizeServiceType($value);
+
+        return $type !== self::SERVICE_CUSTOM && isset(self::serviceTypeOptions()[$type]);
+    }
+
+    public static function isLegacyBasicInclusion(string $label): bool
+    {
+        $name = preg_split('/\s*[:(]|\s+[-–—]\s+/u', trim($label), 2)[0];
+
+        return self::isBasicServiceType($name) || in_array(mb_strtolower($name), ['regular hearse', 'casket / coffin'], true);
+    }
+
     /**
      * Canonical package_name accessor — wraps the legacy name column.
      * Allows new code to reference $package->package_name uniformly.
@@ -89,6 +106,31 @@ class Package extends Model
     public function packageInclusions()
     {
         return $this->hasMany(\App\Models\PackageInclusion::class)->with('casketCatalog')->orderBy('sort_order');
+    }
+
+    public function addOnAllowanceFingerprint(): string
+    {
+        $quantities = $this->packageInclusions->whereNotNull('add_on_catalog_id')
+            ->pluck('included_quantity', 'add_on_catalog_id')->sortKeys()->all();
+
+        return hash_hmac('sha256', json_encode([$this->getKey(), $quantities], JSON_THROW_ON_ERROR), config('app.key'));
+    }
+
+    public function intakeConfigurationFingerprint(): string
+    {
+        $this->loadMissing(['packageInclusions.casketCatalog', 'packageInclusions.hearseCatalog', 'packageFreebies.catalog']);
+        $inclusions = $this->packageInclusions->sortBy('id')->map(fn ($item) => [
+            $item->getAttributes(),
+            $item->casketCatalog?->only(['name', 'type_or_material', 'standard_price', 'is_active', 'is_available']),
+            $item->hearseCatalog?->only(['name', 'reference_value', 'is_active', 'is_available']),
+        ])->values()->all();
+        $freebies = $this->packageFreebies->sortBy('id')->map(fn ($item) => [
+            $item->getAttributes(), $item->catalog?->only(['name', 'default_unit', 'is_active', 'is_available']),
+        ])->values()->all();
+
+        return hash_hmac('sha256', json_encode([
+            $this->only(['id', 'name', 'price', 'coffin_type', 'inclusions', 'freebies']), $inclusions, $freebies,
+        ], JSON_THROW_ON_ERROR), config('app.key'));
     }
 
     public function inclusions()
@@ -114,6 +156,11 @@ class Package extends Model
         return $this->hasMany(\App\Models\PackageAddOn::class)->orderBy('id');
     }
 
+    public function promotion()
+    {
+        return $this->hasOne(\App\Models\Promotion::class);
+    }
+
     public function activeAddOns()
     {
         return $this->packageAddOns()->where('is_active', true);
@@ -122,6 +169,18 @@ class Package extends Model
     public function inclusionNames(): array
     {
         return $this->normalizedItemNames('packageInclusions', 'inclusion_name', $this->attributes['inclusions'] ?? null);
+    }
+
+    /**
+     * These generic labels were seeded into the legacy inclusions text as
+     * package descriptions, not as individual services. Keep the stored value
+     * for compatibility, but omit it from service summaries and detail lists.
+     */
+    public static function isLegacyPackageDescription(?string $value): bool
+    {
+        $normalized = mb_strtolower(rtrim(trim((string) $value), '.'));
+
+        return in_array($normalized, ['full service package', 'standard service package'], true);
     }
 
     public function freebieNames(): array
@@ -177,64 +236,104 @@ class Package extends Model
      * the configured start/end window. Use this everywhere the UI or logic
      * needs to know whether a promo is actually live right now.
      */
+    public function promotionStatusAt(?\Carbon\CarbonInterface $referenceAt = null): string
+    {
+        $promotion = $this->relationLoaded('promotion') ? $this->getRelation('promotion') : $this->promotion()->first();
+        if ($promotion) return $promotion->statusAt($referenceAt, $this);
+        $hasLegacyPromotionData = filled($this->promo_label)
+            || filled($this->promo_value_type)
+            || $this->promo_value !== null
+            || $this->promo_starts_at !== null
+            || $this->promo_ends_at !== null
+            || $this->promo_manually_stopped_at !== null;
+        if (! $hasLegacyPromotionData) {
+            return 'No Promotion';
+        }
+        if ($this->legacyPromotionReviewFields() !== []) {
+            return 'Incomplete Setup';
+        }
+        $now = ($referenceAt ?? now('Asia/Manila'))->copy()->timezone('Asia/Manila');
+        $startsAt = $this->promo_starts_at?->copy()->timezone('Asia/Manila')->startOfDay();
+        $endsAt = $this->promo_ends_at?->copy()->timezone('Asia/Manila')->endOfDay();
+        if ($endsAt && $now->gt($endsAt)) {
+            return 'Expired';
+        }
+        if ($this->promo_manually_stopped_at) {
+            return 'Turned Off';
+        }
+        // An old false toggle does not establish who disabled it or why.
+        // Only the recorded stop event is reliable evidence of manual action.
+        if (! $this->promo_is_active) {
+            return 'Incomplete Setup';
+        }
+        if ($startsAt && $now->lt($startsAt)) {
+            return 'Scheduled';
+        }
+        return 'Active';
+    }
+
+    /** @return list<string> Human-readable fields requiring legacy promotion review. */
+    public function legacyPromotionReviewFields(): array
+    {
+        $issues = [];
+        if (blank($this->promo_label)) $issues[] = 'Promotion Name';
+        $type = strtoupper((string) $this->promo_value_type);
+        if (! in_array($type, ['AMOUNT', 'PERCENT'], true)) $issues[] = 'Discount Type';
+        if (! is_numeric($this->promo_value) || (float) $this->promo_value <= 0) {
+            $issues[] = 'Discount Value';
+        } elseif ($type === 'PERCENT' && (float) $this->promo_value > 100) {
+            $issues[] = 'Discount Value';
+        } elseif ($type === 'AMOUNT' && (float) $this->promo_value > (float) $this->price) {
+            $issues[] = 'Discount Value';
+        }
+        if ($this->promo_starts_at && $this->promo_ends_at && $this->promo_ends_at->lt($this->promo_starts_at)) {
+            $issues[] = 'End Date';
+        }
+        if (! $this->promo_is_active && ! $this->promo_manually_stopped_at) {
+            $issues[] = 'Promotion Status';
+        }
+
+        return array_values(array_unique($issues));
+    }
+
+    public function hasConfiguredPromotion(): bool
+    {
+        return filled($this->promo_label)
+            && in_array($this->promo_value_type, ['PERCENT', 'AMOUNT'], true)
+            && (float) $this->promo_value > 0;
+    }
+
+    public function promotionStoppedBy()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'promo_manually_stopped_by');
+    }
+
+    public function isPromoEffectiveAt(?\Carbon\CarbonInterface $referenceAt = null): bool
+    {
+        $promotion = $this->relationLoaded('promotion') ? $this->getRelation('promotion') : $this->promotion()->first();
+        if ($promotion) return $promotion->isEffectiveAt($referenceAt, $this);
+        return $this->promotionStatusAt($referenceAt) === 'Active'
+            && filled($this->promo_value_type) && (float) $this->promo_value > 0;
+    }
+
     public function getIsPromoEffectiveAttribute(): bool
     {
-        if (!$this->promo_is_active || !$this->promo_value_type || !$this->promo_value) {
-            return false;
-        }
-
-        $now = now();
-
-        if ($this->promo_starts_at && $now->lt($this->promo_starts_at)) {
-            return false;
-        }
-
-        if ($this->promo_ends_at && $now->gt($this->promo_ends_at)) {
-            return false;
-        }
-
-        return true;
+        return $this->isPromoEffectiveAt();
     }
 
-    /**
-     * Promo toggle is ON but the end date has already passed — effectively expired.
-     */
     public function getIsPromoExpiredAttribute(): bool
     {
-        return $this->promo_is_active
-            && $this->promo_ends_at !== null
-            && now()->gt($this->promo_ends_at);
+        return $this->promo_status === 'Expired';
     }
 
-    /**
-     * Promo toggle is ON but the start date hasn't arrived yet — scheduled/pending.
-     */
     public function getIsPromoScheduledAttribute(): bool
     {
-        return $this->promo_is_active
-            && $this->promo_starts_at !== null
-            && now()->lt($this->promo_starts_at);
+        return $this->promo_status === 'Scheduled';
     }
 
     public function getPromoStatusAttribute(): string
     {
-        if (! $this->promo_is_active || ! $this->promo_value_type || ! $this->promo_value) {
-            return 'Inactive';
-        }
-
-        $now = now('Asia/Manila');
-        $startsAt = $this->promo_starts_at?->copy()->timezone('Asia/Manila');
-        $endsAt = $this->promo_ends_at?->copy()->timezone('Asia/Manila');
-
-        if ($startsAt && $now->lt($startsAt)) {
-            return 'Scheduled';
-        }
-
-        if ($endsAt && $now->gt($endsAt)) {
-            return 'Expired';
-        }
-
-        return 'Active';
+        return $this->promotionStatusAt();
     }
 
     public function funeralCases()

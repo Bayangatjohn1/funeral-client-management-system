@@ -80,7 +80,7 @@ class FuneralServiceTimelineTest extends TestCase
             'wake_end_time' => '08:00',
             'funeral_service_at' => $date,
             'funeral_service_time' => '09:00',
-        ]))->assertSessionHasErrors('wake_end_date');
+        ]))->assertSessionHasErrors('wake_end_time');
     }
 
     public function test_wake_end_may_equal_funeral_ceremony_but_interment_must_be_later(): void
@@ -112,7 +112,7 @@ class FuneralServiceTimelineTest extends TestCase
         ]);
 
         $this->actingAs($staff)->from('/intake/main')->post('/intake/main', $invalid)
-            ->assertSessionHasErrors('interment_at');
+            ->assertSessionHasErrors('interment_time');
     }
 
     private function createBranch(string $code, string $name): Branch

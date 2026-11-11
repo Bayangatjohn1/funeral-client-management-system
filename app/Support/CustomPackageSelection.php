@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\CasketCatalog;
 use App\Models\FreebieCatalog;
+use App\Models\CustomPackageDefault;
 use App\Models\Package;
 use Illuminate\Validation\ValidationException;
 
@@ -11,7 +12,15 @@ class CustomPackageSelection
 {
     public function resolve(array $input): array
     {
+        // Defaults are authoritative for new cases; saved snapshots remain unchanged.
+        $defaults = CustomPackageDefault::find(1);
+        $coverage = $defaults?->coverage() ?? [];
+        $rates = $defaults?->rates() ?? [];
+        $charges = [];
         $types = array_values(array_unique($input['custom_service_types'] ?? []));
+        if (($input['viewing_type'] ?? null) === 'chapel') {
+            $types = array_values(array_diff($types, [Package::SERVICE_HOME_VIEWING]));
+        }
         $other = array_values(array_filter(array_map('trim', preg_split('/[\r\n]+/u', (string) ($input['custom_other_inclusions'] ?? '')) ?: [])));
         if (collect($other)->contains(fn ($description) => mb_strlen($description) > 150)) {
             throw ValidationException::withMessages(['custom_other_inclusions' => 'Keep each other inclusion under 150 characters.']);
@@ -24,19 +33,27 @@ class CustomPackageSelection
         $includedCasket = null;
         foreach ($types as $type) {
             $row = ['service_type' => $type, 'name' => Package::serviceTypeOptions()[$type]];
-            if (in_array($type, [Package::SERVICE_BODY_RETRIEVAL, Package::SERVICE_HEARSE], true)) {
-                // Preserve older saved coverage without requiring it for new arrangements.
-                if (($distance = (float) ($input['custom_service_coverage'][$type] ?? 0)) > 0) {
-                    $row['included_kilometers'] = $distance;
-                }
-                $row['price_per_excess_kilometer'] = 0;
-            } elseif (in_array($type, [Package::SERVICE_EMBALMING, Package::SERVICE_HOME_VIEWING], true)) {
-                $days = (int) ($input['custom_service_coverage'][$type] ?? 0);
-                if ($days <= 0) {
+            if (isset(CustomPackageDefault::SERVICE_FIELDS[$type])) {
+                $days = CustomPackageDefault::SERVICE_FIELDS[$type][2] === 'days';
+                $included = $input['custom_included'][$type] ?? $coverage[$type] ?? null;
+                $requested = $input['custom_requested'][$type] ?? null;
+                $rate = $rates[$type] ?? null;
+                if ($days && ($included === null || $included < 1 || floor((float) $included) !== (float) $included)) {
                     throw ValidationException::withMessages(["custom_service_coverage.$type" => 'Enter the number of included days.']);
                 }
-                $row['included_days'] = $days;
-                $row['price_per_extended_day'] = 0;
+                if ($days && $requested !== null && floor((float) $requested) !== (float) $requested) {
+                    throw ValidationException::withMessages(["custom_requested.$type" => 'Enter a whole number of requested days.']);
+                }
+                if ($included !== null) $row[$days ? 'included_days' : 'included_kilometers'] = $days ? (int) $included : (float) $included;
+                $row[$days ? 'price_per_extended_day' : 'price_per_excess_kilometer'] = $rate === null ? null : (float) $rate;
+                $row['requested_quantity'] = $requested === null ? null : (float) $requested;
+                $excess = $included === null || $requested === null ? 0 : round(max(0, $requested - $included), 2);
+                $amount = round($excess * (float) $rate, 2);
+                if ($amount > 0) {
+                    $charges[] = ['type' => $type, 'label' => $row['name'].($days ? ' extension' : ' excess distance'),
+                        'included' => (float) $included, 'actual' => (float) $requested, 'excess' => $excess,
+                        'rate' => (float) $rate, 'amount' => $amount];
+                }
             } elseif ($type === Package::SERVICE_CASKET) {
                 $casket = CasketCatalog::whereKey((int) ($input['custom_casket_catalog_id'] ?? 0))
                     ->where('is_active', true)->where('is_available', true)->first();
@@ -61,7 +78,7 @@ class CustomPackageSelection
         }
 
         $freebieIds = array_values(array_unique(array_map('intval', $input['custom_freebie_catalog_ids'] ?? [])));
-        $freebies = FreebieCatalog::whereIn('id', $freebieIds)->where('is_active', true)->get()->keyBy('id');
+        $freebies = FreebieCatalog::whereIn('id', $freebieIds)->where('is_active', true)->where('is_available', true)->get()->keyBy('id');
         if ($freebies->count() !== count($freebieIds)) {
             throw ValidationException::withMessages(['custom_freebie_catalog_ids' => 'A selected freebie is no longer active. Choose again.']);
         }
@@ -73,6 +90,7 @@ class CustomPackageSelection
         ], $freebieIds);
 
         return [
+            'charges' => $charges,
             'inclusions' => $rows,
             'freebies' => $freebieRows,
             'included_casket' => $includedCasket,

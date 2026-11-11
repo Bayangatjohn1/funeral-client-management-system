@@ -8,6 +8,7 @@ use App\Models\Deceased;
 use App\Models\FuneralCase;
 use App\Models\Payment;
 use App\Models\User;
+use App\Models\UserNotificationState;
 use App\Services\ReminderService;
 use App\Support\TopbarNotificationBuilder;
 use Carbon\Carbon;
@@ -185,6 +186,68 @@ class StaffDashboardReminderTest extends TestCase
             ->assertViewHas('upcomingSchedule', fn ($items) => $items->where('case_id', $twoEvents->id)->count() === 2
                 && $items->contains(fn ($item) => $item['case_id'] === $completedPaid->id
                     && $item['type'] === 'upcoming_interment'));
+    }
+
+    public function test_branch_schedule_drawer_expands_the_wake_dates_between_milestones(): void
+    {
+        $this->travelTo(Carbon::parse('2026-09-26 10:00:00'));
+        $branch = $this->branch();
+        $case = $this->case($branch, [
+            'wake_start_date' => '2026-09-25',
+            'wake_start_time' => '08:00:00',
+            'wake_end_date' => '2026-09-28',
+            'wake_end_time' => '10:00:00',
+            'funeral_service_at' => '2026-09-28',
+            'funeral_service_time' => '11:00:00',
+        ]);
+        $sameDay = $this->case($branch, [
+            'wake_start_date' => '2026-09-26',
+            'wake_start_time' => '08:00:00',
+            'wake_end_date' => '2026-09-26',
+            'wake_end_time' => '18:00:00',
+        ]);
+        $admin = User::factory()->create(['role' => 'admin', 'admin_scope' => 'branch', 'branch_id' => $branch->id, 'is_active' => true]);
+
+        $response = $this->actingAs($admin)->get('/admin')->assertOk()
+            ->assertSee('data-wake-date="2026-09-26" data-wake-progress="Day 2 of 4"', false);
+        $timeline = str($response->getContent())->after('<template id="branch-schedule-'.$case->id.'">')->before('</template>');
+        $singleDayTimeline = str($response->getContent())->after('<template id="branch-schedule-'.$sameDay->id.'">')->before('</template>');
+        $this->assertMatchesRegularExpression('/Wake Start.*Wake Day 2.*2026-09-26.*Wake Day 3.*2026-09-27.*Wake End.*Funeral Ceremony.*Interment/s', (string) $timeline);
+        $this->assertStringContainsString('4 wake days · 3 nights', (string) $timeline);
+        $this->assertStringContainsString('1 wake day · 0 nights', (string) $singleDayTimeline);
+        $this->assertStringNotContainsString('Wake Day 2', (string) $singleDayTimeline);
+    }
+
+    public function test_branch_balance_drawer_shows_latest_valid_payment_and_interment_context(): void
+    {
+        $this->travelTo(Carbon::parse('2026-09-26 10:00:00'));
+        $branch = $this->branch();
+        $case = $this->case($branch, [
+            'payment_status' => 'PARTIAL', 'total_paid' => 5250, 'balance_amount' => 4750,
+            'interment_at' => '2026-09-25', 'interment_time' => '09:00:00',
+        ]);
+        $this->case($branch, ['interment_at' => null]);
+        $payments = [
+            ['amount' => 2000, 'paid_at' => '2026-09-22 12:00:00', 'status' => 'POSTED'],
+            ['amount' => 3250, 'paid_date' => '2026-09-24', 'status' => 'VALID'],
+            ['amount' => 9000, 'paid_at' => '2026-09-25 12:00:00', 'status' => 'VOIDED'],
+        ];
+        foreach ($payments as $index => $payment) {
+            Payment::create($payment + [
+                'funeral_case_id' => $case->id, 'branch_id' => $branch->id,
+                'payment_record_no' => 'PAY-BALANCE-'.($index + 1), 'payment_method' => 'cash',
+            ]);
+        }
+        $admin = User::factory()->create(['role' => 'admin', 'admin_scope' => 'branch', 'branch_id' => $branch->id, 'is_active' => true]);
+
+        $this->actingAs($admin)->get('/admin')->assertOk()
+            ->assertViewHas('lastBalancePayments', fn ($latest) => $latest->count() === 1 && $latest->get($case->id)->amount === '3250.00')
+            ->assertSee('Partially Paid')
+            ->assertSee('PHP 3,250.00')
+            ->assertSee('Sep 24, 2026')
+            ->assertSee('Balance after scheduled interment')
+            ->assertSee('No payments recorded')
+            ->assertSee('Date not set');
     }
 
     public function test_needs_attention_uses_clear_payment_and_schedule_descriptions(): void
@@ -597,6 +660,140 @@ class StaffDashboardReminderTest extends TestCase
         $this->get(route('staff.reminders.index', array_merge($query, ['schedule_q' => 'unknown'])))
             ->assertOk()->assertSee('No matching upcoming cases')->assertViewHas('upcomingCases', fn ($cases) => $cases->isEmpty());
         $this->get(route('staff.reminders.index', ['schedule_q' => str_repeat('x', 121)]))->assertSessionHasErrors('schedule_q');
+    }
+
+    public function test_dashboard_paginates_balances_and_counts_all_past_interments_with_balance(): void
+    {
+        Carbon::setTestNow('2026-10-10 10:00:00');
+        $branch = $this->branch();
+        $staff = User::factory()->create(['role' => 'staff', 'branch_id' => $branch->id, 'is_active' => true]);
+        $past = $this->case($branch, ['case_code' => 'OVERDUE-BALANCE', 'case_status' => 'COMPLETED']);
+        foreach (range(1, 8) as $number) {
+            $this->case($branch, ['case_code' => 'OVERDUE-'.$number]);
+        }
+        $wake = $this->case($branch, [
+            'case_code' => 'IN-WAKE', 'wake_start_date' => '2026-10-09', 'wake_end_date' => '2026-10-11',
+            'interment_at' => '2026-10-11 09:00:00',
+        ]);
+        $other = Branch::create(['branch_code' => 'BR002', 'branch_name' => 'Other', 'is_active' => true]);
+        $this->case($other, ['case_code' => 'OTHER-BRANCH-BALANCE']);
+
+        $this->actingAs($staff)->get('/staff')->assertOk()
+            ->assertViewHas('unpaidCases', fn ($page) => $page->count() === 5 && $page->total() === 10)
+            ->assertViewHas('attentionReminders', fn ($items) => $items->count() === 9 && !$items->contains('case_id', $wake->id))
+            ->assertSeeInOrder(['Deceased Name', 'Case ID', 'Case Status', 'Balance', 'Action'])
+            ->assertSee('class="staff-balance-status" data-case-status="ACTIVE">Active', false)
+            ->assertDontSee('staff-balance-stage', false)
+            ->assertSee('Showing 1–5 of 10 cases')->assertSee('9 Cases')
+            ->assertDontSee('OTHER-BRANCH-BALANCE');
+
+        $this->get('/staff?balances_page=2')->assertOk()
+            ->assertViewHas('unpaidCases', fn ($page) => $page->getCollection()->contains('id', $past->id))
+            ->assertSee('class="staff-balance-status" data-case-status="COMPLETED">Completed', false)
+            ->assertSee('Showing 6–10 of 10 cases');
+
+        $this->get('/staff?balances_page=2', ['X-Staff-Dashboard-Fragment' => 'balances'])->assertOk()
+            ->assertHeader('X-Staff-Dashboard-Fragment', 'balances')
+            ->assertViewIs('staff.partials.dashboard-outstanding-balances')
+            ->assertSee('Showing 6–10 of 10 cases')
+            ->assertDontSee('Needs Attention')
+            ->assertDontSee('OTHER-BRANCH-BALANCE');
+
+        $past->update(['payment_status' => 'PAID', 'total_paid' => 10000, 'balance_amount' => 0]);
+        $this->get('/staff?balances_page=2')->assertOk()
+            ->assertViewHas('attentionReminders', fn ($items) => $items->count() === 8)
+            ->assertViewHas('unpaidCases', fn ($page) => !$page->getCollection()->contains('id', $past->id))
+            ->assertSee('Showing 6–9 of 9 cases')->assertDontSee('Record Payment for OVERDUE-BALANCE');
+    }
+
+    public function test_dashboard_payment_suggestions_only_offer_recordable_branch_cases(): void
+    {
+        $branch = $this->branch();
+        $other = Branch::create(['branch_code' => 'BR002', 'branch_name' => 'Other', 'is_active' => true]);
+        $staff = User::factory()->create(['role' => 'staff', 'branch_id' => $branch->id, 'is_active' => true]);
+        $case = $this->case($branch, ['case_code' => 'FAST-10023', 'payment_status' => 'PARTIAL', 'total_paid' => 2500, 'balance_amount' => 7500]);
+        $case->client->update(['first_name' => 'Juan', 'middle_name' => null, 'last_name' => 'Dela Cruz']);
+        $case->deceased->update(['first_name' => 'Ana', 'middle_name' => null, 'last_name' => 'Santos']);
+        $this->case($branch, ['case_code' => 'FAST-PAID', 'payment_status' => 'PAID', 'total_paid' => 10000, 'balance_amount' => 0]);
+        $this->case($branch, ['case_code' => 'FAST-EXTERNAL', 'entry_source' => 'OTHER_BRANCH']);
+        $this->case($other, ['case_code' => 'FAST-PRIVATE']);
+
+        $this->actingAs($staff);
+        $target = route('payments.history', ['case_id' => $case->id, 'record_payment' => 1, 'dashboard_search' => 1]);
+        foreach (['fast', '10023', 'dela cruz', 'santos'] as $term) {
+            $this->getJson(route('payments.recordable-cases', ['q' => $term]))
+                ->assertOk()->assertExactJson([[
+                    'caseCode' => 'FAST-10023',
+                    'client' => 'Juan Dela Cruz',
+                    'deceased' => 'Ana Santos',
+                    'url' => $target,
+                ]]);
+        }
+        $this->getJson(route('payments.recordable-cases', ['q' => '%%']))->assertOk()->assertExactJson([]);
+        $this->get($target)->assertOk()
+            ->assertViewHas('autoOpenPayment', true)
+            ->assertViewHas('fromDashboardSearch', true)
+            ->assertViewHas('preselectCase', fn (FuneralCase $selected) => $selected->is($case))
+            ->assertSee('id="pf_selected_deceased"', false)
+            ->assertSee('data-balance="7500.00"', false)
+            ->assertSee('data-deceased="Ana Santos"', false);
+
+        $case->update(['payment_status' => 'PAID', 'total_paid' => 10000, 'balance_amount' => 0]);
+        $this->get($target)->assertRedirect(route('payments.history'))->assertSessionHas('warning');
+
+        $admin = User::factory()->create(['role' => 'admin', 'branch_id' => $branch->id, 'is_active' => true]);
+        $this->actingAs($admin)->getJson(route('payments.recordable-cases', ['q' => 'fast']))->assertForbidden();
+    }
+
+    public function test_notification_read_and_dismiss_states_persist_per_user(): void
+    {
+        Carbon::setTestNow('2026-09-26 10:00:00');
+        $branch = $this->branch();
+        $this->case($branch, [
+            'case_code' => 'NOTICE-STATE',
+            'interment_at' => '2026-09-27 09:00:00',
+            'interment_time' => '09:00:00',
+        ]);
+        $staff = User::factory()->create(['role' => 'staff', 'branch_id' => $branch->id, 'is_active' => true]);
+        $builder = app(TopbarNotificationBuilder::class);
+
+        $initial = $builder->forUser($staff, 'staff', $branch->id);
+        $this->assertSame(1, $initial['unread']);
+        $key = $initial['items'][0]['key'];
+
+        $this->actingAs($staff)->postJson(route('notifications.read-all'), ['branch_id' => $branch->id])
+            ->assertOk()->assertJsonPath('unread', 0);
+        $this->assertTrue($builder->forUser($staff, 'staff', $branch->id)['items'][0]['read']);
+
+        $this->postJson(route('notifications.state'), [
+            'key' => $key,
+            'action' => 'dismiss',
+            'branch_id' => $branch->id,
+        ])->assertOk()->assertJsonPath('unread', 0);
+
+        $this->assertSame([], $builder->forUser($staff, 'staff', $branch->id)['items']);
+        $state = UserNotificationState::where('user_id', $staff->id)->where('notification_key', $key)->firstOrFail();
+        $this->assertNotNull($state->read_at);
+        $this->assertNotNull($state->dismissed_at);
+
+        $owner = User::factory()->create(['role' => 'owner', 'is_active' => true]);
+        $this->actingAs($owner)->postJson(route('notifications.read-all'))->assertForbidden();
+    }
+
+    public function test_notification_order_prioritizes_actionable_and_nearest_events(): void
+    {
+        Carbon::setTestNow('2026-09-26 10:00:00');
+        $branch = $this->branch();
+        $this->case($branch, ['case_code' => 'URGENT', 'funeral_service_at' => '2026-09-24', 'interment_at' => '2026-09-27 09:00:00']);
+        $this->case($branch, ['case_code' => 'TODAY', 'funeral_service_at' => '2026-09-26', 'interment_at' => '2026-10-12 09:00:00']);
+        $this->case($branch, ['case_code' => 'UPCOMING', 'funeral_service_at' => '2026-09-28', 'interment_at' => '2026-10-13 09:00:00']);
+        $this->case($branch, ['case_code' => 'BALANCE', 'funeral_service_at' => '2026-10-18', 'interment_at' => '2026-10-20 09:00:00']);
+        $staff = User::factory()->create(['role' => 'staff', 'branch_id' => $branch->id, 'is_active' => true]);
+
+        $items = collect(app(TopbarNotificationBuilder::class)->forUser($staff, 'staff', $branch->id)['items']);
+
+        $this->assertSame(['URGENT', 'TODAY', 'UPCOMING', 'BALANCE'], $items->pluck('case_code')->all());
+        $this->assertSame(['needs_attention', 'today', 'upcoming', 'with_balance'], $items->pluck('bucket')->all());
     }
 
     private function branch(): Branch

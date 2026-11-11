@@ -456,6 +456,26 @@ class FuneralContractSnapshotTest extends TestCase
         $this->assertContains('Other inclusion 16', $mapped['other_inclusions']);
     }
 
+    public function test_contract_layouts_print_other_inclusions_under_a_separate_heading(): void
+    {
+        $snapshot = [
+            'structured_inclusions' => [
+                ['service_type' => Package::SERVICE_BODY_RETRIEVAL, 'included_kilometers' => 25],
+                ['service_type' => Package::SERVICE_CUSTOM, 'name' => 'Casket Flowers'],
+            ],
+            'basic_inclusions' => ['Body Retrieval (Includes 25.00 km)'],
+            'other_inclusions' => ['Casket Flowers'],
+        ];
+
+        foreach (['pdf.funeral_contract_physical', 'pdf.funeral_contract_condensed'] as $template) {
+            $html = view($template, ['contractSnapshot' => $snapshot])->render();
+            $this->assertStringContainsString('Other Inclusions', $html);
+            $this->assertStringContainsString('Casket Flowers', $html);
+            $this->assertGreaterThan(strpos($html, 'Other Inclusions'), strpos($html, 'Casket Flowers'));
+            $this->assertSame(1, substr_count($html, 'Casket Flowers'));
+        }
+    }
+
     public function test_selected_package_is_separate_and_printed_inclusions_are_filtered(): void
     {
         $mapper = app(FuneralContractMapper::class);

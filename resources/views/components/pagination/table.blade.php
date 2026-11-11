@@ -6,7 +6,7 @@
     $lastPage = max((int) $paginator->lastPage(), 1);
 
     if ($total === 0) {
-        $summary = 'No records found';
+        $summary = '0 records';
     } elseif ($lastPage <= 1) {
         $summary = "Showing all {$total} records";
     } else {
@@ -24,7 +24,7 @@
     @endif
 
     <div class="table-paginator-nav">
-        @if($paginator->onFirstPage())
+        @if($total === 0 || $paginator->onFirstPage())
             <span class="table-paginator-btn is-disabled" aria-disabled="true" title="First page">
                 <i class="bi bi-chevron-double-left"></i>
             </span>
@@ -40,7 +40,9 @@
             </a>
         @endif
 
-        @if ($paginator->hasPages())
+        @if ($total === 0)
+            <span class="table-paginator-btn is-disabled" aria-disabled="true" title="No pages">1</span>
+        @elseif ($paginator->hasPages())
             @foreach ($elements as $element)
                 @if (is_string($element))
                     <span class="table-paginator-btn is-ellipsis" aria-disabled="true">{{ $element }}</span>

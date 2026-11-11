@@ -10,6 +10,55 @@ use Tests\DuskTestCase;
 
 class ServiceManagementModalTest extends DuskTestCase
 {
+    public function test_discard_confirmation_hides_user_service_and_package_forms_until_keep_editing(): void
+    {
+        $discard = file_get_contents(resource_path('js/form-discard.js'));
+        $motion = str_replace('export function', 'function', file_get_contents(resource_path('js/record-dialog-motion.js')));
+        $manifest = json_decode(file_get_contents(public_path('build/manifest.json')), true);
+        $css = file_get_contents(public_path('build/'.$manifest['resources/css/app.css']['file']));
+        $html = '<!doctype html><html data-theme="light"><head><style>'.$css.'</style></head><body class="system-admin-ui">'
+            .'<div class="user-create-page"><form id="userCreateForm"><input id="user-name" name="name" value="Initial"><a href="#discard" data-record-form-cancel>Cancel user form</a></form></div>'
+            .'<form id="packageForm"><input id="package-name" value="Package draft"><button id="cancel-package" type="button">Cancel package form</button></form>'
+            .'<button id="open-service">Open service</button><dialog id="service-form"><div class="service-modal__panel" style="visibility:visible"><input id="service-name" value="Service draft"><button id="cancel-service">Cancel service form</button></div></dialog>'
+            .'<script>'.$motion.'installRecordDialogMotion();'.$discard
+            .'document.querySelector("#cancel-package").onclick = () => window.confirmFormDiscard(document.querySelector("#packageForm"));'
+            .'document.querySelector("#open-service").onclick = () => document.querySelector("#service-form").showModal();'
+            .'document.querySelector("#cancel-service").onclick = () => window.confirmFormDiscard(document.querySelector("#service-form"));'
+            .'</script></body></html>';
+
+        $this->browse(function (Browser $browser) use ($html) {
+            $browser->driver->get('data:text/html;charset=utf-8,'.rawurlencode($html));
+            $browser->driver->executeCustomCommand('/session/:sessionId/goog/cdp/execute', 'POST', [
+                'cmd' => 'Emulation.setEmulatedMedia',
+                'params' => ['features' => [['name' => 'prefers-reduced-motion', 'value' => 'reduce']]],
+            ]);
+            $browser->type('#user-name', 'User draft')
+                ->assertScript('getComputedStyle(document.querySelector("#user-name")).outlineWidth', '1px')
+                ->click('[data-record-form-cancel]')
+                ->waitUntil('document.querySelector(".service-feedback-dialog")?.open === true')
+                ->assertScript('getComputedStyle(document.querySelector(".user-create-page")).opacity', '0')
+                ->click('[data-keep]')
+                ->waitUntil('!document.querySelector(".service-feedback-dialog")')
+                ->assertInputValue('#user-name', 'User draft');
+
+            $browser->click('#cancel-package')
+                ->waitUntil('document.querySelector(".service-feedback-dialog")?.open === true')
+                ->assertScript('getComputedStyle(document.querySelector("#packageForm")).opacity', '0')
+                ->assertScript('getComputedStyle(document.querySelector("[data-keep]")).backgroundColor', 'rgb(234, 242, 237)')
+                ->click('[data-keep]')
+                ->waitUntil('!document.querySelector(".service-feedback-dialog")')
+                ->assertInputValue('#package-name', 'Package draft');
+
+            $browser->click('#open-service')
+                ->click('#cancel-service')
+                ->waitUntil('document.querySelector(".service-feedback-dialog")?.open === true')
+                ->assertScript('getComputedStyle(document.querySelector("#service-form")).opacity', '0')
+                ->click('[data-keep]')
+                ->waitUntil('!document.querySelector(".service-feedback-dialog")')
+                ->assertInputValue('#service-name', 'Service draft');
+        });
+    }
+
     public function test_package_add_view_and_edit_dialogs_keep_the_expected_flow(): void
     {
         $admin = User::where('email', 'admin@funeral.test')->firstOrFail();

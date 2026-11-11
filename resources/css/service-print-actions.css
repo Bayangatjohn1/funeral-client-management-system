@@ -1,0 +1,6 @@
+.service-print-action { display:inline-flex; align-items:center; justify-content:center; flex:none; gap:8px; min-height:40px; padding:9px 13px; border:0; border-radius:8px; background:#e7f0ff; color:#175cd3; font:400 13px/1.4 var(--font-body,Arial,sans-serif); text-decoration:none; white-space:nowrap; box-shadow:none; }
+.service-print-action:hover { background:#d6e6ff; color:#1249aa; }.service-print-action:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
+html[data-theme=dark] .service-print-action { background:#183153; color:#84b8ff; }html[data-theme=dark] .service-print-action:hover { background:#203f69; color:#b8d5ff; }
+.service-hub-toolbar .service-viewbar:has(.service-print-action) { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:10px; }
+.svc-detail-head .service-print-action { margin-left:auto; align-self:center; }
+@media(max-width:520px) { .svc-detail-head:has(.service-print-action) { flex-wrap:wrap; }.svc-detail-head .service-print-action { margin-left:0; } }

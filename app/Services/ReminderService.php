@@ -23,7 +23,7 @@ class ReminderService
             $this->buildAttentionReminders($cases, $conflicts, $referenceNow)
                 ->reject(fn ($item) => str_starts_with($item['type'], 'same_day_')),
             true
-        )->take(8)->values();
+        )->values();
 
         $todayScheduleCases = $this->fetchTodayScheduleCases($branchId, $today);
         $todaySchedule = $this->sortReminders($this->buildTodaySchedule($todayScheduleCases, $today, $conflicts))->values();
@@ -181,6 +181,61 @@ class ReminderService
         ])->map(fn ($fields) => $this->formatReminder($case, $fields[2], $fields[3], 'info',
             $this->scheduleDateTime($case, $fields[0], $case->{$fields[1]}), true))
             ->pipe(fn (Collection $items) => $this->sortReminders($items));
+    }
+
+    /** Recorded resource clashes among already scoped dashboard cases. */
+    public function resourceConflicts(Collection $cases, Carbon $now, Carbon $until): Collection
+    {
+        $conflicts = collect();
+        $chapelWindows = $cases->filter(fn (FuneralCase $case) => $case->chapel_catalog_id && $case->wake_start_time && $case->wake_end_time)
+            ->map(fn (FuneralCase $case) => [
+                'case' => $case,
+                'start' => $this->scheduleDateTime($case, 'wake_start', $case->wake_start_date),
+                'end' => $this->scheduleDateTime($case, 'wake_end', $case->wake_end_date),
+            ])->filter(fn (array $window) => $window['start'] && $window['end'] && $window['start']->lt($window['end'])
+                && $window['start']->lte($until) && $window['end']->gt($now));
+
+        foreach ($chapelWindows->groupBy('case.chapel_catalog_id') as $windows) {
+            $active = [];
+            foreach ($windows->sortBy('start') as $window) {
+                $active = array_filter($active, fn (array $earlier) => $earlier['end']->gt($window['start']));
+                foreach ($active as $earlier) {
+                    $overlapEnd = $earlier['end']->lt($window['end']) ? $earlier['end'] : $window['end'];
+                    $conflicts->push([
+                        'label' => 'Chapel double-booking',
+                        'resource' => $window['case']->wake_location ?: 'Chapel #'.$window['case']->chapel_catalog_id,
+                        'cases' => [$earlier['case']->case_code => 'Wake', $window['case']->case_code => 'Wake'],
+                        'date' => $window['start']->lt($now) ? $now : $window['start'],
+                        'starts_at' => $window['start'],
+                        'ends_at' => $overlapEnd,
+                    ]);
+                }
+                $active[] = $window;
+            }
+        }
+
+        $hearseStarts = $cases->filter(fn (FuneralCase $case) => $case->hearse_catalog_id)
+            ->flatMap(fn (FuneralCase $case) => $this->caseSchedule($case)
+                ->filter(fn (array $event) => in_array($event['event_kind'], ['service', 'interment'], true)
+                    && $event['has_time'] && $event['date']?->betweenIncluded($now, $until)))
+            ->groupBy(fn (array $event) => $event['case']->hearse_catalog_id.'|'.$event['date']->format('Y-m-d H:i:s'));
+
+        foreach ($hearseStarts as $events) {
+            $casesAtStart = $events->unique('case_id');
+            if ($casesAtStart->count() < 2) continue;
+
+            $first = $casesAtStart->first();
+            $conflicts->push([
+                'label' => 'Hearse double-booking',
+                'resource' => $first['case']->hearse_name_snapshot ?: 'Hearse #'.$first['case']->hearse_catalog_id,
+                'cases' => $events->groupBy('case_code')->map(fn (Collection $caseEvents) => $caseEvents->pluck('label')->unique()->implode(' / '))->all(),
+                'date' => $first['date'],
+                'starts_at' => $first['date'],
+                'ends_at' => null,
+            ]);
+        }
+
+        return $conflicts->sortBy('date')->values();
     }
 
     public function upcomingCases(int $branchId, array $filters = [], string $search = ''): Collection
@@ -563,9 +618,11 @@ class ReminderService
             'is_schedule_card' => $isScheduleCard,
             'conflict'         => $conflict,  // null for non-warning types
             'message'          => $message,
-            'location'         => $scheduleType === 'interment'
-                ? ($case->deceased?->place_of_cemetery ?? null)
-                : $case->wake_location,
+            'location'         => match ($scheduleType) {
+                'interment' => $case->deceased?->place_of_cemetery,
+                'service' => $case->ceremonyLocation(),
+                default => $case->wake_location,
+            },
         ];
     }
 

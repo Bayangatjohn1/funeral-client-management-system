@@ -6,9 +6,10 @@ use App\Models\Package;
 use App\Support\Discount\CaseDiscountResolver;
 use Carbon\Carbon;
 use Tests\TestCase;
-
+use Illuminate\Foundation\Testing\RefreshDatabase;
 class CaseDiscountResolverTest extends TestCase
 {
+    use RefreshDatabase;
     public function test_returns_no_discount_when_no_senior_and_no_active_promo(): void
     {
         $resolver = new CaseDiscountResolver();

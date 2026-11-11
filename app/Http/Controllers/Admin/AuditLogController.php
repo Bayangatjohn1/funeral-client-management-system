@@ -77,7 +77,7 @@ class AuditLogController extends Controller
             $query->where('created_at', '<=', $dateEnd);
         }
 
-        $logs = $query->paginate($perPage)->withQueryString();
+        $logs = $query->matchingSearch($validated['q'] ?? null)->paginate($perPage)->withQueryString();
 
         // Branch admins only see themselves + their staff in the user filter dropdown
         $users = $isBranchAdmin
@@ -146,6 +146,7 @@ class AuditLogController extends Controller
     private function validateFilters(Request $request): array
     {
         return $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
             'audit_log_id' => ['nullable', 'integer', 'min:1'],
             'user_id' => ['nullable', 'integer', 'exists:users,id'],
             'branch_id' => ['nullable', 'integer', 'exists:branches,id'],

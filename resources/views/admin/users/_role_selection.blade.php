@@ -43,17 +43,17 @@
     if (!dialog || typeof dialog.showModal !== 'function') return;
     let trigger;
     document.querySelectorAll('[data-create-role-trigger]').forEach(link => link.addEventListener('click', event => {
-        event.preventDefault(); trigger = link; dialog.showModal();
+        event.preventDefault(); trigger = link; if (window.recordDialogMotion) window.recordDialogMotion.open(dialog); else dialog.showModal();
     }));
     dialog.querySelector('[data-close-role-dialog]').addEventListener('click', () => dialog.close());
     dialog.addEventListener('click', event => {
         const bounds = dialog.getBoundingClientRect();
-        if (event.target === dialog && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom)) dialog.close();
+        if (event.target === dialog && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom)) if (window.recordDialogMotion) window.recordDialogMotion.close(dialog); else dialog.close();
     });
     dialog.addEventListener('close', () => trigger?.focus());
     if (window.location.hash === '#create-user') {
         trigger = document.querySelector('[data-create-role-trigger]');
-        dialog.showModal();
+        if (window.recordDialogMotion) window.recordDialogMotion.open(dialog); else dialog.showModal();
         window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
     }
 })();

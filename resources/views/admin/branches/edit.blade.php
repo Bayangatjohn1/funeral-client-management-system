@@ -4,7 +4,8 @@
 @section('page_desc', 'Update branch profile and operational details.')
 
 @section('content')
-@php($returnTo = old('return_to', request('return_to', route('admin.branches.index'))))
+@include('partials.directory_form_consistency')
+@php($returnTo = \App\Support\LocalReturnUrl::resolve(old('return_to', request('return_to')), route('admin.branches.index')))
 @include('admin.branches._edit_form_styles')
 <form id="branchEditForm" method="POST" action="{{ route('admin.branches.update', $branch) }}" class="branch-edit-form max-w-3xl w-full mx-auto font-ui-body">
 @csrf
@@ -32,13 +33,13 @@
             </div>
             <div class="branch-edit-field">
                 <label class="label-section" for="branch_name">Branch Name <span class="text-rose-500">*</span></label>
-                <input id="branch_name" type="text" name="branch_name" value="{{ old('branch_name', $branch->branch_name) }}" class="form-input" placeholder="Caguioa Sabangan Funeral Home" autocomplete="off" inputmode="text" aria-describedby="branch-edit-name-error" required>
+                <input data-text-case="title-words" id="branch_name" type="text" name="branch_name" value="{{ old('branch_name', $branch->branch_name) }}" class="form-input" placeholder="Caguioa Sabangan Funeral Home" autocomplete="off" inputmode="text" aria-describedby="branch-edit-name-error" required maxlength="255">
                 @error('branch_name') <div class="form-error">{{ $message }}</div> @enderror
                 <div id="branch-edit-name-error" class="form-error hidden" data-field-error="branch_name"></div>
             </div>
             <div class="branch-edit-field branch-edit-field--wide">
                 <label class="label-section" for="branch_edit_address">Address <span class="text-rose-500">*</span></label>
-                <input id="branch_edit_address" type="text" name="address" value="{{ old('address', $branch->address) }}" class="form-input" placeholder="Street, City, Province" aria-describedby="branch-edit-address-error" required>
+                <input data-text-case="title-words" id="branch_edit_address" type="text" name="address" value="{{ old('address', $branch->address) }}" class="form-input" placeholder="Street, City, Province" aria-describedby="branch-edit-address-error" required maxlength="255">
                 @error('address') <div class="form-error">{{ $message }}</div> @enderror
                 <div id="branch-edit-address-error" class="form-error hidden" data-field-error="address"></div>
             </div>
@@ -49,6 +50,7 @@
                 <p>Use the separate status action in Branch Details to enable or disable this branch.</p>
             </div>
             <input type="hidden" name="is_active" value="{{ $branch->is_active ? 1 : 0 }}">
+            @error('is_active')<div class="form-error" role="alert">{{ $message }}</div>@enderror
             <span class="status-badge {{ $branch->is_active ? 'status-badge-success' : 'status-badge-danger' }}">{{ $branch->is_active ? 'Active' : 'Inactive' }}</span>
         </div>
     </div>
@@ -69,8 +71,7 @@
         const invalidClass = ['border-rose-300', 'bg-rose-50', 'focus:border-rose-500', 'focus:ring-rose-500'];
 
         const normalize = (value) => String(value || '')
-            .replace(/\s+/g, ' ')
-            .trim();
+            .replace(/\s+/g, ' ');
         const showFieldError = (field, message) => {
             const target = form?.querySelector(`[name="${field}"]`);
             const error = form?.querySelector(`[data-field-error="${field}"]`);
@@ -98,13 +99,14 @@
                 return;
             }
             if (/\d/.test(finalValue) || !pattern.test(finalValue)) {
-                input.setCustomValidity('Branch name must contain letters only.');
+                input.setCustomValidity('Start Branch Name with a letter. Use letters, spaces, apostrophes, periods, & or hyphens.');
                 return;
             }
             input.setCustomValidity('');
         };
 
-        input.addEventListener('input', () => clearFieldError('branch_name'));
+        input.addEventListener('input', () => { clearFieldError('branch_name'); sync(); });
+        input.addEventListener('blur', sync);
         address?.addEventListener('input', () => clearFieldError('address'));
         form?.addEventListener('submit', (event) => {
             let valid = true;
@@ -117,7 +119,7 @@
                 showFieldError('branch_name', 'Branch name is required.');
             } else if (/\d/.test(input.value) || !pattern.test(input.value)) {
                 valid = false;
-                showFieldError('branch_name', 'Branch name must contain letters only.');
+                showFieldError('branch_name', 'Start Branch Name with a letter. Use letters, spaces, apostrophes, periods, & or hyphens.');
             }
             if (!address?.value || !/[\p{L}\p{M}]/u.test(address.value) || /^\d+$/.test(address.value)) {
                 valid = false;

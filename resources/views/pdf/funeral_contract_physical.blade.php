@@ -65,7 +65,7 @@
         .schedule-line,
         .signatures { page-break-inside: avoid; }
         .service-grid > tbody > tr > td { width: 50%; vertical-align: top; }
-        .service-grid > tbody > tr > td + td { border-left: 1px solid #111; }
+        .service-grid .additional-services-cell { border-left: 1px solid #111; }
         .panel-title { padding: 3px 6px; border-bottom: 1px solid #111; font-weight: 900; text-decoration: underline; }
         .ruled td { border-bottom: 1px solid #aaa; height: 18px; padding: 3px 5px; vertical-align: top; }
         .ruled tr:last-child td { border-bottom: 0; }
@@ -79,7 +79,10 @@
         .extra-detail { width: 39%; }
         .amount { width: 23%; text-align: right; white-space: nowrap; font-weight: 800; }
         .muted { color: #444; font-size: 7.8px; }
-        .note-box { border-top: 1px solid #111; min-height: 74px; padding: 6px 7px; font-size: 7.8px; }
+        .other-inclusions-title { border-top: 1px solid #111; }
+        .other-inclusions-list { margin: 5px 0; padding: 0 10px 0 23px; }
+        .service-grid > tbody > tr > .note-cell { vertical-align: bottom; }
+        .note-box { border-top: 1px solid #111; padding: 6px 7px; font-size: 7.8px; }
         .itemized-title { padding: 2px 4px; font-weight: 800; border-top: 1px solid #111; border-bottom: 1px solid #aaa; }
         .simple-totals { border-top: 1px solid #111; }
         .simple-totals td { padding: 3px 5px; height: 17px; }
@@ -183,18 +186,17 @@
                                 <td class="service-detail">{{ data_get($row, 'value') }}</td>
                             </tr>
                         @endforeach
-                        @foreach(data_get($view, 'other_inclusions', []) as $item)
-                            <tr><td class="service-name">&nbsp;</td><td class="service-detail">{{ $item }}</td></tr>
-                        @endforeach
-                        @for($i = count(data_get($view, 'basic_rows', [])) + count(data_get($view, 'other_inclusions', [])); $i < 10; $i++)
-                            <tr><td class="service-name">&nbsp;</td><td class="service-detail">&nbsp;</td></tr>
-                        @endfor
                     </table>
-                    <div class="note-box">
-                        <strong>Note:</strong> Supplemental services beyond the basic funeral service inclusion shall be charged under Additional Services.
-                    </div>
+                    @if(data_get($view, 'other_inclusions', []))
+                        <div class="panel-title other-inclusions-title">Other Inclusions</div>
+                        <ul class="other-inclusions-list">
+                            @foreach(data_get($view, 'other_inclusions') as $item)
+                                <li>{{ $item }}</li>
+                            @endforeach
+                        </ul>
+                    @endif
                 </td>
-                <td>
+                <td class="additional-services-cell" rowspan="2">
                     <div class="panel-title">Additional Services:</div>
                     <table class="additional-table">
                         @foreach(data_get($view, 'physical_additional_rows', []) as $row)
@@ -245,6 +247,9 @@
                     </table>
                 </td>
             </tr>
+            <tr>
+                <td class="note-cell"><div class="note-box"><strong>Note:</strong> Any extra charges are listed under Additional Services.</div></td>
+            </tr>
         </table>
 
         <table class="remarks-box">
@@ -254,6 +259,9 @@
             </tr>
         </table>
 
+        @if($ceremonyLocation = data_get($schedule, 'funeral_ceremony_location'))
+            <table class="schedule-line"><tr><td width="30%" class="label">Funeral Ceremony Location</td><td><div class="line">{{ $ceremonyLocation }}</div></td></tr></table>
+        @endif
         <table class="schedule-line">
             <tr>
                 <td width="14%" class="label">Date of Burial:</td>

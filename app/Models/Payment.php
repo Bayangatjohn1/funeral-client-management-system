@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Carbon\CarbonInterface;
 use App\Support\BranchScoped;
+use Illuminate\Database\Eloquent\Builder;
 
 class Payment extends Model
 {
@@ -14,6 +15,8 @@ class Payment extends Model
     protected $fillable = [
         'submission_id',
         'submission_hash',
+        'proof_upload_id',
+        'proof_path', 'proof_mime', 'proof_name',
         'receipt_number',
         'payment_record_no',
         'accounting_reference_no',
@@ -121,9 +124,45 @@ class Payment extends Model
         return $this->belongsTo(self::class, 'replaces_payment_id');
     }
 
+    public function proofUpload()
+    {
+        return $this->belongsTo(PaymentProofUpload::class);
+    }
+
     public function correctionRequests()
     {
         return $this->hasMany(PaymentCorrectionRequest::class);
+    }
+
+    public function isVoided(): bool
+    {
+        return in_array($this->status, ['VOID', 'VOIDED'], true);
+    }
+
+    public function ledgerCorrection(): ?PaymentCorrectionRequest
+    {
+        $history = $this->correctionRequests->sortByDesc('id');
+
+        return $this->isVoided()
+            ? $history->firstWhere('status', 'APPROVED')
+            : ($history->firstWhere('status', 'PENDING') ?? $history->first());
+    }
+
+    public function ledgerStatusLabel(?PaymentCorrectionRequest $correction): string
+    {
+        if ($this->isVoided()) {
+            return match ($correction?->correction_type) {
+                'VOID_ONLY' => $correction->reason_category === 'Duplicate entry' ? 'Voided · Duplicate' : 'Voided',
+                'CORRECT' => 'Voided · Replaced',
+                default => 'Voided',
+            };
+        }
+
+        return match ($correction?->status === 'PENDING' ? $correction->correction_type : null) {
+            'VOID_ONLY' => 'Pending Void Request',
+            'CORRECT' => 'Pending Correction Request',
+            default => 'Posted',
+        };
     }
 
     public function recordedBy()
@@ -134,5 +173,14 @@ class Payment extends Model
     public function encodedBy()
     {
         return $this->belongsTo(\App\Models\User::class, 'encoded_by');
+    }
+
+    /** Supported posted states; NULL is retained for legacy imported records. */
+    public function scopeValidForReporting(Builder $query): Builder
+    {
+        return $query->where(function (Builder $statusQuery) {
+            $statusQuery->whereIn('status', ['POSTED', 'VALID'])
+                ->orWhereNull('status');
+        });
     }
 }

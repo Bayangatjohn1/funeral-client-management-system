@@ -4,7 +4,9 @@ use App\Http\Controllers\Admin\BranchController;
 use App\Http\Controllers\Admin\AddOnCatalogController;
 use App\Http\Controllers\Admin\CasketCatalogController;
 use App\Http\Controllers\Admin\FreebieCatalogController;
+use App\Http\Controllers\Admin\HearseCatalogController;
 use App\Http\Controllers\Admin\PackageController;
+use App\Http\Controllers\Admin\PromotionController;
 use App\Http\Controllers\Admin\ReportController as AdminReportController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\ServiceManagementController;
@@ -15,6 +17,8 @@ use App\Http\Controllers\Admin\SystemAdminDashboardController;
 use App\Http\Controllers\Owner\DashboardController as OwnerDashboardController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PaymentCorrectionController;
+use App\Http\Controllers\NotificationStateController;
+use App\Http\Controllers\PaymentProofController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Staff\CaseAttachmentController;
 use App\Http\Controllers\Staff\CaseDocumentController;
@@ -38,6 +42,23 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return redirect()->route('login');
+});
+
+// Phone links grant a short-lived upload capability without a staff login.
+Route::middleware(['signed', 'throttle:30,1'])->withoutMiddleware([
+    \App\Http\Middleware\EnsureIdleSession::class, \App\Http\Middleware\EnsureAccountSecurity::class,
+])->group(function () {
+    Route::get('/payment-proof/phone/{upload}', [PaymentProofController::class, 'phone'])->name('payment-proof.phone');
+    Route::post('/payment-proof/phone/{upload}', [PaymentProofController::class, 'phoneUpload'])->name('payment-proof.phone-upload');
+});
+Route::middleware(['auth', 'no_cache', 'active', 'throttle:90,1'])->prefix('payment-proof')->name('payment-proof.')->group(function () {
+    Route::post('/sessions', [PaymentProofController::class, 'store'])->name('store');
+    Route::get('/sessions/{upload}', [PaymentProofController::class, 'status'])->name('status');
+    Route::post('/sessions/{upload}/file', [PaymentProofController::class, 'desktopUpload'])->name('upload');
+    Route::delete('/sessions/{upload}', [PaymentProofController::class, 'cancel'])->name('cancel');
+    Route::get('/sessions/{upload}/preview', [PaymentProofController::class, 'preview'])->name('preview');
+    Route::get('/payments/{payment}', [PaymentProofController::class, 'payment'])->name('payment');
+    Route::post('/payments/{payment}', [PaymentProofController::class, 'attach'])->name('attach');
 });
 
 Route::middleware(['auth', 'no_cache', 'active'])->get('/dashboard', function () {
@@ -285,7 +306,31 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->get(
         $item['type'],
         $item['date']?->format('Y-m-d H:i:s') ?? '',
     ]))->values();
-    $balanceReminders = $balanceReminders->unique(fn ($item) => $item['branch_id'].'-'.$item['case_id'])->values();
+    $balanceReminders = $balanceReminders->unique('case_id')
+        ->sortBy(fn ($item) => ($item['case']->payment_status === 'PARTIAL' ? '0-' : '1-').($item['case_code'] ?? ''))
+        ->values();
+    $balancePreviewLimit = 5;
+    $lastBalancePayments = $isBranchAdmin && $balanceReminders->isNotEmpty()
+        ? Payment::query()
+            ->validForReporting()
+            ->where('branch_id', $branchId)
+            ->whereIn('funeral_case_id', $balanceReminders->take($balancePreviewLimit)->pluck('case_id'))
+            ->orderByRaw('COALESCE(paid_at, paid_date, created_at) DESC')
+            ->orderByDesc('id')
+            ->groupLimit(1, 'funeral_case_id')
+            ->get(['id', 'funeral_case_id', 'amount', 'paid_at', 'paid_date', 'created_at'])
+            ->unique('funeral_case_id')
+            ->keyBy('funeral_case_id')
+        : collect();
+
+    $pendingCorrections = \App\Models\PaymentCorrectionRequest::forMonitoring($user)
+        ->where('status', 'PENDING')->toBase()
+        ->selectRaw('COUNT(*) AS pending_count, MIN(created_at) AS oldest_at')->first();
+    $scheduleConflicts = $reminderService->resourceConflicts(
+        $currentlyInWake->merge($todaySchedule)->merge($upcomingSchedule)->pluck('case')->unique('id'),
+        $now,
+        $now->copy()->addDays(7)->endOfDay(),
+    );
 
     return view('dashboards.admin', [
         'branchCount' => $branches->count(),
@@ -318,6 +363,10 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->get(
         'attentionReminders' => $attentionReminders,
         'upcomingSchedule' => $upcomingSchedule,
         'balanceReminders' => $balanceReminders,
+        'balancePreviewLimit' => $balancePreviewLimit,
+        'lastBalancePayments' => $lastBalancePayments,
+        'pendingCorrections' => $pendingCorrections,
+        'scheduleConflicts' => $scheduleConflicts,
     ]);
 });
 
@@ -326,16 +375,36 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->get(
     $dashboardBranchId = (int) ($user->operationalBranchId() ?? 0);
     $canEncodeAnyBranch = $user->canEncodeAnyBranch();
     $dashboardBranch = Branch::select(['id', 'branch_code', 'branch_name', 'address'])->find($dashboardBranchId);
-    $today = now()->startOfDay();
+    $dashboardNow = now();
+    $today = $dashboardNow->copy()->startOfDay();
 
-    $clientCount = Client::where('branch_id', $dashboardBranchId)->count();
-    $deceasedCount = Deceased::where('branch_id', $dashboardBranchId)->count();
     $mainCasesBase = FuneralCase::query()
         ->where('branch_id', $dashboardBranchId)
         ->where(function ($query) {
             $query->where('entry_source', 'MAIN')
                 ->orWhereNull('entry_source');
         });
+    $unpaidCases = (clone $mainCasesBase)->with('deceased')
+        ->whereIn('payment_status', ['UNPAID', 'PARTIAL'])
+        ->where('balance_amount', '>', 0)
+        ->latest()
+        ->orderByDesc('id')
+        ->paginate(5, ['*'], 'balances_page')
+        ->withQueryString()
+        ->fragment('outstanding-balances');
+
+    if ($unpaidCases->currentPage() > $unpaidCases->lastPage()) {
+        return redirect()->to($unpaidCases->url($unpaidCases->lastPage()));
+    }
+
+    if ($request->header('X-Staff-Dashboard-Fragment') === 'balances') {
+        return response()->view('staff.partials.dashboard-outstanding-balances', compact('unpaidCases'))
+            ->header('X-Staff-Dashboard-Fragment', 'balances')
+            ->header('Vary', 'X-Staff-Dashboard-Fragment');
+    }
+
+    $clientCount = Client::where('branch_id', $dashboardBranchId)->count();
+    $deceasedCount = Deceased::where('branch_id', $dashboardBranchId)->count();
     $caseSummary = (clone $mainCasesBase)
         ->selectRaw('COUNT(*) as total')
         ->selectRaw("SUM(CASE WHEN case_status IN ('DRAFT', 'ACTIVE') THEN 1 ELSE 0 END) as ongoing")
@@ -359,23 +428,15 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->get(
         })
         ->sum('amount');
 
-    $unpaidCases = FuneralCase::with(['client', 'deceased'])
-        ->where('branch_id', $dashboardBranchId)
-        ->where(function ($query) {
-            $query->where('entry_source', 'MAIN')
-                ->orWhereNull('entry_source');
-        })
-        ->whereIn('payment_status', ['UNPAID', 'PARTIAL'])
-        ->latest()
-        ->take(5)
-        ->get();
-
     $reminderService = app(\App\Services\ReminderService::class);
     // Use the actual current time for approaching/after-interment classification;
     // $today remains the date boundary for dashboard totals and date queries.
-    $dashboardReminders = $reminderService->buildDashboard($dashboardBranchId, now());
+    $dashboardReminders = $reminderService->buildDashboard($dashboardBranchId, $dashboardNow);
     $scheduleGroups = $reminderService->scheduleGroups($dashboardBranchId);
-    $attentionReminders = $dashboardReminders['attention'];
+    $attentionReminders = $dashboardReminders['attention']
+        ->whereIn('type', ['interment_completed', 'interment_date_completed'])
+        ->unique('case_id')
+        ->values();
     $todaySchedule = $dashboardReminders['today'];
 
     $recentCases = FuneralCase::with(['client', 'deceased', 'encodedBy:id,name', 'package:id,name'])
@@ -434,6 +495,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->get(
         'paidCount',
         'todayPaidTotal',
         'unpaidCases',
+        'dashboardNow',
         'todaySchedule',
         'upcomingSchedule',
         'attentionReminders',
@@ -448,6 +510,21 @@ Route::middleware(['auth', 'no_cache', 'active', 'branch.scope'])->get(
     'funeral-cases/{funeral_case}',
     [FuneralCaseController::class, 'show']
 )->whereNumber('funeral_case')->name('funeral-cases.show');
+
+Route::middleware(['auth', 'no_cache', 'active', 'branch.scope'])->get(
+    'funeral-cases/{funeral_case}/saved-attachment/{kind}',
+    [FuneralCaseController::class, 'savedAttachment']
+)->whereNumber('funeral_case')->whereIn('kind', ['deceased-photo', 'senior-proof'])->name('funeral-cases.saved-attachment');
+
+Route::middleware(['auth', 'no_cache', 'active', 'branch.scope'])->get(
+    'funeral-cases/{funeral_case}/senior-proof',
+    [FuneralCaseController::class, 'seniorProof']
+)->whereNumber('funeral_case')->name('funeral-cases.senior-proof');
+
+Route::middleware(['auth', 'no_cache', 'active', 'branch.scope'])->get(
+    'funeral-cases/{funeral_case}/print',
+    [FuneralCaseController::class, 'printRecord']
+)->whereNumber('funeral_case')->name('funeral-cases.print');
 
 Route::middleware(['auth', 'no_cache', 'active'])->group(function () {
     Route::get('funeral-cases/{funeral_case}/documents/funeral-contract/preview', [CaseDocumentController::class, 'contractPreview'])
@@ -471,6 +548,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->grou
     Route::post('intake', [IntakeController::class, 'store'])->name('intake.store');
     Route::get('intake/saved', [IntakeController::class, 'saved'])->name('intake.saved');
     Route::get('intake/schedule-advisory', [IntakeController::class, 'scheduleAdvisory'])->name('intake.schedule-advisory');
+    Route::get('intake/existing-clients', [IntakeController::class, 'existingClients'])->name('intake.existing-clients');
     Route::get('intake/main', [IntakeController::class, 'createMain'])->name('intake.main.create');
     Route::post('intake/main', [IntakeController::class, 'storeMain'])->name('intake.main.store');
     Route::get('intake/other', [IntakeController::class, 'createOther'])->name('intake.other.create');
@@ -489,6 +567,16 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->grou
     Route::get('reminders', [ReminderController::class, 'index'])->name('staff.reminders.index');
 });
 
+Route::middleware(['auth', 'no_cache', 'active', 'branch.scope', 'historical_cases.enabled'])->group(function () {
+    Route::get('historical-intake', [IntakeController::class, 'createHistorical'])->name('historical-intake.create');
+    Route::post('historical-intake', [IntakeController::class, 'storeHistorical'])->name('historical-intake.store');
+    Route::get('historical-cases', [\App\Http\Controllers\HistoricalCaseSubmissionController::class, 'index'])->name('historical-cases.index');
+    Route::get('historical-cases/{submission}/resume', [\App\Http\Controllers\HistoricalCaseSubmissionController::class, 'resume'])->name('historical-cases.resume');
+    Route::get('historical-cases/{submission}/payment-proof/{paymentIndex}', [\App\Http\Controllers\HistoricalCaseSubmissionController::class, 'paymentProof'])->whereNumber('paymentIndex')->name('historical-cases.payment-proof');
+    Route::get('historical-cases/{submission}', [\App\Http\Controllers\HistoricalCaseSubmissionController::class, 'show'])->name('historical-cases.show');
+    Route::post('historical-cases/{submission}/decision', [\App\Http\Controllers\HistoricalCaseSubmissionController::class, 'decide'])->name('historical-cases.decide');
+});
+
 // Case edit/update: accessible to staff AND branch/main admins (policy enforces own-branch restriction).
 Route::middleware(['auth', 'no_cache', 'active', 'staff_or_admin', 'branch.scope'])->group(function () {
     Route::get('funeral-cases/{funeral_case}/edit', [FuneralCaseController::class, 'edit'])->name('funeral-cases.edit');
@@ -497,15 +585,35 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff_or_admin', 'branch.scope
     Route::post('funeral-cases/{funeral_case}/tarpaulin-photo', [CaseAttachmentController::class, 'store'])->name('funeral-cases.tarpaulin.store');
     Route::put('funeral-cases/{funeral_case}/tarpaulin-photo', [CaseAttachmentController::class, 'update'])->name('funeral-cases.tarpaulin.update');
     Route::delete('funeral-cases/{funeral_case}/tarpaulin-photo', [CaseAttachmentController::class, 'destroy'])->name('funeral-cases.tarpaulin.destroy');
+    Route::post('funeral-cases/{funeral_case}/media/{kind}', [CaseAttachmentController::class, 'saveCaseMedia'])
+        ->whereIn('kind', ['deceased-photo', 'senior-proof'])
+        ->name('funeral-cases.media.save');
 });
 
 Route::middleware(['auth', 'no_cache', 'active'])->get('payments/history', [PaymentController::class, 'history'])->name('payments.history');
-Route::middleware(['auth', 'no_cache', 'active'])->get('payments/history/print', [PaymentController::class, 'history'])->name('payments.monitoring.print');
+Route::middleware(['auth', 'no_cache', 'active', 'admin'])->get('payments/history/print', [PaymentController::class, 'history'])->name('payments.monitoring.print');
 Route::middleware(['auth', 'no_cache', 'active'])->get('payments/cases/{funeral_case}/history/print', [PaymentController::class, 'printHistory'])->name('payments.history.print');
 Route::middleware(['auth', 'no_cache', 'active'])->get('payments/{payment}/summary', [PaymentController::class, 'summary'])->name('payments.summary');
+Route::middleware(['auth', 'no_cache', 'active'])->get('intake/chapel-advisory', \App\Http\Controllers\ChapelScheduleController::class)->name('intake.chapel-advisory');
+Route::middleware(['auth', 'no_cache', 'active'])->group(function () {
+    Route::post('notifications/read-all', [NotificationStateController::class, 'markAllRead'])->name('notifications.read-all');
+    Route::post('notifications/state', [NotificationStateController::class, 'update'])->name('notifications.state');
+    Route::get('payment-corrections/notices', [PaymentCorrectionController::class, 'notices'])->name('payments.corrections.notices');
+    Route::get('payment-corrections/cases', [PaymentCorrectionController::class, 'caseSearch'])->name('payments.corrections.cases');
+    Route::get('payments/{payment}/correction-request', [PaymentCorrectionController::class, 'create'])->name('payments.corrections.create');
+    Route::get('payment-corrections/{correction}', [PaymentCorrectionController::class, 'show'])->name('payments.corrections.show');
+    Route::get('payment-corrections/{correction}/evidence', [PaymentCorrectionController::class, 'evidence'])->name('payments.corrections.evidence');
+    Route::post('payment-corrections/{correction}/withdraw', [PaymentCorrectionController::class, 'withdraw'])->name('payments.corrections.withdraw');
+});
+
+Route::middleware(['auth', 'no_cache', 'active', 'branch.scope'])->post(
+    'payments/identifier-check',
+    [PaymentController::class, 'checkIdentifier']
+)->name('payments.identifier-check');
 
 Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->group(function () {
     Route::get('payments', [PaymentController::class, 'index'])->name('payments.index');
+    Route::get('payments/recordable-cases', [PaymentController::class, 'recordableCaseSuggestions'])->name('payments.recordable-cases');
     Route::post('payments/pay', [PaymentController::class, 'store'])->name('payments.store');
     Route::patch('payments/{payment}/receipt', [PaymentController::class, 'updateReceipt'])->name('payments.receipt.update');
     Route::post('payments/{payment}/correction-request', [PaymentCorrectionController::class, 'store'])->name('payments.corrections.store');
@@ -513,6 +621,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'staff', 'branch.scope'])->grou
 
 Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/payment-corrections', [PaymentCorrectionController::class, 'index'])->name('payment-corrections.index');
+    Route::post('/payment-corrections/{correction}/remind', [PaymentCorrectionController::class, 'remind'])->name('payment-corrections.remind');
     Route::post('/payment-corrections/{correction}/approve', [PaymentCorrectionController::class, 'approve'])->name('payment-corrections.approve');
     Route::post('/payment-corrections/{correction}/reject', [PaymentCorrectionController::class, 'reject'])->name('payment-corrections.reject');
 });
@@ -556,6 +665,20 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->pref
 
 Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->prefix('admin')->group(function () {
     Route::get('/service-management', [ServiceManagementController::class, 'index'])->name('admin.service-management.index');
+    Route::get('/service-management/print', [ServiceManagementController::class, 'printPreview'])->middleware('main_admin')->name('admin.service-management.print');
+    Route::get('/service-management/photos/{type}/{id}', [\App\Http\Controllers\Admin\CatalogPhotoController::class, 'show'])->whereIn('type', array_keys(\App\Support\CatalogPhotos::TYPES))->whereNumber('id')->name('admin.catalog-photo');
+    Route::get('/service-management/photos/{type}/{id}/edit', [\App\Http\Controllers\Admin\CatalogPhotoController::class, 'edit'])
+        ->whereIn('type', array_keys(\App\Support\CatalogPhotos::TYPES))->whereNumber('id')->middleware('main_admin')->name('admin.catalog-photo.edit');
+    Route::patch('/service-management/photos/{type}/{id}', [\App\Http\Controllers\Admin\CatalogPhotoController::class, 'update'])
+        ->whereIn('type', array_keys(\App\Support\CatalogPhotos::TYPES))->whereNumber('id')->middleware('main_admin')->name('admin.catalog-photo.update');
+    Route::put('/service-management/custom-package-defaults', [ServiceManagementController::class, 'updateCustomPackageDefaults'])->middleware('main_admin')->name('admin.custom-package-defaults.update');
+    Route::get('/promotions/create', [PromotionController::class, 'create'])->name('admin.promotions.create');
+    Route::post('/promotions', [PromotionController::class, 'store'])->name('admin.promotions.store');
+    Route::get('/promotions/{promotion}', [PromotionController::class, 'show'])->name('admin.promotions.show');
+    Route::get('/promotions/{promotion}/edit', [PromotionController::class, 'edit'])->name('admin.promotions.edit');
+    Route::put('/promotions/{promotion}', [PromotionController::class, 'update'])->name('admin.promotions.update');
+    Route::patch('/promotions/{promotion}/stop', [PromotionController::class, 'stop'])->name('admin.promotions.stop');
+    Route::patch('/promotions/{promotion}/reactivate', [PromotionController::class, 'reactivate'])->name('admin.promotions.reactivate');
     Route::get('/packages', [PackageController::class, 'index'])->name('admin.packages.index');
     Route::get('/packages/create', [PackageController::class, 'create'])->name('admin.packages.create');
     Route::post('/packages', [PackageController::class, 'store'])->name('admin.packages.store');
@@ -570,6 +693,7 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->pref
     Route::get('/add-on-catalogs/{add_on_catalog}', [AddOnCatalogController::class, 'show'])->name('admin.add-on-catalogs.show');
     Route::get('/add-on-catalogs/{add_on_catalog}/edit', [AddOnCatalogController::class, 'edit'])->name('admin.add-on-catalogs.edit');
     Route::put('/add-on-catalogs/{add_on_catalog}', [AddOnCatalogController::class, 'update'])->name('admin.add-on-catalogs.update');
+    Route::patch('/add-on-catalogs/{add_on_catalog}/toggle-availability', [AddOnCatalogController::class, 'toggleAvailability'])->name('admin.add-on-catalogs.toggleAvailability');
     Route::patch('/add-on-catalogs/{add_on_catalog}/toggle-active', [AddOnCatalogController::class, 'toggleActive'])->name('admin.add-on-catalogs.toggleActive');
     Route::get('/freebie-catalogs', [FreebieCatalogController::class, 'index'])->name('admin.freebie-catalogs.index');
     Route::get('/freebie-catalogs/create', [FreebieCatalogController::class, 'create'])->name('admin.freebie-catalogs.create');
@@ -577,7 +701,15 @@ Route::middleware(['auth', 'no_cache', 'active', 'admin', 'branch.scope'])->pref
     Route::get('/freebie-catalogs/{freebie_catalog}', [FreebieCatalogController::class, 'show'])->name('admin.freebie-catalogs.show');
     Route::get('/freebie-catalogs/{freebie_catalog}/edit', [FreebieCatalogController::class, 'edit'])->name('admin.freebie-catalogs.edit');
     Route::put('/freebie-catalogs/{freebie_catalog}', [FreebieCatalogController::class, 'update'])->name('admin.freebie-catalogs.update');
+    Route::patch('/freebie-catalogs/{freebie_catalog}/toggle-availability', [FreebieCatalogController::class, 'toggleAvailability'])->name('admin.freebie-catalogs.toggleAvailability');
     Route::patch('/freebie-catalogs/{freebie_catalog}/toggle-active', [FreebieCatalogController::class, 'toggleActive'])->name('admin.freebie-catalogs.toggleActive');
+    Route::get('/hearse-catalogs/create', [HearseCatalogController::class, 'create'])->name('admin.hearse-catalogs.create');
+    Route::post('/hearse-catalogs', [HearseCatalogController::class, 'store'])->name('admin.hearse-catalogs.store');
+    Route::get('/hearse-catalogs/{hearse_catalog}', [HearseCatalogController::class, 'show'])->name('admin.hearse-catalogs.show');
+    Route::get('/hearse-catalogs/{hearse_catalog}/edit', [HearseCatalogController::class, 'edit'])->name('admin.hearse-catalogs.edit');
+    Route::put('/hearse-catalogs/{hearse_catalog}', [HearseCatalogController::class, 'update'])->name('admin.hearse-catalogs.update');
+    Route::patch('/hearse-catalogs/{hearse_catalog}/toggle-availability', [HearseCatalogController::class, 'toggleAvailability'])->name('admin.hearse-catalogs.toggleAvailability');
+    Route::patch('/hearse-catalogs/{hearse_catalog}/toggle-active', [HearseCatalogController::class, 'toggleActive'])->name('admin.hearse-catalogs.toggleActive');
     Route::get('/casket-catalogs', [CasketCatalogController::class, 'index'])->name('admin.casket-catalogs.index');
     Route::get('/casket-catalogs/create', [CasketCatalogController::class, 'create'])->name('admin.casket-catalogs.create');
     Route::post('/casket-catalogs', [CasketCatalogController::class, 'store'])->name('admin.casket-catalogs.store');

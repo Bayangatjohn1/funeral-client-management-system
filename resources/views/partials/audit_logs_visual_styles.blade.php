@@ -55,6 +55,10 @@ html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .au
 @media(max-width:1100px) { .audit-compact-toolbar { grid-template-columns:repeat(2,minmax(0,1fr)); } .audit-compact-actions { grid-column:1 / -1; justify-content:flex-end; } }
 @media(max-width:540px) { .audit-compact-toolbar { grid-template-columns:minmax(0,1fr); } .audit-filter-popover { left:0; right:auto; } }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui):has(.audit-ref-page) .panel-page-header:not(.panel-title-surface) { background:transparent !important; border:0 !important; box-shadow:none !important; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui):has(.audit-ref-page) .panel-page-header.panel-title-surface {
+    border-color:transparent !important;
+    box-shadow:none !important;
+}
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .audit-ref-page { padding:8px var(--panel-content-inline,20px) 20px; background:transparent !important; color:var(--ink); }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .audit-ref-page :is(.table-system-card,.table-system-list) { background:transparent !important; border:0 !important; box-shadow:none !important; overflow:visible; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .audit-ref-page .admin-table-card { margin-top:0; }
@@ -68,7 +72,94 @@ html[data-theme] body.panel-shell-body.system-admin-ui .audit-ref-page .audit-se
 html[data-theme] body.panel-shell-body.system-admin-ui .audit-ref-page .audit-action-text > .status-badge { align-self:flex-start; width:auto; }
 html[data-theme] body.panel-shell-body.system-admin-ui .audit-ref-page :is(.audit-select,.audit-filter-menu > summary) { font-weight:400 !important; }
 html[data-theme] body.panel-shell-body.system-admin-ui .audit-ref-page .audit-action { font-weight:500; }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .audit-ref-page .admin-table-toolbar { position:sticky; top:16px; z-index:30; padding:12px; margin-bottom:16px; background:var(--card) !important; border:1px solid var(--border) !important; border-radius:12px; overflow:visible; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .page-content .audit-ref-page[data-worklist-consistent] {
+    --audit-worklist-divider:#B8CEC0;
+    --audit-control-surface:#EAF2ED;
+    --audit-control-hover:#DCEBE1;
+}
+html[data-theme='dark'] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .page-content .audit-ref-page[data-worklist-consistent] {
+    --audit-worklist-divider:#355241;
+    --audit-control-surface:#22392C;
+    --audit-control-hover:#2D4838;
+}
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .page-content .audit-ref-page[data-worklist-consistent] .admin-table-card > .admin-table-toolbar {
+    position:sticky;
+    top:16px;
+    z-index:30;
+    margin-bottom:0 !important;
+    border:0 !important;
+    border-bottom:1px solid var(--audit-worklist-divider) !important;
+    border-radius:12px 12px 0 0 !important;
+    background:var(--filter-ui-menu) !important;
+    overflow:visible;
+}
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .page-content .audit-ref-page[data-worklist-consistent] .admin-table-toolbar + .table-system-list {
+    margin-top:0 !important;
+    border-radius:0 0 12px 12px !important;
+    background:var(--filter-ui-menu) !important;
+}
+html[data-theme] body.panel-shell-body .page-content .audit-ref-page[data-worklist-consistent] form.worklist-audit-toolbar {
+    gap:12px 16px !important;
+}
+html[data-theme] body.panel-shell-body .page-content .audit-ref-page[data-worklist-consistent] .worklist-search-control {
+    background:var(--audit-control-surface) !important;
+    border-color:transparent !important;
+    box-shadow:none !important;
+}
+html[data-theme] body.panel-shell-body .page-content .audit-ref-page[data-worklist-consistent] .worklist-search-submit { border-left-color:transparent; }
+html[data-theme] body.panel-shell-body .page-content .audit-ref-page[data-worklist-consistent] .worklist-search-control > input:focus-visible { outline:none !important; box-shadow:none !important; }
+html[data-theme]:not([data-filter-input='pointer']) body.panel-shell-body .page-content .audit-ref-page[data-worklist-consistent] .worklist-search-control:has(> input:focus-visible) {
+    outline:2px solid var(--filter-ui-focus);
+    outline-offset:2px;
+}
+html[data-theme] body.panel-shell-body .page-content .audit-ref-page[data-worklist-consistent] .worklist-applied { gap:8px 12px; }
+html[data-theme] body.panel-shell-body .page-content .audit-ref-page[data-worklist-consistent] .worklist-chip {
+    --chip-bg:var(--audit-control-surface);
+    --chip-ink:var(--filter-ui-text);
+    flex:0 1 auto;
+    max-width:100%;
+    min-width:0;
+    border:0 !important;
+    box-shadow:none !important;
+    white-space:normal;
+    overflow-wrap:anywhere;
+}
+html[data-theme] body.panel-shell-body .page-content .audit-ref-page[data-worklist-consistent] .worklist-chip-remove:hover {
+    background:var(--audit-control-hover);
+}
+html[data-theme] body.panel-shell-body .page-content .audit-ref-page[data-worklist-consistent] .worklist-chip-remove:hover:not(:focus-visible) { outline:none; }
+html[data-theme] body.panel-shell-body .page-content .audit-ref-page[data-worklist-consistent] .worklist-audit-toolbar .worklist-control {
+    background:var(--audit-control-surface) !important;
+    border-color:transparent !important;
+}
+html[data-theme] body.panel-shell-body .page-content .audit-ref-page[data-worklist-consistent] .worklist-audit-toolbar :is(.worklist-filter > summary,.worklist-page-size > .worklist-control):hover,
+html[data-theme] body.panel-shell-body .page-content .audit-ref-page[data-worklist-consistent] .worklist-audit-toolbar :is(.worklist-filter[open] > summary,.worklist-page-size > .worklist-control.is-open) {
+    background:var(--audit-control-hover) !important;
+}
+.worklist-audit-toolbar > .worklist-page-size { flex:none; white-space:nowrap; }
+.worklist-audit-toolbar > .worklist-page-size > .worklist-control { width:92px; }
+html[data-theme] body.panel-shell-body .page-content .audit-ref-page[data-worklist-consistent] .worklist-page-size select { padding-inline:14px 32px !important; }
+.worklist-audit-toolbar .worklist-page-size .table-toolbar-select-icon { right:12px; pointer-events:none; }
+html[data-theme] body.panel-shell-body .page-content .audit-ref-page[data-worklist-consistent] .audit-print-preview {
+    display:inline-flex;
+    flex:none;
+    align-items:center;
+    gap:8px;
+    min-height:44px;
+    padding:0 14px;
+    border:0 !important;
+    border-radius:8px;
+    background:var(--reference-action-bg,#A9C9B5) !important;
+    color:var(--reference-action-text,#123524) !important;
+    box-shadow:none !important;
+    white-space:nowrap;
+}
+html[data-theme] body.panel-shell-body .page-content .audit-ref-page[data-worklist-consistent] .audit-print-preview:hover {
+    background:var(--reference-action-hover,#92B89F) !important;
+}
+@media(max-width:600px) {
+    html[data-theme] body.panel-shell-body .page-content .audit-ref-page[data-worklist-consistent] .worklist-audit-toolbar .worklist-filter-panel { left:0 !important; right:auto; }
+}
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .audit-ref-page .audit-toolbar { grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
 html[data-theme] body.panel-shell-body.system-admin-ui .audit-ref-page .audit-system-toolbar { grid-template-columns:repeat(3,minmax(120px,1fr)) auto auto; gap:8px; }
 .audit-system-actions { display:flex; align-items:center; gap:8px; }
@@ -95,7 +186,7 @@ html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .au
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .audit-ref-page :is(.audit-scope-chip,.audit-action,.audit-details-panel) { background:var(--surface-muted); border-color:var(--border); color:var(--ink); }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .audit-ref-page .audit-action { min-height:44px; border-radius:8px; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .audit-ref-page .audit-action-primary { background:var(--brand); color:var(--card); }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .audit-ref-page .table-system-wrap { background:var(--card) !important; border:1px solid var(--border); border-radius:12px; overflow-x:auto; max-height:none !important; height:auto !important; position:relative; isolation:isolate; z-index:0; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .page-content .audit-ref-page[data-worklist-consistent] .table-system-list > .table-system-wrap { margin-top:0 !important; background:var(--filter-ui-menu) !important; border:0 !important; border-radius:0 0 12px 12px !important; overflow-x:auto; max-height:none !important; height:auto !important; position:relative; isolation:isolate; z-index:0; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .audit-ref-page .table-system-table { min-width:1000px; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .audit-ref-page .table-system-table th { width:auto; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .audit-ref-page .table-system-table .audit-col-data { width:80px; }

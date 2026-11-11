@@ -125,7 +125,7 @@
         ],
         'owner_branch_analytics' => [
             'branch' => 'Branch', 'total_cases' => 'Cases in Period', 'gross_amount' => 'Total Service Value',
-            'collected_amount' => 'Collected', 'remaining_balance' => 'Remaining Balance',
+            'collected_amount' => 'Collections Received', 'remaining_balance' => 'Current Outstanding',
             'paid_cases' => 'Paid Cases', 'partial_cases' => 'Partially Paid Cases', 'unpaid_cases' => 'Unpaid Cases',
         ],
     ];

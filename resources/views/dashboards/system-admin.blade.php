@@ -40,7 +40,7 @@
 @vite(['resources/css/system-admin-dashboard.css', 'resources/js/system-admin-dashboard.js'])
 <div class="sa">
     <header class="sa-header panel-title-surface">
-        <div class="sa-heading"><button type="button" id="mobileSidebarToggle" class="mobile-menu-btn" aria-label="Open navigation" aria-expanded="false" aria-controls="appSidebar"><i class="bi bi-list" aria-hidden="true"></i></button><div><h1><x-page-title-icon icon="grid" inline />Good day, {{ $firstName }}</h1><p>Review system issues and take the next action.</p></div></div>
+        <div class="sa-heading"><button type="button" id="mobileSidebarToggle" class="mobile-menu-btn" aria-label="Open navigation" aria-expanded="false" aria-controls="appSidebar"><i class="bi bi-list" aria-hidden="true"></i></button><div><h1>Good day, {{ $firstName }}</h1><p>Review system issues and take the next action.</p></div></div>
         @include('partials.dashboard-header-controls', ['dashboardShowNotifications' => true])
     </header>
 
@@ -56,9 +56,9 @@
 
     @endif
     <section class="sa-kpis" aria-label="System summary">
-        <article class="sa-panel sa-summary"><div class="sa-summary-heading"><h2>Active Branches</h2><span class="sa-summary-icon" aria-hidden="true"><i class="bi bi-buildings"></i></span></div><div><strong>{{ $activeBranches }}</strong><p>Branches currently open for operation</p></div><x-system-card-link :url="route('admin.branches.index', ['status'=>'active'])" label="View active branches in Branch Management" /></article>
-        <article class="sa-panel sa-summary"><div class="sa-summary-heading"><h2>Active Managed Users</h2><span class="sa-summary-icon" aria-hidden="true"><i class="bi bi-people"></i></span></div><div><strong>{{ $activeUsers }}</strong><p>Active admins and staff, excluding your account</p></div><x-system-card-link :url="$usersUrl" label="View active managed accounts in User Management" /></article>
-        <article class="sa-panel sa-summary"><div class="sa-summary-heading"><h2>Backup Status</h2><span class="sa-summary-icon" aria-hidden="true"><i class="bi bi-database-check"></i></span></div><div><strong class="sa-status-value">{{ $backupStatus }}</strong><p>{{ $lastBackup?->verified_at ? 'Last verified '.$lastBackup->verified_at->diffForHumans() : 'No verified recovery point' }}</p></div><x-system-card-link :url="route('admin.backups.index')" label="Review backup status in Backup and Recovery" /></article>
+        <article class="sa-panel sa-summary"><div class="sa-summary-heading"><h2>Active Branches</h2><span class="sa-summary-icon" aria-hidden="true"><i class="bi bi-buildings"></i></span></div><div><strong data-dashboard-kpi-tone="positive">{{ $activeBranches }}</strong><p>Branches currently open for operation</p></div><x-system-card-link :url="route('admin.branches.index', ['status'=>'active'])" label="View active branches in Branch Management" /></article>
+        <article class="sa-panel sa-summary"><div class="sa-summary-heading"><h2>Active Managed Users</h2><span class="sa-summary-icon" aria-hidden="true"><i class="bi bi-people"></i></span></div><div><strong data-dashboard-kpi-tone="info">{{ $activeUsers }}</strong><p>Active admins and staff, excluding your account</p></div><x-system-card-link :url="$usersUrl" label="View active managed accounts in User Management" /></article>
+        <article class="sa-panel sa-summary"><div class="sa-summary-heading"><h2>Backup Status</h2><span class="sa-summary-icon" aria-hidden="true"><i class="bi bi-database-check"></i></span></div><div><strong class="sa-status-value" data-dashboard-kpi-tone="{{ $backupOverdue ? 'warning' : 'positive' }}">{{ $backupStatus }}</strong><p>{{ $lastBackup?->verified_at ? 'Last verified '.$lastBackup->verified_at->diffForHumans() : 'No verified recovery point' }}</p></div><x-system-card-link :url="route('admin.backups.index')" label="Review backup status in Backup and Recovery" /></article>
     </section>
     <div class="sa-columns sa-operational-columns">
         <section class="sa-panel" aria-labelledby="sa-coverage-title">

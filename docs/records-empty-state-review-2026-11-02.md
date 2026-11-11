@@ -1,0 +1,14 @@
+# Empty results and pagination — 2026-11-02
+
+User requested stable empty states in Case Records/Master Case Records and Payment Monitoring. The implementation reserves result space rather than fixing pagination to the viewport. Long results continue to expand normally.
+
+- Case worklists keep column titles, all columns, and horizontal scrolling. A result scroller reserves `clamp(20rem,40vh,30rem)`; at 767px and below it reserves 18rem. Empty table height uses the same minimum and centers the existing message within the data area. An inline-size container and sticky empty message keep the message visible within the scroller viewport on narrow screens. No assumed header height is used.
+- Pagination has its own footer row, minimum 64px, with responsive wrapping. Case footers retain a 12px gap and a 6px surface radius. It stays in normal document flow and does not cover rows. Empty and short results keep the footer at the same position; longer results grow naturally.
+- Payment summary pagination now belongs inside its result panel, matching the transactions view. Both views always render pagination, including single-page and empty results. Empty messages have regular-weight text, neutral surfaces, and no nested empty-state border.
+- The shared paginator reports `0 records` for a zero total. All five navigation/page indicators are disabled, including an out-of-range requested page; no fake active page is shown. Existing populated-page navigation, query parameters, branch scope, totals and permissions are preserved.
+
+Owners: `resources/views/partials/records_results_layout_styles.blade.php`, included by `resources/views/partials/case_records_layout_styles.blade.php`; `resources/views/partials/case_records_pagination.blade.php`; `resources/views/components/pagination/table.blade.php`; existing Staff/Admin/Owner case views; `resources/views/staff/payments/history.blade.php`.
+
+Applicability: stable result height/empty messages/footer are applicable to the existing case and payment lists. Existing filters, counters, scrollers and branch permissions remain. Fixed viewport pagination, new filters/actions and business changes are not applicable.
+
+Verification: 49 existing feature tests / 468 assertions passed (cross-role shell rendering, master toolbar and report/payment pagination regressions). New cross-role empty-results rendering and isolated browser geometry checks passed: 2 tests / 59 assertions. These cover Staff, Branch Admin, System Admin, Owner cases, both payment views, out-of-range zero-result requests, footer membership, zero navigation links, stable empty-to-one-record footer geometry, mobile message visibility and no page overflow. Light desktop and dark 390px fixture screenshots were inspected. Blade compilation/cache clearing and Vite build passed. Full live-page visual acceptance of each role remains pending; fixture screenshots do not prove the full production cascade on every page.

@@ -14,6 +14,11 @@
         || request()->filled('payment_status')
         || ($hasBranchSwitcher && request()->filled('branch_id'))
         || ($dueWindow !== 'any');
+    $activeTab = $activeTab ?? 'schedules';
+    $tabDefs = [
+        'schedules' => ['label' => 'Schedules', 'icon' => 'bi-calendar-week'],
+        'warnings' => ['label' => 'Needs Attention', 'icon' => 'bi-bell'],
+    ];
 @endphp
 
 @section('header_actions')
@@ -57,6 +62,27 @@
         @endif
     </form>
     @endif
+@endsection
+
+@section('header_navigation')
+    <nav class="rp-tabs-row rp-tabs-row--header" aria-label="Schedule and reminder views">
+        @foreach($tabDefs as $key => $def)
+            @php
+                $tabQuery = array_merge(request()->except(['page', 'alert_type', 'focus_case']), ['tab' => $key]);
+            @endphp
+            <a
+                href="{{ route($remindersRoute, $tabQuery) }}"
+                class="rp-tab {{ $activeTab === $key ? 'is-active' : 'is-idle' }}"
+                @if($activeTab === $key) aria-current="page" @endif
+            >
+                <i class="bi {{ $def['icon'] }}" aria-hidden="true"></i>
+                <span>{{ $def['label'] }}</span>
+                @if($key !== 'schedules' && isset($counts[$key]))
+                    <span class="rp-tab__count">{{ $counts[$key] ?? 0 }}</span>
+                @endif
+            </a>
+        @endforeach
+    </nav>
 @endsection
 
 @section('content')
@@ -729,15 +755,182 @@
         .rp-item__actions { align-items: flex-start; width: 100%; flex-direction: row; flex-wrap: wrap; }
         .rp-tabs-row { overflow-x: auto; flex-wrap: nowrap; }
     }
+
+    /* Shared panel surface: keep schedules on the same canvas and palette as
+       the other authenticated worklists. */
+    html[data-theme] body.panel-shell-body .page-content:has(.reminders-page) {
+        background: var(--staff-canvas, var(--surface, #DCE8E0)) !important;
+    }
+    html[data-theme] body.panel-shell-body .rp-wrap.reminders-page {
+        --rp-card: var(--staff-card, var(--card, #F4F8F5));
+        --rp-soft: var(--staff-soft, var(--surface-muted, #D0E2D6));
+        --rp-hover: var(--staff-hover, var(--records-hover, #C2DAC9));
+        --rp-border: var(--staff-border, var(--border, #AEC7B7));
+        --rp-ink: var(--staff-ink, var(--ink, #081D13));
+        --rp-muted: var(--staff-muted, var(--ink-muted, #365244));
+        max-width: none;
+        margin: 0;
+        padding: 0 var(--panel-content-inline, 20px) 24px;
+        color: var(--rp-ink);
+        background: transparent !important;
+    }
+    html[data-theme] body.panel-shell-body .panel-page-header__navigation .rp-tabs-row--header {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 0;
+        padding: 0;
+        border: 0;
+    }
+    html[data-theme] body.panel-shell-body .panel-page-header__navigation .rp-tab {
+        min-height: 40px;
+        padding: 8px 13px;
+        border: 1px solid transparent;
+        border-radius: 11px;
+        color: var(--staff-muted, var(--ink-muted, #365244)) !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        font-size: 13px;
+        font-weight: 600;
+    }
+    html[data-theme] body.panel-shell-body .panel-page-header__navigation .rp-tab.is-idle:hover {
+        border-color: var(--staff-border, var(--border-strong, #AEC7B7)) !important;
+        background: var(--staff-hover, var(--records-hover, #DCEBE1)) !important;
+        color: var(--staff-ink, var(--ink, #081D13)) !important;
+    }
+    html[data-theme] body.panel-shell-body .panel-page-header__navigation .rp-tab.is-active {
+        border-color: #1B4332 !important;
+        background: #1B4332 !important;
+        color: #FFFFFF !important;
+        cursor: default;
+    }
+    html[data-theme='dark'] body.panel-shell-body .panel-page-header__navigation .rp-tab.is-active {
+        border-color: #5A826B !important;
+        background: #285A44 !important;
+    }
+    html[data-theme] body.panel-shell-body .panel-page-header__navigation .rp-tab:focus-visible {
+        outline: 2px solid var(--staff-action, var(--branch-admin-focus, #1B4332));
+        outline-offset: 2px;
+    }
+    html[data-theme] body.panel-shell-body .panel-page-header__navigation .rp-tab__count {
+        min-width: 21px;
+        min-height: 21px;
+        padding: 2px 6px;
+        border: 1px solid var(--staff-border, var(--border, #AEC7B7));
+        background: var(--staff-soft, var(--surface-muted, #D0E2D6)) !important;
+        color: var(--staff-ink, var(--ink, #081D13)) !important;
+        box-shadow: none;
+    }
+    html[data-theme] body.panel-shell-body .panel-page-header__navigation .rp-tab.is-active .rp-tab__count {
+        border-color: rgb(255 255 255 / 36%);
+        background: rgb(255 255 255 / 14%) !important;
+        color: #FFFFFF !important;
+    }
+    html[data-theme] body.panel-shell-body .reminders-page :is(.rp-tabs-card,.schedule-calendar) { width: 100%; }
+    html[data-theme] body.panel-shell-body .reminders-page .schedule-calendar {
+        --cal-surface: var(--rp-card);
+        --cal-card: var(--rp-card);
+        --cal-ink: var(--rp-ink);
+        --cal-muted: var(--rp-muted);
+        --cal-line: var(--rp-border);
+        --cal-soft: var(--rp-soft);
+        margin: 0;
+        border-radius: 14px;
+        box-shadow: none;
+    }
+    html[data-theme] body.panel-shell-body .reminders-page :is(.rp-item,.rp-empty) {
+        border-color: var(--rp-border);
+        background: var(--rp-card) !important;
+        color: var(--rp-ink);
+        box-shadow: none;
+    }
+    html[data-theme] body.panel-shell-body .reminders-page .rp-item:hover {
+        border-color: var(--staff-border, var(--border-strong, #91A38B));
+        background: var(--rp-hover) !important;
+        box-shadow: none;
+    }
+    html[data-theme] body.panel-shell-body .reminders-page :is(.rp-identity-value,.rp-item__reason,.rp-detail strong,.rp-schedule-entry strong) { color: var(--rp-ink) !important; }
+    html[data-theme] body.panel-shell-body .reminders-page :is(.rp-identity-label,.rp-item__action-copy,.rp-schedule-entry span,.rp-schedule-entry small) { color: var(--rp-muted) !important; }
+    html[data-theme] body.panel-shell-body .reminders-page :is(.rp-detail,.rp-schedule-entry) {
+        border-color: var(--rp-border);
+        background: var(--rp-soft) !important;
+    }
+    html[data-theme] body.panel-shell-body .reminders-page .schedule-section-tabs {
+        width: fit-content;
+        max-width: calc(100% - 32px);
+        margin: 16px 16px 0;
+        padding: 4px;
+        gap: 4px;
+        border: 1px solid var(--cal-line);
+        border-radius: 11px;
+        background: var(--cal-soft);
+    }
+    html[data-theme] body.panel-shell-body .reminders-page .schedule-section-tab {
+        min-height: 40px;
+        padding: 8px 12px;
+        border-color: transparent;
+        background: transparent;
+        color: var(--cal-muted) !important;
+    }
+    html[data-theme] body.panel-shell-body .reminders-page .schedule-section-tab:not(.is-active):hover {
+        border-color: var(--cal-line) !important;
+        background: var(--rp-hover) !important;
+        color: var(--cal-ink) !important;
+    }
+    html[data-theme] body.panel-shell-body .reminders-page .schedule-section-tab.is-active {
+        border-color: #1B4332 !important;
+        background: #1B4332 !important;
+        color: #FFFFFF !important;
+        box-shadow: none;
+    }
+    html[data-theme='dark'] body.panel-shell-body .reminders-page .schedule-section-tab.is-active {
+        border-color: #5A826B !important;
+        background: #285A44 !important;
+    }
+    html[data-theme] body.panel-shell-body .rp-header-filters {
+        border-color: var(--staff-border, var(--border, #AEC7B7));
+        background: var(--staff-card, var(--card, #F4F8F5));
+        box-shadow: none;
+    }
+    html[data-theme] body.panel-shell-body .rp-header-filters .rp-field :is(input,select) {
+        border-color: var(--staff-border, var(--border, #AEC7B7));
+        background: var(--staff-soft, var(--surface-muted, #D0E2D6));
+        color: var(--staff-ink, var(--ink, #081D13)) !important;
+    }
+    html[data-theme] body.panel-shell-body .rp-header-filters .rp-filter-reset {
+        border-color: transparent;
+        background: transparent;
+        color: #B42318;
+        font-weight: 500;
+    }
+    html[data-theme] body.panel-shell-body .rp-header-filters .rp-filter-reset:hover {
+        border-color: #F1B7B2;
+        background: transparent;
+        color: #912018;
+    }
+    html[data-theme='dark'] body.panel-shell-body .rp-header-filters .rp-filter-reset { color: #FDA29B; }
+    @media (max-width: 700px) {
+        html[data-theme] body.panel-shell-body .panel-page-header__navigation .rp-tabs-row--header {
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            padding-bottom: 2px;
+        }
+        html[data-theme] body.panel-shell-body .panel-page-header__navigation .rp-tab { flex: 0 0 auto; }
+        html[data-theme] body.panel-shell-body .rp-wrap.reminders-page { padding-inline: 14px; }
+        html[data-theme] body.panel-shell-body .reminders-page .schedule-section-tabs {
+            width: auto;
+            max-width: none;
+            margin: 12px 12px 0;
+        }
+    }
 </style>
 
-<div class="rp-wrap">
+<div class="rp-wrap reminders-page">
 
     {{-- ── Filter card ──────────────────────────────────────────── --}}
     {{-- ── Tabs + list card ─────────────────────────────────────── --}}
     @php
-        $activeTab = $activeTab ?? 'all';
-
         $tabMap = [
             'all'      => $reminders,
             'current_wake' => collect($currentWakeItems ?? []),
@@ -745,12 +938,6 @@
             'upcoming' => $reminders->whereIn('type', ['upcoming_wake_start', 'upcoming_wake_end', 'upcoming_service', 'upcoming_interment']),
             'warnings' => $reminders->whereIn('type', ['interment_approaching', 'interment_completed', 'interment_date_completed', 'interment_date_today_balance']),
             'unpaid'   => $reminders->where('type', 'balance'),
-        ];
-
-        // Tab definitions — new order & labels
-        $tabDefs = [
-            'schedules' => ['label' => 'Schedules', 'icon' => 'bi-calendar-week', 'tooltip' => 'Wake periods, ceremonies, and interments in one calendar.'],
-            'warnings' => ['label' => 'Needs Attention', 'icon' => 'bi-bell', 'tooltip' => 'Cases requiring payment follow-up.'],
         ];
 
         // Type → chip style map
@@ -781,28 +968,6 @@
     @endphp
 
     <div class="rp-tabs-card">
-
-        {{-- Tab row --}}
-        <div class="rp-tabs-row">
-            @foreach($tabDefs as $key => $def)
-                @php
-                    // alert_type is a deep-link filter used by notification cards.
-                    // Clear it during tab navigation so each tab shows its full dataset.
-                    $tabQuery = array_merge(request()->except(['page', 'alert_type', 'focus_case']), ['tab' => $key]);
-                @endphp
-                <a
-                    href="{{ route($remindersRoute, $tabQuery) }}"
-                    class="rp-tab {{ $activeTab === $key ? 'is-active' : 'is-idle' }}"
-                    @if($activeTab === $key) aria-current="page" @endif
-                >
-                    <i class="bi {{ $def['icon'] }}"></i>
-                    {{ $def['label'] }}
-                    @if($key !== 'schedules' && isset($counts[$key]))
-                        <span class="rp-tab__count">{{ $counts[$key] ?? 0 }}</span>
-                    @endif
-                </a>
-            @endforeach
-        </div>
 
         {{-- Build display items — always grouped by case_id across all tabs --}}
         @php
@@ -1032,7 +1197,7 @@
                                                 <div class="rp-schedule-entry {{ $scheduleClass }}">
                                                     <strong>{{ $scheduleEvent['date']?->format($activeTab === 'today' ? 'g:i A' : 'M d, Y · g:i A') ?? 'Date and time not set' }}</strong>
                                                     <span>{{ $scheduleEvent['label'] ?? 'Scheduled Event' }}</span>
-                                                    <small><i class="bi bi-geo-alt" aria-hidden="true"></i> {{ $scheduleEvent['location'] ?: 'Location not set' }}</small>
+                                                    @if($scheduleEvent['event_kind'] !== 'service' || $scheduleEvent['location'])<small><i class="bi bi-geo-alt" aria-hidden="true"></i> {{ $scheduleEvent['location'] ?: 'Location not set' }}</small>@endif
                                                 </div>
                                             @endforeach
                                         @endif

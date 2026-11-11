@@ -11,6 +11,7 @@ use App\Models\Package;
 use App\Models\User;
 use App\Support\AuditLogger;
 use App\Support\CaseSnapshotPricingService;
+use App\Support\CeremonyLocation;
 use App\Support\WakeDuration;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -21,16 +22,16 @@ class ReportController extends Controller
     public function masterCases(Request $request)
     {
         $validated = $request->validate([
-            'per_page' => ['nullable', 'integer', 'in:10,25,50,100'],
+            'per_page' => ['nullable', 'integer', 'between:1,100'],
             'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
             'q' => ['nullable', 'string', 'max:100', "regex:/^[A-Za-z0-9\\s.'-]+$/"],
             'payment_status' => ['nullable', 'in:PAID,PARTIAL,UNPAID,WITH_BALANCE'],
-            'case_status' => ['nullable', 'in:DRAFT,ACTIVE,COMPLETED'],
+            'case_status' => ['nullable', 'in:ACTIVE,COMPLETED'],
             'verification_status' => ['nullable', 'in:PENDING,VERIFIED,DISPUTED'],
             'service_type' => ['nullable', 'string', 'max:100'],
             'package_id' => ['nullable', 'integer', 'exists:packages,id'],
             'encoded_by' => ['nullable', 'integer', 'exists:users,id'],
-            'sort' => ['nullable', 'in:newest,oldest'],
+            'sort' => ['nullable', 'in:newest,oldest,alpha_asc,alpha_desc'],
             'date_preset' => ['nullable', 'in:TODAY,THIS_MONTH,THIS_YEAR,CUSTOM'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
@@ -81,6 +82,7 @@ class ReportController extends Controller
         [$startAt, $endAt] = $this->parseDateBounds($dateFrom, $dateTo);
 
         $cases = FuneralCase::with(['branch', 'client', 'deceased', 'package', 'encodedBy'])
+            ->whereIn('case_status', ['ACTIVE', 'COMPLETED'])
             ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
             ->when($startAt, fn ($query) => $query->where('created_at', '>=', $startAt))
             ->when($endAt, fn ($query) => $query->where('created_at', '<=', $endAt))
@@ -120,8 +122,9 @@ class ReportController extends Controller
                         ->orWhereHas('deceased', fn ($q3) => $q3->where('full_name', 'like', "%{$q}%"));
                 });
             })
-            ->when($sort === 'oldest', fn ($query) => $query->oldest())
-            ->when($sort !== 'oldest', fn ($query) => $query->latest())
+            ->when(in_array($sort, ['newest','oldest'], true), fn ($query) => $query->orderBy('created_at', $sort === 'oldest' ? 'asc' : 'desc'))
+            ->when(in_array($sort, ['alpha_asc','alpha_desc'], true), fn ($query) => $query->orderBy(Client::select('full_name')->whereColumn('clients.id', 'funeral_cases.client_id')->limit(1), $sort === 'alpha_desc' ? 'desc' : 'asc'))
+
             ->orderBy('id')
             ->paginate((int) ($validated['per_page'] ?? 25))
             ->withQueryString();
@@ -170,6 +173,8 @@ class ReportController extends Controller
 
     public function editCase(Request $request, FuneralCase $funeral_case)
     {
+        abort_if($funeral_case->case_status === 'DRAFT', 403, 'Draft cases are for staff only.');
+
         $user = $request->user();
 
         // Main Branch Admin may only edit cases that belong to their own (main) branch.
@@ -206,6 +211,8 @@ class ReportController extends Controller
 
     public function updateCase(Request $request, FuneralCase $funeral_case)
     {
+        abort_if($funeral_case->case_status === 'DRAFT', 403, 'Draft cases are for staff only.');
+
         $user = $request->user();
 
         // Main Branch Admin may only update cases that belong to their own (main) branch.
@@ -243,6 +250,7 @@ class ReportController extends Controller
             'wake_end_time'        => ['nullable', 'date_format:H:i'],
             'funeral_service_at'   => ['nullable', 'date'],
             'funeral_service_time' => ['nullable', 'date_format:H:i'],
+            ...CeremonyLocation::rules(),
             'interment_at'         => ['nullable', 'date'],
             'interment_time'       => ['nullable', 'date_format:H:i'],
             'additional_services'  => ['nullable', 'string', 'max:1000'],
@@ -355,8 +363,6 @@ class ReportController extends Controller
         if ($client) {
             $clientData = [
                 'contact_number'           => $validated['client_contact'] ?? $client->contact_number,
-                'relationship_to_deceased' => $validated['client_relationship'] ?? $client->relationship_to_deceased,
-                'relationship'             => $validated['client_relationship'] ?? $client->relationship,
                 'address'                  => $validated['client_address'] ?? $client->address,
             ];
             if (filled($validated['client_full_name'] ?? null)) {
@@ -392,6 +398,7 @@ class ReportController extends Controller
 
         // ── Update funeral case ─────────────────────────────────────────────────
         $funeral_case->update([
+            'client_relationship'  => $validated['client_relationship'] ?? $funeral_case->client_relationship,
             'wake_location'        => $wakeLocation,
             'wake_start_date'      => $wakeStartDate,
             'wake_start_time'      => ! $isFinalized && isset($validated['wake_start_time']) ? $validated['wake_start_time'] : $funeral_case->wake_start_time,
@@ -399,6 +406,7 @@ class ReportController extends Controller
             'wake_end_time'        => ! $isFinalized && isset($validated['wake_end_time']) ? $validated['wake_end_time'] : $funeral_case->wake_end_time,
             'funeral_service_at'   => $funeralServiceAt,
             'funeral_service_time' => ! $isFinalized && isset($validated['funeral_service_time']) ? $validated['funeral_service_time'] : $funeral_case->funeral_service_time,
+            ...($isFinalized ? [] : CeremonyLocation::attributes($validated)),
             'interment_at'         => $intermentAt,
             'interment_time'       => ! $isFinalized && isset($validated['interment_time']) ? $validated['interment_time'] : $funeral_case->interment_time,
             'subtotal_amount'      => $pricingAttributes['subtotal_amount'],
@@ -469,6 +477,8 @@ class ReportController extends Controller
 
     public function updateVerification(Request $request, FuneralCase $funeral_case)
     {
+        abort_if($funeral_case->case_status === 'DRAFT', 403, 'Draft cases are for staff only.');
+
         $validated = $request->validate([
             'verification_status' => ['required', 'in:VERIFIED,DISPUTED'],
             'verification_note' => ['nullable', 'string', 'max:500'],
@@ -567,6 +577,11 @@ class ReportController extends Controller
         if ($datePreset === 'CUSTOM') {
             $dateFrom = $dateFromInput;
             $dateTo = $dateToInput;
+        } elseif ($datePreset === 'ANY') {
+            // An explicit All Dates selection must discard stale custom-range
+            // values that may still be present in the submitted query string.
+            $dateFromInput = null;
+            $dateToInput = null;
         } elseif ($datePreset !== 'ANY') {
             [$dateFrom, $dateTo] = match ($datePreset) {
                 'TODAY' => [Carbon::today()->toDateString(), Carbon::today()->toDateString()],

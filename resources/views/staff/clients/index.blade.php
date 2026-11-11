@@ -4,7 +4,8 @@
 @section('page_desc', 'Family representatives, contact details, and linked case history.')
 
 @section('content')
-<div class="records-page staff-clients-page">
+@include('partials.worklist_consistency_styles')
+<div class="records-page staff-clients-page" data-record-results-page="clients" data-worklist-consistent>
 @if(session('success'))
     <div class="flash-success">
         {{ session('success') }}
@@ -13,71 +14,12 @@
 
 <section class="table-system-card">
     <div class="table-system-toolbar">
-        <form id="clientFilterForm" method="GET" action="{{ route('clients.index') }}" class="table-toolbar" data-table-toolbar data-search-debounce="400">
-            <div class="table-toolbar-field">
-                <label for="client-filter-q" class="table-toolbar-label">Search</label>
-                <input id="client-filter-q" name="q" value="{{ request('q') }}" class="form-input table-toolbar-search" data-table-search placeholder="Search representative, phone, or address...">
-            </div>
-
-            <div class="table-toolbar-field">
-                <label for="client-date-range" class="table-toolbar-label">Date</label>
-                <select id="client-date-range" name="date_range" class="form-select table-toolbar-select">
-                    <option value="any" @selected(request('date_range','any') === 'any')>All Dates</option>
-                    <option value="today" @selected(request('date_range') === 'today')>Today</option>
-                    <option value="7d" @selected(request('date_range') === '7d')>Last 7 Days</option>
-                    <option value="30d" @selected(request('date_range') === '30d')>Last 30 Days</option>
-                    <option value="this_month" @selected(request('date_range') === 'this_month')>This Month</option>
-                    <option value="custom" @selected(request('date_range') === 'custom')>Custom Range</option>
-                </select>
-            </div>
-
-            <div class="table-toolbar-field" data-custom-date-field @if(request('date_range') !== 'custom') hidden @endif>
-                <label for="added-from" class="table-toolbar-label">Date From</label>
-                <input id="added-from" type="date" name="added_from" value="{{ request('added_from') }}" class="form-input table-toolbar-select" data-custom-date-input @if(request('date_range') !== 'custom') disabled @endif>
-            </div>
-
-            <div class="table-toolbar-field" data-custom-date-field @if(request('date_range') !== 'custom') hidden @endif>
-                <label for="added-to" class="table-toolbar-label">Date To</label>
-                <input id="added-to" type="date" name="added_to" value="{{ request('added_to') }}" class="form-input table-toolbar-select" data-custom-date-input @if(request('date_range') !== 'custom') disabled @endif>
-            </div>
-
-            <div class="table-toolbar-field">
-                <label for="client-sort" class="table-toolbar-label">Sort</label>
-                <select id="client-sort" name="sort" class="form-select table-toolbar-sort" data-table-sort>
-                    <option value="newest" @selected(request('sort','newest') === 'newest')>Newest</option>
-                    <option value="oldest" @selected(request('sort') === 'oldest')>Oldest</option>
-                    <option value="name_asc" @selected(request('sort') === 'name_asc')>Name A-Z</option>
-                    <option value="name_desc" @selected(request('sort') === 'name_desc')>Name Z-A</option>
-                </select>
-            </div>
-
-            <div class="table-toolbar-reset-wrap">
-                <span class="table-toolbar-label opacity-0 select-none">Actions</span>
-                <div class="filter-actions">
-                    <a href="{{ route('clients.index') }}" class="btn-outline btn-filter-reset">
-                        <i class="bi bi-arrow-counterclockwise"></i>
-                        <span>Reset</span>
-                    </a>
-                    <button type="submit" class="btn-secondary">
-                        <i class="bi bi-funnel"></i>
-                        <span>Apply</span>
-                    </button>
-                </div>
-            </div>
-        </form>
-
+        @include('partials.directory_toolbar', ['directoryKind' => 'clients'])
     </div>
 
-    <div class="table-system-list">
-        <div class="table-system-list-header">
-            <div>
-                <div class="table-system-list-title">Client Directory</div>
-                <div class="table-system-list-copy">View family representative contacts and their latest linked case activity.</div>
-            </div>
-        </div>
-
-        <div class="table-wrapper table-system-wrap">
-                <table class="table-base table-system-table">
+    <div class="table-system-list" data-record-results="table">
+        <div class="table-wrapper table-system-wrap" role="region" aria-label="Client records" tabindex="0">
+            <table class="table-base table-system-table records-worklist-table" aria-label="Client Directory">
                 <thead>
                     <tr>
                         <th class="text-left">Family Representative</th>
@@ -98,18 +40,20 @@
                             'return_to' => request()->fullUrl(),
                         ]);
                     @endphp
-                    <tr>
+                    <tr data-worklist-search-id="{{ $client->id }}" data-worklist-name="{{ $client->full_name }}"
+                        data-worklist-detail="{{ $client->contact_number }}"
+                        data-worklist-fields="{{ json_encode([$client->full_name, $client->contact_number, $client->address]) }}">
                         <td data-label="Family Representative">
                             <div class="table-primary">{{ $client->full_name }}</div>
-                            <div class="table-secondary staff-records-mono">{{ $client->client_code ?? 'CL-' . str_pad($client->id, 3, '0', STR_PAD_LEFT) }}</div>
+                            <div class="table-secondary staff-records-mono">{{ $client->directoryCode() }}</div>
                         </td>
                         <td data-label="Contact">
                             <div class="table-primary staff-records-mono">{{ $client->contact_number ?: '-' }}</div>
-                            <div class="table-secondary">{{ \Illuminate\Support\Str::limit($client->address ?: 'Address not recorded', 42) }}</div>
+                            <div class="table-secondary client-directory-address" title="{{ $client->address }}">{{ $client->address ?: 'Address not recorded' }}</div>
                         </td>
                         <td data-label="Linked Cases">
                             <div class="table-primary">{{ $client->funeral_cases_count }} linked {{ \Illuminate\Support\Str::plural('case', $client->funeral_cases_count) }}</div>
-                            <div class="table-secondary">{{ $latestCase?->deceased?->full_name ? \Illuminate\Support\Str::limit($latestCase->deceased->full_name, 34) : 'No linked case yet' }}</div>
+                            <div class="table-secondary">{{ $latestCase?->deceased?->full_name ?: 'No linked case yet' }}</div>
                         </td>
                         <td data-label="Latest Activity">
                             @if($latestCase)
@@ -127,43 +71,44 @@
                         </td>
                         <td class="table-col-actions" data-label="Actions">
                             <div class="table-row-actions">
-                                <div class="row-action-menu" data-row-menu>
+                                <a
+                                    href="{{ route('clients.show', $client) }}"
+                                    class="primary-view-action record-action-control open-client-modal"
+                                    data-modal-title="Client Profile"
+                                    data-action-tooltip="View profile"
+                                    aria-label="View profile for {{ $client->full_name }}"
+                                    aria-haspopup="dialog"
+                                    aria-controls="clientModalSheet"
+                                ><i class="bi bi-eye" aria-hidden="true"></i></a>
+                                <div class="row-action-menu compact-action-menu" data-row-menu>
                                     <button
                                         type="button"
-                                        class="row-action-trigger"
+                                        class="row-action-trigger compact-action-trigger record-action-control"
                                         data-row-menu-trigger
-                                        aria-label="Open row actions"
+                                        data-action-tooltip="More actions"
+                                        aria-label="More actions for {{ $client->full_name }}"
                                         aria-haspopup="menu"
                                         aria-expanded="false"
                                     >
-                                        <i class="bi bi-three-dots-vertical"></i>
+                                        <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
                                     </button>
                                     <div class="row-action-dropdown" role="menu">
                                         <a
-                                            href="{{ route('clients.show', $client) }}"
-                                            data-url="{{ route('clients.show', $client) }}"
-                                            class="row-action-item open-client-modal"
-                                            data-row-menu-item
-                                        >
-                                            <i class="bi bi-eye"></i>
-                                            <span>View Profile</span>
-                                        </a>
-                                        <a
                                             href="{{ $linkedCasesUrl }}"
-                                            class="row-action-item"
+                                            class="row-action-item compact-action-item"
                                             data-row-menu-item
                                         >
-                                            <i class="bi bi-folder2-open"></i>
+                                            <i class="bi bi-folder2-open" aria-hidden="true"></i>
                                             <span>View Linked Cases</span>
                                         </a>
                                         @if(auth()->user()?->role !== 'staff')
                                             <a
                                                 href="{{ route('clients.edit', $client) }}"
                                                 data-url="{{ route('clients.edit', $client) }}"
-                                                class="row-action-item open-client-modal"
+                                                class="row-action-item compact-action-item open-client-modal"
                                                 data-row-menu-item
                                             >
-                                                <i class="bi bi-pencil-square"></i>
+                                                <i class="bi bi-pencil-square" aria-hidden="true"></i>
                                                 <span>Edit Contact</span>
                                             </a>
                                         @endif
@@ -175,7 +120,11 @@
                 @empty
                     <tr>
                         <td colspan="5" class="table-system-empty">
-                            No family representatives found.
+                            <div class="client-directory-empty">
+                                <i class="bi bi-people" aria-hidden="true"></i>
+                                <strong>No family representatives found</strong>
+                                <span>{{ request()->filled('q') || (request()->filled('date_range') && request('date_range') !== 'any') || request()->filled('added_from') || request()->filled('added_to') || in_array(request('type_filter'), ['needs_attention', 'recent', 'with_balance'], true) ? 'Try a different search or clear the filters.' : 'Client profiles appear here after a case is recorded.' }}</span>
+                            </div>
                         </td>
                     </tr>
                 @endforelse
@@ -184,111 +133,33 @@
         </div>
     </div>
 
-    <div class="table-system-pagination">
-        @if($clients->hasPages()){{ $clients->links() }}@endif
-    </div>
 </section>
-
-<div id="clientModalOverlay" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-200 panel-overlay-content">
-    <div id="clientModalSheet" class="relative w-[92vw] max-w-4xl max-h-[92vh] bg-white rounded-2xl shadow-2xl overflow-hidden transform transition-all duration-200 scale-95 opacity-0 border border-slate-200">
-        <button id="clientModalClose" type="button" class="absolute top-4 right-4 z-10 inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors focus:outline-none shadow-sm">
-            <i class="bi bi-x-lg" style="font-size:.8rem"></i>
-        </button>
-        <div id="clientModalContent" class="overflow-y-auto max-h-[84vh] p-6 bg-slate-50">
-            <div class="flex flex-col items-center justify-center py-16 gap-3">
-                <div class="w-7 h-7 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin"></div>
-                <span class="text-sm text-slate-400">Loading...</span>
-            </div>
-        </div>
-    </div>
+<div class="table-system-pagination worklist-footer {{ $clients->hasPages() ? '' : 'is-pagination-hidden' }}" data-record-results="footer" @if(!$clients->hasPages()) aria-hidden="true" @endif>
+    {{ $clients->links('components.pagination.table') }}
 </div>
+
+<dialog id="clientModalSheet" class="client-directory-dialog client-profile-surface" aria-labelledby="clientModalTitle">
+    <header>
+        <h2 id="clientModalTitle">Client Profile</h2>
+        <button id="clientModalClose" type="button" aria-label="Close client profile" autofocus><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    </header>
+    <div id="clientModalContent"></div>
+</dialog>
 
 <script>
     (() => {
-        const filterForm = document.getElementById('clientFilterForm');
-        if (filterForm) {
-            const dateRangeSelect = filterForm.querySelector('select[name="date_range"]');
-            const customDateFields = filterForm.querySelectorAll('[data-custom-date-field]');
-            const customDateInputs = filterForm.querySelectorAll('[data-custom-date-input]');
-
-            const updateCustomDateVisibility = () => {
-                const isCustom = dateRangeSelect && dateRangeSelect.value === 'custom';
-                customDateFields.forEach((field) => {
-                    field.hidden = !isCustom;
-                });
-                customDateInputs.forEach((input) => {
-                    input.disabled = !isCustom;
-                    if (!isCustom) {
-                        input.value = '';
-                    }
-                });
-            };
-
-            if (dateRangeSelect) {
-                dateRangeSelect.addEventListener('change', updateCustomDateVisibility);
-            }
-
-            updateCustomDateVisibility();
-        }
-
-        const overlay = document.getElementById('clientModalOverlay');
         const sheet = document.getElementById('clientModalSheet');
         const content = document.getElementById('clientModalContent');
         const closeBtn = document.getElementById('clientModalClose');
-        const links = [...document.querySelectorAll('.open-client-modal')];
-        const transitionMs = 180;
-        let hideTimer = null;
-        let activeRequestId = 0;
+        const root = sheet.closest('.staff-clients-page');
+        let activeRequest;
+        let returnFocus;
 
         const loadingMarkup = `
             <div class="flex flex-col items-center justify-center py-16 gap-3">
                 <div class="w-7 h-7 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin"></div>
                 <span class="text-sm text-slate-400">Loading...</span>
             </div>`;
-
-        const dispatchUiReset = () => {
-            document.dispatchEvent(new CustomEvent('panel-ui:reset'));
-        };
-
-        const syncPageScrollLock = (isOpen) => {
-            document.documentElement.classList.toggle('overflow-hidden', !!isOpen);
-            document.body.classList.toggle('overflow-hidden', !!isOpen);
-        };
-
-        const resetContent = () => {
-            if (content) {
-                content.innerHTML = loadingMarkup;
-            }
-        };
-
-        const show = () => {
-            if (!overlay || !sheet) return;
-            window.clearTimeout(hideTimer);
-            dispatchUiReset();
-            overlay.classList.remove('hidden');
-            syncPageScrollLock(true);
-            requestAnimationFrame(() => {
-                sheet.classList.remove('scale-95', 'opacity-0');
-                sheet.classList.add('scale-100', 'opacity-100');
-                overlay.classList.add('opacity-100');
-            });
-        };
-
-        const hide = () => {
-            if (!overlay || !sheet) return;
-            activeRequestId += 1;
-            window.clearTimeout(hideTimer);
-            sheet.classList.add('scale-95', 'opacity-0');
-            sheet.classList.remove('scale-100', 'opacity-100');
-            overlay.classList.remove('opacity-100');
-            syncPageScrollLock(false);
-            dispatchUiReset();
-            hideTimer = window.setTimeout(() => {
-                overlay.classList.add('hidden');
-                syncPageScrollLock(false);
-                resetContent();
-            }, transitionMs);
-        };
 
         const attachPrintHandler = () => {
             const btn = content.querySelector('#printClientBtn');
@@ -335,11 +206,14 @@
         };
 
         const load = async (url) => {
-            if (!content) return;
-            const requestId = ++activeRequestId;
-            resetContent();
+            activeRequest?.abort();
+            const request = new AbortController();
+            activeRequest = request;
+            content.innerHTML = loadingMarkup;
+            const finishSkeleton = window.PanelSkeleton?.begin(content, {variant:'form'});
             try {
                 const res = await fetch(withFragment(url), {
+                    signal: request.signal,
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest',
                         'X-Client-Fragment': 'modal',
@@ -349,7 +223,7 @@
                     throw new Error(`Request failed with ${res.status}`);
                 }
                 const html = await res.text();
-                if (requestId !== activeRequestId || overlay.classList.contains('hidden')) return;
+                if (request.signal.aborted || !sheet.open) return;
                 content.innerHTML = html;
                 const hasModalPayload = content.querySelector('#clientEditForm') || content.querySelector('#clientViewContent');
                 if (!hasModalPayload) {
@@ -368,29 +242,33 @@
                 }
                 attachPrintHandler();
             } catch (e) {
-                if (requestId !== activeRequestId || overlay.classList.contains('hidden')) return;
-                content.innerHTML = `<div class="p-4 text-sm text-rose-600">Unable to load content.</div>`;
-            }
+                if (request.signal.aborted || !sheet.open) return;
+                content.innerHTML = `<p class="flash-error" role="alert">Unable to load the client profile. Close this window and try again.</p>`;
+            } finally { finishSkeleton?.(); }
         };
 
-        links.forEach((link) => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const url = link.dataset.url || link.href;
-                show();
-                load(url);
-            });
+        root.addEventListener('click', event => {
+            const link = event.target.closest('.open-client-modal');
+            if (!link || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            returnFocus = link.closest('[data-row-menu]')?.querySelector('[data-row-menu-trigger]') ?? link;
+            document.getElementById('clientModalTitle').textContent = link.dataset.modalTitle ?? link.textContent.trim();
+            sheet.showModal();
+            load(link.dataset.url || link.href);
         });
 
-        if (closeBtn) closeBtn.addEventListener('click', hide);
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) hide();
+        closeBtn.addEventListener('click', () => sheet.close());
+        sheet.addEventListener('click', event => {
+            if (event.target !== sheet) return;
+            const rect = sheet.getBoundingClientRect();
+            if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) sheet.close();
         });
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && !overlay.classList.contains('hidden')) hide();
+        sheet.addEventListener('close', () => {
+            activeRequest?.abort();
+            (returnFocus?.isConnected ? returnFocus : root.querySelector('[data-worklist-search]'))?.focus({preventScroll:true});
         });
     })();
 </script>
 </div>
-@include('staff.partials.remaining-pages-visual-system')
+@include('staff.clients.partials.directory-styles')
 @endsection

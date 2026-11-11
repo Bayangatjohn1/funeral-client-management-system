@@ -76,40 +76,6 @@ html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.own
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar :is(.case-compact-search-control, .case-compact-input) {
     background: var(--surface-muted) !important;
 }
-@media (min-width: 1201px) {
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar .case-compact-filter {
-        grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr) auto auto !important;
-        grid-template-areas: none !important;
-    }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar .case-compact-filter-bar { display: contents !important; }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar .case-compact-search-field { grid-area: 1 / 1 !important; }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar .case-compact-date-filter { grid-area: 1 / 2 !important; }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar .case-compact-sort-filter { grid-area: 1 / 3 !important; }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar .case-compact-more { grid-area: 1 / 4 !important; }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar .case-rows-per-page { grid-area: 1 / 5 !important; }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar :is(.case-compact-date-filter, .case-compact-sort-filter) {
-        width: 100% !important;
-        min-width: 0 !important;
-        max-width: none !important;
-    }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar .case-applied-filters {
-        grid-area: 2 / 1 / 3 / 5 !important;
-        width: auto !important;
-        margin: 0 !important;
-        align-items: center;
-    }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar .case-compact-actions {
-        grid-area: 1 / 6 !important;
-        margin: 0 !important;
-        justify-content: flex-end;
-        align-self: center;
-    }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar :is(.case-compact-chip, .case-compact-reset) {
-        min-height: 36px;
-        height: auto;
-        padding-block: 6px;
-    }
-}
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui,.owner-ui) .master-records-page .admin-table-toolbar :is(.case-compact-date-select, .case-compact-sort-select) {
     background: transparent !important;
     border: 0 !important;

@@ -485,11 +485,15 @@
                         <strong>{{ $printCasket }}</strong>
                     </div>
                 @endif
-                @if($printIsCustomPackage)
+                @foreach(['Basic Funeral Inclusions' => $printSnapshot['basic_inclusions'], 'Other Inclusions' => $printSnapshot['other_inclusions']] as $heading => $items)
+                    @if($items)
                     <div class="print-field">
-                        <span>Inclusions</span>
-                        <strong>{{ implode(' · ', $printSnapshot['inclusions']) ?: 'None listed' }}</strong>
+                        <span>{{ $heading }}</span>
+                        <strong>{{ implode(' · ', $items) }}</strong>
                     </div>
+                    @endif
+                @endforeach
+                @if($printIsCustomPackage)
                     <div class="print-field">
                         <span>Freebies</span>
                         <strong>{{ implode(' · ', $printSnapshot['freebies']) ?: 'None listed' }}</strong>
@@ -514,6 +518,7 @@
                 <div class="print-field">
                     <span>Funeral Ceremony</span>
                     <strong>{{ $funeral_case->funeral_service_at ? $printSchedule($funeral_case->funeral_service_at, $funeral_case->funeral_service_time) : 'Not set' }}</strong>
+                    @if($ceremonyLocation = $funeral_case->ceremonyLocation())<strong>{{ $ceremonyLocation }}</strong>@endif
                 </div>
                 <div class="print-field">
                     <span>Interment</span>
@@ -786,10 +791,14 @@
             doc.close();
             iframe.onload = () => {
                 iframe.contentWindow.focus();
+                iframe.contentWindow.addEventListener('afterprint', () => iframe.remove(), { once: true });
                 iframe.contentWindow.print();
-                setTimeout(() => iframe.remove(), 500);
             };
         });
+        @if(request()->routeIs('funeral-cases.print'))
+            if (document.readyState === 'complete') btn.click();
+            else window.addEventListener('load', () => btn.click(), {once:true});
+        @endif
     })();
 </script>
 @endsection

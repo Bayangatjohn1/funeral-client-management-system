@@ -5,38 +5,39 @@ html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .di
     background:transparent !important; border:0 !important; padding:0 !important; margin:0 0 16px; min-height:0;
 }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .admin-table-head-row { padding:0; min-height:0; }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar {
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar:not([data-worklist-form]) {
     display:grid !important;
     gap:10px !important; align-items:center !important;
 }
 @media(min-width:1151px) {
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar {
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar:not([data-worklist-form]) {
         display:flex !important;
         width:100%;
     }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar > .table-toolbar-field:first-of-type {
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar:not([data-worklist-form]) > .table-toolbar-field:first-of-type {
         flex:1 1 22rem !important;
         width:auto !important;
         max-width:34rem;
         margin-right:auto;
     }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar > .table-toolbar-field:not(:first-of-type) {
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar:not([data-worklist-form]) > .table-toolbar-field:not(:first-of-type) {
         flex:0 1 13rem !important;
         width:auto !important;
     }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar > :is(.user-more-filters,.user-filter-clear) {
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar:not([data-worklist-form]) > :is(.user-more-filters,.user-filter-clear) {
         flex:0 0 auto;
     }
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar > .user-directory-view-toggle {
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar:not([data-worklist-form]) > .user-directory-view-toggle {
         flex:0 0 auto;
-        margin-left:0;
+        margin-left:auto;
+        padding-left:12px;
     }
 }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-filters-system {
     grid-template-columns:minmax(280px,2.2fr) minmax(190px,1.2fr) minmax(145px,.9fr) auto !important;
 }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-filters-system:has(.user-filter-clear) { grid-template-columns:minmax(280px,2.2fr) minmax(190px,1.2fr) minmax(145px,.9fr) auto auto !important; }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar > .table-toolbar-field { min-width:0 !important; width:100%; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar:not([data-worklist-form]) > .table-toolbar-field { min-width:0 !important; width:100%; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-filters-branch {
     grid-template-columns:minmax(240px,2fr) repeat(2,minmax(170px,1fr)) !important;
 }
@@ -53,15 +54,11 @@ html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .di
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-more-filters:not([open]) .user-more-filters-panel { display:none; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-more-filters-panel .table-toolbar-label { display:block; margin-bottom:6px; font-size:12px; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-more-filters-panel .table-toolbar-field { min-width:0; width:100%; }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page :is(.table-toolbar-input-wrap, .table-toolbar-select-wrap) { border:1px solid var(--border); border-radius:8px; background:var(--surface-muted); }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page :is(.table-toolbar-input-wrap, .table-toolbar-select-wrap:not(.worklist-control)) { border:1px solid var(--border); border-radius:8px; background:var(--surface-muted); }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page :is(.table-toolbar-search, .table-toolbar-select, .table-toolbar-sort) { border:0 !important; background:transparent !important; box-shadow:none !important; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .row-action-trigger {
     position:relative; display:inline-flex; justify-content:center; align-items:center; width:44px !important; min-width:44px !important; height:44px; padding:0 !important; border-radius:8px !important; font-size:16px;
 }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .row-action-trigger::after {
-    content:'User actions'; position:absolute; right:calc(100% + 8px); top:50%; transform:translateY(-50%); width:max-content; padding:6px 10px; background:var(--ink); color:var(--card); border-radius:6px; font-size:12px; opacity:0; visibility:hidden; pointer-events:none; z-index:40;
-}
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .row-action-trigger:is(:hover,:focus-visible)::after { opacity:1; visibility:visible; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .directory-user-card-actions { opacity:1 !important; visibility:visible !important; padding:12px 16px; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .directory-card-view > .grid { gap:16px; align-items:stretch; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .directory-item-card { overflow:visible !important; }
@@ -71,17 +68,19 @@ html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .di
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .directory-table-view { padding:0 !important; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-system-table :is(th,td) { padding:14px 16px; }
 @media(max-width:1150px) { html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-filters-system { grid-template-columns:repeat(3,minmax(0,1fr)) !important; } }
-@media(max-width:1000px) { html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar { grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important; } }
-@media(max-width:600px) { html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar { grid-template-columns:minmax(0,1fr) !important; } }
+@media(max-width:1000px) { html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar:not([data-worklist-form]) { grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important; } }
+@media(max-width:600px) { html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar:not([data-worklist-form]) { grid-template-columns:minmax(0,1fr) !important; } }
 @media(max-width:600px) { html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-more-filters-panel { right:auto; left:0; } }
 @media(max-width:1150px) {
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar > .user-directory-view-toggle {
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar:not([data-worklist-form]) > .user-directory-view-toggle {
         justify-self:end;
+        margin-left:auto;
     }
 }
 @media(max-width:600px) {
-    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar > .user-directory-view-toggle {
-        justify-self:start;
+    html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-toolbar:not([data-worklist-form]) > .user-directory-view-toggle {
+        justify-self:end;
+        margin-left:auto;
     }
 }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) :is(.directory-page, .user-create-page, .user-edit-page) { background:transparent !important; color:var(--ink); }
@@ -102,12 +101,10 @@ html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) :is
 </style>
 <style>
 /* This toolbar owns its control surfaces, including the shared uniform overrides. */
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-system-toolbar .table-toolbar :is(.table-toolbar-input-wrap, .table-toolbar-select-wrap) { background:var(--surface-muted) !important; border:1px solid var(--border) !important; border-radius:8px !important; }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-system-toolbar .table-toolbar :is(.table-toolbar-input-wrap, .table-toolbar-select-wrap) { height:44px; box-sizing:border-box; }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-system-toolbar .table-toolbar :is(.table-toolbar-input-wrap, .table-toolbar-select-wrap) > :is(input,select) { background:transparent !important; border:0 !important; border-radius:inherit !important; height:100% !important; min-height:0 !important; box-sizing:border-box; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-system-toolbar .table-toolbar:not([data-worklist-form]) :is(.table-toolbar-input-wrap, .table-toolbar-select-wrap:not(.worklist-control)) { background:var(--surface-muted) !important; border:1px solid var(--border) !important; border-radius:8px !important; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-system-toolbar .table-toolbar:not([data-worklist-form]) :is(.table-toolbar-input-wrap, .table-toolbar-select-wrap:not(.worklist-control)) { height:44px; box-sizing:border-box; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-system-toolbar .table-toolbar:not([data-worklist-form]) :is(.table-toolbar-input-wrap, .table-toolbar-select-wrap:not(.worklist-control)) > :is(input,select) { background:transparent !important; border:0 !important; border-radius:inherit !important; height:100% !important; min-height:0 !important; box-sizing:border-box; }
 .user-view-button { position:relative; display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border:1px solid var(--border); background:var(--surface-muted); color:var(--brand); border-radius:8px; cursor:pointer; }
-.user-view-tooltip { position:absolute; right:calc(100% + 8px); top:50%; transform:translateY(-50%); background:var(--ink); color:var(--card); padding:6px 10px; border-radius:6px; font-size:12px; white-space:nowrap; pointer-events:none; visibility:hidden; z-index:40; }
-.user-view-button:is(:hover,:focus-visible) .user-view-tooltip { visibility:visible; }
 .user-information-dialog { width:min(560px, calc(100vw - 32px)); max-height:calc(100dvh - 48px); margin:auto; padding:0; background:var(--card); color:var(--ink); border:1px solid var(--border); border-radius:12px; overflow:auto; }
 .user-information-dialog::backdrop { background:var(--modal-scrim, rgba(15,23,42,.72)); }
 .user-information-dialog[open] + .user-status-dialog::backdrop { background:transparent; }
@@ -131,18 +128,40 @@ html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .di
 .directory-page .directory-user-card-actions, .directory-page .user-table-actions { display:flex; align-items:center; gap:8px; }
 .directory-page .directory-user-card-actions { margin-top:auto; border-top:1px solid var(--border); }
 .directory-page .user-view-button--card { flex:1; width:auto; min-width:0; gap:8px; font-size:14px; font-weight:600; color:var(--ink); }
-.directory-page .user-view-button--card .user-view-tooltip { display:none; }
 .directory-page .user-directory-action { display:inline-grid; place-items:center; flex:none; width:40px; height:40px; padding:0; border:0; border-radius:8px; background:transparent; color:var(--brand); text-decoration:none; cursor:pointer; font-size:17px; }
 .directory-page .user-directory-action:hover { background:var(--surface-muted); }
-.directory-page .user-directory-action.is-danger { color:#b44648; }
+.directory-page .user-directory-action.is-danger { color:#A15C00; }
 .directory-page .user-directory-action.is-enable { color:#167b54; }
+html[data-theme='dark'] .directory-page .user-directory-action.is-danger { color:#FDC76A; }
+html[data-theme='dark'] .directory-page .user-directory-action.is-enable { color:#52E6B0; }
 .directory-page .user-table-actions { justify-content:flex-end; }
-.directory-page .user-table-actions .user-view-button { width:40px; height:40px; border:0; background:transparent; }
+.directory-page .user-table-actions .user-view-button { width:auto; min-width:0; height:40px; padding:0 6px; gap:7px; border:0; background:transparent; color:var(--ink); font-size:13px; font-weight:600; }
 .directory-page .user-table-actions .user-view-button:hover { background:var(--surface-muted); }
 .directory-page .table-col-actions { min-width:142px; }
 .user-status-body { padding:22px 20px; color:var(--ink); line-height:1.55; }
-.user-status-confirm-danger { padding:0 16px; border:1px solid #ad4341; border-radius:8px; background:#ad4341; color:#fff; font-weight:650; cursor:pointer; }
-.user-status-confirm-danger:hover { background:#8f302f; }
+.user-status-confirm-danger { padding:0 16px; border:1px solid #A15C00; border-radius:8px; background:#A15C00; color:#fff; font-weight:650; cursor:pointer; }
+.user-status-confirm-danger:hover { background:#854C00; }
+html[data-theme='dark'] .user-status-confirm-danger { border-color:#FDC76A; background:#FDC76A; color:#2B1B00; }
+.directory-feedback-dialog { width:min(440px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); padding:24px; overflow-y:auto; text-align:center; box-shadow:0 20px 60px rgb(15 23 42 / 24%); }
+.directory-feedback-dialog__icon { display:grid; place-items:center; width:40px; height:40px; margin:0 auto 12px; border-radius:11px; font-size:17px; }
+.directory-feedback-dialog[data-confirm-tone='warning'] .directory-feedback-dialog__icon { background:var(--feedback-warning-bg); color:var(--feedback-warning-fg); }
+.directory-feedback-dialog[data-confirm-tone='success'] .directory-feedback-dialog__icon { background:var(--feedback-success-bg); color:var(--feedback-success-fg); }
+.directory-feedback-dialog h2 { margin:0 0 6px; color:var(--ink); font-size:18px; line-height:1.35; font-weight:700; }
+.directory-feedback-dialog p { max-width:38ch; margin:0 auto; color:var(--ink-muted); font-size:13px; line-height:1.6; }
+.directory-feedback-dialog .directory-feedback-dialog__record { margin-bottom:14px; color:var(--ink); font-weight:600; line-height:1.45; }
+.directory-feedback-dialog .user-information-footer { justify-content:center; gap:10px; margin-top:20px; padding:0; border:0; background:transparent; }
+.directory-feedback-dialog .user-information-footer form { margin:0; }
+.directory-feedback-dialog .user-information-footer button { min-width:112px; min-height:40px; padding:9px 16px; border:1px solid var(--border); border-radius:8px; font:600 13px/1.3 var(--font-body); }
+.directory-feedback-dialog[data-confirm-tone='warning'] .directory-feedback-dialog__confirm { border-color:#A15C00 !important; background:#A15C00 !important; color:#fff !important; }
+.directory-feedback-dialog[data-confirm-tone='warning'] .directory-feedback-dialog__confirm:is(:hover,:focus-visible) { border-color:#854C00 !important; background:#854C00 !important; }
+.directory-feedback-dialog[data-confirm-tone='success'] .directory-feedback-dialog__confirm { border-color:#167044 !important; background:#167044 !important; color:#fff !important; }
+.directory-feedback-dialog[data-confirm-tone='success'] .directory-feedback-dialog__confirm:is(:hover,:focus-visible) { border-color:#105A36 !important; background:#105A36 !important; }
+html[data-theme='dark'] .directory-feedback-dialog[data-confirm-tone='warning'] .directory-feedback-dialog__confirm { border-color:#FDC76A !important; background:#FDC76A !important; color:#2B1B00 !important; }
+html[data-theme='dark'] .directory-feedback-dialog[data-confirm-tone='warning'] .directory-feedback-dialog__confirm:is(:hover,:focus-visible) { border-color:#E7AD45 !important; background:#E7AD45 !important; }
+html[data-theme='dark'] .directory-feedback-dialog[data-confirm-tone='success'] .directory-feedback-dialog__confirm { border-color:#52E6B0 !important; background:#52E6B0 !important; color:#071B12 !important; }
+html[data-theme='dark'] .directory-feedback-dialog[data-confirm-tone='success'] .directory-feedback-dialog__confirm:is(:hover,:focus-visible) { border-color:#38C996 !important; background:#38C996 !important; }
+.directory-feedback-dialog .directory-feedback-dialog__confirm:disabled { cursor:wait; opacity:.72; }
+@media(max-width:480px) { .directory-feedback-dialog { padding:20px 18px; } .directory-feedback-dialog .user-information-footer { flex-direction:column-reverse; gap:8px; } .directory-feedback-dialog .user-information-footer form,.directory-feedback-dialog .user-information-footer button { width:100%; } }
 .directory-page .user-directory-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:18px; }
 .directory-page .user-directory-stats + .admin-table-card { margin-top:18px; }
 .directory-page .user-directory-stat { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; min-width:0; padding:18px; background:var(--card); border:1px solid var(--border); border-radius:12px; }
@@ -174,9 +193,8 @@ html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .di
 .user-information-access strong { color:var(--ink); font-size:14px; }
 .user-information-access .user-modal-status.is-active { color:#146847; }
 .user-information-access .user-modal-status.is-inactive { color:#a33a3e; }
-.user-information-close-action { margin-right:auto; }
 @media(max-width:1100px) { .directory-page .user-directory-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-@media(max-width:600px) { .directory-page .user-directory-stats { grid-template-columns:minmax(0,1fr); } .user-information-footer .user-information-close-action { margin-right:0; } }
+@media(max-width:600px) { .directory-page .user-directory-stats { grid-template-columns:minmax(0,1fr); } }
 html[data-theme="dark"] .directory-page .user-directory-avatar.is-system { background:#34213e; color:#e5bbff; }
 html[data-theme="dark"] .directory-page .user-directory-avatar.is-branch { background:#152c49; color:#a7ceff; }
 html[data-theme="dark"] .directory-page .user-directory-avatar.is-staff { background:#103528; color:#a2e8c3; }
@@ -194,15 +212,15 @@ html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .di
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-directory-stat:nth-child(2) > i { background:#e8f7ef; color:#087f55; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-directory-stat:nth-child(3) > i { background:#fff0f2; color:#c94358; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-system-toolbar { display:flex !important; align-items:center; gap:12px; padding:16px !important; background:#fff !important; border-color:#dae5df !important; border-radius:16px !important; }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-system-toolbar .table-toolbar { flex:1; min-width:0; }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-system-toolbar .table-toolbar :is(.table-toolbar-input-wrap,.table-toolbar-select-wrap) { background:#f8fafc !important; border-color:#dbe4ed !important; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-system-toolbar .table-toolbar:not([data-worklist-form]) { flex:1; min-width:0; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-system-toolbar .table-toolbar:not([data-worklist-form]) :is(.table-toolbar-input-wrap,.table-toolbar-select-wrap:not(.worklist-control)) { background:#f8fafc !important; border-color:#dbe4ed !important; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-more-filters > summary { background:#f8fafc; border-color:#dbe4ed; }
-html:not([data-theme="dark"]) body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-system-toolbar .table-toolbar :is(.table-toolbar-input-wrap,.table-toolbar-select-wrap):not(.is-filtered) { background:#fff !important; border-color:#dbe4ed !important; box-shadow:none !important; }
+html:not([data-theme="dark"]) body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-system-toolbar .table-toolbar:not([data-worklist-form]) :is(.table-toolbar-input-wrap,.table-toolbar-select-wrap:not(.worklist-control)):not(.is-filtered) { background:#fff !important; border-color:#dbe4ed !important; box-shadow:none !important; }
 html:not([data-theme="dark"]) body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-more-filters:not([data-has-active-filters]) > summary { background:#fff !important; border-color:#dbe4ed !important; box-shadow:none !important; }
-html:not([data-theme="dark"]) body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-system-toolbar .table-toolbar :is(.table-toolbar-input-wrap,.table-toolbar-select-wrap).is-filtered,
+html:not([data-theme="dark"]) body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-system-toolbar .table-toolbar:not([data-worklist-form]) :is(.table-toolbar-input-wrap,.table-toolbar-select-wrap:not(.worklist-control)).is-filtered,
 html:not([data-theme="dark"]) body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-more-filters[data-has-active-filters] > summary { background:#edf6f0 !important; border-color:#86b39a !important; }
-html:not([data-theme="dark"]) body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-system-toolbar .table-toolbar :is(.table-toolbar-input-wrap,.table-toolbar-select-wrap):focus-within,
-html:not([data-theme="dark"]) body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-more-filters > summary:focus-visible { border-color:var(--brand) !important; box-shadow:0 0 0 3px rgb(27 67 50 / 16%) !important; }
+html:not([data-theme="dark"]) body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-system-toolbar .table-toolbar:not([data-worklist-form]) :is(.table-toolbar-input-wrap,.table-toolbar-select-wrap:not(.worklist-control)):focus-within,
+html:not([data-theme="dark"]) body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-more-filters > summary:focus-visible { border-color:var(--border) !important; box-shadow:none !important; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-directory-view-toggle { display:flex; align-items:center; flex:none; padding:3px; border:1px solid #dbe4ed; border-radius:10px; background:#f1f5f9; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-directory-view-toggle button { position:relative; display:grid; place-items:center; width:44px; height:44px; border:0; border-radius:7px; background:transparent; color:var(--ink-muted); cursor:pointer; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-directory-view-toggle button::after { content:attr(aria-label); position:absolute; top:calc(100% + .5rem); right:0; z-index:30; width:max-content; padding:.35rem .55rem; border-radius:.4rem; background:var(--ink); color:var(--card); font-size:.75rem; line-height:1.4; pointer-events:none; opacity:0; visibility:hidden; }
@@ -217,7 +235,7 @@ html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .di
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .directory-user-card-head .directory-user-role-strip { position:absolute; top:16px; right:18px; margin:0; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .directory-user-card-head h3 { padding-right:66px; font-size:15px; font-weight:650; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-directory-card-meta { margin:0 20px; padding:16px 0; border-top:1px solid #e8edf1; gap:8px; }
-html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-directory-card-meta span { color:#7590aa; font-size:12px; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-directory-card-meta span { color:var(--ink); font-size:12px; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-directory-card-meta strong { font-size:12px; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-directory-role-badge { display:inline-flex; align-items:center; padding:3px 9px; border:1px solid #cbd7e7; border-radius:999px; background:#f1f5f9; color:#314860; }
 html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-directory-role-badge.is-system { background:#f6edff; border-color:#e2c9ff; color:#6f31a4; }
@@ -248,15 +266,19 @@ html[data-theme="dark"] body.panel-shell-body:is(.branch-admin-ui,.system-admin-
 html[data-theme="dark"] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .directory-card-view .grid > .directory-item-card.bg-white { background-color:#112218 !important; }
 html[data-theme="dark"] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-directory-stat > div > span,
 html[data-theme="dark"] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-directory-card-meta span { color:#a8c3b2; }
-html[data-theme="dark"] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page :is(.table-toolbar-input-wrap,.table-toolbar-select-wrap,.user-more-filters > summary,.user-directory-view-toggle) { background:#172d21 !important; border-color:#3a5d46 !important; }
-html[data-theme="dark"] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-system-toolbar .table-toolbar :is(.table-toolbar-input-wrap,.table-toolbar-select-wrap):not(.is-filtered),
+html[data-theme="dark"] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page :is(.table-toolbar-input-wrap,.table-toolbar-select-wrap:not(.worklist-control),.user-more-filters > summary,.user-directory-view-toggle) { background:#172d21 !important; border-color:#3a5d46 !important; }
+html[data-theme="dark"] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-system-toolbar .table-toolbar:not([data-worklist-form]) :is(.table-toolbar-input-wrap,.table-toolbar-select-wrap:not(.worklist-control)):not(.is-filtered),
 html[data-theme="dark"] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-more-filters:not([data-has-active-filters]) > summary { background:#112218 !important; border-color:#3a5d46 !important; box-shadow:none !important; }
-html[data-theme="dark"] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-system-toolbar .table-toolbar :is(.table-toolbar-input-wrap,.table-toolbar-select-wrap).is-filtered,
+html[data-theme="dark"] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-system-toolbar .table-toolbar:not([data-worklist-form]) :is(.table-toolbar-input-wrap,.table-toolbar-select-wrap:not(.worklist-control)).is-filtered,
 html[data-theme="dark"] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-more-filters[data-has-active-filters] > summary { background:#193b29 !important; border-color:#6ba583 !important; }
 html[data-theme="dark"] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .directory-user-role-strip .user-card-status.is-active { color:#9bdfb8 !important; }
 html[data-theme="dark"] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .directory-user-role-strip .user-card-status.is-inactive { color:#f2a6a8 !important; }
 html[data-theme="dark"] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page :is(.user-directory-view-toggle button.is-active,.user-directory-action--card) { background:#1b3527; color:#e8f5ed; border-color:#3a5d46; }
 html[data-theme="dark"] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-view-button--card { color:#a8cfff; }
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-view-button--card:is(:hover,:focus-visible),
+html[data-theme] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-view-button--card:is(:hover,:focus-visible) :is(i,span) { background:transparent !important; color:#1B4332 !important; }
+html[data-theme='dark'] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-view-button--card:is(:hover,:focus-visible),
+html[data-theme='dark'] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .user-view-button--card:is(:hover,:focus-visible) :is(i,span) { color:#5CE0A0 !important; }
 html[data-theme="dark"] body.panel-shell-body:is(.branch-admin-ui,.system-admin-ui) .directory-page .table-system-table thead { background:#172d21 !important; }
 body.user-information-open .page-content { overflow:hidden !important; }
 body.user-information-open .panel-scroll-top { display:none !important; }

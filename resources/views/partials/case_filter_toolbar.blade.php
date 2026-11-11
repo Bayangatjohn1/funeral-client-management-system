@@ -253,7 +253,7 @@
                             default => [],
                         };
                         $isLockedBranch = str_starts_with($chip['label'], 'Branch:') && $branchMode === 'locked';
-                        $isRemovable = $removeKeys !== [] && !$isLockedBranch && !str_starts_with($chip['label'], 'Case Status:');
+                        $isRemovable = $removeKeys !== [] && !$isLockedBranch;
                     @endphp
                     @if($isRemovable)
                         <span class="catalog-filter-chip" data-tone="{{ $chip['tone'] ?? 'neutral' }}">

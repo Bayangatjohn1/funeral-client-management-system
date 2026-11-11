@@ -156,7 +156,7 @@ protected $fillable = [
 
     public function requiresMfa(): bool
     {
-        return $this->isSystemAdmin() || $this->isBranchAdmin() || $this->isStaff();
+        return $this->isOwner() || $this->isSystemAdmin() || $this->isBranchAdmin() || $this->isStaff();
     }
 
     public function isOwner(): bool

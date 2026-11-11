@@ -27,6 +27,9 @@
 /storage/framework/*.json
 /storage/pail
 /vendor
+/dist
+/admin-recovery-debug*.txt
+/phpunit-events.txt
 Homestead.json
 Homestead.yaml
 Thumbs.db

@@ -3189,24 +3189,36 @@
     @if($pendingCount || $scheduleConflicts->isNotEmpty() || $afterInterment)
         <section class="branch-panel is-warm branch-attention" aria-labelledby="branch-attention-title">
             <div class="branch-panel__head">
-                <div class="branch-panel__title"><span class="branch-panel__icon"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i></span><div><h3 id="branch-attention-title">Needs Attention</h3><p>Review schedule conflicts, payment corrections, and outstanding balances.</p></div></div>
+                <div class="branch-panel__title"><span class="branch-panel__icon"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i></span><div><h3 id="branch-attention-title">Needs Attention</h3><p>Resolve schedule conflicts, review correction requests, and follow up remaining balances.</p></div></div>
             </div>
             <ul class="branch-attention-list">
                 @if($pendingCount)
-                    <li>
-                        <strong>Payment Corrections Awaiting Review</strong>
+                    <li class="branch-attention-card is-payment">
+                        <div class="branch-attention-card__head">
+                            <span class="branch-attention-card__icon"><i class="bi bi-receipt-cutoff" aria-hidden="true"></i></span>
+                            <div><span class="branch-attention-card__eyebrow">Payment review</span><strong>Corrections awaiting review</strong></div>
+                            <span class="branch-attention-card__count" aria-label="{{ $pendingCount }} pending {{ \Illuminate\Support\Str::plural('request', $pendingCount) }}">{{ $pendingCount }}</span>
+                        </div>
                         <p>{{ $pendingCount }} {{ \Illuminate\Support\Str::plural('request', $pendingCount) }} need a decision.@if($pendingCorrections->oldest_at) Oldest request submitted {{ \Illuminate\Support\Carbon::parse($pendingCorrections->oldest_at)->diffForHumans() }}.@endif</p>
-                        <a href="{{ route('admin.payment-monitoring', $branchLinkParams + ['tab' => 'corrections']) }}">Review Requests <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                        <a href="{{ route('admin.payment-monitoring', $branchLinkParams + ['tab' => 'corrections']) }}">Review requests <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
                     </li>
                 @endif
                 @foreach($scheduleConflicts as $conflict)
-                    <li>
-                        <strong>{{ $conflict['label'] }}</strong>
+                    @php
+                        $conflictCaseCount = count($conflict['cases'] ?? []);
+                        $isHearseConflict = ($conflict['resource_kind'] ?? null) === 'hearse' || empty($conflict['ends_at']);
+                    @endphp
+                    <li class="branch-attention-card is-schedule">
+                        <div class="branch-attention-card__head">
+                            <span class="branch-attention-card__icon"><i class="bi {{ $isHearseConflict ? 'bi-truck' : 'bi-building-exclamation' }}" aria-hidden="true"></i></span>
+                            <div><span class="branch-attention-card__eyebrow">Schedule · {{ $conflict['starts_at']->format('M j, Y · g:i A') }}</span><strong>{{ $conflict['label'] }}</strong></div>
+                            <span class="branch-attention-card__count" aria-label="{{ $conflictCaseCount }} affected {{ \Illuminate\Support\Str::plural('case', $conflictCaseCount) }}">{{ $conflictCaseCount }}</span>
+                        </div>
                         <p>
                             @if($conflict['ends_at'])
-                                {{ $conflict['resource'] }} is assigned to overlapping wakes from {{ $conflict['starts_at']->format('M j, Y · g:i A') }} to {{ $conflict['ends_at']->format('M j, Y · g:i A') }}.
+                                <strong>{{ $conflict['resource'] }}</strong> has overlapping wakes from {{ $conflict['starts_at']->format('M j, Y · g:i A') }} to {{ $conflict['ends_at']->format('M j, Y · g:i A') }}.
                             @else
-                                {{ $conflict['resource'] }} is assigned to multiple cases on {{ $conflict['starts_at']->format('M j, Y') }} at {{ $conflict['starts_at']->format('g:i A') }}.
+                                <strong>{{ $conflict['resource'] }}</strong> is assigned to {{ $conflictCaseCount }} cases at the same date and time. Review the assignment before dispatch.
                             @endif
                         </p>
                         <ul class="branch-attention-cases">
@@ -3214,14 +3226,18 @@
                                 <li><strong>{{ $caseCode }}</strong> <span>{{ $eventLabel }}</span></li>
                             @endforeach
                         </ul>
-                        <a href="{{ $branchEventScheduleUrl($conflict['date']) }}">View in Schedule <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                        <a href="{{ $branchEventScheduleUrl($conflict['date']) }}">Review schedule <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
                     </li>
                 @endforeach
                 @if($afterInterment)
-                    <li>
-                        <strong>Balances to Follow Up</strong>
+                    <li class="branch-attention-card is-balance">
+                        <div class="branch-attention-card__head">
+                            <span class="branch-attention-card__icon"><i class="bi bi-wallet2" aria-hidden="true"></i></span>
+                            <div><span class="branch-attention-card__eyebrow">Payment follow-up</span><strong>Balance after interment</strong></div>
+                            <span class="branch-attention-card__count" aria-label="{{ $afterInterment }} affected {{ \Illuminate\Support\Str::plural('case', $afterInterment) }}">{{ $afterInterment }}</span>
+                        </div>
                         <p>{{ $afterInterment }} {{ \Illuminate\Support\Str::plural('case', $afterInterment) }} still {{ $afterInterment === 1 ? 'has' : 'have' }} a remaining balance after the scheduled interment.</p>
-                        <a href="{{ route('admin.reminders.index', $branchLinkParams + ['tab' => 'warnings']) }}">Review Balances <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                        <a href="{{ route('admin.reminders.index', $branchLinkParams + ['tab' => 'warnings']) }}">Review balances <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
                     </li>
                 @endif
             </ul>

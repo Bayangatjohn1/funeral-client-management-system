@@ -37,7 +37,7 @@
 <div class="table-system-toolbar admin-table-toolbar">
     @include('partials.case_filter_toolbar', [
         'showPerPage' => true,
-        'showCaseStatus' => false,
+        'showCaseStatus' => true,
         'showServiceType' => false,
         'showSort' => true,
         'sortOptions' => ['newest' => 'Newest', 'oldest' => 'Oldest'],
@@ -59,7 +59,7 @@
         'showEncodedBy' => false,
         'showInlineChips' => false,
         'useDateDisplayLabel' => false,
-        'hiddenInputs' => request()->only(['case_status','collection_state','dashboard_branch','dashboard_range','dashboard_from','dashboard_to']),
+        'hiddenInputs' => request()->only(['collection_state','dashboard_branch','dashboard_range','dashboard_from','dashboard_to']),
     ])
     @if(request('collection_state'))
         @php

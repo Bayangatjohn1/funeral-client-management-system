@@ -134,11 +134,24 @@ class ReportsModuleTest extends TestCase
             ->get('/reports')
             ->assertRedirect(route('reports.analytics', absolute: false));
 
-        $this->actingAs($admin)
+        $response = $this->actingAs($admin)
             ->get('/reports/analytics')
             ->assertOk()
-            ->assertSee('Service Value Trend')
+            ->assertSee('Understand performance at a glance')
+            ->assertSee('Payment Status')
+            ->assertSee('Payments Received')
+            ->assertSee('Service Value Over Time')
+            ->assertDontSee('Payment Status Doughnut Chart')
+            ->assertDontSee('Collections Breakdown')
             ->assertSee('Reports');
+
+        $html = $response->getContent();
+        $this->assertLessThan(
+            strpos($html, '</head>'),
+            strpos($html, '/* Modern analytics layer'),
+            'The final analytics styles must load before body paint to avoid exposing the legacy layout.'
+        );
+        $this->assertGreaterThan(strpos($html, '<body'), strpos($html, 'class="ra-modern-intro"'));
     }
 
     public function test_branch_admin_analytics_dashboard_is_forced_to_assigned_branch(): void
@@ -955,7 +968,7 @@ class ReportsModuleTest extends TestCase
             $response = $this->actingAs($user)->get('/reports/analytics?range=THIS_MONTH&branch_id='.$branch->id)->assertOk();
             $this->assertSame(45000.0, $response->viewData('totalSales'));
             $this->assertSame(45000.0, (float) $response->viewData('allAnalyticsCases')->first()['totalAmount']);
-            $response->assertSee('Total Service Value')->assertDontSee('Gross Amount Availed');
+            $response->assertSee('Service Value')->assertDontSee('Gross Amount Availed');
         }
         $this->assertSame(45000.0, (float) $case->fresh()->total_amount);
         $this->assertSame(5000.0, (float) $case->fresh()->discount_amount);

@@ -57,12 +57,12 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
-        if ($user->isOwner()) {
-            return redirect()->intended('/owner');
-        }
-
         if ($user->requiresMfa()) {
             return redirect()->route($user->two_factor_confirmed_at ? 'security.challenge' : 'security.setup');
+        }
+
+        if ($user->isOwner()) {
+            return redirect()->intended('/owner');
         }
 
         if ($user->isAdmin()) {

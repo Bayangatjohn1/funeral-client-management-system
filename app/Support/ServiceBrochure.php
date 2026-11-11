@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\{AddOnCatalog, CasketCatalog, FreebieCatalog, HearseCatalog, Package, Promotion};
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
@@ -11,28 +12,61 @@ class ServiceBrochure
     public const TABS = ['packages' => 'Service Packages', 'caskets' => 'Casket Collection', 'hearses' => 'Hearse Collection',
         'addons' => 'Additional Services', 'freebies' => 'Complimentary Inclusions', 'promotions' => 'Current Offers'];
 
-    private function eligible(Builder $query, string $tab): Builder
+    private function eligible(Builder $query, string $tab, User $user): Builder
     {
         if ($tab === 'packages') {
-            return app(ServiceCatalogPolicy::class)->intakePackages($query)
+            $query = app(ServiceCatalogPolicy::class)->intakePackages($query)
                 ->whereDoesntHave('packageInclusions', fn ($q) => $q->whereNotNull('add_on_catalog_id')->whereDoesntHave('addOnCatalog', fn ($a) => $a->where('is_active', true)->where('is_available', true)));
+
+            return $user->isBranchAdmin()
+                ? $this->forBranchPackages($query, (int) $user->branch_id)
+                : $query;
         }
-        if ($tab === 'promotions') return $query->whereHas('package', fn ($q) => app(ServiceCatalogPolicy::class)->intakePackages($q));
-        return $query->where('is_active', true)->where('is_available', true);
+        if ($tab === 'promotions') {
+            return $query->whereHas('package', function (Builder $packageQuery) use ($user) {
+                app(ServiceCatalogPolicy::class)->intakePackages($packageQuery);
+                if ($user->isBranchAdmin()) {
+                    $this->forBranchPackages($packageQuery, (int) $user->branch_id);
+                }
+            });
+        }
+
+        $query->where('is_active', true)->where('is_available', true);
+        if ($tab === 'addons' && $user->isBranchAdmin()) {
+            $branchId = (int) $user->branch_id;
+            $query->where(fn (Builder $branchQuery) => $branchQuery
+                ->whereNull('branch_id')
+                ->orWhere('branch_id', $branchId));
+        }
+
+        return $query;
+    }
+
+    private function forBranchPackages(Builder $query, int $branchId): Builder
+    {
+        abort_unless($branchId > 0, 403);
+
+        return $query->whereDoesntHave('packageInclusions', fn (Builder $items) => $items
+            ->whereNotNull('add_on_catalog_id')
+            ->whereHas('addOnCatalog', fn (Builder $catalog) => $catalog
+                ->whereNotNull('branch_id')
+                ->where('branch_id', '<>', $branchId)));
     }
 
     public function preview(Request $request, string $tab, Builder $query, array $options)
     {
-        abort_unless($request->user()?->isMainAdmin(), 403);
+        $user = $request->user();
+        abort_unless($user?->isMainAdmin() || $user?->isBranchAdmin(), 403);
+        if ($user->isBranchAdmin()) abort_unless($user->branch_id, 403);
         $models = ['packages'=>Package::class, 'caskets'=>CasketCatalog::class, 'hearses'=>HearseCatalog::class,
             'addons'=>AddOnCatalog::class, 'freebies'=>FreebieCatalog::class, 'promotions'=>Promotion::class];
         $load = ['packageInclusions.casketCatalog', 'packageInclusions.hearseCatalog', 'packageInclusions.addOnCatalog', 'packageFreebies.catalog', 'promotion'];
         if ($tab === 'packages') $query->with($load);
         if ($tab === 'promotions') $query->with('package');
-        $rows = $this->eligible(clone $query, $tab)->get();
+        $rows = $this->eligible(clone $query, $tab, $user)->get();
         $choiceQuery = $models[$tab]::query()->orderBy('name')->orderBy('id');
         if ($tab === 'promotions') $choiceQuery->with('package');
-        $choices = $this->eligible($choiceQuery, $tab)->get();
+        $choices = $this->eligible($choiceQuery, $tab, $user)->get();
         if ($tab === 'promotions') {
             $active = fn ($p) => $p->isEffectiveAt(now('Asia/Manila'), $p->package);
             $rows = $rows->filter($active)->values(); $choices = $choices->filter($active)->values();
@@ -54,13 +88,14 @@ class ServiceBrochure
         $items = $rows->map(fn ($row) => $this->item($row, $tab))->values();
         $missingPhotoCount = $tab === 'packages' ? $items->filter(fn ($item) => !$item['photos'])->count() : 0;
         $photoNotice = $missingPhotoCount
-            ? trans_choice('{1} :count package has no photo.|[2,*] :count packages have no photos.', $missingPhotoCount).' Add a photo in Edit Package to include it in print.'
+            ? trans_choice('{1} :count package has no photo.|[2,*] :count packages have no photos.', $missingPhotoCount)
+                .($user->isMainAdmin() ? ' Add a photo in Edit Package to include it in print.' : ' Ask the System Admin to add a package photo.')
             : null;
         $filters = $request->only(['q', 'status', 'availability', 'package_status', 'promotion_status', 'sort']);
         return response()->view('admin.service-management.print', [
             'tab'=>$tab, 'scope'=>$scope, 'ids'=>$ids, 'choices'=>$choices, 'items'=>$items, 'filters'=>$filters, 'notice'=>$notice,
             'title'=>self::TABS[$tab], 'preparedAt'=>now('Asia/Manila'),
-            'branch'=>$request->user()->branch, 'photoNotice'=>$photoNotice,
+            'branch'=>$user->branch, 'photoNotice'=>$photoNotice,
         ])->header('Cache-Control', 'private, no-store');
     }
 

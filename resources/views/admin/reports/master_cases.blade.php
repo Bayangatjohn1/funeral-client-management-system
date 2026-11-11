@@ -1,7 +1,9 @@
 @extends('layouts.panel')
 
-@section('page_title', 'Master Case Records')
-@section('page_desc', 'Monitor branch activity, case status, and payment health from one admin worklist.')
+@section('page_title', auth()->user()?->isBranchAdmin() ? 'Case Records' : 'Master Case Records')
+@section('page_desc', auth()->user()?->isBranchAdmin()
+    ? 'Review case status, schedules, and payment health for your assigned branch.'
+    : 'Monitor branch activity, case status, and payment health from one admin worklist.')
 @section('hide_layout_topbar', '1')
 
 @section('content')
@@ -9,6 +11,7 @@
 <div class="admin-table-page master-records-page">
     @php
         $isBranchAdmin = auth()->user()?->isBranchAdmin() ?? false;
+        $recordsPageTitle = $isBranchAdmin ? 'Case Records' : 'Master Case Records';
         $resolvedDatePreset = $datePreset ?? 'ANY';
         $isCustomDate = $resolvedDatePreset === 'CUSTOM';
         $sort = $sort ?? 'newest';
@@ -87,12 +90,12 @@
 
     <div class="master-records-toast no-print" role="status" aria-live="polite" data-page-context-toast>
         <i class="bi bi-folder2-open"></i>
-        <span>You are viewing Master Case Records.</span>
+        <span>You are viewing {{ $recordsPageTitle }}.</span>
     </div>
 
     <section class="table-system-card admin-table-card">
         <div class="case-records-tabs-row">
-            <div class="table-quick-tabs case-records-tabs" role="tablist" aria-label="Master case record tabs">
+            <div class="table-quick-tabs case-records-tabs" role="tablist" aria-label="{{ $recordsPageTitle }} status tabs">
                 <a
                     href="{{ $masterAllUrl }}"
                     role="tab"
@@ -131,10 +134,8 @@
 <div class="table-system-toolbar admin-table-toolbar">
             @include('partials.case_filter_toolbar', [
                 'showPerPage' => true,
-                    // Status is owned by the chip tabs above. Keep it in the
-                    // query without duplicating it in the additional filters.
-                    'showCaseStatus' => false,
-                    'showServiceType' => false,
+                'showCaseStatus' => true,
+                'showServiceType' => false,
                 'action' => route('admin.cases.index'),
                 'resetUrl' => route('admin.cases.index'),
                 'branchMode' => $isBranchAdmin ? 'locked' : 'all',
@@ -151,7 +152,7 @@
                 'showVerificationStatus' => false,
                 'showPackage' => true,
                 'showEncodedBy' => true,
-                'hiddenInputs' => filled($caseStatus ?? null) ? ['case_status' => $caseStatus] : [],
+                'hiddenInputs' => [],
                 'showSort' => true,
                 'sortOptions' => [
                     'newest' => 'Newest first',

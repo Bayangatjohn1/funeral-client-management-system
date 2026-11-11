@@ -50,6 +50,38 @@ class CustomPackageDefaultsTest extends TestCase
         $this->assertSame(3, $selection['inclusions'][0]['included_days']);
     }
 
+    public function test_fresh_custom_arrangement_does_not_preselect_dependent_services(): void
+    {
+        $branch = Branch::create(['branch_code' => 'BR001', 'branch_name' => 'Main', 'is_active' => true]);
+        $staff = User::factory()->create(['role' => 'staff', 'branch_id' => $branch->id, 'is_active' => true]);
+
+        $html = $this->actingAs($staff)
+            ->get(route('intake.main.create'))
+            ->assertOk()
+            ->getContent();
+
+        preg_match_all('/<input\b(?=[^>]*\bclass="[^"]*\bcustom-service-check\b)[^>]*>/i', $html, $matches);
+
+        $this->assertCount(5, $matches[0]);
+        foreach ($matches[0] as $serviceCheckbox) {
+            $this->assertDoesNotMatchRegularExpression('/\schecked(?:\s|=|>)/i', $serviceCheckbox);
+        }
+
+        $restoredHtml = $this->actingAs($staff)
+            ->withSession(['_old_input' => [
+                'package_id' => 'custom',
+                'custom_service_types' => [Package::SERVICE_CASKET],
+            ]])
+            ->get(route('intake.main.create'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/<input\b(?=[^>]*\bname="custom_service_types\[\]")(?=[^>]*\bvalue="casket")(?=[^>]*\bchecked)[^>]*>/i',
+            $restoredHtml
+        );
+    }
+
     public function test_missing_admin_days_keep_existing_validation_message(): void
     {
         try {

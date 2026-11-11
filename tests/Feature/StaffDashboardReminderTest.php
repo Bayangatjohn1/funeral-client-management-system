@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\Client;
 use App\Models\Deceased;
 use App\Models\FuneralCase;
+use App\Models\HearseCatalog;
 use App\Models\Payment;
 use App\Models\User;
 use App\Models\UserNotificationState;
@@ -82,6 +83,77 @@ class StaffDashboardReminderTest extends TestCase
         $this->assertFalse($attention->contains(fn ($item) => $item['case_id'] === $sameDayTwo->id && $item['type'] === 'same_day_schedule'));
         $this->assertFalse($attention->contains(fn ($item) => $item['case_id'] === $ordinaryBalance->id));
         $this->assertEmpty($attention->whereIn('type', ['balance', 'service_today', 'interment_today', 'upcoming_service', 'upcoming_interment']));
+    }
+
+    public function test_hearse_conflicts_use_clear_schedule_language_for_cases_at_the_same_start_time(): void
+    {
+        $now = Carbon::parse('2026-09-26 10:00:00');
+        Carbon::setTestNow($now);
+        $branch = $this->branch();
+        $hearse = HearseCatalog::create([
+            'name' => '4V4',
+            'reference_value' => 0,
+            'is_available' => true,
+            'is_active' => true,
+        ]);
+
+        $first = $this->case($branch, [
+            'case_code' => 'HEARSE-ONE',
+            'hearse_catalog_id' => $hearse->id,
+            'hearse_name_snapshot' => $hearse->name,
+            'funeral_service_at' => '2026-09-28',
+            'funeral_service_time' => '09:30:00',
+            'interment_at' => '2026-10-02 10:00:00',
+            'interment_time' => '10:00:00',
+        ]);
+        $second = $this->case($branch, [
+            'case_code' => 'HEARSE-TWO',
+            'hearse_catalog_id' => $hearse->id,
+            'hearse_name_snapshot' => $hearse->name,
+            'funeral_service_at' => '2026-09-28',
+            'funeral_service_time' => '09:30:00',
+            'interment_at' => '2026-10-02 11:00:00',
+            'interment_time' => '11:00:00',
+        ]);
+        $differentTime = $this->case($branch, [
+            'case_code' => 'HEARSE-LATER',
+            'hearse_catalog_id' => $hearse->id,
+            'hearse_name_snapshot' => $hearse->name,
+            'funeral_service_at' => '2026-09-28',
+            'funeral_service_time' => '10:30:00',
+            'interment_at' => '2026-10-02 12:00:00',
+            'interment_time' => '12:00:00',
+        ]);
+
+        $conflicts = app(ReminderService::class)->resourceConflicts(
+            collect([$first, $second, $differentTime]),
+            $now,
+            $now->copy()->addDays(7)->endOfDay(),
+        );
+
+        $this->assertCount(1, $conflicts);
+        $this->assertSame('Hearse schedule conflict', $conflicts->first()['label']);
+        $this->assertSame('hearse', $conflicts->first()['resource_kind']);
+        $this->assertSame('4V4', $conflicts->first()['resource']);
+        $this->assertSame([
+            'HEARSE-ONE' => 'Funeral Ceremony',
+            'HEARSE-TWO' => 'Funeral Ceremony',
+        ], $conflicts->first()['cases']);
+
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'admin_scope' => 'branch',
+            'branch_id' => $branch->id,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)->get('/admin')->assertOk()
+            ->assertSee('Hearse schedule conflict')
+            ->assertDontSee('Hearse double-booking')
+            ->assertSee('4V4')
+            ->assertSee('assigned to 2 cases at the same date and time')
+            ->assertSee('Review schedule')
+            ->assertSee('branch-attention-card is-schedule', false);
     }
 
     public function test_reminder_cards_follow_schedule_and_payment_lifecycle(): void

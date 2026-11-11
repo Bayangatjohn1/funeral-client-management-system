@@ -99,7 +99,7 @@
             const data = await response.json(); if(request!==controller || !details.open) return;
             results.innerHTML=data.html;
             destination.href=results.querySelector('[data-records-url]').dataset.recordsUrl;
-            destination.textContent=currentKind==='collections'?'View Collection Report':'View Case Monitoring Report'; destination.hidden=false;
+            destination.textContent=currentKind==='collections'?'View Payment Report':'View Case Monitoring Report'; destination.hidden=false;
             syncAmounts();
         } catch(error) {
             if(error.name!=='AbortError' && request===controller) {
@@ -146,7 +146,7 @@
                     previousFill.style.height=previousValue/scale*100+'%';
                     previousFill.dataset.pointFrom=previous.from; previousFill.dataset.pointTo=previous.to;
                     previousFill.dataset.periodLabel='Previous period · '+previous.label;
-                    previousFill.dataset.title=(measure==='collections'?'Collections Received':'Cases Recorded')+' · Previous period · '+previous.label;
+                    previousFill.dataset.title=(measure==='collections'?'Payments Received':'Cases Recorded')+' · Previous period · '+previous.label;
                     previousFill.disabled=previousValue<=0;
                     const formatted=(measure==='collections'?'₱':'')+previousValue.toLocaleString('en-PH',{minimumFractionDigits:measure==='collections'?2:0});
                     const tooltip=previousFill.querySelector('.oe-bar-tooltip'); tooltip.replaceChildren();

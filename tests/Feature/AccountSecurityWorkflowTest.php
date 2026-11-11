@@ -19,13 +19,19 @@ class AccountSecurityWorkflowTest extends TestCase
     private function account(string $role = 'staff'): User
     {
         $branch = Branch::firstOrCreate(['branch_code' => 'BR001'], ['branch_name' => 'Main', 'is_active' => true]);
-        $user = User::factory()->create(['role' => $role === 'staff' ? 'staff' : 'admin', 'admin_scope' => $role === 'system' ? 'system' : ($role === 'branch' ? 'branch' : null), 'branch_id' => $role === 'system' ? null : $branch->id, 'is_active' => true, 'password' => Hash::make('TestPassword123!')]);
+        $user = User::factory()->create([
+            'role' => $role === 'owner' ? 'owner' : ($role === 'staff' ? 'staff' : 'admin'),
+            'admin_scope' => $role === 'system' ? 'system' : ($role === 'branch' ? 'branch' : null),
+            'branch_id' => in_array($role, ['owner', 'system'], true) ? null : $branch->id,
+            'is_active' => true,
+            'password' => Hash::make('TestPassword123!'),
+        ]);
         return $user;
     }
 
     private function verified(User $user): static
     {
-        if ($user->isSystemAdmin()) {
+        if ($user->requiresMfa()) {
             $user->two_factor_secret = (new Google2FA)->generateSecretKey();
             $user->two_factor_confirmed_at = now();
             $user->save();
@@ -46,6 +52,11 @@ class AccountSecurityWorkflowTest extends TestCase
     public function test_branch_admin_must_enroll_and_verify_mfa(): void
     {
         $this->exerciseOperationalMfa('branch', '/admin');
+    }
+
+    public function test_owner_must_enroll_and_verify_mfa(): void
+    {
+        $this->exerciseOperationalMfa('owner', '/owner');
     }
 
     private function exerciseOperationalMfa(string $role, string $dashboard): void

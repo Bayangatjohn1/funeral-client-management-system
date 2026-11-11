@@ -14,10 +14,10 @@
     $range = $range ?? request('range', 'TODAY');
     $analyticsTab = request('analytics_tab', 'ba-panel-performance');
     $analyticsViews = $analyticsViews ?? [
-        ['label' => '1. Overview (Performance & Branch Bar Chart)', 'icon' => 'bi-bar-chart-line', 'target' => 'ba-panel-performance'],
-        ['label' => '2. Payments (Payment Doughnut Chart)', 'icon' => 'bi-pie-chart', 'target' => 'ba-panel-payment'],
-        ['label' => '3. Collections (Snapshot & Period Bar Chart)', 'icon' => 'bi-cash-stack', 'target' => 'ba-panel-collection'],
-        ['label' => '4. Service Value Trend (Line Chart & Pacing)', 'icon' => 'bi-graph-up-arrow', 'target' => 'ba-panel-trend'],
+        ['label' => 'Overview', 'icon' => 'bi-grid', 'target' => 'ba-panel-performance'],
+        ['label' => 'Payment Status', 'icon' => 'bi-pie-chart', 'target' => 'ba-panel-payment'],
+        ['label' => 'Payments', 'icon' => 'bi-wallet2', 'target' => 'ba-panel-collection'],
+        ['label' => 'Service Value', 'icon' => 'bi-graph-up-arrow', 'target' => 'ba-panel-trend'],
     ];
     $reportsUrl = route('reports.index', array_filter([
         'report_type' => $currentReportType ?: 'owner_branch_analytics',
@@ -325,7 +325,7 @@
         <button type="button" id="mobileSidebarToggle" class="mobile-menu-btn" aria-label="Open navigation" aria-expanded="false" aria-controls="appSidebar"><i class="bi bi-list" aria-hidden="true"></i></button>
         <div class="reports-module-heading-copy">
             <h1 class="reports-module-title">Reports &amp; Analytics</h1>
-            <p class="reports-module-subtitle">Analytics charts, branch performance, and operational reports.</p>
+            <p class="reports-module-subtitle">See cases, payments, balances, and branch performance in one place.</p>
         </div>
     </div>
 

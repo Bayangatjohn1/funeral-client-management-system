@@ -40,11 +40,59 @@ class ServiceBrochureTest extends TestCase
         $this->get(route('admin.service-management.print',['tab'=>'caskets','scope'=>'filtered','status'=>'archived']))->assertOk()->assertViewHas('items',fn($items)=>$items->isEmpty());
     }
 
-    public function test_staff_branch_admin_owner_and_guests_cannot_access_service_brochures(): void
+    public function test_branch_admin_can_print_only_own_branch_specific_catalog_entries(): void
     {
-        foreach([['staff',null],['admin','branch'],['owner',null]] as [$role,$scope]){
+        $own = Branch::create(['branch_code'=>'BR-OWN','branch_name'=>'Own Branch','address'=>'Own branch address','is_active'=>true]);
+        $other = Branch::create(['branch_code'=>'BR-OTHER','branch_name'=>'Other Branch','address'=>'Other branch address','is_active'=>true]);
+        $branchAdmin = User::factory()->create(['role'=>'admin','admin_scope'=>'branch','branch_id'=>$own->id,'is_active'=>true]);
+        $global = \App\Models\AddOnCatalog::create(['name'=>'Global Add-on','category'=>'General','price'=>100,'unit'=>'item','is_active'=>true,'is_available'=>true]);
+        $globalCasket = CasketCatalog::create(['name'=>'Global Casket','standard_price'=>8000,'is_active'=>true,'is_available'=>true]);
+        $ownChapel = \App\Models\AddOnCatalog::create(['name'=>'Own Chapel','category'=>\App\Models\AddOnCatalog::CHAPEL_VIEWING,'branch_id'=>$own->id,'price'=>1000,'unit'=>'day','is_active'=>true,'is_available'=>true]);
+        $otherChapel = \App\Models\AddOnCatalog::create(['name'=>'Other Chapel','category'=>\App\Models\AddOnCatalog::CHAPEL_VIEWING,'branch_id'=>$other->id,'price'=>1000,'unit'=>'day','is_active'=>true,'is_available'=>true]);
+        $ownPackage = Package::create(['name'=>'Own Branch Package','price'=>20000,'is_active'=>true]);
+        $ownPackage->packageInclusions()->create(['service_type'=>Package::SERVICE_CUSTOM,'add_on_catalog_id'=>$ownChapel->id,'inclusion_name'=>$ownChapel->name]);
+        $otherPackage = Package::create(['name'=>'Other Branch Package','price'=>20000,'is_active'=>true]);
+        $otherPackage->packageInclusions()->create(['service_type'=>Package::SERVICE_CUSTOM,'add_on_catalog_id'=>$otherChapel->id,'inclusion_name'=>$otherChapel->name]);
+
+        $this->actingAs($branchAdmin)
+            ->get(route('admin.service-management.index',['tab'=>'addons']))
+            ->assertOk()
+            ->assertSee('Print Preview');
+        $this->get(route('admin.add-on-catalogs.show', $ownChapel))
+            ->assertOk()
+            ->assertSee('Print Preview');
+
+        $this->get(route('admin.service-management.print',['tab'=>'addons','scope'=>'all']))
+            ->assertOk()
+            ->assertSee($global->name)
+            ->assertSee($ownChapel->name)
+            ->assertDontSee($otherChapel->name)
+            ->assertSee('BR-OWN')
+            ->assertSee('Own Branch')
+            ->assertSee('Own branch address');
+
+        $this->get(route('admin.service-management.print',['tab'=>'caskets','scope'=>'all']))
+            ->assertOk()
+            ->assertSee($globalCasket->name);
+
+        $this->get(route('admin.service-management.print',['tab'=>'packages','scope'=>'all']))
+            ->assertOk()
+            ->assertSee($ownPackage->name)
+            ->assertDontSee($otherPackage->name);
+
+        $this->get(route('admin.service-management.print',['tab'=>'addons','scope'=>'selected','ids'=>[$otherChapel->id]]))
+            ->assertOk()
+            ->assertSee('No available items to print')
+            ->assertSee('Some selected items are no longer available.');
+    }
+
+    public function test_staff_owner_and_guests_cannot_access_service_brochures(): void
+    {
+        foreach([['staff',null],['owner',null]] as [$role,$scope]){
             $this->actingAs($this->actor($role,$scope))->get(route('admin.service-management.print'))->assertForbidden();
         }
+        auth()->logout();
+        $this->get(route('admin.service-management.print'))->assertRedirect(route('login'));
     }
 
     public function test_brochure_preserves_configured_package_inclusions_units_and_extra_rates(): void

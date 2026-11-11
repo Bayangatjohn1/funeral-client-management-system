@@ -162,6 +162,10 @@ class AccountSecurityController extends Controller
 
     private function dashboardPath(User $user): string
     {
+        if ($user->isOwner()) {
+            return '/owner';
+        }
+
         return $user->isStaff() ? '/staff' : '/admin';
     }
 
